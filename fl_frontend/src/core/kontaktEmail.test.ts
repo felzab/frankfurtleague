@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { assertRedactedAtTheEdge } from "./edgeRedaction.ts";
 import { registerDoubles } from "./exportingModule.ts";
 import { flat, readable } from "./mailText.ts";
+import { DEIN_BEREICH_TITEL } from "./seitenNamen.ts";
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
@@ -19,7 +20,6 @@ const FRIST = "05.10.2026";
 
 const daten = {
   origin: ORIGIN,
-  vorname: "Erika",
   rollenText: "Ansprechperson",
   schule: "Ernst-Reuter-Schule",
   saisonId: "2627",
@@ -66,13 +66,14 @@ describe("the message a seated contact person is mailed", () => {
   });
 
   /* Both branches state the same facts: a reader whose client shows the text part must be told what
-     the markup part tells the one beside them. */
-  it("says who entered whom, where and until when, in both branches", () => {
+     the markup part tells the one beside them. No name: behind a typo, an unconfirmed address is a
+     stranger's. */
+  it("greets by no name and says who entered them, where and until when, in both branches", () => {
     for (const [branch, words] of [
       ["html", readable(mail.html)],
       ["text", flat(mail.text)],
     ] as const) {
-      assert.match(words, /Hallo Erika, die Verwaltung der Frankfurt League hat Dich/, `the ${branch} branch does not say who entered them`);
+      assert.match(words, /Hallo, die Verwaltung der Frankfurt League hat Dich/, `the ${branch} branch greets otherwise`);
       assert.match(
         words,
         /hat Dich in der Saison 2627 als Ansprechperson für Ernst-Reuter-Schule eingetragen\./,
@@ -86,9 +87,9 @@ describe("the message a seated contact person is mailed", () => {
 
   /* On screen „Zugang“ is an administrator's grant alone (`docs/glossary.md`); what a confirmed seat
      opens is named by the signed-in area's own name. */
-  it("says the team waits in the reader's Bereich, never that a Zugang is granted, in both branches", () => {
+  it("names the reader's area by its name, never a Zugang granted, in both branches", () => {
     for (const words of [readable(mail.html), flat(mail.text)]) {
-      assert.match(words, /Erst danach findest Du Dein Team nach der Anmeldung auf der Website in Deinem Bereich\./);
+      assert.ok(words.includes(`Erst danach findest Du Dein Team nach der Anmeldung auf der Website unter „${DEIN_BEREICH_TITEL}“.`), words);
       assert.doesNotMatch(words, /Zugang/);
     }
   });
@@ -116,7 +117,7 @@ describe("the message a seated contact person is mailed", () => {
   it("states the objection in a paragraph of its own, in both parts", () => {
     assert.match(
       mail.html,
-      /<p\b[^>]*>Der Verarbeitung Deiner Angaben kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben \(Art\. 21 DSGVO\); eine formlose E-Mail an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a> genügt\.<\/p>/,
+      /<p\b[^>]*>Der Verarbeitung Deiner Angaben kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben \(Art\. 21 DSGVO\)\. Eine formlose E-Mail an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a> genügt\.<\/p>/,
       "the card carries no objection of its own",
     );
     assert.match(mail.text, /\n\nDer Verarbeitung Deiner Angaben [^\n]+ genügt\.\n\n/, "the text part carries no objection of its own");
@@ -128,19 +129,18 @@ describe("the message a seated contact person is mailed", () => {
 
   /* The subject is a header: a break typed into the school's name would end it and start another. */
   it("folds a multi-line value into one line in the subject and both branches", () => {
-    const gefaltet = buildKontaktBestaetigungEmail({ ...daten, vorname: "Erika\nAbsender: niemand", schule: "Schule\r\nBcc: x@y.de" });
+    const gefaltet = buildKontaktBestaetigungEmail({ ...daten, schule: "Schule\r\nBcc: x@y.de" });
 
     assert.ok(!/[\r\n]/.test(gefaltet.subject), "a typed newline reached the subject");
-    assert.ok(!gefaltet.text.includes("Erika\nAbsender"), "a typed newline reached the text branch");
-    assert.match(flat(gefaltet.text), /Hallo Erika Absender: niemand,/);
+    assert.ok(!gefaltet.text.includes("Schule\r\nBcc"), "a typed newline reached the text branch");
+    assert.match(flat(gefaltet.text), /für Schule Bcc: x@y\.de eingetragen\./);
   });
 
-  it("escapes a forename and a school carrying markup rather than serving them", () => {
-    const feindlich = buildKontaktBestaetigungEmail({ ...daten, vorname: "<script>a</script>", schule: "<b>X</b>" });
+  it("escapes a school carrying markup rather than serving it", () => {
+    const feindlich = buildKontaktBestaetigungEmail({ ...daten, schule: "<script>a</script>" });
 
-    assert.ok(!feindlich.html.includes("<script>"), "the forename reached the markup branch unescaped");
-    assert.ok(!feindlich.html.includes("<b>X</b>"), "the school reached the markup branch unescaped");
-    assert.match(readable(feindlich.html), /Hallo <script>a<\/script>,/);
+    assert.ok(!feindlich.html.includes("<script>"), "the school reached the markup branch unescaped");
+    assert.match(readable(feindlich.html), /für <script>a<\/script> eingetragen\./);
   });
 
   /* `fl_frontend/src/core/emailShell.ts :: mailOrigin` is what keeps a stack that is not production
@@ -150,6 +150,29 @@ describe("the message a seated contact person is mailed", () => {
 
     assert.ok(fremd.html.includes(`https://beispiel.test${KONTAKT_BESTAETIGUNG_PATH}?token=${TOKEN}`));
     assert.ok(!fremd.text.includes(ORIGIN), "the text branch carries an origin nobody handed it");
+  });
+});
+
+/* `docs/frontend/spec.md :: I89`: this message carries no column of facts, so every value the prose
+   and the subject print is folded by its builder or by nothing. */
+describe("no value can open a line of its own in the text part", () => {
+  const FORGED_OPENER = "Startgeld: 500 Euro";
+  const wert = `Wert\n${FORGED_OPENER}`;
+
+  /** The builder with the break in each value it prints, one value at a time. */
+  const faelle = (): { name: string; mail: { subject: string; text: string } }[] =>
+    (["rollenText", "schule", "saisonId", "fristText"] as const).map((feld) => ({
+      name: `the message's ${feld}`,
+      mail: buildKontaktBestaetigungEmail({ ...daten, [feld]: wert }),
+    }));
+
+  it("folds every value the message prints onto one line, in the text part and the subject", () => {
+    for (const { name, mail } of faelle()) {
+      assert.ok(!mail.text.split("\n").some((line) => line.startsWith(FORGED_OPENER)), `${name} forged a line`);
+      // Folded, never dropped: the seat, the school, the season and the deadline are what the reader confirms.
+      assert.ok(mail.text.includes(`Wert ${FORGED_OPENER}`), `${name} was not carried onto one line`);
+      assert.ok(!/[\r\n]/.test(mail.subject), `${name} put a break in the subject`);
+    }
   });
 });
 

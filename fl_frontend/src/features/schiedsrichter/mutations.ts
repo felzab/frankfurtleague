@@ -6,6 +6,7 @@ import {
   FLSchiedsrichterAdresswechselAnsichtResponseSchema,
   FLSchiedsrichterAdresswechselMintResponseSchema,
   FLSchiedsrichterAdresswechselResponseSchema,
+  FLSchiedsrichterAdresswechselSweepResponseSchema,
   FLSchiedsrichterBestaetigungAnsichtResponseSchema,
   FLSchiedsrichterBestaetigungResponseSchema,
   FLSchiedsrichterMintResponseSchema,
@@ -15,7 +16,6 @@ import {
 } from "./schemas";
 
 import type {
-  FLAnonymiseSchiedsrichterPayload,
   FLPatchSchiedsrichterPayload,
   FLPatchSchiedsrichterResponse,
   FLPostSchiedsrichterPayload,
@@ -26,6 +26,7 @@ import type {
   FLSchiedsrichterAdresswechselMintResponse,
   FLSchiedsrichterAdresswechselPayload,
   FLSchiedsrichterAdresswechselResponse,
+  FLSchiedsrichterAdresswechselSweepResponse,
   FLSchiedsrichterAdresswechselVerwerfenPayload,
   FLSchiedsrichterBestaetigungAnsichtPayload,
   FLSchiedsrichterBestaetigungAnsichtResponse,
@@ -74,15 +75,6 @@ export async function reactivateSchiedsrichter({ id }: FLSchiedsrichterKeyPayloa
   });
 }
 
-// Deletes the row and repoints every fixture that named them at the ghost, in one transaction. The
-// echoed document is the GHOST: the person's row is gone, so no caller may read one back off this.
-export async function anonymiseSchiedsrichter({ id }: FLAnonymiseSchiedsrichterPayload): Promise<FLSchiedsrichterWriteResponse> {
-  return apiClient<FLSchiedsrichterWriteResponse>(`/schiedsrichter/${id}/anonymisieren`, FLSchiedsrichterWriteResponseSchema, {
-    method: "POST",
-    authType: "admin",
-  });
-}
-
 // Replaces the whole bookkeeping block, so the previous token stops working at once and the
 // delivery state of the message it went out in goes with it.
 export async function einladeSchiedsrichter({ id }: FLSchiedsrichterEinladenPayload): Promise<FLSchiedsrichterMintResponse> {
@@ -100,6 +92,24 @@ export async function einladeAdresswechsel({
     `/schiedsrichter/${id}/adresswechsel/einladen`,
     FLSchiedsrichterAdresswechselMintResponseSchema,
     { method: "POST", authType: "admin" },
+  );
+}
+
+/**
+ * The hourly pass's, on the system tier: a timer holds no session, and a lapsed address is the clock's to remove.
+ * `nach` is the previous call's answer.
+ */
+export async function postSchiedsrichterAdresswechselSweep(nach: string | null): Promise<FLSchiedsrichterAdresswechselSweepResponse> {
+  // Left out on a pass's first call: the server takes `nach` as an id wherever it is present.
+  const params: { nach?: string } = nach === null ? {} : { nach: nach };
+  return apiClient<FLSchiedsrichterAdresswechselSweepResponse>(
+    "/schiedsrichter/sweep/adresswechsel",
+    FLSchiedsrichterAdresswechselSweepResponseSchema,
+    {
+      method: "POST",
+      authType: "system",
+      params: params,
+    },
   );
 }
 

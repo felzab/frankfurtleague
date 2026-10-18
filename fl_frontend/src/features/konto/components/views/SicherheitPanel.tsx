@@ -25,6 +25,7 @@ import { useConfirmationWindows } from "@/shared/hooks/useConfirmationWindows";
 import { usePasskeyStepUp } from "@/shared/hooks/usePasskeyStepUp";
 import { SPEICHERUNG_UNKLAR, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { FOCUS_HEADING, focusAfterWrite, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
@@ -124,8 +125,9 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
       }
 
       appToast.success("Passkey gelöscht", { description: "Geräte, die damit angemeldet waren, wurden abgemeldet." });
-      // The removal ended the session this page ran in: the sign-in page is where it can go on.
-      if (result.diesesGeraet) router.replace(SIGN_IN);
+      // The removal ended the session this page ran in: the sign-in page is where it can go on, as a new
+      // document, since a soft navigation keeps the routes the router hid with what they showed that session.
+      if (result.diesesGeraet) leaveDocumentFor(SIGN_IN);
       else landing.landed();
       return "erledigt";
     });

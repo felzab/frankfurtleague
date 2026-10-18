@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME, VORSTAND } from "@/core/brand";
+import { IMPRESSUM_TITEL } from "@/core/seitenNamen";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
@@ -15,7 +16,7 @@ export function ImpressumView() {
   return (
     <div className={`${PAGE_RISE_CLASSES} flex w-full flex-col gap-6`}>
       <header className="flex w-full flex-col gap-3">
-        <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>Impressum</h1>
+        <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>{IMPRESSUM_TITEL}</h1>
       </header>
 
       <article className={`${card()} flex w-full flex-col gap-y-6 p-4 sm:p-6 lg:gap-y-8 lg:p-8`}>

@@ -16,7 +16,6 @@ const WORTE = laufendeSchiedsrichterFassung();
 const GEOEFFNET = {
   acknowledged: 1,
   zustand: "gueltig",
-  vorname: "Anna",
   text_version: WORTE.textVersion,
   mindestalter: 16,
   medien_mindestalter: 18,
@@ -80,5 +79,34 @@ describe("the words the referee's confirmation page is handed", () => {
       "no label for the page",
     );
     await assert.rejects(start({ seiten: { acknowledged: 1 } }), { name: "APIMalformedDataError" }, "an answer off its schema");
+  });
+
+  /* The read refuses a view serving a media floor of 0, which would offer the media switch to every age:
+     a broken contract, which the error boundary logs and the reload panel would hide. */
+  it("lets a view serving a media floor of 0 reach the error boundary", async () => {
+    answerReadsWith((endpoint, schema, params) =>
+      endpoint === "/schiedsrichter/bestaetigung/ansicht"
+        ? { ...GEOEFFNET, medien_mindestalter: 0 }
+        : (einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params)),
+    );
+
+    await assert.rejects(
+      pageBody(SchiedsrichterBestaetigungPage, { params: Promise.resolve({}), searchParams: Promise.resolve({ token: "kein-echtes-token" }) }),
+      { name: "APIMalformedDataError" },
+      "the page took a media floor of 0",
+    );
+  });
+
+  it("opens a link on the failed read's panel where the link's own read fails", async () => {
+    answerReadsWith((endpoint, schema, params) => {
+      if (endpoint === "/schiedsrichter/bestaetigung/ansicht") throw new TypeError("fetch failed");
+      return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
+    });
+    const body = (await pageBody(SchiedsrichterBestaetigungPage, {
+      params: Promise.resolve({}),
+      searchParams: Promise.resolve({ token: "kein-echtes-token" }),
+    })) as ReactElement<{ start: SchiedsrichterBestaetigungStart }>;
+
+    assert.deepEqual(body.props.start, { zustand: "unlesbar" });
   });
 });

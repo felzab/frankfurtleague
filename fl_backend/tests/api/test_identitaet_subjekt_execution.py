@@ -61,6 +61,8 @@ BYSTANDER = "baldur.krautzberger@example.com"
 # confirmed on a row that has since been retired.
 UNCONFIRMED = "ottilie.wartezeit@schule.de"
 RETIRED = "rudolf.ruhestand@schule.de"
+# Holding nothing, at the unconfirmed mailbox's local part: the address pre-filter reads that mailbox's seat and referee row.
+UNCONFIRMED_ELSEWHERE = UNCONFIRMED.replace("@schule.de", "@anderswo.de")
 
 # A banned address holding a confirmed seat, stored and banned in one spelling and asked in another,
 # and an address whose ban ended with the season before the running one.
@@ -443,6 +445,15 @@ def test_an_address_the_league_holds_nothing_for_answers_three_empty_lists(mongo
     answer = answered(mongo_replica_set_url, "niemand.hierverzeichnet@example.com")
 
     assert (answer.sitze, answer.spieler, answer.schiedsrichter) == ([], [], [])
+
+
+@pytest.mark.db
+def test_an_address_sharing_only_a_local_part_with_unconfirmed_records_awaits_no_confirmation(mongo_replica_set_url: str):
+    """The flag raised, the sign-in gate admits a mailbox the league holds nothing for; only the fold after the read holds it down."""
+
+    answer = answered(mongo_replica_set_url, UNCONFIRMED_ELSEWHERE)
+
+    assert (answer.unbestaetigt, answer.sitze, answer.spieler, answer.schiedsrichter) == (False, [], [], [])
 
 
 @pytest.mark.db

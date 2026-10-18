@@ -108,7 +108,7 @@ describe("the rules panel's freezes", () => {
     for (const [spielplanWindow, note] of [
       ["open", /mit der neuen Zahl neu anlegst\. .*nimmst Du den Spielplan zurück/],
       ["recorded", /Solange zu mindestens einem Spiel .* weder neu anlegen noch zurücknehmen/],
-      ["closed", /nur, solange die Saison geplant ist\. Damit sind diese drei Zahlen festgeschrieben/],
+      ["closed", /lässt sich nur neu anlegen und zurücknehmen, solange die Saison geplant ist\. Damit sind diese drei Zahlen festgeschrieben/],
     ] as const) {
       const { unmount: leave } = render(panel({ isDrawnSaison: true, spielplanWindow }));
 
@@ -270,7 +270,7 @@ describe("the season editor's one reading of the season, handed to its panels", 
             bewerbung: null,
             registrierung: null,
           },
-          rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false },
+          rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false, loeschung: null },
           swap: { teams: [], playedKnockoutSpiele: 1 },
           ersatz: { rows: [], candidates: [] },
           spielplan: {

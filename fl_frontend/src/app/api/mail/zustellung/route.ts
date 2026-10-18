@@ -12,6 +12,7 @@ import { isRuleRefusal } from "@/shared/utils/actionError";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
+import type { ZustellMeldung } from "@/features/bewerbungen/zustellung";
 import type { NextRequest } from "next/server";
 
 /** The three headers Svix signs with, which the verifier is handed by name. */
@@ -30,6 +31,19 @@ const ANGEWENDET = (angewendet: readonly FLKontaktRolle[]) => NextResponse.json(
 const ZIEL_ANGEWENDET = (angewendet: boolean) => NextResponse.json({ angewendet: angewendet }, { status: 200 });
 const KEINE_SIGNATUR = () => NextResponse.json({ error: "signature" }, { status: 400 });
 const KEIN_BACKEND = () => NextResponse.json({ error: "backend" }, { status: 503 });
+
+/**
+ * The lanes no store holds, so where a message did not arrive the LINE is the record. Never the address
+ * (`docs/logging/spec.md :: L9`).
+ */
+const OHNE_EINTRAG = {
+  // The sign-in code: anything but a delivery locks out whoever holds no passkey.
+  anmeldung: { ereignis: "mail.anmeldecode_nicht_zugestellt", error_code: "FE-MAIL-007" },
+  // The grants' notice, whose outbox row is gone once stamped: a holder the notice missed.
+  berechtigung: { ereignis: "mail.berechtigungshinweis_nicht_zugestellt", error_code: "FE-MAIL-010" },
+  // The pupils' season-end note, whose registration is erased before it goes: a pupil it missed.
+  saisonende: { ereignis: "mail.saisonendenotiz_nicht_zugestellt", error_code: "FE-MAIL-013" },
+} as const satisfies Record<Extract<ZustellMeldung, { nachricht_id: string }>["ziel"], { ereignis: string; error_code: string }>;
 
 function signedByProvider(roh: string, headers: Record<string, string>): boolean {
   const secret = resendWebhookSecret();
@@ -79,30 +93,11 @@ export async function POST(request: NextRequest) {
     const meldung = leseZustellEreignis(ereignis);
     if (meldung === null) return ANGEWENDET([]);
 
-    // The sign-in lane, which no store holds: anything but a delivery locks out whoever holds no
-    // passkey, so the LINE is the record.
-
-    // Never the address (`docs/logging/spec.md :: L9`).
-    if (meldung.ziel === "anmeldung") {
+    // A lane no store holds reads its message id bare, having no record's payload to carry it in.
+    if ("nachricht_id" in meldung) {
+      const { ereignis, error_code } = OHNE_EINTRAG[meldung.ziel];
       if (meldung.stand !== "zugestellt") {
-        logger.warn("mail.anmeldecode_nicht_zugestellt", {
-          error_code: "FE-MAIL-007",
-          stand: meldung.stand,
-          nachricht_id: meldung.nachricht_id,
-        });
-      }
-
-      return ANGEWENDET([]);
-    }
-
-    // The grants' notice, whose outbox row is gone once stamped: a holder the notice missed is a line.
-    if (meldung.ziel === "berechtigung") {
-      if (meldung.stand !== "zugestellt") {
-        logger.warn("mail.berechtigungshinweis_nicht_zugestellt", {
-          error_code: "FE-MAIL-010",
-          stand: meldung.stand,
-          nachricht_id: meldung.nachricht_id,
-        });
+        logger.warn(ereignis, { error_code: error_code, stand: meldung.stand, nachricht_id: meldung.nachricht_id });
       }
 
       return ANGEWENDET([]);

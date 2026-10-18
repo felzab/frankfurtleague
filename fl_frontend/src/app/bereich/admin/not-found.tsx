@@ -1,5 +1,6 @@
 "use client";
 
+import { VERWALTUNG_TITEL } from "@/core/seitenNamen";
 import { ShellNotFound } from "@/shared/components/ui/ShellNotFound";
 
 // Scoped to `/bereich/admin` so a notFound() renders inside the admin shell: the next boundary up is the
@@ -9,7 +10,7 @@ export default function AdminNotFound() {
     <ShellNotFound
       message="Diesen Eintrag gibt es nicht, oder die Adresse stimmt nicht."
       href="/bereich/admin"
-      linkLabel="Zur Verwaltung"
+      linkLabel={VERWALTUNG_TITEL}
     />
   );
 }

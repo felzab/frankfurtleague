@@ -1,0 +1,31 @@
+// Linted as src/features/einladungen/refusals.ts.
+import { buildRefusal } from "@/shared/utils/refusal";
+import * as refusal from "@/shared/utils/refusal";
+import { buildRefusal as baue } from "@/shared/utils/refusal"; // expect: refusal-alias
+
+export { buildRefusal as bauen } from "@/shared/utils/refusal"; // expect: refusal-alias
+
+declare const SAISON_ABSCHNITT: string;
+declare const KONTAKTE_ABSCHNITT: string;
+declare const offen: boolean;
+declare const rolle: string;
+
+export const typed = buildRefusal({ reason: "Dieses Team steht nicht in dieser Saison", repair: "Nimm es auf", where: "Saison" }); // expect: refusal-where
+
+export const templated = buildRefusal({ reason: "Dieses Team steht nicht in dieser Saison", repair: "Nimm es auf", where: `${SAISON_ABSCHNITT} 2026` }); // expect: refusal-where
+
+export const branched = buildRefusal({ reason: "Dem Team fehlt etwas", repair: "Trage es ein", where: offen ? SAISON_ABSCHNITT : "Kontakte" }); // expect: refusal-where
+
+export const nested = buildRefusal({ reason: "Dem Team fehlt etwas", repair: "Trage es ein", where: offen ? SAISON_ABSCHNITT : rolle === "x" ? KONTAKTE_ABSCHNITT : "Kontakte" }); // expect: refusal-where
+
+export const joined = buildRefusal({ reason: "Dem Team fehlt etwas", repair: "Trage es ein", where: "Sai" + "son" }); // Each typed operand: expect: refusal-where expect: refusal-where
+
+export const member = refusal.buildRefusal({ reason: "Dem Team fehlt etwas", repair: "Trage es ein", where: "Saison" }); // expect: refusal-where
+
+// A heading read from the constant its panel renders it from, in either branch.
+export const read = buildRefusal({ reason: "Dem Team fehlt etwas", repair: "Trage es ein", where: offen ? SAISON_ABSCHNITT : KONTAKTE_ABSCHNITT });
+
+// A string in the condition picks between two constants and is never shown.
+export const chosen = buildRefusal({ reason: "Dem Team fehlt etwas", repair: "Trage es ein", where: rolle === "trainer" ? SAISON_ABSCHNITT : KONTAKTE_ABSCHNITT });
+
+export const aliased = baue({ reason: "Dem Team fehlt etwas", repair: "Trage es ein", where: SAISON_ABSCHNITT });

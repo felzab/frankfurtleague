@@ -1,14 +1,15 @@
 import "@/shared/testing/pageHarness.ts";
 
 import assert from "node:assert/strict";
-import { readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { SITE_URL } from "@/core/brand";
 import { registerRenderingNothing } from "@/core/exportingModule.ts";
+import { filesUnder } from "@/core/treeWalk.ts";
 
+import robots from "./robots.ts";
 import sitemap from "./sitemap.ts";
 
 import type { Metadata } from "next";
@@ -31,6 +32,8 @@ const WITHHELD = [
   "/bestaetigung/schiedsrichter/adresse",
   "/registrierung",
   "/bestaetigung/spieler",
+  "/bestaetigung/spieler/adresse",
+  "/loeschung",
 ];
 
 /** A segment in parentheses organises files and names no path. */
@@ -43,21 +46,16 @@ const isDynamic = (segment: string): boolean => segment.startsWith("[");
  * Every static route holding a page, read off the tree rather than listed here: a page added tomorrow
  * is compared against the sitemap on the day it lands, without anybody remembering to name it.
  */
-function staticRoutes(dir: string, segments: readonly string[] = []): { route: string; file: string }[] {
-  const entries = readdirSync(dir, { withFileTypes: true });
-  // The file travels with the route it serves: a route group names no path segment, so neither of
-  // the two can be rebuilt from the other.
-  const own = entries.some((entry) => entry.isFile() && entry.name === "page.tsx")
-    ? [{ route: `/${segments.join("/")}`, file: path.join(dir, "page.tsx") }]
-    : [];
-
-  return entries
-    .filter((entry) => entry.isDirectory() && !isDynamic(entry.name))
-    .flatMap((entry) => staticRoutes(path.join(dir, entry.name), isRouteGroup(entry.name) ? segments : [...segments, entry.name]))
-    .concat(own);
+function staticRoutes(): { route: string; file: string }[] {
+  return filesUnder(APP_DIR, (name) => name === "page.tsx", 1).flatMap((file) => {
+    const segments = path.relative(APP_DIR, path.dirname(file)).split(path.sep).filter(Boolean);
+    // The file travels with the route it serves: a route group names no path segment, so neither of
+    // the two can be rebuilt from the other.
+    return segments.some(isDynamic) ? [] : [{ route: `/${segments.filter((segment) => !isRouteGroup(segment)).join("/")}`, file: file }];
+  });
 }
 
-const FOUND = staticRoutes(APP_DIR);
+const FOUND = staticRoutes();
 
 const PUBLIC_ROUTES = FOUND.map((page) => page.route)
   .filter((route) => route !== "/bereich" && !route.startsWith("/bereich/") && !WITHHELD.includes(route))
@@ -104,5 +102,25 @@ describe("what the sitemap hands a crawler", () => {
       const { metadata } = (await import(pathToFileURL(withheld.file).href)) as { metadata?: Metadata };
       assert.deepEqual(metadata?.robots, { index: false, follow: false }, `${route} is withheld here and indexable anyway`);
     }
+  });
+});
+
+describe("what robots.txt turns a crawler back from before the fetch", () => {
+  /* A noindex is read only once the page is fetched, and a token page is fetched with its live token: each such
+     page keeps `no-referrer` for that token, which is what selects the pages read here. */
+  it("disallows every page whose link carries a token, the account deletion's among them", async () => {
+    const disallowed = [[robots().rules].flat().find((rule) => rule.userAgent === "*")?.disallow ?? []].flat();
+    const tokenPages: string[] = [];
+    for (const page of FOUND) {
+      const { metadata } = (await import(pathToFileURL(page.file).href)) as { metadata?: Metadata };
+      if (metadata?.referrer === "no-referrer") tokenPages.push(page.route);
+    }
+
+    assert.ok(tokenPages.includes("/loeschung"), "the walk found no token page, or not the deletion's, so this case reads nothing");
+    assert.deepEqual(
+      tokenPages.filter((route) => !disallowed.some((prefix) => route.startsWith(prefix))),
+      [],
+      "a page whose link carries a token is offered to every crawler",
+    );
   });
 });

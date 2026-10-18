@@ -42,6 +42,7 @@ const eintrag = (
     gespeichert: { umfang: "intern", medien: false },
     nachweisStand: { umfang: null, medien: null },
     medienAngeboten: true,
+    medienMindestalter: 18,
     erteilbar: true,
     speichereAction: speichereAction,
   }),

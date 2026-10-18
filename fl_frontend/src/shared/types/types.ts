@@ -92,6 +92,9 @@ type SubmittedEmail = {
 // against the address that was SENT, not whatever is in the box when the answer lands.
 export type FormState = ActionSuccess<SubmittedEmail> | (ActionFailure & SubmittedEmail) | null;
 
+/** A sign-out's answer. Its success carries no sentence: the start page replaces the document before a toast could be read. */
+export type SignOutResult = { success: true } | ActionFailure;
+
 /** Both members are Promises: a page destructuring them synchronously type-checks against an older shape and fails at request time. */
 export type NextPageProps<TParams = Record<string, string | string[]>, TSearchParams = { [key: string]: string | string[] | undefined }> = {
   params: Promise<TParams>;

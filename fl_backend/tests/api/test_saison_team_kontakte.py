@@ -10,8 +10,7 @@ from pydantic import ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
-from app.api.kontakte.admin_router import erase_kontaktperson
-from app.api.kontakte.schemas import FLKontaktErasurePayload
+from app.api.identitaet.schemas import FLErasureResponse
 from app.api.teams.admin_router import patch_saison_team_kontakte
 from app.api.teams.schemas import (
     FLKontaktKenntnisnahmePayload,
@@ -27,6 +26,7 @@ from app.api.teams.services import (
     compose_kontakte_herkunft,
     kontakte_stand_of,
 )
+from app.core.adressanker import adressanker_id
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -34,6 +34,7 @@ from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, saison_team_document
+from tests.erasure import erased
 from tests.isolation import InterleavedCollection
 from tests.worker import worker_database
 
@@ -248,23 +249,17 @@ async def write_kontakte(
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection,
         saisons_collection=database[Collection.SAISONS],
         sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
         db=database.client,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
         today=TODAY,
     )
 
 
-async def erase_the_seats_person(database: AsyncDatabase) -> Any:
-    """`POST /kontakte/erasure` for the person holding `ERASED_SEAT`, in a transaction of its own."""
+async def erase_the_seats_person(database: AsyncDatabase) -> FLErasureResponse:
+    """The erasure of the person holding `ERASED_SEAT`, in a transaction of its own."""
 
-    return await erase_kontaktperson(
-        erasure_data=FLKontaktErasurePayload.model_validate({"email": ERASED_EMAIL}),
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        aktionen_collection=database[Collection.AKTIONEN],
-        db=database.client,
-        germany_now=NOW,
-    )
+    return await erased(database, database.client, ERASED_EMAIL, germany_now=NOW)
 
 
 class JunctionRunningAHookBeforeTheWrite(InterleavedCollection):
@@ -504,6 +499,27 @@ class TestAPairNoRowAnswers:
 
 
 @pytest.mark.db
+class TestOnlyANewlySeatedAddressIsAnchored:
+    def test_a_save_keeping_two_seats_anchors_the_third_persons_address_alone(self, mongo_replica_set_url: str):
+        """A kept seat's address is on the row an erasure of it writes already (`docs/backend/spec.md :: I719`).
+
+        Anchored too, it sends that person's own writes round against an administrator's save.
+        """
+
+        handed_on = {**RESAVED_AS_RENDERED, "stellvertretung": person("Nils")}
+
+        async def body(database: AsyncDatabase) -> Any:
+            await write_kontakte(database, handed_on)
+            expected = adressanker_id(str(handed_on["stellvertretung"]["email"]), schluessel=ban_list(database).schluessel)
+
+            return [row["_id"] async for row in database[Collection.ADRESSANKER].find()], expected
+
+        anchored, expected = on_a_league(mongo_replica_set_url, body)
+
+        assert anchored == [expected]
+
+
+@pytest.mark.db
 class TestTheWriteIsRecorded:
     def test_one_action_row_carries_the_block_this_write_replaced(self, mongo_replica_set_url: str):
         """The undo path: the pre-image is the only copy of three people's details a mistake overwrote."""
@@ -531,10 +547,10 @@ class TestAnErasureLandingMidSaveIsNotUndone:
 
     def test_a_seat_erased_under_the_save_is_refused_rather_than_put_back(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            erased: list[Any] = []
+            erasures: list[Any] = []
 
             async def erase_between() -> None:
-                erased.append(await erase_the_seats_person(database))
+                erasures.append(await erase_the_seats_person(database))
 
             junction = JunctionRunningAHookBeforeTheWrite(database[Collection.SAISON_TEAMS], erase_between)
             with pytest.raises(WriteRefusalException) as refused:
@@ -542,11 +558,11 @@ class TestAnErasureLandingMidSaveIsNotUndone:
             # An erasure committing first refuses the save at its read, before it reaches the write.
             junction.assert_landed_inside(serially=0)
 
-            return erased[0], refused.value, await row_now(database)
+            return erasures[0], refused.value, await row_now(database)
 
         erasure, refusal, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert erasure.cleared_kontakt_slots == 1, "the interference emptied no seat, so the save had nothing to undo"
+        assert erasure.kontakt_sitze == 1, "the interference emptied no seat, so the save had nothing to undo"
         assert refusal.error_code == KONTAKTE_MOVED_UNDER_THE_SAVE
         assert stored["kontakte"][ERASED_SEAT] is None, "the save put the person who asked to be forgotten back on the row"
 
@@ -1072,7 +1088,7 @@ class TestTheLabelASaveNames:
         assert stored["kontakte"]["trainer"] == as_kept(SEEDED_KONTAKTE["trainer"])
 
     def test_an_undo_putting_a_handed_seats_earlier_person_back_under_their_old_label_is_refused(self, mongo_replica_set_url: str):
-        """What the undo route replays: the save being undone handed every seat on, so the replay seats each person afresh."""
+        """What the undo replays: the save being undone handed every seat on, so the replay seats each person afresh."""
 
         async def body(database: AsyncDatabase) -> Any:
             saved = await write_kontakte(database, NEW_KONTAKTE)

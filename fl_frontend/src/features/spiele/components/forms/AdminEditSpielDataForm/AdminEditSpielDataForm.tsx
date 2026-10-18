@@ -5,12 +5,15 @@ import { useRouter } from "next/navigation";
 
 import { parseDate, parseTime } from "@internationalized/date";
 
+import { AdminCreateSchiedsrichterForm } from "@/features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm";
+import { AdminCreateSpielortForm } from "@/features/spielorte/components/forms/AdminCreateSpielortForm";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
 import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
 import { Form } from "@/shared/components/ui/Form";
 import { FormActionBar } from "@/shared/components/ui/FormActionBar";
+import { FormModal } from "@/shared/components/ui/FormModal";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -19,7 +22,7 @@ import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarnin
 import { unansweredAction } from "@/shared/utils/actionError";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
-import { patchAdminSpielDataAction } from "../../../actions";
+import { patchAdminSpielDataAction, undoAdminSpielEditAction } from "../../../actions";
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
 import { buildPatchSpielDataPayloadSchema, FLPatchSpielDataPayloadSchema } from "../../../schemas";
 import { collectKnockoutTeamIds, collectSpieltagTeamOccupancy, isFirstKnockoutRound, listDependentSpiele, toStoredSide } from "../../../utils";
@@ -28,12 +31,15 @@ import { FormAnsetzungSection } from "./FormAnsetzungSection";
 import { FormErgebnisSection } from "./FormErgebnisSection";
 import { FormMatchupSection } from "./FormMatchupSection";
 import { FormNotizSection } from "./FormNotizSection";
+import { toSchiedsrichterDraft } from "./FormSchiedsrichterSection";
 import { FormSonderereignisSection } from "./FormSonderereignisSection";
+import { toOrtDraft } from "./FormSpielortSection";
 import { SpielExpectedProvider } from "./SpielExpectedContext";
 import { SpielRail } from "./SpielRail";
 import { useVoidPreview } from "./useVoidPreview";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
+import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
 import type { FLSpielDraftFields } from "@/features/spiele/draftStatus";
 import type {
   FLPatchSpielDataPayload,
@@ -103,6 +109,13 @@ export function AdminEditSpielDataForm({
   const [hasSonderereignis, setHasSonderereignis] = useState(spielData.sonderereignis !== null);
   const [ortPayload, setOrtPayload] = useState<FLSpielOrtFieldDraft | null>(spielData.ort);
   const [schiedsrichterPayload, setSchiedsrichterPayload] = useState<FLSpielSchiedsrichterFieldDraft | null>(spielData.schiedsrichter);
+
+  // Held here because the create dialogs render beside the form (`docs/frontend/spec.md :: I711`), and
+  // each picker offers what they created until the server's lists carry it.
+  const [creating, setCreating] = useState<"spielort" | "schiedsrichter" | null>(null);
+  const [createdSpielorte, setCreatedSpielorte] = useState<FLSpielort[]>([]);
+  const [createdSchiedsrichter, setCreatedSchiedsrichter] = useState<FLSchiedsrichterAngezeigt[]>([]);
+  const closeCreating = () => setCreating(null);
 
   // `null` is an unset date or kick-off: a legitimate state, not a field to nag about.
   const [datum, setDatum] = useState<CalendarDate | null>(spielData.datum ? parseDate(spielData.datum) : null);
@@ -380,11 +393,10 @@ export function AdminEditSpielDataForm({
         const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
 
         offerUndo({
-          endpoint: "/api/admin/spiele/undo",
           // Every fixture from the SAVE's own answer, in the order it reported them: the props this
           // render was served are older than the save, so an undo built from them would revert a field
           // another writer moved.
-          body: { paarungen: res.priorPaarungen ?? [], saison_id: spielData.saison_id },
+          undo: () => undoAdminSpielEditAction({ paarungen: res.priorPaarungen ?? [], saison_id: spielData.saison_id }),
           message: res.message,
           fallback: "Die Spieldaten wurden aktualisiert.",
           warn: affected.length > 0,
@@ -446,8 +458,8 @@ export function AdminEditSpielDataForm({
 
   return (
     <DraftStatusProvider status={status}>
-      {/* Only around the form: the markers and the open-items card are its readers, and neither
-          dialog below asks what the fixture is still waiting on. */}
+      {/* Only around the form: the markers and the open-items card are its readers, and no dialog
+          below asks what the fixture is still waiting on. */}
       <SpielExpectedProvider expected={status.expected}>
         <Form
           wiring={formWiring}
@@ -472,11 +484,15 @@ export function AdminEditSpielDataForm({
               uhrzeit={uhrzeit}
               onUhrzeitChange={setUhrzeit}
               spielorte={spielorte}
+              createdSpielorte={createdSpielorte}
               ortPayload={ortPayload}
               onOrtChange={setOrtPayload}
+              onRequestSpielort={() => setCreating("spielort")}
               schiedsrichter={schiedsrichter}
+              createdSchiedsrichter={createdSchiedsrichter}
               schiedsrichterPayload={schiedsrichterPayload}
               onSchiedsrichterChange={setSchiedsrichterPayload}
+              onRequestSchiedsrichter={() => setCreating("schiedsrichter")}
               onValidateFields={validateFields}
             />
 
@@ -568,6 +584,34 @@ export function AdminEditSpielDataForm({
           writeAfterBlock();
         }}
       />
+
+      {/* Beside the form, never inside it, though a portal would draw them elsewhere: inside, the form's
+          context and React's bubbling hand their submit to the editor's save (`docs/frontend/spec.md :: I711`). */}
+      <FormModal
+        isOpen={creating === "spielort"}
+        onClose={closeCreating}
+        heading="Spielort anlegen">
+        <AdminCreateSpielortForm
+          onClose={closeCreating}
+          onCreated={(venue) => {
+            setCreatedSpielorte((previous) => [...previous, venue]);
+            setOrtPayload(toOrtDraft(venue));
+          }}
+        />
+      </FormModal>
+
+      <FormModal
+        isOpen={creating === "schiedsrichter"}
+        onClose={closeCreating}
+        heading="Schiedsrichter anlegen">
+        <AdminCreateSchiedsrichterForm
+          onClose={closeCreating}
+          onCreated={(referee) => {
+            setCreatedSchiedsrichter((previous) => [...previous, referee]);
+            setSchiedsrichterPayload(toSchiedsrichterDraft(referee));
+          }}
+        />
+      </FormModal>
     </DraftStatusProvider>
   );
 }

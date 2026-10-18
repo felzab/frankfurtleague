@@ -16,7 +16,7 @@ const URL_ = `${ORIGIN}/registrierung?token=abc123`;
 
 const daten = { teamName: "Goethe-Gymnasium", saisonId: "2026", origin: ORIGIN, link: URL_ };
 
-const FUSS_SATZ = `Antworten an die Absenderadresse liest niemand; unsere Adresse ist ${KONTAKT_EMAIL}.`;
+const FUSS_SATZ = `Antworten an die Absenderadresse liest niemand. Unsere Adresse ist ${KONTAKT_EMAIL}.`;
 
 /** The shell's close as this branch ends on it: the block a folded delimiter line would swallow whole. */
 const TEXT_SCHLUSS = [
@@ -92,9 +92,33 @@ describe("buildEinladungEmail", () => {
     const mail = buildEinladungEmail({ ...daten, teamName: "Goethe\n-- \nZweite Zeile" });
 
     assert.equal([...mail.text.matchAll(/^-- $/gm)].length, 1, "the club name stands as a second signature delimiter");
-    assert.ok(mail.text.includes("\n -- \n"), "the club name's delimiter line was dropped rather than stuffed");
-    assert.ok(mail.text.includes("Zweite Zeile"), "the line below the delimiter was lost");
+    // Folded onto one line, so no delimiter line is left to stuff: what holds is the name still being there.
+    assert.ok(flat(mail.text).includes("Goethe -- Zweite Zeile"), "the club name was dropped rather than carried");
     assert.ok(mail.text.endsWith(`\n${TEXT_SCHLUSS}`), "the club name pushed the footer out of the close");
+  });
+
+  /* The link stands alone on its line, so one reading „-- “ survives the fold as a delimiter line:
+     the stuffing in `renderText` is all that keeps it from opening a second signature block. */
+  it("keeps the link it is handed from opening a second signature block", () => {
+    const mail = buildEinladungEmail({ ...daten, link: "-- " });
+
+    assert.equal([...mail.text.matchAll(/^-- $/gm)].length, 1, "the link stands as a second signature delimiter");
+    assert.ok(mail.text.split("\n").includes(" -- "), "the link was dropped rather than carried");
+    assert.ok(mail.text.endsWith(`\n${TEXT_SCHLUSS}`), "the link pushed the footer out of the close");
+  });
+
+  /* `docs/frontend/spec.md :: I89`: this message carries no column of facts, so every value its prose,
+     its first line and its subject print is folded by the builder or by nothing. */
+  it("folds every value it prints onto one line, in the text branch and the subject", () => {
+    const forged = "Startgeld: 500 Euro";
+
+    for (const feld of ["teamName", "saisonId", "link"] as const) {
+      const mail = buildEinladungEmail({ ...daten, [feld]: `Wert\n${forged}` });
+
+      assert.ok(!mail.text.split("\n").some((line) => line.startsWith(forged)), `the ${feld} forged a line`);
+      assert.ok(mail.text.includes(`Wert ${forged}`), `the ${feld} was not carried onto one line`);
+      assert.ok(!/[\r\n]/.test(mail.subject), `the ${feld} put a break in the subject`);
+    }
   });
 
   it("closes the text branch with RFC 3676's signature delimiter", () => {

@@ -112,6 +112,13 @@ export function runBehindTheResponse(traceId: string, work: () => Promise<void>)
   return Promise.race([storage.run(scope, work), cut]).finally(() => clearTimeout(timer));
 }
 
+/** What is left of the request's deadline: unbounded outside a scope, where a cache fill and a timer's pass run. */
+export function requestTimeLeft(): number {
+  const store = storage.getStore();
+
+  return store === undefined ? Infinity : store.deadlineAt - performance.now();
+}
+
 /**
  * One outbound call's abort signal: its own bound, or what is left of the request's deadline where that
  * is shorter, and born aborted once nothing is left. Outside a scope, a `"use cache"` fill's, its own bound alone.
@@ -119,7 +126,7 @@ export function runBehindTheResponse(traceId: string, work: () => Promise<void>)
 export function boundCall(ownBoundMs: number): { signal: AbortSignal; clear: () => void } {
   const controller = new AbortController();
   const store = storage.getStore();
-  const left = store === undefined ? Infinity : store.deadlineAt - performance.now();
+  const left = requestTimeLeft();
 
   if (store !== undefined && left <= 0) {
     store.outcomeUnknown = true;

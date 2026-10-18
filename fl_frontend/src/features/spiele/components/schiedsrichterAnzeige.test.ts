@@ -117,8 +117,10 @@ function pickerMarkup(
 ): string {
   const picker = h(FormSchiedsrichterSection, {
     schiedsrichter: offered,
+    created: [],
     schiedsrichterPayload,
     onSchiedsrichterChange: () => {},
+    onRequestCreate: () => {},
     onValidateFields: () => {},
   });
 

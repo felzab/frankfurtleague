@@ -15,6 +15,7 @@ from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
 
 from app.api.aktionen.schemas import HERKUNFT_JE_KIND
 from app.api.bewerbungen import schemas as bewerbungen_schemas
+from app.api.identitaet.schemas import ADRESSE_UNTER_INVALID, ANLASS_HOLDS_AN_ADDRESS, ErasureAdresse, FLErasurePayload
 from app.api.identitaet.services import grants_a_panel
 from app.api.saisons.schemas import FLSaisonStatus, TeamsPerGroup
 from app.api.spiele.schemas import MAX_QUALIFIERS
@@ -35,13 +36,15 @@ from app.core.actor_token import (
 )
 from app.core.config import INTERNAL_API_KEY_CHARACTERS
 from app.core.logging import NEEDS_QUOTING
-from app.core.middlewares import TRACEPARENT
-from app.core.routing import OBJECT_ID_REGEX
+from app.core.middlewares import REQUEST_DEADLINE_S, TRACEPARENT
+from app.core.recording import ERASED_ACTOR_MARKER
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.core.transactions import ABORT_GRACE_S
 from app.shared.folding import league_address
 from app.shared.schemas import bounds
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN, FLAddress, FLAddressPayload
 from app.shared.schemas.custom import (
+    OBJECT_ID_REGEX,
     PERSON_NAME_PATTERN,
     PHONE_REGEX,
     SINGLE_LINE_PATTERN,
@@ -102,15 +105,20 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/spiele/constants.ts", "NOTIZ_MAX_LENGTH", "SPIEL_NOTIZ_MAX_LENGTH"),
     Mirror("features/spiele/constants.ts", "PAARUNGEN_MAX", "LIST_LIMIT_DEFAULT"),
     Mirror("features/berechtigungen/constants.ts", "ANKUENDIGUNGEN_MAX", "LIST_LIMIT_DEFAULT"),
+    # The account sweep's batch: a larger one is refused whole, every pass alike, and nothing is deleted.
+    Mirror("features/funktionen/constants.ts", "REFERENZEN_ADRESSEN_MAX", "REFERENZEN_ADRESSEN_MAX"),
     Mirror("features/saisons/constants.ts", "SAISON_ID_LENGTH", "SAISON_ID_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_TOKEN_MAX_LENGTH", "BEWERBUNG_TOKEN_MAX_LENGTH"),
     Mirror("features/sperrliste/constants.ts", "SPERRLISTE_GRUND_MAX_LENGTH", "SPERRLISTE_GRUND_MAX_LENGTH"),
+    Mirror("features/funktionen/constants.ts", "ERASURE_ANLASS_MAX_LENGTH", "ERASURE_ANLASS_MAX_LENGTH"),
     Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE"),
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE"),
-    # These three mirror the published notice's sentences and never a payload schema: each confirmation
-    # view and each account entry states its floors as it was served them.
+    Mirror("features/spieler/constants.ts", "SPIELER_ADRESSWECHSEL_FRIST_TAGE", "SPIELER_ADRESSWECHSEL_FRIST_TAGE"),
+    # These mirror the published notice's sentences and never a payload schema: each confirmation view
+    # and each account entry states its floors as it was served them.
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_MIN_ALTER", "REGISTRIERUNG_MIN_ALTER_JAHRE"),
-    Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_MIN_ALTER", "SCHIEDSRICHTER_MIN_AGE_YEARS"),
+    # The notice's one floor for playing is its floor for refereeing too, so it lies the day the two part.
+    Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_MIN_ALTER", "SCHIEDSRICHTER_MIN_AGE_YEARS"),
     Mirror("features/registrierungen/constants.ts", "MEDIEN_MIN_ALTER", "MEDIEN_MIN_AGE_YEARS"),
     # The notice states the ban's length in a word, which its render test holds to this constant; no
     # payload carries a length at all.
@@ -447,29 +455,41 @@ def test_every_constant_a_module_says_it_mirrors_is_declared_here(module: str):
     assert claimed <= declared, f"{module} claims {sorted(claimed - declared)}, which this register does not pair with anything"
 
 
-# The one mirrored value that is not a number, so the integer machinery above cannot reach it: a
-# STRING the frontend compares a booking's referee id against to tell the ghost from a person
-# (`fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
+class Sentinel(NamedTuple):
+    module: str
+    name: str
+    declared: str
+    # The literal's whole spelling, so one respelled in another shape is refused rather than compared.
+    shape: str
+
+
+# The mirrored values that are not numbers, so the integer machinery above cannot reach them: each a
+# STRING the frontend compares a served value against to tell an erased person from a person.
 MIRRORED_SENTINELS: Final = (
-    (
-        "features/schiedsrichter/constants.ts",
-        "GHOST_SCHIEDSRICHTER_ID",
-        str(GHOST_SCHIEDSRICHTER_ID),
-    ),
+    # A booking's referee id (`fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`): hex, its
+    # leading zeroes load-bearing.
+    Sentinel("features/schiedsrichter/constants.ts", "GHOST_SCHIEDSRICHTER_ID", str(GHOST_SCHIEDSRICHTER_ID), "[0-9a-f]{24}"),
+    # A record's actor (`fl_backend/app/core/recording.py :: ERASED_ACTOR_MARKER`).
+    Sentinel("core/erasedActor.ts", "ERASED_ACTOR_MARKER", ERASED_ACTOR_MARKER, "[A-Z]+"),
 )
 
 
-@pytest.mark.parametrize(("module", "name", "declared"), MIRRORED_SENTINELS, ids=lambda value: value if isinstance(value, str) else "")
-def test_every_mirrored_sentinel_agrees_on_the_value(module: str, name: str, declared: str):
-    """A frontend comparing the wrong 24 characters tells an administrator that nobody was erased, or that everybody was.
+@pytest.mark.parametrize("sentinel", MIRRORED_SENTINELS, ids=lambda sentinel: sentinel.name)
+def test_every_mirrored_sentinel_agrees_on_the_value(sentinel: Sentinel):
+    """A frontend comparing the wrong characters tells an administrator that nobody was erased, or that everybody was."""
 
-    Read as a quoted string: the id is hex and its leading zeroes are load-bearing.
-    """
+    found = re.search(rf'^export const {sentinel.name} = "({sentinel.shape})";$', _source(sentinel.module), re.MULTILINE)
 
-    found = re.search(rf'^export const {name} = "([0-9a-f]{{24}})";$', _source(module), re.MULTILINE)
+    assert found is not None, f"{sentinel.module} no longer exports {sentinel.name} as a bare string of {sentinel.shape}"
+    assert found[1] == sentinel.declared, f"{sentinel.name} disagrees with the backend's sentinel"
 
-    assert found is not None, f"{module} no longer exports {name} as a bare lowercase-hex string"
-    assert found[1] == declared, f"{name} disagrees with the backend's sentinel"
+
+def test_the_erasure_marker_is_no_address_and_no_pseudonym_and_the_log_serves_it_whole():
+    """Each a way the marker would name somebody, or reach the log page cut short to a prefix nothing compares equal."""
+
+    assert "@" not in ERASED_ACTOR_MARKER, "an address can equal the marker"
+    assert set(ERASED_ACTOR_MARKER) - set(string.hexdigits), "a pseudonym, which is hex, can equal the marker"
+    assert len(ERASED_ACTOR_MARKER) <= bounds.AKTEUR_PSEUDONYM_SHOWN, "the log serves a person actor's marker cut short"
 
 
 class ModelBound(NamedTuple):
@@ -835,7 +855,8 @@ UNPAIRABLE_PATTERNS: Final = (
         "core/objectId.ts",
         "OBJECT_ID_REGEX",
         "app/shared/schemas/custom.py :: CustomObjectIdAnnotation",
-        "the backend end builds a `bson.ObjectId` rather than stating a pattern, so no pattern string reaches `_pydantic_accepted`",
+        "the backend end validates by building a `bson.ObjectId` and states its pattern in the published schema alone, "
+        "so no pattern string reaches `_pydantic_accepted`",
     ),
     Unpairable(
         "features/bewerbungen/zustellung.ts",
@@ -844,7 +865,7 @@ UNPAIRABLE_PATTERNS: Final = (
         "`MODELLED_ESCAPES` covers no codepoint escape, and every spelling of this class is written as codepoint escapes",
     ),
     Unpairable(
-        "features/bewerbungen/schemas.ts",
+        "shared/schemas.ts",
         "NICHT_EINZEILIG",
         "app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN",
         "the same codepoint escapes, and this spelling is the class NEGATED: the form refuses the value it matches",
@@ -876,10 +897,11 @@ UNPAIRABLE_PATTERNS: Final = (
     ),
 )
 
-# The third site of the ObjectId alphabet, and the only one on this side stating it AS a pattern.
-ROUTE_ID_SITE: Final = "app/core/routing.py :: OBJECT_ID_REGEX"
+# The third site of the ObjectId alphabet, and the only one on this side stating it AS a pattern: the route
+# convertor's, and the one every `CustomObjectId` publishes.
+ROUTE_ID_SITE: Final = "app/shared/schemas/custom.py :: OBJECT_ID_REGEX"
 
-# Only running it says what an id is: `CustomObjectIdAnnotation` states no pattern.
+# Only running it says what an id is: `CustomObjectIdAnnotation` validates without its published pattern.
 OBJECT_ID_ADAPTER: Final = TypeAdapter(CustomObjectId)
 
 # The constructs this check models. `\s`, `\w` and their negations are refused rather than
@@ -1390,6 +1412,28 @@ def test_the_two_trace_header_readers_take_the_same_headers():
     assert taken == _javascript_accepted(typescript, probes), f"{record.typescript} and {record.python} take different headers"
 
 
+WRITE_BUDGET_MODULE: Final = "core/api.ts"
+
+# What the margin keeps past the aborts for the hop each way and the queue before the middleware: the
+# production hop crosses a Docker bridge no measurement has timed.
+HOP_ALLOWANCE_MS: Final = 1000
+
+
+def test_a_write_s_budget_waits_out_the_backend_s_deadline_and_its_aborts():
+    """`docs/frontend/spec.md :: I733`: a page leaving a write sooner drops its caches before the backend's commit lands.
+
+    Each figure is read off the source, so a renamed constant fails here rather than comparing nothing.
+    """
+
+    source = _source(WRITE_BUDGET_MODULE)
+    deadline = _integer_constant(source, "BACKEND_REQUEST_DEADLINE_MS", exported=False)
+    margin = _integer_constant(source, "WRITE_ANSWER_MARGIN_MS", exported=False)
+
+    assert deadline is not None and margin is not None, f"{WRITE_BUDGET_MODULE} no longer declares a write's two budgets as integers"
+    assert deadline == REQUEST_DEADLINE_S * 1000, "the frontend waits out a deadline other than the backend's own"
+    assert margin - ABORT_GRACE_S * 1000 >= HOP_ALLOWANCE_MS, "the margin past the backend's aborts no longer leaves the hop its allowance"
+
+
 def test_the_two_ends_pin_an_internal_key_to_the_same_alphabet():
     """A key one tier boots on and the other refuses is a deployment already broken (`docs/ops/spec.md :: I11`)."""
 
@@ -1629,6 +1673,38 @@ def test_the_panel_table_names_every_season_status_once():
 @pytest.mark.parametrize(("saison_status", "grants"), _panel_grants(), ids=lambda value: str(value))
 def test_a_seat_s_season_grants_the_panel_the_shared_table_says(saison_status: FLSaisonStatus, grants: bool):
     assert grants_a_panel(saison_status) is grants
+
+
+# The erasure's two refusals of a typed value are spelled once per tier, and the API's sentence reaches its log
+# line alone, so this table is the only comparison the two predicates get: the frontend's box runs it too.
+ERASURE_REFUSALS: Final = Path(__file__).resolve().parent / "erasure_refusals.json"
+
+
+def _erasure_refusals(field: str) -> list[tuple[str, bool]]:
+    return [(row["value"], row["refused"]) for row in json.loads(ERASURE_REFUSALS.read_bytes().decode("utf-8"))[field]]
+
+
+def _refusals(adapter: TypeAdapter[Any], value: Any) -> list[str]:
+    """Each refusal's message, none for a value taken."""
+
+    try:
+        adapter.validate_python(value)
+    except ValidationError as error:
+        return [str(detail["msg"]) for detail in error.errors()]
+
+    return []
+
+
+@pytest.mark.parametrize(("email", "refused"), _erasure_refusals("email"))
+def test_the_erasure_lookup_refuses_the_placeholder_domain_where_the_shared_table_says(email: str, refused: bool):
+    assert [ADRESSE_UNTER_INVALID in message for message in _refusals(TypeAdapter(ErasureAdresse), email)] == ([True] if refused else [])
+
+
+@pytest.mark.parametrize(("anlass", "refused"), _erasure_refusals("anlass"))
+def test_the_erasure_refuses_an_address_in_its_anlass_where_the_shared_table_says(anlass: str, refused: bool):
+    payload = {"email": "ada@example.org", "anlass": anlass}
+
+    assert [ANLASS_HOLDS_AN_ADDRESS in message for message in _refusals(TypeAdapter(FLErasurePayload), payload)] == ([True] if refused else [])
 
 
 def test_the_actor_token_verifier_reads_the_contract_the_frontend_mints_to():

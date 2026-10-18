@@ -11,6 +11,7 @@ from app.api.bewerbungen.services import days_after
 from app.api.registrierungen.services import build_erinnerung_filter
 from app.api.registrierungen.services import compose_bestaetigung as compose_registrierung_bestaetigung
 from app.api.schiedsrichter.services import compose_adresswechsel, compose_bestaetigung
+from app.api.spieler.services import compose_spieler_adresswechsel
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.api.zustellung.router import abgewiesen_zustellung, angenommen_zustellung, post_zustellung
 from app.api.zustellung.schemas import (
@@ -25,7 +26,7 @@ from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
 from app.shared.schemas.bounds import REGISTRIERUNG_ERINNERUNG_TAGE
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import saison_team_document
+from tests.documents import saison_team_document, spieler_document
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_zustellung_test")
@@ -90,6 +91,8 @@ ZIEL_FIXTURES: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
         "kontakt": {"telefon": "+49 170 1234567", "email": "bramblewick@example.com"},
         "inactive_since": None,
     },
+    # A pupil whose address an administrator asked to move, the link's carrier beside the stored address.
+    "spieler_adresswechsel": spieler_document(ZIEL_OID, "Thessaly", "Okonkwo-Brandt", email="thessaly@example.invalid"),
 }
 
 ZIELE = sorted(ZIEL_PFADE)
@@ -108,6 +111,7 @@ CARRIER_SEEDS: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
     # The Trainer's seat, the one every case below reports on; the seat axis's own cases reach the others.
     "kontakt": compose_kontakt_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
     "schiedsrichter_adresswechsel": compose_adresswechsel(email="quillon@example.com", token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
+    "spieler_adresswechsel": compose_spieler_adresswechsel(email="okonkwo@example.com", token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
 }
 
 # The seats each kind's report names: the Trainer's for a seat kind, none for every other.

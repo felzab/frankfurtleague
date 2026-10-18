@@ -15,6 +15,7 @@ import re
 import sys
 from pathlib import Path
 
+import pytest
 from conftest import details, import_scripts, new_root, severities, write
 
 SCRIPTS = Path(__file__).resolve().parents[1]
@@ -209,17 +210,17 @@ def test_the_catch_all_is_never_coverage():
 def test_a_prefix_covering_a_handler_needs_a_recorded_reason(monkeypatch):
     """A prefix names where a path goes and meters nothing, so the reason is the whole accounting."""
     monkeypatch.setattr(routes, "REASONS", ())
-    findings, _ = judged(tree("/api/admin/teams/undo"), served(prefix("/api/admin/"), CATCH_ALL))
+    findings, _ = judged(tree("/api/beispiel/eins"), served(prefix("/api/beispiel/"), CATCH_ALL))
 
     assert severities(findings) == ["fail"]
     assert "no recorded reason" in details(findings)
 
 
 def test_a_recorded_reason_covers_the_handlers_that_fall_to_its_prefix(monkeypatch):
-    """The other half of the same rule, and what the eight undo handlers are accounted for by."""
-    reason = routes.Reason("/api/admin/", "behind the admin guard")
+    """The other half of the same rule: a handler under a recorded prefix is accounted for by its reason."""
+    reason = routes.Reason("/api/beispiel/", "each behind a guard of its own")
     monkeypatch.setattr(routes, "REASONS", (reason,))
-    findings, used = judged(tree("/api/admin/teams/undo", "/api/admin/spiele/undo"), served(prefix("/api/admin/"), CATCH_ALL))
+    findings, used = judged(tree("/api/beispiel/eins", "/api/beispiel/zwei"), served(prefix("/api/beispiel/"), CATCH_ALL))
 
     assert findings == []
     assert used == {reason}
@@ -252,9 +253,9 @@ def test_a_prefix_inside_the_dynamic_segment_does_not_cover_it():
 
 def test_a_recorded_reason_charging_no_handler_is_a_finding(monkeypatch):
     """Accounting rot the other way: the handlers moved and the claim stayed."""
-    monkeypatch.setattr(routes, "REASONS", (routes.Reason("/api/admin/", "behind the admin guard"),))
+    monkeypatch.setattr(routes, "REASONS", (routes.Reason("/api/beispiel/", "each behind a guard of its own"),))
 
-    findings = routes.unused(set(), served(prefix("/api/admin/"), CATCH_ALL))
+    findings = routes.unused(set(), served(prefix("/api/beispiel/"), CATCH_ALL))
 
     assert severities(findings) == ["fail"]
     assert "no handler is charged to that location" in details(findings)
@@ -262,7 +263,7 @@ def test_a_recorded_reason_charging_no_handler_is_a_finding(monkeypatch):
 
 def test_a_recorded_reason_naming_no_prefix_location_says_which_half_went(monkeypatch):
     """The two causes send a reader to different files, so the finding tells them apart."""
-    monkeypatch.setattr(routes, "REASONS", (routes.Reason("/api/admin/", "behind the admin guard"),))
+    monkeypatch.setattr(routes, "REASONS", (routes.Reason("/api/beispiel/", "each behind a guard of its own"),))
 
     findings = routes.unused(set(), served(CATCH_ALL))
 
@@ -290,6 +291,100 @@ def test_an_unmetered_exact_match_owes_no_twin():
     probe = exact("/api/v0/system/is_live", metered=False)
 
     assert routes.twins(served(probe, CATCH_ALL)) == []
+
+
+def refused(path: str) -> str:
+    """One exact-match location the edge answers itself with a client error, forwarding nothing."""
+    return block("location = " + path, "        return 404;\n")
+
+
+INTERNAL_ROW = routes.Internal("/api/revalidate", "a planted handler this server alone calls")
+REFUSED_PAIR = refused("/api/revalidate") + refused("/api/revalidate/")
+
+
+def test_a_recorded_internal_handler_its_exact_match_refuses_is_accounted_for(monkeypatch):
+    """The resting state every red case on the internal rows below is measured against."""
+    monkeypatch.setattr(routes, "INTERNAL", (INTERNAL_ROW,))
+    app = tree("/api/revalidate")
+    where = served(REFUSED_PAIR, CATCH_ALL)
+
+    findings, used = judged(app, where)
+
+    assert findings == []
+    assert used == set()
+    assert routes.twins(where) == []
+    assert routes.unanswered(routes.handlers(app)) == []
+
+
+def test_a_recorded_internal_handler_its_exact_match_forwards_is_a_finding(monkeypatch):
+    """Metered, it reads as covered to every other rule, so this one alone sees the edge publishing it."""
+    monkeypatch.setattr(routes, "INTERNAL", (INTERNAL_ROW,))
+    findings, _ = judged(tree("/api/revalidate"), served(exact("/api/revalidate") + exact("/api/revalidate/"), CATCH_ALL))
+
+    assert severities(findings) == ["fail"]
+    assert "no exact match" in details(findings)
+
+
+def test_a_recorded_internal_handler_no_location_names_is_a_finding(monkeypatch):
+    """The catch-all carries it to Next, its key the only guard left in front of it."""
+    monkeypatch.setattr(routes, "INTERNAL", (INTERNAL_ROW,))
+    findings, _ = judged(tree("/api/revalidate"), served(METERED, CATCH_ALL))
+
+    assert severities(findings) == ["fail"]
+    assert "recorded as this server's alone" in details(findings)
+
+
+def test_a_handler_the_edge_refuses_and_no_row_records_is_a_finding(monkeypatch):
+    """A public route refused by mistake answers every visitor 404, and nothing else in the gate reads it."""
+    monkeypatch.setattr(routes, "INTERNAL", ())
+    findings, _ = judged(tree("/api/revalidate"), served(REFUSED_PAIR, CATCH_ALL))
+
+    assert severities(findings) == ["fail"]
+    assert "no row records it" in details(findings)
+
+
+def test_a_refusal_missing_its_twin_is_a_finding():
+    """The slashed form falls to `location /`, which forwards it to Next."""
+    findings = routes.twins(served(refused("/api/revalidate"), CATCH_ALL))
+
+    assert severities(findings) == ["fail"]
+    assert "/api/revalidate/ is not" in details(findings)
+
+
+def test_a_refusal_twinned_by_a_metered_location_is_a_finding():
+    """A metered twin forwards the slashed form, so it pairs with nothing: each half reports the other missing."""
+    findings = routes.twins(served(refused("/api/revalidate") + exact("/api/revalidate/"), CATCH_ALL))
+
+    assert severities(findings) == ["fail", "fail"]
+    assert "is refused" in details(findings)
+    assert "is metered" in details(findings)
+
+
+def test_a_recorded_internal_row_no_handler_answers_is_a_finding(monkeypatch):
+    """The row outliving its handler would excuse whatever later takes that URL."""
+    monkeypatch.setattr(routes, "INTERNAL", (INTERNAL_ROW,))
+
+    assert "no route handler" in details(routes.unanswered(routes.handlers(tree("/api/bewerbung"))))
+
+
+@pytest.mark.parametrize(
+    ("shape", "text"),
+    [
+        ("a prefix refusal", block("location /api/intern", "        return 404;\n")),
+        ("a redirect", block("location = /api/revalidate", "        return 308 /api/revalidate;\n")),
+        ("a success", block("location = /api/revalidate", "        return 200;\n")),
+        ("a refusal beside a forward", block("location = /api/revalidate", "        return 404;\n", PASS)),
+        ("a refusal with a body", block("location = /api/revalidate", '        return 404 "gone";\n')),
+    ],
+)
+def test_a_location_answering_in_any_other_shape_refuses(shape, text):
+    """Each sends the request somewhere this reader cannot account for, so none is read as a refusal or a route."""
+    try:
+        served(text, CATCH_ALL)
+    except routes.NginxSyntax as refusal:
+        assert re.search("return|client error", str(refusal)), (shape, refusal)
+    else:
+        raise AssertionError(f"{shape} was read")
 
 
 GONE = exact("/api/gone") + exact("/api/gone/")
@@ -487,9 +582,9 @@ def test_a_path_two_exact_matches_declare_refuses():
 
 def test_a_prefix_written_with_the_no_regex_modifier_still_matches_a_prefix():
     """`^~` changes which locations nginx goes on to consider, not what this one matches."""
-    found = served(block("location ^~ /api/admin/", PASS))
+    found = served(block("location ^~ /api/beispiel/", PASS))
 
-    assert [(one.exact, one.path) for one in found] == [(False, "/api/admin/")]
+    assert [(one.exact, one.path) for one in found] == [(False, "/api/beispiel/")]
 
 
 def test_a_server_body_file_is_read_at_its_top_level():
@@ -596,6 +691,7 @@ def test_the_repository_own_routes_are_accounted_for():
     assert findings == []
     assert routes.unused(used, where) == []
     assert routes.twins(where) == []
+    assert routes.unanswered(found) == []
 
 
 def test_every_recorded_reason_is_charged_by_the_repository_own_tree():
@@ -624,6 +720,7 @@ def run_main(app: Path, text: str, monkeypatch) -> int:
     monkeypatch.setattr(routes, "REASONS", ())
     monkeypatch.setattr(routes, "METADATA", ())
     monkeypatch.setattr(routes, "ELSEWHERE", ())
+    monkeypatch.setattr(routes, "INTERNAL", ())
     conf = app.parent / SOURCE
     conf.write_bytes(text.encode("utf-8"))
     monkeypatch.setattr(sys, "argv", ["check_public_routes.py", str(app), str(conf)])

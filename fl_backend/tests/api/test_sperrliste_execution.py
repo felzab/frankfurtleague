@@ -10,17 +10,23 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
+from app.api.identitaet.services import NAME_IM_GRUND
 from app.api.sperrliste.admin_router import delete_sperrliste_eintrag, get_sperrliste
 from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
 from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_SCHLUESSEL_VERSION, SPERRLISTE_VERWALTUNG, adresse_hash
-from app.api.spieler.admin_router import delete_spieler, erase_spieler
 from app.core.collections import Collection
+from app.core.crud import ANCHOR_FIELD
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document
+from tests.erasure import erased
 from tests.worker import worker_database
+
+from .test_erasure_auf_anfrage import ANOTHER_SURNAME, SURNAME_OF
+from .test_funktionen_erasure import NACHNAME, SAISON_ID, TYPED, VORNAME, a_person_holding_everything, everything_in
+from .test_sperrliste_isolation import SeasonsRunningARivalAfterTheFirstRead
 
 pytestmark = pytest.mark.db
 
@@ -465,18 +471,18 @@ class TestAnErasureLeavesTheListStanding:
         walk fails here.
         """
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]]]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, list[Mapping[str, Any]], list[Mapping[str, Any]]]:
             await ban(database, client)
             before = await rows_of(database)
 
-            # A pupil as one was stored BEFORE the registration flow existed, the shape production
-            # still holds: this case needs a stored pupil to erase, not a route that made one.
-            spieler_id = ObjectId()
+            # Seeded rather than admitted: this case needs a stored pupil at the barred address, not a
+            # route that made one.
             await database[Collection.SPIELER].insert_one(
                 {
-                    "_id": spieler_id,
+                    "_id": ObjectId(),
                     "vorname": "Zorbanax",
                     "nachname": "Mustermann",
+                    "email": BANNED_RETYPED,
                     "einwilligung": {
                         "umfang": "kader_oeffentlich",
                         "erteilt_von": "erziehungsberechtigt",
@@ -489,24 +495,117 @@ class TestAnErasureLeavesTheListStanding:
                     "inactive_since": None,
                 }
             )
-            await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY, db=database.client)
-            await erase_spieler(
-                spieler_id=spieler_id,
-                spieler_collection=database[Collection.SPIELER],
-                saison_spieler_collection=database[Collection.SAISON_SPIELER],
-                aktionen_collection=database[Collection.AKTIONEN],
-                db=client,
-                germany_now=NOW,
-            )
+            gone = await erased(database, client, BANNED, germany_now=NOW)
 
-            return before, await rows_of(database)
+            return gone.spieler, before, await rows_of(database)
 
-        before, after = on_a_clean_list(mongo_replica_set_url, body)
+        erased_pupils, before, after = on_a_clean_list(mongo_replica_set_url, body)
 
+        # The premise: an erasure reaching nobody leaves the list standing too.
+        assert erased_pupils == 1
         # Non-empty first: two empty lists compare equal, and an erasure that emptied the collection
         # would then read as one that left it alone.
         assert before
         assert after == before
+
+
+def on_a_person_holding_everything(url: str, body: Body) -> Any:
+    """The erasure suite's person, a record of every kind at one address and their league's running season, beside the suite's grants."""
+
+    async def _run() -> Any:
+        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+            await a_person_holding_everything(database)
+
+            return await body(database, client)
+
+    return on_the_seed_loop(_run())
+
+
+class TestANameInTheGrund:
+    """`REQ-SPERRLISTE-004`, judged inside the ban's write on the names the address's own records hold (`docs/backend/spec.md :: I726`)."""
+
+    def test_it_is_refused_on_the_box_and_writes_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await everything_in(database)
+            with pytest.raises(WriteRefusalException) as raised:
+                await ban(database, client, email=TYPED, grund=f"Falsche Angaben von {NACHNAME}")
+
+            return raised.value, before == await everything_in(database)
+
+        refusal, untouched = on_a_person_holding_everything(mongo_replica_set_url, body)
+
+        assert (refusal.error_code, refusal.status_code, refusal.fields) == (
+            NAME_IM_GRUND,
+            422,
+            [{"in": "body", "path": ["grund"], "kind": NAME_IM_GRUND}],
+        )
+        assert untouched
+        # The message reaches the refusal's log line.
+        assert NACHNAME.lower() not in refusal.error_detail["message"].lower()
+
+    @pytest.mark.parametrize("kind", SURNAME_OF)
+    def test_every_kind_of_the_addresss_records_lends_its_names(self, mongo_replica_set_url: str, kind: str):
+        """The seed's other records keep the person's surname, so only the kind renamed holds the one the reason names."""
+
+        collection, row, field = SURNAME_OF[kind]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            renamed = f"{VORNAME} {ANOTHER_SURNAME}" if field == "name" else ANOTHER_SURNAME
+            assert (await database[collection].update_one(row, {"$set": {field: renamed}})).modified_count == 1
+            with pytest.raises(WriteRefusalException) as raised:
+                await ban(database, client, email=TYPED, grund=f"Falsche Angaben, siehe {ANOTHER_SURNAME}")
+
+            return raised.value.error_code
+
+        assert on_a_person_holding_everything(mongo_replica_set_url, body) == NAME_IM_GRUND
+
+    def test_a_name_only_other_peoples_records_hold_is_banned_under(self, mongo_replica_set_url: str):
+        """Each stands in a record the reveal reaches: a seat beside the person's, and a referee and a pupil moving to the address."""
+
+        grund = "Falsche Angaben, gemeldet von Quillhilde, Kraus und Gwendolyn"
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Mapping[str, Any]]:
+            await ban(database, client, email=TYPED, grund=grund)
+
+            return await rows_of(database)
+
+        assert [row["grund"] for row in on_a_person_holding_everything(mongo_replica_set_url, body)].count(grund) == 1
+
+
+class TestANameARivalWritesMidBan:
+    """`docs/backend/spec.md :: I726` on a retry: a rename committing inside the ban, and the retry reads it."""
+
+    def test_the_retry_refuses_the_name_and_bans_nobody(self, mongo_replica_set_url: str):
+        """Judged once before the transaction instead, the pass stands: the retry commits a reason naming the person.
+
+        The rename alone sends no retry, the ban writing no pupil row; the rival's write to the season the ban anchors does.
+        """
+
+        racing: list[SeasonsRunningARivalAfterTheFirstRead] = []
+        grund = f"Falsche Angaben, siehe {ANOTHER_SURNAME}"
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            collection, row, field = SURNAME_OF["a pupil"]
+
+            async def rival() -> None:
+                assert (await database[collection].update_one(row, {"$set": {field: ANOTHER_SURNAME}})).modified_count == 1
+                assert (await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$inc": {ANCHOR_FIELD: 1}})).modified_count == 1
+
+            before = await rows_of(database)
+            racing.append(SeasonsRunningARivalAfterTheFirstRead(database[Collection.SAISONS], rival))
+            try:
+                await ban_through_the_route(database, client, email=TYPED, grund=grund, von=ADMIN, today=TODAY, saisons=racing[-1])
+            except WriteRefusalException as refusal:
+                return refusal.error_code, before == await rows_of(database)
+
+            return "banned", before == await rows_of(database)
+
+        outcome, untouched = on_a_person_holding_everything(mongo_replica_set_url, body)
+
+        assert (outcome, untouched) == (NAME_IM_GRUND, True)
+        # The premise: the first attempt met the rival and the retry read the season again.
+        assert racing[-1].passes == 2
 
 
 class TestTheKeyTheRowsWereTakenUnder:

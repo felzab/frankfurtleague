@@ -312,6 +312,7 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(PFEIFE_OFFEN, id="an unconfirmed referee"),
             pytest.param(SPIELER_EHEMALIG_OFFEN, id="an unconfirmed retired pupil"),
             pytest.param(PFEIFE_RUHESTAND_OFFEN, id="an unconfirmed retired referee"),
+            pytest.param(PFEIFE_AKTIV.replace("@schule.de", "@anderswo.de"), id="a confirmed referee's local part at another domain"),
             pytest.param(SITZ_AUSGETRETEN_OFFEN, id="an unconfirmed seat on a withdrawn team's row"),
             pytest.param(GEIST, id="the placeholder referee"),
             pytest.param(REGISTRIERT_ABGELEHNT, id="a declined registration"),
@@ -334,6 +335,13 @@ class TestTheFlagsBesideIt:
             True,
             False,
         ]
+
+    def test_an_address_sharing_only_a_local_part_with_an_unconfirmed_referee_awaits_nothing(self, mongo_replica_set_url: str):
+        """The address pre-filter reads that referee's row, and only the fold after the read keeps the flag down and the gate shut."""
+
+        answer = answered(mongo_replica_set_url, PFEIFE_OFFEN.replace("@schule.de", "@anderswo.de"))
+
+        assert (answer.unbestaetigt, answer.konto) == (False, False)
 
     def test_a_barred_address_is_flagged_and_still_counted(self, mongo_replica_set_url: str):
         """The ban narrows nothing beside it: refusing the barred holder is the gate's own decision."""

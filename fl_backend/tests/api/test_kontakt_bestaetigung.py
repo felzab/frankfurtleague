@@ -9,7 +9,7 @@ press as the application's links ask it.
 
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import Any, cast
 from zoneinfo import ZoneInfo
@@ -35,8 +35,6 @@ from app.api.bewerbungen.services import (
 )
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.identitaet.crud import funktionen_of
-from app.api.kontakte.admin_router import erase_kontaktperson
-from app.api.kontakte.schemas import FLKontaktErasurePayload
 from app.api.saisons.admin_router import activate_saison
 from app.api.teams.admin_router import einladen_kontakt, patch_saison_team_kontakte, replace_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
@@ -45,11 +43,13 @@ from app.api.teams.services import (
     KONTAKT_SITZ_OHNE_BESTAETIGUNG,
     KONTAKT_ZEILE_OHNE_SAISON,
     compose_kontakt_bestaetigung,
+    compose_kontakte_at_entry,
 )
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.db import get_sperrliste_collection
 from app.core.exceptions import ActorConfirmationRequiredException, DocumentNotFoundException, WriteRefusalException
+from app.core.recording import log_stamp
 from app.core.security import CONFIRMATION_REQUIRED, STEP_UP_WINDOW_S, get_step_up_check
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -57,8 +57,9 @@ from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK, SignedActor, verified_actor
 from tests.app_client import app_client
 from tests.bans import ban_list, ban_through_the_route
-from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
+from tests.config import ADMIN_KEY, ADMINISTRATORS, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.erasure import erased
 from tests.isolation import InterleavedCollection
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
@@ -77,6 +78,8 @@ FRIST = bestaetigungsfrist_from(today=TODAY)
 # The day after the deadline a link minted on `TODAY` carries.
 AFTER_THE_DEADLINE = "2026-04-16"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+# Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`.
+REDACTED_AT = "2026-04-01T10:30:00+00:00"
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607a50001")
 ROW_OID = ObjectId("6890a1b2c3d4e5f607a50011")
@@ -203,6 +206,7 @@ async def save(
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
         saisons_collection=database[Collection.SAISONS],
         sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
         db=database.client,
         refuse_unconfirmed=step_up,
         today=today,
@@ -219,6 +223,26 @@ async def resend(database: AsyncDatabase, seat: str, *, today: str = TODAY) -> A
         sperrliste=ban_list(database),
         db=database.client,
         today=today,
+    )
+
+
+async def replace(database: AsyncDatabase) -> Any:
+    """Another club takes this team's place in the season."""
+
+    return await replace_saison_team(
+        team_id=TEAM_OID,
+        saison_id=SAISON_ID,
+        replacement_data=FLReplaceSaisonTeamPayload(incoming_team_id=INCOMING_TEAM_OID),
+        teams_collection=database[Collection.TEAMS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        spiele_collection=database[Collection.SPIELE],
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        aktionen_collection=database[Collection.AKTIONEN],
+        db=database.client,
+        today=TODAY,
+        germany_now=NOW,
     )
 
 
@@ -267,6 +291,7 @@ async def answer(
         aktionen_collection=database[Collection.AKTIONEN],
         sperrliste=ban_list(database),
         db=database.client,
+        config=build_test_config(),
         today=today,
         germany_now=NOW,
     )
@@ -393,8 +418,8 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
 
         response, row, held = on_a_league(mongo_replica_set_url, body)
 
-        assert [(mint.rollen, mint.email, mint.frist, mint.vorname, mint.schule, mint.zeile) for mint in response.bestaetigungen] == [
-            (["trainer"], "ida@example.com", FRIST, "Ida", TEAM_NAME, "offen")
+        assert [(mint.rollen, mint.email, mint.frist, mint.schule, mint.zeile) for mint in response.bestaetigungen] == [
+            (["trainer"], "ida@example.com", FRIST, TEAM_NAME, "offen")
         ]
         assert response.saison_team_id == ROW_OID
         token = response.bestaetigungen[0].token
@@ -414,10 +439,10 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
         response, views = on_a_league(mongo_replica_set_url, body)
 
         assert [mint.rollen for mint in response.bestaetigungen] == [["trainer"], ["ansprechperson"], ["stellvertretung"]]
-        assert [(view.quelle, view.rolle, view.vorname, view.zustand, view.schule) for view in views] == [
-            ("saison", "trainer", "Ida", "gueltig", TEAM_NAME),
-            ("saison", "ansprechperson", "Jonas", "gueltig", TEAM_NAME),
-            ("saison", "stellvertretung", "Klara", "gueltig", TEAM_NAME),
+        assert [(view.quelle, view.rolle, view.zustand, view.schule) for view in views] == [
+            ("saison", "trainer", "gueltig", TEAM_NAME),
+            ("saison", "ansprechperson", "gueltig", TEAM_NAME),
+            ("saison", "stellvertretung", "gueltig", TEAM_NAME),
         ]
 
     def test_a_trainer_holding_a_second_seat_is_minted_one_link_for_both(self, mongo_replica_set_url: str):
@@ -478,7 +503,7 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
 
         assert [mint.rollen for mint in handed.bestaetigungen] == [["ansprechperson"]]
         assert code == BEWERBUNG_TOKEN_UNKNOWN
-        assert (view.rolle, view.vorname) == ("ansprechperson", "Lea")
+        assert view.rolle == "ansprechperson"
 
     def test_a_seat_the_save_empties_loses_its_link(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
@@ -591,7 +616,7 @@ class TestTheResend:
             "jonas@example.com",
             FRIST,
         )
-        assert (response.bestaetigung.vorname, response.bestaetigung.schule, response.saison_team_id) == ("Jonas", TEAM_NAME, ROW_OID)
+        assert (response.bestaetigung.schule, response.saison_team_id) == (TEAM_NAME, ROW_OID)
         assert (row["bestaetigungen"]["trainer"], row["bestaetigungen"]["stellvertretung"]) == (None, None)
         assert (view.rolle, view.zustand) == ("ansprechperson", "gueltig")
 
@@ -729,27 +754,107 @@ class TestTheLinkConfirms:
         assert (held["einwilligung"]["bestaetigt_am"], held["einwilligung"]["umfang"]) == ("2026-03-20", "kontaktdaten")
         assert row["kontakte"][newly]["einwilligung"]["bestaetigt_am"] == TODAY, "the press confirmed nothing, so this case proves nothing"
 
-    def test_a_widerspruch_empties_the_seat_records_it_and_redacts_the_rows_log(self, mongo_replica_set_url: str):
+    def test_a_widerspruch_empties_the_seat_and_records_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, THREE)
             token = response.bestaetigungen[2].token
             answered = await answer(database, token, antwort="abgelehnt")
-            log = (
-                await database[Collection.AKTIONEN]
-                .find({"collection": str(Collection.SAISON_TEAMS), "document_id": ROW_OID})
-                .to_list(length=None)
-            )
 
-            return answered, await row_now(database), await ansicht(database, token), log
+            return answered, await row_now(database), await ansicht(database, token)
 
-        answered, row, view, log = on_a_league(mongo_replica_set_url, body)
+        answered, row, view = on_a_league(mongo_replica_set_url, body)
 
         assert (answered.quelle, answered.ergebnis, answered.geburtsdatum) == ("saison", "abgelehnt", None)
         assert row["kontakte"]["stellvertretung"] is None
         assert row["bestaetigungen"]["stellvertretung"]["abgelehnt_am"] == TODAY
         assert view.zustand == "abgelehnt"
-        assert log, "nothing was logged, so the redaction proves nothing"
-        assert all(entry["before"] is None and entry.get("redacted_at") for entry in log)
+
+    def test_a_widerspruch_takes_its_seat_out_of_the_rows_log_and_leaves_the_others_earlier_states(self, mongo_replica_set_url: str):
+        """Restore the redaction by document and this fails: Ida's earlier number exists in the log alone, and is hers."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            response = await save(database, THREE)
+            await save(database, {**THREE, "trainer": {**person("Ida"), "telefon": TELEFON["Lea"]}})
+            await answer(database, response.bestaetigungen[2].token, antwort="abgelehnt")
+
+            return (
+                await database[Collection.AKTIONEN]
+                .find({"collection": str(Collection.SAISON_TEAMS), "document_id": ROW_OID})
+                .sort("_id", 1)
+                .to_list(length=None)
+            )
+
+        first_save, second_save, decline = on_a_league(mongo_replica_set_url, body)
+
+        # The first save replaced a row holding nobody, so it held nothing of the person declining.
+        assert (first_save["before"]["kontakte"], first_save["redacted_at"]) == (None, None)
+        for entry in (second_save, decline):
+            kontakte = entry["before"]["kontakte"]
+            assert (kontakte["stellvertretung"], entry["redacted_at"]) == (None, REDACTED_AT)
+            assert (kontakte["ansprechperson"]["vorname"], kontakte["trainer"]["vorname"]) == ("Jonas", "Ida")
+            # The link stays with the seat in the image, as it does on the row, its decline recorded there.
+            assert entry["before"]["bestaetigungen"]["stellvertretung"] is not None
+        assert second_save["before"]["kontakte"]["trainer"]["telefon"] == TELEFON["Ida"]
+
+    def test_a_widerspruch_takes_the_seat_its_person_held_under_an_address_since_corrected(self, mongo_replica_set_url: str):
+        """Match on the address alone and this fails: the mistyped address is in one image only, beside her name and number."""
+
+        mistyped = {**THREE, "stellvertretung": {**person("Klara"), "email": "klara@exmaple.com"}}
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await save(database, mistyped)
+            corrected = await save(database, THREE)
+            link = next(mint for mint in corrected.bestaetigungen if "stellvertretung" in mint.rollen)
+            await answer(database, link.token, antwort="abgelehnt")
+
+            return (
+                await database[Collection.AKTIONEN]
+                .find({"collection": str(Collection.SAISON_TEAMS), "document_id": ROW_OID})
+                .sort("_id", 1)
+                .to_list(length=None)
+            )
+
+        _, second_save, _ = on_a_league(mongo_replica_set_url, body)
+
+        kontakte = second_save["before"]["kontakte"]
+        assert (kontakte["stellvertretung"], second_save["redacted_at"]) == (None, REDACTED_AT)
+        # Nobody else shares her name, so the two beside her keep their seats in that image.
+        assert (kontakte["trainer"]["vorname"], kontakte["ansprechperson"]["vorname"]) == ("Ida", "Jonas")
+
+    def test_a_widerspruch_is_taken_over_an_image_of_an_older_shape_in_the_rows_log(self, mongo_replica_set_url: str):
+        """Read a seat without checking its shape and this answers 500: the redaction judges every image the row ever filed."""
+
+        # The real clock: the retention index removes a row a year past `at_date`.
+        recorded = datetime.now(UTC)
+        older = {
+            "_id": ObjectId("6890a1b2c3d4e5f607a5a001"),
+            "at": log_stamp(recorded),
+            "at_date": recorded,
+            "actor": {"kind": "admin_session", "email": ADMIN},
+            "trace_id": "0123456789abcdef",
+            "request": {"method": "PATCH", "path": f"/api/{API_VERSION}/teams/{TEAM_OID}/saisons/{SAISON_ID}/kontakte"},
+            "collection": str(Collection.SAISON_TEAMS),
+            "operation": "patch_one",
+            "document_id": ROW_OID,
+            "db_filter": None,
+            # A seat held as one string, as no write today stores it.
+            "before": {"_id": ROW_OID, "kontakte": {"trainer": "Ida Musterfrau", "ansprechperson": None, "stellvertretung": None}},
+            "modified_count": None,
+            "redacted_at": None,
+        }
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await database[Collection.AKTIONEN].insert_one(older)
+            response = await save(database, THREE)
+            answered = await answer(database, response.bestaetigungen[0].token, antwort="abgelehnt")
+
+            return answered, await row_now(database), await database[Collection.AKTIONEN].find_one({"_id": older["_id"]})
+
+        answered, row, kept = on_a_league(mongo_replica_set_url, body)
+
+        assert (answered.ergebnis, row["kontakte"]["trainer"]) == ("abgelehnt", None)
+        # Nothing in it is an address, so nothing in it is judged theirs.
+        assert (kept["before"], kept["redacted_at"]) == (older["before"], None)
 
     def test_a_second_answer_on_the_link_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
@@ -785,7 +890,7 @@ class TestTheLinkConfirms:
 
         view, row, other_row = on_a_league(mongo_replica_set_url, body, rows=[other])
 
-        assert (view.schule, view.vorname) == (TEAM_NAME, "Ida")
+        assert view.schule == TEAM_NAME
         assert row["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] == TODAY
         assert other_row["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] is None
 
@@ -870,18 +975,7 @@ class TestARowsPeopleLeavingTakeTheirLinks:
     def test_a_replaced_club_s_links_open_nothing_on_the_incoming_club_s_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, THREE)
-            await replace_saison_team(
-                team_id=TEAM_OID,
-                saison_id=SAISON_ID,
-                replacement_data=FLReplaceSaisonTeamPayload(incoming_team_id=INCOMING_TEAM_OID),
-                teams_collection=database[Collection.TEAMS],
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                saisons_collection=database[Collection.SAISONS],
-                spiele_collection=database[Collection.SPIELE],
-                saison_spieler_collection=database[Collection.SAISON_SPIELER],
-                db=database.client,
-                today=TODAY,
-            )
+            await replace(database)
 
             return [await refused(ansicht(database, mint.token)) for mint in response.bestaetigungen], await row_now(database)
 
@@ -905,14 +999,18 @@ class TestARowsPeopleLeavingTakeTheirLinks:
     def test_an_erased_person_s_link_opens_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, THREE)
-            await erase_kontaktperson(
-                erasure_data=FLKontaktErasurePayload.model_validate({"email": "jonas@example.com"}),
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                aktionen_collection=database[Collection.AKTIONEN],
-                db=database.client,
-                germany_now=NOW,
-            )
+            await erased(database, database.client, "jonas@example.com", germany_now=NOW)
+
+            return await refused(ansicht(database, response.bestaetigungen[1].token))
+
+        assert on_a_league(mongo_replica_set_url, body) == BEWERBUNG_TOKEN_UNKNOWN
+
+    def test_a_seat_emptied_beside_its_live_link_opens_nothing(self, mongo_replica_set_url: str):
+        """The state no route leaves and a hand edit can: the slot gone, its link live, no Widerspruch recorded."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            response = await save(database, THREE)
+            await database[Collection.SAISON_TEAMS].update_one({"_id": ROW_OID}, {"$set": {"kontakte.ansprechperson": None}})
 
             return await refused(ansicht(database, response.bestaetigungen[1].token))
 
@@ -1340,3 +1438,148 @@ class TestThePageASeasonRowsLinkOpens:
             return await ansicht(database, token)
 
         assert on_a_league(mongo_replica_set_url, body, kontakte=carried).laufende_fassung == BEWERBER_SEITE
+
+
+ACCEPTED_OID = ObjectId("6890a1b2c3d4e5f607a50041")
+
+
+def carried(vorname: str) -> dict[str, Any]:
+    """A seat its own person confirmed on the application, carried onto the row with who seated them."""
+
+    seat = stored(vorname, bestaetigt_am="2026-03-20")
+
+    return {**seat, "einwilligung": {**seat["einwilligung"], "eingetragen_von": "bewerbung"}}
+
+
+def accepted(kontakte: Mapping[str, Any]) -> dict[str, Any]:
+    """The application this team entered the season through, decided and kept for its retention."""
+
+    return documents.bewerbung_document(
+        ACCEPTED_OID,
+        SAISON_ID,
+        "angenommen",
+        kontakte=dict(kontakte),
+        eingereicht_am="2026-03-01",
+        team_id=TEAM_OID,
+        entscheidung={"getroffen_am": "2026-03-25", "von": ADMIN, "grund": None},
+    )
+
+
+async def the_application(database: AsyncDatabase) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """The accepted application and its log, oldest first."""
+
+    application = await database[Collection.BEWERBUNGEN].find_one({"_id": ACCEPTED_OID})
+    assert application is not None
+    log = database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN), "document_id": ACCEPTED_OID}).sort("_id", 1)
+
+    return application, await log.to_list(length=None)
+
+
+class TestTheReplacementTakesThemOffTheApplication:
+    """The row's page promises its people deletion at once when another club takes the place, and the application seated them first."""
+
+    def test_people_the_editor_reseated_leave_the_application_with_the_row(self, mongo_replica_set_url: str):
+        """Keep the application as it was and this fails: the page Ida was shown promised her deletion, and her number stays."""
+
+        copied = {
+            "trainer": carried("Ida"),
+            "ansprechperson": carried("Jonas"),
+            "stellvertretung": carried("Klara"),
+            "trainer_ist_zugleich": None,
+        }
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_one(accepted(copied))
+            # Ida and Klara swap seats, so each is seated afresh and Ida's link opens the row's page.
+            swapped = {
+                "trainer": person("Klara"),
+                "ansprechperson": person("Jonas"),
+                "stellvertretung": person("Ida"),
+                "trainer_ist_zugleich": None,
+            }
+            response = await save(database, swapped)
+            link = next(mint for mint in response.bestaetigungen if "stellvertretung" in mint.rollen)
+            view = await ansicht(database, link.token)
+            await replace(database)
+
+            return view, *await the_application(database)
+
+        view, application, log = on_a_league(mongo_replica_set_url, body, kontakte=copied)
+
+        assert view.laufende_fassung == SAISON_SEITE
+        assert [seat for seat in SEATS if application["kontakte"][seat] is not None] == []
+        assert log, "the clearing filed no image, so the log's assertion below proves nothing"
+        assert [vorname for vorname in ("ida", "jonas", "klara") if f"{vorname}@example.com" in str((application, log))] == []
+
+    def test_a_seat_a_pre_flow_application_carried_in_leaves_it_too(self, mongo_replica_set_url: str):
+        """Its seats entered the row unconfirmed and naming nobody as who seated them, so a re-send's link opens the row's page."""
+
+        applied = {
+            "trainer": documents.kontaktperson_document("Ida"),
+            "ansprechperson": documents.kontaktperson_document("Jonas"),
+            "stellvertretung": documents.kontaktperson_document("Klara"),
+            "trainer_ist_zugleich": None,
+        }
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_one(accepted(applied))
+            view = await ansicht(database, (await resend(database, "trainer")).bestaetigung.token)
+            await replace(database)
+
+            return view, *await the_application(database)
+
+        view, application, log = on_a_league(mongo_replica_set_url, body, kontakte=compose_kontakte_at_entry(kontakte=applied))
+
+        assert view.laufende_fassung == SAISON_SEITE
+        assert [seat for seat in SEATS if application["kontakte"][seat] is not None] == []
+        assert log and "ida@example.com" not in str((application, log))
+
+    def test_a_seat_whose_address_the_editor_corrected_leaves_it_by_name(self, mongo_replica_set_url: str):
+        """Match the application on the address alone and this fails: it still spells Ida's address as the club first typed it."""
+
+        applied = {
+            "trainer": {**carried("Ida"), "email": "ida@exmaple.com"},
+            "ansprechperson": carried("Jonas"),
+            "stellvertretung": carried("Klara"),
+            "trainer_ist_zugleich": None,
+        }
+        # The row as the editor left it: Ida's address corrected, and Jonas handed his seat to Lea.
+        row = {"trainer": carried("Ida"), "ansprechperson": carried("Lea"), "stellvertretung": carried("Klara"), "trainer_ist_zugleich": None}
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_one(accepted(applied))
+            await replace(database)
+
+            return await the_application(database)
+
+        application, log = on_a_league(mongo_replica_set_url, body, kontakte=row)
+
+        kontakte = application["kontakte"]
+        assert (kontakte["trainer"], kontakte["stellvertretung"]) == (None, None)
+        # Jonas left the row before the replacement, so he is nobody it takes out, there or in the log.
+        assert kontakte["ansprechperson"]["vorname"] == "Jonas"
+        assert [image["before"]["kontakte"]["ansprechperson"]["vorname"] for image in log] == ["Jonas"]
+        assert "ida@exmaple.com" not in str(log)
+
+    def test_a_seat_the_application_names_otherwise_leaves_its_log_by_address(self, mongo_replica_set_url: str):
+        """Redact the application's images by name alone and this fails: they spell Ida's name as the club first typed it."""
+
+        applied = {
+            "trainer": {**carried("Ida"), "vorname": "Ida-Marie"},
+            "ansprechperson": carried("Jonas"),
+            "stellvertretung": carried("Klara"),
+            "trainer_ist_zugleich": None,
+        }
+        row = {"trainer": carried("Ida"), "ansprechperson": carried("Jonas"), "stellvertretung": carried("Klara"), "trainer_ist_zugleich": None}
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_one(accepted(applied))
+            await replace(database)
+
+            return await the_application(database)
+
+        application, log = on_a_league(mongo_replica_set_url, body, kontakte=row)
+
+        assert application["kontakte"]["trainer"] is None
+        assert log, "the clearing filed no image, so the log's assertion below proves nothing"
+        assert "ida@example.com" not in str(log)

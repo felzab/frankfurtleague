@@ -18,7 +18,8 @@ doubleActions({ modules: ["/src/features/sperrliste/actions.ts"] });
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { AdminSperrlisteList } = await import("./AdminSperrlisteList.tsx");
 const { SPERRLISTE_CRUD_COPY } = await import("@/features/sperrliste/constants.ts");
-const { GESPERRTE_ADRESSE } = await import("@/features/berechtigungen/constants.ts");
+const { GELOESCHTE_PERSON, GESPERRTE_ADRESSE } = await import("@/features/berechtigungen/constants.ts");
+const { ERASED_ACTOR_MARKER } = await import("@/core/erasedActor.ts");
 
 /**
  * Two bans whose every field differs, so an assertion reaching a reason or an administrator cannot
@@ -93,6 +94,17 @@ describe("what a row of the ban list shows", () => {
     assert.equal(textOf(html, " ").split(GESPERRTE_ADRESSE).length - 1, 1, "the barred author is not named by state, or twice");
     assertLeerMarkup(html, GESPERRTE_ADRESSE);
     assert.deepEqual(addressesIn(html), [zweite.erstellt_von], "the row beside it lost its author");
+  });
+
+  /* An erasure leaves a marker naming nobody in the author's place, which printed as served reads as an address. */
+  it("names an administrator erased since by that state, and never as barred", () => {
+    const [erste, zweite] = SPERREN;
+    assert.ok(erste !== undefined && zweite !== undefined);
+    const html = listMarkup([{ ...erste, erstellt_von: ERASED_ACTOR_MARKER }, zweite]);
+
+    assertLeerMarkup(html, GELOESCHTE_PERSON);
+    assert.ok(!textOf(html, " ").includes(ERASED_ACTOR_MARKER), "the marker reached the page");
+    assert.ok(!textOf(html, " ").includes(GESPERRTE_ADRESSE), "an erased author reads as barred");
   });
 
   /* The whole point of the keyed hash: the banned address is stored nowhere a reader can reach, so

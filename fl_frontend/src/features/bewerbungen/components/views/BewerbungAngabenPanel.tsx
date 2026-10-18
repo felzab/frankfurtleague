@@ -19,6 +19,7 @@ import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { NewTabLink } from "@/shared/components/ui/NewTabLink";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { textLink } from "@/shared/components/ui/textLink";
 import { ExternalUrlSchema } from "@/shared/schemas";
@@ -42,13 +43,11 @@ function Website({ url }: { url: string | null }) {
   const safe = ExternalUrlSchema.safeParse(url);
 
   return safe.success ? (
-    <a
+    <NewTabLink
       href={safe.data}
-      target="_blank"
-      rel="noopener noreferrer"
       className={textLink()}>
       {url}
-    </a>
+    </NewTabLink>
   ) : (
     <span className="text-foreground-muted">{url}</span>
   );
@@ -268,7 +267,7 @@ export function BewerbungAngabenPanel({
             body={{
               lead: "Was die Schule sich wünscht und welche Zahlen sie schätzt.",
               points: [
-                { term: "Die Wunschfarbe", text: "bindet Dich zu nichts; die Trikotfarbe des Teams legst Du bei der Zusage fest." },
+                { term: "Die Wunschfarbe", text: "bindet Dich zu nichts: Die Trikotfarbe des Teams legst Du bei der Zusage fest." },
                 { term: "Der Wunschgegner", text: "ist frei eingetragen und muss keine Schule sein, die die Liga führt." },
               ],
             }}
@@ -282,7 +281,7 @@ export function BewerbungAngabenPanel({
             ) : (
               <span className="flex flex-row items-center gap-x-2">
                 {/* A ring rather than a filled disc, so Weiß reads as a colour instead of as a gap.
-                    The fill is the league's CI hex, which no theme token tracks. */}
+                    The fill is the palette's hex, which no theme token tracks. */}
                 <span
                   aria-hidden="true"
                   style={{ backgroundColor: trikotFarbeHex(trikot.wunschfarbe) }}

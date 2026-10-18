@@ -8,6 +8,7 @@ an arm reordered inside `scripts/lib/_lib.sh :: finish`.
 from __future__ import annotations
 
 import ast
+import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -138,6 +139,110 @@ def test_an_ending_reached_inside_a_worker_summarises_nothing() -> None:
     assert "the tool is missing" in output
     for statement in ("Green", "finding(s) in this run", "Refused after", "Crashed after"):
         assert statement not in output, f"a worker printed the {statement!r} statement"
+
+
+# A sourced file failing on its line 3, where the script sourcing it holds other text: the library
+# is such a file to every script, and a crash in it must not be reported against the caller.
+SOURCED: Final = (
+    "#!/usr/bin/env bash\nboom() {\n  false # the failing line\n}\nparted() {\n  false \\\n    with \\\n    arguments\n}\n"
+    # A comment ending in a backslash above the failing line, and one inside the command it ends:
+    # `scripts/lib/_lib.sh :: _on_err_trap`'s walk continues past neither.
+    "commented() {\n  # a comment whose last character is a backslash \\\n  false below the comment\n}\n"
+    "cut() {\n  false above \\\n  # the comment that ends it \\\n  true\n}\n"
+)
+
+
+def _crash(*body: str, sourced_text: str = SOURCED) -> tuple[int, str]:
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    with tempfile.TemporaryDirectory() as scratch:
+        sourced = write_shell(Path(scratch) / "sourced.sh", sourced_text)
+        script = "\n".join(("#!/usr/bin/env bash", f'source "{LIB.as_posix()}"', f'source "{sourced.as_posix()}"', *body, ""))
+        done = run_shell(BASH, write_shell(Path(scratch) / "caller.sh", script), env=base_env())
+    return done.returncode, done.stdout + done.stderr
+
+
+def test_a_crash_names_the_file_and_the_line_that_failed() -> None:
+    """Both as a statement fails and inside another trap, where `$BASH_COMMAND` still holds the command that trap interrupted."""
+    wrong: list[str] = []
+    for how, body, says in (
+        ("called", ("boom",), r"line 3:  false # the failing line$"),
+        ("inside an EXIT trap", ("trap boom EXIT", "true"), r"line 3:  false # the failing line$"),
+        # `parted` fails in a command continued over lines 6 to 8: whichever `$LINENO` names, that line
+        # alone is a fragment of the command.
+        ("continued over three lines", ("parted",), r"line [678]:  false with arguments$"),
+        ("below a comment ending in a backslash", ("commented",), r"line 12:  false below the comment$"),
+        ("continued into a comment ending in a backslash", ("cut",), r"line 1[56]:  false above # the comment that ends it$"),
+    ):
+        code, output = _crash(*body)
+        if code != 3:
+            wrong.append(f"{how}: exited {code}, and a crash exits 3")
+        if "sourced.sh failed" not in output or re.search(says, output, re.MULTILINE) is None:
+            wrong.append(f"{how}: the statement names another file or another command:\n{output}")
+    assert not wrong, "\n".join(wrong)
+
+
+# A sourced file entering the library's adopting helpers, each call on a line of its own: a crash a
+# helper raises itself names the line that called the library, in the file holding that line.
+ADOPTER: Final = """#!/usr/bin/env bash
+contradicted() {
+  adopt_section demo 2 10 0 0
+  adopt_ending 1
+}
+mangled() {
+  adopt_section demo 7 10 0 0
+}
+garbled() {
+  adopt_ending none
+}
+uncounted() {
+  adopt_section demo 4 ten 0 0
+}
+unclosed() {
+  section demo
+  adopt_section demo 2 10 0 0
+}
+"""
+
+
+def test_a_crash_a_library_helper_raises_names_the_line_that_called_it() -> None:
+    """`contradicted` is the load-bearing case: its crash is raised by a helper's helper, one frame further out."""
+    wrong: list[str] = []
+    for call, says in (
+        ("contradicted", "line 4:  a worker exited 1, and every section row it sent home carries no finding."),
+        ("mangled", "line 7:  adopt_section: rank 7 is outside 0-6."),
+        ("garbled", "line 10:  adopt_ending: 'none' is not an exit status."),
+        ("uncounted", "line 13:  adopt_section: 'ten' is not a count. Arguments: name rank ms findings [advisories]."),
+        ("unclosed", "line 17:  adopt_section: a section is still open. Call end_section first."),
+    ):
+        code, output = _crash(call, sourced_text=ADOPTER)
+        if code != 3:
+            wrong.append(f"{call}: exited {code}, and a crash exits 3")
+        if "sourced.sh failed" not in output or says not in output:
+            wrong.append(f"{call}: the statement names another file, line or message than {says!r}:\n{output}")
+    assert not wrong, "\n".join(wrong)
+
+
+def test_a_crash_inside_a_trap_names_its_command_when_the_script_was_started_by_a_relative_path() -> None:
+    """Inside a trap the file's own text is the only account of the command, read off a path given before the library's `cd`."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    script = "\n".join(
+        (
+            "#!/usr/bin/env bash",
+            f'source "{LIB.as_posix()}"',
+            "boom() {",
+            "  false in the trap",
+            "}",
+            "trap boom EXIT",
+            "true the interrupted command",
+            "",
+        )
+    )
+    with tempfile.TemporaryDirectory() as scratch:
+        write_shell(Path(scratch) / "caller.sh", script)
+        done = run_shell(BASH, Path("caller.sh"), env=base_env(), cwd=Path(scratch))
+    output = done.stdout + done.stderr
+    assert done.returncode == 3, f"exited {done.returncode}, and a crash exits 3:\n{output}"
+    assert re.search(r"^ *line 4:  false in the trap$", output, re.MULTILINE), f"the statement names another command:\n{output}"
 
 
 def test_every_exit_code_the_kernel_declares_is_reached_by_a_fixture() -> None:

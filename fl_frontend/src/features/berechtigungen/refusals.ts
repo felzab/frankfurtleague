@@ -1,6 +1,6 @@
 import { isRefusal } from "@/shared/utils/actionError";
 
-import { ADRESSE_GESPERRT, INHABER_GESPERRT, NUR_INHABER_ENTZIEHT } from "./constants";
+import { ADRESSE_GESPERRT, INHABER_GESPERRT, NACH_ERNENNUNG_NEU_ANMELDEN, NUR_INHABER_ENTZIEHT } from "./constants";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
@@ -30,7 +30,9 @@ export function mapEntziehenRefusal(error: unknown): { error?: string } | null {
       return { error: NUR_INHABER_ENTZIEHT };
     // An owner is demoted first and revoked after, which the repair names.
     case "REQ-BERECHTIGUNG-002":
-      return { error: "Einem Inhaber lässt sich der Zugang nicht entziehen. Stufe ihn zuerst zur Verwaltung herab." };
+      return {
+        error: "Einer Inhaberin oder einem Inhaber lässt sich der Zugang nicht entziehen. Stufe die Person zuerst zur Verwaltung herab.",
+      };
     case "REQ-BERECHTIGUNG-004":
       return { error: "Die Verwaltung braucht mindestens zwei Personen mit Zugang. Füge zuerst eine weitere hinzu." };
     default:
@@ -45,12 +47,15 @@ export function mapStufeRefusal(error: unknown): { error?: string } | null {
   switch (error.serverErrorCode) {
     // The acting owner was demoted while the page stood, another owner's demotion among the ways.
     case "REQ-BERECHTIGUNG-005":
-      return { error: "Die Stufe eines Zugangs ändern kann nur der Inhaber." };
+      return { error: `Die Stufe eines Zugangs ändern können nur Inhaberinnen und Inhaber. ${NACH_ERNENNUNG_NEU_ANMELDEN}` };
     case "REQ-BERECHTIGUNG-003":
       return { error: INHABER_GESPERRT };
     // The last owner's demotion, their own step-down included.
     case "REQ-BERECHTIGUNG-007":
-      return { error: "Die Verwaltung braucht mindestens einen Inhaber. Ernenne zuerst eine weitere Person zum Inhaber." };
+      return {
+        error:
+          "Die Verwaltung braucht mindestens eine Inhaberin oder einen Inhaber. Ernenne zuerst eine weitere Person zur Inhaberin oder zum Inhaber.",
+      };
     default:
       return null;
   }

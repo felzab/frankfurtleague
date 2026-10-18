@@ -52,7 +52,6 @@ const ANSICHT = {
   schule: "Lessing-Kolleg",
   rolle: "ansprechperson",
   zugleich_rolle: null,
-  vorname: "Käthe",
   text_version: LAUFEND,
   laufende_fassung: LAUFEND,
   mindestalter: 18,
@@ -152,9 +151,38 @@ describe("the contact seat's confirmation handler", () => {
     assert.deepEqual(answer.body, { success: false, fieldErrors: { geburtsdatum: alterAusserhalb(18) } });
   });
 
-  /* Spends nothing, as the age refusal does: the form stays, and the sentence names the switch that repairs it. */
-  it("answers the media refusal with its own sentence, keeping the form", async () => {
+  /* A view that could not be read serves no floor, and one of the handler's own would be wrong for a
+     Vertretung seat, which asks a higher one than the Trainer's. */
+  it("puts the age refusal on the date naming no age where the link's view cannot be read", async () => {
+    schreibAntwort = () => aRefusal("REQ-BEWERBUNG-012");
+    ansichtAntwort = () => new Error("the view went unanswered");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, {
+      success: false,
+      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du für Deine Bestätigung zu jung oder zu alt." },
+    });
+  });
+
+  /* Spends nothing, as the age refusal does: the form stays, and the sentence names the switch that repairs
+     it and the floor the link's view serves, 21 being no floor served today. */
+  it("answers the media refusal at the media floor the link's view serves, keeping the form", async () => {
     schreibAntwort = () => aRefusal("REQ-EINWILLIGUNG-002");
+    ansichtAntwort = () => ({ ...ANSICHT, medien_mindestalter: 21 });
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, {
+      success: false,
+      error: "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben. Schalte die Erlaubnis aus und bestätige erneut.",
+    });
+  });
+
+  /* A view that could not be read serves no floor, and a number of the handler's own could name the wrong one. */
+  it("answers the media refusal naming no age where the link's view cannot be read", async () => {
+    schreibAntwort = () => aRefusal("REQ-EINWILLIGUNG-002");
+    ansichtAntwort = () => new Error("the view went unanswered");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
@@ -185,7 +213,7 @@ describe("the contact seat's confirmation handler", () => {
      link's state read afresh and never a guessed „bestätigt“. */
   it("answers a seat already answered with the state the link's view now reads", async () => {
     schreibAntwort = () => aRefusal("REQ-BEWERBUNG-011");
-    ansichtAntwort = () => ({ ...ANSICHT, zustand: "abgelehnt", vorname: null });
+    ansichtAntwort = () => ({ ...ANSICHT, zustand: "abgelehnt", text_version: null });
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 

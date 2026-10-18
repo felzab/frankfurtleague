@@ -17,10 +17,12 @@ import pytest
 from bson import ObjectId
 from fastapi import FastAPI
 from pymongo import AsyncMongoClient
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.berechtigungen.admin_router import delete_berechtigung, get_berechtigungen, patch_berechtigung, post_berechtigung
+from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
 from app.api.berechtigungen.schemas import (
     FLBerechtigungAbgleichResponse,
     FLBerechtigungAngekuendigtPayload,
@@ -46,7 +48,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD, WritesSent, writes_sent_var
 from app.core.exceptions import ActorForbiddenException, DocumentNotFoundException, WriteRefusalException
-from app.core.recording import SYSTEM_ACTOR, Actor, actor_var
+from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR, Actor, actor_var
 from app.core.security import ACTOR_HEADER, ACTOR_NOT_ADMIN, ACTOR_TOKEN_REFUSED, admin_judge, get_grant_lookup
 from app.core.transactions import actor_judge_var
 from app.main import create_app
@@ -184,6 +186,7 @@ async def grant(
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
             sperrliste=ban_list(database),
+            adressanker_collection=database[Collection.ADRESSANKER],
             db=client,
             erteilt_von=als,
             now=now,
@@ -411,6 +414,7 @@ class TestTheOutboxMovesWithItsChange:
                         AsyncCollection, Aborting(database[Collection.BERECHTIGUNGEN_POSTAUSGANG], "insert_one")
                     ),
                     sperrliste=ban_list(database),
+                    adressanker_collection=database[Collection.ADRESSANKER],
                     db=client,
                     erteilt_von=ANNA,
                     now=NOW,
@@ -1248,7 +1252,10 @@ class TestTheClaim:
         assert rows and all(NEU not in str(row) for row in rows)
 
     def test_a_barred_acting_administrator_is_withheld_while_the_change_stays_the_applications(self, mongo_replica_set_url: str):
-        """Withheld and flagged, `urheber` still `anwendung`: a barred actor never reads as a database edit."""
+        """Withheld and flagged, `urheber` still `anwendung`: a barred actor never reads as a database edit.
+
+        `gesperrt` is the grant address's alone, so the grant ANNA made reads it false beside her flag.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str, str | None, bool, str, bool]]:
             await told(database, client)
@@ -1262,9 +1269,48 @@ class TestTheClaim:
             ]
 
         assert on_a_league(mongo_replica_set_url, body) == [
-            ("erteilt", None, True, "anwendung", True),
+            ("erteilt", None, True, "anwendung", False),
             ("entzogen", OWNER, False, "anwendung", True),
         ]
+
+    def test_a_ban_entered_here_on_a_notices_actor_stores_no_reason_for_its_grant(self, mongo_replica_set_url: str):
+        """The route's own withholding, where the case above seeds its ban: the stored reason is the grant address's alone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str, Any, Any, bool, bool]]:
+            await told(database, client)
+            await grant(database, client, als=ANNA)
+            await revoke(database, client, ANNA_ID)
+            await ban(database, client, ANNA, als=BERND)
+            stored = await queued(database)
+            answer = await claimed(database, client)
+
+            return [
+                (row["art"], row["geaendert_von"], row["vorenthalten"], change.gesperrt, change.geaendert_von_gesperrt)
+                for row, change in zip(stored, answer.aenderungen, strict=True)
+            ]
+
+        assert on_a_league(mongo_replica_set_url, body) == [
+            ("erteilt", None, None, False, True),
+            ("entzogen", OWNER, "gesperrt", True, False),
+        ]
+
+    def test_a_reason_stored_beside_a_present_grant_address_answers_no_flag(self, mongo_replica_set_url: str):
+        """A `gesperrt` stored beside a present grant address explains nothing of that grant, whichever write left it there."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[Any, bool, bool, bool]]:
+            await told(database, client)
+            stand = FLBerechtigungStand(adresse=NEU, verwaltung="administration")
+            row = compose_postausgang(
+                berechtigung_id=ObjectId(), art="erteilt", jetzt=stand, vorher=None, geaendert_von=ANNA, now=NOW, gesperrt={ANNA}
+            )
+            await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].insert_one({**row, "vorenthalten": "gesperrt"})
+
+            return [
+                (change.jetzt.adresse if change.jetzt else None, change.gesperrt, change.geloescht, change.geaendert_von_gesperrt)
+                for change in (await claimed(database, client)).aenderungen
+            ]
+
+        assert on_a_league(mongo_replica_set_url, body) == [(NEU, False, False, True)]
 
     def test_an_address_repointed_in_the_database_is_announced_as_one_removal_and_one_grant(self, mongo_replica_set_url: str):
         """One id, a new address: every notice names whose access ended as well as whose began, and a second claim finds nothing."""
@@ -1295,6 +1341,57 @@ class TestTheClaim:
             (BERND_ID, "erteilt", "datenbank", None, False, NEU, None),
         ]
         assert later == []
+
+    def test_an_erased_holders_notices_are_answered_as_erased_and_never_as_barred(self, mongo_replica_set_url: str):
+        """Her grant's end withheld under `geloescht`, the grant she made by the marker: no flag says barred.
+
+        The served contract is `docs/backend/spec.md :: I661`.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[tuple[Any, ...]], str]:
+            await told(database, client)
+            await grant(database, client, als=ANNA)
+
+            async def step(session: AsyncClientSession) -> Any:
+                return await erase_grants_and_authorship_in_session(
+                    berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+                    berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                    berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+                    bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                    registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+                    einladungen_collection=database[Collection.EINLADUNGEN],
+                    sperrliste_collection=database[Collection.SPERRLISTE],
+                    sperrliste=ban_list(database),
+                    identifier=ANNA,
+                    geaendert_von=OWNER,
+                    now=NOW,
+                    session=session,
+                )
+
+            async with client.start_session() as session:
+                await session.with_transaction(step)
+            answer = await claimed(database, client)
+
+            return [
+                (
+                    change.art,
+                    change.jetzt.adresse if change.jetzt else None,
+                    change.vorher.adresse if change.vorher else None,
+                    change.geaendert_von,
+                    change.geaendert_von_gesperrt,
+                    change.gesperrt,
+                    change.geloescht,
+                )
+                for change in answer.aenderungen
+            ], answer.model_dump_json()
+
+        changes, served = on_a_league(mongo_replica_set_url, body)
+
+        assert changes == [
+            ("erteilt", NEU, None, ERASED_ACTOR_MARKER, False, False, False),
+            ("entzogen", None, None, OWNER, False, False, True),
+        ]
+        assert ANNA not in served
 
 
 async def gefunden_am(database: AsyncDatabase) -> dict[ObjectId, Any]:

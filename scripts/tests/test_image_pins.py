@@ -2,8 +2,7 @@
 
 A tag alone is a pointer its publisher can move, and no build or pull says when it has. Nothing
 else reads the pin form: a reference losing its digest in a hand edit, or a service added without
-one, builds and deploys as before, from an image no pull request reviewed. The frontend's db tier
-is the one reference named by tag alone, for the library reason at its case.
+one, builds and deploys as before, from an image no pull request reviewed.
 """
 
 from __future__ import annotations
@@ -146,7 +145,7 @@ def test_the_copy_of_the_local_database_runs_the_local_stack_s_mongo() -> None:
 def test_the_backend_db_tier_runs_the_local_stack_s_mongo() -> None:
     """Dependabot's compose ecosystem moves the stack alone, and no ecosystem reads the conftest's string.
 
-    The frontend's tier follows through its own case, which holds its tag to this pin.
+    The frontend's tier follows through its own case, which holds its image to this pin.
     """
     stack = _local_stack_mongo()
     _, tier = script_references()["fl_backend/tests/conftest.py:mongo"]
@@ -186,9 +185,6 @@ def test_the_edge_s_nginx_is_a_release_with_the_control_api() -> None:
     assert tuple(int(part) for part in release.groups()) >= CONTROL_API_FLOOR, f"{edge[0]} predates the Control API's 1.31.5"
 
 
-# The one reference with no digest: testcontainers-node's `ImageName` keeps a digest as its tag
-# (`testcontainers/build/container-runtime/image-name.js`), so `MongoDBContainer.isV5OrLater` reads
-# no version and waits on the `mongo` shell MongoDB 8 does not ship.
 FRONTEND: Final = REPO_ROOT / "fl_frontend"
 BACKEND: Final = REPO_ROOT / "fl_backend"
 # Counted by the string naming the image, never by its file or the call it is handed to: a start
@@ -219,15 +215,17 @@ def mongo_images(sources: list[Path], pattern: re.Pattern[str], group: int) -> l
     ]
 
 
-def test_the_frontend_db_tier_names_the_backend_pin_s_release_by_tag_alone() -> None:
-    """A second release under the frontend's tier runs its db tests against a server the backend's never meets."""
+def test_the_frontend_db_tier_names_the_backend_pin() -> None:
+    """Another image under the frontend's tier runs its db tests against a server the backend's never meets.
+
+    No ecosystem reads either string, so this case is what holds the two together, digest included.
+    """
     _, backend = script_references()["fl_backend/tests/conftest.py:mongo"]
-    release = backend.split("@", 1)[0]
     images = mongo_images(sources_under(FRONTEND, FRONTEND_SUFFIXES), MONGO_LITERAL_RE, 2)
 
-    # One place, so a second server cannot run another release where no case reads it.
+    # One place, so a second server cannot run another image where no case reads it.
     assert len(images) == 1, f"the frontend names a mongo image at {images}, where the case reads exactly one"
-    assert images[0][1] == release, f"{images[0][0]} names {images[0][1]}, where it is to name `{release}` alone"
+    assert images[0][1] == backend, f"{images[0][0]} names {images[0][1]}, where it is to name `{backend}`"
 
 
 def test_the_backend_names_its_mongo_image_only_where_its_pin_is_read() -> None:

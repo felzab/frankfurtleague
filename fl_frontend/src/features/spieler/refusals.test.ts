@@ -3,9 +3,16 @@ import { describe, it } from "node:test";
 
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachAnswered, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
-import { mapAlreadyInSaisonRefusal, mapErasureRefusal, mapSquadRefusal } from "./refusals.ts";
+import { ADRESSE_AENDERN } from "./constants.ts";
+import {
+  KEINE_ADRESSE_HINTERLEGT,
+  mapAdresswechselAntragRefusal,
+  mapAdresswechselLinkRefusal,
+  mapAlreadyInSaisonRefusal,
+  mapSquadRefusal,
+} from "./refusals.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -13,10 +20,12 @@ import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
    doubles. A file of its own, `actions.test.ts` replacing this slice's actions module for the components it renders. */
 doubleActionRequest();
 const { answerWith, calls } = doubleApiAnswers();
+const { SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_ADRESSE_GESPERRT_FELD } = await import("@/features/sperrliste/constants.ts");
 const {
+  beantrageSpielerAdresswechselAction,
   deleteSaisonSpielerAction,
   deleteSpielerAction,
-  eraseSpielerAction,
+  einladeSpielerAdresswechselAction,
   patchSaisonSpielerAction,
   patchSpielerAction,
   postSaisonSpielerAction,
@@ -24,10 +33,11 @@ const {
   reactivateSpielerAction,
 } = await import("./actions.ts");
 
-const ERASURE_OPERATION = "DELETE /spieler/{spieler_id}/erasure";
 const ENTRY_OPERATION = "POST /spieler/{spieler_id}/saisons";
 const SQUAD_PATCH_OPERATION = "PATCH /spieler/{spieler_id}/saisons/{saison_id}";
 const REACTIVATE_ROW_OPERATION = "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate";
+const REQUEST_OPERATION = "POST /spieler/{spieler_id}/adresswechsel";
+const RESEND_OPERATION = "POST /spieler/{spieler_id}/adresswechsel/einladen";
 
 const KEY = { spieler_id: "68c1f0a2b3c4d5e6f7a8b9c0", saison_id: "2026" };
 
@@ -36,7 +46,6 @@ const ROW = { ...KEY, team_id: "6890a1b2c3d4e5f607182932", nummer: null, positio
 
 /** Each write's answer as the backend sends it where the write landed. */
 function landed({ endpoint }: ApiCall): Record<string, unknown> {
-  if (endpoint.endsWith("/erasure")) return { acknowledged: 1, spieler_id: KEY.spieler_id, erased_saison_spieler: 1, redacted_aktionen: 2 };
   if (endpoint.includes("/saisons")) return { acknowledged: 1, ...ROW, ist_nachnominiert: false, inactive_since: null };
   return { acknowledged: 1, spieler_id: KEY.spieler_id, vorname: "Lena", nachname: null, inactive_since: null };
 }
@@ -50,7 +59,6 @@ describe("the player's writes", () => {
     await patchSpielerAction({ id: KEY.spieler_id, ...person });
     await deleteSpielerAction({ id: KEY.spieler_id });
     await reactivateSpielerAction({ id: KEY.spieler_id });
-    await eraseSpielerAction({ id: KEY.spieler_id });
     await postSaisonSpielerAction({ ...KEY, ...squad });
     await patchSaisonSpielerAction({ ...KEY, ...squad });
     await deleteSaisonSpielerAction(KEY);
@@ -62,7 +70,6 @@ describe("the player's writes", () => {
       { endpoint: personPath, method: "PATCH", body: person },
       { endpoint: personPath, method: "DELETE", body: undefined },
       { endpoint: `${personPath}/reactivate`, method: "POST", body: undefined },
-      { endpoint: `${personPath}/erasure`, method: "DELETE", body: undefined },
       { endpoint: `${personPath}/saisons`, method: "POST", body: { saison_id: KEY.saison_id, ...squad } },
       { endpoint: rowPath, method: "PATCH", body: squad },
       { endpoint: rowPath, method: "DELETE", body: undefined },
@@ -72,17 +79,6 @@ describe("the player's writes", () => {
 });
 
 describe("what each squad write answers a refusal with", () => {
-  /* The squad mapper answers the same 409 status. Asked by the erasure, a squad code would be reported
-     about a person nobody was entering. */
-  it("answers the erasure's refusals with the erasure's own mapper", async () => {
-    await assertEachAnswered({
-      operation: ERASURE_OPERATION,
-      refuseWith: answerWith,
-      act: () => eraseSpielerAction({ id: KEY.spieler_id }),
-      mapped: mapErasureRefusal,
-    });
-  });
-
   /* The squad's rules first and the junction's unique index after, so a repeat row — which the index
      finds among retired ones too — is the sentence left once the rules are ruled out. */
   it("answers the entry's refusals, the squad's rules before the unique index", async () => {
@@ -109,5 +105,52 @@ describe("what each squad write answers a refusal with", () => {
       act: () => reactivateSaisonSpielerAction(KEY),
       mapped: mapSquadRefusal,
     });
+  });
+});
+
+describe("what each address write answers a refusal with", () => {
+  it("answers the request's refusals with the request's own mapper", async () => {
+    await assertEachAnswered({
+      operation: REQUEST_OPERATION,
+      refuseWith: answerWith,
+      act: () => beantrageSpielerAdresswechselAction({ id: KEY.spieler_id, email: "lena@neu.example" }),
+      mapped: mapAdresswechselAntragRefusal,
+    });
+  });
+
+  it("answers the re-send's refusals with the pending change's mapper", async () => {
+    await assertEachAnswered({
+      operation: RESEND_OPERATION,
+      refuseWith: answerWith,
+      act: () => einladeSpielerAdresswechselAction({ id: KEY.spieler_id }),
+      mapped: mapAdresswechselLinkRefusal,
+    });
+  });
+
+  /* The address's own refusals land on the box holding it. The ban's sentence is the ban list's, for
+     the administrator who keeps the list, and under the box names only the way out the box cannot
+     offer. */
+  for (const [code, satz, feld] of [
+    ["REQ-SPIELER-003", SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_ADRESSE_GESPERRT_FELD],
+    [
+      "REQ-SPIELER-006",
+      "Diese Adresse ist schon bei einer anderen Spielerin oder einem anderen Spieler hinterlegt.",
+      "Diese Adresse ist schon bei einer anderen Spielerin oder einem anderen Spieler hinterlegt.",
+    ],
+    ["REQ-SPIELER-007", "Das ist schon die hinterlegte Adresse.", "Das ist schon die hinterlegte Adresse."],
+  ] as const) {
+    it(`lands the request's ${code} on the address box`, () => {
+      assert.deepEqual(mapAdresswechselAntragRefusal(refusedOn(REQUEST_OPERATION, code)), { error: satz, fieldErrors: { email: feld } });
+    });
+  }
+
+  /* The waiting change's panel has no box, so its refusal sends the administrator to the press that opens one, by that press's label. */
+  it("names the address box's own press where a pending address is taken", () => {
+    assert.match(mapAdresswechselLinkRefusal(refusedOn(RESEND_OPERATION, "REQ-SPIELER-006")) ?? "", new RegExp(`„${ADRESSE_AENDERN}“`));
+  });
+
+  /* No box stands for a pupil holding no address, so only a stale page meets this. */
+  it("lands the request's REQ-SPIELER-008 on no box", () => {
+    assert.deepEqual(mapAdresswechselAntragRefusal(refusedOn(REQUEST_OPERATION, "REQ-SPIELER-008")), { error: KEINE_ADRESSE_HINTERLEGT });
   });
 });

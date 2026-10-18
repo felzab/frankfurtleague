@@ -13,6 +13,7 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import ts from "typescript";
 
+import { JA_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -43,8 +44,8 @@ const { BewerbungForm } = await import("@/features/bewerbungen/components/forms/
 const { BestaetigungFormPanel } = await import("@/features/bewerbungen/components/views/BestaetigungFormPanel.tsx");
 const { BestaetigungSaisonVorbei } = await import("@/features/bewerbungen/components/views/BestaetigungSaisonVorbei.tsx");
 const { SchiedsrichterBestaetigungView } = await import("@/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx");
-const { JA_MEINE_ADRESSE, SchiedsrichterAdresswechselView } =
-  await import("@/features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.tsx");
+const { SchiedsrichterAdresswechselView } = await import("@/features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.tsx");
+const { SpielerAdresswechselView } = await import("@/features/spieler/components/views/SpielerAdresswechselView.tsx");
 const { CodeStep } = await import("@/features/auth/components/forms/CodeStep.tsx");
 const { RegistrierungFormPanel } = await import("@/features/registrierungen/components/views/RegistrierungFormPanel.tsx");
 const { SpielerBestaetigungView } = await import("@/features/registrierungen/components/views/SpielerBestaetigungView.tsx");
@@ -292,7 +293,6 @@ const FORMS: Record<string, PublicForm> = {
       h(BestaetigungFormPanel, {
         fassung: laufendeKontaktFassung(),
         token: "kein-echtes-token",
-        vorname: "Mira",
         schule: "Lessing-Kolleg",
         saison: "2026",
         rolle: "Ansprechperson",
@@ -317,7 +317,6 @@ const FORMS: Record<string, PublicForm> = {
           schule: "Lessing-Kolleg",
           rolle: "ansprechperson",
           zugleich_rolle: null,
-          vorname: "Mira",
           text_version: laufendeKontaktFassung().textVersion,
           laufende_fassung: laufendeKontaktFassung().textVersion,
           mindestalter: 18,
@@ -339,7 +338,6 @@ const FORMS: Record<string, PublicForm> = {
           ansicht: {
             acknowledged: 1,
             zustand: "gueltig",
-            vorname: "Anna",
             text_version: SCHIEDSRICHTER.textVersion,
             mindestalter: 16,
             medien_mindestalter: 18,
@@ -358,8 +356,13 @@ const FORMS: Record<string, PublicForm> = {
   "the referee's address page": {
     module: "features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.tsx",
     route: "/api/bestaetigung/schiedsrichter/adresse",
-    render: () =>
-      h(SchiedsrichterAdresswechselView, { start: { zustand: "gueltig", vorname: "Anna", frist: "2026-10-05", token: "kein-echtes-token" } }),
+    render: () => h(SchiedsrichterAdresswechselView, { start: { zustand: "gueltig", frist: "2026-10-05", token: "kein-echtes-token" } }),
+    submit: (user) => user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE })),
+  },
+  "the pupil's address page": {
+    module: "features/spieler/components/views/SpielerAdresswechselView.tsx",
+    route: "/api/bestaetigung/spieler/adresse",
+    render: () => h(SpielerAdresswechselView, { start: { zustand: "gueltig", frist: "2026-10-05", token: "kein-echtes-token" } }),
     submit: (user) => user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE })),
   },
   // The sixth digit sends the check by itself.
@@ -420,7 +423,6 @@ const FORMS: Record<string, PublicForm> = {
             team: "Lessing-Kolleg",
             schule: "Lessing-Kolleg Oberstufengymnasium",
             saison_id: "2026",
-            vorname: "Mira",
             seite: SPIELER.seite,
             mindestalter: 16,
             medien_mindestalter: 18,

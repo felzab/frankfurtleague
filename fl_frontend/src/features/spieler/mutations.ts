@@ -4,13 +4,14 @@ import {
   FLKaderZeileResponseSchema,
   FLSaisonSpielerResponseSchema,
   FLSpielerAdminSingleResponseSchema,
-  FLSpielerErasureResponseSchema,
+  FLSpielerAdresswechselAnsichtResponseSchema,
+  FLSpielerAdresswechselAntwortResponseSchema,
+  FLSpielerAdresswechselMintResponseSchema,
   FLSpielerSelbstEinwilligungResponseSchema,
 } from "./schemas";
 
 import type {
   FLDeleteSpielerPayload,
-  FLEraseSpielerPayload,
   FLKaderZeileKeyPayload,
   FLKaderZeileResponse,
   FLPatchKaderZeilePayload,
@@ -21,7 +22,14 @@ import type {
   FLSaisonSpielerKeyPayload,
   FLSaisonSpielerResponse,
   FLSpielerAdminSingleResponse,
-  FLSpielerErasureResponse,
+  FLSpielerAdresswechselAnsichtPayload,
+  FLSpielerAdresswechselAnsichtResponse,
+  FLSpielerAdresswechselAntwortPayload,
+  FLSpielerAdresswechselAntwortResponse,
+  FLSpielerAdresswechselEinladenPayload,
+  FLSpielerAdresswechselMintResponse,
+  FLSpielerAdresswechselPayload,
+  FLSpielerAdresswechselVerwerfenPayload,
   FLSpielerSelbstEinwilligungPayload,
   FLSpielerSelbstEinwilligungResponse,
 } from "./schemas";
@@ -47,15 +55,6 @@ export async function deleteSpieler({ id }: FLDeleteSpielerPayload): Promise<FLS
 export async function reactivateSpieler({ id }: FLReactivateSpielerPayload): Promise<FLSpielerAdminSingleResponse> {
   return apiClient<FLSpielerAdminSingleResponse>(`/spieler/${id}/reactivate`, FLSpielerAdminSingleResponseSchema, {
     method: "POST",
-    authType: "admin",
-  });
-}
-
-// HARD, where `deleteSpieler` above is soft: the person, every squad row they hold and their values
-// in the log all go, in one transaction. Refused until they are retired (`REQ-PURGE-001`).
-export async function eraseSpieler({ id }: FLEraseSpielerPayload): Promise<FLSpielerErasureResponse> {
-  return apiClient<FLSpielerErasureResponse>(`/spieler/${id}/erasure`, FLSpielerErasureResponseSchema, {
-    method: "DELETE",
     authType: "admin",
   });
 }
@@ -108,6 +107,59 @@ export async function deleteKaderZeile({ team_id, saison_id, spieler_id }: FLKad
   return apiClient<FLKaderZeileResponse>(`/spieler/kader/${team_id}/${saison_id}/${spieler_id}`, FLKaderZeileResponseSchema, {
     method: "DELETE",
     authType: "admin",
+  });
+}
+
+// Writes the whole pending block, so a link minted before stops working at once; the stored address
+// stays in force until the new mailbox confirms.
+export async function beantrageSpielerAdresswechsel({
+  id,
+  ...body
+}: FLSpielerAdresswechselPayload): Promise<FLSpielerAdresswechselMintResponse> {
+  return apiClient<FLSpielerAdresswechselMintResponse>(`/spieler/${id}/adresswechsel`, FLSpielerAdresswechselMintResponseSchema, {
+    method: "POST",
+    authType: "admin",
+    body: JSON.stringify(body),
+  });
+}
+
+// Replaces the pending block but its address, so the previous address link stops working at once.
+export async function einladeSpielerAdresswechsel({ id }: FLSpielerAdresswechselEinladenPayload): Promise<FLSpielerAdresswechselMintResponse> {
+  return apiClient<FLSpielerAdresswechselMintResponse>(`/spieler/${id}/adresswechsel/einladen`, FLSpielerAdresswechselMintResponseSchema, {
+    method: "POST",
+    authType: "admin",
+  });
+}
+
+// The stored address stays; the pending one and its link go.
+export async function verwirfSpielerAdresswechsel({ id }: FLSpielerAdresswechselVerwerfenPayload): Promise<FLSpielerAdminSingleResponse> {
+  return apiClient<FLSpielerAdminSingleResponse>(`/spieler/${id}/adresswechsel`, FLSpielerAdminSingleResponseSchema, {
+    method: "DELETE",
+    authType: "admin",
+  });
+}
+
+/** A POST that reads: the token is the credential, and a GET would put it in a query string the backend's route template does not redact. */
+export async function postSpielerAdresswechselAnsicht(
+  payload: FLSpielerAdresswechselAnsichtPayload,
+): Promise<FLSpielerAdresswechselAnsichtResponse> {
+  return apiClient<FLSpielerAdresswechselAnsichtResponse>("/spieler/adresswechsel/ansicht", FLSpielerAdresswechselAnsichtResponseSchema, {
+    method: "POST",
+    readOnly: true,
+    authType: "base",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * The mailbox's own answer. `base`, not `admin`: the token in the body is the whole authorization,
+ * and an admin key on this call would make the public page a route into the admin tier.
+ */
+export async function postSpielerAdresswechsel(payload: FLSpielerAdresswechselAntwortPayload): Promise<FLSpielerAdresswechselAntwortResponse> {
+  return apiClient<FLSpielerAdresswechselAntwortResponse>("/spieler/adresswechsel", FLSpielerAdresswechselAntwortResponseSchema, {
+    method: "POST",
+    authType: "base",
+    body: JSON.stringify(payload),
   });
 }
 

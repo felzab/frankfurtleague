@@ -102,6 +102,9 @@ function target(place: Place): HTMLElement | null {
  */
 export function focusAfterWrite(anchor: Element | null = document.activeElement): { landed: () => void } {
   const place = anchor === null ? null : placeOf(anchor);
+  // The page's path, read with the place: a back button or a toast's navigation leaves with no key or press,
+  // and the next page's heading is no landing. A filter's write moves the query alone.
+  const path = window.location.pathname;
 
   return {
     landed: () => {
@@ -111,6 +114,10 @@ export function focusAfterWrite(anchor: Element | null = document.activeElement)
       let landedOn: HTMLElement | null = null;
       let placing = false;
       const land = (): void => {
+        if (window.location.pathname !== path) {
+          stop();
+          return;
+        }
         const active = document.activeElement;
         if (anchor.isConnected || (active !== null && active === landedOn)) return;
         // A focus held outside the control's sections stays, as a closing dialog's does. One inside them
@@ -123,7 +130,6 @@ export function focusAfterWrite(anchor: Element | null = document.activeElement)
         landedOn?.focus();
         placing = false;
       };
-      land();
 
       // Watched until the reader acts rather than to the first landing: the refresh carrying the write's
       // result commits after the action answers, and a keyed editor's draws the landed control anew.
@@ -154,6 +160,9 @@ export function focusAfterWrite(anchor: Element | null = document.activeElement)
       document.addEventListener("pointerdown", stop, true);
       document.addEventListener("focusin", moved, true);
       armed = stop;
+      // Last, so a write answering after the reader left tears down everything it armed; the focus the
+      // landing places itself is passed over by `placing`.
+      land();
     },
   };
 }

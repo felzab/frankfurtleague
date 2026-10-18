@@ -14,6 +14,7 @@ from app.api.konto.services import (
     compose_person_move,
     compose_spieler_selbst,
     find_eigener_eintrag_refusal,
+    widerruf_line,
 )
 from app.api.spieler.schemas import (
     FLSpielerSelbstEinwilligungPayload,
@@ -21,7 +22,8 @@ from app.api.spieler.schemas import (
     FLSpielerSelbstResponse,
 )
 from app.api.spieler.services import build_selbst_pupil_filter, build_selbst_pupil_pipeline
-from app.core.config import API_VERSION
+from app.core.collections import Collection
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
     DBClient,
@@ -30,8 +32,9 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.drosselung import Drossel
+from app.core.journal import Journal
 from app.core.recording import log_stamp
-from app.core.security import PERSON_ACTOR_BINDERS, SpielerIdentifier, verify_access_admin
+from app.core.security import PERSON_ACTOR_BINDERS, SpielerIdentifier, loeschung_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 
@@ -75,6 +78,7 @@ async def patch_einwilligung(
     records: SubjektLookup,
     db: DBClient,
     drossel: Drossel,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLSpielerSelbstEinwilligungResponse:
@@ -100,7 +104,11 @@ async def patch_einwilligung(
 
     eigener_eintrag = build_selbst_pupil_filter(identifier)
     gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
+    # One instant for the evidence and its journal line, so a replay stamps the moment the person pressed.
+    am = log_stamp(germany_now)
+    journal = Journal()
 
+    @journal.attempted
     async def write(session: AsyncClientSession) -> FLSpielerSelbstEinwilligungResponse:
         row = await spieler_collection.find_one(eigener_eintrag, projection={"einwilligung": 1, "geburtsdatum": 1}, session=session)
         refuse(find_eigener_eintrag_refusal(gehalten=row is not None and ist_eigener_spieler(row)))
@@ -122,9 +130,7 @@ async def patch_einwilligung(
             today=today,
         )
 
-        update = compose_person_move(
-            gespeichert=gespeichert, gewaehlt=gewaehlt, am=log_stamp(germany_now), text_version=einwilligung_data.text_version
-        )
+        update = compose_person_move(gespeichert=gespeichert, gewaehlt=gewaehlt, am=am, text_version=einwilligung_data.text_version)
         updated = (
             None
             if update is None
@@ -136,6 +142,17 @@ async def patch_einwilligung(
                 return_document=ReturnDocument.AFTER,
             )
         )
+        line = widerruf_line(
+            person_hash=loeschung_journal_hash(identifier, schluessel=config.sperrliste_schluessel),
+            collection=Collection.SPIELER,
+            record_id=row["_id"],
+            bloecke=[gespeichert],
+            gewaehlt=gewaehlt,
+            am=am,
+            text_version=einwilligung_data.text_version,
+        )
+        if line is not None:
+            journal.note(line)
         # A press moving neither choice is no act, so nothing was written and the record answers as stored.
         einwilligung = gespeichert if updated is None else updated["einwilligung"]
 
@@ -143,5 +160,6 @@ async def patch_einwilligung(
             {"spieler_id": row["_id"], "einwilligung": einwilligung, "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung])}
         )
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(write)
+    async with journal:
+        async with transaction_session(db) as session:
+            return await session.with_transaction(write)

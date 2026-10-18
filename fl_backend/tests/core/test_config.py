@@ -527,14 +527,18 @@ class TestALineASecretFileReplaced:
 
         refused = refusal(monkeypatch, tmp_path)
 
-        assert refused == f"Invalid environment variables: {', '.join(sorted(LEFT_BEHIND))}"
+        # Each credential is a field of the settings, so it is named; the retired list is no field,
+        # and it is numbered as any other name the file alone spells.
+        credentials = sorted(name for name in LEFT_BEHIND if name != "ALLOWED_ADMIN_EMAILS")
+        listed = LEFT_BEHIND.index("ALLOWED_ADMIN_EMAILS") + 1
+        assert refused == f"Invalid environment variables: {', '.join(credentials)}; Undeclared environment variables on 1 line(s): {listed}"
         assert marker not in refused
 
     def test_a_misspelling_of_one_is_refused_alike(self, monkeypatch, tmp_path):
         """A hand-typed line nearest a credential's name: no spelling of one is read, the exact one included."""
         (tmp_path / ".env").write_bytes(b"MONGODB_URL=mongodb://typo.example\n")
 
-        assert refusal(monkeypatch, tmp_path) == "Invalid environment variables: MONGODB_URL"
+        assert refusal(monkeypatch, tmp_path) == "Undeclared environment variables on 1 line(s): 1"
 
 
 class TestTheActorTokenPublicKey:
@@ -638,17 +642,26 @@ class TestTheNamesOnlyErrorPath:
 
 
 class TestANameTheClassDoesNotDeclare:
-    def test_a_misspelling_in_the_environment_file_fails_the_boot_naming_it(self, monkeypatch, tmp_path):
+    def test_a_misspelling_in_the_environment_file_fails_the_boot_numbering_its_line(self, monkeypatch, tmp_path):
         """`extra="ignore"` is what this refuses.
 
         Under it a misspelled `LOG_FORMAT` reads as an omission, and the shipped default serves
         production.
         """
         # Bytes (CLAUDE.md §6), and a value nothing may echo: the assertion below is what holds the
-        # refusal to naming the variable.
-        (tmp_path / ".env").write_bytes(b"LOG_FORMAT_=console-but-misspelled\n")
+        # refusal to numbering the line.
+        (tmp_path / ".env").write_bytes(b"# a comment\n\nLOG_FORMAT_=console-but-misspelled\n")
 
-        assert refusal(monkeypatch, tmp_path) == "Invalid environment variables: LOG_FORMAT_"
+        assert refusal(monkeypatch, tmp_path) == "Undeclared environment variables on 1 line(s): 3"
+
+    def test_a_key_s_line_keeping_the_dotenv_shape_is_numbered_and_never_named(self, monkeypatch, tmp_path):
+        """A pasted key's line declares its own text as a name, so an undeclared name is the file's text and never printed."""
+        (tmp_path / ".env").write_bytes(b"KEYDATAvxq==\n# a comment\nKEYDATAvxq==\n")
+
+        refused = refusal(monkeypatch, tmp_path, API_CORS_ALLOWED_ORIGINS="*")
+
+        assert refused == "Invalid environment variables: API_CORS_ALLOWED_ORIGINS; Undeclared environment variables on 2 line(s): 1, 3"
+        assert "vxq" not in refused.lower()
 
     def test_a_misspelling_carrying_no_value_is_dropped_before_the_gate_sees_it(self, monkeypatch, tmp_path):
         """The gap the runbook's remedy is written around.

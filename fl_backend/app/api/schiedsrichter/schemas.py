@@ -215,11 +215,10 @@ class FLSchiedsrichterAdresswechselAnsichtPayload(BaseModel):
 class FLSchiedsrichterAdresswechselAnsichtResponse(BaseAPIResponse):
     """What one address link opens, and nothing a leaked one should not learn (`READ-REFEREE-003`).
 
-    A first name and a deadline: never either address, the school, the fee or the id.
+    A state and a deadline: never a name, either address, the school, the fee or the id.
     """
 
     zustand: FLSchiedsrichterAdresswechselZustand
-    vorname: CustomNonEmptyString | None
     frist: CustomDateString
 
 
@@ -247,21 +246,17 @@ class FLSchiedsrichterBestaetigungAnsichtPayload(BaseModel):
 class FLSchiedsrichterBestaetigungAnsichtResponse(BaseAPIResponse):
     """What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).
 
-    A first name and a role: never the full name, the school, the contact details, the fee, the
-    birthdate or the id.
+    Never a name, the school, the contact details, the fee, the birthdate or the id.
     """
 
     zustand: FLSchiedsrichterBestaetigungZustand
-    # The first part of the stored name, which is one field rather than two on this collection. Null
-    # for the row an administrator entered without one.
-    vorname: CustomNonEmptyString | None
     # The wording the stored record cites, so a reopened link shows the version answered under
     # rather than the one the page would show today.
     text_version: CustomOptionalString
     mindestalter: int
     # Served for `mindestalter`'s reason: the page offers the media switch only from this age, and a
     # copy of its own would offer it where the write refuses.
-    medien_mindestalter: int
+    medien_mindestalter: int = Field(gt=0)
     frist: CustomDateString
 
 
@@ -286,18 +281,13 @@ class FLSchiedsrichterBestaetigungResponse(BaseAPIResponse):
     caller holding a leaked token learns nothing it did not already post.
     """
 
-    vorname: CustomNonEmptyString | None
     umfang: FLSchiedsrichterUmfang
     medien: bool
     bestaetigt_am: CustomDateString
 
 
 class FLSchiedsrichterWriteResponse(BaseAPIResponse):
-    """Shared by delete and anonymisieren.
-
-    The retirement answers with the referee as they now stand; the erasure answers with the ghost,
-    the row it named being gone (`app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`).
-    """
+    """The referee as a retirement or a discarded address change leaves them."""
 
     updated_document: FLSchiedsrichter
 
@@ -348,3 +338,19 @@ class FLSchiedsrichterSelbstEinwilligungResponse(BaseAPIResponse):
     einwilligung: FLEinwilligung
     # For `app/api/spieler/schemas.py :: FLSpielerSelbstEinwilligungResponse`'s reason.
     nachweis_stand: FLEinwilligungStand
+
+
+class FLAdresswechselSweepParams(BaseModel):
+    """Where in one pass the call starts: after the change the call before it reached, or at the lowest id where none is named."""
+
+    nach: CustomObjectId | None = None
+
+
+class FLSchiedsrichterAdresswechselSweepResponse(BaseAPIResponse):
+    """One call's share of the pending addresses whose link lapsed, a referee's or a pupil's: how many went, and how many are still due."""
+
+    entfernt: int
+    # A change whose removal failed among them: it stays due, so a caller looping on this alone never ends.
+    verbleibend: int
+    # The last row this call reached, for the next call's `nach`; null once it reached the end, which ends the pass.
+    nach: CustomObjectId | None

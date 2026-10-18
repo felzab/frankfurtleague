@@ -519,7 +519,7 @@ export type FLSpielReleasedSide = z.infer<typeof FLSpielReleasedSideSchema>;
 /** Every wholesale-payload field outside the Paarung, which is the whole of what a save can move and a resolution cannot. */
 export const FLSpielRestorableFieldSchema = z.enum(["team1_quelle", "team2_quelle", "datum", "uhrzeit", "ort", "schiedsrichter", "notiz"], {
   // German because the closed-set guards ask it of every set a payload binds, and no control binds
-  // this one: the undo's route answers its own sentence for an unreadable body, so nobody reads this.
+  // this one: the undo's action answers its own sentence for an unreadable body, so nobody reads this.
   error: "Eine Rücknahme kann nur Felder zurücksetzen, die ein Spiel hat.",
 });
 export type FLSpielRestorableField = z.infer<typeof FLSpielRestorableFieldSchema>;

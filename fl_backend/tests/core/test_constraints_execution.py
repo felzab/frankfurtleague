@@ -6,13 +6,14 @@ from typing import Any, Final, get_args
 import pytest
 from bson import ObjectId
 from pydantic import SecretStr
-from pymongo import ASCENDING
+from pymongo import ASCENDING, AsyncMongoClient, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter
+from app.api.identitaet.crud import erase_pupil_actor_in_session, unattribute_in_session
 from app.api.registrierungen.services import compose_confirmation_update
 from app.api.teams.schemas import FLGruppenNames
 from app.core import constraints
@@ -27,8 +28,10 @@ from app.core.constraints import (
     probe_collmod_privilege,
     report_duplicates,
     report_relations,
+    report_unservable_values,
     report_violations,
 )
+from app.shared.schemas.bounds import TEAM_DESCRIPTION_MAX_LENGTH
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -335,6 +338,11 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "n": 1,
             "ablauf": datetime(2026, 3, 15, 23, tzinfo=UTC),
         },
+        "adressanker": {
+            "_id": "b" * 64,
+            "bounded_writes": 1,
+            "geschrieben_am": datetime(2026, 3, 15, 23, tzinfo=UTC),
+        },
     }
 
 
@@ -473,7 +481,9 @@ def test_a_conforming_document_is_accepted(mongo_url: str, collection: str):
         # Declaring `spielplan` at all is what buys this: `_object` emits no `additionalProperties`,
         # so an undeclared key of any type would have been accepted.
         ("saisons", valid_document("saisons", spielplan="2026-08-21"), "a watermark stored as a bare string"),
-        ("spieler", valid_document("spieler", vorname=None), "a player with no first name"),
+        # The key and not its value: a null forename is the erased pupils' sentinel's, refused for a
+        # person where one is written (`app/api/registrierungen/services.py :: compose_person`).
+        ("spieler", {k: v for k, v in valid_documents()["spieler"].items() if k != "vorname"}, "a player with no first-name key"),
         ("teams", {k: v for k, v in valid_documents()["teams"].items() if k != "full_name"}, "a missing required field"),
         # `saison_teams` is the one collection the mirror apparatus skips, so its `required` tuple is
         # hand-maintained and these two cases are the only thing standing under it.
@@ -1052,6 +1062,133 @@ def test_a_club_on_both_sides_of_one_fixture_is_one_group_not_two(mongo_url: str
     assert examples[0]["spiele"] == [1]
 
 
+def counted(reports: Mapping[Collection, constraints.RelationReport]) -> dict[str, tuple[int, list[Any]]]:
+    """Every collection the report counts an offender in, with each example's fields."""
+
+    return {
+        collection: (report.groups, [example["fields"] for example in report.examples])
+        for collection, report in reports.items()
+        if report.groups
+    }
+
+
+# A pending address change as the mint stores it, its deadline overridden per case.
+ADRESSWECHSEL = {"email": "neu@example.invalid", "token_hash": "a" * 64, "verschickt_am": "2026-03-16", "frist": "2026-03-30"}
+
+
+def test_the_values_a_list_refuses_report_a_clean_database_as_clean(mongo_url: str):
+    """First and apart, for the cross-document rules' reason, over a document in every collection.
+
+    The optional blanks are values every read model admits.
+    """
+
+    async def body(database: AsyncDatabase) -> dict[str, tuple[int, list[Any]]]:
+        documents = {
+            **valid_documents(),
+            "registrierungen": valid_document("registrierungen", geburtsdatum=""),
+            "spieler": valid_document("spieler", adresswechsel=dict(ADRESSWECHSEL), inactive_since=""),
+        }
+        for collection, document in documents.items():
+            await database[collection].insert_one(document)
+
+        return counted(await report_unservable_values(database))
+
+    assert on_the_shipped_schema(mongo_url, body) == {}
+
+
+def test_the_values_a_list_refuses_are_counted_where_the_validators_store_them(mongo_url: str):
+    """On the shipped schema, so every offender below is one the validators accepted: the gap this report closes.
+
+    A day the pattern takes and no calendar holds is the case a regex in place of the served type would miss.
+    """
+
+    async def body(database: AsyncDatabase) -> dict[str, tuple[int, list[Any]]]:
+        bestaetigung = {**valid_documents()["registrierungen"]["bestaetigung"], "frist": "2026-02-31"}
+        await database.registrierungen.insert_one(valid_document("registrierungen", vorname="", bestaetigung=bestaetigung))
+        # A null forename is `NAMELESS_PERSON_RULE`'s, so this report leaves it.
+        await database.spieler.insert_many(
+            [
+                valid_document("spieler", adresswechsel={**ADRESSWECHSEL, "frist": "30.03.2026"}),
+                valid_document("spieler", _id=ObjectId(), vorname=None),
+            ]
+        )
+        await database.saison_spieler.insert_one(valid_document("saison_spieler", inactive_since="2026-13-01"))
+
+        return counted(await report_unservable_values(database))
+
+    assert on_the_shipped_schema(mongo_url, body) == {
+        "registrierungen": (1, [["vorname", "bestaetigung.frist"]]),
+        "spieler": (1, [["adresswechsel.frist"]]),
+        "saison_spieler": (1, [["inactive_since"]]),
+    }
+
+
+def with_value(collection: str, path: str, value: Any) -> dict[str, Any]:
+    document = valid_documents()[collection]
+    *parents, leaf = path.split(".")
+    held = document
+    for parent in parents:
+        held = held[parent]
+    held[leaf] = value
+    return document
+
+
+@pytest.mark.parametrize(
+    ("collection", "path", "value", "fields"),
+    [
+        pytest.param("berechtigungen", "adresse", "", ["adresse"], id="berechtigungen"),
+        pytest.param("berechtigungen_angekuendigt", "adresse", "", ["adresse"], id="berechtigungen_angekuendigt"),
+        pytest.param("bewerbungen", "schule.address.plz", "6031", ["schule.address.plz"], id="bewerbungen"),
+        pytest.param("einladungen", "erstellt_am", "2026-02-31", ["erstellt_am"], id="einladungen"),
+        pytest.param(
+            "saison_teams", "austritt", {"type": "rueckzug", "grund": "", "datum": "2026-04-01"}, ["austritt.grund"], id="saison_teams"
+        ),
+        pytest.param("saisons", "end_date", "2026-06-31", ["end_date"], id="saisons"),
+        pytest.param("schiedsrichter", "name", "", ["name"], id="schiedsrichter"),
+        pytest.param("sperrliste", "gesperrt_bis_saison_id", "31", ["gesperrt_bis_saison_id"], id="sperrliste"),
+        pytest.param("spiele", "uhrzeit", "18 Uhr", ["uhrzeit"], id="spiele"),
+        pytest.param("spielorte", "address.hausnummer", "12/3", ["address.hausnummer"], id="spielorte"),
+        pytest.param("spieltage", "beginn", "2026-02-30", ["beginn"], id="spieltage"),
+        pytest.param("teams", "shorthand", "L", ["shorthand"], id="teams"),
+        pytest.param("berechtigungen_postausgang", "versuche", -1, ["versuche"], id="berechtigungen_postausgang"),
+        pytest.param("teams", "description", "x" * (TEAM_DESCRIPTION_MAX_LENGTH + 1), ["description"], id="a length past its ceiling"),
+        pytest.param("spieltage", "position", 0, ["position"], id="a number under its floor"),
+        pytest.param("saisons", "rules.teams_per_group", 20, ["rules.teams_per_group"], id="a number over its ceiling"),
+        pytest.param("spiele", "elfmeterschiessen", {"team1": 3, "team2": 3}, ["elfmeterschiessen"], id="a validator around a nested model"),
+    ],
+)
+def test_each_collection_counts_a_value_its_read_models_refuse(mongo_url: str, collection: str, path: str, value: Any, fields: list[str]):
+    """One offender in each collection the case above leaves, on the shipped schema for its reason.
+
+    And one past each kind of bound no string pattern shows: a length, a range, a validator around a nested model.
+    """
+
+    async def body(database: AsyncDatabase) -> dict[str, tuple[int, list[Any]]]:
+        await database[collection].insert_one(with_value(collection, path, value))
+
+        return counted(await report_unservable_values(database))
+
+    assert on_the_shipped_schema(mongo_url, body) == {collection: (1, [fields])}
+
+
+def test_the_check_counts_a_value_a_list_refuses_into_its_exit(
+    mongo_url: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    """The run and not the report alone: `--check` without the section reads clean over a row its list refuses."""
+
+    async def body(database: AsyncDatabase) -> tuple[int, int]:
+        configured = build_test_config().model_copy(update={"mongodb_uri": SecretStr(mongo_url), "db_base_name": database.name})
+        monkeypatch.setattr(constraints, "get_config", lambda: configured)
+
+        clean = await constraints._run(check=True)
+        await database.registrierungen.insert_one(valid_document("registrierungen", vorname=""))
+
+        return clean, await constraints._run(check=True)
+
+    assert on_the_shipped_schema(mongo_url, body) == (0, 1)
+    assert f"FAIL  {constraints.UNSERVABLE_VALUE_RULE.format(Collection.REGISTRIERUNGEN)}" in capsys.readouterr().out
+
+
 # Section 6, the support indexes. Dropping one costs speed rather than correctness, which is why
 # nothing asserted on them -- and why a read they no longer serve fails no test while it scans.
 
@@ -1358,3 +1495,71 @@ def test_the_facet_tally_walks_index_keys_rather_than_the_whole_log(mongo_url: s
     # The `$sort` is what makes the planner reach for an index at all, and it is free only while one
     # provides the order: without `aktionen_facets` the same stage sorts the log in memory instead.
     assert "SORT" not in stages, f"counting {db_filter or 'the whole log'} blocks on an in-memory sort: {stages}"
+
+
+class _SentUpdates(monitoring.CommandListener):
+    """Every update statement this client sends, with its collection, as the server receives it."""
+
+    def __init__(self) -> None:
+        self.sent: list[tuple[str, dict[str, Any]]] = []
+
+    def started(self, event: monitoring.CommandStartedEvent) -> None:
+        if event.command_name == "update":
+            self.sent.extend((str(event.command["update"]), dict(statement)) for statement in event.command["updates"])
+
+    def succeeded(self, event: monitoring.CommandSucceededEvent) -> None:
+        """Required by the listener interface; an update is judged as it is sent."""
+
+    def failed(self, event: monitoring.CommandFailedEvent) -> None:
+        """Required by the listener interface; a failed update was still sent with its filter."""
+
+
+ERASED_PSEUDONYM: Final = "e" * 64
+
+
+def test_the_erasure_marks_a_persons_log_rows_through_an_index(mongo_url: str):
+    """The updates the two steps send, never a copy of their filters, explained over a log large enough that the planner prefers an index."""
+
+    async def body(database: AsyncDatabase) -> list[tuple[dict[str, Any], list[str]]]:
+        await database[Collection.AKTIONEN].insert_many(
+            [
+                valid_documents()["aktionen"]
+                | {
+                    "_id": ObjectId(),
+                    "actor": {
+                        "kind": "person_session",
+                        "pseudonym": ERASED_PSEUDONYM if row % 500 == 0 else f"{row:064x}",
+                        "funktion": ("spieler", "kontakt", "schiedsrichter")[row % 3],
+                    },
+                }
+                for row in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX)
+            ]
+        )
+
+        listener = _SentUpdates()
+        watched = AsyncMongoClient(mongo_url, event_listeners=[listener])
+        try:
+            log, counts = watched[database.name][Collection.AKTIONEN], watched[database.name][Collection.DROSSELUNG]
+            async with watched.start_session() as session:
+                await unattribute_in_session(
+                    aktionen_collection=log, identifier="ida@example.invalid", pseudonym=ERASED_PSEUDONYM, session=session
+                )
+                await erase_pupil_actor_in_session(
+                    aktionen_collection=log, drosselung_collection=counts, pseudonym=ERASED_PSEUDONYM, session=session
+                )
+        finally:
+            await watched.close()
+
+        explained = [
+            (statement["q"], await database.command({"explain": {"update": collection, "updates": [statement]}, "verbosity": "queryPlanner"}))
+            for collection, statement in listener.sent
+            if collection == Collection.AKTIONEN
+        ]
+        return [(db_filter, winning_stages(plan)) for db_filter, plan in explained]
+
+    planned = on_the_shipped_schema(mongo_url, body)
+
+    # The control: a listener hearing nothing would pass the loop below over no update at all.
+    assert sum("actor.pseudonym" in db_filter for db_filter, _ in planned) == 2, planned
+    for db_filter, stages in planned:
+        assert "COLLSCAN" not in stages, f"marking {db_filter} scans the whole log: {stages}"

@@ -184,5 +184,61 @@
     "typed": "anna@example.org",
     "stored": "anna@example.org",
     "folded": "anna@example.org"
+  },
+  {
+    "case": "a special-use name typed in full-width letters",
+    "typed": "schiri@platzhalter.\uff49\uff4e\uff56\uff41\uff4c\uff49\uff44",
+    "stored": null,
+    "folded": "schiri@platzhalter.invalid"
+  },
+  {
+    "case": "an umlaut domain under a special-use name",
+    "typed": "anna@m\u00fcnchen.test",
+    "stored": null,
+    "folded": "anna@xn--mnchen-3ya.test"
+  },
+  {
+    "case": "an umlaut domain without a dot",
+    "typed": "anna@m\u00fcnchen",
+    "stored": null,
+    "folded": "anna@xn--mnchen-3ya"
+  },
+  {
+    "case": "an umlaut domain holding a slash a URL parser would end the host at",
+    "typed": "anna@m\u00fcnchen.de/x",
+    "stored": null,
+    "folded": "anna@m\u00fcnchen.de/x"
+  },
+  {
+    "case": "an umlaut domain holding a soft hyphen a URL parser would drop",
+    "typed": "anna@m\u00fcn\u00adchen.de",
+    "stored": null,
+    "folded": "anna@m\u00fcn\u00adchen.de"
+  },
+  {
+    "case": "an umlaut domain holding a tab a URL parser would drop",
+    "typed": "anna@m\u00fcn\tchen.de",
+    "stored": null,
+    "folded": "anna@m\u00fcn\tchen.de"
+  },
+  {
+    "case": "a Unicode 16 letter in the domain, which the URL parser the fold reads first refuses",
+    "typed": "anna@\ud81b\udd43x.de",
+    "stored": "anna@xn--x-7p6m.de",
+    "folded": "anna@xn--x-7p6m.de"
+  },
+  {
+    "case": "a Unicode 17 letter in the domain, which only the frontend's tables hold",
+    "typed": "anna@\ud807\uddb0x.de",
+    "stored": null,
+    "folded": "anna@\ud807\uddb0x.de",
+    "frontend": { "stored": "anna@xn--x-5g3j.de", "folded": "anna@xn--x-5g3j.de" }
+  },
+  {
+    "case": "a Hangul filler as the whole first label, which only the frontend's fold drops",
+    "typed": "anna@\u3164.de",
+    "stored": null,
+    "folded": "anna@\u3164.de",
+    "frontend": { "stored": null, "folded": "anna@.de" }
   }
 ]

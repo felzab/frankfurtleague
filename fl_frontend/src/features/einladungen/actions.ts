@@ -5,8 +5,9 @@ import { refresh } from "next/cache";
 import { isFreshlySignedIn } from "@/core/auth";
 import { frontend_config } from "@/core/config";
 import { buildEinladungEmail } from "@/core/einladungEmail";
+import { KONTAKTE_ABSCHNITT } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
-import { sendZielMail } from "@/features/zustellung/notifications";
+import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
 import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
@@ -21,6 +22,7 @@ import { mapEinladungRefusal } from "./refusals";
 import { FLEinladungKeyPayloadSchema, FLEinladungMailPayloadSchema, FLEinladungVersandPayloadSchema } from "./schemas";
 
 import type { ActionResult, QueryResult } from "@/shared/types/types";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { FLEinladungKeyPayload, FLEinladungMailPayload, FLEinladungVersandPayload, FLEinladungVersandVorschauZeile } from "./schemas";
 import type { EinladungVersandErgebnis } from "./types";
 
@@ -73,7 +75,7 @@ export async function postEinladungAction(
  * Mails the minted link to the team's confirmed contact seats. **A second press, never part of the
  * mint**: the link is shown for copying first, and this is what puts it in an inbox.
  */
-export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): Promise<ActionResult> {
+export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("mailEinladungAction", { stepUp: true }, async () => {
     const validated = FLEinladungMailPayloadSchema.safeParse(rawPayload);
 
@@ -118,8 +120,8 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
         success: false,
         error: buildRefusal({
           reason: "Für dieses Team sind in dieser Saison keine Kontaktdaten hinterlegt",
-          repair: "Trage die Kontakte ein, oder gib den Link von Hand weiter",
-          where: "Kontakte",
+          repair: { before: "Trage sie", after: "ein, oder gib den Link von Hand weiter" },
+          where: KONTAKTE_ABSCHNITT,
         }),
       };
     }
@@ -156,9 +158,12 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
         }),
     });
 
+    // One link per team: sent where any of its seats took it.
+    const versand = linkVersandOf(outcome);
+
     // Every address barred is no failure either: a retry meets the same ban (`docs/frontend/spec.md :: I542`).
     if (outcome.delivered.length === 0 && outcome.unreachable.length === 0 && outcome.ungewiss.length === 0 && outcome.gesperrt > 0) {
-      return { success: true, message: "Der Link ging an niemanden raus, weil jede Adresse auf der Sperrliste steht." };
+      return { success: true, message: "Der Link ging an niemanden raus, weil jede Adresse auf der Sperrliste steht.", versand: versand };
     }
 
     // A withheld send is this deployment rather than the mailbox, as `app/api/registrierung/route.ts`
@@ -180,6 +185,7 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
     return {
       success: true,
       message: outcome.gesperrt === 0 ? versandt : `${versandt} ${gesperrtSatz(outcome.gesperrt)}`,
+      versand: versand,
     };
   });
 }
@@ -229,7 +235,7 @@ export async function previewEinladungVersandAction(
  */
 export async function postEinladungVersandAction(
   rawPayload: FLEinladungVersandPayload,
-): Promise<ActionResult<{ zeilen: readonly EinladungVersandErgebnis[] }>> {
+): Promise<ActionResult<{ zeilen: readonly EinladungVersandErgebnis[]; versendet: readonly LinkVersand[] }>> {
   return runAdminMutation("postEinladungVersandAction", { stepUp: true }, async () => {
     const validated = FLEinladungVersandPayloadSchema.safeParse(rawPayload);
 
@@ -248,6 +254,8 @@ export async function postEinladungVersandAction(
 
     const origin = new URL(frontend_config.AUTH_URL).origin;
     const zeilen: EinladungVersandErgebnis[] = [];
+    // Every team whose link this press meant to send: a pass-over by the rule the preview showed is none.
+    const versendet: LinkVersand[] = [];
 
     /* One team after another: the provider allows 10 requests a second per account (read at
        https://resend.com/docs/api-reference/rate-limit.md on 2026-09-21, which answers 429 over
@@ -256,6 +264,9 @@ export async function postEinladungVersandAction(
       const { team_id, team_name, uebersprungen, einladung_id, token, ersetzt_link, hatte_link } = zeile;
 
       if (uebersprungen !== null || einladung_id === null || token === null) {
+        // The league's own failure alone grades a skip. `kontakte_gesperrt` is a pass-over the preview showed, no
+        // link minted or held back, so it adds no grade (`docs/backend/spec.md :: I544`).
+        if (uebersprungen === "erzeugung_fehlgeschlagen" || uebersprungen === "erzeugung_ungewiss") versendet.push("fehlgeschlagen");
         zeilen.push({
           team_id: team_id,
           team_name: team_name,
@@ -284,6 +295,7 @@ export async function postEinladungVersandAction(
         buildMail: () =>
           buildEinladungEmail({ teamName: team_name, saisonId: validated.data.id, origin: origin, link: einladungsLink(origin, token) }),
       });
+      versendet.push(linkVersandOf(outcome));
 
       zeilen.push({
         team_id: team_id,
@@ -305,7 +317,9 @@ export async function postEinladungVersandAction(
     return {
       success: true,
       zeilen: zeilen,
-      message: versandSatz(gemailt, zeilen.length),
+      message: versandSatz(gemailt, versendet.length, zeilen.length),
+      // Each team's own grade, the panel's title saying whether its worst is every team's or some teams'.
+      versendet: versendet,
     };
   });
 }

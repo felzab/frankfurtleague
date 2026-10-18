@@ -4,7 +4,7 @@ import type { AdresswechselAnsicht, AdresswechselLinkZustand, AdresswechselNurAb
 
 /** What the page opens on. The token rides only with a link a press can still spend, for the consent page's reason. */
 export type SchiedsrichterAdresswechselStart =
-  | { zustand: "gueltig"; vorname: string; frist: string; token: string }
+  | { zustand: "gueltig"; frist: string; token: string }
   | { zustand: AdresswechselNurAblehnbar; token: string }
   | { zustand: Exclude<AdresswechselLinkZustand, AdresswechselNurAblehnbar> | "unlesbar" };
 

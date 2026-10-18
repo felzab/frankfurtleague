@@ -1,68 +1,13 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
-// The wire's three seats, mirrored once: a second enum here would let the reveal name a seat no
+// The wire's three seats, mirrored once: a second enum here would let one response name a seat no
 // other response of this API publishes.
 import { FLBewerbungPersonEinwilligungPayloadSchema, FLKontaktRolleSchema, FLKontaktZeileSchema } from "@/features/bewerbungen/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { FLEinwilligungStandSchema } from "@/features/spieler/schemas";
 import { FLKontaktKenntnisnahmeSchema, FLSaisonTeamKontaktePayloadSchema, FLSaisonTeamKontakteSchema } from "@/features/teams/schemas";
-import { addressSchema, CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
-
-/**
- * The address IS the identity: nothing joins one season's Trainer to the next, so the request names
- * a person and not a row. Its own declaration, so no value typed for a write reaches the deletion.
- */
-export const FLKontaktErasurePayloadSchema = z.object({
-  // No address rule, as the API's lookup holds none: a stored address that a rule came to refuse
-  // later must stay erasable (GDPR Art. 17).
-  email: addressSchema((address) => address.includes("@")),
-});
-export type FLKontaktErasurePayload = z.infer<typeof FLKontaktErasurePayloadSchema>;
-
-/**
- * Mirrors `FLKontaktSitz` — one seat, by name and by the season it sits in, and no contact record:
- * the confirmation answers WHOM, never what the request exists to destroy.
- */
-export const FLKontaktSitzSchema = z.object({
-  saison_id: z.string(),
-  // Beside the name because a person seated twice in one season is otherwise two rows a reader
-  // cannot tell apart, which is what `trainer_ist_zugleich` produces.
-  rolle: FLKontaktRolleSchema,
-  vorname: z.string(),
-  nachname: z.string(),
-});
-export type FLKontaktSitz = z.infer<typeof FLKontaktSitzSchema>;
-
-/**
- * Mirrors `FLKontaktErasureAnsichtResponse` — whom `POST /kontakte/erasure` would reach, before it
- * runs. The two lists stay apart: an application is a request to join, and a junction row is a
- * season already played.
- */
-export const FLKontaktErasureAnsichtResponseSchema = BaseAPIResponseSchema.extend({
-  saison_teams: z.array(FLKontaktSitzSchema),
-  bewerbungen: z.array(FLKontaktSitzSchema),
-});
-export type FLKontaktErasureAnsichtResponse = z.infer<typeof FLKontaktErasureAnsichtResponseSchema>;
-
-/**
- * Mirrors `FLKontaktErasureResponse` — counts alone, and deliberately no echo of the person. The
- * request named an address, so answering with anything of theirs would hand back a fresh copy of
- * exactly what the request destroyed.
- */
-export const FLKontaktErasureResponseSchema = BaseAPIResponseSchema.extend({
-  cleared_saison_teams: z.int().nonnegative(),
-  cleared_bewerbungen: z.int().nonnegative(),
-  /**
-   * The slots actually nulled, across both collections. Higher than the two row counts wherever
-   * `trainer_ist_zugleich` seated one person twice in one row, which is what makes this the
-   * figure the report counts contact entries by.
-   */
-  cleared_kontakt_slots: z.int().nonnegative(),
-  /** Log rows whose image was emptied and stamped. Never a deletion count: no row is dropped. */
-  redacted_aktionen: z.int().nonnegative(),
-});
-export type FLKontaktErasureResponse = z.infer<typeof FLKontaktErasureResponseSchema>;
+import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
 /**
  * Mirrors `FLPatchSaisonTeamKontaktePayload` — the three seats and the token naming which block they
@@ -93,7 +38,6 @@ export const FLKontaktMintSchema = z.object({
   rollen: z.array(FLKontaktRolleSchema),
   // The address the mint's own transaction stored, never the one a caller sent.
   email: z.string(),
-  vorname: z.string(),
   schule: z.string(),
   frist: CustomDateStringSchema,
   // The row's state, read in the mint's own transaction: it fixes what the link's page takes, so the

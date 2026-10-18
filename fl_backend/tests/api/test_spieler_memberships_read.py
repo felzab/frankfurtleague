@@ -17,7 +17,7 @@ from app.api.spieler.schemas import (
     FLSpielerSingleResponse,
     FLSpielerWithMemberships,
 )
-from app.api.spieler.services import build_spieler_memberships_pipeline, build_spieler_pipeline
+from app.api.spieler.services import build_real_spieler_filter, build_spieler_memberships_pipeline, build_spieler_pipeline
 from app.shared.folding import sign_in_identifier
 from tests.documents import saison_spieler_document, spieler_document
 
@@ -44,11 +44,11 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607190001")
 
 
 class TestTheMembershipsPipeline:
-    def test_it_filters_nothing_out(self):
-        # No `$match` anywhere, the lookup included: a retired person, a retired row and a player in no
-        # squad all belong in the admin list.
-        stages = [next(iter(stage)) for stage in build_spieler_memberships_pipeline()]
-        assert "$match" not in stages
+    def test_it_filters_out_the_sentinel_alone(self):
+        # No `$match` but the sentinel's, the lookup included: a retired person, a retired row and a
+        # player in no squad all belong in the admin list.
+        matches = [stage["$match"] for stage in build_spieler_memberships_pipeline() if "$match" in stage]
+        assert matches == [build_real_spieler_filter()]
 
         lookup = next(stage["$lookup"] for stage in build_spieler_memberships_pipeline() if "$lookup" in stage)
         assert all("$match" not in inner for inner in lookup["pipeline"])
@@ -123,6 +123,7 @@ class TestTheResponseModel:
                         "vorname": "Ohne",
                         "nachname": "Squad",
                         "inactive_since": None,
+                        "adresswechsel_abgelaufen": False,
                         "memberships": [],
                     }
                 ],
@@ -140,6 +141,7 @@ class TestTheResponseModel:
                     "vorname": "Anna",
                     "nachname": "Abel",
                     "inactive_since": None,
+                    "adresswechsel_abgelaufen": False,
                     "memberships": [
                         {
                             "saison_id": SAISON,
@@ -163,6 +165,7 @@ class TestTheResponseModel:
                 "vorname": "Anna",
                 "nachname": "Abel",
                 "inactive_since": None,
+                "adresswechsel_abgelaufen": False,
                 "memberships": [
                     {
                         "saison_id": SAISON,
@@ -189,6 +192,7 @@ class TestTheResponseModel:
                 "vorname": "Anna",
                 "nachname": "Abel",
                 "inactive_since": None,
+                "adresswechsel_abgelaufen": False,
                 "memberships": [
                     {
                         "saison_id": SAISON,
@@ -216,6 +220,7 @@ class TestTheResponseModel:
                 "vorname": "Anna",
                 "nachname": "Abel",
                 "inactive_since": None,
+                "adresswechsel_abgelaufen": False,
                 "memberships": [
                     {
                         "saison_id": SAISON,
@@ -414,7 +419,10 @@ def squads(mongo_database: Database) -> Database:
 class TestTheMembershipsPipelineExecuted:
     def _by_surname(self, squads: Database) -> dict[str, FLSpielerWithMemberships]:
         raw = list(squads.spieler.aggregate(build_spieler_memberships_pipeline()))
-        return {player.nachname or "": player for player in (FLSpielerWithMemberships.model_validate(row) for row in raw)}
+        return {
+            player.nachname or "": player
+            for player in (FLSpielerWithMemberships.model_validate({**row, "adresswechsel_abgelaufen": False}) for row in raw)
+        }
 
     def test_it_returns_every_player_exactly_once(self, squads: Database):
         """One row per PERSON, including the one who plays two seasons — the unwind's failure, undone."""

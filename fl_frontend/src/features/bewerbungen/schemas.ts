@@ -2,6 +2,7 @@ import z from "zod";
 
 import { mailboxKey } from "@/core/emailAddress";
 import { BaseAPIResponseSchema } from "@/core/schemas";
+import { MedienMindestalterSchema } from "@/features/konto/einwilligung";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import {
   FLEinwilligungStandSchema,
@@ -30,6 +31,7 @@ import {
   ADDRESS_STADTTEIL_MAX_LENGTH,
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
+  einzeiligerName,
   ExternalUrlSchema,
   FLAddressPayloadSchema,
   FLAddressSchema,
@@ -434,22 +436,6 @@ export const FLBewerbungAddressPayloadSchema = FLAddressPayloadSchema.extend({
 });
 export type FLBewerbungAddressPayload = z.infer<typeof FLBewerbungAddressPayloadSchema>;
 
-// `fl_backend/app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN` negated, and named rather than written into the
-// refinement below so `fl_backend/tests/shared/test_frontend_mirrors.py :: UNPAIRABLE_PATTERNS` can pair the two spellings.
-const NICHT_EINZEILIG = /[\x00\n\v\f\r\u0085\u2028\u2029]/;
-
-/**
- * A name is a name: none of them belongs in one, and refusing the class is cheaper than
- * reasoning about each renderer downstream (`docs/frontend/spec.md :: I87`). CR and LF forge a fact
- * line in a decision mail besides (`:: I46`).
- */
-// One asymmetry, fail-closed: `strip()` drops U+0085 where `trim()` keeps it, so a value PADDED
-// with one is taken by the API and refused here.
-export const einzeiligerName = (schema: z.ZodString, feld: string) =>
-  schema.refine((wert) => !NICHT_EINZEILIG.test(wert), {
-    error: `${feld} darf keine Zeilenumbrüche oder Steuerzeichen enthalten.`,
-  });
-
 /**
  * Mirrors `FLBewerbungSchulePayload` — a school the league does not hold yet, in the shape an
  * acceptance would create the club in. The bounds are the club editor's own, read from one place so
@@ -583,7 +569,7 @@ export const FLPostBewerbungPayloadSchema = z
 export type FLPostBewerbungPayload = z.infer<typeof FLPostBewerbungPayloadSchema>;
 
 /** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
-const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link noch einmal aus Deiner E-Mail.";
+const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link aus Deiner E-Mail erneut.";
 
 /**
  * Mirrors `fl_backend/app/api/bewerbungen/schemas.py :: CustomBewerbungToken`, both consent payloads
@@ -619,8 +605,8 @@ export type FLBewerbungEinwilligungAnsichtPayload = z.infer<typeof FLBewerbungEi
 export const FLKontaktZeileSchema = z.enum(["offen", "saison_vorbei", "ausgetreten"] as const satisfies readonly KontaktZeile[]);
 
 /**
- * What a link is told before any press: school, season, seat and first name, and nothing else of
- * the person. The surname never travels, so a leaked link learns no name to look anything up against.
+ * What a link is told before any press: school, season and seat, and nothing of the person. No
+ * name travels: the link went to an address nobody has confirmed (`READ-BEWERBUNG-002`).
  */
 export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   // The link's own standing, answered rather than refused: a spent link stays readable, so only an
@@ -636,9 +622,6 @@ export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchem
   rolle: FLKontaktRolleSchema,
   // The second seat one answer on this link writes, where the same person holds two; null otherwise.
   zugleich_rolle: FLKontaktRolleSchema.nullable(),
-  // Null once a decline has cleared the seat, which is why the page renders a name for `gueltig`
-  // alone: a dead link's panel has nobody to name and must not invent one.
-  vorname: z.string().nullable(),
   text_version: z.string().nullable(),
   // The label whose words the page renders and whose name the answer sends back: the backend picks the
   // applicant's page or the administration's by how the seat was filled, so no page of this side's choosing.
@@ -648,7 +631,7 @@ export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchem
   mindestalter: z.number().int(),
   // The age the media switch is offered from, served for `mindestalter`'s reason: a copy of this
   // side's own would offer the switch where the endpoint refuses the answer.
-  medien_mindestalter: z.number().int(),
+  medien_mindestalter: MedienMindestalterSchema,
 });
 export type FLBewerbungEinwilligungAnsichtResponse = z.infer<typeof FLBewerbungEinwilligungAnsichtResponseSchema>;
 
@@ -954,6 +937,7 @@ export const FLBewerbungSweepResponseSchema = BaseAPIResponseSchema.extend({
   ohne_entscheidung_geloescht: z.int().nonnegative(),
   kontaktbloecke_geleert: z.int().nonnegative(),
   redigierte_aktionen: z.int().nonnegative(),
+  fehlgeschlagen: z.int().nonnegative(),
 });
 export type FLBewerbungSweepResponse = z.infer<typeof FLBewerbungSweepResponseSchema>;
 
@@ -966,6 +950,7 @@ export type FLBewerbungSweepAngekuendigtPayload = z.infer<typeof FLBewerbungSwee
 export const FLBewerbungSweepAngekuendigtResponseSchema = BaseAPIResponseSchema.extend({
   saison_id: z.string(),
   angekuendigt: z.int().nonnegative(),
+  fehlgeschlagen: z.int().nonnegative(),
 });
 export type FLBewerbungSweepAngekuendigtResponse = z.infer<typeof FLBewerbungSweepAngekuendigtResponseSchema>;
 
@@ -979,6 +964,7 @@ export const FLBewerbungSweepLoeschenResponseSchema = BaseAPIResponseSchema.exte
   saison_id: z.string(),
   geloescht: z.int().nonnegative(),
   redigierte_aktionen: z.int().nonnegative(),
+  fehlgeschlagen: z.int().nonnegative(),
 });
 export type FLBewerbungSweepLoeschenResponse = z.infer<typeof FLBewerbungSweepLoeschenResponseSchema>;
 

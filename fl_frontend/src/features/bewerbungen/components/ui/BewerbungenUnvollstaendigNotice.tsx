@@ -26,8 +26,8 @@ export function BewerbungenUnvollstaendigNotice({ richtung, umkehrHref }: Bewerb
     <Callout
       severity="warning"
       title="Diese Liste ist unvollständig">
-      Dubletten werden über alle Bewerbungen erkannt, auch über die nicht geladenen; die zweite Bewerbung eines markierten Paars ist deshalb
-      nicht immer auf dieser Seite. Die Zahlen am Filter Herkunft zählen nur die geladenen Zeilen. Geladen sind {geladen} Bewerbungen.{" "}
+      Dubletten werden über alle Bewerbungen erkannt, auch über die nicht geladenen. Die zweite Bewerbung eines markierten Paars ist nicht immer
+      auf dieser Seite. Die Zahlen am Filter Herkunft zählen nur die geladenen Zeilen. Geladen sind {geladen} Bewerbungen.{" "}
       <Link
         href={umkehrHref}
         className={textLink()}>

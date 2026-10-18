@@ -16,7 +16,7 @@ import { person } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
-import { underNext } from "@/shared/testing/nextContexts.ts";
+import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { callPage, clearSteps, pageBody, steps } from "@/shared/testing/pageHarness.ts";
 
 import type { ComponentType, ReactElement, ReactNode } from "react";
@@ -35,7 +35,7 @@ const { default: AdminLayout } = await import("@/app/bereich/admin/layout.tsx");
 const { PersonAreaBoundary } = await import("@/features/funktionen/components/providers/PersonAreaBoundary.tsx");
 const { TeamAreaBoundary } = await import("@/features/funktionen/components/providers/TeamAreaBoundary.tsx");
 const { AdminAreaBoundary } = await import("@/features/admin/components/providers/AdminAreaBoundary.tsx");
-const { PERSON_SHELL_CRASH, PERSON_SHELL_FALLBACK, PERSON_SIDEMENU_ENTRIES, TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL, TEAM_SIDEMENU_ENTRIES } =
+const { PERSON_SHELL_CRASH, PERSON_SHELL_FALLBACK, PERSON_SIDEMENU_ENTRIES, TEAM_LANDING_ENTRY, TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL } =
   await import("@/features/funktionen/constants.ts");
 
 const TEAM = { team_id: "6890a1b2c3d4e5f607250011", saison_id: "2526" };
@@ -175,6 +175,30 @@ describe("a read failing in an area's layout", () => {
     }
   });
 
+  /* `catchError` hands the fallback a `reset` beside the `retry`, and either types as the panel's
+     press: a reset alone replays the failed read the router holds rather than asking for it again. */
+  it("retries the failed read through the router when the panel is pressed", async () => {
+    fetchDouble.mock.mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })));
+
+    for (const area of AREAS) {
+      const { router, seen } = recordingRouter();
+      render(
+        underNext(h(area.boundary, null, h(Throwing)), {
+          router,
+          pathname: area.pathname,
+          ...(area.params === null ? {} : { params: area.params }),
+        }),
+      );
+      try {
+        await userEvent.setup().click(screen.getByRole("button", { name: "Ansicht neu laden" }));
+
+        assert.equal(seen.refresh, 1, `${area.name}'s panel refreshed the router ${String(seen.refresh)} times on one press`);
+      } finally {
+        cleanup();
+      }
+    }
+  });
+
   /* The guard's own answer to a missing session is a redirect, which is Next's to act on: caught here,
      a lapsed session would read as an outage rather than reach sign-in. */
   it("lets a redirect and a not-found through to Next", () => {
@@ -246,7 +270,7 @@ describe("the bar over an area's crash panel", () => {
   /* A failing read says nothing of the seats held, so the bar heads the landing by its own entry: the
      refusal's words would tell a seat holder they hold none, and a missing page's call the landing no page. */
   it("heads the team's landing by its own entry", async () => {
-    const [landing] = TEAM_SIDEMENU_ENTRIES;
+    const landing = TEAM_LANDING_ENTRY;
     const shown = await crashBarHint(TeamAreaBoundary, `/bereich/team/${TEAM.team_id}/${TEAM.saison_id}`, landing.label, TEAM);
 
     assert.ok(shown.includes(landing.hint.lead), "the crash panel's bar reads no hint of the landing's own");

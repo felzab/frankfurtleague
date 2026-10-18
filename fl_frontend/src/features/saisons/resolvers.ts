@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 
 import z from "zod";
 
+import { SEARCH_QUERY_PARAM } from "@/shared/utils/searchQuery";
+
 import { SAISON_ID_LENGTH } from "./constants";
 import { getAdminSaisons, getSaisons } from "./queries";
 import { searchWithoutSaisonId } from "./utils";
@@ -37,7 +39,8 @@ export async function resolveSaisonId(
 
   // Redirecting without the unknown value, rather than ignoring it, is what keeps this and
   // `SaisonSelector` from disagreeing.
-  redirect(searchWithoutSaisonId(searchParams));
+  const { [SEARCH_QUERY_PARAM]: _suche, ...uebrige } = searchParams;
+  redirect(searchWithoutSaisonId(uebrige));
 }
 
 /** An absent id is the running season and fetches nothing. */

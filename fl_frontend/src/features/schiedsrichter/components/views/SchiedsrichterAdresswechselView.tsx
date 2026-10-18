@@ -6,6 +6,7 @@ import CircleCheck from "@gravity-ui/icons/CircleCheck";
 
 import { Button } from "@heroui/react/button";
 
+import { JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten";
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
@@ -49,9 +50,6 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   ungueltig: "Link ungültig",
   unlesbar: LINK_UNLESBAR_TITEL,
 };
-
-export const JA_MEINE_ADRESSE = "Ja, das ist meine Adresse";
-export const NICHT_MEINE_ADRESSE = "Das ist nicht meine Adresse";
 
 /** Sends one answer through the link and hands its outcome to the page: a result, or the state a refused press leaves the link in. */
 function useAntwort(token: string, onAbschluss: (stand: Stand) => void) {
@@ -115,25 +113,16 @@ function AblehnenButton({ antwort }: { antwort: ReturnType<typeof useAntwort> })
   );
 }
 
-function AntwortPanel({
-  vorname,
-  frist,
-  token,
-  onAbschluss,
-}: {
-  vorname: string;
-  frist: string;
-  token: string;
-  onAbschluss: (stand: Stand) => void;
-}) {
+function AntwortPanel({ frist, token, onAbschluss }: { frist: string; token: string; onAbschluss: (stand: Stand) => void }) {
   const antwort = useAntwort(token, onAbschluss);
   const { sende, isPending, gedrueckt } = antwort;
 
   return (
     <BestaetigungAbschnitt titel="Deine Adresse">
+      {/* Naming nobody, as the pupil's page does: whoever holds the link has proved no mailbox yet. */}
       <p className={ABSATZ_CLASSES}>
-        Die Verwaltung der Frankfurt League hat diese E-Mail-Adresse für <Wert>{vorname}</Wert> als Schiedsrichterin oder Schiedsrichter
-        eingetragen. Bestätigst Du sie, schreiben wir Dir künftig hierhin und Du meldest Dich mit ihr an.
+        Die Verwaltung der Frankfurt League hat diese E-Mail-Adresse für Deinen Eintrag als Schiedsrichterin oder Schiedsrichter eingetragen.
+        Bestätigst Du sie, schreiben wir Dir künftig hierhin und Du meldest Dich mit ihr an.
       </p>
       <p className={ABSATZ_CLASSES}>
         Bis dahin gilt die bisherige Adresse. Der Link ist bis zum <Wert>{formatSpielDatum(frist)}</Wert> gültig.
@@ -193,7 +182,6 @@ export function SchiedsrichterAdresswechselView({ start }: { start: Schiedsricht
 
       {stand.zustand === "gueltig" && (
         <AntwortPanel
-          vorname={stand.vorname}
           frist={stand.frist}
           token={stand.token}
           onAbschluss={onAbschluss}
@@ -231,7 +219,7 @@ export function SchiedsrichterAdresswechselView({ start }: { start: Schiedsricht
             panelRef={ergebnisRef}
             tone="hinweis">
             <p className={ABSATZ_CLASSES}>
-              Dieser Link ist abgelaufen. Ein Link gilt {String(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage; einen neuen schickt Dir die
+              Dieser Link ist abgelaufen. Ein Link gilt {String(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage. Einen neuen schickt Dir die
               Verwaltung, wenn Du an {KONTAKT_EMAIL} schreibst. Bis dahin gilt die bisherige Adresse.
             </p>
           </BestaetigungErgebnis>
@@ -270,7 +258,7 @@ export function SchiedsrichterAdresswechselView({ start }: { start: Schiedsricht
             Dieser Link ist ungültig: Er wurde schon beantwortet oder durch einen neueren ersetzt, oder die Änderung gibt es nicht mehr.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Hast Du die neue Adresse schon bestätigt, gilt sie bereits; sonst gilt die bisherige weiter. Fragen jederzeit per E-Mail an{" "}
+            Hast Du die neue Adresse schon bestätigt, gilt sie bereits. Sonst gilt die bisherige weiter. Fragen jederzeit per E-Mail an{" "}
             {KONTAKT_EMAIL}.
           </p>
           <FrageStellen />

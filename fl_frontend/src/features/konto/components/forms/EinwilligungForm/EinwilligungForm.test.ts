@@ -15,13 +15,13 @@ import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { FLEinwilligungStand } from "@/features/spieler/schemas.ts";
 import type { ActionFailure } from "@/shared/types/types.ts";
-import type { EinwilligungAntwort, EinwilligungWahl, EinwilligungWorte } from "./EinwilligungForm.tsx";
+import type { EinwilligungAntwort, EinwilligungWahl, EinwilligungWorte, Gewaehrung } from "./EinwilligungForm.tsx";
 
 const { raised } = doubleToasts();
 const { track, answered } = answersInFlight();
 
 const { EinwilligungForm } = await import("./EinwilligungForm.tsx");
-const { MEDIEN_ZU_JUNG, SEITE_VERALTET, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } = await import("../../../einwilligung.ts");
+const { SEITE_VERALTET, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } = await import("../../../einwilligung.ts");
 
 /** Words written for the suite rather than read from the registry: the component renders whatever it is handed. */
 const WORTE: EinwilligungWorte = {
@@ -56,6 +56,9 @@ const SITZ_GESPEICHERT: EinwilligungWahl = { umfang: "kontaktdaten", medien: fal
 
 const GESPEICHERT: EinwilligungWahl = { umfang: "kader_oeffentlich", medien: false };
 
+/** A media floor no record is served today, so a sentence naming it took the floor the form was handed. */
+const MEDIEN_ALTER = 21;
+
 /** The stand the page was served, which a press echoes. */
 const STAND: FLEinwilligungStand = { umfang: "2026-09-01T10:00:00+02:00", medien: null };
 
@@ -89,16 +92,28 @@ beforeEach(() => {
   held = null;
 });
 
-function renderForm({
-  worte = WORTE,
-  gespeichert = GESPEICHERT,
-  medienAngeboten = true,
-  erteilbar = true,
-}: { worte?: EinwilligungWorte; gespeichert?: EinwilligungWahl; medienAngeboten?: boolean; erteilbar?: boolean } = {}) {
+/** A granting record's words by default; a withdraw-only one names its words, which carry its reason. */
+type Optionen = { gespeichert?: EinwilligungWahl; medienAngeboten?: boolean } & (
+  { erteilbar?: true; worte?: EinwilligungWorte } | { erteilbar: false; worte: EinwilligungWorte & { nurWiderruf: string } }
+);
+
+function renderForm({ gespeichert = GESPEICHERT, medienAngeboten = true, ...optionen }: Optionen = {}) {
+  const gewaehrung: Gewaehrung =
+    optionen.erteilbar === false ? { erteilbar: false, worte: optionen.worte } : { erteilbar: true, worte: optionen.worte ?? WORTE };
   const { router } = recordingRouter();
   const user = userEvent.setup();
   const mounted = render(
-    underNext(h(EinwilligungForm, { worte, gespeichert, nachweisStand: STAND, medienAngeboten, erteilbar, speichereAction }), { router }),
+    underNext(
+      h(EinwilligungForm, {
+        ...gewaehrung,
+        gespeichert,
+        nachweisStand: STAND,
+        medienAngeboten,
+        medienMindestalter: MEDIEN_ALTER,
+        speichereAction,
+      }),
+      { router },
+    ),
   );
 
   return { ...mounted, user };
@@ -335,7 +350,11 @@ describe("on a record that takes a withdrawal alone", () => {
   });
 
   it("keeps a wider publication the record holds withdrawable", async () => {
-    const { user } = renderForm({ gespeichert: { umfang: "kader_oeffentlich", medien: false }, erteilbar: false });
+    const { user } = renderForm({
+      worte: { ...WORTE, nurWiderruf: NUR_WIDERRUF },
+      gespeichert: { umfang: "kader_oeffentlich", medien: false },
+      erteilbar: false,
+    });
 
     await user.click(screen.getByRole("radio", { name: "Nur Nummer und Position" }));
     await act(answered);
@@ -373,7 +392,11 @@ describe("on a record that takes a withdrawal alone", () => {
     assert.deepEqual(beschriebenVon(zu), [WORTE.medien.absatz, NUR_WIDERRUF]);
     aus.unmount();
 
-    const { user } = renderForm({ gespeichert: { umfang: "intern", medien: true }, erteilbar: false });
+    const { user } = renderForm({
+      worte: { ...WORTE, nurWiderruf: NUR_WIDERRUF },
+      gespeichert: { umfang: "intern", medien: true },
+      erteilbar: false,
+    });
     await user.click(screen.getByRole("switch", { name: WORTE.medien.schalter }));
     await act(answered);
 
@@ -420,7 +443,11 @@ describe("a contact seat's WhatsApp switch", () => {
     );
     aus.unmount();
 
-    const { user } = renderForm({ worte: SITZ_WORTE, gespeichert: { umfang: "kontaktdaten_whatsapp", medien: false }, erteilbar: false });
+    const { user } = renderForm({
+      worte: { ...SITZ_WORTE, nurWiderruf: NUR_WIDERRUF },
+      gespeichert: { umfang: "kontaktdaten_whatsapp", medien: false },
+      erteilbar: false,
+    });
     await user.click(screen.getByRole("switch", { name: SITZ_WORTE.whatsapp?.schalter }));
     await act(answered);
 
@@ -482,7 +509,8 @@ describe("a grant pressed while a withdrawal is on its way, on a record the gran
         raised.map(({ variant, title, description }) => [variant, title, description]),
         [
           ["success", WAHL_GESPEICHERT, undefined],
-          ["danger", WAHL_NICHT_GESPEICHERT, MEDIEN_ZU_JUNG],
+          // The record's floor, and no reload: the landed withdrawal's refresh draws the switch closed.
+          ["danger", WAHL_NICHT_GESPEICHERT, "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben."],
         ],
       ),
     );

@@ -15,12 +15,12 @@ import type { ComponentType, ReactNode } from "react";
  * (`docs/frontend/spec.md :: I385`).
  */
 export function areaBoundary(Shell: ComponentType<{ children: ReactNode }>) {
-  function AreaFallback(_props: object, { error, reset }: ErrorInfo) {
+  function AreaFallback(_props: object, { error, retry }: ErrorInfo) {
     return (
       <Shell>
         <DashboardErrorBoundary
           error={asCaughtError(error)}
-          reset={reset}
+          retry={retry}
         />
       </Shell>
     );

@@ -45,8 +45,10 @@ describe("the referee picker's list", () => {
     const user = userEvent.setup();
     const picker = h(FormSchiedsrichterSection, {
       schiedsrichter: [NAMENLOS],
+      created: [],
       schiedsrichterPayload: null,
       onSchiedsrichterChange: () => {},
+      onRequestCreate: () => {},
       onValidateFields: () => {},
     });
     render(h(DraftStatusProvider, { status: NO_DRAFT, children: h(SpielExpectedProvider, { expected: [], children: picker }) }));

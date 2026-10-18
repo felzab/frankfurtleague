@@ -15,6 +15,7 @@ import { useStepUp } from "@/shared/hooks/useStepUp";
 import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
+import { BESTAETIGUNGSLINK_TITEL, meldeLinkVersand } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
@@ -62,7 +63,8 @@ export function FormKontaktEinladen({
       return;
     }
 
-    appToast.success("Bestätigungslink gesendet", { description: res.message });
+    // Graded as the editor's save grades its links: the seat's earlier link is dead whichever way this one went.
+    meldeLinkVersand(res.versand, BESTAETIGUNGSLINK_TITEL, res.message);
   };
 
   return (

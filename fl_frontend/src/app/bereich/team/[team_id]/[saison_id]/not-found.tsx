@@ -2,6 +2,7 @@
 
 import { useParams } from "next/navigation";
 
+import { TEAM_LANDING_ENTRY } from "@/features/funktionen/constants";
 import { teamHref } from "@/features/funktionen/teamSeats";
 import { ShellNotFound } from "@/shared/components/ui/ShellNotFound";
 
@@ -15,7 +16,7 @@ export default function TeamNotFound() {
     <ShellNotFound
       message="Diese Seite gehört nicht zu Deinem Team, oder die Adresse stimmt nicht."
       href={teamHref(team_id, saison_id)}
-      linkLabel="Zur Übersicht"
+      linkLabel={TEAM_LANDING_ENTRY.label}
     />
   );
 }

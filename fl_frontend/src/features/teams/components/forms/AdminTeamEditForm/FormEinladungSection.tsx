@@ -17,6 +17,7 @@ import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { deleteEinladungAction, mailEinladungAction, postEinladungAction } from "@/features/einladungen/actions";
 import { useEinladungLink } from "@/features/einladungen/components/EinladungLinkHolder";
 import { STUFE_CHIP_CLASSES } from "@/features/saisons/components/forms/StufenPicker";
+import { SAISON_ABSCHNITT } from "@/features/teams/constants";
 import { Leer } from "@/shared/components/ui/Angabe";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
@@ -37,6 +38,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { focusAfterWrite, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
+import { meldeLinkVersand, REGISTRIERUNGSLINK_TITEL } from "@/shared/utils/linkVersandToast";
 
 import type { FrischeEinladung } from "@/features/einladungen/components/EinladungLinkHolder";
 import type { FLEinladungZeile } from "@/features/einladungen/schemas";
@@ -176,7 +178,7 @@ export function FormEinladungSection({
           return;
         }
 
-        appToast.success("Registrierungslink gesendet", { description: res.message });
+        meldeLinkVersand(res.versand, REGISTRIERUNGSLINK_TITEL, res.message);
       }),
     );
   };
@@ -223,7 +225,7 @@ export function FormEinladungSection({
           <Callout
             severity="info"
             title="Einen Registrierungslink bekommt nur ein Team, das in dieser Saison steht">
-            Nimm das Team oben unter „Saison“ auf.
+            Nimm das Team oben unter „{SAISON_ABSCHNITT}“ auf.
           </Callout>
         ) : (
           <>
@@ -238,7 +240,7 @@ export function FormEinladungSection({
               <Callout
                 severity="warning"
                 title="Die Registrierung für diese Saison ist gerade nicht geöffnet">
-                Ein Link lässt sich trotzdem anlegen; er öffnet die Registrierung erst, wenn das Fenster läuft.
+                Ein Link, den Du jetzt anlegst, gilt erst, wenn die Registrierung geöffnet ist.
               </Callout>
             )}
 

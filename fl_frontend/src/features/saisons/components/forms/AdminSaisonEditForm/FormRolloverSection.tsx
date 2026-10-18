@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 
 import ArrowRightArrowLeft from "@gravity-ui/icons/ArrowRightArrowLeft";
 
+import { HANDLUNGSBEDARF_EINTRAG, SPIELTAGE_EINTRAG } from "@/features/admin/constants";
 import { activateSaisonAction } from "@/features/saisons/actions";
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
-import { SPIELTAGE_UNDATED } from "@/features/saisons/constants";
+import { SPIELPLAN_ABSCHNITT, SPIELTAGE_UNDATED } from "@/features/saisons/constants";
 import { Leer } from "@/shared/components/ui/Angabe";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
@@ -28,11 +29,52 @@ import { formatSpielDatum, PLACEHOLDER } from "@/shared/utils/format";
 import { rolloverBlockedReason } from "./blockedReasons";
 
 import type { FLSaisonStatus } from "@/features/saisons/schemas";
-import type { SaisonRolloverContext } from "@/features/saisons/types";
+import type { SaisonLoeschungVorschau, SaisonRolloverContext } from "@/features/saisons/types";
 import type { SaisonBanner } from "./banners";
 
 /** How many unfinished fixtures the panel names before it stops listing and starts counting. */
 const LISTED_OFFENE_SPIELE = 8;
+
+/**
+ * What the operator reads before turning the switch on (`docs/ops/runbooks.md` §9). Said as a bound: the count
+ * includes pupils whose stored address no request matches, whom the run passes over (`docs/backend/spec.md :: I718`).
+ */
+function LoeschungsZeile({ loeschung: { abgeschlosseneSaisonId: seit, spieler, eingeschaltet } }: { loeschung: SaisonLoeschungVorschau }) {
+  if (eingeschaltet && spieler === 1) {
+    return (
+      <>
+        Mit der Umstellung wird höchstens eine Spielerin oder ein Spieler ohne Kadereintrag seit Saison <strong>{seit}</strong> und ohne offene
+        Registrierung gelöscht.
+      </>
+    );
+  }
+  if (eingeschaltet) {
+    return (
+      <>
+        Mit der Umstellung werden bis zu {spieler} Spielerinnen und Spieler ohne Kadereintrag seit Saison <strong>{seit}</strong> und ohne
+        offene Registrierung gelöscht.
+      </>
+    );
+  }
+  if (spieler === 1) {
+    return (
+      <>
+        Die automatische Löschung ist ausgeschaltet. Eingeschaltet würde die Umstellung höchstens eine Spielerin oder einen Spieler ohne
+        Kadereintrag seit Saison <strong>{seit}</strong> und ohne offene Registrierung löschen.
+      </>
+    );
+  }
+  return (
+    <>
+      Die automatische Löschung ist ausgeschaltet. Eingeschaltet würde die Umstellung bis zu {spieler} Spielerinnen und Spieler ohne
+      Kadereintrag seit Saison <strong>{seit}</strong> und ohne offene Registrierung löschen.
+    </>
+  );
+}
+
+/** Said rather than left out: no line also means nobody is due, and the operator reads it before turning the switch on. */
+const LOESCHUNG_UNLESBAR =
+  "Wie viele Spielerinnen und Spieler die Umstellung löschen würde, ist gerade nicht abrufbar. Lade die Seite neu, bevor Du umstellst.";
 
 /**
  * The rollover, on `POST /saisons/{saison_id}/activate`. **A confirmation step rather than an undo**,
@@ -68,6 +110,9 @@ export function FormRolloverSection({
   const isFinishedSaison = saisonStatus === "past";
   const offene = rollover.offeneSpiele;
   const outgoing = rollover.outgoingSaisonId;
+  const vorschau = rollover.loeschung;
+  // Nobody due is said nowhere: a line counting zero reads as a deletion about to happen.
+  const loeschung = vorschau !== null && vorschau !== "unlesbar" && vorschau.spieler > 0 ? vorschau : null;
 
   const blockedReason = rolloverBlockedReason({
     hasDrawnSpiele,
@@ -152,6 +197,13 @@ export function FormRolloverSection({
               )}
             </p>
 
+            {loeschung !== null && (
+              <p className="muted-hint">
+                <LoeschungsZeile loeschung={loeschung} />
+              </p>
+            )}
+            {vorschau === "unlesbar" && <p className="muted-hint">{LOESCHUNG_UNLESBAR}</p>}
+
             <InlineBanners
               banners={banners}
               spot="umstellung"
@@ -164,8 +216,8 @@ export function FormRolloverSection({
               <Callout
                 severity="warning"
                 title="Diese Saison hat noch keinen Spielplan">
-                Eine Saison ohne Spiele wird nicht zur laufenden Saison. Lege den Spielplan im Abschnitt <strong>Spielplan</strong> an, dann
-                lässt sich umstellen.
+                Eine Saison ohne Spiele wird nicht zur laufenden Saison. Lege den Spielplan im Abschnitt <strong>{SPIELPLAN_ABSCHNITT}</strong>{" "}
+                an, dann lässt sich umstellen.
               </Callout>
             )}
 
@@ -175,7 +227,7 @@ export function FormRolloverSection({
               <Callout
                 severity="warning"
                 title="Diese Saison hat Spieltage ohne Datum">
-                {SPIELTAGE_UNDATED} Trage die Daten unter <strong>Spieltage</strong> ein.
+                {SPIELTAGE_UNDATED} Trage die Daten unter „{SPIELTAGE_EINTRAG.label}“ ein.
               </Callout>
             )}
 
@@ -210,7 +262,7 @@ export function FormRolloverSection({
                     {offene.length - LISTED_OFFENE_SPIELE === 1
                       ? "und ein weiteres."
                       : `und ${String(offene.length - LISTED_OFFENE_SPIELE)} weitere.`}{" "}
-                    Die vollständige Liste steht unter Handlungsbedarf.
+                    Die vollständige Liste steht unter „{HANDLUNGSBEDARF_EINTRAG.label}“.
                   </li>
                 )}
               </ul>
@@ -225,6 +277,16 @@ export function FormRolloverSection({
                     ? `Saison ${saisonId} wird sofort öffentlich als laufende Saison angezeigt.`
                     : `Saison ${outgoing} ist danach abgeschlossen, und ${saisonId} wird sofort öffentlich als laufende Saison angezeigt. Es gibt in der Verwaltung keinen Weg zurück.`}
                 </p>
+                {/* The switch's word alone: with it off, this press deletes nobody, whatever the count above says it would.
+                    „Zurückholen“ and not „keinen Weg zurück“: the deletion takes the pupils' log images too
+                    (`docs/frontend/spec.md` §1.3). */}
+                {loeschung?.eingeschaltet === true && (
+                  <p className="fluid-xxs leading-normal font-medium text-foreground">
+                    {loeschung.spieler === 1
+                      ? "Dabei wird höchstens eine Spielerin oder ein Spieler gelöscht. Zurückholen lässt sich das nicht."
+                      : `Dabei werden bis zu ${String(loeschung.spieler)} Spielerinnen und Spieler gelöscht. Zurückholen lässt sich das nicht.`}
+                  </p>
+                )}
               </ConfirmReveal>
             )}
 

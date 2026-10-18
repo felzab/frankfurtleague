@@ -211,23 +211,23 @@ async def log_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
 
 
 class TestWhatALinkOpens:
-    def test_a_live_link_names_the_team_its_school_the_season_and_the_pupil(self, mongo_replica_set_url: str):
-        """The four slots the ruled consent text renders; a slot with no value renders as a hole in it."""
+    def test_a_live_link_names_the_team_its_school_and_the_season(self, mongo_replica_set_url: str):
+        """The three slots the ruled consent text renders; a slot with no value renders as a hole in it."""
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW))
 
         assert (response.zustand, response.team, response.schule) == ("gueltig", TEAM_NAME, TEAM_FULL_NAME)
-        assert (response.saison_id, response.vorname) == (SAISON_ID, "Quillhilde")
+        assert response.saison_id == SAISON_ID
         assert response.mindestalter == REGISTRIERUNG_MIN_ALTER_JAHRE
 
     def test_the_link_carries_no_other_teams_name_and_nothing_else_of_the_registration(self, mongo_replica_set_url: str):
-        """A leaked link learns what the mail it arrived in already said, and never the surname, the address, the number or the Stufe."""
+        """A leaked link learns what the mail it arrived in already said, and never a name, the address, the number or the Stufe."""
 
         rendered = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW)).model_dump_json()
 
         registration = registrierung_document()
         assert OTHER_TEAM_NAME not in rendered and OTHER_SCHOOL not in rendered
-        assert registration["nachname"] not in rendered
+        assert registration["vorname"] not in rendered and registration["nachname"] not in rendered
         assert TYPED_EMAIL not in rendered and FOLDED_EMAIL not in rendered
         assert registration["position"] not in rendered and registration["stufe"] not in rendered
 

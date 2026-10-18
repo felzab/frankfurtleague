@@ -28,8 +28,9 @@ const NAME_ALIASES: Record<string, string> = {
 };
 
 /**
- * Components with no Zod mirror. A new backend response model fails the pairing test until it is
- * mirrored or written here, which is why the list is kept by hand.
+ * Components with no Zod mirror, kept by hand: a new backend response model fails the pairing test
+ * until it is mirrored or written here. A mirror no production code reads is deleted and its
+ * component written here.
  */
 const BACKEND_ONLY: Record<string, string> = {
   FLAktionSingleResponse: "GET /{id} is the one read serving a pre-image, for the restore; nothing calls it yet",
@@ -37,11 +38,6 @@ const BACKEND_ONLY: Record<string, string> = {
   FLSpielorteSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
   FLSpielerSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
   FLSpieleSingleResponse: "GET /{id} exists for uniform addressability and has no caller",
-
-  FLRegistrierungenListResponse: "GET /registrierungen is the administrator's read of pending registrations; no page consumes it",
-  FLRegistrierung: "the row of that read, which no page consumes",
-  FLRegistrierungBestaetigung: "that row's confirmation block, which no page consumes",
-  FLRegistrierungEntscheidungZeile: "that row's decision block, which no page consumes",
 };
 
 /**
@@ -109,7 +105,6 @@ const FRONTEND_ONLY: Record<string, string> = {
 
   FLDeleteTeamPayload: "a DELETE takes its id from the path and has no request body",
   FLDeleteSpielerPayload: "a DELETE takes its id from the path and has no request body",
-  FLEraseSpielerPayload: "a DELETE takes its id from the path and has no request body",
   FLReactivateTeamPayload: "the reactivate POST takes its id from the path and has no request body",
   FLReactivateSpielerPayload: "the reactivate POST takes its id from the path and has no request body",
   FLSaisonSpielerKeyPayload: "the junction's DELETE and reactivate take both ids from the path, with no request body",
@@ -123,9 +118,10 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSchiedsrichterKeyPayload: "the referee's DELETE and reactivate take the id from the path, with no request body",
   FLSchiedsrichterEinladenPayload: "the referee's re-send POST takes its id from the path and has no request body",
   FLSchiedsrichterUmfang: "a Pydantic Literal alias, inlined as an enum at each use site",
-  FLAnonymiseSchiedsrichterPayload: "the anonymisation POST takes its id from the path and has no request body",
   FLSchiedsrichterAdresswechselEinladenPayload: "the address link's re-send POST takes its id from the path and has no request body",
   FLSchiedsrichterAdresswechselVerwerfenPayload: "the address change's DELETE takes its id from the path and has no request body",
+  FLSpielerAdresswechselEinladenPayload: "the pupil's address link re-send POST takes its id from the path and has no request body",
+  FLSpielerAdresswechselVerwerfenPayload: "the pupil's address change DELETE takes its id from the path and has no request body",
   FLSperrlisteKeyPayload: "the ban's DELETE takes the id from the path and has no request body",
   FLBerechtigungKeyPayload: "the grant's DELETE takes the id from the path and has no request body",
   FLVerwaltung: "a Pydantic Literal alias, inlined as an enum at each use site",
@@ -151,6 +147,7 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLPatchSpielDataPayload: ["spiel_id"],
   FLPatchTeamPayload: ["id"],
   FLPatchSpielerPayload: ["id"],
+  FLSpielerAdresswechselPayload: ["id"],
   FLPatchSaisonPayload: ["id"],
   FLPatchSpieltagPayload: ["id"],
   // The season is the resource acted on, so it is the path; the control still has to know which.
@@ -347,7 +344,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 308;
+const EXPECTED_PAIRS = 340;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {
@@ -370,7 +367,7 @@ describe("every shape is paired or recorded", () => {
       unpaired,
       [],
       `These backend components have no Zod mirror and no recorded reason:\n  ${unpaired.join("\n  ")}\n` +
-        `Mirror each one, or add it to BACKEND_ONLY in this file with the reason no mirror can exist.`,
+        `Mirror each one the frontend reads, and add any other to BACKEND_ONLY in this file with the reason nothing reads it.`,
     );
   });
 

@@ -23,6 +23,10 @@ registerRenderingNothing(/\/src\/features\/[a-z]+\/components\/(?:views|forms)\/
    (`docs/frontend/spec.md` §1.9). */
 const { StatusPanel } = await import("@/shared/components/ui/StatusPanel.tsx");
 const { ShellSaisonQueryProvider } = await import("@/shared/components/layout/shell/ShellSaisonQuery.tsx");
+const { PERSON_SIDEMENU_ENTRIES, TEAM_SIDEMENU_STRUCTURE } = await import("@/features/funktionen/constants.ts");
+const { ADMIN_SIDEMENU_STRUCTURE } = await import("@/features/admin/constants.ts");
+const { DASHBOARD_SIDEMENU_STRUCTURE } = await import("@/features/dashboard/constants.ts");
+const { DEIN_BEREICH_TITEL, SAISONUEBERSICHT_TITEL, VERWALTUNG_TITEL } = await import("@/core/seitenNamen.ts");
 /* Behind the harness too: Next's resolver requires `server-only` as it evaluates, which only
    `renderTest.ts`'s resolve hook answers with the package's empty build. */
 const { accumulateMetadata } = await import("next/dist/lib/metadata/resolve-metadata.js");
@@ -102,6 +106,21 @@ const WAYS_OUT: Readonly<Record<string, { prefix: string; excluding: readonly st
     excluding: [],
   },
   dashboard: { prefix: "/dashboard", excluding: [] },
+};
+
+/** The areas' own names, under the address `fl_frontend/src/app/namedHeadings.test.ts` registers each at. */
+const AREA_NAMES: Readonly<Record<string, string>> = {
+  "/bereich": DEIN_BEREICH_TITEL,
+  "/bereich/admin": VERWALTUNG_TITEL,
+  "/dashboard": SAISONUEBERSICHT_TITEL,
+};
+
+/** Each prefixed area's sidemenu entries, by the path below the area's prefix each one heads. */
+const LISTED: Readonly<Record<string, readonly { id: string; label: string }[]>> = {
+  [path.join("bereich", "(persoenlich)")]: Object.values(PERSON_SIDEMENU_ENTRIES),
+  [path.join("bereich", "admin")]: ADMIN_SIDEMENU_STRUCTURE.flatMap((gruppe) => gruppe.sub_options),
+  [path.join("bereich", "team", "[team_id]", "[saison_id]")]: TEAM_SIDEMENU_STRUCTURE.flatMap((gruppe) => gruppe.sub_options),
+  dashboard: DASHBOARD_SIDEMENU_STRUCTURE.flatMap((gruppe) => gruppe.sub_options),
 };
 
 /** Whether `href`'s path is `prefix` or lies below it, by whole segments, its query and fragment dropped. */
@@ -484,6 +503,25 @@ describe("where each 404 sends the reader", () => {
       "/bereich/team/probe-team_id/2425",
       "/bereich",
     ]);
+  });
+
+  /* `fl_frontend/src/app/namedHeadings.test.ts` refuses only a typed registered name, so a label naming another page
+     passes it. The name is found by the link's target, an area's registered name before its shell's entry: `/bereich`
+     reads „Dein Bereich“, not its landing's heading. */
+  it("names every area's way out as the page it leads to is named", () => {
+    for (const { dir, markup } of SHELLED) {
+      const links = [...markup.matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)];
+
+      assert.equal(links.length, 1, `${prefixOf(dir)}'s boundary renders other than one way out`);
+      for (const [, href = "", label] of links) {
+        const pfad = href.split(/[?#]/)[0] ?? "";
+        const below = pfad.slice(prefixOf(dir).length).replace(/^\//, "");
+        const name = AREA_NAMES[pfad] ?? LISTED[path.relative(APP_DIR, dir)]?.find((eintrag) => eintrag.id === below)?.label;
+
+        assert.ok(name !== undefined, `${href} leads to no page with a registered name or one ${prefixOf(dir)}'s shell lists`);
+        assert.equal(label, name, `the way out to ${href} is not named as that page is`);
+      }
+    }
   });
 
   /* A shell keeping the season in the query reads it off the live url, so a way out dropping it

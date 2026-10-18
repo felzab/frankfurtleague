@@ -1,5 +1,5 @@
 import { isRecordMissing } from "@/core/errors";
-import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
+import { SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_ADRESSE_GESPERRT_FELD } from "@/features/sperrliste/constants";
 import { isRefusal, KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
@@ -32,24 +32,6 @@ export function mapRetireRefusal(error: unknown): string | null {
   return null;
 }
 
-/**
- * The anonymisation refusal, or `null` when the refusal is something else. It lands on no field: the
- * control is a dialog rather than a form.
- */
-export function mapAnonymiseRefusal(error: unknown): string | null {
-  if (!isRefusal(error)) return null;
-
-  if (error.serverErrorCode === "REQ-ANONYMISE-004") {
-    return buildRefusal({
-      // The reader reached this by opening a link to the row every erased referee's fixtures point
-      // at, so the repair names the referee they meant rather than a way to retry this one.
-      reason: "Hinter diesem Eintrag steht keine Person, er sammelt nur die Spiele gelöschter Schiedsrichter",
-      repair: "Öffne den Schiedsrichter, dessen Daten Du löschen willst",
-    });
-  }
-  return null;
-}
-
 /** `null` where the refusal is something else. The reactivation is a row's button, so the ban is a sentence and no box's. */
 export function mapReactivateRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
@@ -61,7 +43,7 @@ export function mapReactivateRefusal(error: unknown): string | null {
 export function mapGesperrteAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "REQ-SCHIEDSRICHTER-007" ? { fieldErrors: { "kontakt.email": SPERRLISTE_ADRESSE_GESPERRT } } : null;
+  return error.serverErrorCode === "REQ-SCHIEDSRICHTER-007" ? { fieldErrors: { "kontakt.email": SPERRLISTE_ADRESSE_GESPERRT_FELD } } : null;
 }
 
 /** The re-send's own two refusals, or `null`. Neither lands on a field: the control is a panel button, not a form. */
@@ -93,7 +75,7 @@ export function mapEinladenRefusal(error: unknown): string | null {
  */
 const SCHON_BESTAETIGT = buildRefusal({
   reason: "Diese Person hat ihren Eintrag schon bestätigt",
-  repair: "Ein neuer Link führt auf keine Seite mehr; Änderungen an der Einwilligung nimmt die Person selbst vor",
+  repair: "Ein neuer Link führt auf keine Seite mehr. Änderungen an der Einwilligung nimmt die Person selbst vor",
 });
 
 /** Raised at the action as well, where the row already says so: a round trip to be told what the page can see is one nobody owes. */

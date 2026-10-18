@@ -26,9 +26,10 @@ registerDoubles({
   },
 });
 
-const { apiClient } = await import("./api.ts");
+const { apiClient, WRITE_NEEDS_MS } = await import("./api.ts");
 const { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, UnattributedAdminCallError } = await import("./errors.ts");
-const { REQUEST_DEADLINE_MS, requestOutcomeUnknown, requestWriteSent, runWithRequestScope } = await import("./requestScope.ts");
+const { AFTER_RESPONSE_DEADLINE_MS, REQUEST_DEADLINE_MS, requestOutcomeUnknown, requestWriteSent, runBehindTheResponse, runWithRequestScope } =
+  await import("./requestScope.ts");
 const { ACTOR_HEADER, readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
 
 const TRACE = "a".repeat(32);
@@ -419,7 +420,7 @@ describe("the request's deadline over a chain of calls", () => {
       }
 
       nextStalls = true;
-      const third = apiClient("/dritte", z.unknown(), { method: "POST" }).then(
+      const third = apiClient("/dritte", z.unknown()).then(
         () => assert.fail("the stalled body resolved"),
         (error: unknown) => error,
       );
@@ -467,5 +468,66 @@ describe("the request's deadline over a chain of calls", () => {
     assert.equal(sends.length, 0, "a request was drawn after the deadline had passed");
     assert.ok(thrown instanceof APINetworkError, "the refused read was not thrown as a network error");
     assert.deepEqual([thrown.isTimeout, thrown.method], [true, "GET"]);
+  });
+});
+
+/* `docs/frontend/spec.md :: I733`: sent with less left, the request could stop waiting while the backend still commits,
+   and the spine would drop the caches that write feeds before it lands. */
+describe("a write sent only while the request can wait out the backend's own deadline", () => {
+  let clock = 0;
+  const advance = (ms: number) => {
+    clock += ms;
+    mock.timers.tick(ms);
+  };
+
+  beforeEach(() => {
+    clock = 0;
+    mock.method(performance, "now", () => clock);
+    mock.timers.enable({ apis: ["setTimeout"] });
+  });
+
+  afterEach(() => {
+    mock.timers.reset();
+    mock.restoreAll();
+  });
+
+  /** What each call answered once `spentMs` of a scope's deadline had gone, and whether the scope ended marked as cut. */
+  const atSpent = (spentMs: number, calls: (RequestInit & { readOnly?: true })[], scope: "request" | "behind" = "request") => {
+    const run = async () => {
+      advance(spentMs);
+      const answers: unknown[] = [];
+      for (const options of calls) answers.push(await apiClient("/x", z.unknown(), options).catch((error: unknown) => error));
+
+      return { answers, cut: requestOutcomeUnknown(), wrote: requestWriteSent() };
+    };
+    if (scope === "request") return runWithRequestScope({ traceId: TRACE, spanId: SPAN }, run);
+
+    let seen: Awaited<ReturnType<typeof run>> | undefined;
+    return runBehindTheResponse(TRACE, async () => void (seen = await run())).then(() => seen ?? assert.fail("the work never ran"));
+  };
+
+  it("refuses a write unsent a millisecond short of its need, drawing no request and marking nothing", async () => {
+    const { answers, cut, wrote } = await atSpent(REQUEST_DEADLINE_MS - WRITE_NEEDS_MS + 1, [{ method: "PATCH" }]);
+
+    assert.equal(sends.length, 0, "a write was drawn with too little left to wait out its answer");
+    assert.ok(answers[0] instanceof ApiUnsentError, "the refused write was not thrown as unsent");
+    assert.deepEqual([cut, wrote], [false, false], "a write refused unsent marked the request");
+  });
+
+  it("sends a write with exactly its need left, and a read or a declared read-only call with less", async () => {
+    await atSpent(REQUEST_DEADLINE_MS - WRITE_NEEDS_MS, [{ method: "POST" }]);
+    await atSpent(REQUEST_DEADLINE_MS - 1, [{}, { method: "POST", readOnly: true }]);
+
+    assert.deepEqual(
+      sends.map(({ init }) => init.method ?? "GET"),
+      ["POST", "GET", "POST"],
+    );
+  });
+
+  it("holds the work behind a response to the same need, counted from its own deadline", async () => {
+    const { answers } = await atSpent(AFTER_RESPONSE_DEADLINE_MS - WRITE_NEEDS_MS + 1, [{ method: "POST" }], "behind");
+
+    assert.equal(sends.length, 0, "a write behind the response was drawn with too little left");
+    assert.ok(answers[0] instanceof ApiUnsentError);
   });
 });

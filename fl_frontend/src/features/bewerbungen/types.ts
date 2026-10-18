@@ -100,8 +100,8 @@ export type KuerzelVerdikt = { shorthand: string; vergeben: boolean };
  */
 export type LinkZustand = "bestaetigt" | "abgelehnt" | "abgelaufen" | "ungueltig" | "gesperrt";
 
-/** A link still open, and so a seat that still holds the person the page is about to name. */
-export type EinwilligungGeoeffnet = FLBewerbungEinwilligungAnsichtResponse & { vorname: string };
+/** A link still open, and so a seat the page can still be answered for. */
+export type EinwilligungGeoeffnet = FLBewerbungEinwilligungAnsichtResponse;
 
 /** Which record a link opened: an application's seat, or a seat an administrator typed onto a team's season row. */
 export type EinwilligungQuelle = FLBewerbungEinwilligungAnsichtResponse["quelle"];

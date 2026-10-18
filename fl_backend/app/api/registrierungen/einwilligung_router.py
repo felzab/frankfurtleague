@@ -74,8 +74,10 @@ async def get_bestaetigung_ansicht(
     """
     Answer what the page renders for the registration this token opens, and no part of the registration beyond it.
 
-    The link's state, the team and its school, the season, the pupil's own first name, the age floor the press
-    will be judged by, the age from which the media switch is offered, and which of two pages the link opens.
+    The link's state, the team and its school, the season, the age floor the press will be judged by, the age from
+    which the media switch is offered, and which of two pages the link opens. Never the pupil's name: the link went to
+    an address nobody has confirmed, which behind a typo is a stranger's.
+
     `bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded
     address under its folded name who confirmed their own record. That page asks no choice, so beside it the view
     serves the person's stored birthdate, publication scope and media switch, the birthdate null where none is
@@ -116,7 +118,6 @@ async def get_bestaetigung_ansicht(
         team=str(team_raw["name"]),
         schule=str(team_raw["full_name"]),
         saison_id=str(raw["saison_id"]),
-        vorname=str(raw["vorname"]),
         seite=seite,
         mindestalter=REGISTRIERUNG_MIN_ALTER_JAHRE,
         medien_mindestalter=MEDIEN_MIN_AGE_YEARS,

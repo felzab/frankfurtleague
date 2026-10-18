@@ -1,4 +1,5 @@
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
@@ -7,6 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
+from app.api.aktionen.crud import redact_images_in_session
 from app.api.bewerbungen.services import mint_token, seat_adressen, seat_named
 from app.api.einladungen.schemas import FLEinladung, FLEinladungMintResponse, FLEinladungResponse, FLEinladungWriteResponse, FLEinladungZeile
 from app.api.einladungen.services import (
@@ -18,6 +20,8 @@ from app.api.einladungen.services import (
     find_team_in_saison_refusal,
 )
 from app.api.einwilligung.services import find_fassung_refusal
+from app.api.kontakte.crud import clear_seats, redact_seats_in_documents
+from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, contact_block_image_edits, seated_people
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
@@ -79,6 +83,8 @@ from app.api.teams.services import (
     seats_one_link_answers,
     voids_a_live_link,
 )
+from app.core.adressanker import anchor_the_addresses
+from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -93,6 +99,9 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
+    AdressankerCollection,
+    AktionenCollection,
+    BewerbungenCollection,
     DBClient,
     EinladungenCollection,
     SaisonsCollection,
@@ -101,9 +110,11 @@ from app.core.dependencies import (
     SpieleCollection,
     TeamsCollection,
     get_german_date_str,
+    get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.recording import build_redaction_filter, log_stamp
 from app.core.routing import by_id
 from app.core.security import (
     StepUpCheck,
@@ -584,6 +595,7 @@ async def patch_saison_team_kontakte(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     sperrliste: SperrlisteLookup,
+    adressanker_collection: AdressankerCollection,
     db: DBClient,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     today: str = Depends(get_german_date_str),
@@ -628,7 +640,7 @@ async def patch_saison_team_kontakte(
 
     async def rewrite_the_block(session: AsyncClientSession) -> FLPatchSaisonTeamKontakteResponse:
         # In session, so the precondition judges what this write will land on. Read outside one, an
-        # erasure (`app/api/kontakte/admin_router.py :: erase_kontaktperson`) committing between the
+        # erasure (`app/api/identitaet/crud.py :: erase_everything`) committing between the
         # judgement and the `$set` puts the seat it cleared back with nothing refusing it.
         stored = await pull_one_from_db(
             collection=saison_teams_collection,
@@ -703,6 +715,14 @@ async def patch_saison_team_kontakte(
             session=session,
             return_document=ReturnDocument.AFTER,
         )
+        # The addresses entering here, which an erasure of one running now never read (`docs/backend/spec.md :: I719`): the
+        # newly seated alone, a kept seat's being on this row, which that erasure writes already.
+        await anchor_the_addresses(
+            [adresse for seats in owed for adresse in seat_adressen(kontakte=kontakte, seats=seats)],
+            adressanker_collection=adressanker_collection,
+            schluessel=sperrliste.schluessel,
+            session=session,
+        )
 
         return FLPatchSaisonTeamKontakteResponse(
             saison_id=saison_id,
@@ -736,8 +756,11 @@ async def replace_saison_team(
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     saison_spieler_collection: SaisonSpielerCollection,
+    bewerbungen_collection: BewerbungenCollection,
+    aktionen_collection: AktionenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
 ) -> FLReplaceSaisonTeamResponse:
     """
     Hand this season's junction row, and every fixture on it, to another club.
@@ -756,12 +779,22 @@ async def replace_saison_team(
     async def hand_the_row_over(session: AsyncClientSession) -> FLReplaceSaisonTeamResponse:
         """The whole replacement: judge, rewrite the fixtures, then the row. Everything it decides on is read in-session."""
 
-        # For the 404 alone, and deliberately NOT a read of the club it names: a replacement repairs
-        # a row whose `team_id` resolves to no `teams` document, so nothing here may require one.
-        await pull_one_from_db(
+        # For the 404 and the people leaving with the row, and deliberately NOT a read of the club it
+        # names: a replacement repairs a row whose `team_id` resolves to no `teams` document, so nothing
+        # here may require one.
+        outgoing_raw = await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
-            projection=["_id"],
+            projection=[f"kontakte.{slot}.{field}" for slot in KONTAKT_ROLLEN for field in SEAT_FIELDS],
+            session=session,
+        )
+        outgoing, outgoing_names = seated_people(outgoing_raw)
+
+        # The club's accepted application seated them first, and the row's page promises them deletion
+        # at once (`app/shared/einwilligung.py :: _BESTAETIGUNGSSEITE_SAISON`), so their seats there go too.
+        applications = await aggregate_many_from_db(
+            collection=bewerbungen_collection,
+            pipeline=build_accepted_application_pipeline(saison_id=saison_id, team_id=team_id),
             session=session,
         )
 
@@ -821,10 +854,34 @@ async def replace_saison_team(
             db_filter={"saison_id": saison_id, "team_id": team_id},
             # `austritt` cleared: left standing it marks the INCOMING club withdrawn to
             # `REQ-SWAP-006` and `_may_hold_a_platz`; the exit survives in the logged pre-image. The
-            # colour, the contacts and their links leave with the OUTGOING school (`docs/backend/spec.md :: I50`).
+            # colour, the contacts and their links leave with the OUTGOING school (`docs/backend/spec.md :: I137`, `:: I567`).
             update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "bestaetigungen": None}},
             session=session,
             return_document=ReturnDocument.AFTER,
+        )
+
+        # Owed at once by the row's page (`app/shared/einwilligung.py :: _BESTAETIGUNGSSEITE_SAISON`). The
+        # contacts and their links alone leave the images: the exit record and every earlier state stay.
+        await redact_images_in_session(
+            aktionen_collection=aktionen_collection,
+            db_filter=build_redaction_filter([(Collection.SAISON_TEAMS, [updated_raw["_id"]])]),
+            judge=contact_block_image_edits,
+            stamp=log_stamp(germany_now),
+            session=session,
+        )
+
+        # By address and by name, the application being reached by document
+        # (`docs/backend/spec.md :: I673`): it spells an address the editor corrected on the row the old
+        # way. Its other people keep their seats.
+        await clear_seats(bewerbungen_collection, applications, outgoing, session, names=outgoing_names)
+        await redact_seats_in_documents(
+            aktionen_collection=aktionen_collection,
+            documents=[(Collection.BEWERBUNGEN, [application["_id"] for application in applications])],
+            identifiers=outgoing,
+            links=True,
+            stamp=log_stamp(germany_now),
+            session=session,
+            names=outgoing_names,
         )
 
         # Ausgetragen, not moved: the players did not transfer, and a row left standing would name a

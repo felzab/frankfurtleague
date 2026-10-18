@@ -3,6 +3,7 @@ import z from "zod";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
+import { MedienMindestalterSchema } from "@/features/konto/einwilligung";
 import {
   FLEinwilligungSchema,
   FLEinwilligungStandSchema,
@@ -69,16 +70,6 @@ export const FLSchiedsrichterKeyPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
 });
 export type FLSchiedsrichterKeyPayload = z.infer<typeof FLSchiedsrichterKeyPayloadSchema>;
-
-/**
- * The ANONYMISATION's whole argument: the id in the path, no request body. Its own schema, not the
- * reversible pair's key above — a shared payload would let a caller reach the deletion while reading
- * as a retirement.
- */
-export const FLAnonymiseSchiedsrichterPayloadSchema = z.object({
-  id: CustomObjectIdStringSchema,
-});
-export type FLAnonymiseSchiedsrichterPayload = z.infer<typeof FLAnonymiseSchiedsrichterPayloadSchema>;
 
 /**
  * Mirrors the referee's link bookkeeping. No `token_hash`: the credential is written as a raw
@@ -191,7 +182,7 @@ export const FLPatchSchiedsrichterResponseSchema = BaseAPIResponseSchema.extend(
 });
 export type FLPatchSchiedsrichterResponse = z.infer<typeof FLPatchSchiedsrichterResponseSchema>;
 
-/** The address link's re-send and its discard: the id in the path, no request body. One schema per control, for `FLAnonymiseSchiedsrichterPayloadSchema`'s reason. */
+/** The address link's re-send and its discard: the id in the path, no request body. One schema per control: a shared payload lets a caller reach one write while reading as another. */
 export const FLSchiedsrichterAdresswechselEinladenPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
 });
@@ -208,7 +199,7 @@ export const FLSchiedsrichterAdresswechselMintResponseSchema = BaseAPIResponseSc
 });
 export type FLSchiedsrichterAdresswechselMintResponse = z.infer<typeof FLSchiedsrichterAdresswechselMintResponseSchema>;
 
-/** The re-send's whole argument: the id in the path, no request body. Its own schema for `FLAnonymiseSchiedsrichterPayloadSchema`'s reason. */
+/** The re-send's whole argument: the id in the path, no request body. Its own schema: a shared payload lets a caller reach the mint while reading as another write. */
 export const FLSchiedsrichterEinladenPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
 });
@@ -237,7 +228,7 @@ export const FLSchiedsrichterReactivateResponseSchema = BaseAPIResponseSchema.ex
 export type FLSchiedsrichterReactivateResponse = z.infer<typeof FLSchiedsrichterReactivateResponseSchema>;
 
 /** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
-const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link noch einmal aus Deiner E-Mail.";
+const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link aus Deiner E-Mail erneut.";
 
 /**
  * Both public payloads read their token from here. One sentence for the missing token and the
@@ -269,21 +260,19 @@ export const FLSchiedsrichterBestaetigungAnsichtPayloadSchema = z.object({
 export type FLSchiedsrichterBestaetigungAnsichtPayload = z.infer<typeof FLSchiedsrichterBestaetigungAnsichtPayloadSchema>;
 
 /**
- * What a link is told before any press: a first name, the link's standing, the wording's label and
- * the floor. The surname never travels, so a leaked link learns no name to look anything up against.
+ * What a link is told before any press: the link's standing, the wording's label and the floor. No
+ * name travels: the link went to an address nobody has confirmed (`READ-REFEREE-002`).
  */
 export const FLSchiedsrichterBestaetigungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   // The link's own standing, answered rather than refused: a spent or lapsed link stays readable, so
   // only an unknown token has nothing to answer with and reaches the page as a 409.
   zustand: z.enum(["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]),
-  // Null on a row a hand-write left nameless, which is why the page names nobody outside `gueltig`.
-  vorname: z.string().nullable(),
   text_version: z.string().nullable(),
   // The floor this person has to reach, over the wire rather than retyped here: a constant of this
   // side's own would be a second number nothing compares.
   mindestalter: z.number().int(),
   // The age the media switch is offered from, over the wire for `mindestalter`'s reason.
-  medien_mindestalter: z.number().int(),
+  medien_mindestalter: MedienMindestalterSchema,
   frist: CustomDateStringSchema,
 });
 export type FLSchiedsrichterBestaetigungAnsichtResponse = z.infer<typeof FLSchiedsrichterBestaetigungAnsichtResponseSchema>;
@@ -324,7 +313,6 @@ export const buildSchiedsrichterBestaetigungPayloadSchema = (mindestalter: numbe
 
 /** The write's echo: what was stored for this person, and nothing they did not just send. */
 export const FLSchiedsrichterBestaetigungResponseSchema = BaseAPIResponseSchema.extend({
-  vorname: z.string().nullable(),
   umfang: FLSchiedsrichterUmfangSchema,
   medien: z.boolean(),
   bestaetigt_am: CustomDateStringSchema,
@@ -338,13 +326,12 @@ export const FLSchiedsrichterAdresswechselAnsichtPayloadSchema = z.object({
 export type FLSchiedsrichterAdresswechselAnsichtPayload = z.infer<typeof FLSchiedsrichterAdresswechselAnsichtPayloadSchema>;
 
 /**
- * What an address link is told before any press: a first name, its standing and its deadline. Never
- * either address: a leaked link learns no mailbox to write to.
+ * What an address link is told before any press: its standing and its deadline. Never a name or
+ * either address: a leaked link learns no mailbox to write to (`READ-REFEREE-003`).
  */
 export const FLSchiedsrichterAdresswechselAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   // No `bestaetigt`: an answer removes what the link opens, so a reopened link is an unknown token.
   zustand: z.enum(["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar"]),
-  vorname: z.string().nullable(),
   frist: CustomDateStringSchema,
 });
 export type FLSchiedsrichterAdresswechselAnsichtResponse = z.infer<typeof FLSchiedsrichterAdresswechselAnsichtResponseSchema>;
@@ -397,3 +384,14 @@ export const FLSchiedsrichterSelbstEinwilligungResponseSchema = BaseAPIResponseS
   nachweis_stand: FLEinwilligungStandSchema,
 });
 export type FLSchiedsrichterSelbstEinwilligungResponse = z.infer<typeof FLSchiedsrichterSelbstEinwilligungResponseSchema>;
+
+/**
+ * One share of the referees' and pupils' pending addresses whose link lapsed before today. `nach` is where the
+ * pass's next call starts, null once it reached the end; `verbleibend` counts the failed too, so it never ends a pass.
+ */
+export const FLSchiedsrichterAdresswechselSweepResponseSchema = BaseAPIResponseSchema.extend({
+  entfernt: z.int().nonnegative(),
+  verbleibend: z.int().nonnegative(),
+  nach: CustomObjectIdStringSchema.nullable(),
+});
+export type FLSchiedsrichterAdresswechselSweepResponse = z.infer<typeof FLSchiedsrichterAdresswechselSweepResponseSchema>;

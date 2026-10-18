@@ -157,8 +157,8 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
             className="size-4 text-foreground-muted"
           />
         </RowActionMenuItem>
-        {/* `ort` as `buildSpielFacets` declares it, carrying the id its options are keyed by. A `q=`
-            here would fuzzy-match every `SEARCH_KEYS` entry and light no chip. */}
+        {/* `ort` as `buildSpielFacets` declares it, carrying the id its options are keyed by: a link never
+            carries a search query (`docs/frontend/spec.md :: I680`). */}
         <RowActionMenuItem
           id="spiele"
           href={saisonHref(`/bereich/admin/spielsuche?ort=${ort.id}`)}

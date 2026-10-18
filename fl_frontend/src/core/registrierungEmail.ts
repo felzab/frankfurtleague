@@ -8,6 +8,7 @@ import {
   ASIDE_TEXT,
   BRAND_NAME,
   brandPhrase,
+  einzeilig,
   escapeHtml,
   FALLBACK_SATZ,
   fallbackBloecke,
@@ -40,9 +41,11 @@ export function spielerBestaetigungsLink(origin: string, token: string): string 
 /** One message as this slice builds it, in the two parts every message here carries. */
 export type RegistrierungEmail = { subject: string; html: string; text: string };
 
-/** What the two link messages are addressed with. The surname never travels: a forwarded link learns no full name. */
+/**
+ * What the two link messages are addressed with. No name, unlike the notes, which reach a confirmed
+ * address alone: this one has proved nothing, and after a typo its stranger is owed no pupil's name.
+ */
 export interface RegistrierungLinkEmailData {
-  readonly vorname: string;
   readonly teamName: string;
   readonly saisonId: string;
   /** The serving origin (`docs/frontend/spec.md :: I186`), RAW: the builder normalises it once. */
@@ -69,7 +72,7 @@ export interface RegistrierungNotizEmailData {
  * Why a team declined, as the decline stores it: the backend's fixed choice, never free text. Spelled
  * here because `core` may not import the slice's mirror, which is passed in and so checked against this.
  */
-export type RegistrierungAbsageGrund = "andere_person" | null;
+type RegistrierungAbsageGrund = "andere_person" | null;
 
 /**
  * What the decline note is addressed with. Like the season-end note it carries no confirmation link,
@@ -77,6 +80,19 @@ export type RegistrierungAbsageGrund = "andere_person" | null;
  */
 export interface RegistrierungAbsageEmailData extends RegistrierungNotizEmailData {
   readonly grund: RegistrierungAbsageGrund;
+}
+
+/**
+ * Every value a link message prints, folded once before either part or the subject reads it: no
+ * column of facts folds them on the way to the prose (`docs/frontend/spec.md :: I89`).
+ */
+function linkDaten(data: RegistrierungLinkEmailData): RegistrierungLinkEmailData {
+  return { ...data, teamName: einzeilig(data.teamName), saisonId: einzeilig(data.saisonId) };
+}
+
+/** A note's values, folded for the same reason. A decline's `grund` is a fixed choice and prints no caller text. */
+function notizDaten<Data extends RegistrierungNotizEmailData>(data: Data): Data {
+  return { ...data, vorname: einzeilig(data.vorname), teamName: einzeilig(data.teamName), saisonId: einzeilig(data.saisonId) };
 }
 
 /**
@@ -103,8 +119,8 @@ function linkBloecke(url: string, fristTage: number): readonly string[] {
   ];
 }
 
-const bestaetigungSaetze = ({ vorname, teamName, saisonId, fristTage }: RegistrierungLinkEmailData): readonly string[] => [
-  `Hallo ${vorname}, Du hast Dich für ${teamName} in der Saison ${saisonId} der ${BRAND_NAME} registriert.`,
+const bestaetigungSaetze = ({ teamName, saisonId, fristTage }: RegistrierungLinkEmailData): readonly string[] => [
+  `Hallo, Du hast Dich für ${teamName} in der Saison ${saisonId} der ${BRAND_NAME} registriert.`,
   "Über den Button unten bestätigst Du die Registrierung, trägst Dein Geburtsdatum ein und entscheidest, was mit Deinen Angaben passieren darf. Erst danach kann Dein Team Dich in den Kader aufnehmen.",
   `Bestätigst Du nicht innerhalb von ${String(fristTage)} Tagen, löschen wir die Registrierung mit allen Angaben. Du kannst Dich dann über den Link Deines Teams neu registrieren.`,
 ];
@@ -115,7 +131,8 @@ const bestaetigungSaetze = ({ vorname, teamName, saisonId, fristTage }: Registri
  * **The number is the mirrored constant's, never a word here**: the mail and the page would
  * otherwise state two deadlines, and one would not move.
  */
-export function buildRegistrierungBestaetigungEmail(data: RegistrierungLinkEmailData): RegistrierungEmail {
+export function buildRegistrierungBestaetigungEmail(eingang: RegistrierungLinkEmailData): RegistrierungEmail {
+  const data = linkDaten(eingang);
   // Through `mailOrigin` once, and the link minted on what it answered: a raw `AUTH_URL` with a
   // trailing slash would otherwise put `//bestaetigung/spieler` in every registering pupil's mail,
   // which the edge's noindex prefix does not match.
@@ -132,7 +149,7 @@ export function buildRegistrierungBestaetigungEmail(data: RegistrierungLinkEmail
       ueberschrift: escapeHtml("Registrierung bestätigen"),
       bloecke: [
         paragraph(
-          `Hallo ${strong(escapeHtml(data.vorname))}, Du hast Dich für ${strong(escapeHtml(data.teamName))} in der ${brandPhrase(`Saison ${escapeHtml(data.saisonId)}`)} der ${BRAND_NAME} registriert.`,
+          `Hallo, Du hast Dich für ${strong(escapeHtml(data.teamName))} in der ${brandPhrase(`Saison ${escapeHtml(data.saisonId)}`)} der ${BRAND_NAME} registriert.`,
         ),
         paragraph(escapeHtml(worum ?? "")),
         paragraph(escapeHtml(frist ?? "")),
@@ -167,10 +184,10 @@ export function buildRegistrierungBestaetigungEmail(data: RegistrierungLinkEmail
   };
 }
 
-const erinnerungSaetze = ({ vorname, teamName, saisonId, fristTage }: RegistrierungLinkEmailData): readonly string[] => [
-  `Hallo ${vorname}, Deine Registrierung für ${teamName} in der Saison ${saisonId} der ${BRAND_NAME} ist noch nicht bestätigt.`,
+const erinnerungSaetze = ({ teamName, saisonId, fristTage }: RegistrierungLinkEmailData): readonly string[] => [
+  `Hallo, Deine Registrierung für ${teamName} in der Saison ${saisonId} der ${BRAND_NAME} ist noch nicht bestätigt.`,
   `Die Frist von ${String(fristTage)} Tagen läuft weiter. Diese Erinnerung verschiebt sie nicht. Bestätigst Du bis dahin nicht, löschen wir die Registrierung mit allen Angaben.`,
-  "Der Link aus der ersten E-Mail funktioniert weiterhin; dieser hier genauso.",
+  "Der Link aus der ersten E-Mail funktioniert weiterhin. Dieser hier funktioniert genauso.",
 ];
 
 /**
@@ -179,7 +196,8 @@ const erinnerungSaetze = ({ vorname, teamName, saisonId, fristTage }: Registrier
  * It says that the deadline has not moved, because a reminder that merely repeats the request reads
  * as a fresh clock — and the row is erased on the day the first message named.
  */
-export function buildRegistrierungErinnerungEmail(data: RegistrierungLinkEmailData): RegistrierungEmail {
+export function buildRegistrierungErinnerungEmail(eingang: RegistrierungLinkEmailData): RegistrierungEmail {
+  const data = linkDaten(eingang);
   const site = mailOrigin(data.origin);
   const url = spielerBestaetigungsLink(site, data.token);
   const [anrede, frist, zweiLinks] = erinnerungSaetze(data);
@@ -191,7 +209,7 @@ export function buildRegistrierungErinnerungEmail(data: RegistrierungLinkEmailDa
       ueberschrift: escapeHtml("Erinnerung"),
       bloecke: [
         paragraph(
-          `Hallo ${strong(escapeHtml(data.vorname))}, Deine Registrierung für ${strong(escapeHtml(data.teamName))} in der ${brandPhrase(`Saison ${escapeHtml(data.saisonId)}`)} der ${BRAND_NAME} ist noch nicht bestätigt.`,
+          `Hallo, Deine Registrierung für ${strong(escapeHtml(data.teamName))} in der ${brandPhrase(`Saison ${escapeHtml(data.saisonId)}`)} der ${BRAND_NAME} ist noch nicht bestätigt.`,
         ),
         paragraph(escapeHtml(frist ?? "")),
         paragraph(escapeHtml(zweiLinks ?? ""), "0 0 16px", ASIDE_TEXT),
@@ -225,7 +243,7 @@ export function buildRegistrierungErinnerungEmail(data: RegistrierungLinkEmailDa
 const saisonendeSaetze = ({ vorname, teamName, saisonId }: RegistrierungNotizEmailData): readonly string[] => [
   `Hallo ${vorname}, die Saison ${saisonId} der ${BRAND_NAME} ist vorbei.`,
   `Über Deine Registrierung für ${teamName} wurde bis zum Saisonende nicht entschieden, deshalb haben wir sie mit allen Angaben gelöscht. Du musst nichts tun.`,
-  "Zur nächsten Saison kannst Du Dich über den Link Deines Teams wieder registrieren.",
+  "Zur nächsten Saison kannst Du Dich über den Link Deines Teams erneut registrieren.",
 ];
 
 /**
@@ -234,7 +252,8 @@ const saisonendeSaetze = ({ vorname, teamName, saisonId }: RegistrierungNotizEma
  * **After the fact and never before it**: a pre-notice would ask a reader to act on a deadline
  * they have no control over.
  */
-export function buildRegistrierungSaisonendeEmail(data: RegistrierungNotizEmailData): RegistrierungEmail {
+export function buildRegistrierungSaisonendeEmail(eingang: RegistrierungNotizEmailData): RegistrierungEmail {
+  const data = notizDaten(eingang);
   const site = mailOrigin(data.origin);
   const [anrede, geloescht, naechste] = saisonendeSaetze(data);
 
@@ -287,7 +306,8 @@ const absageSaetze = ({ vorname, teamName, saisonId, grund }: RegistrierungAbsag
  * **It names no other person**: the reason it states is the stored choice, so whoever holds the
  * mailbox learns that an address is taken and never by whom.
  */
-export function buildRegistrierungAbsageEmail(data: RegistrierungAbsageEmailData): RegistrierungEmail {
+export function buildRegistrierungAbsageEmail(eingang: RegistrierungAbsageEmailData): RegistrierungEmail {
+  const data = notizDaten(eingang);
   const site = mailOrigin(data.origin);
   const [anrede, weiter, loeschung] = absageSaetze(data);
 

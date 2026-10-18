@@ -11,11 +11,10 @@ const { setSession, setRefusal } = doubleActionRequest({ session: ADMIN });
 /** How many times the spine asked Next to refresh the page since the case began. */
 const refreshes = (): number => cacheCalls.filter(({ name }) => name === "refresh").length;
 
-const { ADMIN_FORBIDDEN, invalidatesOnWrite, runAdminMutation, runAdminRouteWrite, stepUpRequired } = await import("./adminMutation.ts");
+const { ADMIN_FORBIDDEN, invalidatesOnWrite, runAdminMutation } = await import("./adminMutation.ts");
 const { boundCall, recordWriteSent, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 const { getAdminSession } = await import("@/core/auth");
 const { APIBadStatusError, APINetworkError, ApiUnsentError, RolledBackError } = await import("@/core/errors");
-const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { ENROLMENT_WINDOW_MS } = await import("@/core/sessionLifetimes");
 
 /** A body that sends a write before it answers, as a call through the API client records one. */
@@ -80,24 +79,6 @@ describe("the session guard every admin write runs behind", () => {
       success: false,
       error: "Dein Zugang zur Verwaltung besteht nicht mehr.",
     });
-  });
-
-  it("turns one away from a route handler's write too", async () => {
-    setSession(null);
-    let ran = 0;
-
-    const answer = await runAdminRouteWrite("probeRoute", () => {
-      ran += 1;
-      return Promise.resolve({ success: true });
-    });
-
-    // Typed rather than worded, so the route chooses its 401 or 403 on the guard's refusal and no other.
-    assert.deepEqual(answer, { forbidden: true, refused: "signIn" });
-    assert.equal(ran, 0, "the route's body ran for a caller nobody authorized");
-
-    // The reason is the guard's own, read off the call that refused rather than a second read.
-    setSession(null, "/bereich");
-    assert.deepEqual(await runAdminRouteWrite("probeRoute", () => Promise.resolve({ success: true })), { forbidden: true, refused: "noGrant" });
   });
 
   /* The body never ran, so nothing was written: an unclear answer would send the admin to check for a
@@ -232,32 +213,6 @@ describe("the refresh an admin write owes the page", () => {
     await runAdminMutation("probeAction", writing(declaring({ success: false, error: "Nein." })));
     await runAdminMutation("probeAction", declaring({ success: true }));
     assert.deepEqual(cacheCalls, []);
-  });
-
-  /* Next throws on `refresh()` outside a server action, which the spine would answer as an unclear undo. */
-  it("leaves a route handler's success to the route", async () => {
-    const answer = await runAdminRouteWrite(
-      "probeRoute",
-      writing(() => Promise.resolve({ success: true })),
-    );
-
-    assert.deepEqual(answer, { forbidden: false, answer: { success: true } });
-    assert.equal(refreshes(), 0);
-  });
-
-  /* An undo replaying a step-up write meets the backend's own window as an action does: answered in other
-     words, the admin is sent to a retry the same window refuses (`docs/frontend/spec.md :: I493`). */
-  it("answers the backend's refusal for want of a confirmation as the step-up refusal, refreshing nothing", async () => {
-    // The contacts save, one of the step-up writes an undo replays.
-    const refused = refusedOn("PATCH /teams/{team_id}/saisons/{saison_id}/kontakte", "REQ-AUTH-009");
-
-    const answer = await runAdminRouteWrite(
-      "probeRoute",
-      writing(() => Promise.reject(refused)),
-    );
-
-    assert.deepEqual(answer, { forbidden: false, answer: stepUpRequired() });
-    assert.equal(refreshes(), 0, "a route handler's write called the refresh Next refuses it");
   });
 });
 

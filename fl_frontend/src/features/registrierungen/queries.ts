@@ -1,15 +1,16 @@
 import { cache } from "react";
 
 import { apiClient } from "@/core/api";
+import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { postBestaetigungAnsicht, postEinladungAnsicht } from "./mutations";
-import { FLOffeneRegistrierungenResponseSchema } from "./schemas";
+import { FLOffeneRegistrierungenResponseSchema, FLRegistrierungenListResponseSchema } from "./schemas";
 import { einladungZustand, mapRegistrierungAnsichtRefusal } from "./utils";
 
 import type { Leserichtung } from "@/shared/utils/leserichtung";
-import type { FLOffeneRegistrierungenResponse } from "./schemas";
+import type { FLOffeneRegistrierungenResponse, FLRegistrierung, FLRegistrierungenListResponse } from "./schemas";
 import type { RegistrierungStart, SpielerBestaetigungAnsicht } from "./types";
 
 /**
@@ -32,6 +33,22 @@ export const getOffeneRegistrierungen = cache(
     );
   },
 );
+
+/**
+ * Every season's pending registrations and never the header's season alone: a planned season's
+ * stranded registrations would sit behind the selector, where nobody looks for them.
+ */
+export async function getAdminRegistrierungen(order: Leserichtung): Promise<FLRegistrierungenListResponse> {
+  // `eingereicht` alone: a declined row waits out its month and asks nothing of an administrator.
+  const filters: { status?: FLRegistrierung["status"]; order?: Leserichtung } = { status: "eingereicht", order: order };
+
+  return runAdminRead(() =>
+    apiClient<FLRegistrierungenListResponse>("/registrierungen", FLRegistrierungenListResponseSchema, {
+      authType: "admin",
+      params: filters,
+    }),
+  );
+}
 
 /**
  * One invite's standing, read on every open and stored nowhere: a read records nothing, not even a
@@ -58,8 +75,8 @@ export async function getEinladungAnsicht(token: string): Promise<RegistrierungS
 /**
  * One confirmation link's standing, read for `getEinladungAnsicht`'s reason.
  *
- * Narrowed here rather than at the page, whose payload would carry the name regardless: a dead
- * link's panel names nobody.
+ * Narrowed here rather than at the page, whose payload would carry the team and the season
+ * regardless: a dead link's panel names nothing of the registration.
  */
 export async function getSpielerBestaetigungAnsicht(token: string): Promise<SpielerBestaetigungAnsicht> {
   return runWithIncomingTrace(() =>

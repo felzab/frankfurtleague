@@ -44,7 +44,7 @@ registerDoubles({
   },
 });
 
-const { apiClient } = await import("./api.ts");
+const { apiClient, WRITE_NEEDS_MS } = await import("./api.ts");
 const { sendMail } = await import("./mail.ts");
 
 const TRACE_ID = `${"0".repeat(31)}1`;
@@ -427,6 +427,12 @@ describe("the budgets a request's calls nest inside", () => {
       assert.equal(cut, false, "the deadline, not the call's own bound, ended it");
     });
   }
+
+  /* `docs/frontend/spec.md :: I733`: a deadline at or under what a write needs left would send no write at all. */
+  it("leaves a write room inside the request's deadline and inside the work behind a response", () => {
+    assert.ok(WRITE_NEEDS_MS < REQUEST_DEADLINE_MS, "no request could send a write");
+    assert.ok(WRITE_NEEDS_MS < AFTER_RESPONSE_DEADLINE_MS, "no work behind a response could send a write");
+  });
 
   it("keeps the deadline under the edge's cut", () => {
     const siteConf = readFileSync(path.resolve(import.meta.dirname, "..", "..", "..", "nginx", "shared", "site.conf"), "utf8");

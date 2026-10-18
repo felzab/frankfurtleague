@@ -93,9 +93,9 @@ THE CHECKS, in priority order:
    ignore patterns: report those there, do not file twice.
 
 CROSS-SURFACE QUESTIONS: which manual steps are accepted ritual, and which are traps that depend on
-the operator remembering something undocumented, is knowledge only I have. The frontend-container
-recreation after an out-of-band reference edit is a known example of an accepted manual step; check
-`docs/ops/spec.md` for the others before filing any of them as findings.
+the operator remembering something undocumented, is knowledge only I have. The cache-dropping call
+after an out-of-band reference edit (`docs/ops/runbooks.md` §20) is a known example of an accepted
+manual step; check `docs/ops/spec.md` for the others before filing any of them as findings.
 
 BOUNDARIES — not this pass: nginx security posture, headers, TLS, rate limits, secret reachability →
 `ops 2` · seam enforcement → the crosscut pass · application-code findings discovered while probing

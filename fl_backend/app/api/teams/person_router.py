@@ -16,6 +16,7 @@ from app.api.konto.services import (
     find_eigener_eintrag_refusal,
     geaenderte_sitz_wahlen,
     sitz_wahlen_der_zeile,
+    widerruf_line,
 )
 from app.api.teams.schemas import (
     KONTAKT_ROLLEN,
@@ -24,7 +25,8 @@ from app.api.teams.schemas import (
     FLTeamSitz,
     FLTeamSitzeResponse,
 )
-from app.core.config import API_VERSION
+from app.core.collections import Collection
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     DBClient,
@@ -33,8 +35,9 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.drosselung import Drossel
+from app.core.journal import Journal
 from app.core.recording import log_stamp
-from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
+from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, loeschung_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -107,6 +110,7 @@ async def patch_einwilligung(
     records: SubjektLookup,
     db: DBClient,
     drossel: Drossel,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLSaisonTeamPersonEinwilligungResponse:
@@ -130,7 +134,11 @@ async def patch_einwilligung(
     """
 
     gedrueckt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
+    # For `app/api/spieler/selbst_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
+    am = log_stamp(germany_now)
+    journal = Journal()
 
+    @journal.attempted
     async def write(session: AsyncClientSession) -> FLSaisonTeamPersonEinwilligungResponse:
         row = await saison_teams_collection.find_one(
             {"saison_id": saison_id, "team_id": team_id},
@@ -163,7 +171,7 @@ async def patch_einwilligung(
         update = compose_sitz_move(
             sitze={slot: sitz["einwilligung"] for slot, sitz in sitze.items()},
             gewaehlt=gewaehlt,
-            am=log_stamp(germany_now),
+            am=am,
             text_version=einwilligung_data.text_version,
         )
         updated = (
@@ -177,6 +185,17 @@ async def patch_einwilligung(
                 return_document=ReturnDocument.AFTER,
             )
         )
+        line = widerruf_line(
+            person_hash=loeschung_journal_hash(identifier, schluessel=config.sperrliste_schluessel),
+            collection=Collection.SAISON_TEAMS,
+            record_id=row["_id"],
+            bloecke=[sitz["einwilligung"] for sitz in sitze.values()],
+            gewaehlt=gewaehlt,
+            am=am,
+            text_version=einwilligung_data.text_version,
+        )
+        if line is not None:
+            journal.note(line)
         kontakte = row["kontakte"] if updated is None else updated["kontakte"]
         bloecke = [kontakte[slot]["einwilligung"] for slot in rollen]
 
@@ -191,5 +210,6 @@ async def patch_einwilligung(
             }
         )
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(write)
+    async with journal:
+        async with transaction_session(db) as session:
+            return await session.with_transaction(write)

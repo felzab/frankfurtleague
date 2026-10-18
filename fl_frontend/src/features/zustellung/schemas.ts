@@ -2,22 +2,24 @@ import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import {
-  einzeiligerName,
   FLKontaktRolleSchema,
   ZUSTELLUNG_GRUND_MAX_LENGTH,
   ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH,
   ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH,
 } from "@/features/bewerbungen/schemas";
-import { CustomObjectIdStringSchema, FLBewerbungZustellstandSchema } from "@/shared/schemas";
+import { CustomObjectIdStringSchema, einzeiligerName, FLBewerbungZustellstandSchema } from "@/shared/schemas";
 
 /**
  * Mirrors `fl_backend/app/api/zustellung/schemas.py :: FLZustellungZiel` — which kind of record a
  * report is about. Closed on both sides, so a kind the register has no home for is refused here
  * rather than dispatched to nothing.
  */
-export const FLZustellungZielSchema = z.enum(["schiedsrichter", "einladung", "registrierung", "kontakt", "schiedsrichter_adresswechsel"], {
-  error: "Diesen Empfängertyp gibt es nicht.",
-});
+export const FLZustellungZielSchema = z.enum(
+  ["schiedsrichter", "einladung", "registrierung", "kontakt", "schiedsrichter_adresswechsel", "spieler_adresswechsel"],
+  {
+    error: "Diesen Empfängertyp gibt es nicht.",
+  },
+);
 export type FLZustellungZiel = z.infer<typeof FLZustellungZielSchema>;
 
 /**

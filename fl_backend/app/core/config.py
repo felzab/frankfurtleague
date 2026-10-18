@@ -5,6 +5,10 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Final, Literal, Self
 
+# Unpublished: python-dotenv's `__all__` offers no reader of line numbers, and these are the parser
+# its own `dotenv_values` runs. uv.lock pins the release, so a reshaped one arrives by a lock bump,
+# which the line-number cases in `tests/core/test_config.py` meet.
+from dotenv.parser import Original, parse_stream  # noqa: TID251
 from fastapi import Request
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_core import PydanticCustomError
@@ -208,7 +212,7 @@ class _SecretFields(BaseModel):
     # are cheaper to break than the addresses they were taken from
     # (`app/api/sperrliste/services.py :: adresse_hash`). No ceiling — HMAC takes a key of any length.
     sperrliste_schluessel: SecretStr = Field(
-        min_length=SPERRLISTE_KEY_MIN_LENGTH, description="HMAC master key for the email ban list and the action log's pseudonyms"
+        min_length=SPERRLISTE_KEY_MIN_LENGTH, description="HMAC master key every keyed hash of an address derives its own sub-key from"
     )
 
     @field_validator("mongodb_uri")
@@ -293,21 +297,48 @@ class BackendConfig(_EnvironmentFields, _SecretFields):
     model_config = ConfigDict(extra="forbid", validate_by_name=True)
 
 
+# Every name either half declares, as the environment spells it: the names a refusal may print. Any
+# other is the dotenv file's own text, which a pasted key's line keeping the dotenv shape would be.
+SETTING_NAMES: Final = frozenset(name.upper() for name in BackendEnvironment.model_fields | BackendConfig.model_fields)
+
+
 def read_environment() -> BackendEnvironment:
     """The environment half, refused by the names it could not accept; the deploy's preflight reads this alone."""
     try:
         return BackendEnvironment()
     except ValidationError as error:
-        # `from None`, or pydantic's own rendering reaches the traceback uvicorn prints. The
-        # sentence is the frontend gate's (`fl_frontend/src/core/config.ts :: frontend_config`), so
-        # one hint in `scripts/ops/deploy.sh` covers both. The environment spells a name upper-cased.
-        names = ", ".join(name.upper() for name in _failing_names(error))
-        raise EnvironmentValidationError(f"Invalid environment variables: {names}") from None
+        failing = _failing_names(error)
     except ValueError as error:
         # Below `ValidationError`'s arm, which is a `ValueError` too: both `SettingsError` and the
         # dotenv read's `UnicodeDecodeError` land here, both CHAIN what they wrapped, and neither
         # names a field -- so the type alone leaves.
         raise EnvironmentValidationError(f"The environment could not be read: {type(error).__name__}") from None
+    # Outside the arm and `from None`, so nothing chains the `ValidationError`, whose own rendering
+    # quotes each rejected value into the traceback uvicorn prints.
+    raise _environment_refusal(failing) from None
+
+
+def _environment_refusal(failing: list[str]) -> EnvironmentValidationError:
+    """A declared name by name, upper-cased as the environment spells it; any other by the line declaring it, and a count.
+
+    The first sentence is the frontend gate's (`fl_frontend/src/core/config.ts :: frontend_config`),
+    so one hint in `scripts/ops/deploy.sh` covers both.
+    """
+    named = [name.upper() for name in failing if name.upper() in SETTING_NAMES or name == "<unknown>"]
+    undeclared = {name.lower() for name in failing if name.upper() not in SETTING_NAMES and name != "<unknown>"}
+    sentences = [f"Invalid environment variables: {', '.join(named)}"] if named else []
+    if undeclared:
+        # python-dotenv's own parser, opened as it opens the file.
+        with Path(str(BackendEnvironment.model_config.get("env_file"))).open(encoding="utf-8") as stream:
+            lines = sorted(_name_line(binding.original) for binding in parse_stream(stream) if (binding.key or "").lower() in undeclared)
+        sentences.append(f"Undeclared environment variables on {len(lines)} line(s): {', '.join(map(str, lines))}")
+    return EnvironmentValidationError("; ".join(sentences))
+
+
+def _name_line(original: Original) -> int:
+    """The line a binding's name stands on: python-dotenv numbers a binding from the blank lines it opens with."""
+    leading = original.string[: len(original.string) - len(original.string.lstrip())]
+    return original.line + leading.count("\n")
 
 
 def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:

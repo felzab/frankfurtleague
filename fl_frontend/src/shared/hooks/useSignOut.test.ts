@@ -9,20 +9,28 @@ import { act, createElement as h } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { answersInFlight } from "@/shared/testing/answersInFlight.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
-import type { FormState } from "@/shared/types/types.ts";
+import type { SignOutResult } from "@/shared/types/types.ts";
 
 const { raised } = doubleToasts();
+
+/** Every path the sign-out left the document for. */
+const left: string[] = [];
+
+/* A full document load, which jsdom does not implement and whose `location` no test can replace:
+   recorded at the module boundary. */
+registerDoubles({ modules: { "shared/utils/documentNavigation.ts": { leaveDocumentFor: (path: string) => void left.push(path) } } });
 
 /* `await import`, never a static import beside the double: the hook reaches the toast module, and a
    static import would have resolved the real one before the double registered. */
 const { useSignOut } = await import("./useSignOut.ts");
 
-function Probe({ onSignOut }: { onSignOut: () => Promise<FormState> }): ReturnType<typeof h> {
+function Probe({ onSignOut }: { onSignOut: () => Promise<SignOutResult> }): ReturnType<typeof h> {
   const { confirm, press } = useSignOut(onSignOut);
 
   // Marked as the control, or the hook's outside-press disarm takes the confirming press for a press elsewhere.
@@ -33,24 +41,24 @@ function Probe({ onSignOut }: { onSignOut: () => Promise<FormState> }): ReturnTy
   );
 }
 
-/** The sign-out's answers, awaited before the toast answering them is polled for. */
+/** The sign-out's answers, awaited before what answers them is polled for. */
 const answers = answersInFlight();
 
-/** The arming press and the one that signs out, up to the toast answering it. */
-async function signOut(onSignOut: () => Promise<FormState>) {
+/** The arming press and the one that signs out, up to the action's answer. */
+async function signOut(onSignOut: () => Promise<SignOutResult>) {
   const user = userEvent.setup();
   const { router, seen } = recordingRouter();
   render(underNext(h(Probe, { onSignOut: () => answers.track("signOut", onSignOut()) }), { router }));
 
   await pressTwice(user, { resting: "Abmelden", armed: "Wirklich abmelden" });
   await act(answers.answered);
-  await waitFor(() => assert.equal(raised.length, 1));
 
   return seen;
 }
 
 beforeEach(() => {
   raised.length = 0;
+  left.length = 0;
 });
 
 describe("what a sign-out tells the reader", () => {
@@ -59,20 +67,24 @@ describe("what a sign-out tells the reader", () => {
   it("says nobody can tell whether a cut sign-out ended the session, and goes nowhere", async () => {
     const seen = await signOut(() => Promise.reject(new Error("An unexpected response was received from the server.")));
 
+    await waitFor(() => assert.equal(raised.length, 1));
     assert.deepEqual(
       raised.map(({ variant, title, description }) => ({ variant, title, description })),
       [{ variant: "danger", title: "Abmeldung unklar", description: "Lade die Seite neu, um zu sehen, ob Du noch angemeldet bist." }],
     );
-    assert.deepEqual(seen.pushed, [], "a sign-out nobody can vouch for left the page");
+    assert.deepEqual(left, [], "a sign-out nobody can vouch for left the page");
+    assert.deepEqual(seen.pushed, []);
   });
 
   it("names a refusal under the negated title", async () => {
     const seen = await signOut(async () => ({ success: false, error: "Versuche es erneut." }));
 
+    await waitFor(() => assert.equal(raised.length, 1));
     assert.deepEqual(
       raised.map(({ variant, title, description }) => ({ variant, title, description })),
       [{ variant: "danger", title: "Nicht abgemeldet", description: "Versuche es erneut." }],
     );
+    assert.deepEqual(left, []);
     assert.deepEqual(seen.pushed, []);
   });
 
@@ -84,9 +96,9 @@ describe("what a sign-out tells the reader", () => {
     render(
       underNext(
         h(Probe, {
-          onSignOut: async (): Promise<FormState> => {
+          onSignOut: async (): Promise<SignOutResult> => {
             asked += 1;
-            return { success: true, message: "Abgemeldet" };
+            return { success: true };
           },
         }),
         { router: recordingRouter().router },
@@ -99,13 +111,14 @@ describe("what a sign-out tells the reader", () => {
     assert.ok(screen.getByRole("button", { name: "Wirklich abmelden" }));
   });
 
-  it("leaves for the start page once the session has ended", async () => {
-    const seen = await signOut(async () => ({ success: true, message: "Abgemeldet" }));
+  /* A whole new document, never the router: a soft navigation keeps every route it hid, with the
+     rows and the typed searches of the session just ended. A toast would vanish with the page it
+     was raised on, unread. */
+  it("loads the start page as a new document once the session has ended, and raises no toast", async () => {
+    const seen = await signOut(async () => ({ success: true }));
 
-    assert.deepEqual(
-      raised.map(({ variant, title }) => ({ variant, title })),
-      [{ variant: "success", title: "Abgemeldet" }],
-    );
-    assert.deepEqual(seen.pushed, ["/"]);
+    await waitFor(() => assert.deepEqual(left, ["/"]));
+    assert.deepEqual(raised, [], "a sign-out that leaves the page raised a toast over it");
+    assert.deepEqual({ pushed: seen.pushed, replaced: seen.replaced, refresh: seen.refresh }, { pushed: [], replaced: [], refresh: 0 });
   });
 });

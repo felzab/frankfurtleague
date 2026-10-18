@@ -3,7 +3,6 @@ import { describe, it } from "node:test";
 
 import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
-import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import {
   applySeatPresence,
@@ -14,13 +13,11 @@ import {
   mirrorKontakte,
   renamedConfirmedSeatLabels,
   resolveTeamSaisonMembership,
-  settledErasureAnsicht,
   teamPageHref,
 } from "./utils";
 
 import type { FLKontaktperson, FLTeamMembership } from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
-import type { FLKontaktErasureAnsichtResponse } from "./schemas";
 
 /** The label the backend runs on the application form, which a seat opened blank stamps. */
 const LABEL = publishedLaufendeFassung("bewerbung").text_version;
@@ -311,47 +308,6 @@ describe("renamedConfirmedSeatLabels", () => {
   it("names nothing where nothing was stored and nothing where the block goes", () => {
     assert.deepEqual(renamedConfirmedSeatLabels(null, block()), []);
     assert.deepEqual(renamedConfirmedSeatLabels(block(), null), []);
-  });
-});
-
-describe("settledErasureAnsicht", () => {
-  const PREVIEW: FLKontaktErasureAnsichtResponse = { acknowledged: 1, saison_teams: [], bewerbungen: [] };
-  const EMAIL = "erika@beispiel.de";
-
-  /* Outside a transition a rejection reaches no error boundary, so this arm is the only thing between a
-     lost connection and a placeholder that never leaves. */
-  it("refuses with the sentence every rejected admin read gets where the read never answered", () => {
-    const readBack = settledErasureAnsicht(EMAIL, { status: "rejected", reason: new Error("Failed to fetch") });
-
-    assert.equal(readBack.status, "refused", "a read that never answered leaves the panel waiting on it");
-    assert.equal(readBack.email, EMAIL, "the refusal is carried under no address, so it stands under whichever seat is armed next");
-    assert.equal(readBack.status === "refused" ? readBack.reason : "", UNKNOWN_REFUSAL);
-  });
-
-  it("holds the seats where the read answered them", () => {
-    assert.deepEqual(settledErasureAnsicht(EMAIL, { status: "fulfilled", value: { success: true, ansicht: PREVIEW } }), {
-      email: EMAIL,
-      status: "read",
-      sitze: PREVIEW,
-    });
-  });
-
-  /* A stored address the erasure payload refuses reaches the read as a field map, and the panel it
-     would mark a box on renders no box at all (`docs/backend/spec.md :: I104`). */
-  it("keeps a field message out of the refusal, whose panel has no field, and repeats a sentence the server gave", () => {
-    const fieldOf = settledErasureAnsicht(EMAIL, {
-      status: "fulfilled",
-      value: { success: false, error: "Bitte prüfe die markierten Felder.", fieldErrors: { email: "Ungültig" } },
-    });
-    const said2 = settledErasureAnsicht(EMAIL, { status: "fulfilled", value: { success: false, error: "Keine Berechtigung." } });
-
-    assert.deepEqual(fieldOf, { email: EMAIL, status: "refused", reason: "Brich ab und starte das Löschen erneut." });
-    assert.deepEqual(said2, { email: EMAIL, status: "refused", reason: "Keine Berechtigung." });
-  });
-
-  /* A success carrying no answer confirms nothing, and the write is closed until names are on screen. */
-  it("refuses a success that carried no seats", () => {
-    assert.equal(settledErasureAnsicht(EMAIL, { status: "fulfilled", value: { success: true } }).status, "refused");
   });
 });
 

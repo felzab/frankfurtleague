@@ -24,6 +24,7 @@ const { default: KontoPage } = await import("@/app/bereich/(persoenlich)/konto/p
 const { KontoPanel } = await import("@/shared/components/ui/KontoPanel.tsx");
 const { SicherheitSection } = await import("./components/views/SicherheitSection.tsx");
 const { EinwilligungSection } = await import("./components/views/EinwilligungSection.tsx");
+const { KontoLoeschenSection } = await import("./components/views/KontoLoeschenSection.tsx");
 const { SicherheitPanel } = await import("./components/views/SicherheitPanel.tsx");
 const { AdminShell } = await import("@/features/admin/components/ui/AdminShell.tsx");
 const { PersonShell } = await import("@/features/funktionen/components/ui/PersonShell.tsx");
@@ -54,20 +55,21 @@ const kontoLinks = (html: string): string[] => [...html.matchAll(/<a [^>]*href="
 describe("the account page", () => {
   /* One page per person, reached whatever they hold: a person whose every record is unconfirmed still
      has a sign-in, and so passkeys and devices to manage. */
-  it("hands the panel the person's address, the security section and the consent section, a Funktion held or none", async () => {
+  it("hands the panel the person's address, the security, consent and deletion sections, a Funktion held or none", async () => {
     setSubject(OHNE_FUNKTION);
 
     const body = await pageBody(KontoPage, NO_PROPS);
 
     assert.equal(body.type, KontoPanel);
-    const props = body.props as { email: string; sicherheit: { type: unknown }; einwilligung: { type: unknown } };
+    const props = body.props as { email: string; sicherheit: { type: unknown }; einwilligung: { type: unknown }; loeschung: { type: unknown } };
     assert.equal(props.email, "pia@example.org");
     assert.equal(props.sicherheit.type, SicherheitSection);
     assert.equal(props.einwilligung.type, EinwilligungSection);
+    assert.equal(props.loeschung.type, KontoLoeschenSection);
   });
 
   /* The section is the administrator's lane's to fill, so a lapsed administrator verdict is sent on to
-     that lane's step, as the landing sends it, rather than shown an empty section. */
+     a fresh sign-in or its passkey step, as the landing sends it, rather than shown an empty section. */
   it("sends an address holding a grant whose administrator verdict lapsed to the admin subtree", async () => {
     setSubject(MIT_ZUGANG);
     const { thrown } = await callPage(KontoPage, NO_PROPS);
@@ -82,7 +84,7 @@ describe("the account page", () => {
   });
 
   it("draws the address under a panel heading and carries no second h1", () => {
-    const html = renderTree(h(KontoPanel, { email: "pia@example.org", sicherheit: null, einwilligung: null }));
+    const html = renderTree(h(KontoPanel, { email: "pia@example.org", sicherheit: null, einwilligung: null, loeschung: null }));
 
     assert.equal([...html.matchAll(/<h1/g)].length, 0, "the panel carries an h1 beside the bar's");
     // Headed „Anmeldung“: „Zugang“ names the administration grant alone.
@@ -259,13 +261,13 @@ describe("what the security section tells its reader", () => {
     }
   });
 
-  /* The activity stamp refreshes hourly, so a minute printed beside it would claim a precision the
-     row does not hold; the sign-in's own time is exact and keeps its minute. */
-  it("prints the last activity by the day and the sign-in by the minute", () => {
+  /* The activity stamp lags use by minutes (`fl_frontend/src/core/auth.ts :: SESSION_UPDATE_AGE_SECONDS`),
+     so it keeps its minute as the sign-in does. The fixture's 09:00 and 08:00 UTC read in Berlin's summer time. */
+  it("prints the last activity and the sign-in by the minute, in Berlin's time", () => {
     const text = shown({});
 
-    assert.match(text, /Zuletzt aktiv am 26\. September 2026(?! um)/);
-    assert.match(text, /Angemeldet am 26\. September 2026 um \d{2}:\d{2}/);
+    assert.match(text, /Zuletzt aktiv am 26\. September 2026 um 11:00/);
+    assert.match(text, /Angemeldet am 26\. September 2026 um 10:00/);
   });
 
   it("marks this device's sign-in, names its factor, and offers no sign-out of it beside the bar's", () => {
@@ -425,7 +427,7 @@ describe("the account page's consent section", () => {
     [
       "a seat holder",
       { sitze: [SITZ] },
-      ["Lessing-Gymnasium", "Stellvertretung und Trainerin oder Trainer", "mindestens 18 Jahre", "Ich möchte nicht eingetragen sein"],
+      ["Jonas", "Lessing-Gymnasium", "Stellvertretung und Trainerin oder Trainer", "mindestens 18 Jahre", "Ich möchte nicht eingetragen sein"],
     ],
     ["a pupil", { spieler: SPIELER }, ["Lessing Lions", "Lessing-Gymnasium", "Alina"]],
     ["a referee", { schiedsrichter: [SCHIEDSRICHTER] }, ["Mara", FESTE_WERTE.loeschung, FESTE_WERTE.kontakt]],
@@ -436,10 +438,13 @@ describe("the account page's consent section", () => {
       answeringKonto(konto);
 
       const text = await sectionText();
+      // In the words alone, the stored data above them printing the same names. The disclosure is the
+      // record's last block, and the case's record the section's only one.
+      const worte = text.split("Was Du bestätigt hast")[1] ?? "";
 
       assert.equal(await disclosures(), 1, `${art}'s confirmed words are not shown`);
       assert.doesNotMatch(text, /\{\w+\}/, `${art}'s confirmed words spell a slot`);
-      for (const wort of erwartet) assert.ok(text.includes(wort), `${art}'s confirmed words lack „${wort}“`);
+      for (const wort of erwartet) assert.ok(worte.includes(wort), `${art}'s confirmed words lack „${wort}“`);
     });
   }
 
@@ -528,14 +533,15 @@ describe("the account page's consent section", () => {
 
   /* Each record's ids are strings and its payload the same shape, so a control bound to another record's
      id, or to another kind's action, type-checks and sends its press to a record that refuses it. */
-  it("binds each control to its own record's action and ids", async () => {
+  it("binds each control to its own record's action, ids and media floor", async () => {
     setSubject(OHNE_FUNKTION);
+    // A floor of each record's own, none served today, so a refusal naming one names its record's.
     answeringKonto({
-      spieler: SPIELER,
-      schiedsrichter: [SCHIEDSRICHTER],
-      registrierungen: [REGISTRIERUNG],
-      sitze: [SITZ],
-      bewerbungen: [BEWERBUNG_SITZ],
+      spieler: { ...SPIELER, medien_mindestalter: 19 },
+      schiedsrichter: [{ ...SCHIEDSRICHTER, medien_mindestalter: 20 }],
+      registrierungen: [{ ...REGISTRIERUNG, medien_mindestalter: 22 }],
+      sitze: [{ ...SITZ, medien_mindestalter: 21 }],
+      bewerbungen: [{ ...BEWERBUNG_SITZ, medien_mindestalter: 23 }],
     });
     const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
     const antwort = { umfang: "intern" as const, medien: false, text_version: "2026-10-konto", nachweis_stand: { umfang: null, medien: null } };
@@ -548,12 +554,17 @@ describe("the account page's consent section", () => {
     assert.deepEqual(
       actionCalls.map(({ action, payload }) => [action, ...(payload as unknown[]).slice(0, -1)]),
       [
-        ["patchSpielerEinwilligungAction"],
-        ["patchSchiedsrichterEinwilligungAction", SCHIEDSRICHTER.schiedsrichter_id],
+        ["patchSpielerEinwilligungAction", 19],
+        ["patchSchiedsrichterEinwilligungAction", SCHIEDSRICHTER.schiedsrichter_id, 20],
         ["patchRegistrierungEinwilligungAction", REGISTRIERUNG.registrierung_id],
-        ["patchSitzEinwilligungAction", SITZ.team_id, SITZ.saison_id],
+        ["patchSitzEinwilligungAction", SITZ.team_id, SITZ.saison_id, 21],
         ["patchBewerbungEinwilligungAction", BEWERBUNG_SITZ.bewerbung_id],
       ],
+    );
+    // The floor a press queued behind a landed withdrawal is refused with, which no action is asked for.
+    assert.deepEqual(
+      panel.props.eintraege.map(({ control }) => control?.props.medienMindestalter),
+      [19, 20, 22, 21, 23],
     );
     assert.ok(
       actionCalls.every(({ payload }) => (payload as unknown[]).at(-1) === antwort),
@@ -603,6 +614,26 @@ describe("the account page's consent section", () => {
       assert.ok(!text.includes("18 Jahren"), "words name a media floor of the page's own");
     });
   }
+
+  /* The read takes the floor in the shape the granting writes are bound it in, so a broken contract fails
+     here rather than drawing „ab 0 Jahren“ beside a switch whose every grant would be refused. */
+  it("refuses a read serving a media floor of 0 on any record", async () => {
+    setSubject(OHNE_FUNKTION);
+    for (const konto of [
+      { spieler: { ...SPIELER, medien_mindestalter: 0 } },
+      { schiedsrichter: [{ ...SCHIEDSRICHTER, medien_mindestalter: 0 }] },
+      { registrierungen: [{ ...REGISTRIERUNG, medien_mindestalter: 0 }] },
+      { sitze: [{ ...SITZ, medien_mindestalter: 0 }] },
+      { bewerbungen: [{ ...BEWERBUNG_SITZ, medien_mindestalter: 0 }] },
+    ]) {
+      answeringKonto(konto);
+      await assert.rejects(
+        EinwilligungSection(),
+        { code: "FE-API-002" },
+        `${Object.keys(konto).join()} served a floor of 0 and the read took it`,
+      );
+    }
+  });
 
   /* A Trainer who took the Ansprechperson seat later confirmed twice, each seat under its own words and
      floor: one block per confirmation, each headed by its own roles, never one block naming both seats
@@ -752,5 +783,16 @@ describe("the account page's consent section", () => {
   /* A slot nothing maps, a page naming one the section never fills, fails the render loudly. */
   it("fails the render for a slot nothing maps", () => {
     assert.throws(() => bestaetigteWorte(publishedFassung("2026-09-spielerseite-3"), {}), /has no value for/);
+  });
+});
+
+describe("the account page's deletion section", () => {
+  /* Every stamped page tells its reader to delete their data „über {loeschung}“, so the control a reader looks
+     for there carries that constant's own words. */
+  it("names its control by the words every stamped page promises it under", () => {
+    const html = renderTree(underNext(h(KontoLoeschenSection)));
+
+    const buttons = [...html.matchAll(/<button[^>]*>([\s\S]*?)<\/button>/g)].map(([, inner]) => textOf(inner ?? "", " ").trim());
+    assert.ok(buttons.includes(FESTE_WERTE.loeschung), `the section's controls read ${JSON.stringify(buttons)}`);
   });
 });

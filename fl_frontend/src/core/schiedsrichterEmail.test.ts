@@ -10,14 +10,19 @@ const ORIGIN = "http://localhost:3000";
 
 registerDoubles();
 
-const { buildSchiedsrichterBestaetigungEmail, schiedsrichterBestaetigungsLink, SCHIEDSRICHTER_BESTAETIGUNG_PATH } =
-  await import("./schiedsrichterEmail.ts");
+const {
+  buildSchiedsrichterAdresswechselEmail,
+  buildSchiedsrichterAdresswechselHinweisEmail,
+  buildSchiedsrichterBestaetigungEmail,
+  schiedsrichterBestaetigungsLink,
+  SCHIEDSRICHTER_BESTAETIGUNG_PATH,
+} = await import("./schiedsrichterEmail.ts");
 const { KONTAKT_EMAIL } = await import("./brand.ts");
 
 const TOKEN = "abc123";
 const FRIST = "05.10.2026";
 
-const daten = { origin: ORIGIN, vorname: "Anna", token: TOKEN, fristText: FRIST };
+const daten = { origin: ORIGIN, token: TOKEN, fristText: FRIST };
 
 describe("the link this message spells", () => {
   it("puts the token on the origin it was handed, under the referee's confirmation path", () => {
@@ -56,13 +61,14 @@ describe("the referee's confirmation message", () => {
   });
 
   /* Both branches state the same facts: a reader whose client shows the text part must be told what
-     the markup part tells the one beside them. */
-  it("states the deadline and greets the person in both branches", () => {
+     the markup part tells the one beside them. No name: behind a typo, an unconfirmed address is a
+     stranger's. */
+  it("states the deadline and greets by no name in both branches", () => {
     for (const [branch, words] of [
       ["html", readable(mail.html)],
       ["text", flat(mail.text)],
     ] as const) {
-      assert.match(words, /Hallo Anna,/, `the ${branch} branch greets nobody`);
+      assert.match(words, /Hallo, die Verwaltung der Frankfurt League hat Dich als/, `the ${branch} branch greets otherwise`);
       assert.ok(words.includes(FRIST), `the ${branch} branch names no deadline`);
       assert.match(words, /funktioniert nur einmal/, `the ${branch} branch does not say the link is one-time`);
     }
@@ -88,7 +94,7 @@ describe("the referee's confirmation message", () => {
   it("states the objection in a paragraph of its own, in both parts", () => {
     assert.match(
       mail.html,
-      /<p\b[^>]*>Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben \(Art\. 21 DSGVO\); eine formlose E-Mail an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a> genügt\.<\/p>/,
+      /<p\b[^>]*>Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben \(Art\. 21 DSGVO\)\. Eine formlose E-Mail an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a> genügt\.<\/p>/,
       "the card carries no objection of its own",
     );
     assert.match(
@@ -102,22 +108,6 @@ describe("the referee's confirmation message", () => {
     assert.match(mail.subject, /^Bitte bestätigen: Dein Eintrag bei der /);
   });
 
-  /* The text branch is line-oriented, so a newline inside a value renders a line the reader cannot
-     tell from the facts around it. */
-  it("folds a multi-line forename into one line in both branches", () => {
-    const gefaltet = buildSchiedsrichterBestaetigungEmail({ ...daten, vorname: "Anna\nAbsenderadresse: niemand" });
-
-    assert.ok(!gefaltet.text.includes("Anna\nAbsenderadresse"), "a typed newline reached the text branch");
-    assert.match(flat(gefaltet.text), /Hallo Anna Absenderadresse: niemand,/);
-  });
-
-  it("escapes a forename carrying markup rather than serving it", () => {
-    const feindlich = buildSchiedsrichterBestaetigungEmail({ ...daten, vorname: "<script>a</script>" });
-
-    assert.ok(!feindlich.html.includes("<script>"), "the forename reached the markup branch unescaped");
-    assert.match(readable(feindlich.html), /Hallo <script>a<\/script>,/);
-  });
-
   /* `fl_frontend/src/core/emailShell.ts :: mailOrigin` is what keeps a stack that is not production
      from mailing production links (`docs/frontend/spec.md :: I186`). */
   it("builds the link on the origin it was handed", () => {
@@ -125,5 +115,28 @@ describe("the referee's confirmation message", () => {
 
     assert.ok(fremd.html.includes(`https://beispiel.test${SCHIEDSRICHTER_BESTAETIGUNG_PATH}?token=${TOKEN}`));
     assert.ok(!fremd.text.includes(ORIGIN), "the text branch carries an origin nobody handed it");
+  });
+});
+
+/* `docs/frontend/spec.md :: I89`: these messages carry no column of facts, so every value the prose
+   prints is folded by its builder or by nothing. */
+describe("no value can open a line of its own in the text part", () => {
+  const FORGED_OPENER = "Startgeld: 500 Euro";
+  const wert = `Wert\n${FORGED_OPENER}`;
+
+  /** Each builder with the break in each value it prints, one value at a time. */
+  const faelle = (): { name: string; mail: { subject: string; text: string } }[] => [
+    { name: "the confirmation link's fristText", mail: buildSchiedsrichterBestaetigungEmail({ ...daten, fristText: wert }) },
+    { name: "the address link's fristText", mail: buildSchiedsrichterAdresswechselEmail({ ...daten, fristText: wert }) },
+    { name: "the notice's vorname", mail: buildSchiedsrichterAdresswechselHinweisEmail({ origin: ORIGIN, vorname: wert }) },
+  ];
+
+  it("folds every value a message prints onto one line, in the text part and the subject", () => {
+    for (const { name, mail } of faelle()) {
+      assert.ok(!mail.text.split("\n").some((line) => line.startsWith(FORGED_OPENER)), `${name} forged a line`);
+      // Folded, never dropped: the deadline and the name are what the reader acts on.
+      assert.ok(mail.text.includes(`Wert ${FORGED_OPENER}`), `${name} was not carried onto one line`);
+      assert.ok(!/[\r\n]/.test(mail.subject), `${name} put a break in the subject`);
+    }
   });
 });

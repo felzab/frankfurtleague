@@ -4,14 +4,16 @@ import { useCallback, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { countActiveFacets } from "@/shared/utils/facets";
+import { withoutSearchQuery } from "@/shared/utils/searchQuery";
 
 import { useFacetSelection } from "./useFacetSelection";
 
 import type { Facet } from "@/shared/utils/facets";
 
 /**
- * The parameter-per-facet counterpart to `?q=`. The URL is the only state, so a selection survives reload and a shared
- * link, and the selection is `useFacetSelection`'s so a list and its bar cannot read one URL differently.
+ * The URL is the only state, so a selection survives reload and a shared link, and the selection is
+ * `useFacetSelection`'s so a list and its bar cannot read one URL differently. Its values are picked, never typed
+ * (`docs/frontend/spec.md :: I680`).
  */
 export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
   const searchParams = useSearchParams();
@@ -35,7 +37,7 @@ export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
    */
   const write = useCallback(
     (changes: Readonly<Record<string, readonly string[]>>) => {
-      const params = new URLSearchParams(window.location.search);
+      const params = withoutSearchQuery(new URLSearchParams(window.location.search));
 
       for (const [param, picked] of Object.entries(changes)) {
         if (picked.length > 0) {
@@ -62,8 +64,7 @@ export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
         return;
       }
 
-      // `scroll: false`, as the search field's own write is: narrowing a list the reader is looking at must not
-      // send them back to the top of it.
+      // `scroll: false`: narrowing a list the reader is looking at must not send them back to the top of it.
       startNarrowing(() => {
         router.replace(href, { scroll: false });
       });

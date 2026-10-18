@@ -108,15 +108,17 @@ async function AdminSpielerEditContent({
     }));
 
   return (
-    // Keyed by the state the drafts mirror (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
+    // Unkeyed: the view keys what it holds itself, and a key here would reset the address box's typing over a save.
     <AdminSpielerEditView
-      key={JSON.stringify({ spieler, saison })}
       spieler={{
         id: spieler.id,
         vorname: spieler.vorname,
         nachname: spieler.nachname,
         inactive_since: spieler.inactive_since,
         geburtsdatum: spieler.geburtsdatum,
+        email: spieler.email,
+        adresswechsel: spieler.adresswechsel,
+        adresswechsel_abgelaufen: spieler.adresswechsel_abgelaufen,
       }}
       // Off the record this page already holds: no read of its own, the memberships tier being the
       // only one that serves the field.
@@ -124,9 +126,6 @@ async function AdminSpielerEditContent({
       istFassungBekannt={fassungBekannt}
       saison={saison}
       teams={teams}
-      // Every season's rows, not the selected season's: the erasure takes them all, so the figure it
-      // names has to span the lot.
-      membershipCount={spieler.memberships.length}
     />
   );
 }

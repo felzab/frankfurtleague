@@ -1,3 +1,4 @@
+import { SPERRLISTE_EINTRAG } from "@/features/admin/constants";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 /**
@@ -7,9 +8,12 @@ import { buildRefusal } from "@/shared/utils/refusal";
  */
 export const SPERRLISTE_GRUND_MAX_LENGTH = 500;
 
-// Retyped from `fl_backend/app/shared/schemas/bounds.py` for the privacy notice, `SPERRE_DAUER_HINWEIS`
-// and the ban list's sidemenu note, which state the ban's length in a word; the notice's render test
-// holds all three words to this number.
+/**
+ * Retyped from `fl_backend/app/shared/schemas/bounds.py` for the privacy notice, `SPERRE_DAUER_HINWEIS`
+ * and the ban list's sidemenu note, which state the ban's length in a word. The notice's render test
+ * holds all three words to this number.
+ * @internal
+ */
 export const SPERRE_DAUER_SAISONS = 5;
 
 // Its own module: every export of a `"use client"` view becomes a client reference.
@@ -24,10 +28,10 @@ export const SPERRLISTE_CRUD_COPY = {
   // `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: classifyEmptiness` can reach
   // `filtered` on no press a reader can make.
 
-  // Two sentences where every sibling list has one: „nichts gefunden“ reads here as „nicht
+  // Three sentences where every sibling list has one: „nichts gefunden“ reads here as „nicht
   // gesperrt“, and the reader cannot see that the bar never had an address to match.
   emptyForQuery:
-    "Keine Sperren für diese Suche. Die Suche liest den Grund und wer die Sperre eingetragen hat; die gesperrte Adresse steht in keiner Zeile.",
+    "Keine Sperren für diese Suche. Die Suche liest den Grund und wer die Sperre eingetragen hat. Die gesperrte Adresse steht in keiner Zeile.",
   emptyOverall: "Es ist noch keine Adresse gesperrt.",
 } as const;
 
@@ -36,13 +40,77 @@ export const SPERRLISTE_CRUD_COPY = {
  * on one press, so a reader carrying that expectation here would lose a ban they cannot restore.
  */
 export const SPERRE_AUFHEBEN_CONSEQUENCE =
-  "Die Sperre verschwindet aus der Liste. Um die Adresse wieder zu sperren, musst Du sie neu eintragen.";
+  "Die Sperre verschwindet aus der Liste. Um die Adresse erneut zu sperren, musst Du sie neu eintragen.";
 
 /**
- * What a CLEAN save answers. `EntityForm` shows it beside the form's title only where the two
- * DIFFER, which is how a failed send is told apart.
+ * What a CLEAN save answers, and the title its toast raises: the toast adds the action's message only
+ * where the two DIFFER, so a clean ban shows no second line saying the same.
  */
 export const SPERRE_ERFOLG = "Adresse gesperrt";
+
+/**
+ * A ban that stands with its sign-out or its notice short of the dialog's hint, at the warning variant alone: the title
+ * moves with the grade (`docs/frontend/spec.md :: I42`).
+ */
+export const SPERRE_MIT_FOLGEN = "Mit Folgen gesperrt";
+
+/** The ban dialog's one press, read and armed by its first press and sent by its second (`docs/frontend/spec.md :: I724`). */
+export const SPERRE_PRESS = {
+  resting: "Adresse sperren",
+  // No „endgültig“, which the list's own lift makes false, as `fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx` omits it.
+  armed: "Ja, Adresse sperren",
+  running: "Sperrt...",
+  // The exact negation of `SPERRE_ERFOLG`, so a refused ban reads in the same words as a saved one.
+  nichtGesperrt: "Adresse nicht gesperrt",
+} as const;
+
+/**
+ * The ban's armed reveal: a ban cascades to no record, so what the address holds is shown before it, at the one
+ * moment anybody holds the address, each record linked to the tool that acts on it.
+ */
+export const SPERRE_ANSICHT_COPY = {
+  heading: "Was unter dieser Adresse gespeichert ist",
+  lead: "Die Sperre ändert an diesen Einträgen nichts.",
+  // Only beside a record a link reaches: a declined registration has no tool, and the clock erases it.
+  bearbeiten: "Bearbeite sie, bevor Du die Adresse sperrst.",
+  // Its team can only decline it, the admission refusing a barred address, and the clock erases it either way.
+  registrierungen: "Eine Registrierung endet nach der Sperre von selbst, denn ihr Team kann sie dann nicht mehr aufnehmen.",
+  // A record, never „nichts“: the account and the log below stand whatever the read found, as the erasure's reveal says.
+  leer: "Unter dieser Adresse ist kein Eintrag gespeichert.",
+  // The account sweep's criterion in the ban mail's kinds, a grant left out: no barred address holds one
+  // (`REQ-SPERRLISTE-003`). The sweep, and never the ban, ends it.
+  konto:
+    "Ein Konto mit dieser Adresse bleibt nur bestehen, solange unter der Adresse noch etwas davon gespeichert ist: ein Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, ein Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter oder eine bestätigte Registrierung, über die das Team noch nicht entschieden hat. Bis die Sperre endet, kann sich damit niemand anmelden.",
+  // What no record read lists and the ban changes nothing of, named as the erasure's reveal names it.
+  protokoll:
+    "Wo die Adresse im Änderungsprotokoll oder als Urheberin von Sperren, Einladungen, Entscheidungen und Zugängen steht, bleibt sie stehen.",
+} as const;
+
+/**
+ * A failed read, in the erasure reveal's words for its own: no ban goes out over a list nobody saw, and the failure's
+ * sentence follows.
+ */
+export const sperreOhneUebersicht = (reason: string): string =>
+  `Die Übersicht, was unter der Adresse gespeichert ist, konnte nicht geladen werden, und ohne sie wird nicht gesperrt. ${reason}`;
+
+/** Each record's link, named for what the page it opens does to that record. */
+export const SPERRE_ANSICHT_VERWEISE = {
+  kontakte: "Kontakte bearbeiten",
+  kader: "Kadereintrag austragen",
+  // A record left with nothing to take out, whose record is what stands: a pupil holding no squad row, a squad row
+  // taken out, a referee retired.
+  eintrag: "Eintrag ansehen",
+  stilllegen: "Schiedsrichter stilllegen",
+  bewerbung: "Bewerbung öffnen",
+  registrierungen: "Registrierungen ansehen",
+  adresswechsel: "Adressänderung ansehen",
+} as const;
+
+/**
+ * A referee's fixtures link, one per season holding a booking still to be played, ahead of the retirement:
+ * `REQ-RETIRE-004` refuses it while any stands.
+ */
+export const spieleNeuBesetzen = (saisonId: string): string => `Spiele der Saison ${saisonId} neu besetzen`;
 
 /** The eyebrow over the bound on a row, and the phrasing that makes the named season a barred one rather than the first free one. */
 export const SPERRE_BIS_LABEL = "Gesperrt bis";
@@ -58,7 +126,20 @@ export const SPERRE_DAUER_HINWEIS =
  * admin-tier, and hiding the ban from the person who keeps the list hides it from the one reader who
  * can act on it.
  */
+const ADRESSE_AUF_DER_SPERRLISTE = "Diese E-Mail-Adresse steht auf der Sperrliste";
+
 export const SPERRLISTE_ADRESSE_GESPERRT = buildRefusal({
-  reason: "Diese E-Mail-Adresse steht auf der Sperrliste",
-  repair: "Trage eine andere Adresse ein oder hebe die Sperre unter /bereich/admin/sperrliste auf",
+  reason: ADRESSE_AUF_DER_SPERRLISTE,
+  repair: { before: "Trage eine andere Adresse ein oder hebe die Sperre", after: "auf" },
+  where: SPERRLISTE_EINTRAG.label,
+});
+
+/**
+ * Under the box holding the barred address, which is itself the way to another address: only the
+ * way out it cannot offer, the ban lifted on its list (`docs/frontend/spec.md` §1.12's field register).
+ */
+export const SPERRLISTE_ADRESSE_GESPERRT_FELD = buildRefusal({
+  reason: ADRESSE_AUF_DER_SPERRLISTE,
+  repair: { before: "Hebe die Sperre", after: "auf" },
+  where: SPERRLISTE_EINTRAG.label,
 });

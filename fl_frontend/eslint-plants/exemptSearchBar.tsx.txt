@@ -1,0 +1,9 @@
+// Linted as src/shared/components/ui/SearchBar.tsx.
+// The search box HeroUI's search field is drawn through, and every other ban still reaches it, shared's own included.
+import { SearchField } from "@heroui/react/search-field";
+
+declare const searchParams: URLSearchParams;
+
+export const FIELD = <SearchField aria-label="Suchen" />;
+export const READ = searchParams.get("q"); // expect: search-in-url
+export const SLICE = import("@/features/teams/facets"); // expect: layer-shared-load

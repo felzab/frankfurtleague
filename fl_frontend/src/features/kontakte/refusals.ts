@@ -1,3 +1,4 @@
+import { SPERRLISTE_EINTRAG } from "@/features/admin/constants";
 import { BEWERBUNG_VERALTET } from "@/features/bewerbungen/utils";
 import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
 import { isRefusal } from "@/shared/utils/actionError";
@@ -53,7 +54,8 @@ export function mapKontakteRefusal(error: unknown): string | null {
     case "REQ-KONTAKT-003":
       return buildRefusal({
         reason: "Eine neu eingetragene E-Mail-Adresse steht auf der Sperrliste",
-        repair: "Trage dort eine andere Adresse ein oder hebe die Sperre unter /bereich/admin/sperrliste auf",
+        repair: { before: "Trage eine andere Adresse ein oder hebe die Sperre", after: "auf" },
+        where: SPERRLISTE_EINTRAG.label,
       });
     default:
       return null;

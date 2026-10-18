@@ -27,7 +27,7 @@ describe("describeSaisonTeamsFanOut", () => {
   it("names the scope on a zero rather than a cause it cannot tell apart", () => {
     assert.equal(
       describeSaisonTeamsFanOut(0),
-      "Kein Eintrag in einer laufenden oder geplanten Saison wurde geändert; nur dort werden Name und Kürzel nachgezogen.",
+      "Kein Eintrag in einer laufenden oder geplanten Saison wurde geändert. Nur dort werden Name und Kürzel nachgezogen.",
     );
     assert.doesNotMatch(describeSaisonTeamsFanOut(0), /abgeschlossen/);
     assert.doesNotMatch(describeSaisonTeamsFanOut(0), /ist in keiner/);

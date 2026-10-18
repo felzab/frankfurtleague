@@ -30,9 +30,10 @@ FLBerechtigungAenderungArt = Literal["erteilt", "entzogen", "geaendert"]
 # Stated, since a null actor also stands for one whose address is withheld (`docs/backend/spec.md :: I452`).
 FLBerechtigungUrheber = Literal["anwendung", "datenbank"]
 
-# Why a queued row's addresses are withheld. Closed on the one reason there is today; an erasure
-# joins as a second member rather than reusing this one.
-FLBerechtigungVorenthalten = Literal["gesperrt"]
+# Why a queued row's GRANT address is withheld: its holder barred, or erased. Never the actor's,
+# whose `geaendert_von` says it alone: null for a ban, `app/core/recording.py :: ERASED_ACTOR_MARKER`
+# for an erasure (`docs/backend/spec.md :: I661`).
+FLBerechtigungVorenthalten = Literal["gesperrt", "geloescht"]
 
 
 class FLBerechtigung(BaseModel):
@@ -41,8 +42,9 @@ class FLBerechtigung(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     adresse: CustomNonEmptyString
     verwaltung: FLVerwaltung
-    # An administrator's address for a grant made here; whatever the paste wrote, an empty string
-    # included, for one made in the Playground. No bound on it: that would hide a live grant.
+    # An administrator's address for a grant made here, `app/core/recording.py :: ERASED_ACTOR_MARKER`
+    # once they are erased; whatever the paste wrote, an empty string included, for one made in the
+    # Playground. No bound on it: that would hide a live grant.
     erteilt_von: str
     erteilt_am: datetime
     # Absent until a comparison finds the row new, and never written by a grant made here: a paste's
@@ -107,7 +109,7 @@ class FLBerechtigungWriteResponse(BaseAPIResponse):
 class FLBerechtigungStand(BaseModel):
     """One grant's address and tier at one moment."""
 
-    # Null where the address was barred when it was written or is barred now.
+    # Null where the address was barred when it was written or is barred now, or its holder is erased.
     adresse: str | None
     verwaltung: FLVerwaltung
 
@@ -131,7 +133,7 @@ class FLBerechtigungPostausgangZeile(BaseModel):
     jetzt: FLBerechtigungStand | None
     vorher: FLBerechtigungStand | None
     # The administrator whose write made the change, null for one found in the database and for one
-    # whose address a ban has withheld; `urheber` tells the two apart.
+    # whose address a ban has withheld, `urheber` telling the two apart; the marker for one erased since.
     geaendert_von: str | None
     # Null where the change was found in the database, nobody knowing when that edit was made.
     geaendert_am: datetime | None
@@ -152,12 +154,16 @@ class FLBerechtigungAenderung(BaseModel):
     urheber: FLBerechtigungUrheber
     jetzt: FLBerechtigungStand | None
     vorher: FLBerechtigungStand | None
-    # Null exactly where `urheber` is `datenbank` or `geaendert_von_gesperrt` is set.
+    # Null exactly where `urheber` is `datenbank` or `geaendert_von_gesperrt` is set; the marker where
+    # the person who made it has been erased.
     geaendert_von: str | None
     geaendert_von_gesperrt: bool
     geaendert_am: FLUtcInstant | None
-    # Set where an address of this change, the actor's included, is barred and withheld wherever it would stand.
+    # Set where the grant's address is barred and withheld wherever it would stand; never for the
+    # actor, whose state `geaendert_von` and its own flag carry.
     gesperrt: bool
+    # Set where the grant's address is withheld because its holder has been erased.
+    geloescht: bool
     # Set where this claim is past the row's last hand-out: the pass mails nothing and stamps it.
     aufgegeben: bool
 

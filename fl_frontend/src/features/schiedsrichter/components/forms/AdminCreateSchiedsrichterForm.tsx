@@ -3,10 +3,12 @@
 import { postSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { FLPostSchiedsrichterPayloadSchema } from "@/features/schiedsrichter/schemas";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
+import { versandWarnt } from "@/shared/utils/linkVersand";
 
 import { SchiedsrichterFormFields } from "./SchiedsrichterFormFields";
 
 import type { FLSchiedsrichterAngezeigt, SchiedsrichterDraft } from "@/features/schiedsrichter/types";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
 
 /**
  * One mapping, read by the block and by the write alike: judging a shape the action does not send is how a form
@@ -41,7 +43,7 @@ export function AdminCreateSchiedsrichterForm({
   onCreated?: (created: FLSchiedsrichterAngezeigt) => void;
 }) {
   return (
-    <EntityForm<SchiedsrichterDraft>
+    <EntityForm<SchiedsrichterDraft, SchiedsrichterDraft, { versand: LinkVersand }>
       initialDraft={EMPTY_DRAFT}
       renderFields={(draft, setDraft) => (
         <SchiedsrichterFormFields
@@ -75,6 +77,8 @@ export function AdminCreateSchiedsrichterForm({
       // The create mails the new referee their confirmation link.
       stepUp
       successMessage="Schiedsrichter angelegt"
+      // Saved whatever the link did: one that did not go out leaves the referee no way to confirm.
+      warning={{ title: "Mit Folgen angelegt", when: (saved) => versandWarnt(saved.versand) }}
       onClose={onClose}
     />
   );

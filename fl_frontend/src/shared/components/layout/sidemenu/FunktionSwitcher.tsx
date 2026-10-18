@@ -10,6 +10,7 @@ import { Description } from "@heroui/react/description";
 import { Dropdown } from "@heroui/react/dropdown";
 import { Separator } from "@heroui/react/separator";
 
+import { DEIN_BEREICH_TITEL } from "@/core/seitenNamen";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 import { benannt } from "@/shared/utils/benannt";
 
@@ -133,14 +134,14 @@ export function FunktionSwitcher({
               <Dropdown.Item
                 id={BEREICH_HREF}
                 href={BEREICH_HREF}
-                textValue="Zu Deinem Bereich"
+                textValue={DEIN_BEREICH_TITEL}
                 onAction={onMobileClose}
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5">
                 <ArrowUturnCwLeft
                   aria-hidden="true"
                   className="size-4 shrink-0 text-foreground-muted"
                 />
-                <span className="fluid-sm font-semibold text-foreground">Zu Deinem Bereich</span>
+                <span className="fluid-sm font-semibold text-foreground">{DEIN_BEREICH_TITEL}</span>
               </Dropdown.Item>
             </>
           )}

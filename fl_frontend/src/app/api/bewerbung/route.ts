@@ -68,8 +68,7 @@ export async function POST(request: NextRequest) {
         };
       }
 
-      // No cache to move: no public read holds an application, and both triage reads are uncached
-      // (`docs/frontend/spec.md :: I14` leaves the undo handlers the only route-handler invalidators).
+      // No cache to move: no public read holds an application, and both triage reads are uncached.
 
       const seats = eingang.bestaetigungen;
       // A replay whose links may already be in an inbox hands none, and a second mail would ask each

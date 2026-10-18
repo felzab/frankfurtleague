@@ -54,7 +54,7 @@ deliverable.
 document and the image the write replaced (`fl_backend/app/core/recording.py`); `/bereich/admin/aktionen`
 lists the rows and narrows to one document's history. A row therefore holds what a replay needs, and
 replaying one is a small change over the undo spine the entity editors already share
-(`fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo`). What is missing is the control that
+(`fl_frontend/src/shared/utils/adminUndo.ts :: runAdminUndo`). What is missing is the control that
 does it: a restore offered on a log row, past the editor's fifteen-second, browser-held undo — one
 that survives a reload and reaches a write nobody was watching at the time.
 
@@ -65,11 +65,6 @@ deletes a semi-final scoreline that a person had entered, as a consequence of an
 else. That destruction is recorded and attributable; recoverable past the fifteen seconds is what
 this entry adds. Until it lands, an unrestorable write is recovered by hand from the row that
 recorded it — slowly, which is the cost of leaving this open rather than a loss.
-
-**What blocks it is a measurement.** `docs/frontend/spec.md` §1.3 admits a route handler for a
-page-owned editor and refuses one for a row control, and a restore on a log row is a row control.
-Whether Next's E592 reproduces on a page that stays mounted is what decides between a server action
-and a route handler of its own, and nobody has measured it.
 
 **Retention is built, and it is this entry's reach.** `docs/backend/spec.md :: I119` expires a stamped
 log row twelve months after the write it recorded, and a restore reaches a write only while its row
@@ -309,10 +304,17 @@ a person's own consent and a carried-over record to express and nothing else —
 already marks the second, and `erziehungsberechtigt` stays in the enum for the rows that carry it,
 which the once-only reset of this season's pupil rows removes (`docs/datenschutz.md` §3).
 
+**The consent records' speakers are written by nothing either.** No write sets a consent block's
+`erteilt_von` or a contact seat's `erfasst_von`, and no validator requires them, as I ruled on
+2026-10-04; the records stored before carry them still
+(`fl_backend/app/shared/einwilligung_nachweis.py :: SPRECHER`), and the enum above is `erteilt_von`'s.
+
 **Done when** the enum has lost `erziehungsberechtigt` once the reset removed every row carrying it,
 and a pupil's birthdate is required on the person from then on, `fl_backend/app/core/domain.py ::
-UNENFORCED` carrying the state that ends there. The notice's referee publication row is
-`pw5c-zps5`'s.
+UNENFORCED` carrying the state that ends there; and the consent blocks' two speaker fields are gone
+from every model and validator and, by a Playground paste of mine, from every stored record still
+carrying one. A grant's own `erteilt_von` on `berechtigungen`, the administrator who gave it, is
+another field and stays. The notice's referee publication row is `pw5c-zps5`'s.
 
 ### `dgdv-27yw` · No rule engine reads this repository's sources, and two spellings its own readers refuse wait on a parse across the language boundary
 
@@ -487,7 +489,7 @@ call this entry owns, and no surface answers it first.
 (`fl_frontend/src/features/saisons/components/modals/AdminCreateSaisonModal.tsx` over
 `fl_frontend/src/features/saisons/components/forms/AdminCreateSaisonForm.tsx`), and what happens
 when a form outgrows one is already fixed: it becomes a page at its own route, with panels per
-section, a field judged when it is left, one save bar, a discard guard and an undo route handler. A
+section, a field judged when it is left, one save bar, a discard guard and an undo. A
 flow that also picks clubs and creates them passes that threshold by a distance, so the guided
 workflow is a page rather than a larger modal, and the pattern to copy is on
 `/bereich/admin/saisons/[saison_id]` —
@@ -502,8 +504,9 @@ it.** The block is embedded rather than given a collection of its own: on the `s
 junction (`fl_backend/app/api/teams/schemas.py :: FLSaisonTeamKontakte`) and on an application row,
 both validated through one sub-schema (`fl_backend/app/core/constraints.py :: _KONTAKTE_PROPERTIES`),
 so a role added to the block reaches both collections in the commit that adds it. `/bereich/admin/kontakte`
-reads the junction's copy, and `fl_backend/app/api/kontakte/admin_router.py :: erase_kontaktperson`
-is the one route that removes a person from either.
+reads the junction's copy, and an erasure of the person's address
+(`fl_backend/app/api/kontakte/crud.py :: erase_kontaktperson_in_session`) is among the writes that
+remove a person from either.
 
 **Undecided, and it needs a ruling before the flow enters a club: whether the flow may enter a club
 it has just created.** No junction row is ever removed — `saison_teams` has a POST, a PATCH and a
@@ -549,23 +552,18 @@ it red; the repair re-aims it at the shared component and keeps asserting what i
 because a case is cut only where a surviving one still fails for the same regression
 (`.claude/CLAUDE.md` §3).
 
-**Two smaller duplications sit on pages the redesign reaches, each shaped and none built:**
-
-- **The confirmation pages' scope picker and answer handling.** The pupil's page and the referee's,
-  `fl_frontend/src/features/registrierungen/components/views/SpielerBestaetigungView.tsx` and
-  `fl_frontend/src/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx`,
-  share 113 lines over ten spans — the `ToggleButtonGroup` over the stamped `umfang` options, and
-  the arms for an unclear answer, a dead link and a refused submission — and each shares 53 or 60
-  more with the contact seat's page, `fl_frontend/src/features/bewerbungen/components/views/BestaetigungView.tsx`.
-  The shape is one picker taking its options, its value and its setter, and one answer handler.
-  **The options are passed, never derived**: `umfang` holds different values on a pupil and on a
-  contact seat, so a picker reading one model's vocabulary is wrong on the other with no type
-  refusing it (`docs/glossary.md :: Einwilligung`). None was built because each page's copy and
-  payload differ, and the three are read side by side before one shape is chosen.
-- **The error boundaries' retry.** `fl_frontend/src/shared/components/ui/Error.tsx` and
-  `fl_frontend/src/features/dashboard/components/ui/DashboardErrorBoundary.tsx` wire the same
-  refresh-then-reset retry, and the argument for it is written at `Error.tsx` alone. The shape is
-  one hook.
+**A smaller duplication sits on pages the redesign reaches, shaped and not built: the confirmation
+pages' scope picker and answer handling.** The pupil's page and the referee's,
+`fl_frontend/src/features/registrierungen/components/views/SpielerBestaetigungView.tsx` and
+`fl_frontend/src/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx`, share
+113 lines over ten spans — the `ToggleButtonGroup` over the stamped `umfang` options, and the arms
+for an unclear answer, a dead link and a refused submission — and each shares 53 or 60 more with the
+contact seat's page, `fl_frontend/src/features/bewerbungen/components/views/BestaetigungView.tsx`.
+The shape is one picker taking its options, its value and its setter, and one answer handler. **The
+options are passed, never derived**: `umfang` holds different values on a pupil and on a contact
+seat, so a picker reading one model's vocabulary is wrong on the other with no type refusing it
+(`docs/glossary.md :: Einwilligung`). None was built because each page's copy and payload differ,
+and the three are read side by side before one shape is chosen.
 
 **A test double is copied, and this pass takes it as the frontend's cleanup rather than a page's:**
 
@@ -1117,7 +1115,7 @@ glossary entry is filed with the build.
 | `fl_backend/app/api/spieler/admin_router.py :: patch_saison_spieler`         | The same form, the player's squad row                                                                                                  | Nothing                                                                                                 |
 | `fl_backend/app/api/spieltage/admin_router.py :: patch_spieltag`             | `fl_frontend/src/features/spieltage/components/forms/AdminSpieltagEditForm/AdminSpieltagEditForm.tsx`                                  | Nothing                                                                                                 |
 | `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data`              | `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx`, its save and its dry-run preview | Nothing                                                                                                 |
-| `fl_backend/app/api/spiele/admin_router.py :: patch_spiele_paarungen`        | That editor's undo, `fl_frontend/src/app/api/admin/spiele/undo/route.ts`                                                               | Fields the save left standing read off the document; the Paarung and the fields it replaced overwritten |
+| `fl_backend/app/api/spiele/admin_router.py :: patch_spiele_paarungen`        | That editor's undo, `fl_frontend/src/features/spiele/actions.ts :: undoAdminSpielEditAction`                                           | Fields the save left standing read off the document; the Paarung and the fields it replaced overwritten |
 | `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email` | `fl_frontend/src/features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx`                                                 | Nothing on a waiting seat; a confirmed or answered seat is refused                                      |
 | `fl_backend/app/api/berechtigungen/admin_router.py :: patch_berechtigung`    | `fl_frontend/src/features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx`                                             | Outside this entry's scope, below                                                                       |
 
@@ -1131,12 +1129,12 @@ change back to it. An editor typing a third address for a confirmed referee repl
 change a rival opened, its link dying and its address leaving the log, while the address the row
 reads has not moved. Every other field of that save lands whole.
 
-**Every undo but the contacts editor's is a second stale write.** Each other undo under
-`fl_frontend/src/app/api/admin/` replays the save's earlier image through a PATCH, so an undo
-pressed after a rival's save reverts the rival's too; the contacts undo sends the token of the image
-its save left and is refused where a rival has moved the block since
-(`fl_frontend/src/app/api/admin/kontakte/undo/route.ts`). The fixture undo reads off the document
-only the fields its save left standing
+**Every undo but the contacts editor's is a second stale write.** Each other undo action replays
+the save's earlier image through a PATCH, so an undo pressed after a rival's save reverts the
+rival's too; the contacts undo sends the token of the image its save left and is refused where a
+rival has moved the block since
+(`fl_frontend/src/features/kontakte/actions.ts :: undoAdminKontakteEditAction`). The fixture undo
+reads off the document only the fields its save left standing
 (`fl_backend/app/api/spiele/schemas.py :: FLPatchSpielPaarungPayload`) and writes back the Paarung
 and every field the save replaced, so a result a rival entered on one of its fixtures is reverted,
 and so is a rival's date, venue, referee or note wherever the undone save had changed that field
@@ -1209,11 +1207,12 @@ present scope.
 - **Three places the stand reaches that no one save shows.** The fixture save's report names every
   fixture its bracket resolution moved (`prior_paarungen`) and the undo replays each, so the report
   carries a stand for each moved fixture's image after the save. The player undo restores the
-  person half with no catch (`fl_frontend/src/app/api/admin/spieler/undo/route.ts`), so a refusal
-  new to `patch_spieler` needs one there, a refusal being worded at three sites by
+  person half with no catch
+  (`fl_frontend/src/features/spieler/actions.ts :: undoAdminSpielerEditAction`), so a refusal new to
+  `patch_spieler` needs one there, a refusal being worded at three sites by
   `.claude/rules/cross-surface.md`'s trap. The club and player forms save their two endpoints one
   after the other, so a refusal on the second lands after the first has saved, and the form says
-  which half stands, as both undo routes already do.
+  which half stands, as both undos already do.
 
 **Open, each settled by the building session and put to me:**
 

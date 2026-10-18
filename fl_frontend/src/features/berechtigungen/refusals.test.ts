@@ -35,10 +35,11 @@ describe("the grant's refusals", () => {
 describe("the revoke's refusals", () => {
   it("names each reason a revoke is refused in its own sentence", () => {
     assert.deepEqual(mapEntziehenRefusal(refusedOn(REVOKE, "REQ-BERECHTIGUNG-005", 403)), {
-      error: "Den Zugang entziehen kann nur der Inhaber.",
+      error:
+        "Den Zugang entziehen können nur Inhaberinnen und Inhaber. Bist Du erst nach Deiner Anmeldung Inhaberin oder Inhaber geworden, melde Dich neu an.",
     });
     assert.deepEqual(mapEntziehenRefusal(refusedOn(REVOKE, "REQ-BERECHTIGUNG-002", 409)), {
-      error: "Einem Inhaber lässt sich der Zugang nicht entziehen. Stufe ihn zuerst zur Verwaltung herab.",
+      error: "Einer Inhaberin oder einem Inhaber lässt sich der Zugang nicht entziehen. Stufe die Person zuerst zur Verwaltung herab.",
     });
     assert.deepEqual(mapEntziehenRefusal(refusedOn(REVOKE, "REQ-BERECHTIGUNG-004", 409)), {
       error: "Die Verwaltung braucht mindestens zwei Personen mit Zugang. Füge zuerst eine weitere hinzu.",
@@ -60,13 +61,15 @@ describe("the revoke's refusals", () => {
 describe("the tier change's refusals", () => {
   it("names each reason a tier change is refused in its own sentence", () => {
     assert.deepEqual(mapStufeRefusal(refusedOn(TIER, "REQ-BERECHTIGUNG-005", 403)), {
-      error: "Die Stufe eines Zugangs ändern kann nur der Inhaber.",
+      error:
+        "Die Stufe eines Zugangs ändern können nur Inhaberinnen und Inhaber. Bist Du erst nach Deiner Anmeldung Inhaberin oder Inhaber geworden, melde Dich neu an.",
     });
     assert.deepEqual(mapStufeRefusal(refusedOn(TIER, "REQ-BERECHTIGUNG-003", 409)), {
-      error: "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Inhaber werden soll.",
+      error: "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Inhaberin oder Inhaber werden soll.",
     });
     assert.deepEqual(mapStufeRefusal(refusedOn(TIER, "REQ-BERECHTIGUNG-007", 409)), {
-      error: "Die Verwaltung braucht mindestens einen Inhaber. Ernenne zuerst eine weitere Person zum Inhaber.",
+      error:
+        "Die Verwaltung braucht mindestens eine Inhaberin oder einen Inhaber. Ernenne zuerst eine weitere Person zur Inhaberin oder zum Inhaber.",
     });
   });
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { Button } from "@heroui/react/button";
 
+import { DEIN_BEREICH_TITEL } from "@/core/seitenNamen";
 import { SIGN_IN_LANDING } from "@/core/signInLanding";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 import { SignInCard } from "@/shared/components/ui/SignInCard";
@@ -30,7 +31,7 @@ export function SignedInCard({ address }: { address: string }) {
           href={SIGN_IN_LANDING}
           // `ctaButton`'s `css` hover: `formButton` hovers on `data-hovered`, which no link is given.
           className={`${ctaButton({ intent: "primary", hover: "css" })} w-full`}>
-          Weiter zu Deinem Bereich
+          {DEIN_BEREICH_TITEL}
         </Link>
 
         <Button

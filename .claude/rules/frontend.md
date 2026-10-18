@@ -21,7 +21,7 @@ own config files included, on §7's terms.
 - **admin** — Hide a triage tab on a zero count; order sections off anything but the label table
 - **finalrunden** — Write from `/bereich/admin/finalrunden`; render its wiring as cards
 - **admin** — Give a shell page a second `h1`; make a sidemenu `hint` optional
-- **undo** — Route-handle an undo outside a page-owned editor; revert before E592
+- **undo** — Send an undo through anything but its slice's server action
 - **saisons** — Fetch the season list inside `resolveSaisonId` when `?saison_id=` is absent; drop `resolveSaisonId`'s redirect or `SaisonSelector`'s fallback
 - **auth** — Carry a return destination on the sign-in redirect without the allowlist first
 - **forms** — Confirm a clean save; raise the dialog on `info`; drop the undo when the dialog appears

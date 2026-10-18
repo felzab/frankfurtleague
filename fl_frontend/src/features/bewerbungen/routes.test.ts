@@ -285,6 +285,27 @@ describe("what the public application page answers for a season nobody knows", (
   });
 });
 
+describe("the public application page over an answer off its contract", () => {
+  /* A broken contract is no failed read: only a deploy repairs it, so the error boundary logs it, where the
+     unreadable state, the new-school arm or the open palette would hide it. */
+  for (const [read, endpoint, window] of [
+    ["the window", "/bewerbungen/fenster/2026", ABGELAUFEN],
+    ["the club list", "/bewerbungen/schulen", LAEUFT],
+    ["the assigned colours", "/bewerbungen/trikotfarben/2026", LAEUFT],
+  ] as const) {
+    it(`lets ${read} off its schema reach the error boundary`, async () => {
+      answerPublic({ fenster: window });
+      answers.set(endpoint, { acknowledged: 1 });
+
+      await assert.rejects(
+        pageBody(BewerbungPage, publicProps("2026")),
+        { name: "APIMalformedDataError" },
+        `${read} was absorbed into a state`,
+      );
+    });
+  }
+});
+
 describe("what the public application page reads while its window runs", () => {
   /* An anonymous visitor reads the club list and the assigned colours. A closed page showing no picker
      has no business reading either (`READ-BEWERBUNG-001`). */

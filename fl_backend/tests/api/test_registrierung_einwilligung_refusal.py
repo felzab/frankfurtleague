@@ -28,12 +28,14 @@ from app.api.registrierungen.services import (
     compose_bestaetigung,
     compose_confirmation_update,
     compose_person,
+    compose_person_update,
     find_already_confirmed_refusal,
     find_alter_refusal,
     find_expired_token_refusal,
     find_medien_refusal,
     find_unknown_token_refusal,
     find_wahlen_refusal,
+    ist_vorschlag,
     persons_named,
     seite_of,
     sole_person,
@@ -48,12 +50,7 @@ from app.core.constraints import (
     SUPPORT_INDEXES,
 )
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.schemas.bounds import (
-    BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
-    EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
-    MEDIEN_MIN_AGE_YEARS,
-    REGISTRIERUNG_MIN_ALTER_JAHRE,
-)
+from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -140,7 +137,7 @@ class TestTheLookupAndItsProjections:
 
         assert not any(key.startswith("bestaetigung.token_hash") for key in projection)
 
-    def test_the_view_declares_exactly_the_eleven_names_it_may_answer(self):
+    def test_the_view_declares_exactly_the_ten_names_it_may_answer(self):
         """An EQUALITY, not a subset.
 
         This is the widest of the link reads, so a field added to the model reaches a caller
@@ -153,7 +150,6 @@ class TestTheLookupAndItsProjections:
             "team",
             "schule",
             "saison_id",
-            "vorname",
             "seite",
             "mindestalter",
             "medien_mindestalter",
@@ -294,7 +290,6 @@ class TestTheAgeAtConfirmation:
 
         # The LITERAL, never the constant the message is interpolated from: read through the
         # constant the case passes at any floor at all, which is the state it exists to refuse.
-        assert REGISTRIERUNG_MIN_ALTER_JAHRE == 16
         assert refusal is not None
         assert "16" in refusal.message
 
@@ -303,7 +298,6 @@ class TestTheAgeAtConfirmation:
 
         refusal = find_alter_refusal(geburtsdatum="1800-01-01", today=TODAY)
 
-        assert BEWERBUNG_KONTAKT_MAX_AGE_YEARS == 120
         assert refusal is not None
         assert "120" in refusal.message
 
@@ -332,7 +326,6 @@ class TestTheMediaAge:
 
         refusal = find_medien_refusal(geburtsdatum="2010-04-01", medien=True, today=TODAY)
 
-        assert MEDIEN_MIN_AGE_YEARS == 18
         assert refusal is not None
         assert "18" in refusal.message
 
@@ -454,6 +447,27 @@ class TestWhichPageTheLinkOpens:
         assert persons_named([stored], vorname="Quillhilde", nachname=f"M{chr(0xFC)}ller") == [stored]
 
     @pytest.mark.parametrize(
+        ("vorname", "nachname", "found"),
+        [
+            pytest.param("Quillhilde", "Brackenmoor", True, id="the control, a name on both sides"),
+            pytest.param("", "", False, id="both halves empty"),
+            pytest.param("  ", "Brackenmoor", False, id="a forename of spaces"),
+            pytest.param("Quillhilde", None, False, id="no surname"),
+        ],
+    )
+    def test_a_blank_name_on_both_sides_names_nobody(self, vorname: Any, nachname: Any, found: bool):
+        """Only a hand edit stores one.
+
+        Compared as two keys, two blanks are one name, and the addressless row is proposed, handing its
+        record to the registering mailbox.
+        """
+
+        stored = {**self.PERSON, "vorname": vorname, "nachname": nachname, "email": None, "geburtsdatum": None}
+
+        assert (persons_named([stored], vorname=vorname, nachname=nachname) == [stored]) == found
+        assert ist_vorschlag(spieler_raw=stored, registrierung_raw=registrierung(vorname=vorname, nachname=nachname)) == found
+
+    @pytest.mark.parametrize(
         ("rows", "found"),
         [
             pytest.param([], False, id="an address the league holds nobody at"),
@@ -572,6 +586,34 @@ class TestWhatAReturningAdmissionWrites:
 
         with pytest.raises(ValueError, match="no choice"):
             compose_person(spieler_id="a-new-id", registrierung_raw=self.RETURNING, adresse="quillhilde@example.com")
+
+
+class TestAPersonIsNeverWrittenNameless:
+    """The `spieler` validator admits a null forename and record for the erased pupils' sentinel, so these guards are a person's last ones."""
+
+    NEW = {
+        "vorname": "Quillhilde",
+        "nachname": "Brackenmoor",
+        "geburtsdatum": "2009-05-09",
+        "einwilligung": {"umfang": "intern", "medien": False, "bestaetigt_am": TODAY, "datum": TODAY, "text_version": RETURNING_LABEL},
+    }
+
+    # Whitespace among them: `person_name_key` folds it to the empty key the sentinel's null name also folds to.
+    @pytest.mark.parametrize("vorname", [None, "", "   "], ids=("null", "empty", "whitespace"))
+    def test_neither_composer_writes_a_person_with_no_forename(self, vorname: Any):
+        nameless = {**self.NEW, "vorname": vorname}
+
+        with pytest.raises(ValueError, match="no forename"):
+            compose_person(spieler_id="a-new-id", registrierung_raw=nameless, adresse="quillhilde@example.com")
+        with pytest.raises(ValueError, match="no forename"):
+            compose_person_update(registrierung_raw=nameless, gespeichert=self.NEW["einwilligung"], adresse="quillhilde@example.com")
+
+    @pytest.mark.parametrize("registrierung_raw", [NEW, TestWhatAReturningAdmissionWrites.RETURNING], ids=("new page", "returning page"))
+    def test_a_matched_person_holding_no_record_is_admitted_into_by_neither_page(self, registrierung_raw: Mapping[str, Any]):
+        """The returning page is the load-bearing case: renewing nothing, it would leave the person standing with no record."""
+
+        with pytest.raises(ValueError, match="no consent record"):
+            compose_person_update(registrierung_raw=registrierung_raw, gespeichert=None, adresse="quillhilde@example.com")
 
 
 def antwort(**overrides: Any) -> dict[str, Any]:

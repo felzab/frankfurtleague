@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { patchSchiedsrichterAction } from "@/features/schiedsrichter/actions";
+import { patchSchiedsrichterAction, undoAdminSchiedsrichterEditAction } from "@/features/schiedsrichter/actions";
 import { saveMayMint } from "@/features/schiedsrichter/linkMint";
 import { FLPatchSchiedsrichterPayloadSchema, hatAdresse } from "@/features/schiedsrichter/schemas";
 import { deriveSchiedsrichterDraftStatus } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
@@ -21,15 +21,14 @@ import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useStepUp } from "@/shared/hooks/useStepUp";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
-import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { fieldStatus } from "@/shared/utils/draftStatus";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
+import { hinweisFehlt, versandWarnt } from "@/shared/utils/linkVersand";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSchiedsrichterBanners } from "./banners";
 import { FormAdresswechselSection } from "./FormAdresswechselSection";
-import { FormAnonymisierenSection } from "./FormAnonymisierenSection";
 import { FormBestaetigungSection } from "./FormBestaetigungSection";
 import { FormHonorarSection } from "./FormHonorarSection";
 import { FormKontaktSection } from "./FormKontaktSection";
@@ -231,14 +230,13 @@ export function AdminSchiedsrichterEditForm({
             .join(" ");
 
           offerUndo({
-            endpoint: "/api/admin/schiedsrichter/undo",
-            body: { ...undoPayload, adresswechsel_gespeichert: res.adresswechselGespeichert === true },
+            undo: () => undoAdminSchiedsrichterEditAction({ ...undoPayload, adresswechsel_gespeichert: res.adresswechselGespeichert === true }),
             message: gespeichertesSatz === "" ? undefined : gespeichertesSatz,
-            // A save that mailed nothing is clean; one whose link did not leave is graded a warning, the
-            // referee having no working link and nobody else being told.
-            warn: res.versandFehlgeschlagen === true,
+            // A save that mailed nothing is clean; one whose link did not go out is graded a warning, the
+            // referee having no working link and nobody else being told, and so is one whose notice failed.
+            warn: versandWarnt(res.versand) || hinweisFehlt(res.hinweis),
             fallback: "Die Schiedsrichterdaten wurden aktualisiert.",
-            // Judged here and not left to the undo route: the shared spine can only answer a body the
+            // Judged here and not left to the undo action: the shared spine can only answer a body the
             // schema refuses with a reload nothing would change.
             unrestorable: schiedsrichter.name === null ? OHNE_GESPEICHERTEN_NAMEN : gespeicherteAdresseGilt ? null : OHNE_GESPEICHERTE_ADRESSE,
             // Moving the address back over what this save stored mints as the save did, so the press asks first.
@@ -322,19 +320,6 @@ export function AdminSchiedsrichterEditForm({
             einwilligung={schiedsrichter.einwilligung}
             istFassungBekannt={istFassungBekannt}
             geburtsdatum={schiedsrichter.geburtsdatum}
-          />
-
-          {/* Last on the page, the position the season editor's rollover holds: the one control here
-              that writes on press and that no later edit reverses. The STORED contact record, never
-              the draft — this clears what is saved. */}
-          <FormAnonymisierenSection
-            schiedsrichterId={schiedsrichter.id}
-            name={schiedsrichter.name}
-            schule={schiedsrichter.schule}
-            kontakt={schiedsrichter.kontakt}
-            // The page keys this view on the STORED record, so the write's refresh remounts the form
-            // onto the cleared one — an unsaved draft would go with it.
-            onBeforeAnonymise={() => guardAgainstDraft(isDirty, DRAFT_DISCARDED)}
           />
         </EditFormLayout>
 

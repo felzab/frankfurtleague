@@ -638,12 +638,15 @@ class TestTheClocksDrain:
         assert getattr(response, counted) == OVERFLOW
 
 
-# The reminder's two commands a row, pinned on the wire by
+# The reminder's three commands a row -- the update, its read-back and its log row -- pinned on the wire by
 # `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheReminderClockTakesAShareEachCall`.
-ROUND_TRIPS_A_ROW = 2
+ROUND_TRIPS_A_ROW = 3
 
-# The pass's other commands and the per-command cost, from whole passes timed locally, 2026-09-23.
-OTHER_COMMANDS = 12
+# The other commands of the worst call erasing one page per clock, counted on the wire by
+# `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
+OTHER_COMMANDS = 19
+
+# The per-command cost, from whole passes timed locally, 2026-09-23.
 PER_COMMAND_S = 0.00107
 
 # The round trip `sweep_router.REMINDERS_PER_PASS`'s comment sizes the share for.

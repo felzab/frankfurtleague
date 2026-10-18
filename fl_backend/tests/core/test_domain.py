@@ -2,6 +2,8 @@ import ast
 import functools
 import importlib
 from collections.abc import Iterator, Mapping
+from importlib.util import resolve_name
+from itertools import combinations
 from pathlib import Path
 from types import ModuleType
 from typing import Any, get_args, get_origin
@@ -9,9 +11,14 @@ from typing import Any, get_args, get_origin
 import pytest
 from pydantic import BaseModel
 
+from app.api.aktionen.crud import redact_address_in_images
+from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
+from app.api.identitaet.crud import ERASURE_STEPS, JEDE_PERSONENGRUPPE, Personengruppe, _runs, erase_everything
 from app.api.saisons.schemas import FLSaison
+from app.api.schiedsrichter.crud import remove_pending_addresses_in_session
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
 from app.api.spiele.schemas import FLSpiel
+from app.api.spieler.crud import remove_pending_pupil_addresses_in_session
 from app.api.spieler.schemas import FLSpieler
 from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
@@ -33,7 +40,7 @@ from app.core.domain import (
 from app.core.exceptions import WriteRefusal
 from app.main import PROTOCOL_CODES, PROTOCOL_FAMILIES_EXTENSION, create_app, refusal_family
 from tests.config import build_test_config
-from tests.core.app_source import Declaration, api_routes, declared, module_of, parsed, resolve_callee, scoped_calls
+from tests.core.app_source import SESSION_TYPE_MODULE, Declaration, api_routes, declared, module_of, parsed, resolve_callee, scoped_calls
 from tests.openapi_document import build_document
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -126,15 +133,23 @@ def _names_referenced(node: ast.AST) -> frozenset[str]:
     )
 
 
+def _module_imported_from(file: Path, node: ast.ImportFrom) -> str:
+    # A module's package and an `__init__.py`'s package are both the path without its last part.
+    package = ".".join(file.relative_to(BACKEND_ROOT).with_suffix("").parts[:-1])
+
+    return resolve_name("." * node.level + (node.module or ""), package)
+
+
 @functools.cache
 def _import_origins(file: Path) -> Mapping[str, tuple[str, str]]:
     """Each `from x import y` name in the file, as `(module, symbol)`, so a value resolves without importing the file."""
 
     origins: dict[str, tuple[str, str]] = {}
     for node in ast.walk(parsed(file)):
-        if isinstance(node, ast.ImportFrom) and node.module:
+        if isinstance(node, ast.ImportFrom):
+            module = _module_imported_from(file, node)
             for alias in node.names:
-                origins[alias.asname or alias.name] = (node.module, alias.name)
+                origins[alias.asname or alias.name] = (module, alias.name)
 
     return origins
 
@@ -142,15 +157,13 @@ def _import_origins(file: Path) -> Mapping[str, tuple[str, str]]:
 def _modules_imported(file: Path, tree: ast.Module | None = None) -> frozenset[str]:
     """Every module the file imports, and every name it imports from one read as a submodule, relative levels resolved against its package."""
 
-    # A module's package and an `__init__.py`'s package are both the path without its last part.
-    package = file.relative_to(BACKEND_ROOT).with_suffix("").parts[:-1]
     found: set[str] = set()
     for node in ast.walk(tree or parsed(file)):
         if isinstance(node, ast.Import):
             found.update(alias.name for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
-            base = ".".join((*package[: len(package) - node.level + 1], *([node.module] if node.module else []))) if node.level else node.module
-            found.add(base or "")
+            base = _module_imported_from(file, node)
+            found.add(base)
             found.update(f"{base}.{alias.name}" for alias in node.names)
 
     return frozenset(found)
@@ -507,6 +520,15 @@ def test_every_rule_is_tested_where_it_says(rule):
     assert _test_class_asserts_code(rule.tested_by, rule.code), f"{rule.tested_by} never asserts on {rule.code}"
 
 
+def test_a_cited_class_asserting_on_a_relatively_imported_name_is_read():
+    """A rule may cite a class under `tests/api/`, whose suites import their siblings relatively.
+
+    Read as a top-level module, such a name raises rather than resolving.
+    """
+
+    assert _test_class_asserts_code("tests/core/cited_relatively.py::TestAssertsOnARelativelyImportedName", SESSION_TYPE_MODULE)
+
+
 # No separate check that a `RULES` row claims no `UNENFORCED` subject: the pairing below executes
 # each entry, so a rule that starts refusing a declared state fails that entry's own test.
 @pytest.mark.parametrize("entry", UNENFORCED, ids=lambda entry: entry.subject)
@@ -555,6 +577,86 @@ def test_every_declaration_carries_its_reason():
             assert policy.condition.strip(), f"{policy.collection}.{policy.field} is {policy.editability} and says nothing about when"
     for entry in UNENFORCED:
         assert entry.reason.strip(), f"'{entry.subject}' is unenforced and states no reason"
+
+
+# The collections a person's own document sits in, whose references an erasure owes a step.
+PERSON_COLLECTIONS = frozenset({Collection.SPIELER, Collection.SCHIEDSRICHTER})
+
+REFERENCES_TO_A_PERSON = [reference for reference in REFERENCES if reference.target in PERSON_COLLECTIONS]
+
+# Every scope `erase_everything` could be handed, so a step moved into a narrower one fails before any caller asks for that scope.
+SCOPES = [frozenset(scope) for size in range(len(JEDE_PERSONENGRUPPE) + 1) for scope in combinations(sorted(JEDE_PERSONENGRUPPE), size)]
+
+
+def _steps_reaching(collection: Collection, scope: frozenset[Personengruppe] = JEDE_PERSONENGRUPPE) -> list[int]:
+    return [index for index, step in enumerate(ERASURE_STEPS) if collection in step.reaches and _runs(step.run, scope)]
+
+
+def test_every_reference_to_a_person_has_an_erasure_step_reaching_its_source():
+    """A reference to a person no step reaches outlives their erasure, naming a document that is gone.
+
+    Programme 3's lineups, scorers and cards each add a row here, and fail until a step reaches them.
+    """
+
+    assert REFERENCES_TO_A_PERSON, "no reference targets a person, so the comparison below holds of nothing"
+    assert [f"{reference.source}.{reference.fields[0]}" for reference in REFERENCES_TO_A_PERSON if not _steps_reaching(reference.source)] == []
+
+
+def test_in_every_scope_a_cascade_onto_a_persons_references_runs_before_the_person_goes():
+    """A step serving no one kind runs in the full scope alone, so a repoint declared so passes there.
+
+    In the pupil scope it leaves the reference naming nobody; one running after the removal finds no person to repoint from.
+    """
+
+    cascading = [reference for reference in REFERENCES_TO_A_PERSON if reference.on_target_removed is Action.CASCADE]
+    late = [
+        (sorted(scope), f"{reference.source}.{reference.fields[0]}")
+        for scope in SCOPES
+        for reference in cascading
+        if (removing := _steps_reaching(reference.target, scope))
+        and min(_steps_reaching(reference.source, scope), default=len(ERASURE_STEPS)) > max(removing)
+    ]
+
+    assert cascading, "no reference cascades onto a person, so the comparison below holds of nothing"
+    assert late == []
+
+
+def test_the_registry_runs_every_step_by_name_in_its_declared_order():
+    """`ERASURE_STEPS` is the population every case here reads: a step called but undeclared, or declared but never called, misleads them all.
+
+    By name, never through the tuple: the transaction sweeps follow a session handed on by a bare name alone.
+    """
+
+    names = {step.run.__name__ for step in ERASURE_STEPS}
+    # In source order: `ast.walk` visits breadth-first.
+    called = sorted(
+        (node.lineno, node.func.id)
+        for node in ast.walk(declared(erase_everything))
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in names
+    )
+
+    assert list(dict.fromkeys(name for _, name in called)) == [step.run.__name__ for step in ERASURE_STEPS]
+
+
+# The steps whose writes leave the address in images no step of theirs redacts: another record the person made or names.
+_LEAVING_THE_ADDRESS_IN_IMAGES = (
+    erase_grants_and_authorship_in_session,
+    remove_pending_addresses_in_session,
+    remove_pending_pupil_addresses_in_session,
+)
+
+
+def test_no_scope_runs_a_step_leaving_the_address_in_an_image_without_the_address_pass():
+    """Running without the pass, such a step leaves the address in the images its writes filed."""
+
+    unredacted = [
+        sorted(scope)
+        for scope in SCOPES
+        if any(_runs(run, scope) for run in _LEAVING_THE_ADDRESS_IN_IMAGES) and not _runs(redact_address_in_images, scope)
+    ]
+
+    assert any(_runs(redact_address_in_images, scope) for scope in SCOPES), "no scope runs the pass, so the comparison holds of nothing"
+    assert unredacted == []
 
 
 def test_the_document_publisher_is_the_one_application_module_reading_the_domain_model():

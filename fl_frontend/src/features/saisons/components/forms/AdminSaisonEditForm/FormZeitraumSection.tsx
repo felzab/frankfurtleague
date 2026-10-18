@@ -2,6 +2,7 @@
 
 import { parseDate } from "@internationalized/date";
 
+import { ZEITRAUM_ABSCHNITT } from "@/features/saisons/constants";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -49,7 +50,7 @@ export function FormZeitraumSection({
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}
-          title="Zeitraum">
+          title={ZEITRAUM_ABSCHNITT}>
           <Hint
             mode="reveal"
             label="Hinweis zum Zeitraum"

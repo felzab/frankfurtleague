@@ -112,7 +112,8 @@ const DELIMITER_VALUE = "Erste Zeile\n-- \nZweite Zeile";
    below on the same edit rather than when somebody remembers it. */
 const ZUSAGE = {
   teamName: "Ernst-Reuter-Schule",
-  saisonId: "2627",
+  // The season whose acceptance carries paragraphs of its own, so every sweep below reads the whole body.
+  saisonId: "2027",
   origin: ORIGIN,
   rollenText: "Ansprechperson",
   gruppe: "B",
@@ -156,7 +157,31 @@ const WEBSITE_SENTENCE = `Spielplan, Tabelle und Ergebnisse veröffentlichen wir
  * Spelled out for the reason above, and WHOLE: what this sentence must not promise is carried by the
  * half a substring check would drop, so „wir versuchen“ could be slipped in beside a passing assertion.
  */
-const WUNSCHGEGNER_SENTENCE = `Als Wunschgegner für den ersten Spieltag haben wir ${ZUSAGE.wunschgegner} notiert; über die Paarungen entscheidet der Spielplan.`;
+const WUNSCHGEGNER_SENTENCE = `Als Wunschgegner für den ersten Spieltag haben wir ${ZUSAGE.wunschgegner} notiert. Über die Paarungen entscheidet der Spielplan.`;
+
+/** What every season's acceptance opens on, spelled out for the reason above. */
+const ZUSAGE_OPENING = [
+  "Liebe Freundinnen und Freunde,",
+  `vielen Dank für Eure Bewerbung für die Saison ${ZUSAGE.saisonId} der Frankfurt League.`,
+  "Wir freuen uns, Euch mitteilen zu können, dass Eure Bewerbung erfolgreich war.",
+  `${ZUSAGE.teamName} ist für die Saison ${ZUSAGE.saisonId} aufgenommen. Herzlich willkommen!`,
+] as const;
+
+const EINTEILUNG_SENTENCE = `Wir haben Euch in Gruppe ${ZUSAGE.gruppe} untergebracht und Euch die Trikotfarbe ${ZUSAGE.trikotFarbeLabel} zugewiesen. Beide Angaben sind aus organisatorischen Gründen nicht mehr veränderbar.`;
+const EINTEILUNG_SENTENCE_WITHOUT_COLOUR = `Wir haben Euch in Gruppe ${ZUSAGE.gruppe} untergebracht. Die Gruppe ist aus organisatorischen Gründen nicht mehr veränderbar. Eure Trikotfarbe teilen wir Euch noch mit.`;
+
+/** Saison 2027's own paragraphs, above and below the website sentence every season's acceptance carries. */
+const SAISON_2027_ABOVE = [
+  "Über die genauen Trikot-Regelungen für die neue Saison informieren wir Euch im Laufe der Woche. Bitte bestellt bis dahin keine eigenen Trikots.",
+  "Wir laden Euch herzlich dazu ein, am Freitag, den 20. November 2026, zur ersten Generalversammlung der Frankfurt League zu kommen! Die Sitzung findet ab 19:00 Uhr im Vereinsheim der SV 07 Heddernheim statt. Pro Schule ist eine Vertreterin oder ein Vertreter zugelassen.",
+  "In dieser Versammlung werden wichtige Grundsteine für die Saison gelegt und essentielle Entscheidungen getroffen. Eine Teilnahme Eurer Schule ist daher enorm wichtig.",
+];
+const SAISON_2027_BELOW =
+  "Bei Fragen oder Unklarheiten stehe ich Euch selbstverständlich jederzeit für den Verein zur Verfügung. Meine Kontaktdaten stehen unten in der Signatur.";
+const SAISON_2027_SIGNATURE = ["Sportliche Grüße", "Jonathan Kroh", "Sportliche Kommunikation", "0173 5640095"];
+
+/** A season with no paragraphs of its own. */
+const LATER_SEASON = "2028";
 
 /** The second control both decisions carry: one page that is a dead end for neither of their readers. */
 const LIGA_AKTION = { label: "Laufende Saison", href: `${ORIGIN}/dashboard` };
@@ -167,7 +192,7 @@ const FALLBACK_SENTENCE = "Falls der Button nicht funktioniert, kopiere diese Ad
 /* Spelled out rather than imported: a shared inbox reads one message under two floors, and these
    words are what stop a later edit personalising the number for a message two people read. */
 const ALTERS_SATZ =
-  "Trainerin oder Trainer kann sein, wer mindestens 16 Jahre alt ist; Ansprechperson oder Stellvertretung, wer mindestens 18 Jahre alt ist.";
+  "Trainerin oder Trainer kann sein, wer mindestens 16 Jahre alt ist. Ansprechperson oder Stellvertretung kann sein, wer mindestens 18 Jahre alt ist.";
 
 /** What each message states about who it reached: the two decisions reach three seats, the link messages one mailbox. */
 const RECIPIENT_SENTENCE = {
@@ -178,7 +203,7 @@ const RECIPIENT_SENTENCE = {
 };
 
 /** The closing sentences of a message that reached all three seats, which is either decision. */
-const FOOTER_SENTENCES = [RECIPIENT_SENTENCE.kontaktpersonen, "Antworten an die Absenderadresse liest niemand;"];
+const FOOTER_SENTENCES = [RECIPIENT_SENTENCE.kontaktpersonen, "Antworten an die Absenderadresse liest niemand."];
 
 /** Spelled out here for the reason above: copy checked against its own source moves with it. */
 const IGNORE_SENTENCE =
@@ -189,7 +214,7 @@ const textFooter = (empfaenger: keyof typeof RECIPIENT_SENTENCE): string =>
   [
     "-- ",
     RECIPIENT_SENTENCE[empfaenger],
-    `Antworten an die Absenderadresse liest niemand; unsere Adresse ist ${KONTAKT_EMAIL}.`,
+    `Antworten an die Absenderadresse liest niemand. Unsere Adresse ist ${KONTAKT_EMAIL}.`,
     `Datenschutzerklärung: ${ORIGIN}/datenschutz`,
     `Impressum: ${ORIGIN}/impressum`,
     `${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}`,
@@ -222,16 +247,36 @@ describe("buildBewerbungZusageEmail", () => {
     );
   });
 
-  it("leaves the prose the sentences the panel does not carry, and none it does", () => {
+  it("leaves the prose the sentences the panel does not carry, restating only the group and colour it fixes", () => {
     const prose = readable(proseSection(buildBewerbungZusageEmail(ZUSAGE).html));
 
-    assert.ok(prose.includes(`${ZUSAGE.teamName} ist für die Saison ${ZUSAGE.saisonId} der Frankfurt League aufgenommen.`));
-    assert.ok(prose.includes("Wir freuen uns auf die gemeinsame Saison."));
-    assert.ok(prose.includes(WEBSITE_SENTENCE));
-    // Stated once. A fact restated in prose is the burial the panel exists to undo.
-    for (const stated of ["Gruppe", "Trikotfarbe", "Eingetragen als"]) {
-      assert.ok(!prose.includes(stated), `„${stated}“ is stated in the panel and again in the prose`);
+    for (const sentence of [...ZUSAGE_OPENING, EINTEILUNG_SENTENCE, WEBSITE_SENTENCE]) {
+      assert.ok(prose.includes(sentence), `the prose lost „${sentence}“`);
     }
+    // Stated once. A fact restated in prose is the burial the panel exists to undo.
+    assert.ok(!prose.includes("Eingetragen als"), "„Eingetragen als“ is stated in the panel and again in the prose");
+    // Except in the one sentence telling the school they are fixed, which has to say what is.
+    for (const stated of ["Gruppe", "Trikotfarbe"]) {
+      assert.equal(prose.split(stated).length - 1, 1, `„${stated}“ is restated outside the sentence fixing it`);
+    }
+  });
+
+  /* Every other case reads the opening flattened, so a greeting moved down or two of its paragraphs
+     run together would pass them. */
+  it("opens on the league's wording in its order, broken where the league broke it", () => {
+    const mail = buildBewerbungZusageEmail(ZUSAGE);
+    const [anrede, dank, erfolg, aufgenommen] = ZUSAGE_OPENING;
+    const absaetze = [...proseSection(mail.html).matchAll(/<p [^>]*>([\s\S]*?)<\/p>/g)].map((hit) => readable(hit[1] ?? ""));
+
+    assert.ok(
+      mail.text.includes([anrede, dank, `${erfolg}\n${aufgenommen}`, EINTEILUNG_SENTENCE].join("\n\n")),
+      "the text branch moves or merges a paragraph of the opening",
+    );
+    assert.deepEqual(
+      absaetze.slice(0, 4),
+      [anrede, dank, `${erfolg} ${aufgenommen}`, EINTEILUNG_SENTENCE],
+      "the markup branch moves or merges a paragraph of the opening",
+    );
   });
 
   it("carries every fact in both branches", () => {
@@ -241,8 +286,9 @@ describe("buildBewerbungZusageEmail", () => {
       ZUSAGE.teamName,
       `Zusage für die Saison ${ZUSAGE.saisonId}`,
       KONTAKT_EMAIL,
-      `${ZUSAGE.teamName} ist für die Saison ${ZUSAGE.saisonId} der Frankfurt League aufgenommen.`,
-      "Wir freuen uns auf die gemeinsame Saison.",
+      ...ZUSAGE_OPENING,
+      // The form for an assigned colour; the open one has the case below.
+      EINTEILUNG_SENTENCE,
       WEBSITE_SENTENCE,
       ...FOOTER_SENTENCES,
     ]) {
@@ -260,10 +306,12 @@ describe("buildBewerbungZusageEmail", () => {
 
     assert.equal(factRows(mail.html).get("Trikotfarbe"), "noch nicht festgelegt");
     assert.ok(flat(mail.text).includes("Trikotfarbe: noch nicht festgelegt"));
+    // The group survives the colour being absent: an absent value is a row like any other.
+    assert.equal(factRows(mail.html).get("Gruppe"), ZUSAGE.gruppe, "the panel's group row went with the colour");
+    assert.ok(flat(mail.text).includes(`Gruppe: ${ZUSAGE.gruppe}`), "the text branch's group line went with the colour");
     for (const branch of [readable(mail.html), flat(mail.text)]) {
+      assert.ok(branch.includes(EINTEILUNG_SENTENCE_WITHOUT_COLOUR), "the message does not say the colour follows");
       assert.ok(!branch.includes(ZUSAGE.trikotFarbeLabel), "a colour was named where none is assigned");
-      // The group survives the colour being absent: an absent value is a row like any other.
-      assert.ok(branch.includes(ZUSAGE.gruppe));
     }
   });
 
@@ -288,10 +336,7 @@ describe("buildBewerbungZusageEmail", () => {
     }
     // Silence, not a gap: the paragraphs the sentence sits between meet exactly as they do in a
     // message that never carried one, so the omission leaves nothing for a reader to wonder about.
-    assert.ok(
-      without.text.includes(`Wir freuen uns auf die gemeinsame Saison.\n\n${WEBSITE_SENTENCE}`),
-      "the absent sentence left a blank line",
-    );
+    assert.ok(without.text.includes(`${EINTEILUNG_SENTENCE}\n\n${SAISON_2027_ABOVE[0]}`), "the absent sentence left a blank line");
     assert.ok(!/<p [^>]*>\s*<\/p>/.test(without.html), "the absent sentence left an empty paragraph");
 
     /* A null and a blank are one case. Which of the two reaches this module is the payload's business,
@@ -311,6 +356,43 @@ describe("buildBewerbungZusageEmail", () => {
       "the team name lost its emphasis, so this test proves nothing",
     );
     assert.ok(!emphasised.some((inner) => inner.includes(ZUSAGE.wunschgegner)), "the wish is shouted as loudly as the decision");
+  });
+
+  /* A later season's acceptance carrying these would invite its schools to an assembly already held,
+     under a name and a number that need not be that season's. */
+  it("carries Saison 2027's own paragraphs and signature on a 2027 acceptance and on no other season's", () => {
+    const mail = buildBewerbungZusageEmail(ZUSAGE);
+    const later = buildBewerbungZusageEmail({ ...ZUSAGE, saisonId: LATER_SEASON });
+    const signature = SAISON_2027_SIGNATURE.join("\n");
+
+    // Whole and in order, around the website sentence: a paragraph moved or dropped fails here.
+    assert.ok(
+      flat(readable(mail.html)).includes([...SAISON_2027_ABOVE, WEBSITE_SENTENCE, SAISON_2027_BELOW, ...SAISON_2027_SIGNATURE].join(" ")),
+      "the markup branch lost a 2027 paragraph or its order",
+    );
+    assert.ok(
+      mail.text.includes([...SAISON_2027_ABOVE, WEBSITE_SENTENCE, SAISON_2027_BELOW, signature].join("\n\n")),
+      "the text branch lost a 2027 paragraph or its order",
+    );
+    // The signature one line each in the markup too, which the readable comparison above cannot see.
+    assert.ok(mail.html.includes(`>${SAISON_2027_SIGNATURE.join("<br />")}</p>`), "the markup branch runs the signature together");
+    // The date and the time in the emphasis grade, as every message sets its deadline.
+    const emphasised = [...mail.html.matchAll(/<strong[^>]*>([\s\S]*?)<\/strong>/g)].map((match) => match[1] ?? "");
+    for (const wann of ["Freitag, den 20. November 2026", "19:00 Uhr"]) {
+      assert.ok(emphasised.includes(wann), `„${wann}“ is not emphasised`);
+    }
+
+    for (const branch of [flat(readable(later.html)), flat(later.text)]) {
+      for (const line of [...SAISON_2027_ABOVE, SAISON_2027_BELOW, ...SAISON_2027_SIGNATURE]) {
+        assert.ok(!branch.includes(line), `a Saison ${LATER_SEASON} acceptance carries „${line}“`);
+      }
+    }
+    // Silence, not a gap, as for an unnamed opponent.
+    assert.ok(
+      later.text.includes(`${EINTEILUNG_SENTENCE}\n\n${WUNSCHGEGNER_SENTENCE}\n\n${WEBSITE_SENTENCE}\n\n${IGNORE_SENTENCE}`),
+      "the absent paragraphs left a blank line",
+    );
+    assert.ok(!/<p [^>]*>\s*<\/p>/.test(later.html), "the absent paragraphs left an empty paragraph");
   });
 
   it("escapes the team name in the markup branch and leaves the text branch alone", () => {
@@ -687,9 +769,9 @@ describe("both decisions", () => {
     assert.ok(cases.length > 0, "no interpolated field was found at all, so this test proves nothing");
     for (const { field, mail, footer } of cases) {
       assert.equal([...mail.text.matchAll(/^-- $/gm)].length, 1, `${field} stands as a second signature delimiter`);
-      /* Content survival, which is what stuffing buys. A field folded onto one line
-         (`renderText :: zeile`) has no line left to stuff, so the guarantee is the value still being
-         there — the count above proves the stacked field's line WAS stuffed. */
+      /* A folded field (`renderText :: zeile`) keeps no line of its own and `eingerueckt` moves the
+         stacked reason's lines off column 0, so the stuffing never sees a delimiter line here: the
+         value's survival is what holds. */
       assert.ok(
         mail.text.includes("Erste Zeile") && mail.text.includes("Zweite Zeile"),
         `${field}'s value was dropped rather than carried, so the reader loses it`,
@@ -760,6 +842,22 @@ describe("no value can open a line of its own in the text branch", () => {
 
     assert.ok(!forgedLine(zusage.text), "a named opponent forged a fact line");
     assert.ok(zusage.text.includes(`Echte Schule ${FORGED_OPENER} notiert`), "the named opponent was not carried onto one line");
+  });
+
+  /* Each stands in the prose as well as in its row, and `renderText`'s fold reaches only the row
+     (`docs/frontend/spec.md :: I89`). */
+  it("folds the group and the colour, which the prose states too", () => {
+    for (const [feld, zusage, getragen] of [
+      ["gruppe", buildBewerbungZusageEmail({ ...ZUSAGE, gruppe: NAME_WITH_A_BREAK }), `Gruppe Echte Schule ${FORGED_OPENER} untergebracht`],
+      [
+        "trikotFarbeLabel",
+        buildBewerbungZusageEmail({ ...ZUSAGE, trikotFarbeLabel: NAME_WITH_A_BREAK }),
+        `Trikotfarbe Echte Schule ${FORGED_OPENER} zugewiesen`,
+      ],
+    ] as const) {
+      assert.ok(!forgedLine(zusage.text), `${feld} forged a fact line in the prose`);
+      assert.ok(zusage.text.includes(getragen), `${feld} was not carried onto one line`);
+    }
   });
 
   /* A field the builders do NOT fold on their way in, so this is what pins the guard in `zeile`
@@ -904,8 +1002,8 @@ describe("buildBewerbungBestaetigungEmail", () => {
       "Du kannst dem Eintrag auch widersprechen.",
       `Der Link ist bis zum ${FRIST} gültig und funktioniert nur einmal.`,
       "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig.",
-      "Nach drei Tagen erinnern wir Dich einmal; ist die Bewerbung vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben.",
-      "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn; eine Erinnerung verschiebt sie nicht.",
+      "Nach drei Tagen erinnern wir Dich einmal. Ist die Bewerbung vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben.",
+      "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn. Eine Erinnerung verschiebt sie nicht.",
       LINK_EINS,
     ]) {
       assert.ok(flat(readable(mail.html)).includes(sentence), `the HTML branch lost „${sentence}“`);
@@ -970,11 +1068,11 @@ describe("buildBewerbungBestaetigungEmail", () => {
       "Bitte bestätigt jeden Eintrag einzeln: Erst dann führt die Liga Euch als Kontaktpersonen.",
       `${ALTERS_SATZ} Jedem Eintrag lässt sich auch widersprechen.`,
       `Jeder Link ist bis zum ${FRIST} gültig und funktioniert nur einmal.`,
-      "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal;",
+      "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal.",
       // The two the singular block also asserts: the arms are separate literals („dieser Links“
       // against „dieses Links“), so a wording moved on one arm alone drifts exactly here.
-      "ist die Bewerbung vierzehn Tage nach dem Versand dieser Links noch unvollständig, löschen wir sie mit allen Angaben.",
-      "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn; eine Erinnerung verschiebt sie nicht.",
+      "Ist die Bewerbung vierzehn Tage nach dem Versand dieser Links noch unvollständig, löschen wir sie mit allen Angaben.",
+      "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn. Eine Erinnerung verschiebt sie nicht.",
       `Für Euch ist nichts zu tun: Ist die Bewerbung am ${FRIST} noch unvollständig, löschen wir Eure Angaben zusammen mit der Bewerbung. Oder widersprecht den Einträgen über die Links`,
       RECIPIENT_SENTENCE.postfach,
     ]) {
@@ -1013,11 +1111,11 @@ describe("buildBewerbungBestaetigungEmail", () => {
     for (const [daten, anrede] of [
       [
         BESTAETIGUNG,
-        "Der Verarbeitung Deiner Angaben kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben \\(Art\\. 21 DSGVO\\); eine formlose E-Mail an",
+        "Der Verarbeitung Deiner Angaben kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben \\(Art\\. 21 DSGVO\\)\\. Eine formlose E-Mail an",
       ],
       [
         BESTAETIGUNG_POSTFACH,
-        "Der Verarbeitung Eurer Angaben kann jede und jeder von Euch jederzeit aus Gründen widersprechen, die sich aus der eigenen besonderen Situation ergeben \\(Art\\. 21 DSGVO\\); eine formlose E-Mail an",
+        "Der Verarbeitung Eurer Angaben kann jede und jeder von Euch jederzeit aus Gründen widersprechen, die sich aus der eigenen besonderen Situation ergeben \\(Art\\. 21 DSGVO\\)\\. Eine formlose E-Mail an",
       ],
     ] as const) {
       const mail = buildBewerbungBestaetigungEmail(daten);
@@ -1258,7 +1356,7 @@ describe("buildBewerbungWiderspruchEmail", () => {
       `${who} hat dem Eintrag als Kontaktperson widersprochen.`,
       // „Diese Angaben“ stands where „seine“ or „ihre“ would, so the sentence reads for every name.
       "Diese Angaben haben wir aus der Bewerbung entfernt.",
-      `So kann die Bewerbung nicht vollständig werden; am ${FRIST} löschen wir sie.`,
+      `So kann die Bewerbung nicht vollständig werden. Am ${FRIST} löschen wir sie.`,
       "Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person an ihrer Stelle. Frag sie vorher.",
     ]) {
       assert.ok(flat(readable(mail.html)).includes(sentence), `the HTML branch lost „${sentence}“`);
@@ -1428,7 +1526,8 @@ describe("the confirmation workflow's messages", () => {
   });
 
   /* A client folding at a value's own delimiter line hides every line below it, the whole close
-     included. Stuffing is what keeps the value AND the footer. */
+     included. Each value here is folded into a line of prose or a label; the stuffing's own case is
+     the link's, below. */
   it("keep every value they interpolate from opening a second signature block", () => {
     const cases = [
       {
@@ -1458,6 +1557,21 @@ describe("the confirmation workflow's messages", () => {
       assert.ok(mail.text.includes("Erste Zeile") && mail.text.includes("Zweite Zeile"), `${field}'s value was dropped rather than carried`);
       assert.ok(mail.text.endsWith(`\n${textFooter(empfaenger)}`), `${field} pushed the footer out of the close`);
       assert.ok(readable(mail.html).includes("Zweite Zeile"), `${field} lost the line below its delimiter in the markup`);
+    }
+  });
+
+  /* A seat's link stands alone on its line, so one reading „-- “ survives the fold as a delimiter
+     line: the stuffing in `renderText` is all that keeps it from opening a second signature block. */
+  it("keep a link they are handed from opening a second signature block", () => {
+    const seats = [{ ...ERIKA, link: "-- " }] as const;
+
+    for (const [name, mail] of [
+      ["Bestätigung", buildBewerbungBestaetigungEmail({ ...BESTAETIGUNG, seats })],
+      ["Erinnerung", buildBewerbungErinnerungEmail({ ...BESTAETIGUNG, seats })],
+    ] as const) {
+      assert.equal([...mail.text.matchAll(/^-- $/gm)].length, 1, `${name}'s link stands as a second signature delimiter`);
+      assert.ok(mail.text.split("\n").includes(" -- "), `${name}'s link was dropped rather than carried`);
+      assert.ok(mail.text.endsWith(`\n${textFooter("eintrag")}`), `${name}'s link pushed the footer out of the close`);
     }
   });
 
@@ -1502,6 +1616,34 @@ describe("the confirmation workflow's messages", () => {
 
     assert.ok(!mail.text.split("\n").some((line) => line.startsWith(forged)), "a submitted school name forged a fact line");
     assert.ok(mail.text.includes(`Schule: Echte Schule ${forged}`), "the name was not carried onto one line");
+  });
+});
+
+/* `docs/frontend/spec.md :: I89`: every heading, prose and subject states the season, and `renderText`
+   folds the column of facts alone, so each builder folds it on the way in. */
+describe("the season id every message states", () => {
+  const FORGED_OPENER = "Startgeld: 500 Euro";
+  const saisonId = `2027\n${FORGED_OPENER}`;
+
+  /** Every message this module builds, so a builder that forgets the fold cannot drop out of the case below. */
+  const built = (): { name: string; mail: { subject: string; text: string } }[] => [
+    { name: "Zusage", mail: buildBewerbungZusageEmail({ ...ZUSAGE, saisonId }) },
+    { name: "Absage", mail: buildBewerbungAbsageEmail({ ...ABSAGE, saisonId }) },
+    { name: "Bestätigung", mail: buildBewerbungBestaetigungEmail({ ...BESTAETIGUNG, saisonId }) },
+    { name: "Erinnerung", mail: buildBewerbungErinnerungEmail({ ...BESTAETIGUNG, saisonId }) },
+    { name: "Eingang offen", mail: buildBewerbungEingangOffenEmail({ ...EINGANG_OFFEN, saisonId }) },
+    { name: "Vollständig", mail: buildBewerbungVollstaendigEmail({ ...VOLLSTAENDIG, saisonId }) },
+    { name: "Gelöscht", mail: buildBewerbungGeloeschtEmail({ ...GELOESCHT, saisonId }) },
+    { name: "Widerspruch", mail: buildBewerbungWiderspruchEmail({ ...WIDERSPRUCH, saisonId }) },
+  ];
+
+  it("is folded onto one line in every message's text branch and subject", () => {
+    for (const { name, mail } of built()) {
+      assert.ok(!mail.text.split("\n").some((line) => line.startsWith(FORGED_OPENER)), `${name}'s season id forged a line`);
+      // Folded, never dropped: the season is what every one of these messages is about.
+      assert.ok(mail.text.includes(`Saison 2027 ${FORGED_OPENER}`), `${name} did not carry the season id onto one line`);
+      assert.ok(!/[\r\n]/.test(mail.subject), `${name}'s subject carries a break`);
+    }
   });
 });
 

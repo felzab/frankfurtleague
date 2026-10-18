@@ -1,6 +1,6 @@
 import ast
 import functools
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Final
@@ -16,7 +16,7 @@ from app.api.teams.services import compose_kontakte_at_entry, compose_kontakte_h
 from app.core.config import API_VERSION
 from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, ist_erteilt
-from tests.core.app_source import api_routes, application, parsed
+from tests.core.app_source import Declaration, api_routes, application, parsed, resolve_reference, scoped_references
 
 # Every write stamping a consent label, enumerated BY HAND rather than read off the routes: the case
 # below holds this list to what the application serves, so a new writer fails by its name until it
@@ -311,7 +311,7 @@ ADMIN_WRITES: Final[Mapping[str, Callable[[], Write]]] = {
     "app/api/teams/services.py::compose_kontakte_at_entry": _acceptance,
 }
 # Driven by their own suites, or through a write above: each writes a block born whole from its
-# person's own answer, carries one whole, builds a block for a writer above, or only reads.
+# person's own answer, carries one whole, or builds a block for a writer above.
 NOT_DRIVEN_HERE: Final = frozenset(
     {
         # Born whole from the person's own answer, behind a refusal of any second one.
@@ -319,41 +319,72 @@ NOT_DRIVEN_HERE: Final = frozenset(
         "app/api/schiedsrichter/services.py::compose_confirmation_update",
         # A new person carries their registration's block whole.
         "app/api/registrierungen/services.py::compose_person",
-        # A registration is submitted with no block: its pupil's confirmation writes one.
-        "app/api/registrierungen/services.py::compose_registrierung",
         # Builders the writes above call.
         "app/api/bewerbungen/services.py::compose_einwilligung",
         "app/api/schiedsrichter/services.py::compose_einwilligung",
-        # Readers: a served body, or the record a seat's person keeps.
-        "app/api/konto/services.py::compose_spieler_konto",
-        "app/api/konto/services.py::compose_schiedsrichter_konto",
-        "app/api/konto/services.py::compose_sitze_selbst",
-        "app/api/konto/services.py::compose_bewerbungssitze_selbst",
-        "app/api/konto/services.py::compose_registrierungen_selbst",
-        "app/api/konto/services.py::_sitz_wahlen_gehalten",
-        # The row's choices as the read serves them, and the ones a seat press changed against it.
-        "app/api/konto/services.py::sitz_wahlen_der_zeile",
-        "app/api/konto/services.py::geaenderte_sitz_wahlen",
-        "app/api/teams/services.py::_confirmation_held_by",
-        "app/api/teams/services.py::kontakte_fassungen_gehalten",
         # Writers at their routes, each through a composer classed above, and each driven by its own
-        # route's suite: the pupil's confirmation and the person's own consent PATCHes.
+        # route's suite.
+        "app/api/bewerbungen/admin_router.py::accept_and_enter_the_school",
+        "app/api/bewerbungen/admin_router.py::annehmen_bewerbung",
+        "app/api/bewerbungen/admin_router.py::besetze_kontakt_sitz",
+        "app/api/bewerbungen/admin_router.py::seat_and_mint",
+        "app/api/bewerbungen/einwilligung_router.py::answer_for_the_person",
+        "app/api/bewerbungen/einwilligung_router.py::answer_on_the_season_row",
+        "app/api/bewerbungen/einwilligung_router.py::post_einwilligung",
+        "app/api/bewerbungen/person_router.py::patch_einwilligung",
+        "app/api/bewerbungen/person_router.py::write",
+        "app/api/bewerbungen/public_router.py::post_bewerbung",
+        "app/api/bewerbungen/public_router.py::store_or_replay",
         "app/api/registrierungen/einwilligung_router.py::post_bestaetigung",
         "app/api/registrierungen/einwilligung_router.py::answer_for_the_pupil",
+        "app/api/registrierungen/person_router.py::admit_the_pupil",
+        "app/api/registrierungen/person_router.py::aufnehmen",
+        "app/api/registrierungen/selbst_router.py::patch_einwilligung",
+        "app/api/registrierungen/selbst_router.py::write",
+        "app/api/schiedsrichter/bestaetigung_router.py::answer_for_the_person",
+        "app/api/schiedsrichter/bestaetigung_router.py::post_bestaetigung",
         "app/api/schiedsrichter/person_router.py::patch_einwilligung",
         "app/api/schiedsrichter/person_router.py::write",
         "app/api/spieler/selbst_router.py::patch_einwilligung",
         "app/api/spieler/selbst_router.py::write",
-        "app/api/registrierungen/selbst_router.py::patch_einwilligung",
-        "app/api/registrierungen/selbst_router.py::write",
+        "app/api/teams/admin_router.py::patch_saison_team_kontakte",
+        "app/api/teams/admin_router.py::rewrite_the_block",
         "app/api/teams/person_router.py::patch_einwilligung",
-        "app/api/bewerbungen/person_router.py::patch_einwilligung",
+        "app/api/teams/person_router.py::write",
+        # The replay after a restore, a person's own press written again through its composer at the
+        # instant its journal line carries, driven by `fl_backend/tests/api/test_journal_replay.py`; its
+        # module runs it from the command line.
+        "app/api/identitaet/wiederherstellung.py::<module>",
+        "app/api/identitaet/wiederherstellung.py::_plan_widerruf",
+        "app/api/identitaet/wiederherstellung.py::plan_replay",
+        "app/api/identitaet/wiederherstellung.py::judged_and_rewritten",
+        "app/api/identitaet/wiederherstellung.py::replay_line",
+        "app/api/identitaet/wiederherstellung.py::run_replay",
+        "app/api/identitaet/wiederherstellung.py::main",
+        "app/api/identitaet/wiederherstellung.py::_main",
+    }
+)
+# Found by the markers and moving no choice, so a call to one makes its caller no writer and the
+# reader stops there.
+WRITES_NO_CHOICE: Final = frozenset(
+    {
+        # A registration is submitted with no block: its pupil's confirmation writes one.
+        "app/api/registrierungen/services.py::compose_registrierung",
+        # The erased pupils' sentinel holds no block: nobody stands behind it to have been asked.
+        "app/api/spieler/services.py::build_ghost_spieler",
+        # Readers: a served body, or the record a seat's person keeps.
+        "app/api/konto/services.py::compose_spieler_konto",
+        "app/api/konto/services.py::compose_schiedsrichter_konto",
+        "app/api/konto/services.py::compose_registrierungen_selbst",
+        # A query term rather than a block: the constraints check counts persons holding a null record.
+        "app/core/constraints.py::report_nameless_persons",
+        # The row's choices as the read serves them, and the confirmation a seat's person holds.
+        "app/api/konto/services.py::sitz_wahlen_der_zeile",
+        "app/api/teams/services.py::_confirmation_held_by",
         # No record at all: a confirmation page's paragraphs keyed by the choice they ask for, and the
         # contacts token's projection of a read.
         "app/shared/einwilligung.py::_mit_medien",
         "app/api/teams/schemas.py::_project_seat",
-        "app/api/teams/schemas.py::kontakte_stand_of",
-        "app/api/teams/schemas.py::kontakte_stand",
     }
 )
 
@@ -407,30 +438,66 @@ def _touches_a_block(function: ast.AST) -> bool:
     return False
 
 
+def _key(path: Path, name: str) -> str:
+    return f"{path.relative_to(APP.parent).as_posix()}::{name}"
+
+
+MODULE_SCOPE: Final = "<module>"
+
+
 @functools.cache
 def _block_composers() -> frozenset[str]:
-    """Every function under `app` the markers above find, keyed as the three sets key one. A projection's `1` is no write.
+    """Every function under `app` the markers above find, and every function naming one, keyed as the sets key one.
 
     Read once a process and shared, so frozen: a set one caller reshaped would be the next caller's answer.
     """
 
+    return _composers(APP.rglob("*.py"), _key)
+
+
+def _composers(modules: Iterable[Path], key: Callable[[Path, str], str]) -> frozenset[str]:
     found: set[str] = set()
-    for path in APP.rglob("*.py"):
-        functions = [node for node in ast.walk(parsed(path)) if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)]
-        touching = {node.name for node in functions if _touches_a_block(node)}
-        # A function composing through a helper of its own module composes too, so extracting a helper hides no writer.
-        while grown := {node.name for node in functions if node.name not in touching and _calls_one_of(node, touching)}:
-            touching |= grown
-        found |= {f"{path.relative_to(APP.parent).as_posix()}::{name}" for name in touching}
-    return frozenset(found)
+    references: list[tuple[str, bool, Path, tuple[Declaration, ...], ast.Name | ast.Attribute]] = []
+    for path in modules:
+        tree = parsed(path)
+        found |= {
+            key(path, node.name)
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and _touches_a_block(node)
+        }
+        aliases = {alias.asname for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) for alias in node.names if alias.asname}
+        # Every name and attribute, never only a call's: a composer held as a value, or read off its module,
+        # writes under a name no call spells.
+        references += [
+            (node.attr, False, path, chain, node) if isinstance(node, ast.Attribute) else (node.id, node.id in aliases, path, chain, node)
+            for chain, node in scoped_references(tree, ())
+            if isinstance(node, ast.Attribute) or isinstance(node.ctx, ast.Load)
+        ]
 
-
-def _calls_one_of(function: ast.AST, names: set[str]) -> bool:
-    return any(isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in names for node in ast.walk(function))
+    # Resolved only where the name is a writer's, or an import's alias: resolving every reference in `app` costs most of the case.
+    resolved: dict[int, str | None] = {}
+    # Across modules, so a writer calling another module's composer is one too; never through a function moving no choice.
+    while True:
+        writers = found - WRITES_NO_CHOICE
+        names = {key.rpartition("::")[2] for key in writers}
+        grown: set[str] = set()
+        for name, aliased, path, chain, node in references:
+            if name not in names and not aliased:
+                continue
+            if id(node) not in resolved:
+                named = resolve_reference(node, chain, path)
+                resolved[id(node)] = None if named is None else key(named[1], named[0].name)
+            if resolved[id(node)] in writers:
+                # Every function around the reference, so a writer's own `write` callback answers for it too; the
+                # module where none is, which holds the composer for whoever reads it there.
+                grown |= {key(path, holder.name) for holder in chain} or {key(path, MODULE_SCOPE)}
+        if not (grown := grown - found):
+            return frozenset(found)
+        found |= grown
 
 
 def test_every_composer_of_a_consent_block_is_judged_here():
-    assert _block_composers() == set(PERSON_WRITES) | set(ADMIN_WRITES) | NOT_DRIVEN_HERE
+    assert _block_composers() == set(PERSON_WRITES) | set(ADMIN_WRITES) | NOT_DRIVEN_HERE | WRITES_NO_CHOICE
 
 
 def test_the_reader_of_the_composers_finds_a_writer_by_its_markers():
@@ -438,6 +505,48 @@ def test_the_reader_of_the_composers_finds_a_writer_by_its_markers():
 
     assert "app/api/teams/services.py::compose_kontakte_herkunft" in _block_composers()
     assert "app/api/teams/services.py::kontakte_fassungen_genannt" not in _block_composers()
+
+
+# Each way a module names a composer without a call the reader could follow by its bare name.
+NAMED_NOT_CALLED: Final = """\
+import app.api.konto.services
+from app.api.konto import services as konto
+from app.api.konto.services import compose_person_move
+
+HELD = compose_person_move
+
+
+def held():
+    composer = compose_person_move
+    return composer()
+
+
+def handed(run):
+    return run(compose_person_move)
+
+
+def via():
+    return konto.compose_person_move()
+
+
+def dotted():
+    return app.api.konto.services.compose_person_move()
+
+
+def bystander():
+    return konto.__name__
+"""
+
+
+def test_the_reader_finds_a_composer_named_rather_than_called(tmp_path: Path):
+    """The control for the reader's reach: `app` holds no composer as a value, so a reader following calls alone passes the registry."""
+
+    sample = tmp_path / "sample.py"
+    sample.write_bytes(NAMED_NOT_CALLED.encode())
+    found = _composers([APP / "api" / "konto" / "services.py", sample], lambda path, name: f"{path.name}::{name}")
+
+    assert {f"sample.py::{name}" for name in ("held", "handed", "via", "dotted", MODULE_SCOPE)} <= found
+    assert "sample.py::bystander" not in found
 
 
 @pytest.mark.parametrize(

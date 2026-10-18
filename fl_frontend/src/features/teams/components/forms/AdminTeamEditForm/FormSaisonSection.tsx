@@ -14,6 +14,7 @@ import { findSwapPartnerRefusal } from "@/features/saisons/utils";
 import { postSaisonTeamAction } from "@/features/teams/actions";
 import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
 import { TrikotFarbeSelect } from "@/features/teams/components/forms/TrikotFarbeSelect";
+import { SAISON_ABSCHNITT } from "@/features/teams/constants";
 import { Leer } from "@/shared/components/ui/Angabe";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
@@ -197,8 +198,7 @@ function GruppenTauschControl({
           {isConfirming && partner !== null && (
             <ConfirmReveal>
               <p className="fluid-xxs leading-normal font-medium text-foreground">
-                Der Tausch gilt unabhängig vom Speichern-Knopf unten. Rückgängig machst Du ihn, indem Du dieselben beiden Teams noch einmal
-                tauschst.
+                Der Tausch gilt unabhängig vom Speichern-Knopf unten. Rückgängig machst Du ihn, indem Du dieselben beiden Teams erneut tauschst.
               </p>
             </ConfirmReveal>
           )}
@@ -336,7 +336,7 @@ export function FormSaisonSection({
         </span>
         <PanelHeading
           className={panel.heading()}
-          title={`Saison ${saison.saisonId}`}>
+          title={`${SAISON_ABSCHNITT} ${saison.saisonId}`}>
           <Hint
             mode="reveal"
             label="Hinweis zur Saison-Zugehörigkeit"

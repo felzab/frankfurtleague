@@ -1,5 +1,6 @@
 import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { computeErgebnisFor, PHASE_RANK } from "@/features/spiele/utils";
+import { KADER_ABSCHNITT } from "@/features/spieler/constants";
 
 import { EINWILLIGUNG_UMFANG, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS, WEBSITE_URL_SCHEME } from "./constants";
 
@@ -33,8 +34,7 @@ export const buildGruppeOffer = (saisonId: string, rules: FLSaison["rules"], mem
  * `REQ-SQUAD-001` judges the row's `team_id` on the PATCH as well as on the reactivate, so a row
  * reassigned to a club this season holds comes back without its own club returning.
  */
-const SQUAD_REPAIR =
-  "Um einen solchen Eintrag zu reaktivieren, bearbeite den Spieler und weise den Eintrag im Bereich „Kader“ einem Team dieser Saison zu.";
+const SQUAD_REPAIR = `Um einen solchen Eintrag zu reaktivieren, bearbeite den Spieler und weise den Eintrag im Bereich „${KADER_ABSCHNITT}“ einem Team dieser Saison zu.`;
 
 /**
  * What one replacement moved, for the report that follows it. The squad half says AUSTRAGEN: this
@@ -362,6 +362,22 @@ export function publicTeamSaisonId(
 }
 
 /**
+ * `REQ-RETIRE-001` mirrored, so neither the list nor the editor offers a retirement the write path refuses: no running
+ * or planned season may hold the club.
+ */
+export function isRetireable(
+  saisons: readonly Pick<FLSaison, "id" | "status">[],
+  memberships: readonly Pick<FLTeamMembership, "saison_id">[],
+): boolean {
+  const statusBySaisonId = new Map(saisons.map((saison) => [saison.id, saison.status]));
+
+  return !memberships.some((membership) => {
+    const status = statusBySaisonId.get(membership.saison_id);
+    return status === "active" || status === "future";
+  });
+}
+
+/**
  * What a website box reports upward: the whole URL, or `null` for a box nobody filled. **The one
  * place `""` becomes `null`** — the single spelling `OptionalExternalUrlSchema` states is kept by
  * coercing here, not by every reader testing for two.
@@ -386,6 +402,6 @@ export function offeredTrikotFarben({
   value: FLTrikotFarbe | null;
 }): readonly TrikotFarbeOption[] {
   // The exclusion and nothing else, so the picker never offers a colour the season has given away.
-  // A season holding all sixteen therefore offers nothing, which the required wish has no answer for.
+  // A season holding every colour therefore offers nothing, which the required wish has no answer for.
   return TRIKOT_FARBE_OPTIONS.filter((option) => option.value === value || !vergeben.includes(option.value));
 }

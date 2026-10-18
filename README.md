@@ -49,7 +49,7 @@ maintainer, a live audience each season.
 | ------------ | -------------------------------------------------------------------------------------------- |
 | **Frontend** | Next.js (App Router, React Server Components), HeroUI v3, Tailwind v4                        |
 | **Backend**  | FastAPI, Pydantic v2, PyMongo (async MongoDB)                                                |
-| **Auth**     | Better Auth — passkey or mailed-code sign-in, a passkey second factor, admin by stored grant |
+| **Auth**     | Better Auth — passkey or mailed-code sign-in, admin by stored grant on passkey sign-in alone |
 | **Deploy**   | Docker Compose behind nginx, on a single host                                                |
 
 The app never calls FastAPI from the browser: every application read is a server-side fetch from the

@@ -193,6 +193,7 @@ async def submit(database: AsyncDatabase, *, schluessel: UUID | None = None, bew
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
         db=database.client,
         today=TODAY,
     )

@@ -5,6 +5,7 @@ import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 // The application's own derivation, not a copy of it: the two flows bound a birthdate by the same
 // two numbers, and a second span here would refuse a day the endpoint takes.
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
+import { MedienMindestalterSchema } from "@/features/konto/einwilligung";
 // The season slice's own mirror rather than a second enum: two copies of one published set drift,
 // and the invite read answers the same three members the season's own read does.
 import { FLSaisonStatusSchema } from "@/features/saisons/schemas";
@@ -18,13 +19,19 @@ import {
   LinkAntwortTextVersionSchema,
 } from "@/features/spieler/schemas";
 import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
-import { CustomDateStringSchema, CustomObjectIdStringSchema, KontaktEmailSchema, PersonNameSchema } from "@/shared/schemas";
+import {
+  CustomDateStringSchema,
+  CustomObjectIdStringSchema,
+  FLBewerbungZustellungSchema,
+  KontaktEmailSchema,
+  PersonNameSchema,
+} from "@/shared/schemas";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
 import { alterAusserhalb, EINWILLIGUNG_UMFANG_OPTIONS } from "./constants";
 
 /** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
-const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link noch einmal.";
+const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link erneut.";
 
 /**
  * Mirrors `fl_backend/app/api/bewerbungen/schemas.py :: CustomBewerbungToken`: both of this slice's
@@ -120,17 +127,14 @@ export type FLEinwilligungUmfang = z.infer<typeof FLEinwilligungUmfangSchema>;
 /**
  * What a confirmation link is told before any press.
  *
- * The surname never travels, so a leaked link learns no name to look anything up against. The
- * three stored answers are null on the new pupil's page.
+ * No name travels: the link went to an address nobody has confirmed, which behind a typo is a
+ * stranger's. The three stored answers are null on the new pupil's page.
  */
 export const FLRegistrierungBestaetigungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   zustand: z.enum(["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]),
   team: z.string(),
   schule: z.string(),
   saison_id: z.string(),
-  // Never null: the endpoint answers a state for a spent or lapsed link and this name only
-  // reaches a page that renders the form.
-  vorname: z.string(),
   // Which page the link opens, decided by the backend: the press is judged against the same one.
   seite: z.enum(["bestaetigung_spieler", "bestaetigung_spieler_wiederkehrend"]),
   // The floor the answer is judged by. The page bounds its date control and words its sentences from
@@ -138,7 +142,7 @@ export const FLRegistrierungBestaetigungAnsichtResponseSchema = BaseAPIResponseS
   mindestalter: z.number().int(),
   // The age the media switch is offered from, served for `mindestalter`'s reason: a copy of this
   // side's own would offer the switch where the endpoint refuses the answer.
-  medien_mindestalter: z.number().int(),
+  medien_mindestalter: MedienMindestalterSchema,
   geburtsdatum: CustomDateStringSchema.nullable(),
   umfang: FLEinwilligungUmfangSchema.nullable(),
   medien: z.boolean().nullable(),
@@ -209,7 +213,6 @@ export const FLRegistrierungSweepErinnerungSchema = z.object({
   registrierung_id: CustomObjectIdStringSchema,
   saison_id: z.string(),
   team: z.string(),
-  vorname: z.string(),
   email: z.string(),
   token: z.string(),
 });
@@ -239,6 +242,7 @@ export const FLRegistrierungSweepResponseSchema = BaseAPIResponseSchema.extend({
   geloescht_ohne_entscheidung: z.int().nonnegative(),
   geloescht_abgelehnt: z.int().nonnegative(),
   redigierte_aktionen: z.int().nonnegative(),
+  fehlgeschlagen: z.int().nonnegative(),
 });
 export type FLRegistrierungSweepResponse = z.infer<typeof FLRegistrierungSweepResponseSchema>;
 
@@ -364,3 +368,57 @@ export const FLRegistrierungSelbstEinwilligungResponseSchema = BaseAPIResponseSc
   nachweis_stand: FLEinwilligungStandSchema,
 });
 export type FLRegistrierungSelbstEinwilligungResponse = z.infer<typeof FLRegistrierungSelbstEinwilligungResponseSchema>;
+
+/** Mirrors `FLRegistrierungBestaetigung`: the confirmation link's bookkeeping, and no hash of it. */
+export const FLRegistrierungBestaetigungSchema = z.object({
+  verschickt_am: CustomDateStringSchema,
+  erinnert_am: CustomDateStringSchema.nullable(),
+  frist: CustomDateStringSchema,
+  // Null on every fresh link: nothing is known yet about the message it went out in.
+  zustellung: FLBewerbungZustellungSchema.nullable(),
+});
+export type FLRegistrierungBestaetigung = z.infer<typeof FLRegistrierungBestaetigungSchema>;
+
+/** Mirrors `FLRegistrierungEntscheidungZeile`: a decline as the list serves it, its decider withheld where barred. */
+export const FLRegistrierungEntscheidungZeileSchema = z.object({
+  getroffen_am: CustomDateStringSchema,
+  von: z.string().nullable(),
+  grund: z.string().nullable(),
+  von_gesperrt: z.boolean(),
+});
+export type FLRegistrierungEntscheidungZeile = z.infer<typeof FLRegistrierungEntscheidungZeileSchema>;
+
+/**
+ * Mirrors `FLRegistrierung`, the administrator's row: it carries the address and the birthdate, so it
+ * stays on the server, and the admin list hands its view the rows
+ * `fl_frontend/src/features/registrierungen/utils.ts :: buildAdminRegistrierungRows` builds.
+ */
+export const FLRegistrierungSchema = z.object({
+  id: CustomObjectIdStringSchema,
+  saison_id: z.string(),
+  team_id: CustomObjectIdStringSchema,
+  einladung_id: CustomObjectIdStringSchema,
+  eingereicht_am: CustomDateStringSchema,
+  status: z.enum(["eingereicht", "abgelehnt"]),
+  vorname: z.string(),
+  nachname: z.string(),
+  email: z.string(),
+  position: FLSpielerPositionSchema.nullable(),
+  nummer: z.string().nullable(),
+  stufe: FLSpielerStufeSchema.nullable(),
+  geburtsdatum: CustomDateStringSchema.nullable(),
+  einwilligung: FLRegistrierungEinwilligungSchema.nullable(),
+  bestaetigung: FLRegistrierungBestaetigungSchema.nullable(),
+  entscheidung: FLRegistrierungEntscheidungZeileSchema.nullable(),
+  // Composed by the read, never derived here: two readers deriving it differently is how an
+  // unconfirmed pupil reads as confirmed.
+  bestaetigt: z.boolean(),
+});
+export type FLRegistrierung = z.infer<typeof FLRegistrierungSchema>;
+
+export const FLRegistrierungenListResponseSchema = BaseAPIResponseSchema.extend({
+  registrierungen: z.array(FLRegistrierungSchema),
+  // False where more rows exist than one read serves: the page then says so and offers the other end.
+  vollstaendig: z.boolean(),
+});
+export type FLRegistrierungenListResponse = z.infer<typeof FLRegistrierungenListResponseSchema>;

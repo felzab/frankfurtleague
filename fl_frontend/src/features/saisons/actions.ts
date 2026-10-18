@@ -1,11 +1,27 @@
 "use server";
 
+import { frontend_config } from "@/core/config";
+import { ApiUnsentError, requestOf } from "@/core/errors";
+import { logger } from "@/core/logging";
+import { requestOutcomeUnknown, runAnsweringOwnCut } from "@/core/requestScope";
+import { TEAMS_EINTRAG } from "@/features/admin/constants";
 import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { activateSaison, generateSpielplan, patchSaison, postSaison, swapGruppen, undrawSpielplan } from "./mutations";
-import { mapActivateRefusal, mapRulesRefusal, mapSaisonIdRefusal, mapSpielplanRefusal, mapSwapRefusal, mapUndrawRefusal } from "./refusals";
+import { REGELN_ABSCHNITT } from "./constants";
+import { loeschungLaufen } from "./loeschung";
+import { activateSaison, generateSpielplan, patchSaison, postLoeschungLauf, postSaison, swapGruppen, undrawSpielplan } from "./mutations";
+import {
+  mapActivateRefusal,
+  mapRulesRefusal,
+  mapSaisonIdRefusal,
+  mapSpielplanRefusal,
+  mapSwapRefusal,
+  mapUndrawRefusal,
+  SAISON_REPLAY_REFUSALS,
+} from "./refusals";
 import {
   FLActivateSaisonPayloadSchema,
   FLGenerateSpielplanPayloadSchema,
@@ -18,11 +34,14 @@ import { describeSpielplanUmfang } from "./utils";
 
 import type { FLSaisonRulesDraft, SaisonCreateDraft } from "@/features/saisons/types";
 import type { ActionResult } from "@/shared/types/types";
+import type { UndoOutcome } from "@/shared/utils/adminUndo";
+import type { LoeschungLauf } from "./loeschung";
 import type {
   FLActivateSaisonPayload,
   FLActivateSaisonResponse,
   FLGenerateSpielplanPayload,
   FLGenerateSpielplanResponse,
+  FLLoeschungLaufResponse,
   FLPatchSaisonPayload,
   FLPatchSaisonResponse,
   FLSwapGruppenPayload,
@@ -128,6 +147,23 @@ export async function patchSaisonAction(
   });
 }
 
+export async function undoAdminSaisonEditAction(rawPayload: FLPatchSaisonPayload): Promise<UndoOutcome> {
+  return runAdminUndo("undoAdminSaisonEditAction", async () => {
+    const validated = FLPatchSaisonPayloadSchema.safeParse(rawPayload);
+    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
+
+    invalidateSaisonAndTable();
+    let operation;
+    try {
+      operation = await patchSaison(validated.data);
+    } catch (error) {
+      return refusedReplay(error, SAISON_REPLAY_REFUSALS);
+    }
+
+    return operation.acknowledged ? restored() : unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Saisondaten.");
+  });
+}
+
 /**
  * The only path to `status: "active"`, under four refusals:
  *
@@ -168,8 +204,66 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
           ? `Saison ${validated.data.id} ist jetzt aktiv. Die vorherige Saison ist abgeschlossen.`
           : `Saison ${validated.data.id} ist jetzt aktiv. ${String(demoted)} vorher aktive Saisons wurden abgeschlossen.`;
 
-    return { success: true, saison: activateOperation, message };
+    // Compared to "on": a skipped validation leaves it undefined, where a negated test would delete. Called here rather
+    // than handed on bare: the step-up reader attributes a request only where an action's own body calls it.
+    const geloescht = frontend_config.LOESCHUNG_SWEEP === "on" ? await loeschenNachUmstellung((nach) => postLoeschungLauf(nach)) : [];
+
+    return { success: true, saison: activateOperation, message: [message, ...geloescht].join(" ") };
   });
+}
+
+/**
+ * AWAITED inside the action's body, so the spine drops `invalidateRollover`'s tags after the last deletion: a run
+ * behind the answer lands after that drop, and a squad page names deleted pupils for up to a week (`docs/frontend/spec.md :: I694`).
+ */
+async function loeschenNachUmstellung(senden: (nach: string | null) => Promise<FLLoeschungLaufResponse>): Promise<string[]> {
+  let vonDerFristBeendet = false;
+  // Each call answering its own cut: one the deadline ends would otherwise answer the whole press as of unknown
+  // outcome, sending the administrator to check an activation that stands.
+  const lauf = await loeschungLaufen((nach) =>
+    runAnsweringOwnCut(async () => {
+      try {
+        return await senden(nach);
+      } finally {
+        // Read inside the call's own scope, which the request's deadline alone marks: the call's own bound does not.
+        vonDerFristBeendet = requestOutcomeUnknown();
+      }
+    }),
+  );
+
+  if (lauf.abgebrochen) {
+    // The name and the request's facts, as the hourly pass logs its own: no person reaches this line.
+    const felder = { error_code: "FE-SWEEP-001", name: lauf.fehler instanceof Error ? lauf.fehler.name : undefined, ...requestOf(lauf.fehler) };
+    // Below error: wherever more pupils are due than the deadline reaches, its end of the run, a call it left unsent
+    // or one it cut, is the expected one, and the hourly pass finishes them with nothing to repair.
+    if (vonDerFristBeendet || lauf.fehler instanceof ApiUnsentError) logger.warn("loeschung.umstellung_cut_short", felder);
+    else logger.error("loeschung.umstellung_failed", undefined, felder);
+  }
+
+  return loeschungsSaetze(lauf);
+}
+
+/** Singular and plural spelled out, and nothing said where nobody was due. */
+function loeschungsSaetze(lauf: LoeschungLauf): string[] {
+  const saetze: string[] = [];
+  const seit = lauf.abgeschlossene_saison_id;
+
+  if (seit !== null && lauf.spieler === 1) {
+    saetze.push(`Eine Spielerin oder ein Spieler ohne Kadereintrag seit Saison ${seit} wurde gelöscht.`);
+  } else if (seit !== null && lauf.spieler > 1) {
+    saetze.push(`${String(lauf.spieler)} Spielerinnen und Spieler ohne Kadereintrag seit Saison ${seit} wurden gelöscht.`);
+  }
+
+  // A run cut short cannot say what remains, only who finishes it.
+  if (lauf.abgebrochen) {
+    saetze.push("Die Löschung ist nicht vollständig durchgelaufen. Was noch aussteht, löscht der nächste stündliche Durchlauf.");
+  } else if (lauf.verbleibend === 1) {
+    saetze.push("Eine weitere Löschung steht noch aus.");
+  } else if (lauf.verbleibend > 1) {
+    saetze.push(`${String(lauf.verbleibend)} weitere Löschungen stehen noch aus.`);
+  }
+
+  return saetze;
 }
 
 /**
@@ -305,7 +399,7 @@ export async function undrawSpielplanAction(
     const removedRows = undrawOperation.spieltage > 0 || undrawOperation.spiele > 0;
 
     const message = removedRows
-      ? `Der Spielplan von Saison ${validated.data.id} ist zurückgenommen. Gelöscht wurden ${describeSpielplanUmfang(undrawOperation.spieltage, undrawOperation.spiele)}. Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe lassen sich jetzt wieder im Abschnitt Regeln ändern, die Teams über die Teamseite.`
+      ? `Der Spielplan von Saison ${validated.data.id} ist zurückgenommen. Gelöscht wurden ${describeSpielplanUmfang(undrawOperation.spieltage, undrawOperation.spiele)}. Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe lassen sich jetzt wieder im Abschnitt ${REGELN_ABSCHNITT} ändern, die Teams unter „${TEAMS_EINTRAG.label}“.`
       : undrawOperation.watermark_cleared
         ? `Saison ${validated.data.id} hielt weder Spieltage noch Spiele. Die Angabe, dass ihr Spielplan steht, ist jetzt entfernt.`
         : `Saison ${validated.data.id} hatte keinen Spielplan mehr, deshalb wurde nichts gelöscht.`;

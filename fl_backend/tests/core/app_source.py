@@ -47,7 +47,16 @@ BOUNDED_COMPARISONS = frozenset({"$lt", "$lte", "$gt", "$gte", "$in", "$eq"})
 
 # `app/core/crud.py`'s writing half: a call to one of these is where a document changes.
 WRITE_HELPERS = frozenset(
-    {"anchor_in_db", "insert_live", "patch_many_in_db", "patch_one_in_db", "post_many_to_db", "post_one_to_db", "set_inactive_since"}
+    {
+        "anchor_by_id_in_db",
+        "anchor_in_db",
+        "insert_live",
+        "patch_many_in_db",
+        "patch_one_in_db",
+        "post_many_to_db",
+        "post_one_to_db",
+        "set_inactive_since",
+    }
 )
 
 # The driver's own writes, on a collection a module holds rather than through `app/core/crud.py`.
@@ -560,10 +569,11 @@ def resolve_callee(call: ast.Call, chain: tuple[Declaration, ...], module: Path)
     to the figure-taking one nested in the season patch.
     """
 
-    if not isinstance(call.func, ast.Name):
-        return None
+    return resolve_name(call.func.id, chain, module) if isinstance(call.func, ast.Name) else None
 
-    name = call.func.id
+
+def resolve_name(name: str, chain: tuple[Declaration, ...], module: Path) -> tuple[Declaration, Path] | None:
+    """The declaration a bare name read inside `chain` stands for, as `resolve_callee` reads a call's."""
 
     for scope in reversed(chain):
         found = _declared_directly_in(scope).get(name)
@@ -577,6 +587,75 @@ def resolve_callee(call: ast.Call, chain: tuple[Declaration, ...], module: Path)
     found = _declared_directly_in(tree).get(name)
 
     return (found, module) if found is not None else _imported_declaration(name, tree)
+
+
+@functools.cache
+def _modules_by_name(tree: ast.Module) -> dict[str, str]:
+    """Each name a module's imports bind under `app`, to the dotted path it stands for.
+
+    `import app.a.b` binds `app` alone, so a read walks the rest of the path as attributes.
+    """
+
+    bound: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.split(".")[0] == "app":
+                    bound.setdefault(alias.asname or "app", alias.name if alias.asname else "app")
+        elif isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "app":
+            for alias in node.names:
+                bound.setdefault(alias.asname or alias.name, f"{node.module}.{alias.name}")
+
+    return bound
+
+
+def _dotted(node: ast.expr) -> list[str] | None:
+    if isinstance(node, ast.Name):
+        return [node.id]
+    if not isinstance(node, ast.Attribute):
+        return None
+
+    inner = _dotted(node.value)
+
+    return None if inner is None else [*inner, node.attr]
+
+
+def resolve_reference(node: ast.Name | ast.Attribute, chain: tuple[Declaration, ...], module: Path) -> tuple[Declaration, Path] | None:
+    """The declaration a name, or an attribute of a module an import binds, stands for wherever it is read.
+
+    `resolve_callee` follows a call's bare name alone, blind to a value held or handed on and to a module's attribute.
+    """
+
+    if isinstance(node, ast.Name):
+        return resolve_name(node.id, chain, module)
+
+    origin = resolve_module(node.value, module)
+
+    return None if origin is None else resolve_name(node.attr, (), origin)
+
+
+def resolve_module(node: ast.expr, module: Path) -> Path | None:
+    """The application module a name or a dotted path read in `module` stands for, through that module's imports."""
+
+    path = _dotted(node)
+    held = None if path is None else _modules_by_name(parsed(module)).get(path[0])
+    if path is None or held is None:
+        return None
+
+    candidate = BACKEND_ROOT.joinpath(*held.split("."), *path[1:])
+
+    return next((found for found in (candidate.with_suffix(".py"), candidate / "__init__.py") if found.exists()), None)
+
+
+def scoped_references(node: ast.AST, chain: tuple[Declaration, ...]) -> Iterator[tuple[tuple[Declaration, ...], ast.Name | ast.Attribute]]:
+    """Every name and attribute read under `node`, with every function around it, as `scoped_calls` pairs a call."""
+
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, (ast.Name, ast.Attribute)):
+            yield chain, child
+
+        inner = (*chain, child) if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) else chain
+        yield from scoped_references(child, inner)
 
 
 @dataclass(frozen=True)
@@ -676,26 +755,50 @@ def _reads_the_database_by_name(call: ast.Call) -> bool:
     return callee(call) in READ_HELPERS or (callee(call) in DRIVER_READS and isinstance(call.func, ast.Attribute))
 
 
+def _writes_the_database_by_name(call: ast.Call) -> bool:
+    """`_reads_the_database_by_name`'s twin for the writing half, safe over the same set and nowhere else."""
+
+    return callee(call) in WRITE_HELPERS | REMOVAL_HELPERS or (callee(call) in DRIVER_WRITES and isinstance(call.func, ast.Attribute))
+
+
 @dataclass(frozen=True)
 class SessionCarrier:
-    """One declaration a transaction reaches by handing its session on, and every read that declaration's own body makes."""
+    """One declaration a transaction reaches by handing its session on, and every read and write that declaration's own body makes."""
 
     where: str
     #: The declaration's own name, which is what a derived floor over these compares.
     called: str
     reads: tuple[tuple[str, bool], ...]
+    writes: tuple[tuple[str, bool], ...]
+    #: Each session parameter of an application function the body calls, in source order: what it
+    #: binds, and whether that is the session followed in. One that is not is never followed, so this
+    #: alone answers for it.
+    handoffs: tuple[tuple[str, str, bool], ...]
 
 
 @functools.cache
 def session_carriers() -> tuple[SessionCarrier, ...]:
     """Every declaration the transaction's session reaches, each hand-off inside one followed on to a fixpoint.
 
-    Where `transactional_callbacks` stops: it reads a callback's own lexical body, so a read a module
-    away answers nowhere in it.
+    Where `transactional_callbacks` stops: it reads a callback's own lexical body, so a read or a
+    write a module away answers nowhere in it.
     """
 
     return _carriers_from(
         [(handoff.declaration, handoff.declared_in, handoff.parameter) for handoff in session_handoffs() if handoff.in_session]
+    )
+
+
+@functools.cache
+def callback_carriers(where: str) -> tuple[SessionCarrier, ...]:
+    """`session_carriers` for the one callback `where` names, so a callback whose writes all sit in its helpers is told from one making none."""
+
+    return _carriers_from(
+        [
+            (handoff.declaration, handoff.declared_in, handoff.parameter)
+            for handoff in session_handoffs()
+            if handoff.in_session and handoff.where == where
+        ]
     )
 
 
@@ -712,6 +815,8 @@ def _carriers_from(frontier: list[tuple[Declaration, Path, str]]) -> tuple[Sessi
 
         seen.add((path, declaration.name, parameter))
         reads: list[tuple[str, bool]] = []
+        writes: list[tuple[str, bool]] = []
+        handoffs: list[tuple[str, str, bool]] = []
 
         for chain, call in scoped_calls(declaration, (declaration,)):
             # The parameter this declaration was REACHED through, never its every session parameter:
@@ -721,20 +826,27 @@ def _carriers_from(frontier: list[tuple[Declaration, Path, str]]) -> tuple[Sessi
             if _reads_the_database_by_name(call):
                 reads.append((callee(call), bound_at(call, "session", None).argument in carried))
 
+            if _writes_the_database_by_name(call):
+                writes.append((callee(call), bound_at(call, "session", None).argument in carried))
+
             resolved = resolve_callee(call, chain, path)
             if resolved is None:
                 continue
 
             called, called_in = resolved
-            frontier += [
-                (called, called_in, name) for name, position in session_parameters(called) if bound_at(call, name, position).argument in carried
-            ]
+            for name, position in session_parameters(called):
+                bound = bound_at(call, name, position).argument
+                handoffs.append((called.name, bound, bound in carried))
+                if bound in carried:
+                    frontier.append((called, called_in, name))
 
         found.append(
             SessionCarrier(
                 where=f"{path.relative_to(BACKEND_ROOT).as_posix()} :: {declaration.name}({parameter})",
                 called=declaration.name,
                 reads=tuple(reads),
+                writes=tuple(writes),
+                handoffs=tuple(handoffs),
             )
         )
 

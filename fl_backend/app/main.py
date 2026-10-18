@@ -27,8 +27,10 @@ from app.api.bewerbungen.router import router as bewerbungen_router
 from app.api.bewerbungen.sweep_router import router as bewerbungen_sweep_router
 from app.api.bewerbungen.zustellung_router import router as bewerbungen_zustellung_router
 from app.api.einwilligung.router import router as einwilligung_router
+from app.api.identitaet.admin_router import router as identitaet_admin_router
+from app.api.identitaet.person_router import router as identitaet_person_router
 from app.api.identitaet.router import router as identitaet_router
-from app.api.kontakte.admin_router import router as kontakte_admin_router
+from app.api.identitaet.sweep_router import router as identitaet_sweep_router
 from app.api.konto.router import router as konto_router
 from app.api.registrierungen.einwilligung_router import router as registrierungen_einwilligung_router
 from app.api.registrierungen.person_router import router as registrierungen_person_router
@@ -43,10 +45,12 @@ from app.api.schiedsrichter.adresswechsel_router import router as schiedsrichter
 from app.api.schiedsrichter.bestaetigung_router import router as schiedsrichter_bestaetigung_router
 from app.api.schiedsrichter.person_router import router as schiedsrichter_person_router
 from app.api.schiedsrichter.router import router as schiedsrichter_router
+from app.api.schiedsrichter.sweep_router import router as schiedsrichter_sweep_router
 from app.api.sperrliste.admin_router import router as sperrliste_admin_router
 from app.api.spiele.admin_router import router as spiele_admin_router
 from app.api.spiele.router import router as spiele_router
 from app.api.spieler.admin_router import router as spieler_admin_router
+from app.api.spieler.adresswechsel_router import router as spieler_adresswechsel_router
 from app.api.spieler.person_router import router as spieler_person_router
 from app.api.spieler.router import router as spieler_router
 from app.api.spieler.selbst_router import router as spieler_selbst_router
@@ -92,6 +96,8 @@ from app.core.security import (
     WRONG_BASE_KEY,
     WRONG_SYSTEM_KEY,
     get_actor_token,
+    get_person_confirmation_check,
+    get_recent_confirmation_check,
     get_step_up_check,
     get_token,
     verify_access_admin,
@@ -131,7 +137,7 @@ WRITE_ROUTERS = (
     schiedsrichter_admin_router,
     aktionen_admin_router,
     bewerbungen_admin_router,
-    kontakte_admin_router,
+    identitaet_admin_router,
     sperrliste_admin_router,
     berechtigungen_admin_router,
 )
@@ -144,6 +150,7 @@ PUBLIC_ROUTERS = (
     registrierungen_einwilligung_router,
     schiedsrichter_bestaetigung_router,
     schiedsrichter_adresswechsel_router,
+    spieler_adresswechsel_router,
 )
 # Its own group for the same reason: system-tier operations the application makes to itself, which
 # neither tuple above describes. A POST that stores nothing sits here too, both guard sheets listing
@@ -155,6 +162,8 @@ SYSTEM_ROUTERS = (
     zustellung_router,
     identitaet_router,
     berechtigungen_sweep_router,
+    identitaet_sweep_router,
+    schiedsrichter_sweep_router,
 )
 # Its own group, as the two above are: a signed-in person's routers read and write on the admin key
 # with a person's binder in place of `bind_actor`, which no tuple above describes. A sweep walking
@@ -168,6 +177,7 @@ PERSON_ROUTERS = (
     registrierungen_selbst_router,
     schiedsrichter_person_router,
     konto_router,
+    identitaet_person_router,
 )
 
 # Spelled as `fl_frontend/src/core/api.ts :: FetchOptions` spells its `authType`, the value being
@@ -221,6 +231,12 @@ DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], DependencyRefusal] = {
     get_database: _probed(HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
     # A check handed to the handler, which calls it on the calls it judges.
     get_step_up_check: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED, driven_by=RefusalDriver.STEP_UP),
+    get_person_confirmation_check: DependencyRefusal(
+        status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED, driven_by=RefusalDriver.STEP_UP
+    ),
+    get_recent_confirmation_check: DependencyRefusal(
+        status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED, driven_by=RefusalDriver.STEP_UP
+    ),
     get_drossel: DependencyRefusal(status=HTTPStatus.TOO_MANY_REQUESTS, code=DROSSELUNG_ERREICHT, driven_by=RefusalDriver.COUNT),
 }
 UNGUARDED_TIER = "none"

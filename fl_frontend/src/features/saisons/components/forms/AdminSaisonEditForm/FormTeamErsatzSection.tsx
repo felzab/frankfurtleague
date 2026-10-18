@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import ArrowRight from "@gravity-ui/icons/ArrowRight";
 
+import { TEAMS_EINTRAG } from "@/features/admin/constants";
 import { describeAngesetzteSpiele, describeKaderAustragung, describeKaderAustragungDanach } from "@/features/saisons/utils";
 import { replaceSaisonTeamAction } from "@/features/teams/actions";
 import { Leer } from "@/shared/components/ui/Angabe";
@@ -35,7 +36,7 @@ const PAIR_LABEL_ID = "teamwechsel-paar";
 /**
  * On `POST /teams/{team_id}/saisons/{saison_id}/replace`: a season's junction row, and every fixture
  * on it, change hands. **A confirmation and no undo offer** — the schedule survives, the cleared
- * Austritt and this season's squad rows do not.
+ * Austritt, the outgoing contacts and this season's squad rows do not.
  */
 export function FormTeamErsatzSection({
   saisonId,
@@ -139,7 +140,7 @@ export function FormTeamErsatzSection({
           <Callout
             severity="info"
             title="Ersetzen lässt sich nur ein Team, das in dieser Saison steht">
-            Nimm die Teams über die Teamseite in die Saison auf.
+            Nimm die Teams unter „{TEAMS_EINTRAG.label}“ in die Saison auf.
           </Callout>
         ) : !hasPickableRow ? (
           /* Dictated copy, whole. It states its rule and names no repair, where `docs/frontend/spec.md` §1.12 gives a
@@ -152,7 +153,7 @@ export function FormTeamErsatzSection({
           <Callout
             severity="info"
             title="Nachrücken kann nur ein Team, das in dieser Saison noch nicht dabei und nicht stillgelegt ist">
-            Lege über die Teamseite ein neues an oder reaktiviere ein stillgelegtes.
+            Lege unter „{TEAMS_EINTRAG.label}“ ein neues an oder reaktiviere ein stillgelegtes.
           </Callout>
         ) : (
           <>
@@ -206,7 +207,7 @@ export function FormTeamErsatzSection({
               <Callout
                 severity="info"
                 title="Zu diesem Team gibt es keine Daten mehr">
-                Der Platz steht in der Saison, das Team dahinter ist aber nicht mehr angelegt. Der Wechsel gibt den Platz trotzdem weiter: Das
+                Der Platz steht in der Saison, das Team dahinter ist aber nicht mehr angelegt. Der Wechsel gibt den Platz weiter: Das
                 nachrückende Team steht danach in der Gruppe, die auf dem Platz eingetragen ist.
               </Callout>
             )}
@@ -242,9 +243,12 @@ export function FormTeamErsatzSection({
                   </dl>
                 </div>
 
+                {/* The contacts take „Zurückholen“ and not „keinen Weg zurück“: the same transaction takes them out of the log
+                    (`docs/frontend/spec.md` §1.3), leaving no pre-image to restore them from. */}
                 <p className="fluid-xxs leading-normal font-medium text-foreground">
                   Der Wechsel gilt sofort und ist auf jeder Tabelle und jedem Spielplan dieser Saison zu sehen. Es gibt in der Verwaltung keinen
-                  Weg zurück. {describeKaderAustragungDanach(outgoing.name)}
+                  Weg zurück. {describeKaderAustragungDanach(outgoing.name)} Die eingetragenen Kontaktpersonen von {outgoing.name} werden dabei
+                  gelöscht. Zurückholen lässt sich das nicht.
                 </p>
               </ConfirmReveal>
             )}

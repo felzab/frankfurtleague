@@ -31,6 +31,7 @@ from app.core import middlewares
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
+    anchor_by_id_in_db,
     anchor_in_db,
     delete_many_from_db,
     erase_many_from_db,
@@ -167,12 +168,16 @@ class TestAStoppedContainerOutlastsEveryRequest:
 
 
 def _erasure_answered() -> tuple[Response, float]:
-    """`POST /kontakte/erasure` against a server nothing answers, its first database call past the actor check inside its transaction."""
+    """`POST /identitaet/erasure` against a server nothing answers, its first database call past the actor check inside its transaction."""
 
     async def _answered() -> tuple[Response, float]:
         async with app_client(UNANSWERED_URI, admitting=ADMINISTRATORS) as http:
             started = time.monotonic()
-            response = await http.post(f"/api/v{API_VERSION}/kontakte/erasure", headers=ADMIN_HEADERS, json={"email": "anna.mueller@schule.de"})
+            response = await http.post(
+                f"/api/v{API_VERSION}/identitaet/erasure",
+                headers=ADMIN_HEADERS,
+                json={"email": "anna.mueller@schule.de", "anlass": "Mail vom 30.03.2026"},
+            )
             return response, time.monotonic() - started
 
     return asyncio.run(_answered())
@@ -697,6 +702,7 @@ NO_SESSION: Any = None
 # One call per `app/core/crud.py` helper reaching the driver's writes, each as a route makes it.
 WRITE_CALLS: dict[str, Callable[[Any], Awaitable[Any]]] = {
     "anchor_in_db": lambda collection: anchor_in_db(collection=collection, db_filter={"_id": 1}, session=NO_SESSION),
+    "anchor_by_id_in_db": lambda collection: anchor_by_id_in_db(collection=collection, ids=["anker"], session=NO_SESSION),
     "patch_one_in_db": lambda collection: patch_one_in_db(
         collection=collection, db_filter={"_id": 1}, update={"$set": {"name": "Adler"}}, return_document=ReturnDocument.BEFORE
     ),
@@ -753,6 +759,9 @@ class TestAWriteTheDeadlineCutIsNotCalledFailed:
         assert {site for site in outside if not site.startswith(f"{CRUD_MODULE} :: ")} == {
             "app/core/recording.py :: record_write",
             "app/core/drosselung.py :: drosseln",
+            # An erasure's removal of the person's counts, inside the erasure's transaction, so a cut
+            # removal commits nothing and "failed" is the truth.
+            "app/core/drosselung.py :: erase_counts_in_session",
         }
 
     def test_the_method_does_not_decide_it(self):

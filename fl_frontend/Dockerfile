@@ -5,7 +5,7 @@
 
 # The tag names the Node `package.json :: devEngines` pins (`docs/ops/spec.md :: I511`), and
 # Dependabot moves it together with the digest (`docs/ops/spec.md` §1.1).
-FROM node:26.10.0-trixie-slim@sha256:ec7758ee051e457b468b32bde57b0879010b325bb9862718e9615225ce4aaae1 AS base
+FROM node:26.11.1-trixie-slim@sha256:193fe51b64e77981119c98c2002c9e32a70e2f006fb4d25068ce0558998917f0 AS base
 
 # tini as PID 1, as Node's Docker guidance asks: node there ignores every signal it registered no
 # handler for and reaps no orphaned child
@@ -21,7 +21,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # in a production process environment.
 FROM base AS toolchain
 # `package.json :: packageManager` names the same pnpm (`docs/ops/spec.md :: I512`).
-ARG PNPM_VERSION=11.28.3
+ARG PNPM_VERSION=11.28.6
 
 # npm's cache is a mount, so none of it is written into the layer.
 RUN --mount=type=cache,id=npm,target=/root/.npm npm install -g pnpm@${PNPM_VERSION}
@@ -37,10 +37,6 @@ WORKDIR /app
 # Only what `pnpm fetch` reads (pnpm.io/cli/fetch): with package.json in this layer's key, renaming
 # a script re-downloads every package.
 COPY pnpm-lock.yaml pnpm-workspace.yaml* ./
-
-# A patched dependency is one of the things `pnpm fetch` reads, so this joins the lockfile's layer
-# rather than package.json's: without it the fetch dies on ERR_PNPM_PATCH_NOT_FOUND.
-COPY patches ./patches
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
 COPY package.json ./
 
@@ -57,10 +53,10 @@ FROM deps AS builder
 # the first module that reads config. The schema is still enforced by local.sh and on every deploy.
 ENV SKIP_ENV_VALIDATION=true
 
-# Everything but what `deps` installed from: pnpm's dependency check fails a patch written after the
-# install it validated, and a `deps` layer restored from the cache ran its install before this
-# context was checked out.
-COPY --exclude=patches --exclude=package.json --exclude=pnpm-lock.yaml --exclude=pnpm-workspace.yaml* . .
+# Everything but what `deps` installed from: a `deps` layer restored from the cache ran its install
+# before this context was checked out, and pnpm's check before each `pnpm run` re-validates any
+# manifest or lockfile written after it.
+COPY --exclude=package.json --exclude=pnpm-lock.yaml --exclude=pnpm-workspace.yaml* . .
 
 # Emitted rather than kept by hand: a tracked copy of the schema's names would be a second artefact
 # to keep current, and this one cannot disagree with the schema the same image was built from.

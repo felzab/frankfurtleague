@@ -1,8 +1,7 @@
 import "@/shared/testing/pageHarness.ts";
 
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
-import { readdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -12,6 +11,7 @@ import { createElement as h } from "react";
 import tailwind from "@tailwindcss/postcss";
 import postcss from "postcss";
 
+import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { asRenderedPage, isNavigation, renderPage } from "@/shared/testing/pageHarness.ts";
@@ -34,6 +34,7 @@ doubleEveryAction();
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { AdminCrudFallback } = await import("./AdminCrudFallback.tsx");
 const { AdminCrudLoading } = await import("./AdminCrudLoading.tsx");
+const { AdminCrudPrivateQuery } = await import("./AdminCrudPrivateQuery.tsx");
 const { AdminCrudSearch } = await import("./AdminCrudSearch.tsx");
 const { AdminCrudShell } = await import("./AdminCrudShell.tsx");
 const { AdminCrudView } = await import("./AdminCrudView.tsx");
@@ -587,9 +588,14 @@ describe("the hold every admin CRUD region reads", () => {
   });
 });
 
-/** The classes the loaded bar opens on, beside a trigger or on a row of its own. */
+/** The classes the loaded bar opens on, beside a trigger or on a row of its own, under the holder the shell mounts. */
 const loadedBar = (attachEnd: boolean): string[] =>
-  classesAt(renderTree(underNext(h(AdminCrudSearch, { searchLabel: "Suchen", searchPlaceholder: "Suchen", attachEnd }))), 0);
+  classesAt(
+    renderTree(
+      underNext(h(AdminCrudPrivateQuery, { children: h(AdminCrudSearch, { searchLabel: "Suchen", searchPlaceholder: "Suchen", attachEnd }) })),
+    ),
+    0,
+  );
 
 /** A trigger's box, laid out and never painted, and the words that size it. */
 const BOX = /<div aria-hidden="true" class="(button[^"]*)">([\s\S]*?)<\/div>/;
@@ -687,6 +693,10 @@ describe("the arithmetic behind the box claims", () => {
 
 const ADMIN = path.join(SRC, "app", "bereich", "admin");
 
+/** A list route's own `<route>/<name>` alone: one deeper is a record's page beneath the list. */
+const routeFiles = (name: string): string[] =>
+  filesUnder(ADMIN, (found) => found === name, 1).filter((file) => path.relative(ADMIN, file).split(path.sep).length === 2);
+
 const PROPS: PageProps = { params: Promise.resolve({}), searchParams: Promise.resolve({}) };
 
 type ListPage = (props: PageProps) => ReactElement<{ search: ReactNode; createModal?: ReactNode }>;
@@ -710,16 +720,15 @@ const atRoute = (route: string, tree: ReactNode): ReactNode => underNext(tree, {
 /* Selected on the placeholder each route's loading boundary draws, which is none of the properties the
    cases below assert: a route that stops satisfying one stays in the roster and fails inside it. */
 const ROUTES: { route: string; loading: string; Page: ListPage }[] = [];
-for (const entry of await readdir(ADMIN, { withFileTypes: true })) {
-  const file = path.join(ADMIN, entry.name, "loading.tsx");
-  if (!entry.isDirectory() || !existsSync(file)) continue;
+for (const file of routeFiles("loading.tsx")) {
+  const route = path.basename(path.dirname(file));
 
   const { default: Loading } = (await import(pathToFileURL(file).href)) as { default: () => ReactNode };
   const loading = renderTree(h(Loading));
   if (fallbacksIn(loading).length === 0) continue;
 
-  const { default: Page } = (await import(pathToFileURL(path.join(ADMIN, entry.name, "page.tsx")).href)) as { default: ListPage };
-  ROUTES.push({ route: entry.name, loading, Page });
+  const { default: Page } = (await import(pathToFileURL(path.join(ADMIN, route, "page.tsx")).href)) as { default: ListPage };
+  ROUTES.push({ route, loading, Page });
 }
 
 describe("every admin CRUD route", () => {
@@ -749,17 +758,16 @@ describe("every admin CRUD route", () => {
   it("holds a region under every route that draws its placeholder, and under no other", async () => {
     const holding: string[] = [];
 
-    for (const entry of await readdir(ADMIN, { withFileTypes: true })) {
-      const file = path.join(ADMIN, entry.name, "page.tsx");
-      if (!entry.isDirectory() || !existsSync(file)) continue;
+    for (const file of routeFiles("page.tsx")) {
+      const route = path.basename(path.dirname(file));
 
       const { default: Page } = (await import(pathToFileURL(file).href)) as { default: ListPage };
       // A page answering a league with no season by sending the reader elsewhere draws nothing to judge.
-      const markup = await renderPage(atRoute(entry.name, h(Page, PROPS))).catch((error: unknown) => {
+      const markup = await renderPage(atRoute(route, h(Page, PROPS))).catch((error: unknown) => {
         if (isNavigation(error)) return "";
         throw error;
       });
-      if (markup.includes(COVER)) holding.push(entry.name);
+      if (markup.includes(COVER)) holding.push(route);
     }
 
     assert.deepEqual(
@@ -781,7 +789,7 @@ describe("every admin CRUD route", () => {
 
       assert.equal(BOX.test(loading), hasTrigger, `${route}: its fallback and its page disagree on a trigger`);
       assert.deepEqual(
-        classesAt(renderTree(atRoute(route, shell.props.search)), 0),
+        classesAt(renderTree(atRoute(route, h(AdminCrudPrivateQuery, { children: shell.props.search }))), 0),
         loadedBar(hasTrigger),
         `${route}: its bar joins a trigger its shell does not pass`,
       );

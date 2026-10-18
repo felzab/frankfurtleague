@@ -127,6 +127,56 @@ def test_par_run_survives_a_unit_that_exits(tmp_path: Path) -> None:
     assert "FAILURES=1" in out, out
 
 
+def _steps(first: str, until: str) -> str:
+    """The script's top level from step `first`'s opening line to step `until`'s, as written: steps run in no function."""
+    text = SELFCHECK.read_text(encoding="utf-8")
+    start = text.index(f'\nstep "{first}')
+    return text[start + 1 : text.index(f'\nstep "{until}', start)]
+
+
+def test_steps_5_and_6_run_no_script_git_does_not_track(tmp_path: Path) -> None:
+    """An untracked draft would run whatever its body does before its argument loop, on every gate.
+
+    The tracked twin is the control, since a filter running nothing passes the draft's absence alone.
+    """
+    tree = tmp_path / "tree"
+    (tree / "scripts").mkdir(parents=True)
+    ran = tmp_path / "ran.txt"
+    for name in ("drafted.sh", "tracked.sh"):
+        write_shell(tree / "scripts" / name, f'{SHEBANG}\nprintf \'%s %s\\n\' "${{0##*/}}" "$1" >> {ran.as_posix()!r}\n')
+    for argv in (("git", "init", "-q"), ("git", "add", "--chmod=+x", "scripts/tracked.sh")):
+        subprocess.run(argv, cwd=tree, check=True, capture_output=True)
+    status, out, err = _bash(
+        (
+            SHEBANG,
+            f"source {LIB.as_posix()!r}",
+            # `_lib.sh` roots every run at this repository as it is sourced.
+            f"cd {tree.as_posix()!r}",
+            f"REPO_ROOT={tree.as_posix()!r}",
+            'SELFCHECK_TMP="$(mktemp -d)"',
+            "PAR_WIDTH=2",
+            "FAILURES=0",
+            "note_fail() { printf 'FAIL %s\\n' \"$*\"; FAILURES=$(( FAILURES + 1 )); }",
+            "note_skip() { printf 'SKIP %s\\n' \"$*\"; }",
+            "note_warn() { printf 'WARN %s\\n' \"$*\"; }",
+            "info() { printf 'INFO %s\\n' \"$*\"; }",
+            "PAR_ITEMS=(); PAR_LABELS=()",
+            _function("par_reset"),
+            _function("par_add"),
+            _function("par_run"),
+            "RUNNABLE=(drafted.sh tracked.sh)",
+            _steps("3. ", "4. "),
+            _steps("5. ", "7. "),
+        ),
+        tmp_path,
+    )
+    lines = sorted(ran.read_text(encoding="utf-8").splitlines()) if ran.exists() else []
+
+    assert status == 0, f"{out!r} {err!r}"
+    assert lines == ["tracked.sh --definitely-not-an-option", "tracked.sh --help"], f"{lines!r} {out!r}"
+    assert "SKIP drafted.sh is not tracked by git, so steps 5 and 6 did not run it" in out, out
+
+
 def test_the_helper_check_reads_its_subjects_out_of_the_scripts(tmp_path: Path) -> None:
     """A pattern built from what `_lib.sh` defines can only match names that resolve (PRE-4).
 
@@ -390,7 +440,15 @@ def test_every_shape_the_call_site_reader_once_mis_lexed(tmp_path: Path) -> None
 # Each pin check, the manifest spelling its pin, the image line naming a tag, the pin, and a release
 # the pin does not admit. The Python row's pin names a series, which a release inside it satisfies.
 PIN_CHECKS: Final[dict[str, tuple[str, Callable[[str], str], str, str]]] = {
-    "check_uv_pin": ('required-version = "==0.12.19"\n', lambda tag: f"FROM ghcr.io/astral-sh/uv:{tag}@sha256:0 AS uv\n", "0.12.19", "0.12.20"),
+    # Another step's `version:` on either side: a reader not scoped to the setup-uv step pins 9.9.9 or 8.8.8.
+    "check_uv_pin": (
+        '    - uses: other/action@0\n      with:\n        version: "9.9.9"\n'
+        '    - uses: astral-sh/setup-uv@0 # v1\n      with:\n        version: "0.12.19"\n'
+        '    - uses: other/action@0\n      with:\n        version: "8.8.8"\n',
+        lambda tag: f"FROM ghcr.io/astral-sh/uv:{tag}@sha256:0 AS uv\n",
+        "0.12.19",
+        "0.12.20",
+    ),
     "check_node_pin": (
         '{\n  "version": "1.0.0",\n  "devEngines": {\n    "runtime": {\n      "name": "node",\n      "version": "26.10.0"\n    }\n  }\n}\n',
         lambda tag: f"FROM node:{tag}-trixie-slim@sha256:0 AS base\n",
@@ -440,6 +498,15 @@ def test_a_later_stage_naming_another_release_fails(name: str, tmp_path: Path) -
     said = _pin_check(name, manifest, stage(admitted) + stage(other), tmp_path)
 
     assert f"FAIL {(tmp_path / 'manifest').as_posix()}" in said and other in said, said
+
+
+def test_the_uv_remedy_names_the_range_the_project_admits(tmp_path: Path) -> None:
+    """Moving setup-uv to a Dependabot image bump past `required-version`'s ceiling turns this check green and every uv run red."""
+    manifest, stage, admitted, other = PIN_CHECKS["check_uv_pin"]
+
+    said = _pin_check("check_uv_pin", manifest, stage(admitted) + stage(other), tmp_path)
+
+    assert "fl_backend/pyproject.toml's required-version" in said, said
 
 
 @pytest.mark.parametrize("name", sorted(PIN_CHECKS))

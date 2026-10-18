@@ -14,6 +14,8 @@ import {
 import { FLKontaktKenntnisnahmeSchema } from "@/features/teams/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
+import { MedienMindestalterSchema } from "./einwilligung";
+
 /**
  * Mirrors `FLSitzKontext`: what a seat's confirmation page fills its slots with. `schule` is the field
  * as served, whatever that seat's page named its school by, and never derived here.
@@ -58,7 +60,7 @@ export const FLKontoSitzEinwilligungSchema = z.object({
   medien_angeboten: z.boolean(),
   erteilbar: z.boolean(),
   // One per entry, never per confirmation: every confirmation's words and the control's name one media floor.
-  medien_mindestalter: z.number().int(),
+  medien_mindestalter: MedienMindestalterSchema,
   bestaetigt: z.array(FLSitzBestaetigtSchema).nonempty(),
 });
 export type FLKontoSitzEinwilligung = z.infer<typeof FLKontoSitzEinwilligungSchema>;
@@ -78,7 +80,7 @@ export const FLKontoBewerbungSitzEinwilligungSchema = z.object({
   medien: z.boolean(),
   nachweis_stand: FLEinwilligungStandSchema,
   // For `FLKontoSitzEinwilligungSchema`'s reason.
-  medien_mindestalter: z.number().int(),
+  medien_mindestalter: MedienMindestalterSchema,
   bestaetigt: z.array(FLSitzBestaetigtSchema).nonempty(),
 });
 export type FLKontoBewerbungSitzEinwilligung = z.infer<typeof FLKontoBewerbungSitzEinwilligungSchema>;
@@ -101,7 +103,7 @@ export const FLKontoRegistrierungEinwilligungSchema = z.object({
   nachweis_stand: FLEinwilligungStandSchema,
   // For `FLKontoSpielerEinwilligungSchema`'s reason, both.
   mindestalter: z.number().int(),
-  medien_mindestalter: z.number().int(),
+  medien_mindestalter: MedienMindestalterSchema,
   kontext: FLSpielerKontextSchema,
   vorname: z.string(),
   nachname: z.string(),
@@ -133,7 +135,7 @@ export const FLKontoSpielerEinwilligungSchema = FLSpielerSelbstSchema.extend({
   // The floors the record's confirmation page named, served as every seat entry's are, so the two tiers
   // cannot name different ages.
   mindestalter: z.number().int(),
-  medien_mindestalter: z.number().int(),
+  medien_mindestalter: MedienMindestalterSchema,
   kontext: FLSpielerKontextSchema,
 });
 export type FLKontoSpielerEinwilligung = z.infer<typeof FLKontoSpielerEinwilligungSchema>;
@@ -147,7 +149,7 @@ export const FLKontoSchiedsrichterEinwilligungSchema = FLSchiedsrichterSelbstSch
   erteilbar: z.boolean(),
   medien_angeboten: z.boolean(),
   mindestalter: z.number().int(),
-  medien_mindestalter: z.number().int(),
+  medien_mindestalter: MedienMindestalterSchema,
   kontext: FLSchiedsrichterKontextSchema,
 });
 export type FLKontoSchiedsrichterEinwilligung = z.infer<typeof FLKontoSchiedsrichterEinwilligungSchema>;

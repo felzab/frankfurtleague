@@ -132,7 +132,14 @@ describe("the season's bulk invite send", () => {
         assert.equal(readout("Teams"), "2");
         assert.equal(readout("E-Mails"), "3");
         assert.equal(readout("Übersprungen"), "5");
-        answerWith(() => Promise.resolve({ success: true, zeilen: [], message: "1 von 4 Teams haben ihren Link bekommen." }));
+        answerWith(() =>
+          Promise.resolve({
+            success: true,
+            zeilen: [],
+            message: "1 von 4 Teams haben ihren Link bekommen.",
+            versendet: ["gesendet", "gesendet"],
+          }),
+        );
       },
     });
 
@@ -247,7 +254,7 @@ describe("the season's bulk invite send", () => {
         resting: RESTING,
         armed: ARMED,
         answered,
-        whileArmed: () => answerWith(() => Promise.resolve({ success: true, zeilen: [], message: "Keine Links gesendet." })),
+        whileArmed: () => answerWith(() => Promise.resolve({ success: true, zeilen: [], message: "Keine Links gesendet.", versendet: [] })),
       });
       await act(answered);
       await waitFor(() => assert.equal(screen.getByRole("button", { name: RESTING }).getAttribute("data-pending"), null));
@@ -369,7 +376,14 @@ describe("the season's bulk invite send", () => {
           { id: SAISON_ID, erneut: true },
           "the second read described the press the switch had already moved off",
         );
-        answerWith(() => Promise.resolve({ success: true, zeilen: [], message: "4 von 4 Teams haben ihren Link bekommen." }));
+        answerWith(() =>
+          Promise.resolve({
+            success: true,
+            zeilen: [],
+            message: "4 von 4 Teams haben ihren Link bekommen.",
+            versendet: ["gesendet", "gesendet", "gesendet", "gesendet"],
+          }),
+        );
       },
     });
 
@@ -444,6 +458,8 @@ describe("the season's bulk invite send", () => {
           Promise.resolve({
             success: true,
             message: "Registrierungslinks gesendet: 2 von 3 Teams.",
+            // Each team the press meant to write to, the team passed over for its missing contacts none of them.
+            versendet: ["gesendet", "gesendet", "fehlgeschlagen", "zurueckgehalten", "fehlgeschlagen"],
             zeilen: [
               {
                 team_id: ID("a"),
@@ -462,6 +478,17 @@ describe("the season's bulk invite send", () => {
                 ersetzt_link: false,
                 zugestellt: ["mila@beispiel.de", "til@beispiel.de"],
                 unerreichbar: ["gelöscht@beispiel.de"],
+                zurueckgehalten: [],
+                gesperrt: 0,
+              },
+              // A team whose every send failed: its link never left, and nothing was withheld.
+              {
+                team_id: ID("h"),
+                team_name: "Schillerschule",
+                uebersprungen: null,
+                ersetzt_link: false,
+                zugestellt: [],
+                unerreichbar: ["ida@beispiel.de"],
                 zurueckgehalten: [],
                 gesperrt: 0,
               },
@@ -514,6 +541,8 @@ describe("the season's bulk invite send", () => {
       isInTheFlow("Nicht erreicht: gelöscht@beispiel.de"),
       "the address nobody reached is named nowhere, so nobody can write to it by hand",
     );
+    // „zugestellt“ is the provider's delivery, which a send that never left has no word in.
+    assert.ok(isInTheFlow("Nicht verschickt"), "the team whose every send failed reads in a delivery's word, or not at all");
     /* Outside production this is EVERY row, so grading it as a failure and naming each address in
        danger red teaches an administrator that the red rows mean nothing. */
     assert.ok(isInTheFlow(ZURUECKGEHALTEN), "a row the deployment withheld reads as a team the league failed to reach");
@@ -522,10 +551,13 @@ describe("the season's bulk invite send", () => {
     assert.ok(isInTheFlow("Kontaktdaten nicht hinterlegt"), "the skipped team lost its reason in the result");
     assert.ok(isInTheFlow("Registrierungslink nicht angelegt"), "the team whose mint failed is not told apart from one passed over on purpose");
     assert.ok(
-      isInTheFlow("Der bisherige Link dieses Teams gilt weiter. Ein neuer Versand versucht es noch einmal."),
+      isInTheFlow("Der bisherige Link dieses Teams gilt weiter. Ein neuer Versand versucht es erneut."),
       "nothing says the failed team keeps the link it had, so somebody will assume it lost one",
     );
-    assert.equal(raised[0]?.variant, "success");
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title]),
+      [["warning", "Registrierungslinks teils nicht verschickt"]],
+    );
   });
 
   /* Counted against the team's whole, so the shortfall shows, and said by count in the row's own
@@ -544,6 +576,8 @@ describe("the season's bulk invite send", () => {
           Promise.resolve({
             success: true,
             message: "Registrierungslinks gesendet: 1 von 2 Teams.",
+            // Every address of the second team is barred.
+            versendet: ["gesendet", "gesperrt"],
             zeilen: [
               {
                 team_id: ID("a"),
@@ -576,7 +610,61 @@ describe("the season's bulk invite send", () => {
     assert.ok(isInTheFlow("An eine Adresse ging nichts, weil sie auf der Sperrliste steht."));
     assert.ok(isInTheFlow("An 2 Adressen ging nichts, weil sie auf der Sperrliste stehen."));
     assert.equal(isInTheFlow("Nicht erreicht:"), false, "a barred address was offered for writing to by hand");
+    // A team whose link the ban list held back is no team the press wrote to: never announced as sent.
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title]),
+      [["warning", "Registrierungslinks teils zurückgehalten"]],
+    );
   });
+
+  const uebersprungen = (team_id: string) => ({
+    team_id,
+    team_name: "Georg-Büchner-Schule",
+    uebersprungen: "kein_kontaktblock",
+    ersetzt_link: false,
+    hatte_link: false,
+    zugestellt: [],
+    unerreichbar: [],
+    zurueckgehalten: [],
+    gesperrt: 0,
+  });
+
+  /* A title says whether its grade is every team's or some teams', one team's in the team press's words: „Nicht alle“
+     is false over one team and over a local stack sending nothing. */
+  for (const [versendet, zeilen, variant, title] of [
+    [["gesendet"], [], "success", "Registrierungslink gesendet"],
+    [["zurueckgehalten"], [], "warning", "Registrierungslink zurückgehalten"],
+    [["fehlgeschlagen"], [], "warning", "Registrierungslink nicht verschickt"],
+    [["zurueckgehalten", "zurueckgehalten", "zurueckgehalten"], [], "warning", "Registrierungslinks zurückgehalten"],
+    [["fehlgeschlagen", "zurueckgehalten"], [], "warning", "Registrierungslinks nicht verschickt"],
+    // Meant for no team: the title counts the season's, so a season of one reads in the singular.
+    [[], [uebersprungen(ID("b"))], "info", "Kein Registrierungslink gesendet"],
+    [[], [uebersprungen(ID("b")), uebersprungen(ID("c"))], "info", "Keine Registrierungslinks gesendet"],
+  ] as const) {
+    it(`titles a press whose teams' links ended ${versendet.join(", ") || "nowhere"} „${title}“, over the answer's sentence`, async () => {
+      const user = userEvent.setup();
+      const message = "Das Team hat keinen neuen Link bekommen.";
+      answerWith(vorschauAntwort(VORSCHAU));
+      render(panel());
+
+      await pressTwice(user, {
+        resting: RESTING,
+        armed: ARMED,
+        answered,
+        whileArmed: () => {
+          answerWith(() => Promise.resolve({ success: true, zeilen, message, versendet }));
+        },
+      });
+      await act(answered);
+
+      await waitFor(() =>
+        assert.deepEqual(
+          raised.map((toast) => [toast.variant, toast.title, toast.description]),
+          [[variant, title, message]],
+        ),
+      );
+    });
+  }
 
   /* The commit went out and no answer came back, so the row is true of a link revoked and of one
      that still opens, and says nothing about a previous link to a team that held none. */
@@ -605,6 +693,7 @@ describe("the season's bulk invite send", () => {
           Promise.resolve({
             success: true,
             message: "Registrierungslinks gesendet: 0 von 2 Teams.",
+            versendet: ["fehlgeschlagen", "fehlgeschlagen"],
             zeilen: [unklar(ID("a"), "Ernst-Reuter-Schule", true), unklar(ID("f"), "Wöhlerschule", false)],
           }),
         );
@@ -656,6 +745,7 @@ describe("the season's bulk invite send", () => {
           Promise.resolve({
             success: true,
             message: "Registrierungslinks gesendet: 0 von 3 Teams.",
+            versendet: ["fehlgeschlagen", "fehlgeschlagen", "fehlgeschlagen"],
             zeilen: [
               fehlgeschlagen(ID("a"), "Ernst-Reuter-Schule", true),
               fehlgeschlagen(ID("f"), "Wöhlerschule", false),
@@ -672,10 +762,10 @@ describe("the season's bulk invite send", () => {
       zeile("Ernst-Reuter-Schule"),
       "Ernst-Reuter-Schule" +
         "Registrierungslink nicht angelegt" +
-        "Der bisherige Link dieses Teams gilt weiter. Ein neuer Versand versucht es noch einmal.",
+        "Der bisherige Link dieses Teams gilt weiter. Ein neuer Versand versucht es erneut.",
     );
     for (const team_name of ["Wöhlerschule", "Bettinaschule"]) {
-      assert.equal(zeile(team_name), team_name + "Registrierungslink nicht angelegt" + "Ein neuer Versand versucht es noch einmal.");
+      assert.equal(zeile(team_name), team_name + "Registrierungslink nicht angelegt" + "Ein neuer Versand versucht es erneut.");
     }
   });
 });

@@ -6,6 +6,7 @@ import {
   ANTWORT_SATZ_TEXT,
   ASIDE_TEXT,
   BRAND_NAME,
+  einzeilig,
   escapeHtml,
   link,
   mailOrigin,
@@ -39,11 +40,12 @@ function bisSatz(gesperrtBisSaisonId: string): string {
 const GRUND_VOR = "Angegebener Grund:";
 
 /**
- * What the ban's row keeps, named because the reader cannot be shown it: the list holds a check value
- * rather than the address, while the account the address signs in to keeps it, frozen.
+ * What is kept, named because the reader cannot be shown it, the account only while a record holds the
+ * address (`docs/datenschutz.md :: 6`). It names no grant: a barred address holds none
+ * (`REQ-SPERRLISTE-003`, `REQ-BERECHTIGUNG-003`).
  */
 const GESPEICHERT_SATZ =
-  "In der Sperrliste stehen nur ein Prüfwert Deiner Adresse, der Grund, das Datum und wer die Sperre eingetragen hat; Deine Adresse selbst steht dort nicht. Dein Konto mit dieser Adresse bleibt gespeichert.";
+  "In der Sperrliste stehen nur ein Prüfwert Deiner Adresse, der Grund, das Datum und wer die Sperre eingetragen hat. Deine Adresse selbst steht dort nicht. Dein Konto bleibt nur bestehen, solange Du unter dieser Adresse noch etwas davon bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter oder eine bestätigte Registrierung, über die das Team noch nicht entschieden hat.";
 
 /**
  * The one way to a copy or a deletion while the address cannot sign in, and how the league knows the
@@ -71,7 +73,7 @@ const GRUNDLAGE_SATZ =
  * SEPARATELY at the first communication, which this message is.
  */
 const widerspruchSatz = (kontakt: string): string =>
-  `Du kannst dieser Speicherung nach Art. 21 DSGVO widersprechen. Schreib uns dafür an ${kontakt}; dort beantworten wir auch Fragen zur Sperre.`;
+  `Du kannst dieser Speicherung nach Art. 21 DSGVO widersprechen. Schreib uns dafür an ${kontakt}. Dort beantworten wir auch Fragen zur Sperre.`;
 
 // Every refusal the ban reaches, in one sentence: a sign-in, a registration, a contact seat on an
 // application and a referee's entry. „anmelden“ is the SIGN-IN's verb and „registrieren“ the season's.
@@ -79,11 +81,10 @@ const EINLEITUNG = `Deine E-Mail-Adresse wurde von der Verwaltung der ${BRAND_NA
 
 // „werden beendet“: the mail leaves after the sign-out was attempted and cannot know whether it held,
 // a failure being the administrator's to read.
-const ANMELDUNGEN_SATZ =
-  "Bestehende Anmeldungen mit dieser Adresse werden beendet. Dein Konto bleibt bestehen und ist gesperrt, bis die Sperre endet; danach kannst Du Dich wieder anmelden.";
+const ANMELDUNGEN_SATZ = "Bestehende Anmeldungen mit dieser Adresse werden beendet.";
 
 /** What the form's hint promises the mail explains, so the two say one thing. */
-const LAPSE_SATZ = "Danach endet die Sperre von selbst; Du musst dafür nichts tun.";
+const LAPSE_SATZ = "Danach endet die Sperre von selbst. Du musst dafür nichts tun.";
 
 function aktionen(): readonly Aktion[] {
   return [{ href: `mailto:${KONTAKT_EMAIL}`, label: FRAGE_LABEL, ton: "primary" }];
@@ -150,10 +151,14 @@ export function buildSperreEmail({
   origin: string;
 }): SperrlisteEmail {
   const site = mailOrigin(origin);
+  // Folded once, before either part prints them: this message has no column of facts to fold them on
+  // the way, and the reason stands on a line of its own (`docs/frontend/spec.md :: I89`).
+  const grundText = einzeilig(grund);
+  const bis = einzeilig(gesperrtBisSaisonId);
 
   return {
     subject: `${BRAND_NAME}: ${UEBERSCHRIFT}`,
-    html: renderHtml(grund, gesperrtBisSaisonId, site),
-    text: renderText(grund, gesperrtBisSaisonId, site),
+    html: renderHtml(grundText, bis, site),
+    text: renderText(grundText, bis, site),
   };
 }

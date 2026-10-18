@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 
+import { KONTAKT_TITEL } from "@/core/seitenNamen";
 import { band } from "@/features/bewerbungen/components/ui/band";
 import { BewerbungBandSkeleton } from "@/features/bewerbungen/components/ui/BewerbungBandSkeleton";
 import { BewerbungOffenBand } from "@/features/bewerbungen/components/ui/BewerbungOffenBand";
@@ -157,7 +158,7 @@ function KontaktBand() {
           href="/kontakt"
           prefetch={false}
           className={`${ctaButton({ intent: "outline", size: "sm", hover: "css" })} w-full lg:w-44`}>
-          Zum Kontakt
+          {KONTAKT_TITEL}
         </Link>
       </div>
     </div>

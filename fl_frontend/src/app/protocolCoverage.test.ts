@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import z from "zod";
-
 import { PROTOCOL_FAMILIES } from "@/core/errors.ts";
 import { keyTierOf } from "@/core/keyTiers.ts";
 import { publishedOperations } from "@/core/openapiDocument.ts";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { RECORD_CLAIMS } from "@/shared/testing/recordClaims.ts";
 
 import type { APIBadStatusError } from "@/core/errors.ts";
 import type { KeyTier } from "@/core/keyTiers.ts";
@@ -18,11 +17,12 @@ doubleActionRequest({ subject: person({ sitze: [sitz()] }) });
 
 const { NextRequest } = await import("next/server");
 const { refusedOn, unpublishedOn } = await import("@/shared/testing/publishedRefusals.ts");
-const { GESPERRT_KEINE_AENDERUNG, HEUTE_GENUG_GEAENDERT, ZUGANG_WEG } = await import("@/shared/utils/actionError.ts");
+const { AENDERUNG_STEHT_WEITERHIN, GESPERRT_KEINE_AENDERUNG, HEUTE_GENUG_GEAENDERT, ZUGANG_WEG } =
+  await import("@/shared/utils/actionError.ts");
 const { runAdminMutation, stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
+const { runAdminUndo, UNDO_UNBESTAETIGT } = await import("@/shared/utils/adminUndo.ts");
 const { runPersonMutation, runPersonRecordMutation } = await import("@/shared/utils/personMutation.ts");
 const { handlePublicRequest } = await import("@/shared/utils/publicRoute.ts");
-const { handleUndoRequest } = await import("@/shared/utils/undoRoute.ts");
 
 /** The shared reader's words for a request the running API cannot take, which a slice's own mapper may word first. */
 const EINZELNE_ANGABEN_ABGELEHNT = "Einzelne Angaben wurden nicht übernommen. Lade die Seite neu.";
@@ -45,7 +45,8 @@ const unclaimedBeside = (code: string): string => code.replace(/\d{3}$/, "000");
  * the class no reader names gets, or nobody, a system caller logging what it is refused.
  */
 type Answer =
-  | { readonly kind: "worded"; readonly words: string; readonly because: string }
+  // `undo` where the undo spine says it otherwise: its offer is gone once pressed, so it says the change stands.
+  | { readonly kind: "worded"; readonly words: string; readonly undo?: string; readonly because: string }
   | { readonly kind: "fallback"; readonly because: string }
   | { readonly kind: "nobody"; readonly because: string };
 
@@ -74,6 +75,7 @@ const ANSWERED: Readonly<Record<string, Answer>> = {
   "REQ-AUTH-006": {
     kind: "worded",
     words: ZUGANG_WEG,
+    undo: `${ZUGANG_WEG} ${AENDERUNG_STEHT_WEITERHIN}`,
     because: "the grant went between the guard and the call, so a retry and a sign-in meet the same refusal",
   },
   "REQ-AUTH-007": {
@@ -90,6 +92,7 @@ const ANSWERED: Readonly<Record<string, Answer>> = {
   "REQ-AUTH-009": {
     kind: "worded",
     words: stepUpRequired().error,
+    undo: UNDO_UNBESTAETIGT,
     because: "the page's next press asks for the confirmation the backend wants (`docs/frontend/spec.md :: I493`)",
   },
   "REQ-VAL-001": {
@@ -121,21 +124,12 @@ const READS = /^(?:GET|HEAD|OPTIONS) /;
 
 /**
  * A person's route under the admin key, told apart by the refusal only the person binder raises: its
- * writes are sent by a person's action alone, never by an admin action or an undo route.
+ * writes are sent by a person's action alone, never by an admin action or an undo.
  */
 const PERSON_ROUTES = new Set(PUBLISHED.filter(({ code }) => code === "REQ-AUTH-008").map(({ operation }) => operation));
 
-/**
- * The person routes whose actions claim the person's own record rather than a seat
- * (`fl_frontend/src/shared/utils/personActionSpine.test.ts :: CLAIMS_A_RECORD`), so their writes run
- * behind the record entry and are asked through it.
- */
-const RECORD_ROUTES: ReadonlySet<string> = new Set([
-  "PATCH /spieler/selbst/einwilligung",
-  "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
-  "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
-  "PATCH /bewerbungen/{bewerbung_id}/person/einwilligung",
-]);
+/** The person routes whose actions claim the person's own record, so their writes run behind the record entry and are asked through it. */
+const RECORD_ROUTES: ReadonlySet<string> = new Set(RECORD_CLAIMS.values());
 
 const errorOf = (answer: unknown): unknown => (typeof answer === "object" && answer !== null && "error" in answer ? answer.error : answer);
 
@@ -145,7 +139,7 @@ const routeRequest = (path: string) =>
 
 /**
  * What each of `tier`'s write spines answers the refusal with, its body throwing it as the API client
- * raises it: an admin write is sent by an action and replayed by an undo route, each answering itself.
+ * raises it: an admin write is sent by an action and replayed by an undo action, each answering itself.
  */
 async function shownBySpines(
   tier: KeyTier | null,
@@ -165,16 +159,9 @@ async function shownBySpines(
   }
 
   if (tier === "admin") {
-    const undone = await handleUndoRequest(routeRequest("/api/admin/protocolCoverage/undo"), {
-      mutationName: "protocolCoverage",
-      schema: z.object({}),
-      restore: () => Promise.reject(refusal),
-      tags: () => [],
-    });
-
     return {
       "the action spine": errorOf(await runAdminMutation("protocolCoverage", () => Promise.reject(refusal))),
-      "the undo spine": errorOf(await undone.json()),
+      "the undo spine": errorOf(await runAdminUndo("protocolCoverage", () => Promise.reject(refusal))),
     };
   }
 
@@ -254,7 +241,9 @@ describe("every published credential, request-validation and day-ceiling code ag
       const unclaimed =
         answer.kind === "worded" ? null : await shownBySpines(tier, person, unpublishedOn(operation, unclaimedBeside(code), status));
       for (const [spine, words] of Object.entries(shown)) {
-        assert.equal(words, answer.kind === "worded" ? answer.words : unclaimed?.[spine], `${key}, on ${spine}: ${answer.because}`);
+        const expected: unknown =
+          answer.kind !== "worded" ? unclaimed?.[spine] : spine === "the undo spine" ? (answer.undo ?? answer.words) : answer.words;
+        assert.equal(words, expected, `${key}, on ${spine}: ${answer.because}`);
       }
       driven.add(code);
     }

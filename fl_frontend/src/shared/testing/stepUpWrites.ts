@@ -1,9 +1,12 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import ts from "typescript";
 
-import { filesUnder, isTestFile, routeHandlerFiles, serverActionModules } from "@/core/treeWalk.ts";
+import { DECLARED_BY_DEFAULT, KEY_TIERS } from "@/core/keyTiers.ts";
+import { filesUnder, isTestFile, serverActionModules } from "@/core/treeWalk.ts";
+
+import type { KeyTier } from "@/core/keyTiers.ts";
 
 /** How an exported action declares its step-up: before its body, inside it, or not at all. */
 function declarationOf(body: ts.Node): "declared" | "conditional" | null {
@@ -61,6 +64,96 @@ function isExported(statement: ts.Statement): boolean {
   return ts.canHaveModifiers(statement) && (ts.getModifiers(statement)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false);
 }
 
+/** The key a client call's options argument sends on, `null` where a spread, a computed name or an unspelled tier hides it. */
+function keyOf(options: ts.Expression | undefined): KeyTier | null {
+  if (options === undefined) return DECLARED_BY_DEFAULT;
+  if (!ts.isObjectLiteralExpression(options)) return null;
+
+  let key: KeyTier | null = DECLARED_BY_DEFAULT;
+  for (const property of options.properties) {
+    // Refused rather than skipped: a hidden `authType` read as the default would take an admin write for a base one.
+    if (ts.isSpreadAssignment(property) || !(ts.isIdentifier(property.name) || ts.isStringLiteral(property.name))) return null;
+    if (property.name.text !== "authType") continue;
+    const spelled = ts.isPropertyAssignment(property) && ts.isStringLiteralLike(property.initializer) ? property.initializer.text : null;
+    key = KEY_TIERS.find((tier) => tier === spelled) ?? null;
+  }
+  return key;
+}
+
+/** The options argument of every client call the export `name` of `source`, a slice's mutations module, makes; `null` where it is no function. */
+function clientOptionsOf(source: ts.SourceFile | null, name: string): (ts.Expression | undefined)[] | null {
+  const declaration = source?.statements.find(
+    (statement): statement is ts.FunctionDeclaration =>
+      ts.isFunctionDeclaration(statement) && isExported(statement) && statement.name?.text === name,
+  );
+  if (declaration?.body === undefined) return null;
+
+  const options: (ts.Expression | undefined)[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "apiClient") options.push(node.arguments[2]);
+    ts.forEachChild(node, visit);
+  };
+  visit(declaration.body);
+  return options;
+}
+
+/** The key a request sends on, read off its client calls: `null` where it is no function, calls no client, or calls it on two keys. */
+function requestKeyOf(options: readonly (ts.Expression | undefined)[] | null): KeyTier | null {
+  const keys = new Set((options ?? []).map(keyOf));
+  return keys.size === 1 ? ([...keys][0] ?? null) : null;
+}
+
+/** Whether every client call a request makes declares `readOnly: true` as a literal; a spread, which could undo it, reads as no. */
+function readsOnly(options: readonly (ts.Expression | undefined)[] | null): boolean {
+  return (
+    options !== null &&
+    options.length > 0 &&
+    options.every(
+      (option) =>
+        option !== undefined &&
+        ts.isObjectLiteralExpression(option) &&
+        !option.properties.some(ts.isSpreadAssignment) &&
+        option.properties.some(
+          (property) =>
+            ts.isPropertyAssignment(property) &&
+            ts.isIdentifier(property.name) &&
+            property.name.text === "readOnly" &&
+            property.initializer.kind === ts.SyntaxKind.TrueKeyword,
+        ),
+    )
+  );
+}
+
+/**
+ * A step-up write's requests among `sends`: the admin key's alone, the backend stepping up the admin key's actor
+ * (`fl_backend/app/core/security.py :: verify_step_up`) while a timer sends the system key's with no session.
+ */
+export function stepUpRequestsOf(
+  sends: Iterable<string>,
+  mutationsOf: (slice: string) => ts.SourceFile | null,
+): { requests: string[]; unread: string[] } {
+  const requests: string[] = [];
+  const unread: string[] = [];
+  for (const request of sends) {
+    const [slice = "", name = ""] = request.split(" :: ");
+    const options = clientOptionsOf(mutationsOf(slice), name);
+    const key = requestKeyOf(options);
+    if (key === null) unread.push(`${request} sent on a key the reader cannot read`);
+    // An unread key keeps the request, so a shape this cannot read never narrows the listing. A read is no write's door:
+    // the backend steps up no operation storing nothing, which `readOnly` declares (`fl_frontend/src/core/apiRequests.test.ts`).
+    if ((key === null || key === "admin") && !readsOnly(options)) requests.push(request);
+  }
+  return { requests, unread };
+}
+
+const SOURCE_ROOT = path.resolve(import.meta.dirname, "..", "..");
+
+/** A slice's mutations module, where every request import resolves (`MUTATIONS_MODULE`), or `null` where the slice holds none. */
+function mutationsOf(slice: string): ts.SourceFile | null {
+  const file = path.join(SOURCE_ROOT, "features", slice, "mutations.ts");
+  return existsSync(file) ? ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true) : null;
+}
+
 /**
  * Every server action module, by the slice its directory names, with its syntax tree: a person's write
  * is a door to a request as an administrator's is.
@@ -91,47 +184,13 @@ const DECLARED = ACTIONS.flatMap(({ declaration, ...action }) => (declaration ==
  */
 export const STEP_UP_WRITES: Readonly<Record<string, string>> = Object.fromEntries(DECLARED.map(({ name, slice }) => [name, slice]));
 
-const UNDO_ROUTES = path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin");
+/** Every request an action declaring a step-up sends, on any key: what the reader attributes, before the key judges it. */
+export const STEP_UP_SENDS: ReadonlySet<string> = new Set(DECLARED.flatMap(({ sends }) => sends));
 
-/** Whether a route's `handleUndoRequest` call hands it a `stepUp` of its own. */
-function declaresStepUp(node: ts.Node): boolean {
-  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "handleUndoRequest") {
-    const [, route] = node.arguments;
-    return (
-      route !== undefined && ts.isObjectLiteralExpression(route) && route.properties.some((property) => property.name?.getText() === "stepUp")
-    );
-  }
-  return ts.forEachChild(node, declaresStepUp) ?? false;
-}
+const STEP_UP_JUDGED = stepUpRequestsOf(STEP_UP_SENDS, mutationsOf);
 
-/** Every undo route, by the slice its directory names, with its syntax tree. */
-const UNDO_ROUTE_SOURCES: ReadonlyMap<string, ts.SourceFile> = new Map(
-  routeHandlerFiles(8)
-    .filter((file) => path.dirname(path.dirname(path.dirname(file))) === UNDO_ROUTES && path.basename(path.dirname(file)) === "undo")
-    .map((file) => [
-      path.basename(path.dirname(path.dirname(file))),
-      ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true),
-    ]),
-);
-
-/**
- * Every undo route a replay of which the server holds to the step-up window, by the slice its directory
- * names, read off its declaration as the actions are; a route's replay is a save, and is judged as one.
- */
-export const STEP_UP_ROUTES: ReadonlySet<string> = new Set(
-  [...UNDO_ROUTE_SOURCES].filter(([, source]) => declaresStepUp(source)).map(([slice]) => slice),
-);
-
-/**
- * Every request each undo route's replay sends, read off its calls rather than its declaration: the
- * second listing `STEP_UP_ROUTES` is held to, since a route dropping its `stepUp` drops out of that one.
- */
-export const UNDO_REPLAYS: Readonly<Record<string, readonly string[]>> = Object.fromEntries(
-  [...UNDO_ROUTE_SOURCES].map(([slice, source]) => [slice, requestsSent(source, mutationImports(source, slice))]),
-);
-
-/** Every request a step-up write sends, as `slice :: export`: an undo route replaying one is a second door to that write. */
-export const STEP_UP_REQUESTS: ReadonlySet<string> = new Set(DECLARED.flatMap(({ sends }) => sends));
+/** Every request a step-up write sends, as `slice :: export`: an action replaying one, an undo among them, is a second door to that write. */
+export const STEP_UP_REQUESTS: ReadonlySet<string> = new Set(STEP_UP_JUDGED.requests);
 
 /**
  * Every request each action declaring no step-up sends, by export: one sending a step-up write's
@@ -251,8 +310,6 @@ function reachOf(source: ts.SourceFile, ownSlice: string, read: (call: ts.Node) 
   };
 }
 
-const SOURCE_ROOT = path.resolve(import.meta.dirname, "..", "..");
-
 const relative = (file: string): string => path.relative(SOURCE_ROOT, file).split(path.sep).join("/");
 
 /** A server action module's reach, read where `ACTIONS` reads one: a direct call inside an exported function's body. */
@@ -261,13 +318,6 @@ export function actionReachOf(source: ts.SourceFile, slice: string): Reach {
 }
 
 const ACTION_REACH = ACTION_SOURCES.map(({ file, slice, source }) => ({ file, reach: actionReachOf(source, slice) }));
-
-// The whole file: `UNDO_REPLAYS` reads a replay's every direct call, wherever in the route it sits.
-// Resolved again, `fileName` being the compiler's own spelling of the path, which on Windows the walk's is not.
-const REPLAY_REACH = [...UNDO_ROUTE_SOURCES].map(([slice, source]) => ({
-  file: path.resolve(source.fileName),
-  reach: reachOf(source, slice, () => true),
-}));
 
 /**
  * Each step-up write's request a module the reader skips names, and each mutations module it re-exports
@@ -283,7 +333,7 @@ export function helperReachOf(source: ts.SourceFile, slice: string): string[] {
 }
 
 const HELPER_SENDS = filesUnder(SOURCE_ROOT, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 500).flatMap((file) => {
-  if ([...ACTION_REACH, ...REPLAY_REACH].some((read) => read.file === file)) return [];
+  if (ACTION_REACH.some((read) => read.file === file)) return [];
   const text = readFileSync(file, "utf8");
   if (!text.includes("mutations")) return [];
 
@@ -293,24 +343,27 @@ const HELPER_SENDS = filesUnder(SOURCE_ROOT, (name) => /\.tsx?$/.test(name) && !
 
 /**
  * Every reach into a request the reader above cannot attribute: an action's, a replay's, or a helper's
- * sending a step-up write's request. Empty, or `UNDECLARED_SENDS` and `UNDO_REPLAYS` answer for less than the tree sends.
+ * sending a step-up write's request. Empty, or `UNDECLARED_SENDS` answers for less than the tree sends.
  */
 export const UNREAD_SENDS: readonly string[] = [
-  ...[...ACTION_REACH, ...REPLAY_REACH].flatMap(({ file, reach }) => reach.unread.map((why) => `${relative(file)}: ${why}`)),
+  ...ACTION_REACH.flatMap(({ file, reach }) => reach.unread.map((why) => `${relative(file)}: ${why}`)),
   ...HELPER_SENDS,
+  ...STEP_UP_JUDGED.unread,
 ];
 
 /** Every request an action or a replay names, by the walk above: the second listing the reader's own is held to. */
-export const REQUESTS_NAMED: ReadonlySet<string> = new Set([...ACTION_REACH, ...REPLAY_REACH].flatMap(({ reach }) => reach.referenced));
+export const REQUESTS_NAMED: ReadonlySet<string> = new Set(ACTION_REACH.flatMap(({ reach }) => reach.referenced));
 
 /**
- * How a caller's press asks: on its armed press, on its only one, through the create form it declares
- * the step-up to, or `never`, for a conditional action sent only on calls the server lets through.
+ * How a caller's press asks: armed, on its only press, through the create form it declares the step-up
+ * to, through its save's undo offer, or `never`, for a conditional action sent only on calls the server
+ * lets through.
  */
-export type StepUpPress = "two-press" | "one-press" | "create" | "never";
+export type StepUpPress = "two-press" | "one-press" | "create" | "undo" | "never";
 
-// Driven by kind: two-press by `fl_frontend/src/shared/components/ui/confirmPanels.test.ts`, the rest
-// by `fl_frontend/src/features/admin/stepUpCallers.test.ts`.
+// Driven by kind: two-press by `fl_frontend/src/shared/components/ui/confirmPanels.test.ts`, undo by
+// each editor's own suite over `fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo`, the rest by
+// `fl_frontend/src/features/admin/stepUpCallers.test.ts`.
 /**
  * Every module sending a step-up write, and how each press asks, held to every module importing one
  * by the syntax sweep in `fl_frontend/src/features/admin/stepUpCallers.test.ts`.
@@ -323,10 +376,14 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
     kontaktEmailKorrigierenAction: "one-press",
     besetzeKontaktSitzAction: "one-press",
   },
-  "features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx": { patchSaisonTeamKontakteAction: "one-press" },
+  "features/funktionen/components/forms/AdminLoeschungForm/FormAbmeldenSection.tsx": { endAnmeldungenAction: "two-press" },
+  "features/funktionen/components/forms/AdminLoeschungForm/FormPersonLoeschenSection.tsx": { eraseAufAnfrageAction: "two-press" },
+  "features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx": {
+    patchSaisonTeamKontakteAction: "one-press",
+    undoAdminKontakteEditAction: "undo",
+  },
   "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktEinladen.tsx": { einladeKontaktAction: "one-press" },
   "features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteLoeschenSection.tsx": { patchSaisonTeamKontakteAction: "two-press" },
-  "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx": { eraseKontaktpersonAction: "two-press" },
   "features/saisons/components/forms/AdminCreateSaisonForm.tsx": { postSaisonAction: "create" },
   "features/saisons/components/forms/AdminSaisonEditForm/FormEinladungVersandSection.tsx": { postEinladungVersandAction: "two-press" },
   "features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx": { activateSaisonAction: "two-press" },
@@ -339,9 +396,7 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
   "features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm.tsx": { postSchiedsrichterAction: "create" },
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm.tsx": {
     patchSchiedsrichterAction: "one-press",
-  },
-  "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx": {
-    anonymiseSchiedsrichterAction: "two-press",
+    undoAdminSchiedsrichterEditAction: "undo",
   },
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormBestaetigungSection.tsx": {
     einladeSchiedsrichterAction: "one-press",
@@ -351,11 +406,16 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
     verwirfAdresswechselAction: "one-press",
   },
   "features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx": { reactivateSchiedsrichterAction: "one-press" },
+  "features/sperrliste/components/forms/AdminCreateSperreForm.tsx": { postSperreAction: "two-press" },
   "features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx": { deleteSperreAction: "two-press" },
   "features/berechtigungen/components/forms/AdminCreateBerechtigungForm.tsx": { postBerechtigungAction: "create" },
   "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx": { deleteBerechtigungAction: "two-press" },
   "features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx": { patchBerechtigungAction: "two-press" },
-  "features/spieler/components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx": { eraseSpielerAction: "two-press" },
+  "features/spieler/components/forms/AdminSpielerEditForm/FormAdresseSection.tsx": { beantrageSpielerAdresswechselAction: "one-press" },
+  "features/spieler/components/forms/AdminSpielerEditForm/FormAdresswechselSection.tsx": {
+    einladeSpielerAdresswechselAction: "one-press",
+    verwirfSpielerAdresswechselAction: "one-press",
+  },
   "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx": {
     postEinladungAction: "two-press",
     deleteEinladungAction: "two-press",

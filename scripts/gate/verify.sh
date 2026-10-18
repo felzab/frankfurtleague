@@ -327,9 +327,13 @@ do_typecheck()  { ( cd fl_frontend && pnpm typecheck:only ); }
 # Threads on a runner alone: it restores no eslint cache, so it pays the cold fill threads divide,
 # while a warm local run would pay every worker's configuration load (`docs/ops/spec.md`). The `=`
 # keeps the flag one word under `_lib.sh`'s IFS.
+
+# `auto`, which takes two on a four-vCPU runner: three ran no faster there, each worker paying about
+# 29 s of setup (`.github/gate-wall-clock.tsv`).
 do_eslint()     { ( cd fl_frontend && pnpm lint ${GITHUB_ACTIONS:+--concurrency=auto} ); }
 do_audit()      { ( cd fl_frontend && pnpm audit:prod ); }
 do_knip()       { ( cd fl_frontend && pnpm knip ); }
+do_knip_prod()  { ( cd fl_frontend && pnpm knip:prod ); }
 # The shard travels in NODE_OPTIONS: `pnpm test` ends in the runner's file patterns, and a flag pnpm
 # appends after them reaches the runner unapplied, every shard then running the whole suite.
 do_unit_tests() {
@@ -343,7 +347,7 @@ do_next_build() {
 
 # The two phases: a pooled unit may read `fl_frontend/tsconfig.json`, and each writer rewrites it
 # through Next's `writeConfigurationDefaults`, so a unit in both lists would read it mid-write.
-FRONTEND_POOL=(typecheck eslint knip audit)
+FRONTEND_POOL=(typecheck eslint knip knip_prod audit)
 FRONTEND_WRITERS=(typegen next_build)
 frontend_phases_disjoint() {
   local unit writer
@@ -1100,6 +1104,14 @@ output is above." ;;
 Where a reader knip cannot see holds it, name that reader in fl_frontend/knip.json beside the entry."
   ok "nothing unused"
 
+  step "frontend · knip, production  (what only tests still read)"
+  unit_join knip_prod
+  unit_verdict knip_prod "${LINENO}" "knip's production run found code only tests still read, named above. Delete it with the cases testing it.
+A *Schema goes the same way, its component recorded in fl_frontend/src/core/apiContract.test.ts :: BACKEND_ONLY.
+A value a test compares on purpose takes /** @internal */ beside that reason. Production code knip cannot
+see, such as a script the build runs, is named in the entry list of fl_frontend/knip.production.json."
+  ok "nothing only tests read"
+
   # Advisory, not fatal: something published upstream overnight must not block an unrelated merge.
   # Never `unit_verdict`, which turns this check's 1 into `die`.
   step "frontend · dependency audit  (runtime advisories only)"
@@ -1200,9 +1212,8 @@ rule: docs/ops/spec.md I1, I174, I355, I18, I429, I430, I471, I472, I507, I508 o
   fi
 
   step "ops · nginx accepts prod.conf"
-  # `nginx -t` loads the certificates and resolves every proxy_pass host, hence the throwaway pair
-  # and loopback entries. The temp dir sits under the repo root because MSYS rewrites a
-  # POSIX-looking path (`scripts/README.md`).
+  # `nginx -t` loads the certificates, hence the throwaway pair. The temp dir sits under the repo
+  # root because MSYS rewrites a POSIX-looking path (`scripts/README.md`).
   rm -rf "${REPO_ROOT}/.tmp-nginx-check"
   # `log/` as well: `nginx -t` opens every log the file declares, and the access log's directory
   # is a bind mount `docker-compose.yml` supplies rather than a path the image carries.
@@ -1232,8 +1243,10 @@ rule: docs/ops/spec.md I1, I174, I355, I18, I429, I430, I471, I472, I507, I508 o
     fi
     # The config mounts are docker-compose.yml's, so a file dropped into `nginx/prod/` is parsed here
     # as the server would load it.
+
+    # No `--add-host`: nginx resolves a literal upstream as it loads, so this parse refuses one naming
+    # `frontend` or `backend` (`docs/ops/spec.md :: I9`), and a host entry for either would pass it.
     MSYS_NO_PATHCONV=1 quietly docker run --rm --pull never \
-      --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
       -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
       -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
       -v "/${REPO_ROOT}/.tmp-nginx-check:/etc/nginx/certs:ro" \
@@ -1361,8 +1374,9 @@ if (( RUN_DB )); then
     start_steps --db backend_db frontend_db
   fi
 
-  # `loadfile` for cost, not isolation: `fl_backend/tests/worker.py :: worker_database` is what
-  # isolates, so `--dist load` would hold too.
+  # `loadfile` for isolation too: `fl_backend/tests/worker.py :: worker_database` parts the databases,
+  # but `fl_backend/tests/api/test_erasure_commit_fail_points.py` sets the server's one `failCommand`,
+  # so its cases must run one after another on one worker, which `--dist load` breaks.
 
   # Both mongods are shared (`fl_backend/tests/conftest.py :: pytest_configure_node`), so past
   # `GATE_WIDTH_DB_PYTEST` the workers fight over the same servers whatever the core count.
@@ -1402,7 +1416,7 @@ Re-run without \`-n auto --dist loadfile --maxprocesses ${GATE_WIDTH_DB_PYTEST}\
   case "$FRONTEND_DB_RC" in
     0) ;;
     1) die "fl_frontend db-tier tests failed.
-testcontainers starts and removes the mongo release \`fl_backend/tests/conftest.py :: MONGO_IMAGE\` pins itself; a failure here is the code, not the daemon." ;;
+testcontainers starts and removes the mongo \`fl_backend/tests/conftest.py :: MONGO_IMAGE\` pins itself; a failure here is the code, not the daemon." ;;
     130) on_interrupt ;;
     *) on_error "$FRONTEND_DB_RC" "${LINENO}" "pnpm run test:db" ;;
   esac

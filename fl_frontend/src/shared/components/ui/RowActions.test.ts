@@ -1,7 +1,12 @@
+import "@/shared/testing/dom.ts";
+
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
+
+import { render, screen } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 
 import { refusalWrappers, renderMarkup } from "@/shared/testing/renderTest";
 
@@ -9,7 +14,8 @@ import { refusalWrappers, renderMarkup } from "@/shared/testing/renderTest";
  Reached after the harness above has evaluated, which is when the JSX compile step is registered: a
  static import beside it resolves first and dies on the extension.
 */
-const { RowActionCopy, RowActionDelete, RowActionLink, RowActionMenu, RowActionRestore } = await import("./RowActions.tsx");
+const { RowActionCopy, RowActionDelete, RowActionLink, RowActionMenu, RowActionMenuItem, RowActionRestore } = await import("./RowActions.tsx");
+const { IN_NEUEM_TAB } = await import("./NewTabLink.tsx");
 
 const REASON = "Die Saison ist gesperrt";
 
@@ -151,5 +157,30 @@ describe("a row action's name", () => {
      (WCAG 2.5.3), and the row a screen reader tells the control apart by follows. */
   it("starts with the words its tooltip shows, then names the row", () => {
     for (const [action, html, named] of RENDERED) assert.deepEqual(names(html), [named], `${action} is not named by its tooltip's words first`);
+  });
+});
+
+describe("a row menu's way out to another site", () => {
+  /* The list stays open behind the tab, which a screen reader learns as it reads the item, as it does every new tab's. */
+  it("opens a tab of its own and says so after the item's words", async () => {
+    render(
+      h(RowActionMenu, {
+        subject: "Spielort Sportpark Nord",
+        children: h(RowActionMenuItem, {
+          id: "maps",
+          href: "https://maps.example.org",
+          label: "Auf Maps öffnen",
+          external: true,
+          children: null,
+        }),
+      }),
+    );
+    await userEvent.setup().click(screen.getByRole("button", { name: "Weitere Aktionen: Spielort Sportpark Nord" }));
+
+    // Its words rather than the name Testing Library computes, which drops the space before the announcement.
+    const item = await screen.findByRole("menuitem");
+    assert.equal(item.textContent, `Auf Maps öffnen ${IN_NEUEM_TAB}`, "the item never says it opens a new tab");
+    assert.equal(item.getAttribute("target"), "_blank");
+    assert.equal(item.getAttribute("rel"), "noopener noreferrer");
   });
 });

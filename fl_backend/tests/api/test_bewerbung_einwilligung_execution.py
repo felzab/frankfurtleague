@@ -28,12 +28,14 @@ from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALT
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.api.teams.services import compose_bestaetigungen_mit, compose_kontakt_bestaetigung
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from tests import documents
 from tests.bans import ban_list
+from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, kontaktperson_document, saison_document, team_document
 from tests.worker import worker_database
@@ -81,7 +83,7 @@ def _seat_paths(block: str, *leaves: str) -> set[str]:
 # no handler reads fails here.
 ANSICHT_RESOLVES = frozenset(
     _seat_paths("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am")
-    | _seat_paths("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version")
+    | _seat_paths("kontakte", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version")
     | _seat_paths("kontakte", "einwilligung.eingetragen_von", "einwilligung.datum")
     | {"kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist", "schule.team_name", "team_id", "eingereicht_am"}
 )
@@ -181,6 +183,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         aktionen_collection=database[Collection.AKTIONEN],
         sperrliste=ban_list(database),
         db=client,
+        config=build_test_config(),
         today=TODAY,
         germany_now=NOW,
     )
@@ -256,14 +259,31 @@ def leaf_paths(document: Any, prefix: str = "") -> set[str]:
 
 class TestWhatALinkOpens:
     def test_a_live_link_shows_the_seat_and_no_contact_record(self, mongo_replica_set_url: str):
-        """`READ-BEWERBUNG-002`: a first name, a school, a season, a role and a wording, and nothing a leaked link could act on."""
+        """`READ-BEWERBUNG-002`: a school, a season, a role and a wording, and no name or anything a leaked link could act on."""
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW["ansprechperson"]))
 
         assert (response.zustand, response.saison_id, response.schule, response.rolle) == ("gueltig", SAISON_ID, SCHOOL_NAME, "ansprechperson")
-        assert (response.vorname, response.text_version, response.zugleich_rolle) == ("Quillhilde", "v3", None)
+        assert (response.text_version, response.zugleich_rolle) == ("v3", None)
         rendered = response.model_dump_json()
-        assert NACHNAME not in rendered and MAIL_DOMAIN not in rendered and TELEFON not in rendered
+        assert "Quillhilde" not in rendered and NACHNAME not in rendered and MAIL_DOMAIN not in rendered and TELEFON not in rendered
+
+    def test_an_open_link_whose_seat_holds_nobody_reads_as_a_token_no_seat_holds(self, mongo_replica_set_url: str):
+        """A seat emptied with its link still live and no Widerspruch beside it is answered as a guess is.
+
+        Never as a page: it would offer a press `REQ-BEWERBUNG-011` refuses.
+        """
+
+        stored = bewerbung_document()
+        emptied = {**stored, "kontakte": {**stored["kontakte"], "stellvertretung": None}}
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            with pytest.raises(WriteRefusalException) as refused:
+                await ansicht(database, RAW["stellvertretung"])
+
+            return refused.value.error_code
+
+        assert on_a_league(mongo_replica_set_url, body, documents=[emptied]) == BEWERBUNG_TOKEN_UNKNOWN
 
     @pytest.mark.parametrize(
         ("seat", "zugleich_rolle"),
@@ -570,6 +590,32 @@ class TestTheMediaConsent:
 
         assert response.medien_mindestalter == MEDIEN_MIN_AGE_YEARS
 
+    def test_the_view_of_a_season_rows_link_answers_the_same_age(self, mongo_replica_set_url: str):
+        """A link no application holds is answered off the season row, by a response of its own."""
+
+        raw = "raw-token-for-the-season-row"
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
+            await database[Collection.SAISON_TEAMS].insert_one(
+                documents.saison_team_document(
+                    SAISON_ID,
+                    CLUB_OID,
+                    CLUB_NAME,
+                    "AD",
+                    kontakte=kontakte(),
+                    bestaetigungen=compose_bestaetigungen_mit(
+                        stored_bestaetigungen=None, minted={"trainer": compose_kontakt_bestaetigung(token_hash=hash_token(raw), today=TODAY)}
+                    ),
+                )
+            )
+
+            return await ansicht(database, raw)
+
+        response = on_a_league(mongo_replica_set_url, body)
+
+        assert (response.quelle, response.medien_mindestalter) == ("saison", MEDIEN_MIN_AGE_YEARS)
+
     def test_a_confirmation_giving_medien_from_a_person_of_age_stores_it_on_the_seat_with_its_evidence(self, mongo_replica_set_url: str):
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -733,20 +779,31 @@ class TestADecline:
         assert document["bestaetigungen"]["stellvertretung"]["abgelehnt_am"] == TODAY
         assert (response.ergebnis, response.geburtsdatum, response.medien) == ("abgelehnt", None, False)
         assert response.ausstehend == list(KONTAKT_ROLLEN)
-        assert (view.zustand, view.vorname, view.text_version) == ("abgelehnt", None, None)
+        assert (view.zustand, view.text_version) == ("abgelehnt", None)
 
-    def test_every_log_image_holding_the_person_is_emptied_and_stamped(self, mongo_replica_set_url: str):
-        """The clearing patch files the pre-image, so the redaction has to reach the row it just wrote."""
+    def test_the_seat_leaves_every_log_image_and_an_earlier_answer_beside_it_stays(self, mongo_replica_set_url: str):
+        """Restore the redaction by document and this fails: the Trainer's state before their own consent is in the log alone.
+
+        The clearing patch files a pre-image too, so the redaction has to reach the row it just wrote.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await answer(database, client, RAW["trainer"])
             await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False)
 
             return await log_rows(database)
 
-        rows = on_a_league(mongo_replica_set_url, body)
+        # A submission's digest, taken over the declining person's details too.
+        consent, decline = on_a_league(mongo_replica_set_url, body, documents=[bewerbung_document(idempotenz_fingerabdruck="a" * 64)])
 
-        assert len(rows) == 1
-        assert (rows[0]["before"], rows[0]["redacted_at"]) == (None, REDACTED_AT)
+        for row in (consent, decline):
+            assert (row["before"]["kontakte"]["stellvertretung"], row["redacted_at"]) == (None, REDACTED_AT)
+            # Present, so the null is the redaction's rather than a digest never stored.
+            assert ("idempotenz_fingerabdruck" in row["before"], row["before"]["idempotenz_fingerabdruck"]) == (True, None)
+            # The link stays with the seat in the image, as it does on the application.
+            assert row["before"]["bestaetigungen"]["stellvertretung"] is not None
+        assert consent["before"]["kontakte"]["trainer"]["geburtsdatum"] is None
+        assert decline["before"]["kontakte"]["trainer"]["geburtsdatum"] == AN_ADULTS_BIRTHDATE
 
     def test_a_declined_seat_takes_no_second_answer(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:

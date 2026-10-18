@@ -1,4 +1,5 @@
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL } from "@/core/brand";
+import { KONTAKT_TITEL, ORGANISATION_TITEL } from "@/core/seitenNamen";
 
 import type { KontaktChannel, QaQuestion, TeamMember } from "./types";
 
@@ -78,7 +79,7 @@ export const QA_QUESTIONS: QaQuestion[] = [
   {
     id: "organisation",
     q: "Wer organisiert die Liga?",
-    a: "Ehrenamtliche Schülerinnen, Schüler und Helfer. Wer dazugehört, steht auf der Seite „Organisation“.",
+    a: `Ehrenamtliche Schülerinnen, Schüler und Helfer. Wer dazugehört, steht auf der Seite „${ORGANISATION_TITEL}“.`,
   },
   {
     id: "regeln",
@@ -95,7 +96,7 @@ export const QA_QUESTIONS: QaQuestion[] = [
     q: "Wie kann unsere Schule der Liga beitreten?",
     // Static copy cannot know whether a window is open, so it names both routes: the landing page's
     // band links the form only while one runs (`fl_frontend/src/features/bewerbungen/components/ui/BewerbungOffenBand.tsx`).
-    a: "Solange die Bewerbungen für eine Saison offen sind, führt ein Link auf der Startseite zum Bewerbungsformular. Sonst schreib uns über die Kontakt-Seite.",
+    a: `Solange die Bewerbungen für eine Saison offen sind, führt ein Link auf der Startseite zum Bewerbungsformular. Sonst schreib uns über die Seite „${KONTAKT_TITEL}“.`,
   },
   {
     id: "wetter",
@@ -153,4 +154,4 @@ export const QA_QUESTIONS: QaQuestion[] = [
  * The day the privacy notice's words took effect: its „Stand“, and the sitemap's date for it. Hand-set,
  * since a live `new Date()` is a dynamic read, which would take the notice off the static shell.
  */
-export const DATENSCHUTZ_STAND = "2026-10-12";
+export const DATENSCHUTZ_STAND = "2026-10-18";

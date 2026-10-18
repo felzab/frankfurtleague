@@ -289,7 +289,6 @@ function BestaetigungEntscheidung({
 export function BestaetigungFormPanel({
   fassung,
   token,
-  vorname,
   schule,
   saison,
   rolle,
@@ -301,7 +300,6 @@ export function BestaetigungFormPanel({
   /** The words the page shows, under the label its answer stamps. */
   fassung: KontaktFassung;
   token: string;
-  vorname: string;
   schule: string;
   saison: string;
   /** The seat's long label, resolved by the caller so this form renders no role table of its own. */
@@ -429,7 +427,6 @@ export function BestaetigungFormPanel({
         <KlickBestaetigung
           absaetze={fassung.absaetze}
           id={klickPunkteId}
-          vorname={vorname}
           schule={schule}
           rolle={rolle}
           mindestalter={mindestalter}

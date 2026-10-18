@@ -65,7 +65,7 @@ const PANELS: Panel[] = [
       h(FormRolloverSection, {
         saisonId: "2026",
         saisonStatus: "future",
-        rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false },
+        rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false, loeschung: null },
         hasDrawnSpiele: true,
         onBeforeActivate: guard,
         banners: [],

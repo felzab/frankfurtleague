@@ -51,11 +51,6 @@ export const SCHIEDSRICHTER_RETIREMENT_CONSEQUENCE =
  */
 export const SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE = 14;
 
-// Retyped from `fl_backend/app/shared/schemas/bounds.py` for the published notice, which states the
-// floor with no answer to read it off. The confirmation page still takes the served `mindestalter`:
-// a page judging a date against this copy would refuse where the endpoint accepts.
-export const SCHIEDSRICHTER_MIN_ALTER = 16;
-
 // „intern“ is the consent text's own word for the second answer, so the chip carries it rather than
 // a paraphrase a reader would have to match to the paragraph above it.
 /** The publication question. The answers are the registry's, this choice deciding a stored field. */
@@ -67,7 +62,7 @@ export const SCHIEDSRICHTER_UMFANG_FRAGE = "Was darf im Spielplan von Deinem Nam
 // The pupil's sentence word for word, and NOT the contact seat's: the two public consent pages ask
 // one person one question, and `fl_backend/app/shared/alter.py` judges both by the same span.
 export const alterAusserhalb = (mindestalter: number): string =>
-  `Du musst mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein. Prüfe Dein Geburtsdatum.`;
+  `Du musst mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein.`;
 
 /** The publication question's answers in the order the chips stand; their words are the stamped label's. */
 export const SCHIEDSRICHTER_UMFANG_WERTE = ["kader_oeffentlich", "intern"] as const satisfies readonly FLEinwilligung["umfang"][];
@@ -94,8 +89,8 @@ export const SCHIEDSRICHTER_KORREKTUR_HINWEIS =
  * administrator expecting it to move at once reads the unchanged box as a save that failed.
  */
 export const SCHIEDSRICHTER_ADRESSWECHSEL_HINWEIS =
-  "Eine geänderte E-Mail-Adresse gilt erst, wenn die Person sie über den Link bestätigt, der beim Speichern an die neue Adresse geht; " +
-  "bis dahin bleibt die bisherige, und die bisherige Adresse erfährt von der Änderung.";
+  "Eine geänderte E-Mail-Adresse gilt erst, wenn die Person sie über den Link bestätigt, der beim Speichern an die neue Adresse geht. " +
+  "Bis dahin bleibt die bisherige, und die bisherige Adresse erfährt von der Änderung.";
 
 /**
  * The two states that close the send, worded for the administrator at the control rather than left
@@ -115,9 +110,9 @@ export function bookedSchiedsrichterName({ schiedsrichter_id, name }: { schiedsr
 }
 
 /**
- * A SECOND spelling of the rule the confirmation read applies to the same stored `name`, no mint
- * response answering a forename: the two differing would greet a referee by one name and title
- * their page with another.
+ * The forename the address change's notice greets a referee by, cut here because the mint answers none. It splits
+ * as `fl_backend/app/api/schiedsrichter/services.py :: vorname_of` does for the account page, so one person is never
+ * called by two names.
  */
 export function schiedsrichterVorname(name: string | null): string | null {
   const erster = (name ?? "").trim().split(/\s+/u)[0] ?? "";

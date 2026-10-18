@@ -86,8 +86,10 @@ async def post_berechtigungen_abgleich(
 
     `urheber` says who made each change: `anwendung` for an administrator through the application, `datenbank` for an edit
     found here. No barred address is answered in plain: wherever one would stand -- `jetzt`, `vorher`, `geaendert_von`,
-    `empfaenger` -- it is `null` or left out, and the change carries `gesperrt`; a withheld `geaendert_von` carries
-    `geaendert_von_gesperrt` as well. An address changed in place is two changes, its removal and the new address's grant.
+    `empfaenger` -- it is `null` or left out; a barred grant address carries `gesperrt`, a barred `geaendert_von`
+    `geaendert_von_gesperrt`. A grant address whose holder was erased is `null` beside `geloescht`, and an erased
+    `geaendert_von` reads `ERASED`, naming nobody. An address changed in place is two changes, its removal and the new
+    address's grant.
     `empfaenger` is every live, unbarred grant holder now; a removed address is read off its change.
     """
 
@@ -214,7 +216,9 @@ def _answered(row: Mapping[str, Any], barred: set[str]) -> dict[str, Any]:
     zeile = FLBerechtigungPostausgangZeile.model_validate(row)
     jetzt, vorher = withheld(zeile.jetzt, barred), withheld(zeile.vorher, barred)
     geaendert_von = withheld_actor(zeile.geaendert_von, barred)
-    withheld_now = (jetzt, vorher, geaendert_von) != (zeile.jetzt, zeile.vorher, zeile.geaendert_von)
+    # A stored reason answers only beside a withheld grant address: beside a present one it explains
+    # nothing of the grant's (`docs/backend/spec.md :: I661`).
+    vorenthalten = zeile.vorenthalten if any(stand is not None and stand.adresse is None for stand in (zeile.jetzt, zeile.vorher)) else None
 
     return {
         "id": zeile.id,
@@ -228,7 +232,8 @@ def _answered(row: Mapping[str, Any], barred: set[str]) -> dict[str, Any]:
         "geaendert_von_gesperrt": zeile.urheber == "anwendung" and geaendert_von is None,
         "geaendert_am": zeile.geaendert_am,
         # The stored reason, or a ban entered since the row was queued; never read off a null address.
-        "gesperrt": zeile.vorenthalten == "gesperrt" or withheld_now,
+        "gesperrt": vorenthalten == "gesperrt" or (jetzt, vorher) != (zeile.jetzt, zeile.vorher),
+        "geloescht": vorenthalten == "geloescht",
         # The row as read before this claim raised its count.
         "aufgegeben": zeile.versuche + 1 > VERSUCHE_HOECHSTENS,
     }

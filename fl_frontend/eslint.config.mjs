@@ -712,7 +712,7 @@ const STALE_ADMIN_URL = String.raw`/[a-z]+:\x2F\x2F[^\x2F\s]+\x2Fadmin(?![A-Za-z
 
 /**
  * Where a literal or a template opens, as `UNSEASONED_ADMIN_LINKS` reads one, or any text naming an
- * origin: a backend path ending in `/admin` and a route handler under `/api/admin` open on neither.
+ * origin: a backend path ending in `/admin` and a page under `/bereich/admin` open on neither.
  */
 const STALE_ADMIN_BAN = {
   // Misses a mail's `${LABEL}: ${origin}/admin`: read after a hole, the prefix also ends `/spiele/${id}/admin`.
@@ -774,6 +774,43 @@ function assertionCalled(checker, callee) {
   return (symbol.declarations ?? []).some((declaration) => NODE_ASSERT.test(declaration.getSourceFile().fileName));
 }
 
+const SEARCH_IN_URL_MESSAGE =
+  "A typed search query never rides a URL, which the access log, the history and every Referer keep: hold it in the page, as AdminCrudShell does (docs/frontend/spec.md :: I680).";
+
+/** A value read through its type assertions and a `??` or `||` fallback, which hand on what they hold. */
+function heldValue(node) {
+  if (["TSAsExpression", "TSSatisfiesExpression", "TSNonNullExpression", "TSTypeAssertion", "ChainExpression"].includes(node?.type)) {
+    return heldValue(node.expression);
+  }
+  return node?.type === "LogicalExpression" && node.operator !== "&&" ? heldValue(node.left) : node;
+}
+
+/** `q` as a member or a destructured key names it, in either spelling. */
+const namesQ = (key, computed) =>
+  (!computed && key.type === "Identifier" && key.name === "q") ||
+  (key.type === "Literal" && key.value === "q") ||
+  (key.type === "TemplateLiteral" && key.expressions.length === 0 && key.quasis[0].value.cooked === "q");
+
+/** The page's parameters as a page holds them: under a name a page gives them, or as any awaited value. */
+const isPageParameters = (node) =>
+  node?.type === "AwaitExpression" || (node?.type === "Identifier" && /^(?:searchParams|params)$/.test(node.name));
+
+/** What awaiting or `use`-ing the page's parameter promise gave, which a binding then carries under any name. */
+function takenFromParameters(init) {
+  const value = heldValue(init);
+  const operand =
+    value?.type === "AwaitExpression"
+      ? value.argument
+      : value?.type === "CallExpression" && value.callee.type === "Identifier" && value.callee.name === "use"
+        ? value.arguments[0]
+        : undefined;
+  const promise = heldValue(operand);
+  return (
+    (promise?.type === "Identifier" && /searchParams/.test(promise.name)) ||
+    (promise?.type === "MemberExpression" && !promise.computed && promise.property.name === "searchParams")
+  );
+}
+
 /**
  * The admin-link ban is a rule of its own because its sites are excused one by one, and a disable
  * comment names a rule: one naming `no-restricted-syntax` would excuse every syntax ban on its line.
@@ -816,6 +853,56 @@ const LOCAL_RULES = {
           if (!named || !assertionCalled(checker, esTreeNodeToTSNodeMap.get(call.callee))) return;
           const operands = call.arguments.slice(0, 2).map((operand) => checker.getTypeAtLocation(esTreeNodeToTSNodeMap.get(operand)));
           if (operands.some((type) => holdsNode(dom, type, 0))) context.report({ node: call, messageId: "printed" });
+        },
+      };
+    },
+  },
+  // A rule rather than a selector, which reads no binding: `const sp = await searchParams` hands the query
+  // on under any name, and only the scope says where that name is read.
+  "search-in-page-parameters": {
+    meta: { type: "problem", messages: { read: SEARCH_IN_URL_MESSAGE }, schema: [] },
+    create: (context) => {
+      const reported = new Set();
+      const report = (node) => {
+        if (reported.has(node)) return;
+        reported.add(node);
+        context.report({ node, messageId: "read" });
+      };
+      const readKeys = (pattern) => {
+        for (const property of pattern.properties)
+          if (property.type === "Property" && namesQ(property.key, property.computed)) report(property);
+      };
+      const followed = new Set();
+      // Every read of `q` off the binding, through each alias and rest element it is handed on to.
+      const follow = (declarator) => {
+        if (followed.has(declarator)) return;
+        followed.add(declarator);
+        if (declarator.id.type === "ObjectPattern") readKeys(declarator.id);
+        // The names holding the whole object, never one destructured key's value.
+        const whole =
+          declarator.id.type === "ObjectPattern"
+            ? declarator.id.properties.flatMap((property) => (property.type === "RestElement" ? [property.argument] : []))
+            : [declarator.id];
+        const holders = context.sourceCode.getDeclaredVariables(declarator).filter((variable) => whole.includes(variable.identifiers[0]));
+        for (const variable of holders) {
+          for (const { identifier } of variable.references.filter((each) => each.isRead())) {
+            let held = identifier;
+            while (heldValue(held.parent) === identifier) held = held.parent;
+            const { parent } = held;
+            if (parent.type === "MemberExpression" && parent.object === held && namesQ(parent.property, parent.computed)) report(parent);
+            if (parent.type === "VariableDeclarator" && parent.init === held) follow(parent);
+          }
+        }
+      };
+      return {
+        MemberExpression: (node) => {
+          if (namesQ(node.property, node.computed) && (isPageParameters(heldValue(node.object)) || takenFromParameters(node.object)))
+            report(node);
+        },
+        VariableDeclarator: (node) => {
+          if (node.init == null) return;
+          if (takenFromParameters(node.init)) follow(node);
+          else if (node.id.type === "ObjectPattern" && isPageParameters(heldValue(node.init))) readKeys(node.id);
         },
       };
     },
@@ -899,6 +986,57 @@ const readsOff = (name) =>
     `ObjectPattern > Property[key.value=${name}]`,
     `ObjectPattern > Property > TemplateLiteral.key > TemplateElement[value.cooked=${name}]`,
   ].join(", ");
+
+/**
+ * A search query in a URL by the name `q` (`docs/frontend/spec.md :: I680`), a page's parameters read by
+ * `local/search-in-page-parameters`; under another name, the page sweep's. Another host's `?q=` is refused
+ * on purpose; `has` and `delete` stay free to strip one.
+ */
+const SEARCH_IN_URL = {
+  selector: [
+    String.raw`CallExpression[callee.property.name=/^(?:get|getAll|set|append)$/] > :matches(Literal[value="q"], TemplateLiteral[expressions.length=0][quasis.0.value.cooked="q"]).arguments:first-child`,
+    inLiteral(String.raw`[?&]q=`),
+    'NewExpression[callee.name="URLSearchParams"] Property:matches([key.name="q"], [key.value="q"])',
+    // Next's URL-object `href`.
+    'Property[key.name="query"] > ObjectExpression.value > Property:matches([key.name="q"], [key.value="q"])',
+  ].join(", "),
+  message: SEARCH_IN_URL_MESSAGE,
+};
+
+/** The search box, rendered only where a holder keeps what is typed in the page. */
+const SEARCH_BAR_HOME = {
+  selector: [
+    `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${moduleNamed("SearchBar")}/]`,
+    loadOf(moduleNamed("SearchBar")),
+  ].join(", "),
+  message:
+    "A list's search field is AdminCrudSearch, whose query the shell holds in the page: a SearchBar rendered anywhere else has no holder keeping its query out of the URL (docs/frontend/spec.md :: I680).",
+  // The match search's bar and list are one component, which holds the query itself.
+  exempt: ["src/shared/components/ui/AdminCrudSearch.tsx", "src/features/spiele/components/views/SpielsucheView.tsx"],
+};
+
+/**
+ * The other three spellings of a search box. A plain input or a text field used as one passes here,
+ * and `fl_frontend/src/app/typedText.test.ts` fails it once its text reaches a URL.
+ */
+const SEARCH_FIELD_HOME = {
+  selector: [
+    `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${packageUnder("@heroui/react/search-field")}/]`,
+    loadOf(packageUnder("@heroui/react/search-field")),
+    'JSXAttribute[name.name="type"]:matches([value.value="search"], [value.expression.value="search"])',
+    'JSXAttribute[name.name="role"]:matches([value.value="searchbox"], [value.expression.value="searchbox"])',
+  ].join(", "),
+  message:
+    "A search box is SearchBar: HeroUI's search field, an input of type search and a searchbox role belong to it and to the pickers this ban exempts, whose filters never leave their form (docs/frontend/spec.md :: I680).",
+  exempt: [
+    "src/shared/components/ui/SearchBar.tsx",
+    // A facet's own option filter, and three pickers narrowing the options of one field.
+    "src/shared/components/ui/FilterPanel.tsx",
+    "src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx",
+    "src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx",
+    "src/features/spiele/components/forms/AdminEditSpielDataForm/PickOrCreateAutocomplete.tsx",
+  ],
+};
 
 const SOURCE_BANS = [
   {
@@ -1018,6 +1156,13 @@ const SOURCE_BANS = [
       "A brand control outside prose takes `BRAND_INK_OUTSIDE_PROSE_CLASSES` rather than spelling its grade (docs/frontend/spec.md :: I238).",
     exempt: ["src/shared/components/ui/textLink.ts"],
   },
+  {
+    // The target in any spelling, an attribute's, a spread object's or a `window.open` argument's.
+    selector: inLiteral("^_blank$"),
+    message:
+      "A link opening a new tab is `NewTabLink`, or spreads `NEW_TAB_ATTRIBUTES` on a control whose own name says so: a target spelled here tells a screen reader nothing.",
+    exempt: ["src/shared/components/ui/NewTabLink.tsx"],
+  },
   ...["muted-hint", "muted-meta"].map((utility) => ({
     // A `leading-*` beside the recipe overrides the line height `fluid-*` sets, which is knowingly not the utility.
     selector: classList({ all: utilityExpansion(GLOBALS_CSS, utility), none: ["leading-\\S+"] }),
@@ -1073,8 +1218,6 @@ const SOURCE_BANS = [
       "src/shared/hooks/useSignOut.ts",
       "src/features/auth/components/forms/SignInForm.tsx",
       "src/features/auth/components/forms/CodeStep.tsx",
-      // An undo of unknown outcome, under the undo's own unclear title: `appToast.failure`'s speaks of a save.
-      "src/shared/utils/undoDispatch.ts",
     ],
   },
   {
@@ -1089,6 +1232,9 @@ const SOURCE_BANS = [
     tests: true,
   },
   STALE_ADMIN_BAN,
+  SEARCH_IN_URL,
+  SEARCH_BAR_HOME,
+  SEARCH_FIELD_HOME,
   {
     // The target itself, or the text its leftmost operand opens on; one ancestor outside a leading slot,
     // a call's argument or a ternary's branch, takes the text out of the lead.
@@ -1168,9 +1314,13 @@ const SOURCE_BANS = [
     // A route handler's half of the same rule: its spine drops the tags it was handed wherever its
     // write may stand, where a drop of its own after the answer misses a lost one.
     selector: `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], ${readsOff("/^revalidate(?:Tag|Path)$/")})`,
-    message:
-      "Hand a route's cache tags to its spine: `invalidatesOnWrite` under fl_frontend/src/shared/utils/publicRoute.ts, an undo route's `tags` under fl_frontend/src/shared/utils/undoRoute.ts.",
-    exempt: ["src/shared/utils/publicRoute.ts", "src/shared/utils/undoRoute.ts"],
+    message: "Hand a route's cache tags to its spine: `invalidatesOnWrite` under fl_frontend/src/shared/utils/publicRoute.ts.",
+    exempt: [
+      "src/shared/utils/publicRoute.ts",
+      // The drop is its whole work, made after the write it answers for landed elsewhere, so no write of its own can
+      // lose an answer ahead of it (`docs/frontend/spec.md :: I16`).
+      "src/app/api/revalidate/route.ts",
+    ],
   },
   {
     // Per function, so a module caching a public read beside a caller's own is held too, which the
@@ -1187,6 +1337,19 @@ const SOURCE_BANS = [
       ':matches(CallExpression[callee.name="unansweredAction"], CallExpression[callee.property.name="unansweredAction"]) > :matches(Identifier[name="undefined"], Literal[raw="null"], UnaryExpression[operator="void"]).arguments:nth-child(1)',
     message:
       "Hand `unansweredAction` the rejection it answers: without it, the edge's own refusal of the press reads as an unclear save rather than as one that wrote nothing.",
+  },
+  {
+    // Any text beneath the value, however deep: a nested branch or a `+` operand is typed as much as
+    // the value itself. A ternary's condition is never what the sentence shows.
+    selector: `:matches(CallExpression[callee.name="buildRefusal"], CallExpression[callee.property.name="buildRefusal"]) > ObjectExpression.arguments > Property[key.name="where"] :matches(Literal[value=type(string)], TemplateLiteral):not(ConditionalExpression > .test, ConditionalExpression > .test *)`,
+    message:
+      "Name a refusal's `where` by the constant its panel or page renders the heading from: a heading typed here goes on pointing at the old one once the panel is renamed.",
+  },
+  {
+    // The ban above knows the call by its name, which an alias or a re-export under another one hides.
+    selector:
+      ':matches(ImportSpecifier[imported.name="buildRefusal"]:not([local.name="buildRefusal"]), ExportSpecifier[local.name="buildRefusal"]:not([exported.name="buildRefusal"]))',
+    message: "Import and export `buildRefusal` under its own name: the `where` ban reads the call by it.",
   },
 ];
 
@@ -1213,11 +1376,6 @@ const SCOPED_BANS = [
       selector: `Program:not(:has(> ExpressionStatement[directive="use client"])) :matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${moduleNamed("facets")}/]`,
       message: "A facet carries a `read` function, which a Server Component cannot hand across to a client.",
     },
-    {
-      files: ["src/app/**/route.{ts,tsx}"],
-      selector: inLiteral("REQ-EINLADUNG"),
-      message: "No undo route replays an invite endpoint, so its refusals are worded in fl_frontend/src/features/einladungen/actions.ts alone.",
-    },
     // The provider's delivery report names the recipient, so a failure reading or filing it carries one.
     { files: ["src/app/api/mail/zustellung/route.ts"], ...LOGGED_ERROR },
   ],
@@ -1240,7 +1398,12 @@ const SCOPED_BANS = [
         "src/features/bewerbungen/actions.ts",
         "src/features/bewerbungen/notifications.ts",
         "src/features/bewerbungen/sweep.ts",
+        "src/features/funktionen/actions.ts",
+        "src/features/funktionen/sweep.ts",
+        "src/features/saisons/sweep.ts",
+        "src/features/schiedsrichter/notifications.ts",
         "src/features/sperrliste/actions.ts",
+        "src/features/spieler/notifications.ts",
         "src/features/zustellung/notifications.ts",
       ],
       ...LOGGED_ERROR,
@@ -1347,7 +1510,12 @@ const eslintConfig = defineConfig([
   ...SOURCE_BAN_BLOCKS,
   // The one file outside `src` naming page paths: a redirect to the old prefix ships a 404 unseen.
   { files: ["next.config.ts"], rules: syntaxBans([STALE_ADMIN_BAN]) },
-  { files: ["src/**/*.{ts,tsx}"], ignores: TEST_FILES, plugins: { local: LOCAL_PLUGIN }, rules: { "local/admin-link": "error" } },
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: TEST_FILES,
+    plugins: { local: LOCAL_PLUGIN },
+    rules: { "local/admin-link": "error", "local/search-in-page-parameters": "error" },
+  },
   // Types for the tests alone, which the one typed rule reads. `--cache` keys a file on its own text, so
   // a local run may keep a verdict whose types moved in an import; CI lints cold.
   {

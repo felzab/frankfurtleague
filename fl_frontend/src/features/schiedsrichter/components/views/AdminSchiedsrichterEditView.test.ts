@@ -53,6 +53,18 @@ describe("which page a referee's editor route answers with", () => {
     assert.doesNotMatch(textOf(html, " "), /Daten gelöscht/, "a deletion is claimed over a row nothing deleted");
   });
 
+  /* The ban list links a live referee's record as „Schiedsrichter stilllegen“ (`docs/frontend/spec.md :: I688`), so
+     the editor it opens offers the retirement; a retired row offers its return in that place instead. */
+  it("offers a live referee's retirement and a retired one's reactivation, never both", () => {
+    const controls = (inactiveSince: string | null): string[] =>
+      [...view({ name: "Pia Kraft", inactiveSince }).matchAll(/<button[^>]*>([^<]*)<\/button>/g)]
+        .map(([, label]) => label ?? "")
+        .filter((label) => label === "Stilllegen" || label === "Reaktivieren");
+
+    assert.deepEqual(controls(null), ["Stilllegen"]);
+    assert.deepEqual(controls("2026-09-01"), ["Reaktivieren"]);
+  });
+
   /* „anonym“ names a deletion, and a screen reader hears neither the empty-value grade nor the
      difference: the heading has to say this row is merely unfinished. */
   it("heads the nameless row with the word the list uses for it", () => {

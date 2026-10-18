@@ -60,6 +60,12 @@ FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
     "2026-10-bestaetigungsseite-verwaltung": "783c9d3c23d444371ac861d1d30cf2ec9412f5c0f8f6a9f526ea8ad51710a709",
     "2026-10-bestaetigungsseite-saison": "f336b66db9ad01b1636f0eda72d48a8f0e851960e8851a302e6c3a547cf460b5",
     "2026-10-spielerseite-wiederkehrend": "3f77c8bf080b11a7609697ffdab2712d1b4502a5229736b5d94950e6154952e8",
+    "2026-10-spielerseite-5": "67c3db041790712b7c649b1ff10a8800a2e69d1260250b7e769ffe727ffa4d29",
+    "2026-10-spielerseite-wiederkehrend-2": "c0376112b6f66667be76115d12e879590ef2233fcd92ac890a524f9317349c51",
+    "2026-10-schiedsrichterseite-4": "1146c7493ca1c03bd2fb509ae5d870c28497337124776c4143f2c006288bb0af",
+    "2026-10-bestaetigungsseite-8": "36008941791735e7b283b3c47566083f5a182fad6ef8ac5ab1e07f3a1fc62a77",
+    "2026-10-bestaetigungsseite-verwaltung-2": "f38fb3df50883ebd87e89ee2b40c74b4554f4f94029c998a17db60577af0a711",
+    "2026-10-bestaetigungsseite-saison-2": "a566bb3e3cd6b1942429dd3690554ddbd08ba0e58b915bf0792e247e1775f31b",
 }
 
 
@@ -295,6 +301,143 @@ FASSUNG_STAMMDATEN: Final[Mapping[str, tuple[str, date, tuple[str, ...] | None]]
             "klickHinweise",
         ),
     ),
+    "2026-10-spielerseite-5": (
+        "bestaetigung_spieler",
+        date(2026, 10, 18),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "wer",
+            "veroeffentlichung",
+            "medien",
+            "rechtsgrundlage",
+            "frist",
+            "widerruf",
+            "art21",
+            "klickIdentitaet",
+            "klickAlter",
+            "klickEinwilligung",
+            "klickHinweise",
+        ),
+    ),
+    "2026-10-spielerseite-wiederkehrend-2": (
+        "bestaetigung_spieler_wiederkehrend",
+        date(2026, 10, 18),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "wer",
+            "einwilligungen",
+            "rechtsgrundlage",
+            "frist",
+            "widerruf",
+            "art21",
+            "klickIdentitaet",
+            "klickAlter",
+            "klickHinweise",
+        ),
+    ),
+    "2026-10-schiedsrichterseite-4": (
+        "bestaetigung_schiedsrichter",
+        date(2026, 10, 18),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "wer",
+            "veroeffentlichung",
+            "medien",
+            "rechtsgrundlage",
+            "frist",
+            "widerruf",
+            "art21",
+            "klickIdentitaet",
+            "klickEintrag",
+            "klickAlter",
+            "klickEinwilligung",
+            "klickHinweise",
+        ),
+    ),
+    "2026-10-bestaetigungsseite-8": (
+        "bestaetigung_kontakt",
+        date(2026, 10, 18),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "rechtsgrundlage",
+            "nichtOeffentlich",
+            "fristAbgelehnt",
+            "fristAngenommen",
+            "fristUnvollstaendig",
+            "fristOhneEntscheidung",
+            "ablehnen",
+            "ablehnenFolge",
+            "widerruf",
+            "art21",
+            "whatsapp",
+            "medien",
+            "klickIdentitaet",
+            "klickEintrag",
+            "klickAlter",
+            "klickHinweise",
+            "keineEinwilligung",
+        ),
+    ),
+    "2026-10-bestaetigungsseite-verwaltung-2": (
+        "bestaetigung_kontakt_verwaltung",
+        date(2026, 10, 18),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "rechtsgrundlage",
+            "nichtOeffentlich",
+            "fristAbgelehnt",
+            "fristAngenommen",
+            "fristUnvollstaendig",
+            "fristOhneEntscheidung",
+            "ablehnen",
+            "ablehnenFolge",
+            "widerruf",
+            "art21",
+            "whatsapp",
+            "medien",
+            "klickIdentitaet",
+            "klickEintrag",
+            "klickAlter",
+            "klickHinweise",
+            "keineEinwilligung",
+        ),
+    ),
+    "2026-10-bestaetigungsseite-saison-2": (
+        "bestaetigung_kontakt_saison",
+        date(2026, 10, 18),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "rechtsgrundlage",
+            "nichtOeffentlich",
+            "fristAbgelehnt",
+            "fristAngenommen",
+            "fristUnvollstaendig",
+            "fristOhneEntscheidung",
+            "ablehnen",
+            "ablehnenFolge",
+            "widerruf",
+            "art21",
+            "whatsapp",
+            "medien",
+            "klickIdentitaet",
+            "klickEintrag",
+            "klickAlter",
+            "klickHinweise",
+            "keineEinwilligung",
+        ),
+    ),
 }
 
 
@@ -423,16 +566,32 @@ class TestTheRegistryOfWordings:
         assert not [key for key, text in saison.absaetze_nach_schluessel.items() if "Bewerbung" in text]
         assert (saison.schalter, dict(saison.bedienelemente)) == (bewerbung.schalter, dict(bewerbung.bedienelemente))
 
-    def test_the_pupil_page_changed_its_retention_paragraph_alone(self):
+    def test_the_pupil_page_changed_its_retention_paragraph_and_its_identity_line_alone(self):
         """The running pupil label is the earlier one but for when a registration goes, which the notice states the same way."""
 
         earlier = FASSUNGEN["2026-09-spielerseite-3"].absaetze_nach_schluessel
         running = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_spieler"]].absaetze_nach_schluessel
         assert earlier is not None and running is not None
 
-        assert {key for key, text in running.items() if earlier.get(key) != text} == {"frist"}
+        assert {key for key, text in running.items() if earlier.get(key) != text} == {"frist", "klickIdentitaet"}
         assert "bis in der nächsten Saison die Registrierung geschlossen ist" not in running["frist"]
         assert "einen Monat nach der Entscheidung" in running["frist"]
+
+    @pytest.mark.parametrize(
+        "seite",
+        [
+            "bestaetigung_spieler",
+            "bestaetigung_spieler_wiederkehrend",
+            "bestaetigung_schiedsrichter",
+            "bestaetigung_kontakt",
+            "bestaetigung_kontakt_verwaltung",
+            "bestaetigung_kontakt_saison",
+        ],
+    )
+    def test_no_link_page_names_its_reader(self, seite: Seite):
+        """Its link went to an address nobody has confirmed, which behind a typo is a stranger's, so no paragraph has a name to fill."""
+
+        assert not [text for text in FASSUNGEN[LAUFENDE_FASSUNGEN[seite]].absaetze if "{vorname}" in text]
 
     def test_the_returning_pupils_page_keeps_the_pupil_pages_words_but_where_they_ask_a_choice_or_the_birthdate(self):
         """One registration under one set of rules: a sentence reworded on one page alone would tell two pupils two rules.

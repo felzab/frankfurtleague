@@ -6,7 +6,9 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.aktionen.crud import redact_images_in_session
 from app.api.bewerbungen.services import mint_token
+from app.api.schiedsrichter.crud import discard_adresswechsel_in_session
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLPatchSchiedsrichterResponse,
@@ -26,11 +28,9 @@ from app.api.schiedsrichter.services import (
     BESTAETIGUNG_FELD,
     EINLADEN_FIELDS,
     EINWILLIGUNG_FELD,
+    adresswechsel_image_edits,
     bestaetigung_frist_from,
     build_assignment_filter,
-    build_booked_image_filter,
-    build_ghost_repoint,
-    build_ghost_schiedsrichter,
     build_pending_adresswechsel_filter,
     build_referee_filter,
     build_unplayed_assignment_filter,
@@ -40,7 +40,6 @@ from app.api.schiedsrichter.services import (
     compose_mint_update,
     find_already_confirmed_refusal,
     find_gesperrt_refusal,
-    find_ghost_erasure_refusal,
     find_missing_address_refusal,
     find_referee_retire_refusal,
     find_retired_refusal,
@@ -51,20 +50,20 @@ from app.api.schiedsrichter.services import (
     save_moves_the_link,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, hash_gesperrt, sperrliste_saison
+from app.core.adressanker import anchor_the_addresses
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
-    erase_many_from_db,
     insert_live,
     patch_many_in_db,
     patch_one_in_db,
-    post_one_to_db,
     pull_many_from_db,
     pull_one_from_db,
     refuse,
     set_inactive_since,
 )
 from app.core.dependencies import (
+    AdressankerCollection,
     AktionenCollection,
     DBClient,
     SchiedsrichterCollection,
@@ -73,7 +72,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
-from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
+from app.core.recording import build_redaction_filter, log_stamp
 from app.core.routing import by_id
 from app.core.security import (
     StepUpCheck,
@@ -83,8 +82,8 @@ from app.core.security import (
     verify_actor_is_admin,
     verify_step_up,
 )
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.core.transactions import transaction_session
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -105,6 +104,7 @@ async def post_schiedsrichter(
     schiedsrichter_data: Annotated[FLPostSchiedsrichterPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
     sperrliste: SperrlisteLookup,
+    adressanker_collection: AdressankerCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLPostSchiedsrichterResponse:
@@ -133,6 +133,9 @@ async def post_schiedsrichter(
         # hash alone, as the correction and the re-send ask it (`REQ-SCHIEDSRICHTER-007`).
         gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_gesperrt_refusal(gesperrt=gesperrt))
+
+        # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
+        await anchor_the_addresses([email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session)
 
         # Spelled at the call site rather than assembled above it, so
         # `fl_backend/tests/core/test_write_shapes.py :: creations` can still read what this create
@@ -172,6 +175,7 @@ async def patch_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
     sperrliste: SperrlisteLookup,
+    adressanker_collection: AdressankerCollection,
     aktionen_collection: AktionenCollection,
     db: DBClient,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
@@ -244,14 +248,19 @@ async def patch_schiedsrichter(
             return_document=ReturnDocument.AFTER,
         )
         updated_document = FLSchiedsrichter(**updated_document_raw)
+        # The address entering here, held in force or pending, which an erasure of it running now never read
+        # (`docs/backend/spec.md :: I719`).
+        await anchor_the_addresses([email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session)
 
         if verwirft:
             # After the patch, for the decline's reason: it reaches the pre-image this save just filed,
             # which still holds the address it replaced.
-            await patch_many_in_db(
-                collection=aktionen_collection,
+            dropped = sign_in_identifier(str(stored[ADRESSWECHSEL_FELD]["email"]))
+            await redact_images_in_session(
+                aktionen_collection=aktionen_collection,
                 db_filter=build_redaction_filter([(Collection.SCHIEDSRICHTER, [schiedsrichter_id])]),
-                update=build_redaction_update(at=log_stamp(germany_now)),
+                judge=lambda image: adresswechsel_image_edits(image, dropped),
+                stamp=log_stamp(germany_now),
                 session=session,
             )
 
@@ -514,8 +523,9 @@ async def einladen_adresswechsel(
     Mint a fresh link for this referee's pending address change and answer the raw token once, with both addresses, for the caller to mail.
 
     It replaces the whole pending block but its address, so the previous link stops working at once and the delivery state of
-    the message it went out in goes with it. The deadline restarts from today, and a deadline already passed is no refusal:
-    the re-send is how a lapsed change is asked again.
+    the message it went out in goes with it. The deadline restarts from today, and a deadline already passed is no refusal
+    while the change stands, which is until the hourly pass the day after it removes the change (`docs/backend/spec.md :: I693`):
+    after that the new address is entered again.
 
     Refused where the pending address is on the ban list (`REQ-SCHIEDSRICHTER-007`). 404 where the referee holds no pending
     change, and for an id no referee holds, the ghost's included.
@@ -576,137 +586,25 @@ async def delete_adresswechsel(
     """
     Discard this referee's pending address change: the block goes, its link opens nothing, and the stored address stays.
 
-    **The address goes from the action log too** (`docs/backend/spec.md :: I562`): every image the log holds of this
-    referee is emptied, since every write on the row while the change stood, a re-send or this discard included, filed one
-    carrying an address nobody proved. Nothing is mailed. 404 where the referee holds no pending change, and for an id no
-    referee holds, the ghost's included.
+    **The address goes from the action log too** (`docs/backend/spec.md :: I562`): it is taken out of every image the log
+    holds of this referee, since every write on the row while the change stood, a re-send or this discard included, filed one
+    carrying an address nobody proved; the rest of each image stays. Nothing is mailed. 404 where the referee holds no pending
+    change, and for an id no referee holds, the ghost's included.
     """
 
     async def discard_the_change(session: AsyncClientSession) -> Mapping[str, Any]:
-        # The filter is the judgement, as the registration link's revocation's is: `patch_one_in_db`
-        # answers a miss with the 404, so no read stands between finding the change and removing it.
-        updated = await patch_one_in_db(
-            collection=schiedsrichter_collection,
+        # The filter is the judgement: a referee holding no change is the 404 here.
+        return await discard_adresswechsel_in_session(
+            schiedsrichter_collection=schiedsrichter_collection,
+            aktionen_collection=aktionen_collection,
             db_filter=build_pending_adresswechsel_filter(schiedsrichter_id),
-            update={"$unset": {ADRESSWECHSEL_FELD: ""}},
-            session=session,
+            stamp=log_stamp(germany_now),
             return_document=ReturnDocument.AFTER,
-        )
-
-        # LAST, for the contact's Widerspruch's reason: it reaches the pre-image the patch above
-        # just filed, which still holds the discarded address.
-        await patch_many_in_db(
-            collection=aktionen_collection,
-            db_filter=build_redaction_filter([(Collection.SCHIEDSRICHTER, [schiedsrichter_id])]),
-            update=build_redaction_update(at=log_stamp(germany_now)),
             session=session,
         )
-
-        return updated
 
     # One transaction, so the write, the log row recording it and the redaction land together.
     async with transaction_session(db) as session:
         updated_document_raw = await session.with_transaction(discard_the_change)
 
     return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
-
-
-@router.post(
-    f"{by_id('schiedsrichter_id')}/anonymisieren",
-    response_model=FLSchiedsrichterWriteResponse,
-    summary="Anonymise a Schiedsrichter",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
-    dependencies=[Depends(verify_step_up)],
-)
-async def anonymise_schiedsrichter(
-    schiedsrichter_id: CustomRouteObjectId,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    spiele_collection: SpieleCollection,
-    aktionen_collection: AktionenCollection,
-    db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
-) -> FLSchiedsrichterWriteResponse:
-    """Delete the referee's document and repoint every fixture that named them at the ghost.
-
-    The row does not survive, and nothing on it is nulled in place: the fixtures keep their own
-    `payment` and read from then on as officiated by nobody. It cannot be undone, and an id already
-    erased answers 404. Erasing the ghost itself is refused (`REQ-ANONYMISE-004`).
-
-    **The response carries the ghost rather than the person**: the row the path named is gone, and
-    answering an erasure with the name and contact details it just destroyed would serve them once
-    more. `updated_document.id` is therefore the ghost's, which is what those fixtures now name.
-
-    **The repointed fixtures inherit the ghost's retirement**, so one still to be played is reported
-    by `GET /spiele/action_required` as a retired booking until somebody assigns a referee to it, and
-    a save putting a played or called-off one back among those still to be played is refused it
-    (`REQ-BOOKING-001`).
-    """
-
-    # Before the transaction: the ghost is refused whatever the database holds, and a read of it
-    # inside the callback would answer 404 and hide the reason.
-    refuse(find_ghost_erasure_refusal(schiedsrichter_id=schiedsrichter_id))
-
-    async def erase_the_referee(session: AsyncClientSession) -> FLSchiedsrichterWriteResponse:
-        # In-session, so the 404 for an id already erased is decided on the snapshot the delete
-        # below writes, and a rival rename conflicts rather than landing between them. Projected
-        # to the id: nothing here reads a value this call destroys.
-        await pull_one_from_db(
-            collection=schiedsrichter_collection,
-            db_filter=build_referee_filter(schiedsrichter_id),
-            projection={"_id": 1},
-            session=session,
-        )
-
-        # Written here rather than at a deploy step, so an erasure can never repoint a fixture at a
-        # row nothing holds -- which `REQ-BOOKING-001` would then read as an unknown referee and
-        # `GET /spiele/action_required` would report as nothing at all.
-        ghost = await schiedsrichter_collection.find_one({"_id": GHOST_SCHIEDSRICHTER_ID}, session=session)
-        if ghost is None:
-            ghost = build_ghost_schiedsrichter()
-            await post_one_to_db(collection=schiedsrichter_collection, document=ghost, session=session)
-
-        await patch_many_in_db(
-            collection=spiele_collection,
-            db_filter=build_assignment_filter(schiedsrichter_id),
-            update=build_ghost_repoint(),
-            session=session,
-        )
-
-        # `erase_many_from_db` and never `delete_many_from_db`: the second keeps every image, which
-        # here would file the person's whole document into the log this call exists to clear
-        # (`docs/backend/spec.md :: I48`).
-        await erase_many_from_db(
-            collection=schiedsrichter_collection,
-            db_filter={"_id": schiedsrichter_id},
-            session=session,
-        )
-
-        # ONE stamp for both passes, so a row cannot say which of the two reached it.
-        stamp = log_stamp(germany_now)
-
-        await patch_many_in_db(
-            collection=aktionen_collection,
-            db_filter=build_redaction_filter([(Collection.SCHIEDSRICHTER, [schiedsrichter_id])]),
-            update=build_redaction_update(at=stamp),
-            session=session,
-        )
-
-        # The `spiele` rows, which the pass above cannot reach: every fixture stores a COPY of the
-        # name, so each edit to one filed an image carrying it, under that fixture's id rather than
-        # the referee's.
-        await patch_many_in_db(
-            collection=aktionen_collection,
-            db_filter=build_booked_image_filter(schiedsrichter_id),
-            update=build_redaction_update(at=stamp),
-            session=session,
-        )
-
-        return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**ghost))
-
-    # ONE transaction over all of it (`docs/backend/spec.md :: I42`): a referee deleted while a
-    # fixture still names them strands that fixture, and one deleted while the log still holds their
-    # details reports an erasure that did not happen.
-    async with transaction_session(db) as session:
-        # `with_transaction` over a bare one -- the callback derives every write from the path id,
-        # so a retry is safe.
-        return await session.with_transaction(erase_the_referee)

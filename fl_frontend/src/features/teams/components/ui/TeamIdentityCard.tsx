@@ -1,10 +1,9 @@
-import Link from "next/link";
-
 import Globe from "@gravity-ui/icons/Globe";
 import MapPin from "@gravity-ui/icons/MapPin";
 
 import { card } from "@/shared/components/ui/card";
 import { ExpandableDescription } from "@/shared/components/ui/ExpandableDescription";
+import { NewTabLink } from "@/shared/components/ui/NewTabLink";
 import { textLink } from "@/shared/components/ui/textLink";
 import { buildMapsSearchUrl, formatAddress } from "@/shared/utils/format";
 
@@ -31,10 +30,7 @@ export function TeamIdentityCard({ teamData }: { teamData: FLTeam }) {
         {/* A club may hold no website at all. Rendered anyway, React resolves an empty `href` against
             the current URL, so the anchor would be an invisible link back to this very page. */}
         {teamData.website_url !== null && (
-          <Link
-            target="_blank"
-            rel="noopener noreferrer"
-            prefetch={false}
+          <NewTabLink
             href={teamData.website_url}
             className={`${textLink()} flex flex-row items-center gap-x-2 fluid-xs font-bold`}>
             <Globe
@@ -42,20 +38,18 @@ export function TeamIdentityCard({ teamData }: { teamData: FLTeam }) {
               className="size-4 shrink-0"
             />
             <span>Schul-Website öffnen</span>
-          </Link>
+          </NewTabLink>
         )}
 
-        <Link
+        <NewTabLink
           href={teamMapUrl}
-          target="_blank"
-          rel="noopener noreferrer"
           className={`${textLink()} flex flex-row items-start gap-x-2 fluid-xs font-bold`}>
           <MapPin
             aria-hidden="true"
             className="mt-0.5 size-4 shrink-0"
           />
           <span>{formattedTeamAddress}</span>
-        </Link>
+        </NewTabLink>
       </div>
 
       {teamData.description && <ExpandableDescription text={teamData.description} />}

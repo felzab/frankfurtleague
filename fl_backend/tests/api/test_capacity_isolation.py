@@ -267,6 +267,7 @@ class TestASecondSquadWriteLandingMidWriteIsJudgedAgain:
                 stufe="Q2",
                 rolle=None,
             ),
+            spieler_collection=database[Collection.SPIELER],
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
             saison_teams_collection=database[Collection.SAISON_TEAMS],
             saisons_collection=saisons,

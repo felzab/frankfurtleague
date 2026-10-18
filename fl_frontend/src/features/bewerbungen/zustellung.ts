@@ -2,6 +2,7 @@ import z from "zod";
 
 import { ANMELDUNG_CODE, ANMELDUNG_TAG } from "@/core/anmeldeTag";
 import { BERECHTIGUNG_HINWEIS, BERECHTIGUNG_TAG } from "@/core/berechtigungTag";
+import { SAISONENDE_NOTIZ, SAISONENDE_TAG } from "@/core/saisonendeTag";
 import { FLZustellungEreignisPayloadSchema, FLZustellungZielSchema, zielHatSitze } from "@/features/zustellung/schemas";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
@@ -120,18 +121,26 @@ type ZustellGemeinsam = {
 /** Why a tagged event reached no record. A closed set, because it reaches a log line rather than a reader. */
 type ZustellUnplatzierbarGrund = "ziel_unbekannt" | "ziel_id_unlesbar" | "rollen_unlesbar";
 
+/** The lanes no store holds, where a message that did not arrive leaves a line and nothing else. */
+const OHNE_EINTRAG = [
+  // An administrator locked out of their own mailbox is a line for an operator, and a record here would
+  // be a second home for the `auth` store.
+  { ziel: "anmeldung", tag: ANMELDUNG_TAG, wert: ANMELDUNG_CODE },
+  // The notice's outbox row is gone once stamped.
+  { ziel: "berechtigung", tag: BERECHTIGUNG_TAG, wert: BERECHTIGUNG_HINWEIS },
+  // The pupil's registration is erased before the season-end note goes.
+  { ziel: "saisonende", tag: SAISONENDE_TAG, wert: SAISONENDE_NOTIZ },
+] as const;
+
 /**
  * **`bewerbung` is the fall-through**: no message the application flow sends carries a `ziel`, so an
- * event naming neither that nor the sign-in lane is read as that flow's rather than as unplaceable.
+ * event naming neither that nor a lane of `OHNE_EINTRAG` is read as that flow's rather than as unplaceable.
  */
 export type ZustellMeldung =
   | { ziel: "bewerbung"; meldung: FLBewerbungZustellungEreignisPayload }
   | { ziel: FLZustellungZiel; meldung: FLZustellungEreignisPayload }
-  // Carries no `meldung` because nothing stores this lane: an administrator locked out of their own
-  // mailbox is a line for an operator, and a record here would be a second home for the `auth` store.
-  | { ziel: "anmeldung"; stand: ZustellGemeinsam["stand"]; nachricht_id: string }
-  // Nothing stores it for the same reason: the notice's outbox row is gone once stamped, so the line is the record.
-  | { ziel: "berechtigung"; stand: ZustellGemeinsam["stand"]; nachricht_id: string }
+  // Carries no `meldung`: no store holds these lanes, so the message id rides bare for the line.
+  | { ziel: (typeof OHNE_EINTRAG)[number]["ziel"]; stand: ZustellGemeinsam["stand"]; nachricht_id: string }
   // Its own arm rather than `null`: read as nothing, a tag block this side cannot place is dropped
   // exactly as an untagged message is, and a slice's bounces go unrecorded in silence.
   | { ziel: "unplatzierbar"; grund: ZustellUnplatzierbarGrund; art: FLZustellungZiel | null };
@@ -182,15 +191,10 @@ export function leseZustellEreignis(raw: unknown): ZustellMeldung | null {
     am: am.data,
   };
 
-  // First, because this lane carries neither a `ziel` nor an application's id: read after them it
+  // First, because these lanes carry neither a `ziel` nor an application's id: read after them one
   // would fall through to the application flow and be reported against a record nobody has.
-  if (ereignis.data.tags?.[ANMELDUNG_TAG] === ANMELDUNG_CODE) {
-    return { ziel: "anmeldung", stand: gemeinsam.stand, nachricht_id: gemeinsam.nachricht_id };
-  }
-
-  if (ereignis.data.tags?.[BERECHTIGUNG_TAG] === BERECHTIGUNG_HINWEIS) {
-    return { ziel: "berechtigung", stand: gemeinsam.stand, nachricht_id: gemeinsam.nachricht_id };
-  }
+  const ohneEintrag = OHNE_EINTRAG.find(({ tag, wert }) => ereignis.data.tags?.[tag] === wert);
+  if (ohneEintrag !== undefined) return { ziel: ohneEintrag.ziel, stand: gemeinsam.stand, nachricht_id: gemeinsam.nachricht_id };
 
   if (ereignis.data.tags?.["ziel"] !== undefined) return leseZielMeldung(ereignis.data.tags, gemeinsam);
 

@@ -2,20 +2,22 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { afterEach, describe, it } from "node:test";
+import { afterEach, describe, it, mock } from "node:test";
 
 import { Fragment, createElement as h, useState } from "react";
 
-import { act, screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
+import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderUnderWrite } from "@/shared/testing/postWrite.ts";
+import { retirementWrites } from "@/shared/testing/retirementWrites.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
@@ -57,6 +59,7 @@ const { FormGruppenSwapSection } = await import("@/features/saisons/components/f
 const { FormTeamErsatzSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx");
 const { FormSpielplanSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx");
 const { RegistrierungenView } = await import("@/features/registrierungen/components/views/RegistrierungenView.tsx");
+const { FormPersonLoeschenSection } = await import("@/features/funktionen/components/forms/AdminLoeschungForm/FormPersonLoeschenSection.tsx");
 const { EinwilligungPanel } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungPanel.tsx");
 const { EinwilligungForm } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungForm.tsx");
 const { patchBewerbungEinwilligungAction } = await import("@/features/kontakte/personActions.ts");
@@ -78,6 +81,8 @@ type Landing = {
   afterSearch?: string;
   /** Where the focus has to end. */
   lands: () => HTMLElement;
+  /** The write an editor's own control sends, which the press is held to: a list's landing names none, so it never stands in for an editor's. */
+  editorWrite?: string;
 };
 
 const RETIRED_ON = "2026-09-01";
@@ -96,6 +101,12 @@ const heading = (name: string | RegExp): HTMLElement => screen.getByRole("headin
 /** The retirement a list's dialog confirms, from the row's own control. */
 const retireThroughDialog = (key: string, row: string) => async (user: UserEvent) => {
   await user.click(buttonIn(key, `Stilllegen: ${row}`));
+  await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
+};
+
+/** The same dialog, from an editor's header. */
+const retireInEditor = async (user: UserEvent) => {
+  await user.click(screen.getByRole("button", { name: "Stilllegen" }));
   await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
 };
 
@@ -194,11 +205,23 @@ const SAISON_TEAMS = [{ teamId: TEAM_A, name: "SG Alpha", shorthand: "SGA" }];
 const spielerList = (rows: ReturnType<typeof spieler>[]) =>
   h(AdminSpielerView, { spieler: rows, teams: SAISON_TEAMS, selectedSaisonId: "2026" });
 
+/** A pupil's new address waiting on its mailbox. */
+const SP_ADRESSWECHSEL = { email: "lena@neu.example", verschickt_am: "2026-09-21", frist: "2026-10-05", zustellung: null };
+
 /** The player's editor in the season its squad row stands in, retired as the case says. */
-const spielerEditor = (inactiveSince: string | null, inKader = true) =>
+const spielerEditor = (inactiveSince: string | null, inKader = true, adresswechsel: typeof SP_ADRESSWECHSEL | null = null) =>
   h(AdminSpielerEditView, {
     istFassungBekannt: true,
-    spieler: { id: SP_A, vorname: "Lena", nachname: "Meier", inactive_since: inactiveSince, geburtsdatum: null },
+    spieler: {
+      id: SP_A,
+      vorname: "Lena",
+      nachname: "Meier",
+      inactive_since: inactiveSince,
+      geburtsdatum: null,
+      email: "lena.meier@schule.example",
+      adresswechsel: adresswechsel,
+      adresswechsel_abgelaufen: false,
+    },
     einwilligung: null,
     saison: {
       saisonId: "2026",
@@ -208,7 +231,6 @@ const spielerEditor = (inactiveSince: string | null, inKader = true) =>
       membership: inKader ? { ...SQUAD, inactive_since: null } : null,
     },
     teams: SAISON_TEAMS,
-    membershipCount: 1,
   });
 
 const TEAM_RECORD = {
@@ -255,6 +277,8 @@ const teamEditor = (inactiveSince: string | null, { gruppe = "A" as "A" | "B" | 
         }
       : { teams: [], playedKnockoutSpiele: 0 },
     einladung: null,
+    // The planned season is the only one this fixture holds, so entered in it the club may not be retired.
+    isRetireable: gruppe === null,
   });
 
 const SR_RECORD = { ...schiedsrichter(SR_A, "Pia Kraft", null) };
@@ -415,7 +439,7 @@ const rollover = (saisonStatus: "future" | "active") =>
   h(FormRolloverSection, {
     saisonId: "2026",
     saisonStatus,
-    rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false },
+    rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false, loeschung: null },
     hasDrawnSpiele: true,
     onBeforeActivate: () => true,
     banners: [],
@@ -465,10 +489,6 @@ const kontakteEditor = (kontakte: Kontakte | null) =>
     }),
   });
 const MIT_GRACE: Kontakte = { trainer: null, ansprechperson: GRACE, stellvertretung: null, trainer_ist_zugleich: null };
-const ERASURE_READ = {
-  success: true,
-  ansicht: { acknowledged: 1, saison_teams: [{ saison_id: "2025", rolle: "trainer", vorname: "Grace", nachname: "Meier" }], bewerbungen: [] },
-};
 
 const sperre = (id: string, erstellt_am: string) => ({
   id,
@@ -627,6 +647,7 @@ const kontoBewerbung = (medien: boolean, whatsapp = false) =>
           gespeichert: { umfang: whatsapp ? ("kontaktdaten_whatsapp" as const) : ("kontaktdaten" as const), medien: medien },
           nachweisStand: { umfang: null, medien: null },
           medienAngeboten: false,
+          medienMindestalter: 18,
           erteilbar: false,
           // Through the doubled export, bound as the page binds it.
           speichereAction: patchBewerbungEinwilligungAction.bind(null, BEWERBUNG_ID),
@@ -665,6 +686,7 @@ const kontoRegistrierung = (medien: boolean) =>
           gespeichert: { umfang: "intern" as const, medien: medien },
           nachweisStand: { umfang: null, medien: null },
           medienAngeboten: false,
+          medienMindestalter: 18,
           erteilbar: false,
           speichereAction: patchRegistrierungEinwilligungAction.bind(null, REGISTRIERUNG_ID),
         }),
@@ -860,26 +882,53 @@ const LANDINGS: Record<string, Landing> = {
     after: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null)] }),
     lands: () => screen.getByRole("button", { name: "Filter hinzufügen" }),
   },
-  "a venue editor's reactivation, on the editor's heading": {
+  "a venue editor's reactivation, on the retirement replacing it": {
     before: () => h(AdminSpielortEditView, { spielort: ort(ORT_A, "Halle A", RETIRED_ON), inactiveSince: RETIRED_ON }),
     press: (user) => user.click(screen.getByRole("button", { name: "Reaktivieren" })),
     after: () => h(AdminSpielortEditView, { spielort: ort(ORT_A, "Halle A", null), inactiveSince: null }),
     remount: true,
-    lands: () => heading("Halle A"),
+    lands: () => screen.getByRole("button", { name: "Stilllegen" }),
+    editorWrite: "reactivateSpielortAction",
   },
-  "a referee editor's reactivation, on the editor's heading": {
+  "a venue editor's retirement in the dialog, on the reactivation replacing it": {
+    before: () => h(AdminSpielortEditView, { spielort: ort(ORT_A, "Halle A", null), inactiveSince: null }),
+    press: retireInEditor,
+    after: () => h(AdminSpielortEditView, { spielort: ort(ORT_A, "Halle A", RETIRED_ON), inactiveSince: RETIRED_ON }),
+    remount: true,
+    lands: () => screen.getByRole("button", { name: "Reaktivieren" }),
+    editorWrite: "deleteSpielortAction",
+  },
+  "a referee editor's reactivation, on the retirement replacing it": {
     before: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: RETIRED_ON }),
     press: (user) => user.click(screen.getByRole("button", { name: "Reaktivieren" })),
     after: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
     remount: true,
-    lands: () => heading("Pia Kraft"),
+    lands: () => screen.getByRole("button", { name: "Stilllegen" }),
+    editorWrite: "reactivateSchiedsrichterAction",
   },
-  "a player editor's reactivation, on the editor's heading": {
+  "a referee editor's retirement in the dialog, on the reactivation replacing it": {
+    before: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
+    press: retireInEditor,
+    after: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: RETIRED_ON }),
+    remount: true,
+    lands: () => screen.getByRole("button", { name: "Reaktivieren" }),
+    editorWrite: "deleteSchiedsrichterAction",
+  },
+  "a player editor's reactivation, on the retirement replacing it": {
     before: () => spielerEditor(RETIRED_ON),
     press: (user) => user.click(screen.getByRole("button", { name: "Reaktivieren" })),
     after: () => spielerEditor(null),
     remount: true,
-    lands: () => heading("Lena Meier"),
+    lands: () => screen.getByRole("button", { name: "Stilllegen" }),
+    editorWrite: "reactivateSpielerAction",
+  },
+  "a player editor's retirement in the dialog, on the reactivation replacing it": {
+    before: () => spielerEditor(null),
+    press: retireInEditor,
+    after: () => spielerEditor(RETIRED_ON),
+    remount: true,
+    lands: () => screen.getByRole("button", { name: "Reaktivieren" }),
+    editorWrite: "deleteSpielerAction",
   },
   "a passkey's deletion, on the next card's": {
     before: () => panel(sicherheit()),
@@ -985,7 +1034,7 @@ const LANDINGS: Record<string, Landing> = {
     lands: () => screen.getByRole("button", { name: "Link erneut senden: Stellvertretung" }),
   },
   "a seat's corrected address, on the pencil that opened the box": {
-    answers: { kontaktEmailKorrigierenAction: { success: true, verschickt: true, message: "Korrigiert." } },
+    answers: { kontaktEmailKorrigierenAction: { success: true, versand: "gesendet", message: "Korrigiert." } },
     before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
     press: async (user) => {
       await user.click(screen.getByRole("button", { name: "Adresse korrigieren: Bernd Meier" }));
@@ -1021,7 +1070,7 @@ const LANDINGS: Record<string, Landing> = {
   },
   /* No other seat can be reseated, so the strip's heading takes the focus once the declined seat is filled. */
   "a reseated seat, on the strip's heading": {
-    answers: { besetzeKontaktSitzAction: { success: true, verschickt: true, message: "Besetzt." } },
+    answers: { besetzeKontaktSitzAction: { success: true, versand: "gesendet", message: "Besetzt." } },
     before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
     press: async (user) => {
       await user.click(screen.getByRole("button", { name: "Neu besetzen: Trainer" }));
@@ -1056,6 +1105,7 @@ const LANDINGS: Record<string, Landing> = {
     after: () => austragen(RETIRED_ON),
     remount: true,
     lands: () => screen.getByRole("button", { name: "Kadereintrag reaktivieren" }),
+    editorWrite: "deleteSaisonSpielerAction",
   },
   "a squad row's return, on the removal replacing it": {
     before: () => austragen(RETIRED_ON),
@@ -1063,6 +1113,7 @@ const LANDINGS: Record<string, Landing> = {
     after: () => austragen(null),
     remount: true,
     lands: () => screen.getByRole("button", { name: "Aus Kader 2026 austragen" }),
+    editorWrite: "reactivateSaisonSpielerAction",
   },
   /* The seat holder's austragen has no return to draw in its stead: the row turns read-only, its panel the landing. */
   "a seat holder's austragen of a squad row, on the read-only row's heading": {
@@ -1079,14 +1130,6 @@ const LANDINGS: Record<string, Landing> = {
     after: () => kontakteEditor(null),
     remount: true,
     lands: () => openStop("Kontakte löschen"),
-  },
-  "a person's erasure, on the emptied seat's heading": {
-    answers: { readKontaktErasureAnsichtAction: ERASURE_READ, eraseKontaktpersonAction: { success: true, cleared: 1, message: "Gelöscht." } },
-    before: () => kontakteEditor(MIT_GRACE),
-    press: (user) => pressTwice(user, { resting: "Kontaktperson löschen", armed: "Ja, Kontaktperson endgültig löschen" }),
-    after: () => kontakteEditor({ ...MIT_GRACE, ansprechperson: null }),
-    remount: true,
-    lands: () => heading("Ansprechperson"),
   },
   /* Each of these is drawn anew closed, waiting on the picks it was pressed with: its overlay is the stop. */
   "a season's group swap, on its control drawn anew": {
@@ -1193,12 +1236,44 @@ const LANDINGS: Record<string, Landing> = {
     remount: true,
     lands: () => heading(/^Kontakt/),
   },
-  "a club editor's reactivation, on the editor's heading": {
-    before: () => teamEditor(RETIRED_ON),
-    press: (user) => user.click(screen.getByRole("button", { name: "Reaktivieren" })),
-    after: () => teamEditor(null),
+  /* The referee's twin: the discard takes its own panel away, and the address panel beside it stays. */
+  "a pupil's waiting address discarded, on the address panel's heading": {
+    before: () => spielerEditor(null, true, SP_ADRESSWECHSEL),
+    press: (user) => user.click(screen.getByRole("button", { name: "Änderung verwerfen" })),
+    after: () => spielerEditor(null),
     remount: true,
-    lands: () => heading("SG Alpha"),
+    lands: () => heading(/^E-Mail-Adresse/),
+  },
+  /* The request closes the box it was pressed in, so the focus returns to the control that opened it. */
+  "a pupil's new address requested, on the control the box opened from": {
+    before: () => spielerEditor(null),
+    press: async (user) => {
+      await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
+      const box = screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ });
+      await user.clear(box);
+      await user.type(box, "lena@neu.example");
+      await user.click(screen.getByRole("button", { name: "Link an neue Adresse senden" }));
+    },
+    after: () => spielerEditor(null, true, SP_ADRESSWECHSEL),
+    remount: true,
+    lands: () => screen.getByRole("button", { name: "Adresse ändern" }),
+  },
+  // In no season, as a retired club stands: no season takes a retired club in (`REQ-ENTER-005`).
+  "a club editor's reactivation, on the retirement replacing it": {
+    before: () => teamEditor(RETIRED_ON, { gruppe: null }),
+    press: (user) => user.click(screen.getByRole("button", { name: "Reaktivieren" })),
+    after: () => teamEditor(null, { gruppe: null }),
+    remount: true,
+    lands: () => screen.getByRole("button", { name: "Stilllegen" }),
+    editorWrite: "reactivateTeamAction",
+  },
+  "a club editor's retirement in the dialog, on the reactivation replacing it": {
+    before: () => teamEditor(null, { gruppe: null }),
+    press: retireInEditor,
+    after: () => teamEditor(RETIRED_ON, { gruppe: null }),
+    remount: true,
+    lands: () => screen.getByRole("button", { name: "Reaktivieren" }),
+    editorWrite: "deleteTeamAction",
   },
   "a registration's admission, on the next row's admission": {
     before: () => registrierungen([REG_LENA, REG_MIA]),
@@ -1243,6 +1318,42 @@ const LANDINGS: Record<string, Landing> = {
     after: () => registrierungen([]),
     lands: () => heading("Offene Registrierungen"),
   },
+  /* Its boxes emptied for the next request, the press stands closed where it was: its overlay is the stop. */
+  "a person's erasure, on its control closed over the emptied boxes": {
+    answers: {
+      readErasureAnsichtAction: {
+        success: true,
+        ansicht: {
+          spieler: [],
+          schiedsrichter: [],
+          sitze: [],
+          bewerbungen: [],
+          registrierungen: [],
+          adresswechsel: [],
+          spieler_adresswechsel: [],
+          verwaltung: null,
+        },
+      },
+      eraseAufAnfrageAction: { success: true, konto: "geloescht", gespeichert: true, message: "Gelöscht." },
+    },
+    before: () => h(FormPersonLoeschenSection),
+    press: async (user) => {
+      await user.type(screen.getByRole("textbox", { name: "E-Mail" }), "ada@example.org");
+      await user.type(screen.getByRole("textbox", { name: "Anlass" }), "E-Mail vom 12.10.2026");
+      // By hand rather than `pressTwice`: the armed press stands closed, its overlay named alike, until the address is retyped.
+      mock.timers.enable({ apis: ["Date"] });
+      try {
+        await user.click(screen.getByRole("button", { name: "Person löschen" }));
+        await user.type(await screen.findByRole("textbox", { name: /^Gib zur Bestätigung die Adresse/ }), "ada@example.org");
+        mock.timers.tick(DOUBLE_PRESS_MS);
+        await user.click(screen.getByRole("button", { name: "Ja, Person endgültig löschen" }));
+      } finally {
+        mock.timers.reset();
+      }
+    },
+    after: () => h(FormPersonLoeschenSection),
+    lands: () => openStop("Person löschen"),
+  },
 };
 
 /** What a failure names: the element the focus is on, by its tag and the words a reader hears. */
@@ -1252,22 +1363,32 @@ const described = (element: Element | null): string =>
     : `<${element.tagName.toLowerCase()}> „${element.getAttribute("aria-label") ?? element.textContent?.trim() ?? ""}“`;
 
 describe("where the focus lands once a write takes its control off the page", () => {
-  // A landing a case left watching would take the next case's focus as that case's page draws.
+  // A landing a case left watching would take the next case's focus as that case's page draws. Through
+  // `fireEvent`, inside `act`: the page is still mounted, and react-aria's components answer the key press.
   afterEach(() => {
-    document.dispatchEvent(new window.KeyboardEvent("keydown"));
+    fireEvent.keyDown(document);
   });
 
   for (const [name, landing] of Object.entries(LANDINGS)) {
     it(name, async () => {
       const user = userEvent.setup();
       answerWith(() => Promise.resolve(landing.answers?.[calls.at(-1)?.action ?? ""] ?? { success: true, message: "Gespeichert." }));
-      const page = (tree: ReactNode, search = landing.search ?? "saison_id=2026") => underNext(tree, { search });
+      // The path jsdom stands at, which a filter's URL write keeps as the router's pathname does: a landing
+      // stands down once the page's path changes under it.
+      const page = (tree: ReactNode, search = landing.search ?? "saison_id=2026") => underNext(tree, { search, pathname: "/" });
       const view = renderUnderWrite(page(landing.before()));
+      const sent = calls.length;
 
       await landing.press(user);
       // Every write the press set off answered first, a confirmation's own check among them.
       await act(answered);
       await view.answered();
+      if (landing.editorWrite !== undefined) {
+        assert.ok(
+          calls.slice(sent).some((call) => call.action === landing.editorWrite),
+          `the press never sent ${landing.editorWrite}`,
+        );
+      }
       await view.refresh(page(landing.after(), landing.afterSearch), { remount: landing.remount ?? false });
 
       const expected = landing.lands();
@@ -1276,4 +1397,20 @@ describe("where the focus lands once a write takes its control off the page", ()
       assert.ok(document.activeElement === expected, `the focus is on ${described(document.activeElement)}, not ${described(expected)}`);
     });
   }
+});
+
+describe("the landings an editor's retirement and return are held to", () => {
+  /* The landings are this file's own list and the header's slot is optional, so a retirable record's editor wired to
+     neither control would pass every case above. */
+  it("cover every retirement and return a slice exports", () => {
+    const writes = retirementWrites();
+    assert.ok(writes.length > 0, "the actions yield no retirement, so the comparison below compares nothing");
+    const landed = new Set(Object.values(LANDINGS).map((landing) => landing.editorWrite));
+
+    assert.deepEqual(
+      writes.filter((write) => !landed.has(write)),
+      [],
+      "a retirable record's write no editor landing presses",
+    );
+  });
 });

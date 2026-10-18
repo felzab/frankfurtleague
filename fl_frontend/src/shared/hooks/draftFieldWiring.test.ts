@@ -169,7 +169,6 @@ describe("a public or single-purpose form's press over a draft its schema refuse
       h(BestaetigungFormPanel, {
         fassung: laufendeKontaktFassung(),
         token: "kein-echtes-token",
-        vorname: "Mira",
         schule: "Lessing-Kolleg",
         saison: "2026",
         rolle: "Ansprechperson",
@@ -293,6 +292,7 @@ const OTHER_FORMS = [
   "features/registrierungen/components/views/RegistrierungFormPanel.tsx",
   "features/registrierungen/components/views/SpielerBestaetigungView.tsx",
   "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
+  "features/sperrliste/components/forms/AdminCreateSperreForm.tsx",
   "features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm.tsx",
   "shared/components/ui/EntityForm.tsx",
 ];

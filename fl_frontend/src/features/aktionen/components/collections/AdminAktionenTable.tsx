@@ -10,7 +10,9 @@ import Person from "@gravity-ui/icons/Person";
 
 import { Table } from "@heroui/react/table";
 
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
 import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
+import { GELOESCHTE_PERSON } from "@/features/berechtigungen/constants";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
   CELL_EDGE_CLASSES,
@@ -28,7 +30,13 @@ import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
-import { AKTION_HERKUNFT_LABELS, AKTION_OPERATION_LABELS, AKTION_OPERATION_TINTS, AKTIONEN_CRUD_COPY } from "../../constants";
+import {
+  AKTION_HERKUNFT_LABELS,
+  AKTION_OPERATION_LABELS,
+  AKTION_OPERATION_TINTS,
+  AKTIONEN_CRUD_COPY,
+  AKTOR_FUNKTION_LABELS,
+} from "../../constants";
 import { describeAktionDatensatz, formatAktionZeitpunkt, herkunftOfAktor, labelForCollection, personAkteurLabel } from "../../utils";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
@@ -101,7 +109,15 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
           />
           <span className="min-w-0 truncate fluid-sm font-semibold text-foreground">
             {actor.kind === "person_session" ? (
-              personAkteurLabel(actor)
+              // Erased since, the row names a state rather than a person, in the empty grade the barred arm takes: the
+              // kind the write was made as is a fact about the row and stays upright.
+              actor.pseudonym === ERASED_ACTOR_MARKER ? (
+                <>
+                  {AKTOR_FUNKTION_LABELS[actor.funktion]} · <Leer>{GELOESCHTE_PERSON}</Leer>
+                </>
+              ) : (
+                personAkteurLabel(actor)
+              )
             ) : (
               <VonOderGesperrt
                 von={actor.email}
@@ -201,7 +217,14 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
    */
   const renderStandBadge = (aktion: AdminAktionRow) => {
     if (aktion.redacted_at !== null) {
-      return <span className={labelBadge("danger")}>Werte gelöscht am {formatAktionZeitpunkt(aktion.redacted_at).datum}</span>;
+      const datum = formatAktionZeitpunkt(aktion.redacted_at).datum;
+
+      // A copy still standing kept all the redaction did not reach: the record's own state, and anybody it left.
+      return aktion.stand_gesichert ? (
+        <span className={labelBadge("danger")}>Einzelne Werte gelöscht am {datum}</span>
+      ) : (
+        <span className={labelBadge("danger")}>Werte gelöscht am {datum}</span>
+      );
     }
 
     if (aktion.stand_gesichert) return <span className={labelBadge("success")}>Stand gesichert</span>;
@@ -221,6 +244,12 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
       </div>
       {renderDatensatz(aktion)}
       {renderStandBadge(aktion)}
+      {/* The request an erasure answered, on each row it filed: the person's own values are gone from them. */}
+      {aktion.anlass !== null && (
+        <span className="muted-meta wrap-break-word">
+          Anlass: <span className="text-foreground">{aktion.anlass}</span>
+        </span>
+      )}
       {renderAufruf(aktion)}
     </div>
   );

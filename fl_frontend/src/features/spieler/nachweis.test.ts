@@ -29,7 +29,7 @@ describe("the act a consent choice is read back with", () => {
 
     assert.equal(
       satz,
-      "seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-spieler; zuvor erteilt am 01.09.2026, 12:00 Uhr, Fassung 2026-09-spielerseite",
+      "seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-spieler (zuvor erteilt am 01.09.2026, 12:00 Uhr, Fassung 2026-09-spielerseite)",
     );
   });
 

@@ -23,7 +23,6 @@ import { buildEmptyKontaktperson } from "@/features/teams/utils";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { doubleActionRequest, doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
-import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { membershipAnswer } from "@/shared/testing/membershipFixtures.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
@@ -67,10 +66,7 @@ const { raised: toasts } = doubleToasts();
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
 doubleActionRequest();
 
-/** The undo's dispatch, which posts to a route handler with the browser's own `fetch`. */
-const fetchMock = doubleFetch();
-
-/** Each navigation a control makes, which both destructive controls and both ways out are judged by. */
+/** Each navigation a control makes, which the destructive control and both ways out are judged by. */
 const { router, seen } = recordingRouter();
 
 beforeEach(() => {
@@ -92,6 +88,7 @@ const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatus
 const { default: AdminKontakteEditPage } = await import("@/app/bereich/admin/kontakte/[team_id]/page.tsx");
 const { AdminTeamEditForm } = await import("@/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx");
 const { DRAFT_DISCARDED } = await import("@/shared/utils/draftGuard.ts");
+const { StepUpContext } = (await import("@/shared/components/ui/stepUp.ts")) as unknown as { StepUpContext: React.Context<unknown> };
 
 /** The stored shape, which the list seat takes a subset of, so one person serves both renders below. */
 const ADA: FLKontaktperson = {
@@ -138,7 +135,6 @@ const bannersFor = (state: Partial<Parameters<typeof buildKontakteBanners>[0]>):
     ...state,
   });
 
-/** One stored seat. The ADDRESS is what decides whether that seat offers the person's erasure. */
 /** A number per person: two seats sharing one are refused as one person entered twice. */
 const TELEFON: Record<string, string> = { Ada: "069 501", Grace: "069 502", Alan: "069 503" };
 
@@ -158,20 +154,12 @@ const BLOCK: FLSaisonTeamKontakte = {
   trainer_ist_zugleich: null,
 };
 
-/** The same three without an address, so no seat offers the erasure and its own rule stays out. */
-const BLOCK_WITHOUT_ADDRESS: FLSaisonTeamKontakte = {
-  ...BLOCK,
-  trainer: seatPerson("Ada", "Byron", ""),
-  ansprechperson: seatPerson("Grace", "Hopper", ""),
-  stellvertretung: seatPerson("Alan", "Turing", ""),
-};
-
 /** Three empty seats: what an erasure leaves, and the state neither surface may explain. */
 const BLOCK_EMPTY: FLSaisonTeamKontakte = { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null };
 
 /**
- * The three contexts the editor's own subtree reads and no prop carries: the router both destructive
- * controls hold, the query the way out rides, and the status each field label looks itself up in.
+ * The three contexts the editor's own subtree reads and no prop carries: the router the destructive
+ * control holds, the query the way out rides, and the status each field label looks itself up in.
  */
 const editorElement = (node: ReactNode, kontakte: FLSaisonTeamKontakte | null): ReactNode =>
   underNext(
@@ -266,14 +254,6 @@ async function saved(): Promise<void> {
   await settle();
 }
 
-/** Until the read an armed press is confirmed over has released it, for `saved`'s reason. */
-async function armedReady(armed: string): Promise<void> {
-  await act(answered);
-  await waitFor(() =>
-    assert.notEqual(screen.getByRole("button", { name: armed }).getAttribute("data-pending"), "true", "the read is still running"),
-  );
-}
-
 /** Until a destructive write has answered with its toast, so its answer lands inside the case that pressed it. */
 async function toastedSince(before: number): Promise<void> {
   await act(answered);
@@ -318,15 +298,6 @@ const unconfirmed = (vorname: string, nachname: string, email: string): FLKontak
   email,
   einwilligung: { ...ADA.einwilligung, erfasst_von: "administrativ", bestaetigt_am: null },
 });
-
-/** Three people and one address among them, so the page offers exactly one person's erasure. */
-const ONE_ADDRESS: FLSaisonTeamKontakte = { ...BLOCK_WITHOUT_ADDRESS, ansprechperson: seatPerson("Grace", "Hopper", "grace@example.org") };
-
-/** What the erasure's arming read answers: one seat, in a season this page does not show. */
-const ERASURE_READ = {
-  success: true,
-  ansicht: { acknowledged: 1, saison_teams: [{ saison_id: "2425", rolle: "trainer", vorname: "Grace", nachname: "Hopper" }], bewerbungen: [] },
-};
 
 /** The editor page's address: the club the answers below hold, in the season they hold it in. */
 const PAGE_PROPS = { params: Promise.resolve({ team_id: OBJECT_ID }), searchParams: Promise.resolve({ saison_id: "2526" }) };
@@ -394,7 +365,7 @@ const BARRED = "REQ-KONTAKT-003";
 
 describe("the contacts write against the codes its endpoint publishes", () => {
   /* Worded apart from the undo, whose toast has not got the form the save's sentence sends the admin to
-     (`fl_frontend/src/app/api/admin/kontakte/undo/route.test.ts`). A code the save leaves unmapped
+     (`fl_frontend/src/features/kontakte/undo.test.ts`). A code the save leaves unmapped
      falls through to the shared fallback, which names no reason. */
   it("words every refusal its endpoint publishes, at the save", () => {
     const published = publishedRefusals(KONTAKTE_OPERATION);
@@ -725,12 +696,9 @@ describe("the editor's shape", () => {
     }
   });
 
-  /* A page-owned editor's undo is a route handler (`docs/frontend/spec.md` §1.3). The STORED block and
-     both ids restore through the same PATCH: the save run backwards, never a second write shape. */
-  it("offers an undo that replays the pre-save block to its own route handler", async () => {
-    fetchMock.mock.mockImplementation(() =>
-      Promise.resolve(Response.json({ success: true, message: "Kontakte wiederhergestellt.", warn: false })),
-    );
+  /* The STORED block and both ids restore through the same PATCH: the save run backwards, never a
+     second write shape. */
+  it("offers an undo that replays the pre-save block through its own action", async () => {
     await saveOver(BLOCK);
 
     // The save's own body carries the token the page was SERVED, which is the whole of what it judges.
@@ -741,10 +709,10 @@ describe("the editor's shape", () => {
 
     await pressUndo();
     assert.deepEqual(
-      fetchMock.mock.calls.map((call) => [String(call.arguments[0]), JSON.parse(String(call.arguments[1]?.body)) as unknown]),
+      calls.slice(1).map(({ action, payload }) => [action, payload]),
       [
         [
-          "/api/admin/kontakte/undo",
+          "undoAdminKontakteEditAction",
           // The precondition is the write's own answer: this save has moved the row past the block the
           // page read, so replaying that one asks the endpoint to refuse.
           { team_id: TEAM_ID, saison_id: "2526", kontakte: toKontaktePayload(BLOCK), kontakte_stand: SAVED.saison_team.kontakte_stand },
@@ -755,9 +723,6 @@ describe("the editor's shape", () => {
 
   /* A ratified decision (`.claude/rules/frontend.md`) keeps the offer on the save the confirmation dialog gated too. */
   it("offers the same undo on a save the confirmation dialog gated", async () => {
-    fetchMock.mock.mockImplementation(() =>
-      Promise.resolve(Response.json({ success: true, message: "Kontakte wiederhergestellt.", warn: false })),
-    );
     await saveOver(BLOCK, SAVED, async (user) => {
       await user.click(screen.getByRole("switch", { name: "Stellvertretung hinterlegt" }));
     });
@@ -768,8 +733,67 @@ describe("the editor's shape", () => {
     assert.equal(calls.length, 1, "the dialog's confirmation never reached the write, so the offer below is judged over nothing");
     await pressUndo();
     assert.deepEqual(
-      fetchMock.mock.calls.map((call) => (JSON.parse(String(call.arguments[1]?.body)) as { kontakte?: unknown }).kontakte),
-      [toKontaktePayload(BLOCK)],
+      calls.slice(1).map(({ action, payload }) => [action, (payload as { kontakte?: unknown }).kontakte]),
+      [["undoAdminKontakteEditAction", toKontaktePayload(BLOCK)]],
+    );
+  });
+
+  /* A seat whose link did not go out holds no working link and nobody else is told, so the save is
+     collateral rather than clean. */
+  for (const versand of ["fehlgeschlagen", "gesperrt", "zurueckgehalten"] as const) {
+    it(`grades a save whose link is ${versand} a warning`, async () => {
+      await saveOver(BLOCK, { ...SAVED, versandSatz: "Der Bestätigungslink ging nicht raus.", versand: versand });
+
+      assert.deepEqual(
+        toasts.map(({ variant, title, description }) => [variant, title, description]),
+        [["warning", "Mit Folgen gespeichert", "Der Bestätigungslink ging nicht raus."]],
+      );
+    });
+  }
+
+  /** A telephone saved over `BLOCK` past the step-up window, the save answering `answered`, then its undo pressed. */
+  async function undoPastTheWindow(answered: FLSaisonTeamKontakte): Promise<string[]> {
+    const prompts: string[] = [];
+    const stale = {
+      isStale: () => true,
+      confirm: () => {
+        prompts.push(`prompt before ${String(calls.length)} writes`);
+        return Promise.resolve(true);
+      },
+    };
+    const user = userEvent.setup({ delay: null });
+    answerWith(() => Promise.resolve({ ...SAVED, saison_team: { kontakte: answered, kontakte_stand: SAVED.saison_team.kontakte_stand } }));
+    render(h(StepUpContext.Provider, { value: stale }, editorElement(viewElement(BLOCK, true, TEAM_ID), BLOCK)));
+    const phone = screen.getAllByRole("textbox", { name: "Telefon" })[0] ?? assert.fail("the seats render no telephone box");
+    await user.clear(phone);
+    await user.type(phone, "069 222");
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await saved();
+
+    await pressUndo();
+    assert.deepEqual(
+      calls.map(({ action }) => action),
+      ["patchSaisonTeamKontakteAction", "undoAdminKontakteEditAction"],
+    );
+    return prompts;
+  }
+
+  /* The save's answer holds another person on a seat, so the undo puts the earlier one back, which mints
+     them a link: past the step-up window the offer asks before its action is sent (`docs/frontend/spec.md :: I431`). */
+  it("asks for the passkey before an undo putting a person back, past the step-up window", async () => {
+    const replaced: FLSaisonTeamKontakte = { ...BLOCK, trainer: seatPerson("Barbara", "Liskov", "barbara@example.org") };
+
+    assert.deepEqual(await undoPastTheWindow(replaced), ["prompt before 1 writes"], "the undo was sent without the prompt its replay needs");
+  });
+
+  /* The converse, over the save's real answer: a telephone put back seats nobody, so the offer asks nothing. */
+  it("asks nothing before an undo putting a telephone back, past the step-up window", async () => {
+    const trainer = BLOCK.trainer ?? assert.fail("the block seats no trainer");
+
+    assert.deepEqual(
+      await undoPastTheWindow({ ...BLOCK, trainer: { ...trainer, telefon: "069 222" } }),
+      [],
+      "a telephone's undo asked for the passkey",
     );
   });
 
@@ -791,7 +815,7 @@ describe("the editor's shape", () => {
   });
 
   /* A seat the person confirmed for WhatsApp reaches the editor on the read and is spelled by no
-     payload, so it is the block where the replay and the route's own parse can disagree. */
+     payload, so it is the block where the replay and the undo's own parse can disagree. */
   it("replays a confirmed seat at the scope an administrator may write", () => {
     const confirmedSeat: FLKontaktperson = { ...ADA, einwilligung: { ...ADA.einwilligung, umfang: "kontaktdaten_whatsapp" } };
     const restorable = {
@@ -802,7 +826,7 @@ describe("the editor's shape", () => {
     };
     const parsed = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(restorable);
 
-    assert.ok(parsed.success, "the undo route refuses the block a confirmed seat leaves");
+    assert.ok(parsed.success, "the undo refuses the block a confirmed seat leaves");
     assert.equal(parsed.data.kontakte?.trainer?.einwilligung.umfang, "kontaktdaten");
     assert.deepEqual(Object.keys(restorable.kontakte?.trainer?.einwilligung ?? {}).sort(), ["datum", "text_version", "umfang"]);
     // The offer's own verdict, over the body it hands on: a withheld undo sends the admin to re-enter
@@ -823,7 +847,11 @@ describe("what the undo says when it cannot run", () => {
     const [refused] = toasts.filter(({ variant }) => variant === "danger").map(({ description }) => description ?? "");
     assert.match(refused ?? "", /von Hand ein/, "the refusal no longer asks for the pre-save values by hand");
     assert.doesNotMatch(refused ?? "", /Lade die Seite neu/, "the refusal reloads away the values it then asks for");
-    assert.equal(fetchMock.mock.callCount(), 0, "a replay with no precondition was dispatched");
+    assert.deepEqual(
+      calls.map(({ action }) => action),
+      ["patchSaisonTeamKontakteAction"],
+      "a replay with no precondition was dispatched",
+    );
   });
 
   /* Backend I36 (`docs/backend/spec.md`) admits a malformed address on READ, and such a block is no
@@ -846,7 +874,11 @@ describe("what the undo says when it cannot run", () => {
       toasts.filter(({ variant }) => variant === "danger").map(({ title, description }) => [title, description]),
       [["Änderung nicht zurückgenommen", describeUnrestorableKontakte(restorable)]],
     );
-    assert.equal(fetchMock.mock.callCount(), 0, "an unrestorable block was dispatched to a route that can only answer it with a reload");
+    assert.deepEqual(
+      calls.map(({ action }) => action),
+      ["patchSaisonTeamKontakteAction"],
+      "an unrestorable block was dispatched to an undo that can only answer it with a reload",
+    );
   });
 });
 
@@ -1010,9 +1042,9 @@ describe("the way in and out of the editor", () => {
 
     assert.deepEqual(hrefs("saison_id=2526"), ["/bereich/admin/kontakte/t1?saison_id=2526"]);
     // The season the sidemenu holds is the whole of what rides along; every other filter stays behind.
-    assert.deepEqual(hrefs("saison_id=2526&q=alpha&besetzung=teilweise"), ["/bereich/admin/kontakte/t1?saison_id=2526"]);
+    assert.deepEqual(hrefs("saison_id=2526&team=t2&besetzung=teilweise"), ["/bereich/admin/kontakte/t1?saison_id=2526"]);
     // Absent rather than empty: `?saison_id=` would read as a season nobody picked.
-    assert.deepEqual(hrefs("q=alpha"), ["/bereich/admin/kontakte/t1"]);
+    assert.deepEqual(hrefs("team=t2"), ["/bereich/admin/kontakte/t1"]);
   });
 });
 
@@ -1258,7 +1290,7 @@ describe("the contact person's own two choices", () => {
       "the media answer is not shown in the readouts' one wording",
     );
     assert.ok(
-      html.includes("seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-kontakt; zuvor erteilt am 14.03.2026, 10:00 Uhr, Fassung 1"),
+      html.includes("seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-kontakt (zuvor erteilt am 14.03.2026, 10:00 Uhr, Fassung 1)"),
       "the media choice reads without its own act",
     );
   });
@@ -1405,9 +1437,7 @@ describe("how the editor divides one person from the next", () => {
   /* The lighter rule stays where it belongs: INSIDE a person, between their details and the
      Kenntnisnahme. One depth, one drawing. */
   it("keeps exactly one rule inside a seat, for the Kenntnisnahme", () => {
-    /* No address in any seat, so none offers the person's erasure: that control draws its own rule
-       from its own file, and what this case is about is the division inside one person. */
-    for (const { body } of seatCards(sectionMarkup(BLOCK_WITHOUT_ADDRESS))) {
+    for (const { body } of seatCards(sectionMarkup(BLOCK))) {
       const seatRules = [...body.matchAll(RULE_CLASS)].map((found) => found[0]);
 
       assert.equal(seatRules.length, 1, `the seat draws ${String(seatRules.length)} rules where the Kenntnisnahme needs one`);
@@ -1420,110 +1450,45 @@ describe("how the editor divides one person from the next", () => {
     /* Counted over the whole section as well: a rule drawn BETWEEN the cards sits inside no seat's body,
        so every count above passes while the two depths are back to being drawn alike. */
     assert.equal(
-      [...sectionMarkup(BLOCK_WITHOUT_ADDRESS).matchAll(RULE_CLASS)].length,
-      seatCards(sectionMarkup(BLOCK_WITHOUT_ADDRESS)).length,
+      [...sectionMarkup(BLOCK).matchAll(RULE_CLASS)].length,
+      seatCards(sectionMarkup(BLOCK)).length,
       "the section draws a rule outside a seat",
     );
   });
 });
 
-describe("what the two destructive controls do to the page", () => {
-  /* Both write on the server and then re-read the page, so an unsaved draft would be diffed against a
+describe("what the season's clearing does to the page", () => {
+  /* It writes on the server and then re-reads the page, so an unsaved draft would be diffed against a
      baseline that moved underneath it. Every one-way control here guards the same way. */
-  it("refuses to write over unsaved work, on both", async () => {
+  it("refuses to write over unsaved work", async () => {
     const user = userEvent.setup({ delay: null });
-    render(editorElement(viewElement(ONE_ADDRESS), ONE_ADDRESS));
+    render(editorElement(viewElement(BLOCK), BLOCK));
     await user.type(screen.getAllByRole("textbox", { name: "Telefon" })[0] ?? assert.fail("the seats render no telephone box"), "2");
 
-    await user.click(screen.getByRole("button", { name: "Kontaktperson löschen" }));
     await user.click(screen.getByRole("button", { name: "Kontakte löschen" }));
 
     assert.deepEqual(
       toasts.map(({ variant, title, description }) => [variant, title, description]),
-      [
-        ["warning", "Erst speichern", DRAFT_DISCARDED],
-        ["warning", "Erst speichern", DRAFT_DISCARDED],
-      ],
-      "a destructive control pressed over an unsaved draft does not say why it refused",
+      [["warning", "Erst speichern", DRAFT_DISCARDED]],
+      "the clearing pressed over an unsaved draft does not say why it refused",
     );
-    assert.equal(screen.queryAllByRole("button", { name: /^Ja, / }).length, 0, "a destructive control armed over an unsaved draft");
-    assert.deepEqual(calls, [], "a destructive control asked or wrote over an unsaved draft");
+    assert.equal(screen.queryAllByRole("button", { name: /^Ja, / }).length, 0, "the clearing armed over an unsaved draft");
+    assert.deepEqual(calls, [], "the clearing wrote over an unsaved draft");
   });
 
   /* The row is the team BEING IN the season, so clearing its contacts cannot remove it. Navigating to
      a list that still shows the entry would read as a failed delete. */
-  it("stays on the page and leaves the re-read to the action, on both", async () => {
-    for (const [resting, armed] of [
-      ["Kontaktperson löschen", "Ja, Kontaktperson endgültig löschen"],
-      ["Kontakte löschen", "Ja, Kontakte dieser Saison endgültig löschen"],
-    ] as const) {
-      const user = userEvent.setup({ delay: null });
-      const { unmount } = render(editorElement(viewElement(ONE_ADDRESS), ONE_ADDRESS));
-      answerWith(() => Promise.resolve(ERASURE_READ));
-      const before = toasts.length;
-      await pressTwice(user, {
-        resting,
-        armed,
-        whileArmed: async () => {
-          await armedReady(armed);
-          answerWith(() => Promise.resolve({ success: true, cleared: 1, message: "Gelöscht." }));
-        },
-      });
-      await toastedSince(before);
-      await settle();
-
-      // The re-read comes back with the action's own answer, so a second one from here re-renders nothing new.
-      assert.deepEqual([seen.refresh, seen.pushed, seen.replaced], [0, [], []], `${resting} leaves the page, or reads it a second time`);
-      unmount();
-    }
-  });
-
-  /* On a page showing one season, an erasure without its reach spelled out reads as clearing this seat.
-     The ADDRESS keys both the read and the write; the list itself is
-     `fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktReveal.test.ts`'s. */
-  it("reads whom the address holds before the write can be confirmed", async () => {
-    const user = userEvent.setup({ delay: null });
-    render(editorElement(viewElement(ONE_ADDRESS), ONE_ADDRESS));
-    answerWith(() => Promise.resolve(ERASURE_READ));
-    const before = toasts.length;
-
-    await pressTwice(user, {
-      resting: "Kontaktperson löschen",
-      armed: "Ja, Kontaktperson endgültig löschen",
-      whileArmed: async () => {
-        await armedReady("Ja, Kontaktperson endgültig löschen");
-        assert.ok(document.body.textContent.includes("Saison 2425 · Trainer"), "the armed panel names none of the seats the write would clear");
-        answerWith(() => Promise.resolve({ success: true, cleared: 1, message: "Gelöscht." }));
-      },
-    });
-    await toastedSince(before);
-
-    assert.deepEqual(calls, [
-      { action: "readKontaktErasureAnsichtAction", payload: { email: "grace@example.org" } },
-      { action: "eraseKontaktpersonAction", payload: { email: "grace@example.org" } },
-    ]);
-  });
-
-  /* The season's own delete sends a reader who wants a person gone everywhere to a control by name, and
-     a name that control does not carry sends them looking for nothing. */
-  it("names the person's erasure by the words its control carries", async () => {
+  it("stays on the page and leaves the re-read to the action", async () => {
     const user = userEvent.setup({ delay: null });
     render(editorElement(viewElement(BLOCK), BLOCK));
-    const erasure =
-      screen
-        .getAllByRole("heading", { level: 4 })
-        .map((heading) => heading.textContent.trim())
-        .find((title) => title.endsWith("löschen")) ?? "";
+    answerWith(() => Promise.resolve({ success: true, message: "Gelöscht." }));
+    const before = toasts.length;
+    await pressTwice(user, { resting: "Kontakte löschen", armed: "Ja, Kontakte dieser Saison endgültig löschen" });
+    await toastedSince(before);
+    await settle();
 
-    assert.notEqual(erasure, "", "no seat renders the person's erasure, so the name below is compared to nothing");
-
-    // Behind a press: the sentence naming it stands in the clear section's hint, which is an overlay.
-    await user.click(screen.getByRole("button", { name: "Hinweis zum Löschen der Kontakte" }));
-
-    assert.ok(
-      screen.getByRole("dialog").textContent.includes(`„${erasure}“`),
-      `the season's delete sends the reader to a control not called „${erasure}“`,
-    );
+    // The re-read comes back with the action's own answer, so a second one from here re-renders nothing new.
+    assert.deepEqual([seen.refresh, seen.pushed, seen.replaced], [0, [], []], "the clearing leaves the page, or reads it a second time");
   });
 });
 

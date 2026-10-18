@@ -1,15 +1,17 @@
 "use server";
 
 import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { deleteSpielort, patchSpielort, postSpielort, reactivateSpielort } from "./mutations";
-import { mapNameRefusal, mapRetireRefusal } from "./refusals";
+import { mapNameRefusal, mapRetireRefusal, SPIELORT_REPLAY_REFUSALS } from "./refusals";
 import { FLPatchSpielortPayloadSchema, FLPostSpielortPayloadSchema, FLSpielortKeyPayloadSchema } from "./schemas";
 
 import type { FLSpielortPayloadDraft } from "@/features/spielorte/schemas";
 import type { ActionResult } from "@/shared/types/types";
+import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type { FLPatchSpielortPayload, FLPostSpielortPayload, FLSpielort, FLSpielortKeyPayload } from "./schemas";
 
 export async function postSpielortAction(
@@ -145,5 +147,23 @@ export async function reactivateSpielortAction(rawPayload: FLSpielortKeyPayload)
       updated_document: reactivateOperation.updated_document,
       message: "Spielort reaktiviert",
     };
+  });
+}
+
+export async function undoAdminSpielortEditAction(rawPayload: FLPatchSpielortPayload): Promise<UndoOutcome> {
+  return runAdminUndo("undoAdminSpielortEditAction", async () => {
+    const validated = FLPatchSpielortPayloadSchema.safeParse(rawPayload);
+    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
+
+    // `spiele` alone: the rename fans out into cached fixtures embedding this row (`docs/frontend/spec.md` §1.4).
+    invalidatesOnWrite("spiele");
+    let operation;
+    try {
+      operation = await patchSpielort(validated.data);
+    } catch (error) {
+      return refusedReplay(error, SPIELORT_REPLAY_REFUSALS);
+    }
+
+    return operation.acknowledged ? restored() : unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Spielortdaten.");
   });
 }

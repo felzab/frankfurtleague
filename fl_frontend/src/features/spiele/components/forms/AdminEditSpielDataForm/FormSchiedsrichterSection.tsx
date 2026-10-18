@@ -1,10 +1,8 @@
 import { FieldError } from "@heroui/react/field-error";
 
-import { AdminCreateSchiedsrichterForm } from "@/features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm";
 import { bookedSchiedsrichterName, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT_CLASSES, FIELD_ERROR_CLASSES, FIELD_GROUP_CLASSES } from "@/shared/components/ui/formFieldStyles";
-import { FormModal } from "@/shared/components/ui/FormModal";
 import { NumberField } from "@/shared/components/ui/NumberField";
 
 import { ExpectedMarker } from "./ExpectedMarker";
@@ -17,16 +15,27 @@ import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types"
 import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/schemas";
 
+/** One mapping for a pick and for the editor's create dialog, as `toOrtDraft` is for a venue. */
+export const toSchiedsrichterDraft = (referee: FLSchiedsrichterAngezeigt): FLSpielSchiedsrichterFieldDraft => ({
+  schiedsrichter_id: referee.id,
+  name: referee.name,
+  payment: referee.default_payment,
+});
+
 /** Who referees, and what they are paid. Same 2fr/1fr split as the venue, for the same reason. */
 export function FormSchiedsrichterSection({
   schiedsrichter,
+  created,
   schiedsrichterPayload,
   onSchiedsrichterChange,
+  onRequestCreate,
   onValidateFields,
 }: {
   schiedsrichter: FLSchiedsrichter[];
+  created: FLSchiedsrichterAngezeigt[];
   schiedsrichterPayload: FLSpielSchiedsrichterFieldDraft | null;
   onSchiedsrichterChange: (payload: FLSpielSchiedsrichterFieldDraft | null) => void;
+  onRequestCreate: () => void;
   onValidateFields: (paths: readonly string[]) => void;
 }) {
   // The LIST's word for a nameless row rather than the erasure's, this read serving no erased person
@@ -60,15 +69,7 @@ export function FormSchiedsrichterSection({
 
   // The resolved record, as in `FormSpielortSection`: `name` arrives already parsed.
   const handleSchiedsrichterChange = (resolved: FLSchiedsrichterAngezeigt | null) => {
-    onSchiedsrichterChange(
-      resolved
-        ? {
-            schiedsrichter_id: resolved.id,
-            name: resolved.name,
-            payment: resolved.default_payment,
-          }
-        : null,
-    );
+    onSchiedsrichterChange(resolved ? toSchiedsrichterDraft(resolved) : null);
   };
 
   // An emptied field stays empty: coerced to 0, a cleared Honorar submits as a referee working for free.
@@ -95,21 +96,12 @@ export function FormSchiedsrichterSection({
         fieldPath="schiedsrichter.schiedsrichter_id"
         placeholder="z.B. Pierluigi Collina"
         items={[...held, ...offered]}
+        created={created}
         selectedId={schiedsrichterPayload?.schiedsrichter_id ?? null}
         onSelect={handleSchiedsrichterChange}
         createLabel="Neuen Schiedsrichter anlegen"
         emptyStateText="Dieser Schiedsrichter existiert noch nicht."
-        renderCreateModal={({ isOpen, onClose, onCreated }) => (
-          <FormModal
-            isOpen={isOpen}
-            onClose={onClose}
-            heading="Schiedsrichter anlegen">
-            <AdminCreateSchiedsrichterForm
-              onClose={onClose}
-              onCreated={onCreated}
-            />
-          </FormModal>
-        )}
+        onRequestCreate={onRequestCreate}
       />
 
       <NumberField

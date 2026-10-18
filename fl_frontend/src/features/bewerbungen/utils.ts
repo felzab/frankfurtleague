@@ -1,6 +1,7 @@
 import { parseDate } from "@internationalized/date";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { medienZuJung } from "@/features/konto/einwilligung";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU, LADE_NEU_UND_VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
@@ -29,7 +30,7 @@ import type {
  * The ONE answer a taken Kürzel gets, wherever it is judged. It names no club and does not say
  * whether that club still plays.
  */
-export const KUERZEL_VERGEBEN = "Dieses Kürzel ist schon vergeben. Bitte wähle ein anderes.";
+export const KUERZEL_VERGEBEN = "Dieses Kürzel ist schon vergeben.";
 
 export const KUERZEL_PRUEFUNG = "Wir prüfen, ob das Kürzel noch frei ist...";
 const KUERZEL_FREI = "Dieses Kürzel ist noch frei.";
@@ -158,14 +159,13 @@ export function mapBewerbungSubmitRefusal(
     case "REQ-BEWERBUNG-006":
       return {
         fieldErrors: {
-          team_id:
-            "Diese Auswahl gilt nicht mehr. Lade die Seite neu und wähle erneut aus. Oder trage die Schule neu ein, mit einem noch freien Kürzel.",
+          team_id: "Diese Auswahl gilt nicht mehr. Lade die Seite neu, oder trage die Schule mit einem noch freien Kürzel neu ein.",
         },
       };
     // The club is IN the season, not the subject of a second application: the two read alike and
     // only one of them is what the backend refused.
     case "REQ-BEWERBUNG-007":
-      return { fieldErrors: { team_id: "Diese Schule spielt in dieser Saison schon mit. Wähle eine andere aus, wenn Du Dich vertan hast." } };
+      return { fieldErrors: { team_id: "Diese Schule spielt in dieser Saison schon mit." } };
     case "REQ-BEWERBUNG-008":
       return { fieldErrors: { "schule.shorthand": KUERZEL_VERGEBEN } };
     // The press this form repeated stands, under the details first sent: a banner rather than a
@@ -198,11 +198,19 @@ export function mapBewerbungSubmitRefusal(
   }
 }
 
-// Names the switch rather than the date: the page offers it from the served age, so only a browser
-// clock disagreeing with the backend's day shows it below that age, and switching it off repairs that.
-/** What the contact page says where the backend refuses the media consent for the date entered. */
-export const MEDIEN_NOCH_NICHT =
-  "Fotos, Videos und Interviews kannst Du mit diesem Geburtsdatum noch nicht erlauben. Schalte die Erlaubnis aus und bestätige erneut.";
+// The switch rather than the date is the repair: each confirmation page offers it from the served age
+// on the browser's German day, so only a clock disagreeing with the backend's shows it below that age.
+const MEDIEN_AUSSCHALTEN = "Schalte die Erlaubnis aus und bestätige erneut.";
+
+/** A confirmation page's media refusal where the link's view serves no floor to name. */
+export const MEDIEN_NOCH_NICHT = `Fotos, Videos und Interviews kannst Du mit diesem Geburtsdatum noch nicht erlauben. ${MEDIEN_AUSSCHALTEN}`;
+
+/** Every confirmation page's media refusal, at the floor its link's view serves, or naming none where it went unread. */
+export const medienNochNicht = (medienMindestalter: number | null): string =>
+  medienMindestalter === null ? MEDIEN_NOCH_NICHT : `${medienZuJung(medienMindestalter)} ${MEDIEN_AUSSCHALTEN}`;
+
+/** The contact page's age refusal where the link's view serves no floor to name: both bounds, as `alterAusserhalb` names them. */
+const GEBURTSDATUM_AUSSERHALB = "Mit diesem Geburtsdatum bist Du für Deine Bestätigung zu jung oder zu alt.";
 
 /** What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper. */
 export type EinwilligungRefusal = {
@@ -219,7 +227,11 @@ export type EinwilligungRefusal = {
  * `mindestalter` comes from the token's own view: a number of this mapper's own would be wrong for
  * two of the three seats.
  */
-export function mapEinwilligungRefusal(error: unknown, mindestalter: number): EinwilligungRefusal | null {
+export function mapEinwilligungRefusal(
+  error: unknown,
+  mindestalter: number | null,
+  medienMindestalter: number | null,
+): EinwilligungRefusal | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
@@ -251,12 +263,13 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number): Ei
     case "REQ-BEWERBUNG-011":
       return { nachlesen: true };
     // The one refusal that spends no token, so it lands on the field and the typed date survives it;
-    // a `zustand` here would swap a live form for a dead-link panel.
+    // a `zustand` here would swap a live form for a dead-link panel. A view that went unread names no floor.
     case "REQ-BEWERBUNG-012":
-      return { fieldErrors: { geburtsdatum: alterAusserhalb(mindestalter) } };
+      return { fieldErrors: { geburtsdatum: mindestalter === null ? GEBURTSDATUM_AUSSERHALB : alterAusserhalb(mindestalter) } };
     // Spends nothing either, and the typed date survives it; a toast, the switch rendering no error of its own.
+    // The floor is the view's as `mindestalter` is, so a view that went unread names none.
     case "REQ-EINWILLIGUNG-002":
-      return { error: MEDIEN_NOCH_NICHT };
+      return { error: medienNochNicht(medienMindestalter) };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
     // form either: the page offers no Widerspruch to a barred address (`docs/frontend/spec.md :: I516`).
     case "REQ-BEWERBUNG-020":

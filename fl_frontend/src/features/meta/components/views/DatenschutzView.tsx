@@ -2,7 +2,8 @@ import Link from "next/link";
 
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "@/core/brand";
-import { ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
+import { DEIN_BEREICH_TITEL, IMPRESSUM_TITEL, ORGANISATION_TITEL } from "@/core/seitenNamen";
+import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
 import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signInCode";
 import {
   BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
@@ -13,6 +14,7 @@ import {
 } from "@/features/bewerbungen/constants";
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants";
 import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants";
+import { SPIELER_ADRESSWECHSEL_FRIST_TAGE, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants";
 import { Angabe } from "@/shared/components/ui/Angabe";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
@@ -38,6 +40,9 @@ const ZAHLWORT = { 3: "drei", 7: "sieben", 10: "zehn", 14: "vierzehn" } as const
 
 /** One hour, the one count a sentence here pairs with a feminine singular: a window moved off it fails `tsc` rather than reading „eine Stunden“. */
 const EINE_STUNDE = { 1: "eine Stunde" } as const;
+
+/** The same hour after „nach“, which takes the dative, for the same reason. */
+const NACH_EINER_STUNDE = { 1: "einer Stunde" } as const;
 
 const TAG_MS = 24 * 60 * 60 * 1000;
 const PERSON_LEERLAUF_TAGE = PERSON_LIFETIME.idle / TAG_MS;
@@ -130,7 +135,7 @@ const VEROEFFENTLICHT = [
     grundlage: "Art. 6 Abs. 1 lit. f DSGVO, Durchführung und Darstellung des Spielbetriebs der Liga",
   },
   {
-    was: "Vornamen der Organisatorinnen und Organisatoren auf der Seite „Organisation“",
+    was: `Vornamen der Organisatorinnen und Organisatoren auf der Seite „${ORGANISATION_TITEL}“`,
     grundlage: "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklichem Einverständnis",
   },
   {
@@ -167,7 +172,7 @@ const FRISTEN = [
   {
     daten: "Registrierungslink eines Teams: der Link als unlesbarer Schlüssel, dazu das Datum und die anlegende Person aus der Verwaltung",
     frist:
-      "Kein eigener Zeitraum: Der Link endet mit der Registrierungsfrist der Saison, für die er gilt, oder sobald die Verwaltung ihn zurückzieht oder durch einen neuen ersetzt. Der Eintrag dazu enthält den Link nur als unlesbaren Schlüssel, nennt keine Spielerin und keinen Spieler und bleibt mit dem Datum und der E-Mail-Adresse der Person aus der Verwaltung, die ihn angelegt hat, bestehen.",
+      "Kein eigener Zeitraum: Der Link endet mit der Registrierungsfrist der Saison, für die er gilt, oder sobald die Verwaltung ihn zurückzieht oder durch einen neuen ersetzt. Der Eintrag dazu enthält den Link nur als unlesbaren Schlüssel, nennt keine Spielerin und keinen Spieler und bleibt mit dem Datum und der E-Mail-Adresse der Person aus der Verwaltung, die ihn angelegt hat, bestehen. Werden die Daten dieser Person gelöscht, steht dort statt ihrer Adresse ein Vermerk, der niemanden nennt",
   },
   { daten: "Geburtsdatum einer Kontaktperson", frist: "Entsteht erst mit ihrer Bestätigung, dann dieselbe Frist wie die Bewerbung" },
   {
@@ -179,7 +184,12 @@ const FRISTEN = [
     daten:
       "Neue E-Mail-Adresse einer Schiedsrichterin oder eines Schiedsrichters, solange sie nicht bestätigt ist, dazu ihr Link als unlesbarer Schlüssel mit Versanddatum und Frist",
     frist:
-      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft; mit dem Eintrag wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen, löschen wir die Adresse bei der jährlichen Löschung nach dem Ende der Registrierungsfrist",
+      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft. Mit dem Eintrag wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen, löschen wir die Adresse am Tag danach",
+  },
+  {
+    daten:
+      "Neue E-Mail-Adresse einer Spielerin oder eines Spielers, solange sie nicht bestätigt ist, dazu ihr Link als unlesbarer Schlüssel mit Versanddatum und Frist",
+    frist: `Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft. Mit dem Eintrag wird sie gelöscht. Ihr Link gilt ${ZAHLWORT[SPIELER_ADRESSWECHSEL_FRIST_TAGE]} Tage ab dem Versand, und jeder neue Link ersetzt den vorigen. Ist er abgelaufen, löschen wir die Adresse am Tag danach`,
   },
   {
     daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
@@ -194,7 +204,7 @@ const FRISTEN = [
     daten: "Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey",
     // Each figure read off the constant the sign-in enforces, never typed: a copy typed here is a
     // promise nothing keeps.
-    frist: `Ein Anmeldecode gilt ${ZAHLWORT[CODE_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Konto in das Anmeldeformular einträgt. Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, angeforderte Codes ${EINE_STUNDE[CODE_MAIL_WINDOW_HOURS]} lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse; eine erfolgreiche Anmeldung löscht die gezählten Fehlversuche. Eine Sitzung endet, wenn sie ${String(PERSON_LEERLAUF_TAGE)} Tage lang nicht genutzt wurde, spätestens aber ${String(PERSON_WINDOW_DAYS)} Tage nach der Anmeldung; für die Verwaltung gilt sie höchstens ${String(ADMIN_WINDOW_HOURS)} Stunden. Zu einer Sitzung, die mit einem Passkey begonnen hat, speichern wir, welcher Passkey das war. Zu jedem Passkey speichern wir, wann er zuletzt benutzt wurde, und den Namen, den Du ihm gibst. Adresse und Passkeys bleiben, solange das Konto besteht, und werden auf Wunsch gelöscht`,
+    frist: `Ein Anmeldecode gilt ${ZAHLWORT[CODE_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Konto in das Anmeldeformular einträgt. Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, angeforderte Codes ${EINE_STUNDE[CODE_MAIL_WINDOW_HOURS]} lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse; eine erfolgreiche Anmeldung löscht die gezählten Fehlversuche. Eine Sitzung endet, wenn sie ${String(PERSON_LEERLAUF_TAGE)} Tage lang nicht genutzt wurde, spätestens aber ${String(PERSON_WINDOW_DAYS)} Tage nach der Anmeldung. Für die Verwaltung gilt sie nach ${NACH_EINER_STUNDE[ADMIN_IDLE_HOURS]} ohne Nutzung nicht mehr, spätestens aber ${String(ADMIN_WINDOW_HOURS)} Stunden nach der Anmeldung. Zu einer Sitzung, die mit einem Passkey begonnen hat, speichern wir, welcher Passkey das war. Zu jedem Passkey speichern wir, wann er zuletzt benutzt wurde, und den Namen, den Du ihm gibst. Adresse und Passkeys bleiben, solange das Konto besteht. Das Konto löschen wir auf Wunsch und von selbst, sobald Du unter Deiner Adresse nichts davon mehr bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter, eine bestätigte Registrierung, über die das Team noch nicht entschieden hat, oder einen Zugang zur Verwaltung`,
   },
   {
     daten: "Änderungsprotokoll: Änderungen der Verwaltung und Änderungen angemeldeter Personen",
@@ -206,6 +216,13 @@ const FRISTEN = [
       "Bis kurz nach Mitternacht des Tages, den er zählt. Er enthält nur, als was Du angemeldet bist (Kontaktperson eines Teams, Spielerin oder Spieler, Schiedsrichterin oder Schiedsrichter), und wie oft Du in dieser Personengruppe an dem Tag etwas ändern wolltest, darunter auch Änderungen, die danach noch abgewiesen wurden, unter einem unlesbaren Schlüssel statt Deiner Adresse. Er begrenzt, wie viel Du in jeder dieser Personengruppen an einem Tag ändern kannst, damit ein missbrauchtes Konto nicht unbegrenzt schreibt; eine zurückgezogene Einwilligung zählt er nicht",
   },
   {
+    daten:
+      "Kurzzeitige Markierung einer E-Mail-Adresse: die Adresse als unlesbarer Schlüssel, ein Zähler und der Zeitpunkt ihrer letzten Änderung",
+    // MongoDB's expiry pass and its period, mirrored in `docs/datenschutz.md` §5 with the day it was read: the source moves without us.
+    frist:
+      "Kurz nach ihrer letzten Änderung: Die Datenbank löscht sie beim nächsten Aufräumen, das ungefähr jede Minute läuft und sich zum Beispiel bei hoher Last verzögern kann. Sie entsteht, wenn eine E-Mail-Adresse in unsere Daten kommt, wenn eine angemeldete Person etwas ändert und wenn wir die Daten einer Adresse löschen. Sie sorgt dafür, dass Angaben, die während einer Löschung unter dieser Adresse gespeichert werden, mit dieser Löschung gelöscht werden",
+  },
+  {
     daten: "Zugriffsprotokoll des Servers",
     frist: "Höchstens acht Tage; gelöscht wird beim Wechsel der Protokolldatei, einmal täglich und früher bei Erreichen der Größengrenze",
   },
@@ -213,11 +230,25 @@ const FRISTEN = [
     daten: "Betriebsprotokoll der Anwendung",
     frist: "Begrenzt durch eine feste Gesamtgröße; die bei jeder Auslieferung angelegte Kopie wird nach 30 Tagen gelöscht",
   },
+  {
+    daten:
+      "Vermerk eines Schritts, den Du veranlasst hast: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines Widerspruchs als Kontaktperson oder der Ablehnung einer neuen E-Mail-Adresse. Deine E-Mail-Adresse steht darin nur als unlesbarer Schlüssel, bei einer Löschung als zwei solche Schlüssel. Außerdem enthält er die Art des Schritts und den Zeitpunkt, bei den übrigen Schritten den betroffenen Eintrag, bei einem Widerruf die Fassung des Textes und die Antworten, die er setzt, bei einem Widerspruch die Rollen, die er leert, und Kennungen der Anfrage, über die er sich dem Eintrag im Zugriffsprotokoll zuordnen lässt",
+    // The line stands in the application log as every line does, and the day file ages from its last write
+    // (`docs/ops/runbooks.md` §7), so the row names both and no flat period.
+    frist:
+      "Wie das Betriebsprotokoll der Anwendung, in dem er steht, und außerdem in einer eigenen Datei je Tag, die wir 30 Tage nach ihrer letzten Änderung löschen. Damit können wir den Schritt erneut ausführen, falls wir eine Sicherungskopie der Datenbank einspielen, die älter ist als er",
+  },
   { daten: "Sicherungskopien der Datenbank", frist: "Etwa acht Tage" },
+  // Resend's own period, mirrored in `docs/datenschutz.md` §7 with the day it was read: no erasure of ours reaches it.
+  {
+    daten: "E-Mails der Liga beim Versanddienst Resend: Empfängeradresse, Betreff, Inhalt und Zustellstand",
+    frist:
+      "30 Tage bei Resend, in dessen Sicherungskopien bis zu einer Woche länger. Eine Löschung bei uns erreicht diese E-Mails nicht: Sie bleiben bei Resend bis dahin bestehen",
+  },
   {
     daten: "Daten von Spielerinnen, Spielern und Schiedsrichtern",
     frist:
-      "Bei Spielerinnen und Spielern: solange die Teilnahme läuft, und darüber hinaus bis zu einer Löschung auf Wunsch; am Ende dieser Saison löschen wir einmalig die Daten aller Spielerinnen und Spieler. Bei Schiedsrichterinnen und Schiedsrichtern: bis die Verwaltung den Eintrag endgültig löscht, von sich aus oder weil Du es verlangst",
+      "Bei Spielerinnen und Spielern: bis zum Ende der Saison nach ihrer letzten Saison im Kader. Mit dem Beginn der Saison danach löschen wir ihre Daten, außer sie stehen wieder in einem Kader oder haben eine offene Registrierung. Auf Wunsch löschen wir früher. Am Ende dieser Saison löschen wir einmalig die Daten aller Spielerinnen und Spieler. Bei Schiedsrichterinnen und Schiedsrichtern: bis die Verwaltung den Eintrag endgültig löscht, von sich aus oder weil Du es verlangst",
   },
 ];
 
@@ -340,7 +371,7 @@ export function DatenschutzView() {
             Alle E-Mails der Liga versenden wir über Resend. Unser Vertragspartner dafür ist die Plus Five Five, Inc. mit Sitz in den
             Vereinigten Staaten, die den Dienst unter diesem Namen betreibt. Absender ist no-reply@frankfurtleague.de. Zu Resend gelangen die
             Empfängeradresse, der Betreff, der vollständige Inhalt der Nachricht und eine Kennung, mit der wir eine Zustellmeldung dem Eintrag
-            zuordnen, um den es geht.
+            zuordnen, um den es geht. Wie lange Resend diese Daten aufbewahrt, steht in Abschnitt 13.
           </p>
           <p className={ABSATZ_CLASSES}>
             Resend speichert diese Daten in den Vereinigten Staaten. Das ist eine Übermittlung in ein Drittland. Sie stützt sich auf die
@@ -529,9 +560,9 @@ export function DatenschutzView() {
             Wer im Kader eines Teams steht, meldet sich über den Link seines Teams selbst an und bestätigt das per E-Mail. Wer ein Spiel pfeift,
             wird von der Verwaltung eingetragen, immer mit E-Mail-Adresse, und bestätigt den Eintrag über einen Link, den wir an diese Adresse
             senden. Vorname und erster Buchstabe des Nachnamens einer Spielerin oder eines Spielers werden nur veröffentlicht, wenn für diese
-            Person eine Einwilligung dafür festgehalten ist; ohne sie steht die Person als „anonym“ im Kader. Diese Einwilligung gibst Du
-            selbst, auch wenn Du noch nicht volljährig bist. Team, Rückennummer und Position stehen in beiden Fällen dort, soweit sie angegeben
-            sind.
+            Person eine Einwilligung dafür festgehalten ist; ohne sie steht die Person als „{SPIELER_ANONYM_LABEL}“ im Kader. Diese Einwilligung
+            gibst Du selbst, auch wenn Du noch nicht volljährig bist. Team, Rückennummer und Position stehen in beiden Fällen dort, soweit sie
+            angegeben sind.
           </p>
           <p className={ABSATZ_CLASSES}>
             Bei der Registrierung trägst Du Vornamen, Nachnamen und E-Mail-Adresse ein und, wenn Du willst, Rückennummer, Position und Stufe;
@@ -549,6 +580,10 @@ export function DatenschutzView() {
             eingetragen ist, und weichen Name oder Geburtsdatum von diesem Eintrag ab, fragen wir das Team, ob es dieselbe Person ist, und
             nennen ihm dafür den eingetragenen Namen, nie das Geburtsdatum. Ist sie es nicht, lehnt das Team die Registrierung ab, und wir
             bitten die Person, sich mit einer eigenen E-Mail-Adresse erneut zu registrieren.
+          </p>
+          <p className={ABSATZ_CLASSES}>
+            Ändert die Verwaltung Deine E-Mail-Adresse, gilt die neue erst, wenn Du sie über den Link bestätigt hast, den wir an sie schicken.
+            Bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen Hinweis auf die Änderung.
           </p>
           <p className={ABSATZ_CLASSES}>
             Rechtsgrundlage für die Daten, die wir für Deine Teilnahme brauchen, ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse
@@ -594,10 +629,11 @@ export function DatenschutzView() {
           <ul className="flex list-disc flex-col gap-y-2 pl-5">
             <li className={ABSATZ_CLASSES}>
               Ein Sitzungs-Cookie für angemeldete Personen. Es entsteht erst bei der Anmeldung und hält die Sitzung. Das Cookie selbst läuft ab,
-              wenn die Sitzung {SESSION_EXPIRES_IN_DAYS} Tage lang nicht genutzt wurde; bei jedem Aufruf prüfen wir zusätzlich, ob die Anmeldung
-              nicht länger als {PERSON_WINDOW_DAYS} Tage her ist, für den Zugang zur Verwaltung nicht länger als {ADMIN_WINDOW_HOURS} Stunden,
-              und verlangen danach eine neue Anmeldung. Wer sich nicht anmeldet, bekommt es nie. Rechtsgrundlage für die Anmeldung ist Art. 6
-              Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, dass nur Du Deinen Bereich und nur berechtigte Personen die Verwaltung
+              wenn die Sitzung {SESSION_EXPIRES_IN_DAYS} Tage lang nicht genutzt wurde. Bei jedem Aufruf prüfen wir zusätzlich, ob die Anmeldung
+              nicht länger als {PERSON_WINDOW_DAYS} Tage her ist, und verlangen danach eine neue Anmeldung. Für den Zugang zur Verwaltung
+              verlangen wir sie spätestens nach {NACH_EINER_STUNDE[ADMIN_IDLE_HOURS]} ohne Nutzung, spätestens aber {ADMIN_WINDOW_HOURS} Stunden
+              nach der Anmeldung. Wer sich nicht anmeldet, bekommt es nie. Rechtsgrundlage für die Anmeldung ist Art. 6 Abs. 1 lit. f DSGVO;
+              unser berechtigtes Interesse ist, dass nur Du die Seiten unter „{DEIN_BEREICH_TITEL}“ und nur berechtigte Personen die Verwaltung
               erreichen.
             </li>
             {/* Typed: `@better-auth/passkey` (1.7.7, read 2026-10-03) sets this cookie's life to its `MAX_AGE_IN_SECONDS`,
@@ -689,8 +725,13 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>
             Das Änderungsprotokoll: Jede Änderung an den Daten der Liga wird mit dem vorherigen Stand festgehalten, damit ein Fehler
             zurückgenommen werden kann. Dieses Protokoll kann deshalb auch Deine Daten enthalten. Bei einer Löschung auf Wunsch werden Deine
-            Einträge darin sofort geleert. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, Fehler in den Daten
-            der Liga erkennen und rückgängig machen zu können.
+            Einträge darin sofort geleert. Bittest Du uns darum, hält das Protokoll die Löschung selbst fest, mit dem Datum und der Art Deiner
+            Anfrage. Das bleibt dort wie jede andere Änderung zwölf Monate stehen. Deinen Namen, so wie er bei uns eingetragen ist, lassen wir
+            in der Angabe zu Deiner Anfrage nicht zu, auch nicht in anderer Groß- oder Kleinschreibung. Stehen kann er dort für diese zwölf
+            Monate anders geschrieben, etwa mit „ue“ statt „ü“, als Teil eines längeren Wortes, als einzelner Buchstabe, als kurzer Namensteil
+            wie „von“ oder „Le“, auf den in Deinem Namen ein weiterer folgt, und als früherer Name, der bei uns nicht mehr eingetragen ist.
+            Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, Fehler in den Daten der Liga erkennen und
+            rückgängig machen zu können.
           </p>
         </LegalSection>
 
@@ -712,10 +753,10 @@ export function DatenschutzView() {
             <li className={ABSATZ_CLASSES}>
               Widerruf einer Einwilligung, jederzeit und mit Wirkung für die Zukunft (Art. 7 Abs. 3 DSGVO). Das betrifft den Namen einer
               Spielerin oder eines Spielers in den Kaderlisten, die Erlaubnis für Fotos, Videos und Interviews, die Vornamen der
-              Organisatorinnen und Organisatoren auf der Seite „Organisation“ und den freiwilligen Schalter für WhatsApp. Ein Vorname auf der
-              Seite „Organisation“ steht auch im öffentlich einsehbaren Quellcode dieser Website: Ein Widerruf nimmt ihn von der Website und aus
-              der aktuellen Fassung des Quellcodes, frühere Fassungen bleiben in dessen öffentlicher Versionsgeschichte erhalten. Was bis zum
-              Widerruf geschah, bleibt rechtmäßig.
+              Organisatorinnen und Organisatoren auf der Seite „{ORGANISATION_TITEL}“ und den freiwilligen Schalter für WhatsApp. Ein Vorname
+              auf der Seite „{ORGANISATION_TITEL}“ steht auch im öffentlich einsehbaren Quellcode dieser Website: Ein Widerruf nimmt ihn von der
+              Website und aus der aktuellen Fassung des Quellcodes, frühere Fassungen bleiben in dessen öffentlicher Versionsgeschichte
+              erhalten. Was bis zum Widerruf geschah, bleibt rechtmäßig.
             </li>
           </ul>
           <p className={ABSATZ_CLASSES}>
@@ -728,29 +769,32 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>
             Was eine Löschung erreicht und was nicht: Aus der laufenden Datenbank sind Deine Daten sofort verschwunden. In den Sicherungskopien
             bleiben sie bis zu etwa acht Tage länger, weil eine Sicherung nicht einzeln geändert werden kann; danach laufen die Kopien von
-            selbst aus, und wir stellen aus einer Sicherung nichts wieder her, ohne Deine Löschung erneut auszuführen.
+            selbst aus, und wir stellen aus einer Sicherung nichts wieder her, ohne Deine Löschung erneut auszuführen. Auch die Kopien unserer
+            E-Mails beim Versanddienst Resend erreicht eine Löschung nicht. Wie lange sie dort bleiben, steht in Abschnitt 13.
           </p>
           <p className={ABSATZ_CLASSES}>
             Deine E-Mail-Adresse steht bei uns für Dich allein: Alles, was unter ihr eingetragen ist, gehört zu Deinem Konto.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Eine Einschränkung gilt für Administratorinnen und Administratoren der Liga: Ihre E-Mail-Adresse bleibt in den Zeilen des
-            Änderungsprotokolls stehen, die ihre eigenen Änderungen festhalten, auch nach einer Löschung. Das Protokoll hat nur dann einen Sinn,
-            wenn nachvollziehbar bleibt, wer eine Änderung vorgenommen hat. Diese Zeilen werden wie alle anderen gelöscht. Außerdem bleibt ihre
-            E-Mail-Adresse bei jedem Registrierungslink eines Teams stehen, den sie angelegt haben; dieser Eintrag wird nicht gelöscht
-            (Abschnitt 13). Wer einer Person Zugang zur Verwaltung erteilt hat, bleibt mit seiner E-Mail-Adresse an diesem Zugang vermerkt, auch
-            nachdem der eigene Zugang entzogen oder die eigenen Daten gelöscht wurden; alle Personen mit Zugang zur Verwaltung sehen diesen
-            Vermerk, solange der erteilte Zugang besteht.
+            Eine Einschränkung gilt für Administratorinnen und Administratoren der Liga: Ihre E-Mail-Adresse steht in den Zeilen des
+            Änderungsprotokolls, die ihre eigenen Änderungen festhalten. Das Protokoll hat nur dann einen Sinn, wenn nachvollziehbar bleibt, wer
+            eine Änderung vorgenommen hat. Diese Zeilen werden wie alle anderen gelöscht. Ebenso steht ihre E-Mail-Adresse bei jedem
+            Registrierungslink eines Teams, den sie angelegt haben, bei jeder Sperre, die sie eingetragen haben, bei jeder Entscheidung über
+            eine Bewerbung, die sie getroffen haben, und bei jedem Zugang zur Verwaltung, den sie erteilt haben. Dort bleibt sie auch, nachdem
+            ihr eigener Zugang entzogen wurde, und alle Personen mit Zugang zur Verwaltung sehen sie, solange der Eintrag besteht. Werden ihre
+            Daten gelöscht, ersetzen wir ihre E-Mail-Adresse an all diesen Stellen durch einen Vermerk, der niemanden nennt.
           </p>
           <p className={ABSATZ_CLASSES}>
             Eine zweite Einschränkung gilt für gesperrte E-Mail-Adressen: In der Sperrliste steht von der gesperrten Adresse nur ein unlesbarer
             Prüfwert. Daneben stehen der Grund, das Datum und die E-Mail-Adresse der Person aus der Verwaltung, die die Sperre eingetragen hat.
-            Ein bestehendes Konto mit dieser Adresse bleibt gespeichert und gesperrt, bis die Sperre endet. Eine Kopie Deiner Daten oder ihre
+            Ein Konto mit dieser Adresse bleibt wie jedes andere nur bestehen, solange es unter der Adresse noch etwas von dem gibt, was
+            Abschnitt 13 bei der Anmeldung aufzählt. Bis die Sperre endet, kann sich damit niemand anmelden. Eine Kopie Deiner Daten oder ihre
             Löschung erhältst Du auch während einer Sperre über eine E-Mail an <MailLink />; wir bestätigen die Anfrage mit einer E-Mail an die
-            gesperrte Adresse. Der Grund ist ein freier Text; steht darin ein Name, bleibt er mit dem Eintrag stehen. Dieser Eintrag bleibt auch
-            nach einer Löschung bestehen, bis die Sperre nach fünf vollen Saisons endet oder die Verwaltung sie vorher aufhebt. Wir speichern
-            diesen Eintrag auf Grundlage unseres berechtigten Interesses daran, eine gesperrte Adresse nicht erneut zuzulassen (Art. 6 Abs. 1
-            lit. f DSGVO).
+            gesperrte Adresse. Der Grund ist ein freier Text. Einen Namen, so wie er unter der gesperrten Adresse eingetragen ist, lassen wir
+            darin nicht zu, auch nicht in anderer Groß- oder Kleinschreibung. In den Formen, die Abschnitt 13 für die Angabe zu einer Anfrage
+            nennt, kann ein Name darin stehen und bleibt dann mit dem Eintrag stehen. Dieser Eintrag bleibt auch nach einer Löschung bestehen,
+            bis die Sperre nach fünf vollen Saisons endet oder die Verwaltung sie vorher aufhebt. Wir speichern diesen Eintrag auf Grundlage
+            unseres berechtigten Interesses daran, eine gesperrte Adresse nicht erneut zuzulassen (Art. 6 Abs. 1 lit. f DSGVO).
           </p>
         </LegalSection>
 
@@ -786,7 +830,7 @@ export function DatenschutzView() {
               href="/impressum"
               prefetch={false}
               className={textLink()}>
-              Impressum
+              {IMPRESSUM_TITEL}
             </Link>
             .
           </p>

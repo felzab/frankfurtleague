@@ -684,8 +684,8 @@ class FLBewerbungEinwilligungAnsichtPayload(BaseModel):
 class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     """What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).
 
-    A leaked link's holder learns nothing its mail did not already say: a first name, a school, a
-    season, the roles one answer covers and a wording's version.
+    A leaked link's holder learns what its mail said: a school, a season, the roles one answer
+    covers and a wording's version, never a name.
     """
 
     quelle: FLEinwilligungQuelle
@@ -703,7 +703,6 @@ class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     # OTHER seats are one person.
     zugleich_rolle: FLKontaktRolle | None
     # Null exactly where the seat is empty -- declined or erased -- and the record went with it.
-    vorname: str | None
     text_version: str | None
     # The label the page renders and its answer must name: the applicant's page, or the one for a
     # person an administrator seated, decided from how the seat was filled (`kontakt_seite_of`).
@@ -712,7 +711,7 @@ class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     # and fills its own sentences from what the answer will judge rather than from a constant.
     mindestalter: int
     # The age from which the page offers the media switch, `REQ-EINWILLIGUNG-002`'s floor.
-    medien_mindestalter: int
+    medien_mindestalter: int = Field(gt=0)
 
 
 class FLBewerbungEinwilligungAntwortPayload(BaseModel):
@@ -941,12 +940,15 @@ class FLBewerbungSweepResponse(BaseAPIResponse):
     ohne_entscheidung_geloescht: int
     kontaktbloecke_geleert: int
     redigierte_aktionen: int
+    # One sum over every clock rather than a count a clock: the line logging each row names its clock
+    # (`docs/backend/spec.md :: I720`).
+    fehlgeschlagen: int
 
 
-# `/angekuendigt` stamps the list in ONE transaction at two commands a row, each the round trip plus
+# `/angekuendigt` stamps the list in ONE transaction at three commands a row, each the round trip plus
 # about 1.1 ms (from whole passes timed locally, 2026-09-23): this keeps it inside
 # `app/core/middlewares.py :: REQUEST_DEADLINE_S` up to a 38 ms round trip.
-DELETIONS_LISTED_PER_PASS: Final = 125
+DELETIONS_LISTED_PER_PASS: Final = 84
 
 
 class FLBewerbungSweepAngekuendigtPayload(BaseModel):
@@ -960,6 +962,7 @@ class FLBewerbungSweepAngekuendigtPayload(BaseModel):
 class FLBewerbungSweepAngekuendigtResponse(BaseAPIResponse):
     saison_id: str
     angekuendigt: int
+    fehlgeschlagen: int
 
 
 class FLBewerbungSweepLoeschenPayload(BaseModel):
@@ -974,6 +977,7 @@ class FLBewerbungSweepLoeschenResponse(BaseAPIResponse):
     saison_id: str
     geloescht: int
     redigierte_aktionen: int
+    fehlgeschlagen: int
 
 
 class FLBewerbungSweepSaisonsResponse(BaseAPIResponse):

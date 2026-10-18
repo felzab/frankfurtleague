@@ -26,9 +26,15 @@ const CLIENT_DOUBLE = {
   authClient: { passkey: { addPasskey: () => run("addPasskey") }, signIn: { passkey: () => run("signInPasskey") } },
 };
 
+/** Every path the page left the document for. */
+const left: string[] = [];
+
+/* A full document load, which jsdom does not implement and whose `location` no test can replace,
+   recorded at the module boundary as well. */
 registerDoubles({
   modules: {
     "core/authClient.ts": CLIENT_DOUBLE,
+    "shared/utils/documentNavigation.ts": { leaveDocumentFor: (path: string) => void left.push(path) },
   },
 });
 
@@ -152,6 +158,7 @@ beforeEach(() => {
   reached.length = 0;
   calls.length = 0;
   raised.length = 0;
+  left.length = 0;
   for (const name of Object.keys(ceremony)) Reflect.deleteProperty(ceremony, name);
   for (const name of Object.keys(answers)) Reflect.deleteProperty(answers, name);
   answerWith(() => Promise.resolve(answers[calls.at(-1)?.action ?? ""] ?? { success: true, message: "Gespeichert." }));
@@ -296,7 +303,8 @@ describe("where renaming a passkey leaves the focus", () => {
 });
 
 describe("removing a passkey", () => {
-  /* The removal ended the session this page ran in, so the page itself has nothing left to show. */
+  /* The removal ended the session this page ran in, so the page itself has nothing left to show, and
+     a soft navigation would keep every route the router hid with what it showed that session. */
   it("leaves for the sign-in page once the passkey this device signed in with is gone", async (t) => {
     const user = userEvent.setup();
     answers.removePasskeyAction = { success: true, message: "Passkey gelöscht", diesesGeraet: true };
@@ -308,7 +316,8 @@ describe("removing a passkey", () => {
     await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
     await act(actionsAnswered);
 
-    await waitFor(() => assert.deepEqual(seen.replaced, ["/signin"]));
+    await waitFor(() => assert.deepEqual(left, ["/signin"], "the page never loaded the sign-in page as a new document"));
+    assert.deepEqual([seen.pushed, seen.replaced], [[], []], "the page left by a soft navigation as well");
     assert.deepEqual(sent(), [["removePasskeyAction", "eins"]]);
   });
 
@@ -324,7 +333,7 @@ describe("removing a passkey", () => {
     await act(actionsAnswered);
 
     await waitFor(() => assert.equal(toasts().at(-1)?.[1], "Passkey gelöscht"));
-    assert.deepEqual(seen.replaced, []);
+    assert.deepEqual([left, seen.replaced], [[], []]);
   });
 
   /* Closed, the overlay is the deletion's one tab stop, so it carries the passkey's name as the open control

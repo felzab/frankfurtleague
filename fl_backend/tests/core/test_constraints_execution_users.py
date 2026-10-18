@@ -1,12 +1,19 @@
+import re
 import secrets
 from collections.abc import Awaitable, Callable
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import pytest
+from bson import ObjectId
+from pydantic import SecretStr
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.core import constraints
+from app.core.collections import Collection
 from app.core.constraints import probe_collmod_privilege, probe_privileges, report_identity
+from tests.config import build_test_config
 from tests.database import on_the_seed_loop
 from tests.worker import worker_database
 
@@ -56,6 +63,32 @@ def test_every_needed_privilege_is_reported_independently(mongo_url: str):
     verdicts = dict(on_a_fresh_client(mongo_url, body))
     assert verdicts["find"] == "granted"
     assert verdicts["collMod"].startswith("DENIED")
+    assert verdicts["listCollections"] == "granted"
+
+
+def test_the_privilege_probe_says_denied_where_the_replay_could_not_list_the_validators(mongo_url: str):
+    """A role holding every write and `collMod` but not `listCollections`: the app runs, and the replay after a restore judges no line."""
+    username = f"limited_{secrets.token_hex(4)}"
+    rolename = f"no_listing_{secrets.token_hex(4)}"
+    password = secrets.token_hex(16)
+
+    async def body(database: AsyncDatabase) -> list[tuple[str, str]]:
+        actions = ["find", "insert", "update", "remove", "collMod", "createIndex", "createCollection"]
+        await database.command(
+            "createRole", rolename, privileges=[{"resource": {"db": DATABASE_NAME, "collection": ""}, "actions": actions}], roles=[]
+        )
+        await database.command("createUser", username, pwd=password, roles=[{"role": rolename, "db": DATABASE_NAME}])
+        limited = AsyncMongoClient(mongo_url, username=username, password=password, authSource=DATABASE_NAME)
+        try:
+            return await probe_privileges(limited[DATABASE_NAME])
+        finally:
+            await limited.close()
+            await database.command("dropUser", username)
+            await database.command("dropRole", rolename)
+
+    verdicts = dict(on_a_fresh_client(mongo_url, body))
+    assert (verdicts["find"], verdicts["collMod"]) == ("granted", "granted")
+    assert verdicts["listCollections"].startswith("DENIED")
 
 
 def test_the_privilege_probe_says_denied_for_a_readwrite_user(mongo_url: str):
@@ -73,6 +106,76 @@ def test_the_privilege_probe_says_denied_for_a_readwrite_user(mongo_url: str):
             await database.command("dropUser", username)
 
     assert on_a_fresh_client(mongo_url, body).startswith("DENIED")
+
+
+def as_user(url: str, username: str, password: str) -> str:
+    """The url with this user's credentials in place of the server's own, authenticated against this module's database."""
+
+    parts = urlsplit(url)
+    query = "&".join(filter(None, [parts.query, f"authSource={DATABASE_NAME}"]))
+
+    return urlunsplit(parts._replace(netloc=f"{username}:{password}@{parts.netloc.rpartition('@')[2]}", query=query))
+
+
+WRITES = ["find", "insert", "update", "remove", "createIndex", "createCollection"]
+
+
+@pytest.mark.parametrize(
+    ("offending", "closing"),
+    [
+        pytest.param(False, "NOT clean. Grant the privileges marked FAIL above before applying.", id="clean-data"),
+        pytest.param(True, "NOT clean. Grant the privileges marked FAIL above, and correct the data, before applying.", id="offending-data"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("actions", "denied"),
+    [
+        pytest.param([*WRITES, "listCollections"], "collMod", id="collMod"),
+        pytest.param([*WRITES, "collMod"], "listCollections", id="listCollections"),
+    ],
+)
+def test_the_check_exits_2_and_reads_not_clean_where_a_privilege_is_denied(
+    mongo_url: str,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    actions: list[str],
+    denied: str,
+    offending: bool,
+    closing: str,
+):
+    """The run and not the probe alone: an operator reads the exit and the closing line, and a FAIL above a clean one is missed."""
+    username = f"limited_{secrets.token_hex(4)}"
+    rolename = f"short_of_{denied}_{secrets.token_hex(4)}"
+    password = secrets.token_hex(16)
+
+    async def body(database: AsyncDatabase) -> int:
+        if offending:
+            # Accepted: the database is unconstrained, as before a first apply, and a bare id is short of
+            # every field the validator requires.
+            await database[Collection.AKTIONEN].insert_one({"_id": ObjectId()})
+        await database.command(
+            "createRole", rolename, privileges=[{"resource": {"db": DATABASE_NAME, "collection": ""}, "actions": actions}], roles=[]
+        )
+        await database.command("createUser", username, pwd=password, roles=[{"role": rolename, "db": DATABASE_NAME}])
+        configured = build_test_config().model_copy(
+            update={"mongodb_uri": SecretStr(as_user(mongo_url, username, password)), "db_base_name": DATABASE_NAME}
+        )
+        monkeypatch.setattr(constraints, "get_config", lambda: configured)
+        try:
+            return await constraints._run(check=True)
+        finally:
+            await database.command("dropUser", username)
+            await database.command("dropRole", rolename)
+
+    exit_code = on_a_fresh_client(mongo_url, body)
+    out = capsys.readouterr().out
+
+    assert exit_code == 2
+    assert f"FAIL  {denied}" in out
+    # The validator section's row, which a verdict returned before the data sections would never print.
+    assert bool(re.search(rf"^ +FAIL  {Collection.AKTIONEN} +1 of +1$", out, re.MULTILINE)) == offending
+    assert closing in out
+    assert "Clean —" not in out
 
 
 def test_the_identity_report_names_the_user_and_its_roles(mongo_url: str):

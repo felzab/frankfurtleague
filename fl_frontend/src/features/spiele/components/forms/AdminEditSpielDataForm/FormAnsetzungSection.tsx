@@ -10,6 +10,7 @@ import { FormSchiedsrichterSection } from "./FormSchiedsrichterSection";
 import { FormSpielortSection } from "./FormSpielortSection";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
+import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
 import type { FLSpielOrtFieldDraft, FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/schemas";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { CalendarDate, Time } from "@internationalized/date";
@@ -24,11 +25,15 @@ export function FormAnsetzungSection({
   uhrzeit,
   onUhrzeitChange,
   spielorte,
+  createdSpielorte,
   ortPayload,
   onOrtChange,
+  onRequestSpielort,
   schiedsrichter,
+  createdSchiedsrichter,
   schiedsrichterPayload,
   onSchiedsrichterChange,
+  onRequestSchiedsrichter,
   onValidateFields,
 }: {
   datum: CalendarDate | null;
@@ -36,11 +41,15 @@ export function FormAnsetzungSection({
   uhrzeit: Time | null;
   onUhrzeitChange: (value: Time | null) => void;
   spielorte: FLSpielort[];
+  createdSpielorte: FLSpielort[];
   ortPayload: FLSpielOrtFieldDraft | null;
   onOrtChange: (payload: FLSpielOrtFieldDraft | null) => void;
+  onRequestSpielort: () => void;
   schiedsrichter: FLSchiedsrichter[];
+  createdSchiedsrichter: FLSchiedsrichterAngezeigt[];
   schiedsrichterPayload: FLSpielSchiedsrichterFieldDraft | null;
   onSchiedsrichterChange: (payload: FLSpielSchiedsrichterFieldDraft | null) => void;
+  onRequestSchiedsrichter: () => void;
   onValidateFields: (paths: readonly string[]) => void;
 }) {
   const styles = formPanel();
@@ -78,8 +87,10 @@ export function FormAnsetzungSection({
 
         <FormSpielortSection
           spielorte={spielorte}
+          created={createdSpielorte}
           ortPayload={ortPayload}
           onOrtChange={onOrtChange}
+          onRequestCreate={onRequestSpielort}
           onValidateFields={onValidateFields}
         />
 
@@ -87,8 +98,10 @@ export function FormAnsetzungSection({
 
         <FormSchiedsrichterSection
           schiedsrichter={schiedsrichter}
+          created={createdSchiedsrichter}
           schiedsrichterPayload={schiedsrichterPayload}
           onSchiedsrichterChange={onSchiedsrichterChange}
+          onRequestCreate={onRequestSchiedsrichter}
           onValidateFields={onValidateFields}
         />
       </div>

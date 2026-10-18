@@ -11,16 +11,24 @@ import {
   mapBewerbungEinwilligungRefusal,
   mapEigeneEinwilligungRefusal,
   mapRegistrierungEinwilligungRefusal,
-  MEDIEN_ZU_JUNG,
+  medienZuJung,
   NUR_WIDERRUF,
   REGISTRIERUNG_NICHT_MEHR_OFFEN,
   SEITE_VERALTET,
   ZUSTIMMEN_MORGEN,
 } from "./einwilligung.ts";
 
+/** A media floor no record is served today, so a sentence naming it took the floor it was handed. */
+const MEDIEN_ALTER = 21;
+
 /** Each consent mapper, an operation it serves and the sentence its lost record takes. */
 const MAPPERS = [
-  ["a pupil's, a referee's or a season's seats", "PATCH /spieler/selbst/einwilligung", mapEigeneEinwilligungRefusal, EINTRAG_WEG],
+  [
+    "a pupil's, a referee's or a season's seats",
+    "PATCH /spieler/selbst/einwilligung",
+    (error: unknown) => mapEigeneEinwilligungRefusal(error, MEDIEN_ALTER),
+    EINTRAG_WEG,
+  ],
   [
     "a pending application's seats",
     "PATCH /bewerbungen/{bewerbung_id}/person/einwilligung",
@@ -36,13 +44,12 @@ const MAPPERS = [
 ] as const;
 
 /**
- * The code set the three mappers share. A withdraw-only write publishes no media floor and no ceiling,
- * both refusing a grant its page never sends, so each code is asked of the writes publishing it alone.
+ * The code set the three mappers share. A withdraw-only write publishes no ceiling, which refuses a
+ * grant its page never sends, so each code is asked of the writes publishing it alone.
  */
 const GETEILT = [
   ["REQ-EINWILLIGUNG-001", "a stale wording", SEITE_VERALTET],
   ["REQ-EINWILLIGUNG-003", "a stale choice", SEITE_VERALTET],
-  ["REQ-EINWILLIGUNG-002", "a media consent below the floor", MEDIEN_ZU_JUNG],
   // The record is the person's and only the grant was refused, so never the lost record's sentence.
   ["REQ-EINWILLIGUNG-004", "a grant on a record taking a withdrawal alone", NUR_WIDERRUF],
   // Ahead of the person spine's ceiling sentence, which says nothing of a withdrawal, never counted here.
@@ -99,6 +106,18 @@ describe("the consent writes' mappers", () => {
     });
   }
 
+  /* The floor is the record's, handed to the mapper by its write: a number typed into the sentence would
+     name another age the day the backend's rule moves. Only the three writes taking a grant publish it. */
+  for (const operation of ["PATCH /spieler/selbst/einwilligung", ...EIGENE_WEITERE]) {
+    it(`names the media floor its record was served on ${operation}, and asks for a reload, at any status`, () => {
+      for (const status of [403, 409, 422, 429]) {
+        assert.deepEqual(mapEigeneEinwilligungRefusal(refusedOn(operation, "REQ-EINWILLIGUNG-002", status), MEDIEN_ALTER), {
+          error: "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben. Lade die Seite neu.",
+        });
+      }
+    });
+  }
+
   /* The words themselves, through the mapper: the table above takes the sentence from the module it tests. */
   it("tells a pupil whose registration closed to reload, in sentences of their own", () => {
     assert.deepEqual(mapRegistrierungEinwilligungRefusal(refusedOn(MAPPERS[2][1], "REQ-FUNKTION-001", 403)), {
@@ -107,7 +126,7 @@ describe("the consent writes' mappers", () => {
   });
 
   it("gives each cause its own sentence", () => {
-    const saetze = [EINTRAG_WEG, BEWERBUNG_NICHT_MEHR_OFFEN, REGISTRIERUNG_NICHT_MEHR_OFFEN, NUR_WIDERRUF, MEDIEN_ZU_JUNG];
+    const saetze = [EINTRAG_WEG, BEWERBUNG_NICHT_MEHR_OFFEN, REGISTRIERUNG_NICHT_MEHR_OFFEN, NUR_WIDERRUF, medienZuJung(MEDIEN_ALTER)];
     assert.equal(new Set(saetze).size, saetze.length);
   });
 });

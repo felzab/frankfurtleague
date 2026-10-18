@@ -14,6 +14,7 @@ import type { FLAddress } from "@/shared/schemas";
 const { WebsiteUrlField } = await import("./WebsiteUrlField.tsx");
 const { FormAdresseSection } = await import("./AdminTeamEditForm/FormAdresseSection.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
+const { IN_NEUEM_TAB } = await import("@/shared/components/ui/NewTabLink.tsx");
 
 const NO_DRAFT = declaredStatus<TeamFieldPath>([
   "website_url",
@@ -48,8 +49,8 @@ describe("an outward link with nowhere to go yet", () => {
   it("names the address's map link by its own label and describes what is missing", () => {
     assert.deepEqual(refusalWrappers(adresse({ ...LEER, strasse: "Feldweg" })), [
       {
-        name: "Adresse auf Google Maps öffnen",
-        label: "Adresse auf Google Maps öffnen",
+        name: `Adresse auf Google Maps öffnen ${IN_NEUEM_TAB}`,
+        label: `Adresse auf Google Maps öffnen ${IN_NEUEM_TAB}`,
         reason: "Erst Straße und Stadt eingeben",
       },
     ]);

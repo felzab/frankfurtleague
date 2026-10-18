@@ -244,7 +244,9 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "season the ban covers (`docs/backend/spec.md :: I273`), and the activation that runs past it ERASES "
             "the row rather than deleting it, so the bound is outlived by no log image either "
             "(`docs/backend/spec.md :: I274`). Anonymous it is not: `erstellt_von` is that "
-            "administrator's address in plain and `grund` is free text that may name the person barred, both served -- "
+            "administrator's address in plain and `grund` is free text, refused a name the address's records hold as "
+            "stored (`docs/backend/spec.md :: I726`) and so naming the person barred only spelled otherwise or where no "
+            "record names them, both served -- "
             "`erstellt_von` withheld where the ban list holds that administrator too (`docs/backend/spec.md :: I452`) -- "
             "and both outliving either erasure. The BARRED address alone is yielded to nobody without the key."
         ),
@@ -308,9 +310,22 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "rather than documents, so it is in no boundary with what those writes changed, and it is raised outside their "
             "transaction, a write refused after it was counted spending its unit as surely as one that commits, and a retried "
             "attempt none more. Its key names the "
-            "day, so a new day is a new row rather than a reset, and nothing but the TTL index removes one. It names the "
-            "person by the action log's pseudonym and never an address, and no erasure reaches it: it outlives one at most "
-            "until the German midnight ending its day plus the TTL monitor's lag (`docs/backend/spec.md :: I619`)."
+            "day, so a new day is a new row rather than a reset, and the TTL index removes it once that day has ended. It "
+            "names the person by the action log's pseudonym and never an address, so the person's erasure removes every "
+            "count of theirs, whatever its day, in its own transaction (`docs/backend/spec.md :: I619`)."
+        ),
+    ),
+    Aggregate(
+        name="Adressanker",
+        root=Collection.ADRESSANKER,
+        members=(),
+        boundary=(
+            "One folded address's conflict point. Held true against nothing: it states no fact about the league and no "
+            "read serves it, and its one purpose is to sit in the write set of every transaction writing that address "
+            "into a record and of that address's erasure, so the two conflict rather than both committing "
+            "(`docs/backend/spec.md :: I719`). It names the address by a keyed hash and never in plain, and the TTL "
+            "index removes it after its last write; its removal is itself a write a transaction still open meets as a "
+            "conflict, so no anchor is ever kept for safety."
         ),
     ),
 )
@@ -367,14 +382,15 @@ REFERENCES: tuple[Reference, ...] = (
             "Read at the write when NEWLY assigned, or kept on a fixture the save puts back among those still to be "
             "played, as the venue beside it is, and refused where no row holds it or the row it holds is retired; "
             "retiring the referee is refused from the other side for the reason the venue's is (`REQ-RETIRE-004`). "
-            "The anonymisation is the one removal an endpoint performs, and it CASCADES rather than being refused: a request "
+            "The erasure is the one removal, run for a person's own request and for an administrator answering one alike "
+            "(`app/api/schiedsrichter/crud.py :: erase_referee_in_session`), and it CASCADES rather than being refused: a request "
             "to be forgotten is not something a booking may block, so the row is deleted and every fixture naming it is "
             "repointed at the ghost in the same transaction, each keeping its own `payment`. The once-only drop of "
-            "never-asked referees repoints the same way, emptying the name as the anonymisation does. The ghost is "
+            "never-asked referees repoints the same way, emptying the name as the erasure does. The ghost is "
             "permanently retired, so a fixture holding it takes no new booking and is refused a save putting it back "
             "among those still to be played; one a bracket resolution or a Spieltag release reopens keeps it and is "
-            "reported as a retired booking, exactly as a merely retired referee is. Erasing the ghost itself is refused "
-            "(`REQ-ANONYMISE-004`). "
+            "reported as a retired booking, exactly as a merely retired referee is. No erasure reaches the ghost: each "
+            "selects the referees an address holds, and the ghost holds none. "
             "The name is read from that row and fans out; `payment` does neither, for the reason `mietpreis` does not."
         ),
     ),
@@ -502,12 +518,16 @@ REFERENCES: tuple[Reference, ...] = (
         source=Collection.SAISON_SPIELER,
         fields=("spieler_id",),
         target=Collection.SPIELER,
-        on_reference_created=Action.NO_ACTION,
+        on_reference_created=Action.RESTRICT,
         on_target_change=Action.NO_ACTION,
-        on_target_removed=Action.NO_ACTION,
+        on_target_removed=Action.CASCADE,
         note=(
-            "The path names the person and nothing reads it, so a squad row can name a `spieler` document nobody created. "
-            "Retiring the person leaves every squad row intact -- the seasons they played still happened."
+            "An administrator's entry reads the person the path names and answers 404 where no row holds the id, the erased "
+            "pupils' sentinel included, anchoring the person so an erasure landing beside it conflicts "
+            "(`app/api/spieler/crud.py :: pull_a_person_to_enter`); an admission writes the person its row names. "
+            "The person's erasure removes every squad row naming them in its own transaction and repoints none, a squad being "
+            "a live list (`app/api/spieler/crud.py :: erase_person_in_session`); retiring the person changes neither side, "
+            "and the seasons they played still happened."
         ),
     ),
     Reference(
@@ -937,11 +957,23 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SPIELER,
         "email",
         Editability.CONTROL_ONLY,
-        "written by the admission alone, as `sign_in_identifier` folds the registration's address: at the person's creation, or "
-        "onto a proposed person holding none. No payload carries it, a person holding one never takes another, and "
-        "`uniq_spieler_email` keeps one person per address. `POST /identitaet/subjekt` joins on the field by equality, so a value "
-        "stored in any other form is matched by nothing",
+        "written by two controls alone, each as `sign_in_identifier` folds an address: the admission, from the registration's "
+        "address at the person's creation or onto a proposed person holding none, and the confirmation of an address change "
+        "through `POST /spieler/adresswechsel`, from the address its new mailbox proved. No payload carries it, an admission "
+        "never gives a person holding one another, and `uniq_spieler_email` keeps one person per address. "
+        "`POST /identitaet/subjekt` joins on the field by equality, so a value stored in any other form is matched by nothing",
         "app.api.registrierungen.services.compose_person_update",
+    ),
+    FieldPolicy(
+        Collection.SPIELER,
+        "adresswechsel",
+        Editability.CONTROL_ONLY,
+        "no payload carries the block. `POST /spieler/{spieler_id}/adresswechsel` writes it WHOLE, replacing a pending one, "
+        "and `POST /spieler/{spieler_id}/adresswechsel/einladen` replaces it whole for the same address, each answering the raw "
+        "token once. `DELETE /spieler/{spieler_id}/adresswechsel` removes it, and so does either answer its person gives through "
+        "`POST /spieler/adresswechsel`, the erasure of the address it names and, the day after its link lapses, "
+        "`POST /schiedsrichter/sweep/adresswechsel`. The three delivery endpoints write its delivery state on the system key alone",
+        "app.api.spieler.services.compose_spieler_adresswechsel",
     ),
     FieldPolicy(
         Collection.SPIELER,
@@ -1152,8 +1184,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.CONTROL_ONLY,
         "no payload carries the block. The save that moves a confirmed referee's address writes it WHOLE, replacing a pending "
         "one, and `POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen` replaces it whole for the same address, "
-        "each answering the raw token once; `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes it, and so does "
-        "either answer its person gives through `POST /schiedsrichter/adresswechsel`. The three delivery endpoints write its "
+        "each answering the raw token once; `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes it, and so do "
+        "either answer its person gives through `POST /schiedsrichter/adresswechsel` and, the day after its link lapses, "
+        "`POST /schiedsrichter/sweep/adresswechsel`. The three delivery endpoints write its "
         "delivery state as they write `bestaetigung`'s, on the system key alone",
         "app.api.schiedsrichter.services.compose_korrektur_update",
     ),
@@ -1201,7 +1234,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.CONTROL_ONLY,
         "`DELETE` stamps it and `POST /schiedsrichter/{schiedsrichter_id}/reactivate` clears it, `DELETE` being refused "
         "while an unplayed fixture still "
-        "names this referee; the anonymisation writes it on no row, deleting the referee instead and leaving their "
+        "names this referee; the erasure writes it on no row, deleting the referee instead and leaving their "
         "fixtures on the ghost, which carries a stamp of its own and is reachable by neither control",
         "app.api.schiedsrichter.services.find_referee_retire_refusal",
     ),
@@ -1933,15 +1966,6 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_containment_refusals.py::TestRetiringAVenueOrAReferee",
     ),
     Rule(
-        code="REQ-ANONYMISE-004",
-        status=HTTPStatus.CONFLICT,
-        operation="POST /schiedsrichter/{schiedsrichter_id}/anonymisieren",
-        aggregate="Schiedsrichter",
-        summary="the row every erased referee's fixtures were repointed at holds no person and may not itself be erased",
-        implemented_by="app.api.schiedsrichter.services.find_ghost_erasure_refusal",
-        tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestErasingTheGhostIsRefused",
-    ),
-    Rule(
         code="REQ-SCHIEDSRICHTER-001",
         status=HTTPStatus.CONFLICT,
         operation="POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen",
@@ -2039,6 +2063,84 @@ RULES: tuple[Rule, ...] = (
         summary="an address change whose replaced address the ban list now holds confirms nothing, the address on file staying",
         implemented_by="app.api.schiedsrichter.services.find_ersetzte_adresse_gesperrt_refusal",
         tested_by="tests/api/test_schiedsrichter_adresswechsel_execution.py::TestAChangeReplacingABarredAddress",
+    ),
+    Rule(
+        code="REQ-SPIELER-001",
+        status=HTTPStatus.NOT_FOUND,
+        operation="POST /spieler/adresswechsel/ansicht · POST /spieler/adresswechsel",
+        aggregate="Spieler",
+        summary=(
+            "a pupil's address link opens no change -- unknown, replaced by a later mint, already answered or discarded, or gone with the pupil"
+        ),
+        implemented_by="app.api.spieler.services.find_spieler_token_unknown_refusal",
+        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheConfirmation",
+    ),
+    Rule(
+        code="REQ-SPIELER-002",
+        status=HTTPStatus.GONE,
+        operation="POST /spieler/adresswechsel",
+        aggregate="Spieler",
+        summary="an address link whose deadline has passed confirms no address",
+        implemented_by="app.api.spieler.services.find_spieler_token_expired_refusal",
+        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheConfirmationsRefusals",
+    ),
+    Rule(
+        code="REQ-SPIELER-003",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /spieler/{spieler_id}/adresswechsel · POST /spieler/{spieler_id}/adresswechsel/einladen",
+        aggregate="Spieler",
+        summary="no address link is minted for an address the ban list still holds",
+        implemented_by="app.api.spieler.services.find_spieler_adresse_gesperrt_refusal",
+        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheRequestsRefusals",
+    ),
+    Rule(
+        code="REQ-SPIELER-004",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /spieler/adresswechsel",
+        aggregate="Spieler",
+        summary="a link mailed to an address the ban list now holds confirms no address, whenever it was minted",
+        implemented_by="app.api.spieler.services.find_spieler_bestaetigung_gesperrt_refusal",
+        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheConfirmationsRefusals",
+    ),
+    Rule(
+        code="REQ-SPIELER-005",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /spieler/adresswechsel",
+        aggregate="Spieler",
+        summary="an address change whose replaced address the ban list now holds confirms nothing, the address on file staying",
+        implemented_by="app.api.spieler.services.find_spieler_ersetzte_adresse_gesperrt_refusal",
+        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheConfirmationsRefusals",
+    ),
+    Rule(
+        code="REQ-SPIELER-006",
+        status=HTTPStatus.CONFLICT,
+        operation=(
+            "POST /spieler/{spieler_id}/adresswechsel · POST /spieler/{spieler_id}/adresswechsel/einladen · POST /spieler/adresswechsel"
+        ),
+        aggregate="Spieler",
+        summary="no address change is minted or confirmed to an address another pupil signs in on",
+        implemented_by="app.api.spieler.services.find_adresse_vergeben_refusal",
+        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheRequestsRefusals",
+    ),
+    Rule(
+        code="REQ-SPIELER-007",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /spieler/{spieler_id}/adresswechsel",
+        aggregate="Spieler",
+        summary="an address change names an address other than the one the pupil signs in on",
+        implemented_by="app.api.spieler.services.find_adresse_unveraendert_refusal",
+        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheRequestsRefusals",
+    ),
+    Rule(
+        code="REQ-SPIELER-008",
+        status=HTTPStatus.CONFLICT,
+        operation=(
+            "POST /spieler/{spieler_id}/adresswechsel · POST /spieler/{spieler_id}/adresswechsel/einladen · POST /spieler/adresswechsel"
+        ),
+        aggregate="Spieler",
+        summary="a pupil holding no address takes no address change, an address reaching them with their registration alone",
+        implemented_by="app.api.spieler.services.find_keine_adresse_refusal",
+        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheRequestsRefusals",
     ),
     Rule(
         code="REQ-SQUAD-001",
@@ -2267,13 +2369,55 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_bewerbung_einwilligung_execution.py::TestALinkToABarredAddress",
     ),
     Rule(
-        code="REQ-PURGE-001",
+        code="REQ-PURGE-003",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /identitaet/erasure/ansicht · POST /identitaet/erasure · POST /identitaet/abmeldung",
+        aggregate="Berechtigung",
+        summary="an administrator's route on a mailbox refuses the mailbox they act as, their own account page serving it",
+        implemented_by="app.api.identitaet.services.find_eigene_adresse_refusal",
+        tested_by="tests/api/test_erasure_auf_anfrage.py::TestTheirOwnAddress",
+    ),
+    Rule(
+        code="REQ-PURGE-005",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /identitaet/erasure/ansicht · POST /identitaet/erasure · POST /identitaet/abmeldung",
+        aggregate="Berechtigung",
+        summary=(
+            "an address holding a live grant is revealed or erased, and one holding an `owner` grant signed out, only by an"
+            " actor holding an owner's power, judged on the grants the route reads"
+        ),
+        implemented_by="app.api.identitaet.services.find_verwaltung_adresse_refusal",
+        tested_by="tests/api/test_erasure_auf_anfrage.py::TestAGrantHoldersAddress",
+    ),
+    Rule(
+        code="REQ-PURGE-004",
         status=HTTPStatus.CONFLICT,
-        operation="DELETE /spieler/{spieler_id}/erasure",
-        aggregate="Spieler",
-        summary="a player still in the league is not erased, retirement being the step that comes first",
-        implemented_by="app.api.spieler.services.find_erasure_refusal",
-        tested_by="tests/api/test_spieler_erasure_execution.py::TestTheErasureIsRefusedUntilTheyAreRetired",
+        operation="POST /identitaet/selbst/erasure",
+        aggregate="Berechtigung",
+        summary="the last live, unbarred `owner` does not erase themselves until another administrator is made an owner",
+        implemented_by="app.api.identitaet.services.find_letzter_inhaber_erasure_refusal",
+        tested_by="tests/api/test_funktionen_erasure.py::TestTheLastOwner",
+    ),
+    Rule(
+        code="REQ-PURGE-006",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="POST /identitaet/erasure",
+        aggregate="Aktion",
+        summary=(
+            "the request an erasure answers holds no name of the person's own records, spacing aside and equal in plain"
+            " lower or plain upper case, as a whole word or before a genitive s"
+        ),
+        implemented_by="app.api.identitaet.services.find_name_im_anlass_refusal",
+        tested_by="tests/api/test_erasure_auf_anfrage.py::TestANameInTheAnlass",
+    ),
+    Rule(
+        code="REQ-REFERENZEN-001",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /identitaet/referenzen",
+        aggregate="Berechtigung",
+        summary="no address is judged unreferenced while no live grant is an `owner`'s, the database read then being no league's",
+        implemented_by="app.api.identitaet.services.find_kein_inhaber_refusal",
+        tested_by="tests/api/test_identitaet_referenzen_execution.py::TestALeagueWithoutAnOwner",
     ),
     Rule(
         code="REQ-SPERRLISTE-001",
@@ -2301,6 +2445,15 @@ RULES: tuple[Rule, ...] = (
         summary="an address holding a grant of either tier takes no ban until the grant is revoked",
         implemented_by="app.api.sperrliste.services.find_verwaltung_refusal",
         tested_by="tests/api/test_sperrliste_execution.py::TestABanOfAnAdministratorsAddress",
+    ),
+    Rule(
+        code="REQ-SPERRLISTE-004",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="POST /sperrliste",
+        aggregate="Sperrliste",
+        summary="a ban's reason holds no name of the records its address holds, matched as an erasure's request is",
+        implemented_by="app.api.identitaet.services.find_name_im_grund_refusal",
+        tested_by="tests/api/test_sperrliste_execution.py::TestANameInTheGrund",
     ),
     Rule(
         code="REQ-BERECHTIGUNG-001",
@@ -2727,13 +2880,15 @@ UNENFORCED: tuple[Unenforced, ...] = (
     Unenforced(
         subject="a retired row kept indefinitely",
         reason=(
-            "Decided 2026-08, Datenschutzexperte consulted: a retired row is never purged on its age, so there is no "
-            "RETENTION sweep to build and none may be added. The application clocks in "
-            "`app/api/bewerbungen/sweep_router.py` are a different subject: they select on a season and a deadline, "
-            "never on `inactive_since`, and remove applications rather than retired rows (`docs/backend/spec.md :: "
-            "I150`). The one removal is a pupil's own erasure request, which "
-            "selects a subject, never an age, and `REQ-PURGE-001` makes retirement its precondition rather than its "
-            "trigger. `inactive_since` stays a date (`docs/backend/spec.md :: I12`): it records WHEN a row retired, "
+            "Decided 2026-08, Datenschutzexperte consulted: a retired row is never purged on its age, and no sweep "
+            "selects on `inactive_since`. The application clocks in `app/api/bewerbungen/sweep_router.py` select on a "
+            "season and a deadline and remove applications rather than retired rows (`docs/backend/spec.md :: I150`). "
+            "The season-after deletion, ruled 2026-10-15, selects pupils on the seasons' statuses and counts a retired "
+            "squad row as keeping its pupil, so retiring a row never brings that deletion nearer "
+            "(`docs/backend/spec.md :: I690`). Beside it, an erasure on a request, the person's own or an "
+            "administrator's answering one, removes a row, selecting a subject by its address, never by an age, and "
+            "asking no retirement first. `inactive_since` stays a date (`docs/backend/spec.md :: I12`): it records "
+            "WHEN a row retired, "
             "not when a sweep may take it. What the proof reaches is a removal through `app/core/crud.py`'s two "
             "helpers: refused where its literal filter names the field at any depth, failed outright where the "
             "filter is a variable. A sweep inside that module, or outside `app/`, is unscanned. NOTHING SHOWS THE "

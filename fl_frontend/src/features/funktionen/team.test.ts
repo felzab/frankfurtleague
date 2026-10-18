@@ -11,6 +11,7 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { APIBadStatusError } from "@/core/errors.ts";
+import { DEIN_BEREICH_TITEL } from "@/core/seitenNamen.ts";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleEveryAction, doubleSubjectLookup } from "@/shared/testing/actionDoubles.ts";
@@ -254,7 +255,7 @@ describe("what a person meets at an address they hold no seat on", () => {
 
     assert.deepEqual(reads, [], "the forbidden panel's render reads at a past season's address");
     assert.ok(markup.includes(FORBIDDEN_BADGE), "a past season's address renders its panel");
-    assert.deepEqual(wayOutsIn(markup), [{ href: "/bereich", text: "Zu Deinem Bereich" }]);
+    assert.deepEqual(wayOutsIn(markup), [{ href: "/bereich", text: DEIN_BEREICH_TITEL }]);
   });
 
   /* One way out per team and season: a Trainer who is also the Ansprechperson holds one panel there. */

@@ -3,6 +3,8 @@ import "@/shared/testing/renderTest.ts";
 import { registerHooks } from "node:module";
 import { text } from "node:stream/consumers";
 
+import { cloneElement, createElement, Fragment, isValidElement } from "react";
+
 import { JSDOM } from "jsdom";
 import { prerenderToNodeStream } from "react-dom/static";
 import z from "zod";
@@ -14,13 +16,14 @@ import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
 
+import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 import type { ReactElement, ReactNode } from "react";
 
 /** One step a page took against the backend or the request, in the order it took them. */
 export type PageStep =
   | { kind: "connection" }
   // `body` parsed, for a read sent as a POST: what it asks about rides there rather than in `params`.
-  | { kind: "read"; endpoint: string; params: Record<string, unknown>; body: unknown };
+  | { kind: "read"; endpoint: string; params: Record<string, unknown>; body: unknown; authType: ApiCall["authType"] };
 
 /** A schema as the doubled client is handed it: enough of Zod's surface to build the emptiest answer. */
 export type AnswerSchema = {
@@ -200,10 +203,10 @@ export function answerReadsWith(respond: ReadAnswer, handingOver: HandOver = asP
   handOver = handingOver;
 }
 
-doubleApiClient(async ({ endpoint, method, params, body: sent, readOnly }, handedSchema) => {
+doubleApiClient(async ({ endpoint, method, params, body: sent, readOnly, authType }, handedSchema) => {
   const schema = handedSchema as z.ZodType & AnswerSchema;
   const asked = (params ?? {}) as Record<string, unknown>;
-  steps.push({ kind: "read", endpoint, params: asked, body: sent === undefined ? undefined : (JSON.parse(sent) as unknown) });
+  steps.push({ kind: "read", endpoint, params: asked, body: sent === undefined ? undefined : (JSON.parse(sent) as unknown), authType });
   const body = await answerRead(endpoint, schema, asked);
 
   // The client's own check (`fl_frontend/src/core/api.ts :: apiClient`): a body its schema refuses
@@ -393,4 +396,54 @@ export async function pageBody<P>(Page: (props: P) => unknown, props: P): Promis
   await resolveTree({ type: Page, props }, undefined, { enter: enter, rejected: rejected });
   if (found[0] === undefined) throw new Error(`${Page.name} reaches no async component to call`);
   return found[0];
+}
+
+/**
+ * As the server renderer hands a tree on: a server component called and awaited, every other element
+ * kept with its props resolved alike, and a client element's promise left a promise, as the wire
+ * carries one.
+ */
+async function resolvedNode(node: unknown, depth: number): Promise<unknown> {
+  if (depth > 60 || node === null || typeof node !== "object") return node;
+  if (Array.isArray(node)) {
+    const children: unknown[] = [];
+    for (const child of node) children.push(await resolvedNode(child, depth + 1));
+    // The very array wherever nothing in it changed: React judges a list's keys by what it was built as.
+    return children.every((child, index) => child === node[index]) ? node : children;
+  }
+  if (node instanceof Promise) return resolvedNode(await node, depth + 1);
+  if (!isValidElement<Record<string, unknown>>(node)) return node;
+
+  if (isServerComponent(node.type)) {
+    const returned = await resolvedNode(await node.type(node.props), depth + 1);
+    // Keyed as the element it stands for, which a list's siblings are told apart by.
+    return node.key === null ? returned : createElement(Fragment, { key: node.key }, returned as ReactNode);
+  }
+  const props: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(node.props)) {
+    props[name] = value instanceof Promise ? Promise.resolve(await resolvedNode(await value, depth + 1)) : await resolvedNode(value, depth + 1);
+  }
+  // The very element wherever nothing under it changed, for the array's reason above.
+  if (Object.entries(props).every(([name, value]) => value === node.props[name])) return node;
+  const { children, ...rest } = props;
+  // Spread, as JSX hands several children, where the element was built with them.
+  const clone =
+    Array.isArray(children) && children !== node.props.children && Array.isArray(node.props.children)
+      ? cloneElement(node, rest, ...(children as ReactNode[]))
+      : cloneElement(node, props);
+  // A clone starts without the development mark that its key was checked, which React's Flight server carries with the
+  // element (`renderElement`, Next's bundled copy, read 2026-10-16, moving without us): unmarked, it reads as an
+  // unkeyed child of its static list.
+  const store = (clone as { _store?: { validated?: number } })._store;
+  if (store !== undefined) store.validated = (node as { _store?: { validated?: number } })._store?.validated;
+  return clone;
+}
+
+/**
+ * A page's whole tree with its client elements kept, for a case typing into what the page shows:
+ * `pageBody` stops at the first async component and drops the rest. A redirect thrown on the way
+ * reaches the case.
+ */
+export async function resolvedPage<P>(Page: (props: P) => unknown, props: P): Promise<ReactNode> {
+  return (await resolvedNode(await Page(props), 0)) as ReactNode;
 }

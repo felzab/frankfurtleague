@@ -6,32 +6,54 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.aktionen.crud import redact_images_in_session
+from app.api.bewerbungen.services import mint_token
 from app.api.saisons.cache import dropping_the_saison_cache
-from app.api.spieler.crud import refuse_a_full_squad, refuse_a_taken_rolle
+from app.api.sperrliste.lookup import SperrlisteLookup, hash_gesperrt, sperrliste_saison
+from app.api.spieler.crud import (
+    another_pupil_holds,
+    discard_spieler_adresswechsel_in_session,
+    pull_a_person_to_enter,
+    refuse_a_full_squad,
+    refuse_a_taken_rolle,
+)
 from app.api.spieler.schemas import (
     FLPatchSaisonSpielerPayload,
     FLPatchSpielerPayload,
     FLPostSaisonSpielerPayload,
     FLSaisonSpielerResponse,
     FLSpielerAdminSingleResponse,
-    FLSpielerErasureResponse,
+    FLSpielerAdresswechselMint,
+    FLSpielerAdresswechselMintResponse,
+    FLSpielerAdresswechselPayload,
     FLSpielerMembershipsResponse,
     FLSpielerNachnominierungResponse,
     FLSpielerWithMemberships,
 )
 from app.api.spieler.services import (
+    SPIELER_ADRESSWECHSEL_FELD,
+    SPIELER_ADRESSWECHSEL_MINT_FIELDS,
+    build_pending_spieler_adresswechsel_filter,
+    build_spieler_filter,
     build_spieler_memberships_pipeline,
-    find_erasure_refusal,
+    compose_spieler_adresswechsel,
+    find_adresse_unveraendert_refusal,
+    find_adresse_vergeben_refusal,
+    find_keine_adresse_refusal,
+    find_spieler_adresse_gesperrt_refusal,
     find_squad_refusal,
+    replaces_a_pending_address,
+    spieler_adresswechsel_abgelaufen,
+    spieler_adresswechsel_frist_from,
+    spieler_adresswechsel_image_edits,
 )
 from app.api.spieltage.crud import nachnominierung_laeuft_in
+from app.core.adressanker import anchor_the_addresses
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
-    erase_many_from_db,
-    patch_many_in_db,
     patch_one_in_db,
     post_one_to_db,
     pull_one_from_db,
@@ -39,6 +61,7 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
+    AdressankerCollection,
     AktionenCollection,
     DBClient,
     SaisonsCollection,
@@ -50,10 +73,11 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
-from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
+from app.core.recording import build_redaction_filter, log_stamp
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.core.transactions import transaction_session
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -94,19 +118,34 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
 # A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
 # capture this one whatever the declaration order.
 @router.get("/memberships", response_model=FLSpielerMembershipsResponse, summary="Every Spieler with their squad rows")
-async def get_spieler_memberships(spieler_collection: SpielerCollection) -> FLSpielerMembershipsResponse:
+async def get_spieler_memberships(
+    spieler_collection: SpielerCollection, today: str = Depends(get_german_date_str)
+) -> FLSpielerMembershipsResponse:
     """
     Every player, retired ones included, each with every squad row they hold.
 
     `GET /spieler` answers it at no setting: the junction join is strict with a `saison_id`, and
     without one a player with no live row has `nummer` and `position` null.
+
+    A pending address change is served without its token hash, beside whether its link has lapsed today
+    by the rule its confirmation refuses on, so the editor marks a lapsed link without reading a day of its own.
     """
 
     spieler_raw = await aggregate_many_from_db(
         collection=spieler_collection, pipeline=build_spieler_memberships_pipeline(), collation=GERMAN_COLLATION
     )
 
-    return FLSpielerMembershipsResponse(spieler=[FLSpielerWithMemberships.model_validate(spieler) for spieler in spieler_raw])
+    return FLSpielerMembershipsResponse(
+        spieler=[
+            FLSpielerWithMemberships.model_validate(
+                {
+                    **spieler,
+                    "adresswechsel_abgelaufen": spieler_adresswechsel_abgelaufen(spieler.get(SPIELER_ADRESSWECHSEL_FELD), today=today),
+                }
+            )
+            for spieler in spieler_raw
+        ]
+    )
 
 
 @router.get(
@@ -156,7 +195,7 @@ async def patch_spieler(
     async def rewrite_the_player(session: AsyncClientSession) -> Mapping[str, Any]:
         return await patch_one_in_db(
             collection=spieler_collection,
-            db_filter={"_id": spieler_id},
+            db_filter=build_spieler_filter(spieler_id),
             update={"$set": spieler_data.model_dump(mode="json")},
             session=session,
             return_document=ReturnDocument.AFTER,
@@ -183,7 +222,7 @@ async def delete_spieler(
     """Retire a player. SOFT: it stamps `inactive_since`, and their squad rows are LEFT ALONE."""
 
     async def retire_the_player(session: AsyncClientSession) -> Mapping[str, Any]:
-        return await set_inactive_since(collection=spieler_collection, db_filter={"_id": spieler_id}, when=today, session=session)
+        return await set_inactive_since(collection=spieler_collection, db_filter=build_spieler_filter(spieler_id), when=today, session=session)
 
     async with transaction_session(db) as session:
         updated_raw = await session.with_transaction(retire_the_player)
@@ -205,7 +244,7 @@ async def reactivate_spieler(
     """Clear `inactive_since`: the PERSON is back in the league. A squad row they left is revived by its own reactivate."""
 
     async def bring_the_person_back(session: AsyncClientSession) -> Mapping[str, Any]:
-        return await set_inactive_since(collection=spieler_collection, db_filter={"_id": spieler_id}, when=None, session=session)
+        return await set_inactive_since(collection=spieler_collection, db_filter=build_spieler_filter(spieler_id), when=None, session=session)
 
     async with transaction_session(db) as session:
         updated_raw = await session.with_transaction(bring_the_person_back)
@@ -213,77 +252,224 @@ async def reactivate_spieler(
     return _as_single(updated_raw)
 
 
-@router.delete(
-    f"{by_id('spieler_id')}/erasure",
-    response_model=FLSpielerErasureResponse,
-    summary="Erase a Spieler (hard delete)",
+# The three address controls, twins of the referee's (`app/api/schiedsrichter/admin_router.py ::
+# einladen_adresswechsel`, `:: delete_adresswechsel`), duplicated rather than shared: each judges a different aggregate.
+
+
+@router.post(
+    f"{by_id('spieler_id')}/adresswechsel",
+    response_model=FLSpielerAdresswechselMintResponse,
+    summary="Ask a Spieler's new address to confirm itself",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
-async def erase_spieler(
+async def post_adresswechsel(
+    spieler_id: CustomRouteObjectId,
+    adresswechsel_data: Annotated[FLSpielerAdresswechselPayload, Body()],
+    spieler_collection: SpielerCollection,
+    sperrliste: SperrlisteLookup,
+    adressanker_collection: AdressankerCollection,
+    aktionen_collection: AktionenCollection,
+    db: DBClient,
+    today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
+) -> FLSpielerAdresswechselMintResponse:
+    """
+    Hold a new address for this pupil until its own mailbox confirms it, answering the link's raw token once with both addresses.
+
+    **The stored address does not move here.** It stays in force, the sign-in and the account page keyed on it, until the
+    holder of the new mailbox confirms through `POST /spieler/adresswechsel`; the caller mails the link to the new address and
+    a notice to the stored one. The whole pending block is written, so a change already pending is replaced and its link
+    opens nothing, and where it named another mailbox that address goes from every image the action log holds of this pupil,
+    as a decline's does.
+
+    Refused where the pupil holds no address (`REQ-SPIELER-008`): this corrects an address and enters none. Refused where the
+    typed address is the stored one already (`REQ-SPIELER-007`), where the ban list holds it (`REQ-SPIELER-003`), and where
+    another pupil signs in on it (`REQ-SPIELER-006`). 404 for an id no pupil holds, the sentinel's included.
+    """
+
+    email = adresswechsel_data.email
+    raw_token, token_hash = mint_token()
+    gehasht = sperrliste.hash_of(email)
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+
+    async def judge_and_mint_the_change(session: AsyncClientSession) -> tuple[str, str]:
+        """Judge, then write the block, answering the address in force and the first name as this transaction reads them."""
+
+        stored = await pull_one_from_db(
+            collection=spieler_collection,
+            db_filter=build_spieler_filter(spieler_id),
+            projection=dict(SPIELER_ADRESSWECHSEL_MINT_FIELDS),
+            session=session,
+        )
+        bisherige_email = stored.get("email")
+        refuse(find_keine_adresse_refusal(email=bisherige_email))
+        refuse(find_adresse_unveraendert_refusal(stored=bisherige_email, email=email))
+
+        gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
+        refuse(find_spieler_adresse_gesperrt_refusal(gesperrt=gesperrt))
+        vergeben = await another_pupil_holds(
+            spieler_collection=spieler_collection, identifier=sign_in_identifier(email), spieler_id=spieler_id, session=session
+        )
+        refuse(find_adresse_vergeben_refusal(vergeben=vergeben))
+
+        await patch_one_in_db(
+            collection=spieler_collection,
+            db_filter=build_spieler_filter(spieler_id),
+            update={"$set": {SPIELER_ADRESSWECHSEL_FELD: compose_spieler_adresswechsel(email=email, token_hash=token_hash, today=today)}},
+            session=session,
+            return_document=ReturnDocument.BEFORE,
+        )
+        # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
+        await anchor_the_addresses([email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session)
+
+        if replaces_a_pending_address(stored=stored, email=email):
+            # After the write, for the decline's reason: it reaches the pre-image this request just filed,
+            # which still holds the address it replaced.
+            dropped = sign_in_identifier(str(stored[SPIELER_ADRESSWECHSEL_FELD]["email"]))
+            await redact_images_in_session(
+                aktionen_collection=aktionen_collection,
+                db_filter=build_redaction_filter([(Collection.SPIELER, [spieler_id])]),
+                judge=lambda image: spieler_adresswechsel_image_edits(image, dropped),
+                stamp=log_stamp(germany_now),
+                session=session,
+            )
+
+        return str(bisherige_email), str(stored.get("vorname") or "")
+
+    # ONE transaction over the judgement and the write: a block written outside it would stand with a
+    # live link an administrator was then told had been refused.
+    async with transaction_session(db) as session:
+        bisherige_email, vorname = await session.with_transaction(judge_and_mint_the_change)
+
+    return FLSpielerAdresswechselMintResponse(
+        adresswechsel=FLSpielerAdresswechselMint(
+            token=raw_token,
+            frist=spieler_adresswechsel_frist_from(today=today),
+            email=email,
+            bisherige_email=bisherige_email,
+            vorname=vorname,
+        )
+    )
+
+
+@router.post(
+    f"{by_id('spieler_id')}/adresswechsel/einladen",
+    response_model=FLSpielerAdresswechselMintResponse,
+    summary="Send a Spieler's pending address a fresh link",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
+)
+async def einladen_adresswechsel(
     spieler_id: CustomRouteObjectId,
     spieler_collection: SpielerCollection,
-    saison_spieler_collection: SaisonSpielerCollection,
+    sperrliste: SperrlisteLookup,
+    db: DBClient,
+    today: str = Depends(get_german_date_str),
+) -> FLSpielerAdresswechselMintResponse:
+    """
+    Mint a fresh link for this pupil's pending address, answering the raw token once with both addresses, for the caller to mail.
+
+    It replaces the whole pending block but its address, so the previous link stops working at once and the delivery state of
+    the message it went out in goes with it. The deadline restarts from today, and a deadline already passed is no refusal
+    while the change stands, which is until the hourly pass the day after it removes the change (`docs/backend/spec.md :: I693`):
+    after that the new address is entered again.
+
+    Refused where the pupil has come to hold no address (`REQ-SPIELER-008`), which leaves no address for the notice, where the ban
+    list holds the pending address (`REQ-SPIELER-003`) and where another pupil has come to sign in on it (`REQ-SPIELER-006`). 404
+    where the pupil holds no pending change, and for an id no pupil holds, the sentinel's included.
+    """
+
+    raw_token, token_hash = mint_token()
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+
+    async def judge_and_remint_the_change(session: AsyncClientSession) -> tuple[str, str, str]:
+        """Judge, then replace the block, answering both addresses and the first name as this transaction reads them."""
+
+        stored = await pull_one_from_db(
+            collection=spieler_collection,
+            db_filter=build_pending_spieler_adresswechsel_filter(spieler_id),
+            projection=dict(SPIELER_ADRESSWECHSEL_MINT_FIELDS),
+            session=session,
+        )
+        email = str(stored[SPIELER_ADRESSWECHSEL_FELD]["email"])
+        # The request's own refusal again: no route removes an address while a change waits, but a row edited by hand
+        # can, and the notice would then be mailed to the text "None".
+        bisherige_email = stored.get("email")
+        refuse(find_keine_adresse_refusal(email=bisherige_email))
+
+        gesperrt = await hash_gesperrt(sperrliste, sperrliste.hash_of(email), massgebliche_saison_id=massgebliche_saison_id, session=session)
+        refuse(find_spieler_adresse_gesperrt_refusal(gesperrt=gesperrt))
+        vergeben = await another_pupil_holds(
+            spieler_collection=spieler_collection, identifier=sign_in_identifier(email), spieler_id=spieler_id, session=session
+        )
+        refuse(find_adresse_vergeben_refusal(vergeben=vergeben))
+
+        await patch_one_in_db(
+            collection=spieler_collection,
+            db_filter=build_pending_spieler_adresswechsel_filter(spieler_id),
+            update={"$set": {SPIELER_ADRESSWECHSEL_FELD: compose_spieler_adresswechsel(email=email, token_hash=token_hash, today=today)}},
+            session=session,
+            return_document=ReturnDocument.BEFORE,
+        )
+
+        return email, str(bisherige_email), str(stored.get("vorname") or "")
+
+    async with transaction_session(db) as session:
+        gemintet_fuer, bisherige_email, vorname = await session.with_transaction(judge_and_remint_the_change)
+
+    return FLSpielerAdresswechselMintResponse(
+        adresswechsel=FLSpielerAdresswechselMint(
+            token=raw_token,
+            frist=spieler_adresswechsel_frist_from(today=today),
+            email=gemintet_fuer,
+            bisherige_email=bisherige_email,
+            vorname=vorname,
+        )
+    )
+
+
+@router.delete(
+    f"{by_id('spieler_id')}/adresswechsel",
+    response_model=FLSpielerAdminSingleResponse,
+    summary="Discard a Spieler's pending address change",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
+)
+async def delete_adresswechsel(
+    spieler_id: CustomRouteObjectId,
+    spieler_collection: SpielerCollection,
     aktionen_collection: AktionenCollection,
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
-) -> FLSpielerErasureResponse:
+) -> FLSpielerAdminSingleResponse:
     """
-    Erase a player: the person, their squad rows, and their values in the log.
+    Discard this pupil's pending address change: the block goes, its link opens nothing, and the stored address stays.
 
-    HARD and refused until retirement (`REQ-PURGE-001`); the soft `DELETE` stays.
-    No log row is dropped: images are emptied in place and stamped (`docs/backend/spec.md :: I42`).
+    **The address goes from the action log too** (`docs/backend/spec.md :: I704`): it is taken out of every image the log holds
+    of this pupil, since every write on the row while the change stood, a re-send or this discard included, filed one carrying
+    an address nobody proved; the rest of each image stays. Nothing is mailed. 404 where the pupil holds no pending change, and
+    for an id no pupil holds, the sentinel's included.
     """
 
-    async def erase_the_person_and_their_record(session: AsyncClientSession) -> FLSpielerErasureResponse:
-        """Judge, then remove both collections and redact the log. Everything judged is read in-session."""
-
-        stored_raw = await pull_one_from_db(
-            collection=spieler_collection,
-            db_filter={"_id": spieler_id},
-            projection=["inactive_since"],
-            session=session,
-        )
-        refuse(find_erasure_refusal(inactive_since=stored_raw.get("inactive_since")))
-
-        # Read BEFORE the removal and unbounded: a log row names a squad row by its own `_id`, which
-        # nothing can recover once the row is gone, so a capped read would leave the rows it dropped
-        # holding this person's values with no way left to find them.
-        squad_rows = await aggregate_many_from_db(
-            collection=saison_spieler_collection,
-            pipeline=[{"$match": {"spieler_id": spieler_id}}, {"$project": {"_id": 1}}],
+    async def discard_the_change(session: AsyncClientSession) -> Mapping[str, Any]:
+        # The filter is the judgement: a pupil holding no change is the 404 here.
+        return await discard_spieler_adresswechsel_in_session(
+            spieler_collection=spieler_collection,
+            aktionen_collection=aktionen_collection,
+            db_filter=build_pending_spieler_adresswechsel_filter(spieler_id),
+            stamp=log_stamp(germany_now),
+            return_document=ReturnDocument.AFTER,
             session=session,
         )
 
-        # The squad rows first: the public read `$lookup`s outward from the person, so a row left
-        # behind is orphaned invisibly rather than surfacing as a fault somebody would notice.
-        erased_rows = await erase_many_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id}, session=session)
-        await erase_many_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, session=session)
-
-        # Last, and it passes over the two rows the removals above just recorded: those carry a
-        # filter and a count and no `document_id`, so the erasure stays legible as an action.
-        redacted = await patch_many_in_db(
-            collection=aktionen_collection,
-            db_filter=build_redaction_filter(
-                # The squad branch is empty where the person held no row, which matches nothing.
-                [(Collection.SPIELER, [spieler_id]), (Collection.SAISON_SPIELER, [row["_id"] for row in squad_rows])]
-            ),
-            update=build_redaction_update(at=log_stamp(germany_now)),
-            session=session,
-        )
-
-        return FLSpielerErasureResponse(
-            spieler_id=spieler_id,
-            erased_saison_spieler=erased_rows.deleted_count,
-            redacted_aktionen=redacted.modified_count,
-        )
-
-    # ONE transaction over all THREE (`docs/backend/spec.md :: I42`): a person removed while the log
-    # still holds their values reports an erasure that did not happen.
+    # One transaction, so the write, the log row recording it and the redaction land together.
     async with transaction_session(db) as session:
-        # `with_transaction` over a bare one -- the callback re-reads everything it judges, so a
-        # retry is safe.
-        return await session.with_transaction(erase_the_person_and_their_record)
+        updated_raw = await session.with_transaction(discard_the_change)
+
+    return _as_single(updated_raw)
 
 
 @router.post(
@@ -296,6 +482,7 @@ async def erase_spieler(
 async def post_saison_spieler(
     spieler_id: CustomRouteObjectId,
     saison_spieler_data: Annotated[FLPostSaisonSpielerPayload, Body()],
+    spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
@@ -306,14 +493,17 @@ async def post_saison_spieler(
     """
     Put a player in a team's squad for a season.
 
-    One row per player per season: moving a player is a PATCH of `team_id`, and a repeat is a 409
-    even where the row is retired (`docs/backend/spec.md :: I20`). A squad holds each `rolle` once
-    (`REQ-SQUAD-004`). `ist_nachnominiert` is derived here and never taken from the body: it is true
-    from the first day of the season's matchday 1, and false while that matchday is undated.
+    404 where no player has this id. One row per player per season: moving a player is a PATCH of
+    `team_id`, and a repeat is a 409 even where the row is retired (`docs/backend/spec.md :: I20`). A
+    squad holds each `rolle` once (`REQ-SQUAD-004`). `ist_nachnominiert` is derived here and never
+    taken from the body: it is true from the first day of the season's matchday 1, and false while
+    that matchday is undated.
     """
 
     async def add_the_player(session: AsyncClientSession) -> dict[str, Any]:
         """Judge, then write the row. Everything judged is read in-session, the squad's own count inside `refuse_a_full_squad`."""
+
+        await pull_a_person_to_enter(spieler_collection=spieler_collection, spieler_id=spieler_id, session=session)
 
         # The club has to be in the season, and that fact lives in another collection.
         team_in_saison = (

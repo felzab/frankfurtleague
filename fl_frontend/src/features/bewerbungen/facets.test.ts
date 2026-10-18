@@ -1,16 +1,20 @@
+import "@/shared/testing/dom.ts";
+import "@/shared/testing/renderTest.ts";
+
 import assert from "node:assert/strict";
-import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
+import { fireEvent, render, within } from "@testing-library/react";
+
+import { filesUnder } from "@/core/treeWalk.ts";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
-import { TEAM_FACETS, TEAMS_ANY_SAISON_QUERY } from "@/features/teams/facets";
+import { TEAM_FACETS } from "@/features/teams/facets";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { applyFacets, countFacetOptions, isFacetOptionReachable, readFacetSelection } from "@/shared/utils/facets.ts";
 
 import { BEWERBUNGEN_FACETS, BEWERBUNGEN_STATUS_PARAM, bewerbungenQueueFacetCounts, bewerbungenQueueTerms } from "./facets.ts";
@@ -332,10 +336,7 @@ const FEATURES_DIR = path.resolve(import.meta.dirname, "..");
 const OWN_MODULE = path.join("bewerbungen", "facets.ts");
 
 /** Every slice's facet module, found on disk so a slice added later is swept without anyone listing it here. */
-const FACET_MODULES = readdirSync(FEATURES_DIR, { withFileTypes: true })
-  .filter((entry) => entry.isDirectory())
-  .map((entry) => path.join(FEATURES_DIR, entry.name, "facets.ts"))
-  .filter((file) => existsSync(file));
+const FACET_MODULES = filesUnder(FEATURES_DIR, (name) => name === "facets.ts", 1);
 
 /** Every facet the app ships, reduced to what a URL can collide over plus where it came from. */
 const SWEPT: { param: string; label: string; source: string }[] = [];
@@ -376,22 +377,25 @@ describe("the season parameter this list owns", () => {
     }
   });
 
+  /** The club list's season facet, its parameter read off it rather than spelled a second time here. */
+  const CLUB_SAISON_FACET = TEAM_FACETS.find((facet) => facet.label === SAISON_FACET?.label);
+
   it("keeps its default when the club list's season value is pasted onto this URL", () => {
-    const borrowed = TEAM_FACETS.find((facet) => facet.label === SAISON_FACET?.label)?.options ?? [];
+    const borrowed = CLUB_SAISON_FACET?.options ?? [];
     assert.notEqual(borrowed.length, 0, "the club list offers no season value to borrow");
 
     for (const option of borrowed) {
-      const selection = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams(`${TEAMS_ANY_SAISON_QUERY}${option.value}`));
+      const selection = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams({ [CLUB_SAISON_FACET?.param ?? ""]: option.value }));
 
       assert.deepEqual(selection[SAISONBEZUG_PARAM], ["diese_saison"], `\`${option.value}\` reached this list's season facet`);
       assert.deepEqual(applyFacets([...ROWS], BEWERBUNGEN_FACETS, selection), [ROWS[0]]);
     }
   });
 
-  /* The club list's own off-switch is a real query string a cross-route link writes, so it is the one
-     foreign form that arrives here by accident rather than by hand. */
+  /* The club list turns its season facet off with an empty value, which `readFacetSelection` reads as a
+     facet switched off: under the club list's name it must switch nothing of this list's off. */
   it("keeps its default when the club list's off-switch arrives here", () => {
-    const selection = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams(TEAMS_ANY_SAISON_QUERY));
+    const selection = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams({ [CLUB_SAISON_FACET?.param ?? ""]: "" }));
 
     assert.deepEqual(selection[SAISONBEZUG_PARAM], ["diese_saison"]);
   });
@@ -400,6 +404,8 @@ describe("the season parameter this list owns", () => {
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
 const { AdminBewerbungenView } = await import("./components/views/AdminBewerbungenView.tsx");
+const { AdminCrudSearch } = await import("@/shared/components/ui/AdminCrudSearch.tsx");
+const { AdminCrudShell } = await import("@/shared/components/ui/AdminCrudShell.tsx");
 
 /** Whose seat an application's one named person sits in, and how that person is found again. */
 const SEATED: Record<KontaktRolle, { team: string; nachname: string; email: string }> = {
@@ -427,23 +433,26 @@ const SEAT_ROWS = KONTAKT_ROLLEN.map(({ value }, index): AdminBewerbungRow => {
   };
 });
 
-/** The teams the triage list shows for a query typed into its search, every facet of the read turned off. */
+/** The teams the triage list shows for a query typed into the shell's bar, every facet of the read turned off. */
 function foundBy(query: string): string[] {
-  const shown = textOf(
-    renderTree(
-      underNext(
-        h(AdminBewerbungenView, {
+  const { container, unmount } = render(
+    underNext(
+      h(AdminCrudShell, {
+        search: h(AdminCrudSearch, { searchLabel: "Bewerbungen suchen", searchPlaceholder: "Bewerbungen suchen" }),
+        children: h(AdminBewerbungenView, {
           bewerbungen: SEAT_ROWS,
           anzahlJeStatus: { eingereicht: SEAT_ROWS.length, angenommen: 0, abgelehnt: 0 },
           anzahlJeSaisonbezug: { diese_saison: SEAT_ROWS.length, andere_saison: 0 },
           dublettenSchluessel: [],
           richtung: "desc",
         }),
-        { search: new URLSearchParams({ q: query, saisonbezug: "", status: "" }) },
-      ),
+      }),
+      { search: new URLSearchParams({ saisonbezug: "", status: "" }) },
     ),
-    " ",
   );
+  if (query !== "") fireEvent.change(within(container).getByRole("searchbox", { name: "Bewerbungen suchen" }), { target: { value: query } });
+  const shown = container.textContent ?? "";
+  unmount();
 
   return Object.values(SEATED)
     .map(({ team }) => team)

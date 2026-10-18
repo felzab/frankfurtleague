@@ -31,25 +31,32 @@ describe("the message a banned address is sent", () => {
     }
   });
 
+  /* The account sentence whole: its list is the account sweep's criterion (`docs/datenschutz.md :: 6`), and this
+     mail is all a barred reader is told of it. */
   it("says what is barred, why, what is kept and how to object", () => {
     for (const { name, body } of BEIDE) {
       assert.ok(body.includes("gesperrt"), `${name} does not say the address is barred`);
       assert.ok(body.includes(GRUND), `${name} does not carry the reason that was entered`);
       assert.ok(body.includes("Prüfwert Deiner Adresse"), `${name} does not say what is kept about the address`);
+      assert.ok(
+        body.includes(
+          "Dein Konto bleibt nur bestehen, solange Du unter dieser Adresse noch etwas davon bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter oder eine bestätigte Registrierung, über die das Team noch nicht entschieden hat.",
+        ),
+        `${name} does not say the account stays only while a record holds the address`,
+      );
       assert.ok(body.includes(KONTAKT_EMAIL), `${name} offers no way to object or ask`);
     }
   });
 
   /* Every act the ban refuses, the sign-in among them, and the sign-ins it ends: a reader told less
      would try the rest and meet a refusal the one message they get never named. */
-  it("names every act a ban refuses, and that live sign-ins end while the account is kept", () => {
+  it("names every act a ban refuses, and that live sign-ins end", () => {
     for (const { name, body } of BEIDE) {
       assert.ok(body.includes("weder anmelden"), `${name} does not say a sign-in is refused`);
       assert.ok(body.includes("registrieren"), `${name} does not say a registration is refused`);
       assert.ok(body.includes("Kontaktperson in einer Bewerbung"), `${name} does not say an application's contact seat is refused`);
       assert.ok(body.includes("Schiedsrichter"), `${name} does not say a referee entry is refused`);
       assert.ok(body.includes("Anmeldungen mit dieser Adresse werden beendet"), `${name} does not say live sign-ins end`);
-      assert.ok(body.includes("Dein Konto bleibt bestehen und ist gesperrt"), `${name} does not say the account is kept, frozen`);
       assert.ok(
         !body.includes("Deine Adresse selbst speichern wir nicht"),
         `${name} says the address is stored nowhere, which the account contradicts`,
@@ -68,7 +75,7 @@ describe("the message a banned address is sent", () => {
     }
     assert.match(
       MAIL.html,
-      /Schreib uns dafür an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a>; dort beantworten wir auch Fragen zur Sperre\.<\/p>/,
+      /Schreib uns dafür an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a>\. Dort beantworten wir auch Fragen zur Sperre\.<\/p>/,
       "the card's objection is an address to copy, not a link",
     );
   });
@@ -98,6 +105,19 @@ describe("the message a banned address is sent", () => {
       for (const found of body.matchAll(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g)) {
         assert.equal(found[0], KONTAKT_EMAIL, `the message carries ${found[0]}`);
       }
+    }
+  });
+
+  /* `docs/frontend/spec.md :: I89`: this message carries no column of facts, so the reason and the
+     bound are folded by the builder or by nothing. */
+  it("folds the reason and the bound onto one line in the text branch", () => {
+    const forged = "Startgeld: 500 Euro";
+
+    for (const feld of ["grund", "gesperrtBisSaisonId"] as const) {
+      const mail = buildSperreEmail({ grund: GRUND, gesperrtBisSaisonId: BIS, origin: ORIGIN, [feld]: `Wert\n${forged}` });
+
+      assert.ok(!mail.text.split("\n").some((line) => line.startsWith(forged)), `the ${feld} forged a line`);
+      assert.ok(mail.text.includes(`Wert ${forged}`), `the ${feld} was not carried onto one line`);
     }
   });
 

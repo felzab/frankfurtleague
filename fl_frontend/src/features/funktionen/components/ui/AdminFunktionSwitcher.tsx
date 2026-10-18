@@ -13,7 +13,7 @@ import { funktionOrteOf } from "../../utils";
  * second actor (`docs/frontend/spec.md :: I394`).
  */
 export async function AdminFunktionSwitcher() {
-  // The guard's own read, memoised per render; `null` only where the guard above has already redirected.
+  // The guard's own read, memoised per render; `null` only where the guard above has already turned the render away.
   const served = await getAdminSession();
   if (served === null) return null;
 

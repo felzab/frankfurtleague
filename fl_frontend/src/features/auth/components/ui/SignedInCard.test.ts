@@ -8,6 +8,7 @@ import { createElement as h } from "react";
 
 import { render, screen } from "@testing-library/react";
 
+import { DEIN_BEREICH_TITEL } from "@/core/seitenNamen.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 
@@ -26,7 +27,7 @@ describe("the sign-in page for somebody already signed in", () => {
     render(underNext(h(SignedInCard, { address: ADDRESS }), { router }));
 
     assert.ok(screen.getByText(ADDRESS));
-    assert.equal(screen.getByRole("link", { name: "Weiter zu Deinem Bereich" }).getAttribute("href"), "/signin/weiter");
+    assert.equal(screen.getByRole("link", { name: DEIN_BEREICH_TITEL }).getAttribute("href"), "/signin/weiter");
     assert.ok(screen.getByRole("button", { name: "Abmelden" }));
     assert.ok(screen.queryByRole("textbox") === null, "a sign-in field stands beside the signed-in card");
   });
@@ -53,7 +54,7 @@ describe("the sign-in page for somebody already signed in", () => {
     render(underNext(h(SignedInCard, { address: ADDRESS }), { router: recordingRouter().router }));
 
     const hovers = (element: HTMLElement, prefix: string): string[] => [...element.classList].filter((name) => name.startsWith(prefix));
-    const link = screen.getByRole("link", { name: "Weiter zu Deinem Bereich" });
+    const link = screen.getByRole("link", { name: DEIN_BEREICH_TITEL });
     const signOut = screen.getByRole("button", { name: "Abmelden" });
 
     assert.notDeepEqual(hovers(link, "hover:"), [], "the link shows no hover at all");

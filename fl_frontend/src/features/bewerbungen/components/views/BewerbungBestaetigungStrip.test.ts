@@ -15,6 +15,7 @@ import { userEvent } from "@testing-library/user-event";
 import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { bestaetigungsStand } from "@/features/bewerbungen/bestaetigungStand.ts";
 import { FLBewerbungKontaktEmailPayloadSchema } from "@/features/bewerbungen/schemas.ts";
+import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
 import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
@@ -25,7 +26,7 @@ import { toFieldErrors } from "@/shared/utils/validation.ts";
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand.ts";
 import type { FLBewerbung } from "@/features/bewerbungen/schemas.ts";
 
-type Answer = { success: boolean; message?: string; error?: string; verschickt?: boolean };
+type Answer = { success: boolean; message?: string; error?: string; versand?: string };
 
 /** The strip's writes, replaced at the module boundary: a real one needs a session and a backend. */
 const { calls, answerWith, answerPending, answered } = doubleActions({
@@ -45,6 +46,8 @@ const ran = (action: string): number => calls.filter((call) => call.action === a
 
 /** What one severity was titled, in the order the strip raised it. */
 const titles = (variant: string): string[] => raised.filter((toast) => toast.variant === variant).map((toast) => toast.title);
+
+const warningBodies = (): unknown[] => raised.filter((toast) => toast.variant === "warning").map((toast) => toast.description);
 
 beforeEach(() => {
   calls.length = 0;
@@ -330,7 +333,7 @@ describe("the address correction", () => {
       ["anna.neu@schule.example"],
       "the mirror's address is refused as another person's",
     );
-    await act(async () => answerPending({ success: true, message: "Der neue Link ging an anna.neu@schule.example." }));
+    await act(async () => answerPending({ success: true, message: "Der neue Link ging an anna.neu@schule.example.", versand: "gesendet" }));
   });
 
   /* The sign-in fold reads the two as one person, and the mail goes to the bytes stored: a stored
@@ -342,7 +345,7 @@ describe("the address correction", () => {
     await correctClara(user, "clara@schule.example{Enter}");
 
     assert.equal(ran("kontaktEmailKorrigierenAction"), 1, "the press stayed closed over a delivery target that moved");
-    await act(async () => answerPending({ success: true, message: "Der neue Link ging an clara@schule.example." }));
+    await act(async () => answerPending({ success: true, message: "Der neue Link ging an clara@schule.example.", versand: "gesendet" }));
   });
 
   /* A pending submit button stops being a submit button, so `Enter` in the box submits the form by itself,
@@ -355,16 +358,20 @@ describe("the address correction", () => {
     await user.type(addressBox(), "{Enter}");
 
     assert.equal(ran("kontaktEmailKorrigierenAction"), 1, "a second Enter while the write runs sent it again");
-    await act(async () => answerPending({ success: true, message: "Der neue Link ging an clara.neu@schule.example." }));
+    await act(async () => answerPending({ success: true, message: "Der neue Link ging an clara.neu@schule.example.", versand: "gesendet" }));
   });
 
-  it("reports a refusal, a sent link and an address corrected behind a message that did not go", async () => {
+  /* The address stands whichever way its link went, so a link that did not go out is a warning titled
+     for what happened, never a clean correction. */
+  it("reports a refusal, a sent link and an address corrected behind a link that did not go out", async () => {
     const user = userEvent.setup();
 
     for (const answer of [
       { success: false, error: "Die Bewerbung ist entschieden." },
-      { success: true, verschickt: false, message: "Der Link ging nicht raus." },
-      { success: true, verschickt: true, message: "Der Link ging an clara.neu@schule.example." },
+      { success: true, versand: "fehlgeschlagen", message: "Der Link ging nicht raus." },
+      { success: true, versand: "gesperrt", message: "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht." },
+      { success: true, versand: "zurueckgehalten", message: ZURUECKGEHALTEN },
+      { success: true, versand: "gesendet", message: "Der Link ging an clara.neu@schule.example." },
     ]) {
       const { unmount } = renderStrip();
       answerWith(() => Promise.resolve(answer));
@@ -380,7 +387,17 @@ describe("the address correction", () => {
     // Its own title rather than the editors' „Änderung nicht gespeichert“, which a sentence-only
     // refusal would otherwise reach through the hook's default raise.
     assert.deepEqual(titles("danger"), ["Adresse nicht korrigiert"]);
-    assert.deepEqual(titles("warning"), ["Link nicht gesendet"]);
+    assert.deepEqual(titles("warning"), [
+      "Adresse korrigiert, Link nicht verschickt",
+      "Adresse korrigiert, Link zurückgehalten",
+      "Adresse korrigiert, Link zurückgehalten",
+    ]);
+    // The server's sentence is the body at every grade (`docs/frontend/spec.md` §1.12): the action words its own failed send.
+    assert.deepEqual(warningBodies(), [
+      "Der Link ging nicht raus.",
+      "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht.",
+      ZURUECKGEHALTEN,
+    ]);
     assert.deepEqual(titles("success"), ["Adresse korrigiert"]);
   });
 });
@@ -413,10 +430,10 @@ describe("two re-sends running at once", () => {
     await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
     assert.deepEqual([send("Stellvertretung")?.textContent, send("Trainer")?.textContent], ["Sendet...", "Sendet..."]);
 
-    await settle({ success: true, message: "Der neue Link ging an bernd@schule.example." });
+    await settle({ success: true, message: "Der neue Link ging an bernd@schule.example.", versand: "gesendet" });
     await waitFor(() => assert.equal(send("Stellvertretung")?.textContent, "Link erneut senden", "a settled write left its seat held"));
     assert.equal(send("Trainer")?.textContent, "Sendet...", "the first write's answer lifted the second seat's hold");
-    await settle({ success: true, message: "Der neue Link ging an clara@schule.example." });
+    await settle({ success: true, message: "Der neue Link ging an clara@schule.example.", versand: "gesendet" });
     await waitFor(() => assert.equal(send("Trainer")?.textContent, "Link erneut senden"));
   });
 });
@@ -482,7 +499,7 @@ describe("a write whose answer never arrives", () => {
     // The second press waits for the first answer, as the held control makes the reader's own wait.
     await act(answered);
     await waitFor(() => assert.deepEqual(titles("danger"), ["Link nicht erneut gesendet"]));
-    answerWith(() => Promise.resolve({ success: true, message: "Der neue Link ging raus." }));
+    answerWith(() => Promise.resolve({ success: true, message: "Der neue Link ging raus.", versand: "gesendet" }));
     await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
     await act(answered);
 
@@ -493,6 +510,26 @@ describe("a write whose answer never arrives", () => {
     // Both answered, so a landed write came back refreshed by the action itself.
     assert.equal(seen.refresh, 0, "an answered re-send read the page a second time");
   });
+
+  /* The mint stands whichever way the send went, so a link that did not go out is a warning titled for
+     what happened, never the press's sent title. */
+  for (const [versand, title] of [
+    ["fehlgeschlagen", "Link nicht verschickt"],
+    ["gesperrt", "Link zurückgehalten"],
+    ["zurueckgehalten", "Link zurückgehalten"],
+  ] as const) {
+    it(`reports a re-sent link that is ${versand} as a warning titled „${title}“`, async () => {
+      const user = userEvent.setup();
+      answerWith(() => Promise.resolve({ success: true, message: "Der neue Link ging nicht raus.", versand: versand }));
+      renderStrip();
+
+      await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
+      await act(answered);
+
+      await waitFor(() => assert.deepEqual(titles("warning"), [title]));
+      assert.deepEqual(titles("success"), [], "a link that did not go out was announced as sent");
+    });
+  }
 
   for (const [arm, answer] of Object.entries(UNCLEAR_ARMS)) {
     it(`releases the correction and keeps the box open over its draft, ${arm}`, async () => {
@@ -668,18 +705,20 @@ describe("seating another person where one stepped out", () => {
       telefon: "069 7654321",
       text_version: publishedLaufendeFassung("bewerbung").text_version,
     });
-    await act(async () => answerPending({ success: true, verschickt: true, message: "Der Link ging an doreen@schule.example." }));
+    await act(async () => answerPending({ success: true, versand: "gesendet", message: "Der Link ging an doreen@schule.example." }));
   });
 
-  /* The seat stands filled whatever the message did, so the arm reporting a refused send must not read
-     as a person who was never seated. */
-  it("reports a refusal, a sent link and a seat filled behind a message that did not go", async () => {
+  /* The seat stands filled whatever the message did, so an arm reporting a send that did not go out must
+     not read as a person who was never seated, nor as a link that went out. */
+  it("reports a refusal, a sent link and a seat filled behind a link that did not go out", async () => {
     const user = userEvent.setup();
 
     for (const answer of [
       { success: false, error: "Die Bewerbung ist entschieden." },
-      { success: true, verschickt: false, message: "Der Link ging nicht raus." },
-      { success: true, verschickt: true, message: "Der Link ging an doreen@schule.example." },
+      { success: true, versand: "fehlgeschlagen", message: "Der Link ging nicht raus." },
+      { success: true, versand: "gesperrt", message: "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht." },
+      { success: true, versand: "zurueckgehalten", message: ZURUECKGEHALTEN },
+      { success: true, versand: "gesendet", message: "Der Link ging an doreen@schule.example." },
     ]) {
       const { unmount } = renderStrip({ stands: standsOf(claraStieAus) });
       answerWith(() => Promise.resolve(answer));
@@ -692,9 +731,18 @@ describe("seating another person where one stepped out", () => {
     }
 
     assert.deepEqual(titles("danger"), ["Rolle nicht neu besetzt"]);
-    // Its own title rather than the correction's „Link nicht gesendet“: the two outcomes differ in
-    // what stands afterwards.
-    assert.deepEqual(titles("warning"), ["Rolle besetzt, Link nicht gesendet"]);
+    // Its own titles rather than the correction's: the two outcomes differ in what stands afterwards.
+    assert.deepEqual(titles("warning"), [
+      "Rolle besetzt, Link nicht verschickt",
+      "Rolle besetzt, Link zurückgehalten",
+      "Rolle besetzt, Link zurückgehalten",
+    ]);
+    // The server's sentence is the body at every grade (`docs/frontend/spec.md` §1.12): the action words its own failed send.
+    assert.deepEqual(warningBodies(), [
+      "Der Link ging nicht raus.",
+      "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht.",
+      ZURUECKGEHALTEN,
+    ]);
     assert.deepEqual(titles("success"), ["Rolle neu besetzt"]);
   });
 });

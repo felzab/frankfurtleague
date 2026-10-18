@@ -5,66 +5,27 @@ import { getLaufendesLabel } from "@/core/einwilligung";
 import { describeLinkMail } from "@/features/schiedsrichter/notifications";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusedReplay, replayRefusal, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
+import { schlechtesterVersand } from "@/shared/utils/linkVersand";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { kontakteMayMoveLinks } from "./linkMint";
-import { einladeKontakt, eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht } from "./mutations";
+import { einladeKontakt, patchSaisonTeamKontakte } from "./mutations";
 import { describeKontaktVersand, mailKontaktLink } from "./notifications";
-import { mapEinladenRefusal, mapKontakteRefusal } from "./refusals";
-import { FLKontaktEinladenPayloadSchema, FLKontaktErasurePayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
-import { describeKontaktErasureUmfang, mitLaufenderFassung } from "./utils";
+import { KONTAKTE_REPLAY_REFUSALS, mapEinladenRefusal, mapKontakteRefusal, STALE_BLOCK_REFUSAL } from "./refusals";
+import { FLKontaktEinladenPayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
+import { mitLaufenderFassung } from "./utils";
 
 import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
-import type { ActionResult, QueryResult } from "@/shared/types/types";
+import type { ActionResult } from "@/shared/types/types";
+import type { UndoOutcome } from "@/shared/utils/adminUndo";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { KontaktVersand } from "./notifications";
-import type {
-  FLKontaktEinladenPayload,
-  FLKontaktErasureAnsichtResponse,
-  FLKontaktErasurePayload,
-  FLPatchSaisonTeamKontaktePayload,
-  FLPatchSaisonTeamKontakteResponse,
-} from "./schemas";
+import type { FLKontaktEinladenPayload, FLPatchSaisonTeamKontaktePayload, FLPatchSaisonTeamKontakteResponse } from "./schemas";
 
 /** What the editor reads off a save: the block as stored and the token an undo of it carries. */
 type KontakteGespeichert = Pick<FLPatchSaisonTeamKontakteResponse, "kontakte" | "kontakte_stand">;
-
-/**
- * Clears one contact person from every season's junction row, every application, and the log's saved
- * images of both. **Permanent, with no undo.** It refuses nothing: a person may ask to be forgotten
- * while the club they were reached for still plays.
- */
-export async function eraseKontaktpersonAction(rawPayload: FLKontaktErasurePayload): Promise<ActionResult<{ cleared?: number }>> {
-  return runAdminMutation("eraseKontaktpersonAction", { stepUp: true }, async () => {
-    const validated = FLKontaktErasurePayloadSchema.safeParse(rawPayload);
-
-    if (!validated.success) {
-      return {
-        success: false,
-        error: VALIDATION_FAILED,
-        fieldErrors: toFieldErrors(validated.error),
-      };
-    }
-
-    const erasure = await eraseKontaktperson(validated.data);
-    if (!erasure.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Kontaktdaten wurden nicht gelöscht", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
-    // No tag moves: no cached read holds a contact person.
-    // `fl_frontend/src/features/teams/queries.ts :: getTeamMemberships` is memoised per render pass
-    // and not across requests, and no public team read carries `kontakte`. The admin's own list is
-    // uncached, so no tag reaches it.
-
-    return {
-      success: true,
-      /* How much was touched, so a caller can tell an erasure from a no-op: this endpoint refuses
-         nothing, so an address matching nobody succeeds and clears zero. A count, never the address. */
-      cleared: erasure.cleared_kontakt_slots + erasure.redacted_aktionen,
-      message: describeKontaktErasureUmfang(erasure),
-    };
-  });
-}
 
 /**
  * The three seats one club holds for one season, written whole. The season's competition facts stay
@@ -75,9 +36,9 @@ export async function patchSaisonTeamKontakteAction(
   // Composed by the caller: the editor's own guard refuses a body before this is reached, and a
   // field no control renders is a block with no repair.
   rawPayload: FLPatchSaisonTeamKontaktePayload,
-  // A flag beside the sentence rather than one the caller parses: the editor grades its toast a
-  // warning on it, and the save landed either way.
-): Promise<ActionResult<{ saison_team?: KontakteGespeichert; versandSatz?: string; versandFehlgeschlagen?: boolean }>> {
+  // The send's outcome beside the sentence rather than one the caller parses: the editor grades its
+  // toast on it, and the save landed either way.
+): Promise<ActionResult<{ saison_team?: KontakteGespeichert; versandSatz?: string; versand?: LinkVersand }>> {
   return runAdminMutation("patchSaisonTeamKontakteAction", async (session) => {
     const validated = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(rawPayload);
 
@@ -117,7 +78,10 @@ export async function patchSaisonTeamKontakteAction(
       return { success: false, error: buildRefusal({ reason: "Die Kontakte wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
-    // No tag moves, for the erasure's reason above, and its list is uncached for the same reason.
+    // No tag moves: no cached read holds a contact person.
+    // `fl_frontend/src/features/teams/queries.ts :: getTeamMemberships` is memoised per render pass
+    // and not across requests, no public team read carries `kontakte`, and the admin's own list is
+    // uncached.
 
     // One message per person this save newly seated: unmailed, a minted link sits in the database
     // alone and the seat never confirms. Together, each settling its own send and never throwing.
@@ -145,8 +109,64 @@ export async function patchSaisonTeamKontakteAction(
       // Its own field rather than folded into the message: the editor hands this to the undo offer,
       // and a save that mailed nothing has no sentence to hand it.
       versandSatz: describeKontaktVersand(versendet) ?? undefined,
-      versandFehlgeschlagen: versendet.some(({ versand }) => versand === "fehlgeschlagen"),
+      versand: schlechtesterVersand(versendet.map(({ versand }) => versand)),
     };
+  });
+}
+
+/**
+ * The save's own payload, replayed: the endpoint replaces the block whole on the row its path names.
+ * The precondition beside it is the save's AFTER image, that save having moved the row past what the
+ * editor read.
+ */
+export async function undoAdminKontakteEditAction(rawPayload: FLPatchSaisonTeamKontaktePayload): Promise<UndoOutcome> {
+  return runAdminUndo("undoAdminKontakteEditAction", async (session) => {
+    const validated = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(rawPayload);
+    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
+
+    // The replay is a save, judged as the save judges one (`docs/frontend/spec.md :: I432`): undoing a
+    // first entry clears the block, and putting an earlier person back mints a link and voids one.
+    const movesLinks =
+      validated.data.kontakte !== null &&
+      !isFreshlySignedIn(session) &&
+      kontakteMayMoveLinks(await gespeicherteKontakte(validated.data), validated.data.kontakte);
+    const unconfirmed = validated.data.kontakte === null || movesLinks ? refuseUnconfirmed(session) : null;
+    if (unconfirmed !== null) return unconfirmed;
+
+    // No tag moves, as on the save: no cached read holds a contact person.
+    let operation;
+    try {
+      // The earlier people come back as new acceptances, which name the label the form runs now
+      // (`fl_frontend/src/features/kontakte/utils.ts :: mitLaufenderFassung`).
+      const kontakte =
+        validated.data.kontakte === null ? null : mitLaufenderFassung(validated.data.kontakte, await getLaufendesLabel("bewerbung"));
+      operation = await patchSaisonTeamKontakte({ ...validated.data, kontakte });
+    } catch (error) {
+      const stale = replayRefusal(error, STALE_BLOCK_REFUSAL);
+      return stale === undefined ? refusedReplay(error, KONTAKTE_REPLAY_REFUSALS) : { success: false, error: stale };
+    }
+
+    if (!operation.acknowledged) return unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten.");
+
+    // The replay puts an earlier person back on a seat, which the endpoint reads as newly seating
+    // them and mints for: unmailed, that token exists in the database alone and the seat never confirms.
+    const versendet: KontaktVersand[] = await Promise.all(
+      operation.bestaetigungen.map(async (mint) => ({
+        email: mint.email,
+        versand: await mailKontaktLink({
+          operation: "undoAdminKontakteEditAction",
+          saisonTeamId: operation.saison_team_id,
+          saisonId: operation.saison_id,
+          mint: mint,
+          anlass: "erneut",
+        }),
+      })),
+    );
+    const versandSatz = describeKontaktVersand(versendet);
+
+    // A cost either way: the undo mailed a person, which is a fact about them rather than about the
+    // rows it put back.
+    return restored(versandSatz ?? undefined);
   });
 }
 
@@ -154,7 +174,7 @@ export async function patchSaisonTeamKontakteAction(
  * A fresh link for one unconfirmed seat, the seat's earlier one opening nothing afterwards. **Always a
  * step-up write**: every call mints a bearer link.
  */
-export async function einladeKontaktAction(rawPayload: FLKontaktEinladenPayload): Promise<ActionResult<object>> {
+export async function einladeKontaktAction(rawPayload: FLKontaktEinladenPayload): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("einladeKontaktAction", { stepUp: true }, async () => {
     const validated = FLKontaktEinladenPayloadSchema.safeParse(rawPayload);
 
@@ -194,29 +214,8 @@ export async function einladeKontaktAction(rawPayload: FLKontaktEinladenPayload)
       // The address the MINT read in its own transaction, never one the page showed: a save landing
       // between the two moved the mailbox the credential was made for.
       message: describeLinkMail(mint.email, versand),
+      versand: versand,
     };
-  });
-}
-
-/**
- * Whom `eraseKontaktpersonAction` would clear, read before it runs. It refuses nothing: an address
- * matching nobody answers two empty lists rather than a failure the panel would have to word.
- */
-export async function readKontaktErasureAnsichtAction(
-  rawPayload: FLKontaktErasurePayload,
-): Promise<QueryResult<{ ansicht?: FLKontaktErasureAnsichtResponse }>> {
-  return runAdminMutation("readKontaktErasureAnsichtAction", async () => {
-    const validated = FLKontaktErasurePayloadSchema.safeParse(rawPayload);
-
-    if (!validated.success) {
-      return {
-        success: false,
-        error: VALIDATION_FAILED,
-        fieldErrors: toFieldErrors(validated.error),
-      };
-    }
-
-    return { success: true, ansicht: await readKontaktErasureAnsicht(validated.data) };
   });
 }
 

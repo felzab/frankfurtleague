@@ -26,7 +26,7 @@ from app.api.spieler.schemas import (
     FLSpielerSingleResponse,
     FLSpielerSortOptions,
 )
-from app.api.spieler.services import build_spieler_memberships_pipeline, build_spieler_pipeline, public_initial
+from app.api.spieler.services import build_real_spieler_filter, build_spieler_memberships_pipeline, build_spieler_pipeline, public_initial
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
@@ -293,7 +293,8 @@ class TestTheProjection:
         """`READ-SQUAD-001`: the only retirement match is the lookup's. One here would take a retired person's squad rows down with them."""
         matches = [stage["$match"] for stage in build_spieler_pipeline(_filters()) if "$match" in stage]
 
-        assert matches == []
+        # The sentinel's exclusion alone, which narrows by id and never by a retirement.
+        assert matches == [build_real_spieler_filter()]
 
     def test_the_squad_row_s_retirement_narrows_unconditionally(self):
         """The other half, with no switch: this tier serves no field marking a row it would un-hide (`READ-SQUAD-002`)."""
@@ -311,7 +312,7 @@ class TestTheSeasonsThisTierMayNotRead:
         """A `$match` after the join would leave the row attached, and the loose `$unwind` above serves a person with no row at all."""
         pipeline = build_spieler_pipeline(FLSpielerFilterParams(), [WITHHELD_SAISON])
 
-        assert [stage for stage in pipeline if "$match" in stage] == []
+        assert [stage["$match"] for stage in pipeline if "$match" in stage] == [build_real_spieler_filter()]
 
     def test_it_narrows_ahead_of_nothing_the_row_carries(self):
         """Last of the junction's terms: the season is the one narrowing that costs a comparison per id, so the cheap equalities go first."""

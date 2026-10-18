@@ -3,9 +3,11 @@ import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { pathToFileURL } from "node:url";
 
 import { asDataUrl, registerDoubles, replacingModule } from "./exportingModule.ts";
 import { assertEveryTokenIsRead, schemeTokens } from "./schemeReader.ts";
+import { filesUnder } from "./treeWalk.ts";
 
 import type * as EmailShell from "./emailShell.ts";
 
@@ -50,8 +52,10 @@ const {
   buildBewerbungZusageEmail,
 } = await import("./bewerbungEmail.ts");
 const { buildCodeEmail } = await import("./authEmail.ts");
+const { buildBerechtigungEmail } = await import("./berechtigungEmail.ts");
 const { buildEinladungEmail } = await import("./einladungEmail.ts");
 const { buildKontaktBestaetigungEmail } = await import("./kontaktEmail.ts");
+const { buildLoeschungEmail } = await import("./loeschungEmail.ts");
 const { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } = await import("./passkeyEmail.ts");
 const {
   buildRegistrierungAbsageEmail,
@@ -62,6 +66,7 @@ const {
 const { buildSchiedsrichterAdresswechselEmail, buildSchiedsrichterAdresswechselHinweisEmail, buildSchiedsrichterBestaetigungEmail } =
   await import("./schiedsrichterEmail.ts");
 const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
+const { buildSpielerAdresswechselEmail, buildSpielerAdresswechselHinweisEmail } = await import("./spielerEmail.ts");
 const { art21Satz, escapeHtml, FALLBACK_SATZ, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
 const { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
 
@@ -94,19 +99,19 @@ function controlSection(html: string): string {
 }
 
 /**
+ * Every mail module beside this file, each `*Email.ts` building on the shell: read off the directory,
+ * so a module written tomorrow joins the register below without anyone listing it.
+ */
+const MAIL_MODULES = filesUnder(import.meta.dirname, (name) => name.endsWith("Email.ts"), 1).filter((file) =>
+  /from "\.\/emailShell(\.ts)?"/.test(readFileSync(file, "utf8")),
+);
+
+/**
  * Every builder the mail modules export, read off the module namespace rather than matched in
  * their source: a name no pattern anticipates would drop out of both sides of the register at once.
  */
-const BUILT_MESSAGES = [
-  ...Object.keys(await import("./bewerbungEmail.ts")),
-  ...Object.keys(await import("./authEmail.ts")),
-  ...Object.keys(await import("./einladungEmail.ts")),
-  ...Object.keys(await import("./kontaktEmail.ts")),
-  ...Object.keys(await import("./passkeyEmail.ts")),
-  ...Object.keys(await import("./registrierungEmail.ts")),
-  ...Object.keys(await import("./schiedsrichterEmail.ts")),
-  ...Object.keys(await import("./sperrlisteEmail.ts")),
-]
+const BUILT_MESSAGES = (await Promise.all(MAIL_MODULES.map(async (file) => Object.keys(await import(pathToFileURL(file).href)))))
+  .flat()
   .filter((name) => name.startsWith("build"))
   .sort();
 
@@ -115,7 +120,8 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
   buildBewerbungZusageEmail: (origin) =>
     buildBewerbungZusageEmail({
       teamName: "Ernst-Reuter-Schule",
-      saisonId: "2627",
+      // The season whose acceptance carries paragraphs of its own, so every sweep below reads the whole body.
+      saisonId: "2027",
       origin: origin,
       rollenText: "Ansprechperson",
       gruppe: "B",
@@ -186,7 +192,6 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
   buildKontaktBestaetigungEmail: (origin) =>
     buildKontaktBestaetigungEmail({
       origin: origin,
-      vorname: "Erika",
       rollenText: "Ansprechperson",
       schule: "Ernst-Reuter-Schule",
       saisonId: "2627",
@@ -195,13 +200,13 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       zeile: "offen",
     }),
   buildCodeEmail: (origin) => buildCodeEmail("048213", origin),
+  buildLoeschungEmail: (origin) => buildLoeschungEmail({ origin: origin, token: "beispiel-sieben" }),
   buildPasskeyHinzugefuegtEmail: (origin) =>
     buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date("2026-01-15T22:30:00Z"), origin: origin, konto: "/bereich/konto" }),
   buildPasskeyGeloeschtEmail: (origin) =>
     buildPasskeyGeloeschtEmail({ zeitpunkt: new Date("2026-01-15T22:30:00Z"), origin: origin, konto: "/bereich/konto" }),
   buildRegistrierungBestaetigungEmail: (origin) =>
     buildRegistrierungBestaetigungEmail({
-      vorname: "Mira",
       teamName: "Ernst-Reuter-Schule",
       saisonId: "2627",
       origin: origin,
@@ -212,7 +217,6 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
     }),
   buildRegistrierungErinnerungEmail: (origin) =>
     buildRegistrierungErinnerungEmail({
-      vorname: "Mira",
       teamName: "Ernst-Reuter-Schule",
       saisonId: "2627",
       origin: origin,
@@ -230,12 +234,21 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       grund: "andere_person",
     }),
   buildSchiedsrichterBestaetigungEmail: (origin) =>
-    buildSchiedsrichterBestaetigungEmail({ origin: origin, vorname: "Anna", token: "beispiel-fuenf", fristText: "05.10.2026" }),
+    buildSchiedsrichterBestaetigungEmail({ origin: origin, token: "beispiel-fuenf", fristText: "05.10.2026" }),
   buildSchiedsrichterAdresswechselEmail: (origin) =>
-    buildSchiedsrichterAdresswechselEmail({ origin: origin, vorname: "Anna", token: "beispiel-sechs", fristText: "05.10.2026" }),
+    buildSchiedsrichterAdresswechselEmail({ origin: origin, token: "beispiel-sechs", fristText: "05.10.2026" }),
   buildSchiedsrichterAdresswechselHinweisEmail: (origin) => buildSchiedsrichterAdresswechselHinweisEmail({ origin: origin, vorname: "Anna" }),
   buildSperreEmail: (origin) =>
     buildSperreEmail({ grund: "Falsches Geburtsdatum bei der Anmeldung", gesperrtBisSaisonId: "2031", origin: origin }),
+  buildSpielerAdresswechselEmail: (origin) =>
+    buildSpielerAdresswechselEmail({ origin: origin, token: "beispiel-sieben", fristText: "05.10.2026" }),
+  buildSpielerAdresswechselHinweisEmail: (origin) => buildSpielerAdresswechselHinweisEmail({ origin: origin, vorname: "Lena" }),
+  buildBerechtigungEmail: (origin) =>
+    buildBerechtigungEmail(
+      { art: "erteilt", adresse: "neu@schule.de", inhaber: false },
+      { von: "vorstand@schule.de", am: "2026-01-15T22:30:00Z" },
+      origin,
+    ),
 };
 
 /** Every message the mail modules build, so a design claim is checked against all of them rather than against one. */
@@ -579,6 +592,7 @@ describe("the shared email shell", () => {
       "buildRegistrierungBestaetigungEmail",
       "buildSchiedsrichterAdresswechselEmail",
       "buildSchiedsrichterBestaetigungEmail",
+      "buildSpielerAdresswechselEmail",
     ]) {
       assert.ok(gedruckt.has(name), `${name} carries no token link on a control, so this case no longer reads it`);
     }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import Envelope from "@gravity-ui/icons/Envelope";
 
+import { TEAMS_EINTRAG } from "@/features/admin/constants";
 import { postEinladungVersandAction, previewEinladungVersandAction } from "@/features/einladungen/actions";
 import { gesperrtSatz, ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -22,9 +23,13 @@ import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite, unansweredRead } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { nichtHinterlegt } from "@/shared/utils/format";
+import { schlechtesterVersand, versandGrad } from "@/shared/utils/linkVersand";
+import { meldeLinkVersand, REGISTRIERUNGSLINK_TITEL } from "@/shared/utils/linkVersandToast";
 
 import type { FLEinladungVersandGrund, FLEinladungVersandVorschauZeile } from "@/features/einladungen/schemas";
 import type { EinladungVersandErgebnis } from "@/features/einladungen/types";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
+import type { VersandTitel } from "@/shared/utils/linkVersandToast";
 
 /** The ruling's own words, copied rather than reworded: a label a visitor navigates by is nobody's here to choose. */
 const SENDEN_LABEL = "Links an alle Teams senden";
@@ -53,7 +58,7 @@ const UEBERSPRUNGEN_SATZ: Record<FLEinladungVersandGrund, string> = {
  * What the one failure leaves standing, said in the row rather than in a toast that goes: the team's
  * transaction rolled back whole, so nothing was sent.
  */
-const FEHLGESCHLAGEN_FOLGE = "Ein neuer Versand versucht es noch einmal.";
+const FEHLGESCHLAGEN_FOLGE = "Ein neuer Versand versucht es erneut.";
 
 /** Only beside a link the press found, which the rollback left opening: a team that held none must not read about one. */
 const FEHLGESCHLAGEN_BISHERIGER = "Der bisherige Link dieses Teams gilt weiter.";
@@ -98,10 +103,26 @@ function zustellSatz(zeile: EinladungVersandErgebnis): string {
   // Ahead of the count, because outside production it is EVERY row: a deployment that sends nothing
   // is not a team the league failed to reach, and grading it as one teaches a reader to ignore red.
   if (versucht > 0 && zeile.zurueckgehalten.length === versucht) return ZURUECKGEHALTEN;
-  if (zeile.zugestellt.length === 0) return "Nicht zugestellt";
+  if (zeile.zugestellt.length === 0) return "Nicht verschickt";
   if (zeile.zugestellt.length < gesamt) return `Gesendet: ${String(zeile.zugestellt.length)} von ${String(gesamt)}`;
 
   return gesamt === 1 ? "An die Adresse gesendet" : `An alle ${String(gesamt)} Adressen gesendet`;
+}
+
+/**
+ * One press writes to many teams, so the title says whose grade it is: one team's in its own press's words, every team's,
+ * or some teams' where a link went beside one that did not.
+ */
+function registrierungslinksTitel(versendet: readonly LinkVersand[]): VersandTitel {
+  if (versendet.length === 1) return REGISTRIERUNGSLINK_TITEL;
+
+  const teils = versendet.some((versand) => versandGrad(versand) === "gesendet");
+
+  return {
+    gesendet: "Registrierungslinks gesendet",
+    fehlgeschlagen: teils ? "Registrierungslinks teils nicht verschickt" : "Registrierungslinks nicht verschickt",
+    abgelegt: teils ? "Registrierungslinks teils zurückgehalten" : "Registrierungslinks zurückgehalten",
+  };
 }
 
 /**
@@ -157,7 +178,13 @@ export function FormEinladungVersandSection({
       // Dropped rather than kept: the rows it held were true before this write, and the skips it
       // listed have just moved.
       setVorschau(null);
-      appToast.success("Registrierungslinks gesendet", { description: res.message });
+      // Graded by the worst team this press meant to write to; none at all is no grade, only a fact.
+      const versand = schlechtesterVersand(res.versendet);
+      if (versand === undefined)
+        appToast.info(res.zeilen.length === 1 ? "Kein Registrierungslink gesendet" : "Keine Registrierungslinks gesendet", {
+          description: res.message,
+        });
+      else meldeLinkVersand(versand, registrierungslinksTitel(res.versendet), res.message);
     });
   };
 
@@ -259,7 +286,7 @@ export function FormEinladungVersandSection({
               <Callout
                 severity="info"
                 title="Diese Saison hat noch kein Team aufgenommen">
-                Nimm die Teams über die Teamseite in die Saison auf.
+                Nimm die Teams unter „{TEAMS_EINTRAG.label}“ in die Saison auf.
               </Callout>
             )}
 

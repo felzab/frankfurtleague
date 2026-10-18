@@ -15,7 +15,7 @@ import { formatSpielDatum } from "@/shared/utils/format.ts";
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
 import { mapAlreadyEnteredRefusal, mapCreatedClubEntryRefusal, mapEntryRefusal, mapReplacementRefusal } from "../teams/refusals.ts";
-import { BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
+import { ADRESSE_KORRIGIEREN, BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
 import { FLAblehnenBewerbungPayloadSchema, FLBewerbungSchema } from "./schemas.ts";
 
@@ -317,6 +317,12 @@ const MINTS: readonly string[] = [ERNEUT_PATH, KORREKTUR_PATH, SITZ_PATH];
 /** The application read as the page drew it, with the deadline a seat's link stood under before any repair. */
 const VOR_DER_REPARATUR = { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: "2026-09-01" } };
 
+/** The correction's and the reseat's sentence where their link did not go out, which the strip shows as it stands. */
+const KORREKTUR_OHNE_LINK =
+  "Die Adresse ist korrigiert, aber die E-Mail mit dem neuen Link ging nicht raus, und der alte Link gilt nicht mehr. Schicke den Link erneut.";
+const BESETZUNG_OHNE_LINK =
+  "Die Person steht jetzt in der Bewerbung, aber die E-Mail mit ihrem Bestätigungslink ging nicht raus. Schicke den Link erneut.";
+
 /**
  * The application read, answering `before` until a repair's write has landed and `after` from then
  * on, an `Error` as a read that failed: the message is composed from the read that follows the write.
@@ -471,7 +477,7 @@ describe("the message that follows a decision", () => {
       const result = await press();
 
       assert.equal(result.success, true, `${where} fails the whole decision over a message it could not send`);
-      assert.match(answerOf(result), new RegExp(`Die ${betreff} konnte niemandem zugestellt werden`), `${where} drops the delivery report`);
+      assert.match(answerOf(result), new RegExp(`Die ${betreff} konnte an niemanden verschickt werden`), `${where} drops the delivery report`);
     }
   });
 
@@ -772,7 +778,7 @@ describe("the re-sent confirmation link", () => {
   it("words a barred address with the control the administrator can use from the button", () => {
     const answered = mapEinwilligungErneutRefusal(refusedOn(ERNEUT_OPERATION, "REQ-BEWERBUNG-019", 409));
 
-    assert.match(String(answered), /Adresse korrigieren/);
+    assert.ok(String(answered).includes(`„${ADRESSE_KORRIGIEREN}“`), "the sentence names a control the strip does not label so");
     assert.doesNotMatch(String(answered), /Trage eine andere Adresse ein/);
   });
 
@@ -869,7 +875,7 @@ describe("the re-sent confirmation link", () => {
     answerMailWith(() => "refused");
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     answerWith(() => Promise.resolve(erneutGeschrieben()));
-    const unsent = errorOf(await einwilligungErneutSendenAction(ERNEUT));
+    const unsent = answerOf(await einwilligungErneutSendenAction(ERNEUT));
 
     const saetze = [...unsendable, unsent].map(comparable);
 
@@ -880,18 +886,18 @@ describe("the re-sent confirmation link", () => {
     assert.equal(new Set(saetze).size, saetze.length, "two of the re-send's answers say the same thing");
   });
 
-  /* A success title over a message that never went out leaves an administrator waiting on an answer
-     to a link that reached nobody, while the seat's previous one is spent. */
-  it("answers a message that did not go out as a failure, naming what the press cost", async () => {
+  /* The mint stands, so the press landed: a link that never went out is reported as failed, never as
+     sent, and the sentence says what the press cost while the seat's previous link is spent. */
+  it("reports a message that did not go out as a failed send, naming what the press cost", async () => {
     answerMailWith(() => "refused");
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     answerWith(() => Promise.resolve(erneutGeschrieben()));
 
     const result = await einwilligungErneutSendenAction(ERNEUT);
 
-    assert.equal(result.success, false, "a refused send is still reported as a link on its way");
-    assert.match(errorOf(result), /Der alte Link gilt nicht mehr/, "the failure does not say the previous link is spent");
-    assert.match(errorOf(result), /Versuche es erneut/, "the failure names no way out");
+    assert.equal(result.success && result.versand, "fehlgeschlagen", "a refused send is still reported as a link on its way");
+    assert.match(answerOf(result), /Der alte Link gilt nicht mehr/, "the report does not say the previous link is spent");
+    assert.match(answerOf(result), /Versuche es erneut/, "the report names no way out");
   });
 
   /* A link whose connection broke off may have reached the provider: the re-send's own reading is a
@@ -904,7 +910,7 @@ describe("the re-sent confirmation link", () => {
     assert.deepEqual(await einwilligungErneutSendenAction(ERNEUT), outcomeUnknown());
   });
 
-  /* Outside production every send is withheld, and a refusal there offers a retry no repeat of the
+  /* Outside production every send is withheld, and a failure there offers a retry no repeat of the
      press can reach. */
   it("answers a message this deployment withheld as the deployment's, not as a failure", async () => {
     answerMailWith(() => "withheld");
@@ -913,10 +919,10 @@ describe("the re-sent confirmation link", () => {
 
     const result = await einwilligungErneutSendenAction(ERNEUT);
 
-    assert.deepEqual(result, { success: true, message: ZURUECKGEHALTEN });
+    assert.deepEqual(result, { success: true, message: ZURUECKGEHALTEN, versand: "zurueckgehalten" });
   });
 
-  /* A retry meets the same ban, so a refusal would offer one no repeat can reach; and the answer
+  /* A retry meets the same ban, so a failure would offer one no repeat can reach; and the answer
      names no address (`docs/frontend/spec.md :: I542`). */
   it("answers a link the ban list kept from its address as no failure, naming nobody", async () => {
     answerMailWith(() => "barred");
@@ -925,18 +931,22 @@ describe("the re-sent confirmation link", () => {
 
     const result = await einwilligungErneutSendenAction(ERNEUT);
 
-    assert.deepEqual(result, { success: true, message: "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht." });
+    assert.deepEqual(result, {
+      success: true,
+      message: "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht.",
+      versand: "gesperrt",
+    });
   });
 
-  /* The spine leaves a refusal standing, and a message that did not go leaves the mint standing: the
-     seat's old link is spent and its deadline moved, which the page shows. */
+  /* A message that did not go leaves the mint standing: the seat's old link is spent and its deadline
+     moved, which the page shows. */
   it("refreshes the page after a re-send whose message did not go", async () => {
     readAcrossTheWrite(VOR_DER_REPARATUR, null);
     answerWith(() => Promise.resolve(erneutGeschrieben()));
 
     const result = await einwilligungErneutSendenAction(ERNEUT);
 
-    assert.equal(result.success, false, "the message went, so the refresh below is judged on nothing");
+    assert.equal(result.success && result.versand, "fehlgeschlagen", "the message went, so the refresh below is judged on nothing");
     assert.equal(cacheCalls.filter(({ name }) => name === "refresh").length, 1, "the page keeps a link the mint has already spent");
   });
 
@@ -1082,8 +1092,9 @@ describe("the corrected contact address", () => {
     const result = await kontaktEmailKorrigierenAction(KORREKTUR);
 
     assert.equal(result.success, true, "a refused send reports the correction as one that did not happen");
-    assert.equal(result.success ? result.verschickt : undefined, false, "a refused send reports a link on its way");
-    assert.match(answerOf(result), /Der alte Link gilt nicht mehr/, "the report does not say the previous link is spent");
+    assert.equal(result.success ? result.versand : undefined, "fehlgeschlagen", "a refused send reports a link on its way");
+    // Its own words, sending the administrator to the re-send: a second correction over the moved row is refused.
+    assert.equal(answerOf(result), KORREKTUR_OHNE_LINK, "the report is not the correction's own");
   });
 
   /* The send throws where the write it follows answered no deadline, and `runAdminMutation` turns a
@@ -1096,8 +1107,8 @@ describe("the corrected contact address", () => {
     const result = await kontaktEmailKorrigierenAction(KORREKTUR);
 
     assert.equal(result.success, true, "a throw from the send escapes the correction as a write that did not happen");
-    assert.equal(result.success ? result.verschickt : undefined, false);
-    assert.match(answerOf(result), /Der alte Link gilt nicht mehr/, "the caught throw answers with something other than no link sent");
+    assert.equal(result.success ? result.versand : undefined, "fehlgeschlagen");
+    assert.equal(answerOf(result), KORREKTUR_OHNE_LINK, "the caught throw answers with something other than no link sent");
   });
 
   /* One press writes every seat the person holds (`fl_frontend/src/features/bewerbungen/bestaetigungStand.ts :: gepaarteSitze`), so
@@ -1211,8 +1222,9 @@ describe("the person seated where one stepped out", () => {
       ["a refused send", refused],
     ] as const) {
       assert.equal(result.success, true, `${how} reports the seat as one that was never filled`);
-      assert.equal(result.success ? result.verschickt : undefined, false, `${how} reports a link on its way`);
-      assert.match(answerOf(result), /Der alte Link gilt nicht mehr/, `${how} is reported as something other than no link sent`);
+      assert.equal(result.success ? result.versand : undefined, "fehlgeschlagen", `${how} reports a link on its way`);
+      // Its own words, sending the administrator to the re-send: a second reseat over the filled seat is refused.
+      assert.equal(answerOf(result), BESETZUNG_OHNE_LINK, `${how} is reported as something other than the reseat's own`);
     }
   });
 
@@ -1223,4 +1235,39 @@ describe("the person seated where one stepped out", () => {
     assert.equal((await besetzeKontaktSitzAction(SITZ)).success, true, "the reseat never landed, so its tags are judged on nothing");
     assert.deepEqual(cacheCalls, REFRESH_ALONE, "the reseat clears a cached read its endpoint does not move");
   });
+});
+
+/* The three repairs share one send, and a failure line naming another press sends whoever reads the
+   stream to the wrong action. */
+describe("the failure lines of the three repairs' shared send", () => {
+  const REPAIRS = [
+    { operation: "einwilligungErneutSendenAction", press: () => einwilligungErneutSendenAction(ERNEUT), wrote: erneutGeschrieben },
+    { operation: "kontaktEmailKorrigierenAction", press: () => kontaktEmailKorrigierenAction(KORREKTUR), wrote: korrigiert },
+    { operation: "besetzeKontaktSitzAction", press: () => besetzeKontaktSitzAction(SITZ), wrote: besetzt },
+  ] as const;
+
+  /** The operation each `bewerbung.mail_failed` line of the case names. */
+  const failedUnder = (): unknown[] =>
+    logged.filter(([line]) => line === "bewerbung.mail_failed").map(([, , fields]) => (fields as { operation?: unknown }).operation);
+
+  for (const { operation, press, wrote } of REPAIRS) {
+    it(`names ${operation} where its message was refused`, async () => {
+      answerMailWith(() => "refused");
+      readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+      answerWith(() => Promise.resolve(wrote()));
+
+      await press();
+
+      assert.deepEqual(failedUnder(), [operation], "the refused send logs under another press");
+    });
+
+    it(`names ${operation} where the read after its write failed`, async () => {
+      readAcrossTheWrite(VOR_DER_REPARATUR, new Error("the read after the write answered nothing"));
+      answerWith(() => Promise.resolve(wrote()));
+
+      await press();
+
+      assert.deepEqual(failedUnder(), [operation], "the failed read logs under another press");
+    });
+  }
 });

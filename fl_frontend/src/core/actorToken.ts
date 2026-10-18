@@ -25,7 +25,7 @@ const ACTOR_TOKEN_AUDIENCE = "fl-backend";
 const ACTOR_TOKEN_LIFETIME_S = 60;
 
 /** The private key, and the RFC 7638 thumbprint of its public half, which the backend matches `kid` to. */
-export type SigningKey = { readonly key: KeyObject; readonly kid: string };
+type SigningKey = { readonly key: KeyObject; readonly kid: string };
 
 /** As much of a served session as the token states. */
 export type ActorSource = {
@@ -34,7 +34,7 @@ export type ActorSource = {
 };
 
 /** The claims beside the registered ones, spelled as the backend reads them. */
-export type ActorClaims = {
+type ActorClaims = {
   readonly sub: string;
   readonly email: string;
   readonly sid: string;

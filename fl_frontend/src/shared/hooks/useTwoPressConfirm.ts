@@ -43,9 +43,9 @@ type TwoPressOptions = {
  * arming panel shares it, so no two drift apart.
  */
 export function useTwoPressConfirm({ guard, stepUp = false }: TwoPressOptions = {}): TwoPressConfirm {
-  // Whether the arming asked for the passkey, `null` at rest: one cell, so a render never reads the
-  // arming without the label it armed on.
-  const [armed, setArmed] = useState<{ readonly asksPasskey: boolean } | null>(null);
+  // The arming's verdict on both windows, `null` at rest: one cell, so a render never reads the arming
+  // without its label. Both, since a panel may learn its demand after arming, from a read the arming started.
+  const [armed, setArmed] = useState<{ readonly stepUp: boolean; readonly enrolment: boolean } | null>(null);
   const [isPending, startWriting] = useTransition();
   const gate = useStepUp();
   // A ref, not state: the timestamp decides inside the handler and renders nothing.
@@ -76,7 +76,7 @@ export function useTwoPressConfirm({ guard, stepUp = false }: TwoPressOptions = 
 
     if (!isConfirming) {
       armedAt.current = Date.now();
-      setArmed({ asksPasskey: gate.isDue(stepUp) });
+      setArmed({ stepUp: gate.isDue(true), enrolment: gate.isDue("enrolment") });
       return;
     }
 
@@ -113,12 +113,13 @@ export function useTwoPressConfirm({ guard, stepUp = false }: TwoPressOptions = 
   };
 
   const passkeyRefused = isConfirming && gate.refused;
+  const armedAsks = armed === null || stepUp === false ? false : stepUp === "enrolment" ? armed.enrolment : armed.stepUp;
 
   return {
     isConfirming,
     // Pending while the prompt is open too, which holds the press and the cancel as a write does.
     isPending: isPending || gate.isPrompting,
-    asksPasskey: (armed?.asksPasskey ?? false) || passkeyRefused,
+    asksPasskey: armedAsks || passkeyRefused,
     isPrompting: gate.isPrompting,
     passkeyRefused,
     press,

@@ -4,6 +4,7 @@ import At from "@gravity-ui/icons/At";
 import CircleInfo from "@gravity-ui/icons/CircleInfo";
 import Eye from "@gravity-ui/icons/Eye";
 
+import { ABOUT_TITEL, KONTAKT_TITEL } from "@/core/seitenNamen";
 import { BewerbungForm } from "@/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm";
 import { BewerbungInstagramBand } from "@/features/bewerbungen/components/ui/BewerbungInstagramBand";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
@@ -19,7 +20,7 @@ import type { FLBewerbungFensterResponse } from "@/features/bewerbungen/schemas"
 import type { FLTrikotFarbe } from "@/features/teams/schemas";
 
 /** Where a school goes when this page cannot take its application, whatever closed it. */
-const ZUM_KONTAKT = { href: "/kontakt", label: "Zum Kontakt" };
+const ZUM_KONTAKT = { href: "/kontakt", label: KONTAKT_TITEL };
 
 /**
  * The rest of the site, from a page reached cold. `/dashboard` carries no `?saison_id=` and redirects
@@ -27,8 +28,8 @@ const ZUM_KONTAKT = { href: "/kontakt", label: "Zum Kontakt" };
  * season, not the nav's „Saisonübersicht“.
  */
 const KOPF_LINKS = [
-  { href: "/about", label: "About", anlass: "Mehr erfahren", Icon: CircleInfo },
-  { href: "/kontakt", label: "Kontakt", anlass: "Bei Fragen", Icon: At },
+  { href: "/about", label: ABOUT_TITEL, anlass: "Mehr erfahren", Icon: CircleInfo },
+  { href: "/kontakt", label: KONTAKT_TITEL, anlass: "Bei Fragen", Icon: At },
   { href: "/dashboard", label: "Laufende Saison", anlass: "Zum Mitfiebern", Icon: Eye },
 ] as const;
 
