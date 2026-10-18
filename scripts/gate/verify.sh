@@ -1243,6 +1243,9 @@ rule: docs/ops/spec.md I1, I174, I355, I18, I429, I430, I471, I472, I507, I508 o
     fi
     # The config mounts are docker-compose.yml's, so a file dropped into `nginx/prod/` is parsed here
     # as the server would load it.
+
+    # No `--add-host`: nginx resolves a literal upstream as it loads, so this parse refuses one naming
+    # `frontend` or `backend` (`docs/ops/spec.md :: I9`), and a host entry for either would pass it.
     MSYS_NO_PATHCONV=1 quietly docker run --rm --pull never \
       -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
       -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
@@ -1413,7 +1416,7 @@ Re-run without \`-n auto --dist loadfile --maxprocesses ${GATE_WIDTH_DB_PYTEST}\
   case "$FRONTEND_DB_RC" in
     0) ;;
     1) die "fl_frontend db-tier tests failed.
-testcontainers starts and removes the mongo release \`fl_backend/tests/conftest.py :: MONGO_IMAGE\` pins itself; a failure here is the code, not the daemon." ;;
+testcontainers starts and removes the mongo \`fl_backend/tests/conftest.py :: MONGO_IMAGE\` pins itself; a failure here is the code, not the daemon." ;;
     130) on_interrupt ;;
     *) on_error "$FRONTEND_DB_RC" "${LINENO}" "pnpm run test:db" ;;
   esac
