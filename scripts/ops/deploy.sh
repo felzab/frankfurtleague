@@ -655,8 +655,8 @@ answered badly." ;;
 # would leave the pair stopped, `restart: unless-stopped` never restarting a container `stop` stopped.
 restart_on_exit() {
   if (( ! ${#STOPPED_SERVICES[@]} )); then return 0; fi
-  # Best effort to its last line: after a hangup every line printed fails, and `set -e` or the error
-  # trap would end this at the first, before the `start`.
+  # Best effort to its last line: a write that fails, every one after a hangup or stdout's on a full
+  # disk, would otherwise end this before the `start`, through `set -e` or the error trap.
   set +e
   trap - ERR
   info "putting back the containers this run stopped for its copy"
