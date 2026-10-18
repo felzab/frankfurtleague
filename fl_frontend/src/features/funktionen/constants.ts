@@ -123,20 +123,23 @@ export const TEAM_SHELL_REFUSAL = {
   },
 } as const satisfies { label: string; hint: SidemenuHint };
 
+/** The team area's landing, named so a reader of it never depends on where the list below places it. */
+export const TEAM_LANDING_ENTRY = {
+  // The prefix itself: the team and season are the address, and the landing is the panel's start.
+  id: "",
+  label: "Übersicht",
+  iconName: "House",
+  hint: {
+    lead: "Dein Team in dieser Saison, Deine Funktion darin und wer die anderen Funktionen hat.",
+  },
+} as const satisfies SidemenuStructureSubOption<TeamIconName>;
+
 /**
  * Every entry the team shell can list, in the order it lists them. A page arriving later is a row here
  * and nothing more: every seat reaches every entry, so no row carries a seat rule.
  */
 export const TEAM_SIDEMENU_ENTRIES = [
-  {
-    // The prefix itself: the team and season are the address, and the landing is the panel's start.
-    id: "",
-    label: "Übersicht",
-    iconName: "House",
-    hint: {
-      lead: "Dein Team in dieser Saison, Deine Funktion darin und wer die anderen Funktionen hat.",
-    },
-  },
+  TEAM_LANDING_ENTRY,
   {
     id: "kader",
     label: "Kader",

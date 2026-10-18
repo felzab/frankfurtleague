@@ -23,6 +23,7 @@ registerRenderingNothing(/\/src\/features\/[a-z]+\/components\/(?:views|forms)\/
    (`docs/frontend/spec.md` §1.9). */
 const { StatusPanel } = await import("@/shared/components/ui/StatusPanel.tsx");
 const { ShellSaisonQueryProvider } = await import("@/shared/components/layout/shell/ShellSaisonQuery.tsx");
+const { TEAM_SIDEMENU_ENTRIES } = await import("@/features/funktionen/constants.ts");
 /* Behind the harness too: Next's resolver requires `server-only` as it evaluates, which only
    `renderTest.ts`'s resolve hook answers with the package's empty build. */
 const { accumulateMetadata } = await import("next/dist/lib/metadata/resolve-metadata.js");
@@ -484,6 +485,23 @@ describe("where each 404 sends the reader", () => {
       "/bereich/team/probe-team_id/2425",
       "/bereich",
     ]);
+  });
+
+  /* The team area's way out is built from the address, so no guard over typed names reads its label.
+     The expected name is the entry the link's target is listed under, never one taken by position. */
+  it("names the team area's way out as the team shell names the page it leads to", () => {
+    const team = path.join(APP_DIR, "bereich", "team", "[team_id]", "[saison_id]");
+    const markup = MARKUP.get(path.join(team, "not-found.tsx")) ?? "";
+    const links = [...markup.matchAll(/<a [^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g)];
+
+    assert.equal(links.length, 1, `${prefixOf(team)}'s boundary renders other than one way out`);
+    for (const [, href = "", label] of links) {
+      const below = (href.split(/[?#]/)[0] ?? "").slice(prefixOf(team).length).replace(/^\//, "");
+      const entry = TEAM_SIDEMENU_ENTRIES.find((eintrag) => eintrag.id === below);
+
+      assert.ok(entry !== undefined, `${href} leads to no page the team shell lists`);
+      assert.equal(label, entry.label, `the way out to ${href} is not named as the team shell names that page`);
+    }
   });
 
   /* A shell keeping the season in the query reads it off the live url, so a way out dropping it
