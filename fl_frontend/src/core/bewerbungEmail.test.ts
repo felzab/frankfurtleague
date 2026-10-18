@@ -769,9 +769,9 @@ describe("both decisions", () => {
     assert.ok(cases.length > 0, "no interpolated field was found at all, so this test proves nothing");
     for (const { field, mail, footer } of cases) {
       assert.equal([...mail.text.matchAll(/^-- $/gm)].length, 1, `${field} stands as a second signature delimiter`);
-      /* Content survival, which is what stuffing buys. A field folded onto one line
-         (`renderText :: zeile`) has no line left to stuff, so the guarantee is the value still being
-         there — the count above proves the stacked field's line WAS stuffed. */
+      /* A folded field (`renderText :: zeile`) keeps no line of its own and `eingerueckt` moves the
+         stacked reason's lines off column 0, so the stuffing never sees a delimiter line here: the
+         value's survival is what holds. */
       assert.ok(
         mail.text.includes("Erste Zeile") && mail.text.includes("Zweite Zeile"),
         `${field}'s value was dropped rather than carried, so the reader loses it`,
@@ -1526,7 +1526,8 @@ describe("the confirmation workflow's messages", () => {
   });
 
   /* A client folding at a value's own delimiter line hides every line below it, the whole close
-     included. Stuffing is what keeps the value AND the footer. */
+     included. Each value here is folded into a line of prose or a label; the stuffing's own case is
+     the link's, below. */
   it("keep every value they interpolate from opening a second signature block", () => {
     const cases = [
       {
@@ -1556,6 +1557,21 @@ describe("the confirmation workflow's messages", () => {
       assert.ok(mail.text.includes("Erste Zeile") && mail.text.includes("Zweite Zeile"), `${field}'s value was dropped rather than carried`);
       assert.ok(mail.text.endsWith(`\n${textFooter(empfaenger)}`), `${field} pushed the footer out of the close`);
       assert.ok(readable(mail.html).includes("Zweite Zeile"), `${field} lost the line below its delimiter in the markup`);
+    }
+  });
+
+  /* A seat's link stands alone on its line, so one reading „-- “ survives the fold as a delimiter
+     line: the stuffing in `renderText` is all that keeps it from opening a second signature block. */
+  it("keep a link they are handed from opening a second signature block", () => {
+    const seats = [{ ...ERIKA, link: "-- " }] as const;
+
+    for (const [name, mail] of [
+      ["Bestätigung", buildBewerbungBestaetigungEmail({ ...BESTAETIGUNG, seats })],
+      ["Erinnerung", buildBewerbungErinnerungEmail({ ...BESTAETIGUNG, seats })],
+    ] as const) {
+      assert.equal([...mail.text.matchAll(/^-- $/gm)].length, 1, `${name}'s link stands as a second signature delimiter`);
+      assert.ok(mail.text.split("\n").includes(" -- "), `${name}'s link was dropped rather than carried`);
+      assert.ok(mail.text.endsWith(`\n${textFooter("eintrag")}`), `${name}'s link pushed the footer out of the close`);
     }
   });
 
