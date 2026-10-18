@@ -1264,8 +1264,8 @@ def _driver_writes_held_as_values() -> list[str]:
 def _attributes_looked_up_on_a_writer() -> list[str]:
     """Every `getattr` on a collection or an application module: what it reaches stands under no name any sweep reads.
 
-    A collection by the spelling every trace reads one by: a crud helper's `collection`, a dependency's `*_collection`,
-    or a database handle's subscript, `database[Collection.AKTIONEN]`.
+    A collection as the traces spell one: a crud helper's `collection`, a dependency's `*_collection`, a database
+    handle's subscript.
     """
 
     return [

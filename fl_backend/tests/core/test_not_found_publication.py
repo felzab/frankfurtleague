@@ -105,11 +105,7 @@ Site = tuple[Path, int]
 
 @functools.cache
 def _step(path: Path, lineno: int) -> tuple[bool, tuple[Site, ...]]:
-    """Whether one declaration raises the miss in its own body unabsorbed, and the declarations its uncaught references name.
-
-    Every name and attribute rather than a call's bare callee alone: a raising helper held as a value,
-    `fetch = pull_one_from_db`, or read off its module raises under a name no call spells.
-    """
+    """Whether one declaration raises the miss in its own body unabsorbed, and the declarations its uncaught references name."""
 
     declaration = next(
         node for node in ast.walk(parsed(path)) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.lineno == lineno
@@ -123,6 +119,8 @@ def _step(path: Path, lineno: int) -> tuple[bool, tuple[Site, ...]]:
     )
     calls = {id(call.func): (chain, call) for chain, call in scoped_calls(declaration, (declaration,))}
     reached: list[Site] = []
+    # Every name and attribute rather than a call's bare callee alone: a raising helper held as a value,
+    # `fetch = pull_one_from_db`, or read off its module raises under a name no call spells.
     for chain, node in scoped_references(declaration, (declaration,)):
         if (isinstance(node, ast.Name) and not isinstance(node.ctx, ast.Load)) or _caught(node, parents):
             continue
