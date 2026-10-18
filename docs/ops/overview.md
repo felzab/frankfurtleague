@@ -49,7 +49,8 @@ reach it at otherwise.
 alone. No file here records either grant — the backend's was read from the cluster's users
 2026-08-02, and the sign-in store's is made by hand in the Atlas console. **Never give the two a
 shared login** — that makes the boundary a matter of trust rather than of configuration. The backend's
-user also needs `collMod` ([`../backend/spec.md`](../backend/spec.md) §4).
+user also needs `collMod`, and the replay after a restore `listCollections`, which `readWrite` carries;
+`python -m app.core.constraints --check` asks for both ([`../backend/spec.md`](../backend/spec.md) §4).
 
 ## The Cloudflare proxy
 

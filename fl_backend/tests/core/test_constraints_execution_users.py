@@ -56,6 +56,32 @@ def test_every_needed_privilege_is_reported_independently(mongo_url: str):
     verdicts = dict(on_a_fresh_client(mongo_url, body))
     assert verdicts["find"] == "granted"
     assert verdicts["collMod"].startswith("DENIED")
+    assert verdicts["listCollections"] == "granted"
+
+
+def test_the_privilege_probe_says_denied_where_the_replay_could_not_list_the_validators(mongo_url: str):
+    """A role holding every write and `collMod` but not `listCollections`: the app runs, and the replay after a restore judges no line."""
+    username = f"limited_{secrets.token_hex(4)}"
+    rolename = f"no_listing_{secrets.token_hex(4)}"
+    password = secrets.token_hex(16)
+
+    async def body(database: AsyncDatabase) -> list[tuple[str, str]]:
+        actions = ["find", "insert", "update", "remove", "collMod", "createIndex", "createCollection"]
+        await database.command(
+            "createRole", rolename, privileges=[{"resource": {"db": DATABASE_NAME, "collection": ""}, "actions": actions}], roles=[]
+        )
+        await database.command("createUser", username, pwd=password, roles=[{"role": rolename, "db": DATABASE_NAME}])
+        limited = AsyncMongoClient(mongo_url, username=username, password=password, authSource=DATABASE_NAME)
+        try:
+            return await probe_privileges(limited[DATABASE_NAME])
+        finally:
+            await limited.close()
+            await database.command("dropUser", username)
+            await database.command("dropRole", rolename)
+
+    verdicts = dict(on_a_fresh_client(mongo_url, body))
+    assert (verdicts["find"], verdicts["collMod"]) == ("granted", "granted")
+    assert verdicts["listCollections"].startswith("DENIED")
 
 
 def test_the_privilege_probe_says_denied_for_a_readwrite_user(mongo_url: str):
