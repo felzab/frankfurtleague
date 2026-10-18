@@ -165,7 +165,7 @@ const ZUSAGE_OPENING = [
   `vielen Dank für Eure Bewerbung für die Saison ${ZUSAGE.saisonId} der Frankfurt League.`,
   "Wir freuen uns, Euch mitteilen zu können, dass Eure Bewerbung erfolgreich war.",
   `${ZUSAGE.teamName} ist für die Saison ${ZUSAGE.saisonId} aufgenommen. Herzlich willkommen!`,
-];
+] as const;
 
 const EINTEILUNG_SENTENCE = `Wir haben Euch in Gruppe ${ZUSAGE.gruppe} untergebracht und Euch die Trikotfarbe ${ZUSAGE.trikotFarbeLabel} zugewiesen. Beide Angaben sind aus organisatorischen Gründen nicht mehr veränderbar.`;
 const EINTEILUNG_SENTENCE_WITHOUT_COLOUR = `Wir haben Euch in Gruppe ${ZUSAGE.gruppe} untergebracht. Die Gruppe ist aus organisatorischen Gründen nicht mehr veränderbar. Eure Trikotfarbe teilen wir Euch noch mit.`;
@@ -259,6 +259,24 @@ describe("buildBewerbungZusageEmail", () => {
     for (const stated of ["Gruppe", "Trikotfarbe"]) {
       assert.equal(prose.split(stated).length - 1, 1, `„${stated}“ is restated outside the sentence fixing it`);
     }
+  });
+
+  /* Every other case reads the opening flattened, so a greeting moved down or two of its paragraphs
+     run together would pass them. */
+  it("opens on the league's wording in its order, broken where the league broke it", () => {
+    const mail = buildBewerbungZusageEmail(ZUSAGE);
+    const [anrede, dank, erfolg, aufgenommen] = ZUSAGE_OPENING;
+    const absaetze = [...proseSection(mail.html).matchAll(/<p [^>]*>([\s\S]*?)<\/p>/g)].map((hit) => readable(hit[1] ?? ""));
+
+    assert.ok(
+      mail.text.includes([anrede, dank, `${erfolg}\n${aufgenommen}`, EINTEILUNG_SENTENCE].join("\n\n")),
+      "the text branch moves or merges a paragraph of the opening",
+    );
+    assert.deepEqual(
+      absaetze.slice(0, 4),
+      [anrede, dank, `${erfolg} ${aufgenommen}`, EINTEILUNG_SENTENCE],
+      "the markup branch moves or merges a paragraph of the opening",
+    );
   });
 
   it("carries every fact in both branches", () => {
