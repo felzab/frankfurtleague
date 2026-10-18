@@ -812,6 +812,24 @@ const notice = (registrierungId: string, email: string) => ({
   email: email,
 });
 
+/** A delivery report about a note's row answered as the backend answers one whose row is gone: 404 `DB-COMMON-001`. */
+function answeringAnErasedRow(): void {
+  const answer = apiAnswer;
+  answerWith((call) => {
+    if (!call.endpoint.startsWith("/zustellung/")) return answer(call);
+    throw new APIBadStatusError({
+      message: "The backend failed the request.",
+      url: `http://backend:8000/api/v0${call.endpoint}`,
+      endpoint: call.endpoint,
+      method: "POST",
+      readOnly: false,
+      statusCode: 404,
+      serverErrorCode: "DB-COMMON-001",
+      traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+    });
+  });
+}
+
 describe("the registration half of one pass", () => {
   /* The detail the shape invites getting wrong: the application half returns early where it has
      nothing to erase, and a registration call inside that arm runs for no season with a quiet queue. */
@@ -859,20 +877,51 @@ describe("the registration half of one pass", () => {
 
   /* No pre-notice and one note after: the row is erased by the call that answered this list, so the
      message reports rather than asks, and its body cannot change inside the provider's window. */
-  it("mails the season-end note after the erasure, keyed on the day", async () => {
+  it("mails the season-end note after the erasure, on a lane no record holds, keyed on the day", async () => {
     sweepAnswers({ saisonIds: ["2627"], benachrichtigt: { "2627": [notice(ID_UNDECIDED, "quillhilde@schule.de")] } });
+    answeringAnErasedRow();
 
     await runBewerbungSweep();
 
     assert.deepEqual(
       events.map((event) => event.kind),
-      // The erasure is behind the second call already; the record after the message is the accepted
-      // send, which reaches no row and is filed as such, and the lapsed addresses' half ends the pass.
-      ["api", "api", "api", "mail", "api", "api"],
+      // The erasure is behind the second call already, so nothing about the message is reported, and the
+      // lapsed addresses' half ends the pass.
+      ["api", "api", "api", "mail", "api"],
     );
     const note = events.find((event) => event.kind === "mail");
     assert.match(String(note?.idempotencyKey), /^loeschung_registrierung_/);
-    assert.deepEqual(note?.tags, { ziel: "registrierung", ziel_id: ID_UNDECIDED, anlass: "loeschung" });
+    assert.deepEqual(note?.tags, { saisonende: "notiz" });
+    assert.deepEqual(
+      lines.filter(({ level }) => level !== "info"),
+      [],
+      "a note sent as it should be wrote a warning or an error",
+    );
+  });
+
+  /* The mailer's own line names neither the message nor the pass, and a refusal reported against the
+     erased row would be answered as a missing record. A withheld note is the mailer's line alone. */
+  it("files a refused note as one failure line, reported against no record, and a withheld one as none", async () => {
+    sweepAnswers({
+      saisonIds: ["2627"],
+      benachrichtigt: { "2627": [notice(ID_UNDECIDED, "quillhilde@schule.de"), notice(ID_PUPIL, "zurueck@schule.de")] },
+    });
+    answeringAnErasedRow();
+    refused.add("quillhilde@schule.de");
+    withheld.add("zurueck@schule.de");
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(
+      apiCalls().filter((call) => call.endpoint.startsWith("/zustellung/")),
+      [],
+    );
+    assert.deepEqual(
+      lines
+        .filter(({ level }) => level !== "info")
+        .map(({ level, event, fields }) => [level, event, (fields as { error_code?: string }).error_code]),
+      [["error", "registrierung.saisonende_notiz_failed", "FE-MAIL-002"]],
+    );
   });
 
   /* `docs/ops/runbooks.md` section 9 reads one call for both dates: a fresh one beside a stale one

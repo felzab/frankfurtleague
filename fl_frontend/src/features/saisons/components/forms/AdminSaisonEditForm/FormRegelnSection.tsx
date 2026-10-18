@@ -47,7 +47,7 @@ const SHAPE_NOTE: Record<SpielplanWindowState, string> = {
   // The freeze stated rather than left conditional: nothing returns a season to `future`
   // (`docs/backend/spec.md :: I18`), so a way out worded here would name one nobody can reach.
   closed:
-    "Neu anlegen und zurücknehmen lässt sich der Spielplan nur, solange die Saison geplant ist. Damit sind diese drei Zahlen festgeschrieben.",
+    "Der Spielplan lässt sich nur neu anlegen und zurücknehmen, solange die Saison geplant ist. Damit sind diese drei Zahlen festgeschrieben.",
 };
 
 /**

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
@@ -38,11 +38,10 @@ const TRIGGERS: Record<string, { name: string; html: string }> = {
 function createModals(): string[] {
   const features = path.resolve(import.meta.dirname, "..");
 
-  return readdirSync(features)
-    .map((slice) => path.join(features, slice, "components", "modals"))
-    .filter((dir) => existsSync(dir))
-    .flatMap((dir) => readdirSync(dir).filter((file) => /^AdminCreate\w+Modal\.tsx$/.test(file)))
-    .map((file) => file.replace(/\.tsx$/, ""))
+  // A slice's own modals folder alone, `<slice>/components/modals/<modal>.tsx`, as each create modal sits.
+  return filesUnder(features, (name) => /^AdminCreate\w+Modal\.tsx$/.test(name), 1)
+    .filter((file) => /^[^/]+\/components\/modals\/[^/]+$/.test(path.relative(features, file).split(path.sep).join("/")))
+    .map((file) => path.basename(file, ".tsx"))
     .sort();
 }
 

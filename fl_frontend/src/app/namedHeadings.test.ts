@@ -45,19 +45,25 @@ const shown = (file: string): string => path.relative(SRC_DIR, file).split(path.
 
 /**
  * What a sentence names, a place or a value's word: its words, their constant, the module defining it and each
- * module rendering them. `seite` marks a page's name, which a list of names points to as a quotation does.
+ * module rendering them.
  */
 type Benannt = {
   readonly wort: string;
   readonly konstante: string;
   readonly heim: string;
   readonly zeigen: readonly string[];
-  readonly seite?: true;
+  /** The address of the page this names, which a list of names points to as a quotation does, and whose links read the name. */
+  readonly seite?: string;
+  /** A control's label, which a sentence opening on it names as much as one quoting it. */
+  readonly steuerung?: true;
+  /** The name's declined forms, which no constant can hold: a sentence quotes the name instead. */
+  readonly gebeugt?: RegExp;
 };
 
 const SPIELER_FORM = "features/spieler/components/forms/AdminSpielerEditForm";
 const TEAM_FORM = "features/teams/components/forms/AdminTeamEditForm";
 const SAISON_FORM = "features/saisons/components/forms/AdminSaisonEditForm";
+const SAISONS_TABELLE = "features/saisons/components/collections/AdminSaisonsTable.tsx";
 const ADMIN = "features/admin/constants.ts";
 const ANTWORTEN = "core/adresswechselAntworten.ts";
 const ADRESSWECHSEL_SEITEN = [
@@ -72,21 +78,22 @@ const META_VIEWS = "features/meta/components/views";
 const BEWERBUNG_SEITE = "features/bewerbungen/components/views/BewerbungView.tsx";
 
 /** A page the top bar or the footer links to, by the name every link, title and heading reads. */
-const seitenName = (konstante: string, wort: string, zeigen: readonly string[]): Benannt => ({
+const seitenName = (konstante: string, wort: string, seite: string, zeigen: readonly string[], gebeugt?: RegExp): Benannt => ({
   wort: wort,
   konstante: konstante,
   heim: "core/seitenNamen.ts",
   zeigen: zeigen,
-  seite: true,
+  seite: seite,
+  ...(gebeugt === undefined ? {} : { gebeugt: gebeugt }),
 });
 
 /** A sidemenu entry, which the shell renders as its page's heading and the menu's link: its structure is where it shows. */
-const eintrag = (konstante: string, { label }: { label: string }): Benannt => ({
+const eintrag = (konstante: string, { id, label }: { id: string; label: string }, zeigen: readonly string[] = []): Benannt => ({
   wort: label,
   konstante: konstante,
   heim: ADMIN,
-  zeigen: [ADMIN],
-  seite: true,
+  zeigen: [ADMIN, ...zeigen],
+  seite: `/bereich/admin/${id}`,
 });
 
 const REGISTER: readonly Benannt[] = [
@@ -126,42 +133,64 @@ const REGISTER: readonly Benannt[] = [
     heim: "features/saisons/constants.ts",
     zeigen: [`${SAISON_FORM}/FormSpielplanSection.tsx`],
   },
-  seitenName("SAISONUEBERSICHT_TITEL", SAISONUEBERSICHT_TITEL, [TOP_NAV, "app/dashboard/layout.tsx", "features/dashboard/constants.ts"]),
-  seitenName("DEIN_BEREICH_TITEL", DEIN_BEREICH_TITEL, [
+  seitenName("SAISONUEBERSICHT_TITEL", SAISONUEBERSICHT_TITEL, "/dashboard", [
     TOP_NAV,
-    "shared/components/layout/sidemenu/FunktionSwitcher.tsx",
-    "features/funktionen/constants.ts",
-    "features/funktionen/components/ui/TeamForbiddenPanel.tsx",
-    `${META_VIEWS}/DatenschutzView.tsx`,
-    "core/kontaktEmail.ts",
+    "app/dashboard/layout.tsx",
+    "features/dashboard/constants.ts",
+    "app/dashboard/not-found.tsx",
   ]),
-  seitenName("ABOUT_TITEL", ABOUT_TITEL, [TOP_NAV, FOOTER, `${META_PAGES}/about/page.tsx`, `${META_VIEWS}/AboutView.tsx`, BEWERBUNG_SEITE]),
-  seitenName("ORGANISATION_TITEL", ORGANISATION_TITEL, [
+  seitenName(
+    "DEIN_BEREICH_TITEL",
+    DEIN_BEREICH_TITEL,
+    "/bereich",
+    [
+      TOP_NAV,
+      "shared/components/layout/sidemenu/FunktionSwitcher.tsx",
+      "features/funktionen/constants.ts",
+      "features/funktionen/components/ui/TeamForbiddenPanel.tsx",
+      `${META_VIEWS}/DatenschutzView.tsx`,
+      "core/kontaktEmail.ts",
+      "features/auth/components/ui/SignedInCard.tsx",
+      "app/bereich/(persoenlich)/not-found.tsx",
+    ],
+    /(?<![\p{L}\p{N}])[Dd]ein(?:em|en|es)\s+Bereich(?:e?s)?(?![\p{L}\p{N}])/u,
+  ),
+  seitenName("ABOUT_TITEL", ABOUT_TITEL, "/about", [
+    TOP_NAV,
+    FOOTER,
+    `${META_PAGES}/about/page.tsx`,
+    `${META_VIEWS}/AboutView.tsx`,
+    BEWERBUNG_SEITE,
+  ]),
+  seitenName("ORGANISATION_TITEL", ORGANISATION_TITEL, "/organisation", [
     TOP_NAV,
     FOOTER,
     `${META_PAGES}/organisation/page.tsx`,
     `${META_VIEWS}/MetaOrganisationView.tsx`,
   ]),
-  seitenName("KONTAKT_TITEL", KONTAKT_TITEL, [
+  seitenName("KONTAKT_TITEL", KONTAKT_TITEL, "/kontakt", [
     TOP_NAV,
     FOOTER,
     `${META_PAGES}/kontakt/page.tsx`,
     `${META_VIEWS}/KontaktView.tsx`,
     BEWERBUNG_SEITE,
+    "app/(public)/page.tsx",
+    "features/meta/constants.ts",
   ]),
-  seitenName("IMPRESSUM_TITEL", IMPRESSUM_TITEL, [
+  seitenName("IMPRESSUM_TITEL", IMPRESSUM_TITEL, "/impressum", [
     FOOTER,
     `${META_PAGES}/impressum/page.tsx`,
     `${META_VIEWS}/ImpressumView.tsx`,
     "core/emailShell.ts",
+    `${META_VIEWS}/DatenschutzView.tsx`,
   ]),
-  seitenName("DATENSCHUTZ_TITEL", DATENSCHUTZ_TITEL, [FOOTER, `${META_PAGES}/datenschutz/page.tsx`]),
+  seitenName("DATENSCHUTZ_TITEL", DATENSCHUTZ_TITEL, "/datenschutz", [FOOTER, `${META_PAGES}/datenschutz/page.tsx`]),
   eintrag("HANDLUNGSBEDARF_EINTRAG", HANDLUNGSBEDARF_EINTRAG),
-  eintrag("TEAMS_EINTRAG", TEAMS_EINTRAG),
+  eintrag("TEAMS_EINTRAG", TEAMS_EINTRAG, [SAISONS_TABELLE]),
   eintrag("SPERRLISTE_EINTRAG", SPERRLISTE_EINTRAG),
   eintrag("LOESCHUNG_EINTRAG", LOESCHUNG_EINTRAG),
   eintrag("SAISONS_EINTRAG", SAISONS_EINTRAG),
-  eintrag("SPIELTAGE_EINTRAG", SPIELTAGE_EINTRAG),
+  eintrag("SPIELTAGE_EINTRAG", SPIELTAGE_EINTRAG, [SAISONS_TABELLE]),
   eintrag("FINALRUNDEN_EINTRAG", FINALRUNDEN_EINTRAG),
   eintrag("SPIELSUCHE_EINTRAG", SPIELSUCHE_EINTRAG),
   {
@@ -169,32 +198,37 @@ const REGISTER: readonly Benannt[] = [
     konstante: "UEBERALL_ABMELDEN",
     heim: ADMIN,
     zeigen: ["features/funktionen/components/forms/AdminLoeschungForm/FormAbmeldenSection.tsx"],
+    steuerung: true,
   },
   {
     wort: ADRESSE_AENDERN,
     konstante: "ADRESSE_AENDERN",
     heim: "features/spieler/constants.ts",
     zeigen: [`${SPIELER_FORM}/FormAdresseSection.tsx`],
+    steuerung: true,
   },
-  { wort: JA_MEINE_ADRESSE, konstante: "JA_MEINE_ADRESSE", heim: ANTWORTEN, zeigen: ADRESSWECHSEL_SEITEN },
-  { wort: NICHT_MEINE_ADRESSE, konstante: "NICHT_MEINE_ADRESSE", heim: ANTWORTEN, zeigen: ADRESSWECHSEL_SEITEN },
+  { wort: JA_MEINE_ADRESSE, konstante: "JA_MEINE_ADRESSE", heim: ANTWORTEN, zeigen: ADRESSWECHSEL_SEITEN, steuerung: true },
+  { wort: NICHT_MEINE_ADRESSE, konstante: "NICHT_MEINE_ADRESSE", heim: ANTWORTEN, zeigen: ADRESSWECHSEL_SEITEN, steuerung: true },
   {
     wort: ADRESSE_KORRIGIEREN,
     konstante: "ADRESSE_KORRIGIEREN",
     heim: "features/bewerbungen/constants.ts",
     zeigen: ["features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx"],
+    steuerung: true,
   },
   {
     wort: SPIELPLAN_NEU_ANLEGEN,
     konstante: "SPIELPLAN_NEU_ANLEGEN",
     heim: "features/saisons/constants.ts",
-    zeigen: [`${SAISON_FORM}/FormSpielplanSection.tsx`],
+    zeigen: [`${SAISON_FORM}/FormSpielplanSection.tsx`, `${SAISON_FORM}/blockedReasons.ts`],
+    steuerung: true,
   },
   {
     wort: SPIELPLAN_ZURUECKNEHMEN,
     konstante: "SPIELPLAN_ZURUECKNEHMEN",
     heim: "features/saisons/constants.ts",
-    zeigen: [`${SAISON_FORM}/FormSpielplanSection.tsx`],
+    zeigen: [`${SAISON_FORM}/FormSpielplanSection.tsx`, `${SAISON_FORM}/blockedReasons.ts`, "features/saisons/utils.ts"],
+    steuerung: true,
   },
   // A value's word in a name's place, which a sentence telling the reader what a page will show quotes.
   {
@@ -322,37 +356,120 @@ const escaped = (word: string): string => word.replace(/[.*+?^${}()|[\]\\]/gu, "
 const START = String.raw`(?<![\p{L}\p{N}])`;
 const END = String.raw`(?![\p{L}\p{N}])`;
 
-/**
- * Each place a run types a registered word: in any quotation, after a word pointing somewhere, or as a
- * page's name listed beside another's. A listed section heading is an ordinary noun, as in „mit
- * Zeitraum und Regeln“.
- */
-function typedNames(words: readonly string[], pages: readonly string[]): (run: string) => { worte: string[]; wie: string }[] {
-  const pointed = words.map((wort) => ({
-    wort,
-    pattern: new RegExp(String.raw`${START}(?:[Aa]bschnitts?|Bereichs?|[Uu]nter)\s+${escaped(wort)}${END}`, "u"),
-  }));
-  // Longest first, so a name opening with a shorter one is matched whole.
-  const any = [...pages]
+/** Any of `names`, longest first, so a name opening with a shorter one is matched whole. */
+const anyOf = (names: readonly string[]): string =>
+  [...names]
     .sort((a, b) => b.length - a.length)
     .map(escaped)
     .join("|");
-  const listed = new RegExp(String.raw`${START}(${any})${END}(?:,\s+|\s+(?:und|oder|sowie)\s+)(${any})${END}`, "gu");
+
+/**
+ * Each place a run types a registered word. A section heading listed or opening a sentence is an
+ * ordinary noun, as in „mit Zeitraum und Regeln“: only a page's name is read listed, a control's
+ * label opening one.
+ */
+function typedNames({
+  words,
+  pages,
+  controls,
+  declined,
+}: {
+  words: readonly string[];
+  pages: readonly string[];
+  controls: readonly string[];
+  declined: ReadonlyMap<string, RegExp>;
+}): (run: string) => { worte: string[]; wie: string }[] {
+  const finders = words.map((wort) => ({
+    wort,
+    pointed: new RegExp(
+      String.raw`${START}(?:(?:[Aa]bschnitts?|Bereichs?|[Uu]nter)\s+${escaped(wort)}${pages.includes(wort) ? String.raw`|${escaped(wort)}-Seite` : ""})${END}`,
+      "u",
+    ),
+    // Words after the label, so the label alone, as its control or its constant spells it, is no sentence.
+    opens: controls.includes(wort) ? new RegExp(String.raw`(?:^\s*|[.!?]\s+)${escaped(wort)}(?=\s+\S)`, "u") : null,
+    gebeugt: declined.get(wort) ?? null,
+  }));
+  const listed = new RegExp(String.raw`${START}(${anyOf(pages)})${END}(?:,\s+|\s+(?:und|oder|sowie)\s+)(${anyOf(pages)})${END}`, "gu");
 
   return (run) => [
-    ...pointed.flatMap(({ wort, pattern }) =>
-      // Most runs hold no registered word at all, which the cheap test settles before either pattern runs.
-      !run.includes(wort)
+    ...finders.flatMap(({ wort, pointed, opens, gebeugt }) => [
+      // Never the word itself, so read before the cheap test below.
+      ...(gebeugt?.test(run) === true ? [{ worte: [wort], wie: "declines" }] : []),
+      // Most runs hold no registered word at all, which the cheap test settles before the patterns run.
+      ...(!run.includes(wort)
         ? []
         : [
             ...(QUOTE_PAIRS.some(([open, close]) => run.includes(`${open}${wort}${close}`)) ? [{ worte: [wort], wie: "quotes" }] : []),
-            ...(pattern.test(run) ? [{ worte: [wort], wie: "points to" }] : []),
-          ],
-    ),
+            ...(pointed.test(run) ? [{ worte: [wort], wie: "points to" }] : []),
+            ...(opens?.test(run) === true ? [{ worte: [wort], wie: "opens on" }] : []),
+          ]),
+    ]),
     ...[...run.matchAll(listed)].flatMap(([, first, second]) =>
       first !== undefined && second !== undefined && first !== second ? [{ worte: [first, second], wie: "lists" }] : [],
     ),
   ];
+}
+
+const isNamed = (attribute: ts.JsxAttributeLike, names: ReadonlySet<string>): attribute is ts.JsxAttribute =>
+  ts.isJsxAttribute(attribute) && ts.isIdentifier(attribute.name) && names.has(attribute.name.text);
+
+const keyOf = (property: ts.ObjectLiteralElementLike): string | null =>
+  property.name !== undefined && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)) ? property.name.text : null;
+
+const HREF = new Set(["href"]);
+const LINK_LABELS = new Set(["label", "linkLabel"]);
+
+/** The page an `href` names, as far as it is typed: its path before any query or fragment, `null` where a value computes it. */
+function zielOf(value: ts.Node | undefined): string | null {
+  if (value === undefined) return null;
+  if (ts.isJsxExpression(value)) return zielOf(value.expression);
+  const typed =
+    ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value) ? value.text : ts.isTemplateExpression(value) ? value.head.text : "";
+
+  return typed.replace(/[?#].*$/su, "") || null;
+}
+
+/** One text a module gives a link, beside the page that link leads to. */
+type Verweis = Fragment & { readonly ziel: string | null };
+
+/**
+ * Every text a module gives a link, whatever renders it: the markup of an element carrying an `href`, and the
+ * `label` or `linkLabel` handed beside one, as a prop or in an object.
+ */
+function linkTextsOf(file: string, text: string): Verweis[] {
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const found: Verweis[] = [];
+  const at = (node: ts.Node): string => `${file}:${String(source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1)}`;
+  const visit = (node: ts.Node): void => {
+    const element = ts.isJsxElement(node) ? node.openingElement : ts.isJsxSelfClosingElement(node) ? node : null;
+    const href = element?.attributes.properties.find((attribute) => isNamed(attribute, HREF));
+    if (element !== null && href !== undefined && isNamed(href, HREF)) {
+      const ziel = zielOf(href.initializer);
+      if (ts.isJsxElement(node)) found.push({ text: markupTextOf(node), where: at(node), ziel: ziel });
+      for (const attribute of element.attributes.properties) {
+        if (!isNamed(attribute, LINK_LABELS) || attribute.initializer === undefined) continue;
+        const value = ts.isJsxExpression(attribute.initializer) ? attribute.initializer.expression : attribute.initializer;
+        if (value !== undefined && isText(value)) found.push({ text: textOf(value), where: at(attribute), ziel: ziel });
+      }
+    }
+    const ziel = ts.isObjectLiteralExpression(node) ? node.properties.find((property) => keyOf(property) === "href") : undefined;
+    if (ts.isObjectLiteralExpression(node) && ziel !== undefined) {
+      for (const property of node.properties) {
+        const key = keyOf(property);
+        if (ts.isPropertyAssignment(property) && key !== null && LINK_LABELS.has(key) && isText(property.initializer)) {
+          found.push({
+            text: textOf(property.initializer),
+            where: at(property),
+            ziel: ts.isPropertyAssignment(ziel) ? zielOf(ziel.initializer) : null,
+          });
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+
+  return found;
 }
 
 /** Whether a module reads `konstante` anywhere but at its own declaration and its import. */
@@ -414,10 +531,14 @@ describe("a heading, a control or a value's word a sentence names", () => {
     );
   });
 
-  it("finds a registered word in any quotation, after a pointing word, or listed, and never inside a longer word", () => {
-    const pages = ["Teams", "Spielsuche"];
-    const words = ["Kader", "Saison", "Spielplan neu anlegen", ...pages];
-    const finder = typedNames(words, pages);
+  it("finds a registered word quoted, pointed to, listed, opening a sentence or declined, and never inside a longer word", () => {
+    const pages = ["Teams", "Spielsuche", "Dein Bereich"];
+    const finder = typedNames({
+      words: ["Kader", "Saison", "Spielplan neu anlegen", "Neu anlegen", ...pages],
+      pages: pages,
+      controls: ["Neu anlegen"],
+      declined: new Map([["Dein Bereich", /(?<![\p{L}\p{N}])[Dd]ein(?:em|en|es)\s+Bereich(?:e?s)?(?![\p{L}\p{N}])/u]]),
+    });
     const named = (run: string): string[] => finder(run).map(({ worte, wie }) => `${wie} ${worte.join(" ")}`);
 
     for (const [run, expected] of [
@@ -428,20 +549,55 @@ describe("a heading, a control or a value's word a sentence names", () => {
       ["Unter Saison steht es.", ["points to Saison"]],
       ["Drücke unter Spielplan neu anlegen.", ["points to Spielplan neu anlegen"]],
       ["damit Teams, Spielsuche und Spielplan etwas zeigen", ["lists Teams Spielsuche"]],
+      ["Schreib uns über die Spielsuche-Seite.", ["points to Spielsuche"]],
+      ["\n  Neu anlegen löscht den Spielplan.", ["opens on Neu anlegen"]],
+      [`In ${HOLE} steht etwas. Neu anlegen lässt er sich nicht.`, ["opens on Neu anlegen"]],
+      ["Weiter zu Deinem Bereich", ["declines Dein Bereich"]],
+      ["Die Seiten Deines Bereichs und Deinen Bereich", ["declines Dein Bereich"]],
       ["Der Kader steht. „Kaderliste“, unter Kaderleitung, darunter Kader, mit Kader und Saison, Teams und Teams.", []],
+      // A label alone is its control, and a page's name or a heading opening a sentence is an ordinary noun.
+      ["Neu anlegen", []],
+      ["Wähle Neu anlegen oder Spielsuche-Ergebnis.", []],
+      ["Teams stehen fest. Kader und Saison auch. Dein Bereich zeigt sie.", []],
     ] as const) {
       assert.deepEqual(named(run), expected, run);
     }
   });
 
+  it("finds every text a module gives a link, beside the page its typed address leads to, and no label without one", () => {
+    const sample = [
+      'const a = <Link href="/kontakt">Zum <b>Kontakt</b></Link>;',
+      'const b = <ShellNotFound href="/dashboard" linkLabel="Zur Saisonübersicht" />;',
+      'const c = <Link href={x} label={"Weiter"}>{y}</Link>;',
+      "const d = { href: `/bereich/admin/teams?saison_id=${s}`, label: `Zum ${z}` };",
+      'const e = { id: "kontakt", label: "Kontakt" };',
+      'const f = <TextField label="Kontakt" />;',
+      "const g = { href: x, label: KONTAKT_TITEL };",
+      'const h = <Link href={"/dashboard/teams#top"}>Alle Teams</Link>;',
+    ].join("\n");
+
+    assert.deepEqual(
+      linkTextsOf("sample.tsx", sample).map(({ text, ziel }) => [text, ziel]),
+      [
+        ["Zum Kontakt", "/kontakt"],
+        ["Zur Saisonübersicht", "/dashboard"],
+        [HOLE, null],
+        ["Weiter", null],
+        [`Zum ${HOLE}`, "/bereich/admin/teams"],
+        ["Alle Teams", "/dashboard/teams"],
+      ],
+    );
+  });
+
   it("is named in no sentence by words typed there", () => {
     const konstanten = new Map<string, string[]>();
     for (const { wort, konstante } of REGISTER) konstanten.set(wort, [...(konstanten.get(wort) ?? []), konstante]);
-    const words = [...konstanten.keys()];
-    const finder = typedNames(
-      words,
-      REGISTER.filter(({ seite }) => seite === true).map(({ wort }) => wort),
-    );
+    const finder = typedNames({
+      words: [...konstanten.keys()],
+      pages: REGISTER.flatMap(({ wort, seite }) => (seite === undefined ? [] : [wort])),
+      controls: REGISTER.filter(({ steuerung }) => steuerung === true).map(({ wort }) => wort),
+      declined: new Map(REGISTER.flatMap(({ wort, gebeugt }) => (gebeugt === undefined ? [] : [[wort, gebeugt] as const]))),
+    });
 
     const typed = PRODUCTION.flatMap((file) =>
       runsOf(shown(file), readFileSync(file, "utf8")).flatMap(({ text, where }) =>
@@ -449,6 +605,20 @@ describe("a heading, a control or a value's word a sentence names", () => {
           ({ worte, wie }) =>
             `${where} ${wie} ${worte.map((wort) => `„${wort}“`).join(" and ")} rather than reading ${worte.flatMap((wort) => konstanten.get(wort) ?? []).join(" or ")}`,
         ),
+      ),
+    );
+
+    assert.deepEqual(typed, []);
+  });
+
+  /* By the address: a link elsewhere, „Alle Teams“, merely shares a word. The label is the page's name itself, which a
+     declined or article-bound copy cannot follow through a rename. */
+  it("is typed in no link's text, where the link leads to the page it names", () => {
+    const typed = PRODUCTION.flatMap((file) =>
+      linkTextsOf(shown(file), readFileSync(file, "utf8")).flatMap(({ text, where, ziel }) =>
+        REGISTER.filter(
+          ({ wort, seite }) => seite !== undefined && seite === ziel && new RegExp(`${START}${escaped(wort)}${END}`, "u").test(text),
+        ).map(({ wort, konstante }) => `${where} links by „${wort}“ rather than reading ${konstante}`),
       ),
     );
 

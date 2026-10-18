@@ -566,6 +566,28 @@ describe("POST /api/mail/zustellung", () => {
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
   });
 
+  /* A pupil's season-end note goes after their registration is erased, so a pupil it missed is a line or nothing. */
+  it("writes one line for a season-end note that did not arrive, and none for one that did", async () => {
+    const notiz = (type: string) => eventFor(type, { bounce: { type: "Permanent", subType: "Suppressed" }, tags: { saisonende: "notiz" } });
+
+    const zugestellt = await answerTo(signed(JSON.stringify(notiz("email.delivered"))));
+    assert.equal(logs.length, 0, "a delivered note wrote a line");
+
+    const { status, body } = await answerTo(signed(JSON.stringify(notiz("email.bounced"))));
+
+    assert.equal(zugestellt.status, 200);
+    assert.equal(status, 200);
+    assert.deepEqual(body, { angewendet: [] });
+    assert.deepEqual(calls, [], "the note's lane reached the application's endpoint");
+    assert.deepEqual(zielCalls, [], "the note's lane reached the generic endpoint");
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0]?.level, "warn");
+    assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-013");
+    assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
+    assert.equal(logs[0]?.meta?.["nachricht_id"], MESSAGE_ID);
+    assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
+  });
+
   it("answers 200 where the backend applied the tagged event to no record", async () => {
     zielZustellungAnswer = () => ({ acknowledged: 1, angewendet: false });
 

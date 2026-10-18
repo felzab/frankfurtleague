@@ -2,7 +2,7 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { before, describe, it } from "node:test";
 
@@ -11,6 +11,7 @@ import { createElement as h } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
@@ -107,15 +108,11 @@ before(async () => {
 function listsOfferingARestore(): string[] {
   const features = path.resolve(import.meta.dirname, "..");
 
-  return readdirSync(features)
-    .map((slice) => path.join(features, slice, "components", "collections"))
-    .filter((dir) => existsSync(dir))
-    .flatMap((dir) =>
-      readdirSync(dir)
-        .filter((file) => file.endsWith(".tsx"))
-        .filter((file) => /\bRowActionRestore\b/.test(readFileSync(path.join(dir, file), "utf8")))
-        .map((file) => file.replace(/\.tsx$/, "")),
-    )
+  // A slice's own collections folder alone, `<slice>/components/collections/<list>.tsx`, as each list sits.
+  return filesUnder(features, (name) => name.endsWith(".tsx"), 1)
+    .filter((file) => /^[^/]+\/components\/collections\/[^/]+$/.test(path.relative(features, file).split(path.sep).join("/")))
+    .filter((file) => /\bRowActionRestore\b/.test(readFileSync(file, "utf8")))
+    .map((file) => path.basename(file, ".tsx"))
     .sort();
 }
 

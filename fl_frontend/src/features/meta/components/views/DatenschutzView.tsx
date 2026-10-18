@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "@/core/brand";
-import { DEIN_BEREICH_TITEL, ORGANISATION_TITEL } from "@/core/seitenNamen";
+import { DEIN_BEREICH_TITEL, IMPRESSUM_TITEL, ORGANISATION_TITEL } from "@/core/seitenNamen";
 import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
 import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signInCode";
 import {
@@ -830,7 +830,7 @@ export function DatenschutzView() {
               href="/impressum"
               prefetch={false}
               className={textLink()}>
-              Impressum
+              {IMPRESSUM_TITEL}
             </Link>
             .
           </p>
