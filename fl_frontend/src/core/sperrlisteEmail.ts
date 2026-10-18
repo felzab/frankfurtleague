@@ -6,6 +6,7 @@ import {
   ANTWORT_SATZ_TEXT,
   ASIDE_TEXT,
   BRAND_NAME,
+  einzeilig,
   escapeHtml,
   link,
   mailOrigin,
@@ -150,10 +151,14 @@ export function buildSperreEmail({
   origin: string;
 }): SperrlisteEmail {
   const site = mailOrigin(origin);
+  // Folded once, before either part prints them: this message has no column of facts to fold them on
+  // the way, and the reason stands on a line of its own (`docs/frontend/spec.md :: I89`).
+  const grundText = einzeilig(grund);
+  const bis = einzeilig(gesperrtBisSaisonId);
 
   return {
     subject: `${BRAND_NAME}: ${UEBERSCHRIFT}`,
-    html: renderHtml(grund, gesperrtBisSaisonId, site),
-    text: renderText(grund, gesperrtBisSaisonId, site),
+    html: renderHtml(grundText, bis, site),
+    text: renderText(grundText, bis, site),
   };
 }

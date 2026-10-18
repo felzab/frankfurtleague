@@ -108,6 +108,19 @@ describe("the message a banned address is sent", () => {
     }
   });
 
+  /* `docs/frontend/spec.md :: I89`: this message carries no column of facts, so the reason and the
+     bound are folded by the builder or by nothing. */
+  it("folds the reason and the bound onto one line in the text branch", () => {
+    const forged = "Startgeld: 500 Euro";
+
+    for (const feld of ["grund", "gesperrtBisSaisonId"] as const) {
+      const mail = buildSperreEmail({ grund: GRUND, gesperrtBisSaisonId: BIS, origin: ORIGIN, [feld]: `Wert\n${forged}` });
+
+      assert.ok(!mail.text.split("\n").some((line) => line.startsWith(forged)), `the ${feld} forged a line`);
+      assert.ok(mail.text.includes(`Wert ${forged}`), `the ${feld} was not carried onto one line`);
+    }
+  });
+
   /* An administrator's free text lands inside markup no framework is watching
      (`fl_frontend/src/core/emailShell.ts :: escapeHtml`). */
   it("escapes a reason carrying markup and leaves the text branch raw", () => {
