@@ -143,7 +143,13 @@ def test_an_ending_reached_inside_a_worker_summarises_nothing() -> None:
 
 # A sourced file failing on its line 3, where the script sourcing it holds other text: the library
 # is such a file to every script, and a crash in it must not be reported against the caller.
-SOURCED: Final = "#!/usr/bin/env bash\nboom() {\n  false # the failing line\n}\nparted() {\n  false \\\n    with \\\n    arguments\n}\n"
+SOURCED: Final = (
+    "#!/usr/bin/env bash\nboom() {\n  false # the failing line\n}\nparted() {\n  false \\\n    with \\\n    arguments\n}\n"
+    # A comment ending in a backslash above the failing line, and one inside the command it ends:
+    # `scripts/lib/_lib.sh :: _on_err_trap`'s walk continues past neither.
+    "commented() {\n  # a comment whose last character is a backslash \\\n  false below the comment\n}\n"
+    "cut() {\n  false above \\\n  # the comment that ends it \\\n  true\n}\n"
+)
 
 
 def _crash(*body: str, sourced_text: str = SOURCED) -> tuple[int, str]:
@@ -164,6 +170,8 @@ def test_a_crash_names_the_file_and_the_line_that_failed() -> None:
         # `parted` fails in a command continued over lines 6 to 8: whichever `$LINENO` names, that line
         # alone is a fragment of the command.
         ("continued over three lines", ("parted",), r"line [678]:  false with arguments$"),
+        ("below a comment ending in a backslash", ("commented",), r"line 12:  false below the comment$"),
+        ("continued into a comment ending in a backslash", ("cut",), r"line 1[56]:  false above # the comment that ends it$"),
     ):
         code, output = _crash(*body)
         if code != 3:

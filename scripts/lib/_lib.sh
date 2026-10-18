@@ -694,11 +694,14 @@ _on_err_trap() { # $1 status, $2 line, $3 `$BASH_COMMAND`, $4 the file the line 
   # trap interrupted, and `$LINENO` names one physical line of a continued one. Here, not in
   # `on_error`, whose explicit callers pass a message.
   text="$(awk -v n="$2" '
+    # A line holding only a comment never continues, whatever its last character: bash reads that
+    # backslash as text, so the line below it starts a command of its own.
+    function continues(l) { return l ~ /\\$/ && l !~ /^[[:space:]]*#/ }
     { line[NR] = $0 }
     END {
       if (n < 1 || n > NR) exit 1
-      s = n; while (s > 1 && line[s - 1] ~ /\\$/) s--
-      e = n; while (e < NR && line[e] ~ /\\$/) e++
+      s = n; while (s > 1 && continues(line[s - 1])) s--
+      e = n; while (e < NR && continues(line[e])) e++
       for (i = s; i <= e; i++) {
         part = line[i]; sub(/^[[:space:]]+/, "", part); sub(/[[:space:]]*\\$/, "", part)
         out = (i == s) ? part : out " " part
