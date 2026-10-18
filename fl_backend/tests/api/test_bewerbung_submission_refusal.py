@@ -94,7 +94,7 @@ REFUSED_CHARACTERS = [
     pytest.param(chr(0x2029), id="PARAGRAPH SEPARATOR"),
 ]
 
-# The refused characters Python calls whitespace, so `strip_whitespace` removes them before the
+# The refused characters Unicode calls white space, so `strip_whitespace` removes them before the
 # pattern runs. NUL is the one left out: it is no more whitespace here than it is in the mirror.
 TRIMMED_CHARACTERS = [case for case in REFUSED_CHARACTERS if case.id != "NUL"]
 
@@ -756,7 +756,7 @@ class TestWhatTheSubmissionPayloadRefuses:
         assert parsed.schule is not None and parsed.schule.team_name == "Zorbanax"
 
     def test_a_school_name_padded_with_nul_is_refused_rather_than_trimmed(self):
-        """The one refused character `str.strip` does not remove, which is also what the JavaScript mirror's `trim` does."""
+        """The one refused character `strip_whitespace` does not remove, which is also what the JavaScript mirror's `trim` does."""
 
         padded = submission(team_id=None, schule=schule(team_name=f"{chr(0x00)}Zorbanax{chr(0x00)}"))
 
@@ -1191,13 +1191,13 @@ class TestTheColourTheSchoolWants:
 
         offered = get_args(FLTrikotFarbe)
 
-        assert len(offered) == 16
+        assert len(offered) == 24
         for colour in offered:
             trikot = {"vorhandener_satz": "12 rote Trikots", "wunschfarbe": colour}
             assert FLPostBewerbungPayload.model_validate(submission(trikot=trikot)).trikot.wunschfarbe == colour
 
     def test_a_colour_the_league_does_not_offer_is_refused(self):
-        """Required did not become unchecked: the value is still one of the sixteen."""
+        """Required did not become unchecked: the value is still one the palette offers."""
 
         with pytest.raises(ValidationError):
             FLPostBewerbungPayload.model_validate(submission(trikot={"vorhandener_satz": "", "wunschfarbe": "zorbanaxgruen"}))
@@ -1277,7 +1277,7 @@ class TestTheOpponentTheSchoolWants:
         assert FLPostBewerbungPayload.model_validate(submission(wunschgegner=trimmed * 3)).wunschgegner is None
 
     def test_a_wish_padded_with_nul_is_refused_rather_than_trimmed(self):
-        """The one refused character `str.strip` does not remove, which is also what the JavaScript mirror's `trim` does."""
+        """The one refused character `strip_whitespace` does not remove, which is also what the JavaScript mirror's `trim` does."""
 
         with pytest.raises(ValidationError):
             FLPostBewerbungPayload.model_validate(submission(wunschgegner=f"{chr(0x00)}Zorbanax{chr(0x00)}"))

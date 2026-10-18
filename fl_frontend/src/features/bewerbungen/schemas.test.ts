@@ -379,7 +379,7 @@ const SINGLE_LINE = [
 
 /**
  * The same rows as characters. The flag is whether JavaScript's `trim` clears one, which decides
- * the padded cases below: NUL and U+0085 it does not, and U+0085 is the one `str.strip` clears.
+ * the padded cases below: NUL and U+0085 it does not, and U+0085 is the one pydantic's strip clears.
  */
 const SINGLE_LINE_CHARS = SINGLE_LINE.map(([was, codes, trimmed]) => [was, String.fromCodePoint(...codes), trimmed] as const);
 
@@ -794,7 +794,7 @@ const BACKEND_SINGLE_LINE = /^SINGLE_LINE_PATTERN = r"([^"]+)"$/m.exec(
    either spelling names is probed -- a divergence over one neither names would reach no alphabet. */
 const SINGLE_LINE_PROBES = [...Array.from({ length: 0x100 }, (_, at) => at), ...Array.from({ length: 0x100 }, (_, at) => 0x2000 + at)];
 
-/** Interior, never padding: `trim` and `str.strip` disagree about U+0085, and that gap is a padded value's. */
+/** Interior, never padding: `trim` and pydantic's strip disagree about U+0085, and that gap is a padded value's. */
 const brokenName = (point: number) => `Goethe${String.fromCodePoint(point)}Startgeld`;
 
 describe("the one-line rule the submission and the endpoint hold together", () => {

@@ -482,3 +482,16 @@ describe("the address a reason may not carry", () => {
     assert.equal(grundRefusal("Siehe Mail vom 3.4."), undefined);
   });
 });
+
+describe("the line break a reason may not carry", () => {
+  /* The API's `grund` refuses the single-line class (`docs/frontend/spec.md :: I87`) with a generic
+     sentence, so the box has to say it first. By codepoint, so this file carries no invisible byte. */
+  it("refuses a reason broken by a next line or a line separator, with the field's own message", () => {
+    for (const codepoint of [0x85, 0x2028]) {
+      assert.equal(
+        grundRefusal(`Falsche Angabe${String.fromCodePoint(codepoint)}Siehe Akte`),
+        "Der Grund darf keine Zeilenumbrüche oder Steuerzeichen enthalten.",
+      );
+    }
+  });
+});
