@@ -108,6 +108,19 @@ export async function POST(request: NextRequest) {
       return ANGEWENDET([]);
     }
 
+    // The pupils' season-end note, whose registration is erased before it goes: a pupil it missed is a line.
+    if (meldung.ziel === "saisonende") {
+      if (meldung.stand !== "zugestellt") {
+        logger.warn("mail.saisonendenotiz_nicht_zugestellt", {
+          error_code: "FE-MAIL-013",
+          stand: meldung.stand,
+          nachricht_id: meldung.nachricht_id,
+        });
+      }
+
+      return ANGEWENDET([]);
+    }
+
     // 200 because no retry repairs it, and a line because the alternative is a drop no operator can
     // tell from the sign-in mail's.
     if (meldung.ziel === "unplatzierbar") {

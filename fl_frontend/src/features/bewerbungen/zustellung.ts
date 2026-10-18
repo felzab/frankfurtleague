@@ -2,6 +2,7 @@ import z from "zod";
 
 import { ANMELDUNG_CODE, ANMELDUNG_TAG } from "@/core/anmeldeTag";
 import { BERECHTIGUNG_HINWEIS, BERECHTIGUNG_TAG } from "@/core/berechtigungTag";
+import { SAISONENDE_NOTIZ, SAISONENDE_TAG } from "@/core/saisonendeTag";
 import { FLZustellungEreignisPayloadSchema, FLZustellungZielSchema, zielHatSitze } from "@/features/zustellung/schemas";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
@@ -132,6 +133,8 @@ export type ZustellMeldung =
   | { ziel: "anmeldung"; stand: ZustellGemeinsam["stand"]; nachricht_id: string }
   // Nothing stores it for the same reason: the notice's outbox row is gone once stamped, so the line is the record.
   | { ziel: "berechtigung"; stand: ZustellGemeinsam["stand"]; nachricht_id: string }
+  // Nor this one: the pupil's registration is erased before the season-end note goes.
+  | { ziel: "saisonende"; stand: ZustellGemeinsam["stand"]; nachricht_id: string }
   // Its own arm rather than `null`: read as nothing, a tag block this side cannot place is dropped
   // exactly as an untagged message is, and a slice's bounces go unrecorded in silence.
   | { ziel: "unplatzierbar"; grund: ZustellUnplatzierbarGrund; art: FLZustellungZiel | null };
@@ -190,6 +193,10 @@ export function leseZustellEreignis(raw: unknown): ZustellMeldung | null {
 
   if (ereignis.data.tags?.[BERECHTIGUNG_TAG] === BERECHTIGUNG_HINWEIS) {
     return { ziel: "berechtigung", stand: gemeinsam.stand, nachricht_id: gemeinsam.nachricht_id };
+  }
+
+  if (ereignis.data.tags?.[SAISONENDE_TAG] === SAISONENDE_NOTIZ) {
+    return { ziel: "saisonende", stand: gemeinsam.stand, nachricht_id: gemeinsam.nachricht_id };
   }
 
   if (ereignis.data.tags?.["ziel"] !== undefined) return leseZielMeldung(ereignis.data.tags, gemeinsam);

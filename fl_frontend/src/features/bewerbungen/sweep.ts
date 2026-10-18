@@ -5,7 +5,11 @@ import { frontend_config } from "@/core/config";
 import { ContractBreakError, requestOf } from "@/core/errors";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
+import { sendMail } from "@/core/mail";
+import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
 import { buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } from "@/core/registrierungEmail";
+import { SAISONENDE_NOTIZ, SAISONENDE_TAG } from "@/core/saisonendeTag";
+import { versandAusfallOf } from "@/core/versandAusfall";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants";
 import { postRegistrierungSweep } from "@/features/registrierungen/mutations";
 import { postSchiedsrichterAdresswechselSweep } from "@/features/schiedsrichter/mutations";
@@ -252,22 +256,37 @@ async function mailRegistrierungErinnerung(erinnerung: FLRegistrierungSweepErinn
   });
 }
 
-/** The one note a pupil gets about their erased registration. Its row is gone, so nothing records what this send cost. */
+/**
+ * The one note a pupil gets about their erased registration, on a lane no record holds: its row is gone, so a send
+ * or a delivery reported against it is answered as a missing record (`fl_backend/app/api/zustellung/router.py`).
+ */
 async function mailRegistrierungNotiz(notiz: FLRegistrierungSweepBenachrichtigung): Promise<void> {
-  await sendZielMail({
-    operation: SWEEP_OPERATION,
-    // The day as the key's tag: this body carries no link and cannot change inside the provider's
-    // window, so a pass that mailed and then failed composes the identical message an hour later.
-    auftrag: { ziel: "registrierung", zielId: notiz.registrierung_id, anlass: "loeschung", idempotenzTag: getGermanTodayStr() },
-    recipients: [notiz.email],
-    buildMail: () =>
-      buildRegistrierungSaisonendeEmail({
+  try {
+    await sendMail({
+      to: notiz.email,
+      ...buildRegistrierungSaisonendeEmail({
         vorname: notiz.vorname,
         teamName: notiz.team,
         saisonId: notiz.saison_id,
         origin: frontend_config.AUTH_URL,
       }),
-  });
+      // A non-delivery is then a line an operator reads (`fl_frontend/src/app/api/mail/zustellung/route.ts`).
+      tags: { [SAISONENDE_TAG]: SAISONENDE_NOTIZ },
+      // The day as the key's tag: this body carries no link and cannot change inside the provider's
+      // window, so a pass that mailed and then failed composes the identical message an hour later.
+      idempotencyKey: mailIdempotencyKey(["loeschung", "registrierung", notiz.registrierung_id, getGermanTodayStr()], notiz.email),
+    });
+  } catch (error) {
+    // A withheld or a barred note is the mailer's own line, as on every lane.
+    const ausfall = versandAusfallOf(error);
+    if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
+    // Name only, never the error: its message can carry the address (`docs/logging/spec.md :: L9`).
+    logger.error("registrierung.saisonende_notiz_failed", undefined, {
+      error_code: "FE-MAIL-002",
+      name: error instanceof Error ? error.name : undefined,
+      operation: SWEEP_OPERATION,
+    });
+  }
 }
 
 /** One message to one mailbox, carrying one link per PERSON it holds -- a mirrored pair is one link naming both seats. */
