@@ -6,7 +6,7 @@ import { APIBadStatusError } from "@/core/errors";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
-import { trikotFarbeLabel } from "@/features/teams/constants";
+import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { linkVersandOf } from "@/features/zustellung/notifications";
 import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
@@ -174,10 +174,11 @@ export async function annehmenBewerbungAction(
           origin: frontend_config.AUTH_URL,
           rollenText: rollenText,
           gruppe: annahmeOperation.gruppe,
-          // Rendered here: the label lives in
+          // Rendered here: the label and the hex live in
           // `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS`, which
           // `core/bewerbungEmail.ts` may not import.
           trikotFarbeLabel: annahmeOperation.trikot_farbe === null ? null : trikotFarbeLabel(annahmeOperation.trikot_farbe),
+          trikotFarbeHex: annahmeOperation.trikot_farbe === null ? null : trikotFarbeHex(annahmeOperation.trikot_farbe),
           // Off the STORED application rather than off any form: the acceptance payload carries no
           // wish, and the message names what the school actually submitted.
           wunschgegner: annahmeOperation.updated_document.wunschgegner,

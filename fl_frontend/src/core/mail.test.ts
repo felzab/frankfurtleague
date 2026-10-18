@@ -216,6 +216,18 @@ describe("the mail transport", () => {
     assert.equal(body["text"], MESSAGE.text);
   });
 
+  /* A person's name before the one sending address, quoted: RFC 5322 reads an unquoted comma as a second
+     mailbox. A quote or backslash in the name is escaped and a break folded, so neither ends the header. */
+  it("sends a signed message under the signer's quoted name, its replies to the address it names", async () => {
+    await sendMail({ ...MESSAGE, absender: { name: "Jonathan Kroh, Frankfurt League", antwortAn: "kontakt@frankfurtleague.de" } });
+    await sendMail({ ...MESSAGE, absender: { name: 'Ein "Name"\\ mit\r\nUmbruch', antwortAn: "kontakt@frankfurtleague.de" } });
+    const [signed, hostile] = sends.map((send) => JSON.parse(String(send.init.body)) as Record<string, string>);
+
+    assert.equal(signed?.["from"], `"Jonathan Kroh, Frankfurt League" <no-reply@frankfurtleague.de>`);
+    assert.equal(signed?.["reply_to"], "kontakt@frankfurtleague.de");
+    assert.equal(hostile?.["from"], `"Ein \\"Name\\"\\\\ mit Umbruch" <no-reply@frankfurtleague.de>`);
+  });
+
   /* The id is the only join between a send and any later delivery event, so a caller that cannot
      read it has no way to tell one message's bounce from a message a re-send has replaced. */
   it("answers the id the provider gave the accepted message", async () => {
@@ -658,6 +670,19 @@ describe("the sink a deployment that does not mail writes instead", () => {
     }
     // Ahead of the message and never around it, so what the file renders is what a client renders.
     assert.ok(written.endsWith(MESSAGE.html), "the message was wrapped rather than written whole");
+  });
+
+  /* A stack that never sends is the only place a signed message's sender line can be read before it reaches a school. */
+  it("files the sender line and the reply address a signed message would go out under", async () => {
+    appEnv = "local";
+
+    await assert.rejects(
+      sendMail({ ...MESSAGE, absender: { name: "Jonathan Kroh, Frankfurt League", antwortAn: "kontakt@frankfurtleague.de" } }),
+    );
+    const written = readFileSync(path.join(sinkDir(), sinkFileNamedOn(logs[0]!)), "utf8");
+
+    assert.ok(written.includes(`From: "Jonathan Kroh, Frankfurt League" <no-reply@frankfurtleague.de>`), "the file lost the sender line");
+    assert.ok(written.includes("Reply-To: kontakt@frankfurtleague.de"), "the file lost the reply address");
   });
 
   /* The name is what a developer reads to find which message was withheld, and `ß` is the one German

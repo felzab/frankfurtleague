@@ -48,8 +48,8 @@ export const PANEL_MAIL_CLASS = "fl-panel";
 export const TEXT_MAIL_CLASS = "fl-text";
 export const HEAD_MAIL_CLASS = "fl-head";
 export const BRAND_MAIL_CLASS = "fl-brand";
-const RULE_MAIL_CLASS = "fl-rule";
-const GHOST_MAIL_CLASS = "fl-ghost";
+export const RULE_MAIL_CLASS = "fl-rule";
+export const GHOST_MAIL_CLASS = "fl-ghost";
 
 const FONT_STACK = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const BODY_TEXT = `font-size:15px;line-height:1.6;color:${TEXT_COLOR};`;
@@ -61,6 +61,8 @@ export const ASIDE_TEXT = `font-size:13px;line-height:1.6;color:${TEXT_COLOR};`;
  */
 export const LABEL_TEXT = "font-size:15px;line-height:1.6;";
 const FOOTER_TEXT = `font-size:12px;line-height:1.6;color:${TEXT_COLOR};`;
+/** The small capitals over the heading, and over any panel a message titles: one grade for every label set above content. */
+export const EYEBROW_TEXT = `${FOOTER_TEXT}letter-spacing:1px;text-transform:uppercase;font-weight:700;`;
 
 /**
  * Zeroed on every layout table: a screen reader announcing chrome as a data table is unusable, and
@@ -201,10 +203,13 @@ export function art21Satz(adresse: string, { mehrere = false, zweck }: { mehrere
     : `Der Verarbeitung Deiner ${angaben} kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ${adresse} genügt.`;
 }
 
-/** One no-reply sender carries every message (`fl_frontend/src/core/mail.ts :: MAIL_FROM`), so every close says so. */
-const ANTWORT_VOR = "Antworten an die Absenderadresse liest niemand. Unsere Adresse ist ";
-export const ANTWORT_SATZ_TEXT = `${ANTWORT_VOR}${KONTAKT_EMAIL}.`;
-export const ANTWORT_SATZ_HTML = `${ANTWORT_VOR}${link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)}.`;
+/** The league's address, which every close states whoever reads the replies. */
+export const ADRESS_SATZ_TEXT = `Unsere Adresse ist ${KONTAKT_EMAIL}.`;
+export const ADRESS_SATZ_HTML = `Unsere Adresse ist ${link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)}.`;
+/** Every message leaves from the no-reply address (`fl_frontend/src/core/mail.ts :: MAIL_FROM`), so every close without a reply address says so. */
+const NIEMAND_SATZ = "Antworten an die Absenderadresse liest niemand.";
+export const ANTWORT_SATZ_TEXT = `${NIEMAND_SATZ} ${ADRESS_SATZ_TEXT}`;
+export const ANTWORT_SATZ_HTML = `${NIEMAND_SATZ} ${ADRESS_SATZ_HTML}`;
 
 /**
  * The serving origin (`docs/frontend/spec.md :: I186`), refused rather than defaulted:
@@ -321,7 +326,7 @@ export function renderKarte({ titel, ueberschrift, bloecke, aktionen, fuss, orig
           <table ${TABLE_ATTRS} width="100%" align="center" lang="de" class="${CARD_MAIL_CLASS}" style="max-width:${CARD_WIDTH}px;margin:0 auto;background-color:${CARD_COLOR};border-radius:12px;">
             <tr>
               <td style="padding:32px;font-family:${FONT_STACK};">
-                <p class="${TEXT_MAIL_CLASS}" style="margin:0 0 8px;${FOOTER_TEXT}letter-spacing:1px;text-transform:uppercase;font-weight:700;">${BRAND_NAME}</p>
+                <p class="${TEXT_MAIL_CLASS}" style="margin:0 0 8px;${EYEBROW_TEXT}">${BRAND_NAME}</p>
                 <h1 class="${HEAD_MAIL_CLASS}" style="margin:0 0 20px;font-size:22px;line-height:1.3;color:${HEADING_COLOR};font-weight:800;">
                   ${ueberschrift}
                 </h1>
