@@ -5,6 +5,7 @@ import {
   ANTWORT_SATZ_TEXT,
   ASIDE_TEXT,
   BRAND_NAME,
+  einzeilig,
   escapeHtml,
   mailOrigin,
   paragraph,
@@ -112,9 +113,14 @@ function urheberSatz(urheber: Urheber, wer: (adresse: string) => string): string
  * **The body depends on the change alone**, never on when it is sent or to whom: a repeat under one key
  * must compose the same message for the provider to collapse it (`docs/frontend/spec.md :: I457`).
  */
-export function buildBerechtigungEmail(aenderung: Zugangsaenderung, urheber: Urheber, rawOrigin: string): BerechtigungEmail {
+export function buildBerechtigungEmail(aenderungRoh: Zugangsaenderung, urheberRoh: Urheber, rawOrigin: string): BerechtigungEmail {
   const origin = mailOrigin(rawOrigin);
   const ziel = `${origin}${ZIEL_PFAD}`;
+  // Folded once, before either part prints them: this notice has no column of facts to fold them on the way
+  // (`docs/frontend/spec.md :: I89`), and an `owner` grant reaches it from the database, past every check the API makes.
+  const { adresse } = aenderungRoh;
+  const aenderung: Zugangsaenderung = { ...aenderungRoh, adresse: typeof adresse === "string" ? einzeilig(adresse) : adresse };
+  const urheber: Urheber = urheberRoh === null || urheberRoh.von === null ? urheberRoh : { ...urheberRoh, von: einzeilig(urheberRoh.von) };
 
   const html = renderKarte({
     titel: `${BRAND_NAME}: ${UEBERSCHRIFT}`,
