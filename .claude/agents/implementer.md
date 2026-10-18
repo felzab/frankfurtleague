@@ -78,12 +78,19 @@ that is not your worktree's own, is a wrong premise under section 4. Stop and re
   what they judge: where you touched `fl_backend/app`, every test importing
   `fl_backend/tests/core/app_source.py`, and where you touched `fl_frontend/src`, every test
   importing `fl_frontend/src/core/treeWalk.ts`, each directly or through a module importing it; run
-  as `pnpm run test:base <files>` and
-  `uv run --frozen pytest <paths>`; `pnpm run typecheck`, `pnpm run lint`, `pnpm run knip` and
+  as `pnpm run test:base <files>`, split into several runs where Windows refuses the line as
+  too long, and `uv run --frozen pytest <paths>`, a path under `scripts/tests` from Git Bash alone, the one shell
+  whose bash `scripts/tests/conftest.py :: pytest_configure` lets run the cases;
+  `pnpm run typecheck`, `pnpm run lint`, `pnpm run knip` and
   `pnpm run knip:prod` where you touched `fl_frontend` (typecheck runs `next typegen` before tsc,
   without which a fresh worktree's tsc passes a page breaking Next's route types; the two knip runs
   fail an export or file your change left unread, which no test file of yours reaches), pyright over
-  the backend where you touched it; every
+  the backend, and from `scripts/` over the scripts, where you touched either; `ruff check` and
+  `ruff format --check` over every Python scope you touched, as the gate runs them -- `app tests`
+  from `fl_backend`, `scripts .claude/skills/orchestration/tools` from the root
+  (`scripts/gate/verify.sh :: do_backend_ruff`, `:: do_ruff`); `shellcheck -e SC1091` over every
+  shell script you changed, a hook without a suffix among them
+  (`scripts/gate/selfcheck.sh :: run_shellcheck`), which a selfcheck step run alone never reaches; every
   `scripts/checks/` checker whose population you add to, from the root as `uv run --project fl_backend --frozen python
 scripts/checks/<name>.py` -- `check_tracked_text.py` always, `check_public_routes.py` for a route
   handler, a page or `nginx/shared/site.conf`, `check_test_estate.py` for a backend test or fixture;
