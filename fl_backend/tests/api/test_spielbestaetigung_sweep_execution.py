@@ -479,6 +479,7 @@ class TestADiscardedDeclineIsNotAskedAgain:
                     **compose_antwort_update(
                         antwort="abgelehnt",
                         seat="trainer",
+                        adresse=None,
                         vorschlag=FLSpielbestaetigungTermin(datum=days_after(day=NEXT_WEEK, days=1), uhrzeit="18:00:00"),
                         begruendung="Klassenfahrt",
                         today=TODAY,
