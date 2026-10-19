@@ -538,6 +538,22 @@ const PASSKEY_DELETION = {
 };
 
 /**
+ * Every way to ask Next for a full prefetch: a link's `prefetch` other than false, null or "auto", its
+ * `unstable_dynamicOnHover`, and a router prefetch naming a kind. A spread hands one over unread.
+ */
+const FULL_PREFETCH = {
+  selector: [
+    // A regex for the two literals: esquery reads a bare attribute's missing value as the text "null".
+    'JSXAttribute[name.name="prefetch"]:not([value.expression.raw=/^(?:false|null)$/], [value.value="auto"], [value.expression.value="auto"])',
+    'JSXAttribute[name.name="unstable_dynamicOnHover"]',
+    'CallExpression[callee.property.name="prefetch"] > ObjectExpression.arguments > Property[key.name="kind"]',
+    'Identifier[name="PrefetchKind"]',
+  ].join(", "),
+  message:
+    "A full prefetch sends no `next-router-prefetch` header, so the proxy slides a session on a page nobody opened, and it renders what waits on `connection()`: leave the prefetch partial (docs/frontend/spec.md :: I495).",
+};
+
+/**
  * React's `useActionState`, and react-dom's `useFormState` it renamed, hand an action's rejection to the nearest
  * error boundary, which reads nothing of it, the edge's own 429 included. The hook the codebase takes it through
  * answers that one.
@@ -1049,6 +1065,7 @@ const SOURCE_BANS = [
   },
   // `src/core/auth.test.ts` calls the plugin's deletion to hold it closed, so tests stay outside.
   PASSKEY_DELETION,
+  FULL_PREFETCH,
   ACTION_STATE_BAN,
   ...DYNAMIC_LOADS.map((ban) => ({ ...ban, tests: true })),
   {
