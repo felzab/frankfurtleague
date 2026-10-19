@@ -446,6 +446,27 @@ describe("what one pass mails", () => {
     assert.ok(nachricht?.text.includes("Bitte bestätige den Termin für Goethe-Gymnasium"), "the request names another club as the reader's");
   });
 
+  /* One link per person, as the pass groups them: a mirrored pair is one message whose tag names both seats, so a
+     bounce is recorded on each seat rather than on one or on neither. */
+  it("mails a link held for two seats once, its tag naming both", async () => {
+    passAnswer = (saisonId) => ({
+      ...leererPass(saisonId),
+      anfragen: [
+        {
+          ...anfrage(1, "trainer@schule.de"),
+          links: [{ address: "trainer@schule.de", rollen: ["trainer", "stellvertretung"], token: "token-1" }],
+        },
+      ],
+    });
+
+    await runSpielSweep();
+
+    assert.deepEqual(
+      gesendet().map(({ to, tags }) => [to, tags]),
+      [["trainer@schule.de", { ziel: "spielbestaetigung", ziel_id: id(1), anlass: "anfrage", rollen: "trainer-stellvertretung" }]],
+    );
+  });
+
   it("sends a referee's booking on the referee's lane, with no token", async () => {
     passAnswer = (saisonId) => ({ ...leererPass(saisonId), einteilungen: [einteilung(1, "schiri@schule.de")] });
 
