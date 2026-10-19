@@ -34,6 +34,7 @@ const schiedsrichter = await import("@/features/schiedsrichter/refusals.ts");
 const schiedsrichterQueries = await import("@/features/schiedsrichter/queries.ts");
 const sperrliste = await import("@/features/sperrliste/refusals.ts");
 const spiele = await import("@/features/spiele/refusals.ts");
+const spielbestaetigungen = await import("@/features/spielbestaetigungen/utils.ts");
 const spieler = await import("@/features/spieler/refusals.ts");
 const spielerQueries = await import("@/features/spieler/queries.ts");
 const spielorte = await import("@/features/spielorte/refusals.ts");
@@ -117,6 +118,8 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /identitaet/abmeldung": funktionen.mapAbmeldungRefusal,
   "POST /sperrliste": sperrliste.mapSperreRefusal,
   "PATCH /spiele/{spiel_id}": spiele.mapSpielRefusal,
+  "POST /spielbestaetigungen": spielbestaetigungen.mapAnsetzungRefusal,
+  "POST /spielbestaetigungen/ansicht": spielbestaetigungen.mapAnsetzungAnsichtRefusal,
   // Written by the match undo's replay alone.
   "PATCH /spiele/paarungen": (error) => replayRefusal(error, spiele.PAARUNGEN_REPLAY_REFUSALS) ?? null,
   "POST /spieler/{spieler_id}/adresswechsel": spieler.mapAdresswechselAntragRefusal,

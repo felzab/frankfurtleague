@@ -63,6 +63,7 @@ const EXEMPT: Readonly<Record<string, string>> = {
     "its credential is a link the league minted and mailed; it mails no address the request types",
   "app/api/bestaetigung/spieler/adresse/route.ts POST":
     "its credential is a link the league minted and mailed; it mails no address the request types",
+  "app/api/bestaetigung/spiel/route.ts POST": "its credential is a link the league minted and mailed; it mails no address the request types",
   "app/api/bewerbung/kuerzel/route.ts GET": "a read: it writes nothing and mails nobody",
   "app/api/revalidate/route.ts POST": "its credential is the system key, which no visitor holds, and the edge refuses it; it mails nobody",
   "features/auth/actions.ts :: signOutAction": "it ends the caller's own session and mails nobody",
