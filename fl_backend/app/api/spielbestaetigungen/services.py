@@ -96,3 +96,15 @@ def seat_holding(*, spielbestaetigung_raw: Mapping[str, Any], token_hash: str) -
             return seat_named(seat)
 
     return None
+
+
+# --- The pass: what its mint and its reminder write.
+
+
+def compose_seat_entry(*, token_hash: str) -> dict[str, Any]:
+    """One seat's entry as every mint writes it, on a fresh row and on a seat minted afresh on an open one.
+
+    No delivery state: no report has yet named the message this link goes out in.
+    """
+
+    return {"token_hashes": [token_hash], "zustellung": None}
