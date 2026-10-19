@@ -230,6 +230,22 @@ async def sweep(
     return answer
 
 
+async def a_pass_through(database: AsyncDatabase, client: AsyncMongoClient, **collections: Any) -> FLSpielbestaetigungSweepResponse:
+    """One pass, the collections named handed through a stand-in."""
+
+    return await sweep_spielbestaetigungen(
+        saison_id=SAISON_ID,
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        spiele_collection=database[Collection.SPIELE],
+        saison_teams_collection=collections.get("saison_teams", database[Collection.SAISON_TEAMS]),
+        saisons_collection=database[Collection.SAISONS],
+        schiedsrichter_collection=collections.get("schiedsrichter", database[Collection.SCHIEDSRICHTER]),
+        sperrliste=ban_list(database),
+        db=client,
+        today=TODAY,
+    )
+
+
 async def angefragt(
     database: AsyncDatabase, client: AsyncMongoClient, ids: list[Any], *, saison_id: str = SAISON_ID, today: str = TODAY
 ) -> Any:
@@ -731,8 +747,8 @@ class _ThenTheRival:
         return rows
 
 
-class HandedOnAfterTheMintRead(InterleavedCollection):
-    """The season rows, a seat handed on once the mint's own transaction has read the holders it mints links for."""
+class ThenTheRivalAfterTheFirstSessionRead(InterleavedCollection):
+    """A collection running the rival once the pass's first in-transaction read of it has answered."""
 
     def find(self, *args: Any, **kwargs: Any) -> Any:
         cursor = self._collection.find(*args, **kwargs)
@@ -754,53 +770,42 @@ def a_payload_person(vorname: str, nachname: str, telefon: str) -> dict[str, Any
     }
 
 
+async def hand_alphas_trainer_to(database: AsyncDatabase, client: AsyncMongoClient, trainer: Mapping[str, Any]) -> None:
+    """Through the contacts editor's own save, its other seats kept, so the void the pass meets is the one a real save writes."""
+
+    stored = await database[Collection.SAISON_TEAMS].find_one({"saison_id": SAISON_ID, "team_id": ALPHA})
+    assert stored is not None
+    kept = {
+        seat: a_payload_person(vorname, f"{vorname}-Mustermann", f"+491701000000{position}")
+        for position, (seat, vorname) in enumerate(SEATS[ALPHA].items())
+    }
+    await patch_saison_team_kontakte(
+        team_id=ALPHA,
+        saison_id=SAISON_ID,
+        kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate(
+            {"kontakte": {**kept, "trainer": trainer, "trainer_ist_zugleich": None}, "kontakte_stand": kontakte_stand_of(stored["kontakte"])}
+        ),
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
+        db=client,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+        today=TODAY,
+    )
+
+
 class TestASeatHandedOnBesideTheMintIsMintedForItsNewHolder:
     """`docs/backend/spec.md :: I770`: the handover voids the open rows it sees, and the mint's rows are not yet among them."""
 
     def test_the_new_trainer_is_asked_and_the_old_one_holds_no_link(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def hand_the_trainer_on() -> None:
-                stored = await database[Collection.SAISON_TEAMS].find_one({"saison_id": SAISON_ID, "team_id": ALPHA})
-                assert stored is not None
-                kept = {
-                    seat: a_payload_person(vorname, f"{vorname}-Mustermann", f"+491701000000{position}")
-                    for position, (seat, vorname) in enumerate(SEATS[ALPHA].items())
-                }
-                await patch_saison_team_kontakte(
-                    team_id=ALPHA,
-                    saison_id=SAISON_ID,
-                    kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate(
-                        {
-                            "kontakte": {
-                                **kept,
-                                "trainer": a_payload_person("Lea", "Musterfrau", "+4917010000009"),
-                                "trainer_ist_zugleich": None,
-                            },
-                            "kontakte_stand": kontakte_stand_of(stored["kontakte"]),
-                        }
-                    ),
-                    saison_teams_collection=database[Collection.SAISON_TEAMS],
-                    saisons_collection=database[Collection.SAISONS],
-                    spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                    sperrliste=ban_list(database),
-                    adressanker_collection=database[Collection.ADRESSANKER],
-                    db=client,
-                    refuse_unconfirmed=FRESH_STEP_UP_CHECK,
-                    today=TODAY,
-                )
+                await hand_alphas_trainer_to(database, client, a_payload_person("Lea", "Musterfrau", "+4917010000009"))
 
-            interleaved = HandedOnAfterTheMintRead(database[Collection.SAISON_TEAMS], hand_the_trainer_on)
-            answer = await sweep_spielbestaetigungen(
-                saison_id=SAISON_ID,
-                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                spiele_collection=database[Collection.SPIELE],
-                saison_teams_collection=cast(Any, interleaved),
-                saisons_collection=database[Collection.SAISONS],
-                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                sperrliste=ban_list(database),
-                db=client,
-                today=TODAY,
-            )
+            interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SAISON_TEAMS], hand_the_trainer_on)
+            answer = await a_pass_through(database, client, saison_teams=cast(Any, interleaved))
 
             return interleaved, answer
 
@@ -1499,8 +1504,8 @@ class TestEverySeasonSizedReadSendsOneGetMore:
         assert names["getMore"] == budget.SWEEP_GET_MORES, names
 
 
-class HandedOnAfterTheSecondRead(HandedOnAfterTheMintRead):
-    """The rival at the pass's second in-session read of the season rows: wherever a row stands open the close reads them first."""
+class ThenTheRivalAfterTheSecondSessionRead(ThenTheRivalAfterTheFirstSessionRead):
+    """The rival at the pass's second in-session read of the collection: the close reads the season rows first wherever a row stands open."""
 
     def __init__(self, collection: Any, rival: Callable[[], Awaitable[None]]) -> None:
         super().__init__(collection, rival)
@@ -1530,47 +1535,10 @@ class TestAnEmptiedEntryFilledBesideAHandoverIsMintedForTheNewHolder:
             await database[Collection.SPIELBESTAETIGUNGEN].update_one({"partei.team_id": ALPHA}, {"$set": {"kontakte.trainer": None}})
 
             async def hand_the_trainer_on() -> None:
-                stored = await database[Collection.SAISON_TEAMS].find_one({"saison_id": SAISON_ID, "team_id": ALPHA})
-                assert stored is not None
-                kept = {
-                    seat: a_payload_person(vorname, f"{vorname}-Mustermann", f"+491701000000{position}")
-                    for position, (seat, vorname) in enumerate(SEATS[ALPHA].items())
-                }
-                await patch_saison_team_kontakte(
-                    team_id=ALPHA,
-                    saison_id=SAISON_ID,
-                    kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate(
-                        {
-                            "kontakte": {
-                                **kept,
-                                "trainer": a_payload_person("Lea", "Musterfrau", "+4917010000009"),
-                                "trainer_ist_zugleich": None,
-                            },
-                            "kontakte_stand": kontakte_stand_of(stored["kontakte"]),
-                        }
-                    ),
-                    saison_teams_collection=database[Collection.SAISON_TEAMS],
-                    saisons_collection=database[Collection.SAISONS],
-                    spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                    sperrliste=ban_list(database),
-                    adressanker_collection=database[Collection.ADRESSANKER],
-                    db=client,
-                    refuse_unconfirmed=FRESH_STEP_UP_CHECK,
-                    today=TODAY,
-                )
+                await hand_alphas_trainer_to(database, client, a_payload_person("Lea", "Musterfrau", "+4917010000009"))
 
-            interleaved = HandedOnAfterTheSecondRead(database[Collection.SAISON_TEAMS], hand_the_trainer_on)
-            answer = await sweep_spielbestaetigungen(
-                saison_id=SAISON_ID,
-                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                spiele_collection=database[Collection.SPIELE],
-                saison_teams_collection=cast(Any, interleaved),
-                saisons_collection=database[Collection.SAISONS],
-                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                sperrliste=ban_list(database),
-                db=client,
-                today=TODAY,
-            )
+            interleaved = ThenTheRivalAfterTheSecondSessionRead(database[Collection.SAISON_TEAMS], hand_the_trainer_on)
+            answer = await a_pass_through(database, client, saison_teams=cast(Any, interleaved))
 
             return interleaved, answer, row_of(await rows(database), team_id=ALPHA)
 
@@ -1607,20 +1575,10 @@ class TestEachPassCountsTheSeatsABanKeptFromALink:
                 )
                 assert handed.modified_count == 1
 
-            interleaved = HandedOnAfterTheMintRead(database[Collection.SAISON_TEAMS], hand_the_trainer_on)
+            interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SAISON_TEAMS], hand_the_trainer_on)
             # Inside both passes: the level outside is whatever an earlier case on this worker left.
             with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
-                await sweep_spielbestaetigungen(
-                    saison_id=SAISON_ID,
-                    spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                    spiele_collection=database[Collection.SPIELE],
-                    saison_teams_collection=cast(Any, interleaved),
-                    saisons_collection=database[Collection.SAISONS],
-                    schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                    sperrliste=ban_list(database),
-                    db=client,
-                    today=TODAY,
-                )
+                await a_pass_through(database, client, saison_teams=cast(Any, interleaved))
                 # Recorded as sent, as the timer records a pass's mail, so the second pass owes nothing but the barred seat.
                 await angefragt(database, client, [row["_id"] for row in await rows(database)])
                 await sweep(database, client)
@@ -1657,33 +1615,6 @@ class TestEachPassCountsTheSeatsABanKeptFromALink:
             == [f"Links withheld from barred addresses in season {SAISON_ID}: 0 seat(s) unminted, 1 seat(s) unreminded"] * 2
         )
         assert no_line_names(caplog, barred, BETA, *[row["_id"] for row in stored])
-
-
-class ThenTheRivalAfterTheFirstSessionRead(InterleavedCollection):
-    """A collection running the rival once the pass's first in-transaction read of it has answered."""
-
-    def find(self, *args: Any, **kwargs: Any) -> Any:
-        cursor = self._collection.find(*args, **kwargs)
-        if kwargs.get("session") is None:
-            return cursor
-
-        return _ThenTheRival(cursor, self.run_the_rival)
-
-
-async def a_pass_through(database: AsyncDatabase, client: AsyncMongoClient, **collections: Any) -> FLSpielbestaetigungSweepResponse:
-    """One pass, the collections named handed through a stand-in."""
-
-    return await sweep_spielbestaetigungen(
-        saison_id=SAISON_ID,
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        spiele_collection=database[Collection.SPIELE],
-        saison_teams_collection=collections.get("saison_teams", database[Collection.SAISON_TEAMS]),
-        saisons_collection=database[Collection.SAISONS],
-        schiedsrichter_collection=collections.get("schiedsrichter", database[Collection.SCHIEDSRICHTER]),
-        sperrliste=ban_list(database),
-        db=client,
-        today=TODAY,
-    )
 
 
 class TestARefereeErasedBesideTheMintIsToldNothing:
@@ -1809,31 +1740,8 @@ class TestARequestNeverStampedIsAskedAgain:
             await database[Collection.SPIELBESTAETIGUNGEN].update_one(
                 {"partei.team_id": ALPHA}, {"$set": {"kontakte.trainer.zustellung": refused}}
             )
-            stored = await database[Collection.SAISON_TEAMS].find_one({"saison_id": SAISON_ID, "team_id": ALPHA})
-            assert stored is not None
-            kept = {
-                seat: a_payload_person(vorname, f"{vorname}-Mustermann", f"+491701000000{position}")
-                for position, (seat, vorname) in enumerate(SEATS[ALPHA].items())
-            }
-            corrected = {**kept["trainer"], "email": "tamsin.neu@example.com"}
-            await patch_saison_team_kontakte(
-                team_id=ALPHA,
-                saison_id=SAISON_ID,
-                kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate(
-                    {
-                        "kontakte": {**kept, "trainer": corrected, "trainer_ist_zugleich": None},
-                        "kontakte_stand": kontakte_stand_of(stored["kontakte"]),
-                    }
-                ),
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                saisons_collection=database[Collection.SAISONS],
-                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                sperrliste=ban_list(database),
-                adressanker_collection=database[Collection.ADRESSANKER],
-                db=client,
-                refuse_unconfirmed=FRESH_STEP_UP_CHECK,
-                today=TODAY,
-            )
+            tamsin = a_payload_person("Tamsin", "Tamsin-Mustermann", "+4917010000000")
+            await hand_alphas_trainer_to(database, client, {**tamsin, "email": "tamsin.neu@example.com"})
 
             return await sweep(database, client)
 
@@ -1998,7 +1906,7 @@ class TestAnEinteilungNeverStampedIsToldAgain:
             async def erase_the_referee() -> None:
                 await erased(database, client, REFEREE_EMAIL, germany_now=NOW)
 
-            interleaved = HandedOnAfterTheSecondRead(database[Collection.SCHIEDSRICHTER], erase_the_referee)
+            interleaved = ThenTheRivalAfterTheSecondSessionRead(database[Collection.SCHIEDSRICHTER], erase_the_referee)
             answer = await a_pass_through(database, client, schiedsrichter=cast(Any, interleaved))
             return interleaved, answer, await rows(database, **{"partei.art": "schiedsrichter"})
 

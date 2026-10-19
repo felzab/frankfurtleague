@@ -401,8 +401,13 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
     The sweep sheet's stand-in carries it in the reply, so a judge reading the reply rather than `has_error_label` passes there alone.
     """
 
-    def test_the_mints_rows_stand_unmailed_and_the_line_names_them(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """The close's notices committed first, so the pass answers them rather than raising (`docs/backend/spec.md :: I753`)."""
+    def test_the_mints_rows_stand_unmailed_the_line_names_them_and_the_next_pass_asks_them(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
+        """The close's notices committed first, so the pass answers them rather than raising (`docs/backend/spec.md :: I753`).
+
+        Its rows hold links nobody was mailed, so the next pass asks each again (`:: I781`), a fresh link a seat beside the first.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await confirmations.sweep(database, client)
@@ -417,11 +422,18 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await losing.close()
+            standing = await confirmations.rows(database, geschlossen=None)
 
-            return commits.answered, answer, await confirmations.rows(database, geschlossen=None)
+            return (
+                commits.answered,
+                answer,
+                standing,
+                await confirmations.sweep(database, client),
+                await confirmations.rows(database, geschlossen=None),
+            )
 
         with caplog.at_level(logging.WARNING):
-            commits, answer, standing = confirmations.on_a_league(
+            commits, answer, standing, nxt, asked = confirmations.on_a_league(
                 mongo_replica_set_url, body, spiele=[confirmations.fixture(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
             )
 
@@ -443,36 +455,10 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
                 "and the rest stay due",
             )
         ]
-
-
-@pytest.mark.db
-class TestTheMintsUnansweredRowsAreAskedOnTheNextPass:
-    """The lost answer leaves rows holding links nobody was mailed; the next pass asks them, a fresh link a seat beside the first."""
-
-    def test_both_sides_of_the_moved_fixture_are_asked_again(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await confirmations.sweep(database, client)
-            await confirmations.angefragt(database, client, [row["_id"] for row in await confirmations.rows(database)])
-            await database[Collection.SPIELE].update_one({"_id": confirmations.SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
-            commits = _Commits()
-            losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
-            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"skip": 1}, data=UNANSWERED)
-            try:
-                lost = await confirmations.sweep(losing[database.name], losing)
-            finally:
-                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
-                await losing.close()
-            nxt = await confirmations.sweep(database, client)
-
-            return commits.answered, lost, nxt, await confirmations.rows(database, geschlossen=None, **{"partei.art": "team"})
-
-        commits, lost, nxt, standing = confirmations.on_a_league(
-            mongo_replica_set_url, body, spiele=[confirmations.fixture(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
-        )
-
-        # The premise: the mint's commit landed and lost its answer, so its pass mailed none of its rows.
-        assert (commits, lost.anfragen) == ([None, MAX_TIME_EXPIRED], [])
         assert sorted((anfrage.spielbestaetigung_id, anfrage.seite) for anfrage in nxt.anfragen) == sorted(
-            (row["_id"], seite_of(row)) for row in standing
+            (row["_id"], seite_of(row)) for row in standing if row["partei"]["art"] == "team"
         )
-        assert {len(entry["token_hashes"]) for row in standing for entry in row["kontakte"].values()} == {2}
+        assert [einteilung.spielbestaetigung_id for einteilung in nxt.einteilungen] == [
+            row["_id"] for row in standing if row["partei"]["art"] == "schiedsrichter"
+        ]
+        assert {len(entry["token_hashes"]) for row in asked if row["kontakte"] is not None for entry in row["kontakte"].values()} == {2}
