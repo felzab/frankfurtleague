@@ -2,7 +2,7 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
 import { act, createRef, createElement as h } from "react";
 
@@ -108,12 +108,27 @@ describe("what the fixture confirmation page is titled", () => {
 });
 
 describe("what a spent link's page carries", () => {
+  // The fixture's own day on Berlin's calendar, so a lapsed link to it is no link to a match already due yet.
+  beforeEach(() => mock.timers.enable({ apis: ["Date"], now: Date.parse(`${ANSICHT.ansetzung.datum}T10:00:00Z`) }));
+  afterEach(() => mock.timers.reset());
+
   /* A dead link may have been forwarded: its page carries nothing of the fixture, and no token. */
   for (const zustand of ["abgelaufen", "ungueltig", "gesperrt"] as const) {
     it(`hands the ${zustand} state alone to the view`, async () => {
       assert.deepEqual(await startFor(() => ({ ...ANSICHT, zustand })), { zustand });
     });
   }
+
+  /* The view serves no close reason, so the fixture's day decides, Berlin's and not the server's: half past midnight
+     there is still the fixture's day in UTC. */
+  it("opens a lapsed link whose fixture's day went by on the panel saying so", async () => {
+    mock.timers.reset();
+    mock.timers.enable({ apis: ["Date"], now: Date.parse(`${ANSICHT.ansetzung.datum}T23:30:00Z`) });
+
+    assert.deepEqual(await startFor(() => ({ ...ANSICHT, zustand: "abgelaufen" })), { zustand: "termin-vorbei" });
+    // Only a lapsed link: a void one was moved off or replaced, so the day it asked about decides nothing.
+    assert.deepEqual(await startFor(() => ({ ...ANSICHT, zustand: "ungueltig" })), { zustand: "ungueltig" });
+  });
 
   /* The seat is a role and never a person, and it is what tells the club's other two seats who answered. */
   for (const zustand of ["zugesagt", "abgelehnt"] as const) {

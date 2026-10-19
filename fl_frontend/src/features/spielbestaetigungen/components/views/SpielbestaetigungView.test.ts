@@ -62,6 +62,8 @@ const ZUGESAGT_VON_ANSPRECHPERSON: SpielbestaetigungStart = {
 
 const DEAD = "Dieser Link ist ungültig oder abgelaufen.";
 
+const TERMIN_VORBEI = "Dieser Link ist abgelaufen: Der Spieltermin ist vorbei.";
+
 /**
  * The words on screen. Read across element boundaries so a marked name does not fuse with its
  * neighbour, then closed up again at the punctuation that followed it.
@@ -156,6 +158,16 @@ describe("the fixture confirmation page", () => {
     }
   });
 
+  /* A match already due has no date left for the league to set: the panel says the day went by, and nothing of the
+     deadline. */
+  it("says the fixture's day went by, and offers a question by mail, on a link to a match already due", () => {
+    const html = markup({ zustand: "termin-vorbei" });
+
+    assert.deepEqual(resultPanels(html), [`${TERMIN_VORBEI}Frage stellen`]);
+    assert.ok(html.includes(`href="mailto:${KONTAKT_EMAIL}"`), "the panel's button asks no question by mail");
+    assert.match(words(html), /^Link ungültig/);
+  });
+
   /* A seat names a role and never a person, and it is what tells the club's other two seats who answered. */
   it("names the seat that answered an answered link, and nothing of the fixture", () => {
     const shown = words(markup(ZUGESAGT_VON_ANSPRECHPERSON));
@@ -183,6 +195,7 @@ describe("the fixture confirmation page", () => {
         "Für dieses Spiel hat Dein Team den Termin schon abgesagt.",
       ],
       [{ zustand: "abgelaufen" }, DEAD],
+      [{ zustand: "termin-vorbei" }, TERMIN_VORBEI],
       [{ zustand: "ungueltig" }, DEAD],
       [{ zustand: "gesperrt" }, LINK_ADRESSE_GESPERRT],
       [{ zustand: "unlesbar" }, unlesbar],
@@ -279,6 +292,7 @@ describe("what a refused press does to the page", () => {
   for (const [zustand, ueberschrift, eigenes] of [
     ["ungueltig", "Link ungültig", DEAD],
     ["abgelaufen", "Link ungültig", DEAD],
+    ["termin-vorbei", "Link ungültig", TERMIN_VORBEI],
   ] as const) {
     it(`swaps the form for the ${zustand} panel`, async () => {
       answerEveryFetch({ success: false, zustand: zustand });

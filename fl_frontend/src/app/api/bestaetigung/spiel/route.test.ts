@@ -200,15 +200,21 @@ describe("a club's answer to a fixture confirmation link", () => {
   });
 
   /* One code covers every closing reason, and the view names it: a press on a row the pass closed shows
-     the panel a reload of the link would, a move's as void and a day gone by as lapsed. */
-  for (const zustand of ["abgelaufen", "ungueltig"] as const) {
-    it(`answers a row closed since the open with the ${zustand} panel its read names`, async () => {
+     the panel a reload of the link would, a move's as void and a day gone by as its own. */
+  for (const [zustand, uhr, panel] of [
+    ["abgelaufen", "T10:00:00Z", "abgelaufen"],
+    ["ungueltig", "T10:00:00Z", "ungueltig"],
+    // Half past midnight in Berlin after the fixture's day.
+    ["abgelaufen", "T23:30:00Z", "termin-vorbei"],
+  ] as const) {
+    it(`answers a row closed since the open, read ${zustand} at ${uhr} on the fixture's day, with the ${panel} panel`, async (t) => {
+      t.mock.timers.enable({ apis: ["Date"], now: Date.parse(`${BEANTWORTET.ansetzung.datum}${uhr}`) });
       schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-ANSETZUNG-009");
       leseAntwort = () => ({ ...BEANTWORTET, zustand, beantwortet_von: null });
 
       const answer = await bodyOf(aRequest(vorschlagKoerper));
 
-      assert.deepEqual(answer.body, { success: false, zustand });
+      assert.deepEqual(answer.body, { success: false, zustand: panel });
       assert.equal(gelesen, 1);
     });
   }
