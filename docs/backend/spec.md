@@ -667,7 +667,7 @@ purposes derive one, and a replaced master costs each its own way:**
   line written before it matches no address a restore holds, so neither an erasure nor a choice it
   records can be run again after a restore;
 - the digest naming who answered a fixture confirmation from a seat
-  (`fl_backend/app/api/spielbestaetigungen/services.py :: halter_of`): no erasure or Widerspruch
+  (`fl_backend/app/api/spielbestaetigungen/services.py :: HALTER_VERSION`): no erasure or Widerspruch
   finds a reason typed before it, so that reason stays until its season's contacts are cleared;
 - the address's anchor (`fl_backend/app/core/adressanker.py :: ADRESSANKER_VERSION`): nothing that
   lasts, an anchor standing only until the expiry pass after its last write (I719).
