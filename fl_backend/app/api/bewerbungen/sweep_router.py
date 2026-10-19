@@ -77,13 +77,15 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Both shares at three commands a row beside the 32 of the worst call erasing one page per clock
+# Both shares at three commands a row beside the 35 of the worst call erasing one page per clock
 # (`tests/api/test_bewerbung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
 # 266 commands at a 36 ms round trip plus 1.35 ms take 9.94 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 39
 
-# A season at the capacity its rules allow holds more junction rows than this, and takes more passes.
-BLOCKS_CLEARED_PER_PASS: Final = 39
+# A season at the capacity its rules allow holds more junction rows than this, and takes more passes. One below
+# the reminders': the void of the cleared people's match links costs the pass three commands, and at 39 its
+# 269 take 10.05 s.
+BLOCKS_CLEARED_PER_PASS: Final = 38
 
 
 async def _club_names(
