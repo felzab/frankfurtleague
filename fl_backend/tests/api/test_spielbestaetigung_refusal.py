@@ -286,6 +286,7 @@ SITUATIONS = [
     pytest.param({}, TODAY, id="open"),
     pytest.param({}, "2027-05-08", id="late"),
     pytest.param({"spiel_overrides": {"uhrzeit": "19:00:00"}}, TODAY, id="moved"),
+    pytest.param({"spiel_overrides": {"uhrzeit": "19:00:00"}}, "2027-05-08", id="moved-and-late"),
     pytest.param({"spiel_overrides": {"team2": None}}, TODAY, id="a-side-gone"),
     pytest.param({"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, id="a-result"),
     pytest.param({"spiel_overrides": {"elfmeterschiessen": {"team1": 4, "team2": 3}}}, TODAY, id="a-lone-shoot-out"),
