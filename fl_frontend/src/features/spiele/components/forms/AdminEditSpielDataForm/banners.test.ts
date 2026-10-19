@@ -440,8 +440,8 @@ describe("buildSpielBanners", () => {
     assert.equal(banner?.raisedBy, "state");
   });
 
-  /* The case a window check alone gets wrong: no pass asks about a fixture whose day has come, so the banner would
-     announce something the sweep never does. The deadline's last day still raises it, the first day past it does not. */
+  /* The case a window check alone gets wrong: no pass asks about a fixture whose day has come. The deadline's last
+     day still raises it, the first day past it does not. */
   it("raises nothing for a date in the past or today, whatever else is true, and nothing past the window", () => {
     for (const [datum, gespeichert] of [
       [tagNach(-2), tagNach(30)],
