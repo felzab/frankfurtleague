@@ -27,6 +27,7 @@ from app.api.teams.services import has_taken_place, seats_changing_holder
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import (
     SPIEL_ANFRAGE_VORLAUF_TAGE,
     SPIEL_BESTAETIGUNG_FRIST_TAGE,
@@ -446,10 +447,20 @@ def ansicht_vorschlag_of(
     return None
 
 
+def halter_of(address: str) -> str:
+    """The answering seat's holder, as the person's erasure finds the reasons they typed from any seat.
+
+    A digest, so the row keeps no address, over the fold `app/api/teams/services.py :: seats_changing_holder` tells holders apart by.
+    """
+
+    return hashlib.sha256(sign_in_identifier(address).encode("utf-8")).hexdigest()
+
+
 def compose_antwort_update(
     *,
     antwort: FLSpielbestaetigungAntwortArt,
     seat: FLKontaktRolle,
+    adresse: str | None,
     vorschlag: FLSpielbestaetigungTermin | None,
     begruendung: str | None,
     today: str,
@@ -459,7 +470,8 @@ def compose_antwort_update(
             "antwort": {
                 "art": antwort,
                 "am": today,
-                "von": {"art": "kontakt", "rolle": seat},
+                # Never served (`tests/core/test_constraints.py :: STORED_BUT_NOT_SERVED`).
+                "von": {"art": "kontakt", "rolle": seat, "halter": None if adresse is None else halter_of(adresse)},
                 "vorschlag": None if vorschlag is None else {"datum": vorschlag.datum, "uhrzeit": vorschlag.uhrzeit},
                 "begruendung": begruendung,
             }

@@ -6,6 +6,7 @@ pressed, the proposal judged as the administrator's save of that date is judged,
 fixture.
 """
 
+import hashlib
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
@@ -70,6 +71,9 @@ PEOPLE = {
 }
 NAMES = {TEAM1: ("Adler", "AD"), TEAM2: ("Biber", "BI")}
 REFEREE = "Otto Gruber"
+
+# Spelled out rather than through the code under test: the stellvertretung's address on the sign-in fold, hashed.
+KLARA = hashlib.sha256(b"klara@example.com").hexdigest()
 
 
 def token(team_id: ObjectId, seat: str, nth: int = 0) -> str:
@@ -302,13 +306,30 @@ class TestTheSeatTheAnswerRecords:
         assert row["antwort"] == {
             "art": "zugesagt",
             "am": TODAY,
-            "von": {"art": "kontakt", "rolle": "stellvertretung"},
+            "von": {"art": "kontakt", "rolle": "stellvertretung", "halter": KLARA},
             "vorschlag": None,
             "begruendung": None,
         }
         assert second == ANSETZUNG_BEANTWORTET
         # The other club's row is its own question.
         assert other["antwort"] is None
+
+    def test_the_holder_recorded_is_the_seats_address_as_it_stands_on_the_fold_a_holder_is_told_apart_by(self, mongo_replica_set_url: str):
+        """Re-typed since the mint, a spelling the fold reads as the same inbox: the person's erasure must still find the reason."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISON_TEAMS].update_one(
+                {"team_id": TEAM1}, {"$set": {"kontakte.stellvertretung.email": " Klara@EXAMPLE.com "}}
+            )
+            await ablehnen(database, client, token(TEAM1, "stellvertretung"), ("2027-05-15", "18:00:00"), begruendung="Die Halle ist belegt")
+
+            return await row_now(database, ROW1), await ansicht(database, token(TEAM1, "stellvertretung"))
+
+        row, view = on_a_fixture(mongo_replica_set_url, body)
+
+        assert row["antwort"]["von"] == {"art": "kontakt", "rolle": "stellvertretung", "halter": KLARA}
+        # Stored for the erasure alone: the reopened link names the role and nothing of the holder.
+        assert view.beantwortet_von is not None and view.beantwortet_von.model_dump() == {"art": "kontakt", "rolle": "stellvertretung"}
 
     def test_a_mirrored_pair_sharing_one_link_records_the_first_seat_in_order(self, mongo_replica_set_url: str):
         """One person on two seats holds one hash: resolved to a seat rather than to nothing."""
@@ -321,7 +342,7 @@ class TestTheSeatTheAnswerRecords:
 
             return await row_now(database, ROW1)
 
-        assert on_a_fixture(mongo_replica_set_url, body, rows=rows)["antwort"]["von"] == {"art": "kontakt", "rolle": "trainer"}
+        assert on_a_fixture(mongo_replica_set_url, body, rows=rows)["antwort"]["von"]["rolle"] == "trainer"
 
     def test_the_write_itself_takes_only_a_row_neither_answered_nor_closed(self, mongo_replica_set_url: str):
         """The first press binds through the write's own filter, which the in-session judgement before it does not replace."""
@@ -354,7 +375,7 @@ class TestEveryMailedLinkLivesToTheDeadline:
         zustand, row = on_a_fixture(mongo_replica_set_url, body, rows=rows)
 
         assert zustand == "gueltig"
-        assert row["antwort"]["von"] == {"art": "kontakt", "rolle": "ansprechperson"}
+        assert row["antwort"]["von"]["rolle"] == "ansprechperson"
 
 
 class TestAProposalIsJudgedWhereTheAdminIsJudged:

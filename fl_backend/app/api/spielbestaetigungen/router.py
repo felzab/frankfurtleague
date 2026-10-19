@@ -208,7 +208,12 @@ async def post_spielbestaetigung(
                 collection=spielbestaetigungen_collection,
                 db_filter={**build_token_filter(token_hash=token_hash), **build_answerable_filter()},
                 update=compose_antwort_update(
-                    antwort=antwort_data.antwort, seat=seat, vorschlag=vorschlag, begruendung=antwort_data.begruendung, today=today
+                    antwort=antwort_data.antwort,
+                    seat=seat,
+                    adresse=adresse,
+                    vorschlag=vorschlag,
+                    begruendung=antwort_data.begruendung,
+                    today=today,
                 ),
                 session=session,
                 return_document=ReturnDocument.BEFORE,
