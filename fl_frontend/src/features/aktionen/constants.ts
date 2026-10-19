@@ -48,9 +48,8 @@ export const AKTION_OPERATION_LABELS: Record<FLAktion["operation"], string> = {
   insert_many: "Mehrere angelegt",
   patch_one: "Geändert",
   patch_many: "Sammeländerung",
-  // Only the erasure states the log's side, because only it is true of every such row: a removal
-  // that matched nothing keeps no image either, and the `Stand gesichert` badge already answers
-  // that question per row rather than per operation.
+  // Only the erasure states the log's side, because it never keeps an image: whether a removal's row
+  // kept its images is the `Stand gesichert` badge's to answer, per row rather than per operation.
   delete_many: "Gelöscht",
   erase_many: "Gelöscht, ohne Stand",
 };
