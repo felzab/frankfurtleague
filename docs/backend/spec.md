@@ -1562,3 +1562,11 @@ rather than by the handler remembering to conceal one.
   where the fixture's new date is inside the answer window, one request more. Any other leaves a
   proposal stored that its judges would now refuse, which the administrator's save of that date
   judges again (I754): a proposal is advice.
+- **The confirmation log's image reads examine every confirmation log row.** An erasure's and a
+  Widerspruch's reads of the images of a person's seats and reasons
+  (`fl_backend/app/api/spielbestaetigungen/services.py :: build_seat_entry_images_filter`,
+  `:: build_contact_reason_images_filter`) and the season-end strip's (`:: build_season_images_filter`)
+  select inside `before`, which no `aktionen` index keys, so each uses the `collection` prefix alone.
+  Over 10,000 confirmation log rows beside 10,000 of another collection, each examined those 10,000
+  and took 13 to 34 ms, measured 2026-10-20 on a development machine other work shared. An index
+  keyed inside `before` would serve these reads and cost every log write.
