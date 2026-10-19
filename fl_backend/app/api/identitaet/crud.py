@@ -68,6 +68,7 @@ from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_refer
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
 from app.api.sperrliste.lookup import BanList
 from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_session
+from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session, remove_pending_pupil_addresses_in_session
 from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_spieler_filter
 from app.core.adressanker import anchor_the_addresses
@@ -845,6 +846,7 @@ class ErasureJournal[Erased: FLErasure]:
             person_hash=loeschung_journal_hash(self._identifier, schluessel=self._schluessel),
             art="loeschung",
             pseudonym=akteur_pseudonym(self._identifier, schluessel=self._schluessel),
+            halter=halter_of(self._identifier, schluessel=self._schluessel),
         )
         journal_logger.info(line.text())
 

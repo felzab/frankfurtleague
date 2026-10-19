@@ -34,6 +34,7 @@ from app.api.registrierungen.schemas import FLRegistrierungAufnehmenPayload
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.api.schiedsrichter.services import compose_adresswechsel, compose_einwilligung
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.crud import erase_person_in_session
 from app.api.spieler.services import build_ghost_spieler, compose_spieler_adresswechsel
 from app.core.collections import Collection
@@ -1060,8 +1061,10 @@ class TestTheJournal:
         lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
         expected = loeschung_journal_hash(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
 
+        halter = halter_of(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
+
         assert status == 200
-        assert lines == [f"{JOURNAL_TOKEN} {expected} loeschung pseudonym={PSEUDONYM}"]
+        assert lines == [f"{JOURNAL_TOKEN} {expected} loeschung pseudonym={PSEUDONYM} halter={halter}"]
         # Its own label: under the log's, every choice's line would name the pseudonym the erasure's line alone names.
         assert expected != PSEUDONYM
 

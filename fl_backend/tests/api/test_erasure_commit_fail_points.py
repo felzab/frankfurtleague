@@ -20,6 +20,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
 from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET
+from app.api.spielbestaetigungen.services import halter_of
 from app.core.collections import Collection
 from app.core.db import NO_OWNER
 from app.core.exception_handlers import DATABASE_FAILED, UNKNOWN_OUTCOME
@@ -214,7 +215,8 @@ class TestAnErasureOnRequest:
 
         assert journal_lines(caplog) == [
             f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} loeschung "
-            f"pseudonym={akteur_pseudonym(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
+            f"pseudonym={akteur_pseudonym(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} "
+            f"halter={halter_of(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
         ]
         # The premise last: one commit refused, so the line above is the rerun's alone.
         assert (refused, erased) == ([WRITE_CONFLICT, None], 1)
@@ -242,7 +244,8 @@ class TestAnErasureOnRequest:
         assert (commits, labelled, after) == ([MAX_TIME_EXPIRED], True, {IDENTIFIER: []})
         assert journal_lines(caplog) == [
             f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} loeschung "
-            f"pseudonym={akteur_pseudonym(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
+            f"pseudonym={akteur_pseudonym(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} "
+            f"halter={halter_of(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
         ]
 
 
