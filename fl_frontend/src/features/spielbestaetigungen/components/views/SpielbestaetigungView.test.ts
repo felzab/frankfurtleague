@@ -133,11 +133,14 @@ describe("the fixture confirmation page", () => {
     assert.ok(screen.getByRole("button", { name: ANDEREN_TERMIN_VORSCHLAGEN }));
   });
 
-  it("states that the league sets the date after the deadline, and gives its contact, on a dead link", () => {
+  /* The way out is the button alone, as on the other link pages' dead-link panels: no address beside it in the text. */
+  it("states that the league sets the date after the deadline, and offers a question by mail, on a dead link", () => {
     for (const zustand of ["abgelaufen", "ungueltig"] as const) {
-      const shown = words(markup({ zustand }));
+      const html = markup({ zustand });
+      const shown = words(html);
       assert.ok(shown.includes("Ist die Frist vorbei, legt die Liga den Termin fest."), `the ${zustand} panel says nothing of the deadline`);
-      assert.ok(shown.includes(KONTAKT_EMAIL), `the ${zustand} panel gives no contact`);
+      assert.ok(html.includes(`href="mailto:${KONTAKT_EMAIL}"`) && shown.includes("Frage stellen"), `the ${zustand} panel offers no question`);
+      assert.ok(!shown.includes(KONTAKT_EMAIL), `the ${zustand} panel writes the address out beside its button`);
     }
   });
 
