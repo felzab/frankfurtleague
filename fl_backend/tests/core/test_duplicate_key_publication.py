@@ -1041,9 +1041,8 @@ def _may_match(value: Any, condition: Any) -> bool:
             return False
         if isinstance(value, _Typed):
             return issubclass(value.kind, wanted)
-        # A document written there is neither null nor a string, so it moves the row out of the index.
-        if isinstance(value, _Literal):
-            return False
+        # A dict literal stays a yes: at a path the trace cannot name it may be the parent of this field, setting it to
+        # anything. `_meets_index` weighs one written at the field itself through `_document_may_match`.
         return isinstance(value, wanted) if plain else True
 
     # An equality, which a missing field meets only where it asks for null.
@@ -1052,6 +1051,15 @@ def _may_match(value: Any, condition: Any) -> bool:
     if isinstance(value, _Typed):
         return isinstance(condition, value.kind)
     return value == condition if plain else True
+
+
+def _document_may_match(condition: Any) -> bool:
+    """Whether a document standing at a field may meet a partial filter's condition on it: never null, a string or a scalar."""
+
+    if not isinstance(condition, Mapping):
+        return False
+
+    return set(condition) != {"$type"} or condition["$type"] not in BSON_TYPES
 
 
 def _bson_type(value: Any) -> str | None:
@@ -1114,13 +1122,18 @@ def _meets_index(path: FieldPath, written: Values, index: _Index) -> bool:
         first = path.lead.split(".")[0]
         under = (lambda name: name == first) if "." in path.lead else (lambda name: name.startswith(path.lead))
         return any(under(name) and _holds_a_document(index.types.get(name)) for name in fields)
-    # A key set exactly is weighed against the filter's own condition on it; a path inside it is not.
+    # A key set exactly is weighed against the filter's own condition on it; a path inside it is not, a key's value
+    # being indexed whatever it holds.
     if any(_meets(path, key) and (path != key or any(_indexed_with(key, value, index) for value in written)) for key in index.keys):
         return True
-    return any(
-        _meets(path, name) and (path != name or any(_may_match(value, condition) for value in written))
-        for name, condition in index.conditions.items()
-    )
+
+    def may_move_the_row_in(name: str, condition: Any) -> bool:
+        if path == name:
+            return any(_document_may_match(condition) if isinstance(value, _Literal) else _may_match(value, condition) for value in written)
+        # A path inside the field leaves a document there, and a removal under it leaves one too; one holding it is unread.
+        return _document_may_match(condition) if isinstance(path, str) and path.startswith(f"{name}.") else True
+
+    return any(_meets(path, name) and may_move_the_row_in(name, condition) for name, condition in index.conditions.items())
 
 
 def _reaches(write: Write) -> bool:
@@ -1459,12 +1472,18 @@ def _update_reaches(source: str, collection: Collection, scope: Mapping[str, Val
             {"carriers": (_Sequence(("kontakte.trainer", "kontakte.stellvertretung")),)},
             False,
         ),
+        # A path inside `antwort` leaves a document there, which the open-row index's null filter never takes.
         (
             '{"$set": {f"{carrier}.zustellung": entry for carrier in carriers}}',
             Collection.SPIELBESTAETIGUNGEN,
             {"carriers": (_Sequence(("kontakte.trainer", "antwort")),)},
-            True,
+            False,
         ),
+        ('{"$set": {"antwort.begruendung": None, "antwort.von.halter": None}}', Collection.SPIELBESTAETIGUNGEN, None, False),
+        ('{"$unset": {"antwort.begruendung": ""}}', Collection.SPIELBESTAETIGUNGEN, None, False),
+        # Written whole: a null moves the row back in, a document out of it.
+        ('{"$set": {"antwort": None}}', Collection.SPIELBESTAETIGUNGEN, None, True),
+        ('{"$set": {"antwort": {"art": art}}}', Collection.SPIELBESTAETIGUNGEN, {"art": (UNRESOLVED,)}, False),
         (
             '{"$set": {f"{carrier}.zustellung": entry for carrier, entry in held.items()}}',
             Collection.SPIELBESTAETIGUNGEN,
@@ -1541,6 +1560,17 @@ def test_a_path_the_trace_cannot_name_reaches_a_key_its_validator_leaves_open():
     assert not _meets_index(_SubPath(""), (UNRESOLVED,), optional_key)
     assert _meets_index(UNRESOLVED, (UNSET,), optional_key)
     assert not _meets_index(UNRESOLVED, (None,), optional_key)
+
+
+def test_a_document_written_where_the_trace_cannot_name_the_path_may_set_a_filtered_field_under_it():
+    """The unnamed path may be the field's parent, so the document there may hold any value at the field."""
+
+    # No key, which a written document would reach on its own.
+    under_a_parent = _Index(frozenset(), {"p.s": {"$type": "string"}}, {"p.s": frozenset({"string"})}, frozenset())
+
+    assert _meets_index(UNRESOLVED, (_Literal(((("s",), ("x",)),)),), under_a_parent)
+    # The premise: at the field itself, a document meets no string condition.
+    assert not _meets_index("p.s", (_Literal(((("s",), ("x",)),)),), under_a_parent)
 
 
 @pytest.mark.parametrize(
