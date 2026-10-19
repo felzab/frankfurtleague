@@ -357,12 +357,9 @@ class TestTheProposalIsTheFixtureOnItsNewDate:
         assert (proposed.datum, proposed.uhrzeit) == ("2027-05-15", "17:00:00")
         assert proposed.ort is not None and stored.ort is not None and proposed.ort.spielort_id == stored.ort.spielort_id
         assert proposed.schiedsrichter is not None and proposed.schiedsrichter.schiedsrichter_id == SCHIEDSRICHTER
-        assert (proposed.team1, proposed.team2, proposed.sonderereignis) == (
-            proposal_payload(stored, FLSpielbestaetigungTermin(datum=DATUM, uhrzeit="18:30:00")).team1,
-            proposal_payload(stored, FLSpielbestaetigungTermin(datum=DATUM, uhrzeit="18:30:00")).team2,
-            None,
-        )
-        assert proposed.team1 is not None and proposed.team1.team_id == TEAM1
+        # Against the stored sides, spelled out: the exit judge weighs exactly the clubs the fixture already fields.
+        sides = [None if side is None else (side.team_id, side.tore) for side in (proposed.team1, proposed.team2)]
+        assert (sides, proposed.sonderereignis) == ([(TEAM1, None), (TEAM2, None)], None)
 
 
 class TestANameInTheBegruendung:
