@@ -44,6 +44,13 @@ export async function registerOnNode() {
     armLoeschungSweep();
   }
 
+  // Its own switch, never another sweep's: arming it starts the league's fixture mail, and an operator stops every
+  // season's at once with it alone. Compared to "on" for the reason above (`docs/frontend/spec.md :: I740`).
+  if (process.env.NODE_ENV === "production" && frontend_config.SPIEL_SWEEP === "on") {
+    const { armSpielSweep } = await import("./features/spielbestaetigungen/sweep");
+    armSpielSweep();
+  }
+
   // Never behind the sweep's switch, which a local stack sets off: a change to who administers is
   // announced wherever a production build runs, and a stack that mails nothing counts it as told.
   if (process.env.NODE_ENV === "production") {

@@ -236,6 +236,14 @@ const environment = {
     .pipe(z.enum(["on", "off"]))
     .default("off"),
 
+  // Off where the server sets nothing, unlike `BEWERBUNG_SWEEP`: its first pass mails about every fixture already
+  // inside the answer window, so arming it is a day an operator chooses rather than a deploy (`docs/ops/runbooks.md` §9).
+  SPIEL_SWEEP: z
+    .string()
+    .transform((value) => value.toLowerCase())
+    .pipe(z.enum(["on", "off"]))
+    .default("off"),
+
   // Public: the bot check's widget prints it into the page. No default, so a host's file leaving it out
   // is refused before the recreate rather than at the boot.
   TURNSTILE_SITE_KEY: z.string().min(1),
@@ -321,6 +329,7 @@ const validated = createEnv({
     BEWERBUNG_SWEEP: process.env.BEWERBUNG_SWEEP,
     KONTO_SWEEP: process.env.KONTO_SWEEP,
     LOESCHUNG_SWEEP: process.env.LOESCHUNG_SWEEP,
+    SPIEL_SWEEP: process.env.SPIEL_SWEEP,
     TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY,
 
     // Off the files alone: a variable of the same name, standing in for a missing file, would hand

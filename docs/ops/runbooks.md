@@ -1380,6 +1380,38 @@ so neither an activation nor a pass deletes a pupil until you set it.
 **Switching it off is that line set to `off`, and a deploy**: until the frontend has booted on it, a
 pass or a press can still delete.
 
+**The fixture confirmations run on a timer of their own wherever `SPIEL_SWEEP` reads `on`**, a
+minute after the frontend starts and then hourly, whatever any other switch reads
+(`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: armSpielSweep`). One call answers
+whether they ran, as the retention sweep's does:
+
+    docker compose exec frontend node -e "fetch('http://backend:8000/api/v0/spielbestaetigungen/sweep',{headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim()}}).then(r=>r.text()).then(console.log)"
+
+**`spiel_sweep_gelaufen_am` is the day the last pass ran**, today or yesterday on a healthy stack
+with the switch on, and null where none ever has. Each pass writes one `spielbestaetigung.sweep_pass`
+line counting the rows it closed, the first requests it stamped, the reminders it sent and the rows
+it passed over, at `INFO`, and as a warning under `FE-SWEEP-004` where it passed rows over; a season
+it could not sweep files `spielbestaetigung.sweep_failed` besides. A `spielbestaetigung.sweep_skipped`
+line in every hour says a pass is stuck, which recreating the frontend service ends:
+
+    docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_
+
+**Turn the confirmations on once, on a day you choose: the first armed passes are a burst.**
+`SPIEL_SWEEP` ships off, so a deploy mails no team. Armed, the passes ask about every dated fixture
+of the running season inside the answer window
+(`fl_backend/app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE` plus
+`:: SPIEL_ANFRAGE_VORLAUF_TAGE` days ahead), every mailbox of both clubs' seats and each booked
+referee, spread over as many hourly passes as the per-pass share needs, and a fixture inside the
+deadline's own days is due the day it is asked.
+
+1. Add `SPIEL_SWEEP=on` to the server's `fl_frontend/.env` and deploy (§1). The frontend reads it
+   once as it boots.
+2. The next day, read `spiel_sweep_gelaufen_am` with the call above, and the pass lines.
+
+**Switching it off is that line set to `off`, and a deploy**, and it stops every season's fixture
+mail at once, the lever for an outage or a fault at the mail provider: until the frontend has booted
+on it, a pass can still mail.
+
 **The account sweep stores no date, so its own line in the frontend's log is the answer**
 ([`spec.md`](spec.md) §1.1). Every pass that completes writes one `konto.sweep_completed` line,
 counting the accounts it listed, those answered unreferenced, deleted, already gone, and those a
@@ -1583,6 +1615,11 @@ the snapshot predates among them, and nothing brings one back. Re-enter the squa
 registrations written since the snapshot, and activate again a season whose activation it predates,
 the switch still off. Its deletions are re-derived rather than replayed: it journals none
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I691), so the steps below never list them.
+
+**Before restoring, switch `SPIEL_SWEEP` off as well (§9), and on again only once every step below
+is done:** a pass against the restored state asks again about every fixture whose request the
+snapshot predates, mailing teams already asked a fresh link while the links they hold answer
+nothing.
 
 **The action log cannot be the list, because the restore rolls it back too; the erasure journal is.**
 Everything written between the snapshot and the restore is gone, the log's own rows about it

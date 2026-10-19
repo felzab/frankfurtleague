@@ -24,7 +24,17 @@ import type { FLBewerbung, FLBewerbungZustellungEreignisPayload, FLKontaktRolle 
  * operation names the log lines use: a tag value admits ASCII letters, digits, `_` and `-` alone.
  */
 export type ZustellAnlass =
-  "eingang" | "empfang" | "erinnerung" | "erneut" | "vollstaendig" | "widerspruch" | "loeschung" | "einladung" | "ablehnung";
+  | "eingang"
+  | "empfang"
+  | "erinnerung"
+  | "erneut"
+  | "vollstaendig"
+  | "widerspruch"
+  | "loeschung"
+  | "einladung"
+  | "ablehnung"
+  | "anfrage"
+  | "neue_ansetzung";
 
 /** One message and every seat it answers for. A mirrored pair is one message naming two seats. */
 export type ZustellSendung = {
@@ -121,6 +131,16 @@ type ZustellGemeinsam = {
 /** Why a tagged event reached no record. A closed set, because it reaches a log line rather than a reader. */
 type ZustellUnplatzierbarGrund = "ziel_unbekannt" | "ziel_id_unlesbar" | "rollen_unlesbar";
 
+/**
+ * What a referee's word about a fixture they officiate rides under, the booking and the notice that the
+ * fixture moved alike: one recipient, one lane. Beside the reader rather than in `core`, the one sender
+ * being a feature module.
+ */
+export const SPIELLEITUNG_TAG = "spielleitung";
+
+/** One value for both messages: either missing tells the operator the same thing, a referee not told about their fixture. */
+export const SPIELLEITUNG_HINWEIS = "hinweis";
+
 /** The lanes no store holds, where a message that did not arrive leaves a line and nothing else. */
 const OHNE_EINTRAG = [
   // An administrator locked out of their own mailbox is a line for an operator, and a record here would
@@ -130,6 +150,8 @@ const OHNE_EINTRAG = [
   { ziel: "berechtigung", tag: BERECHTIGUNG_TAG, wert: BERECHTIGUNG_HINWEIS },
   // The pupil's registration is erased before the season-end note goes.
   { ziel: "saisonende", tag: SAISONENDE_TAG, wert: SAISONENDE_NOTIZ },
+  // A referee's fixture row holds no seat to record a delivery on, and a seat kind refuses a send naming none.
+  { ziel: "spielleitung", tag: SPIELLEITUNG_TAG, wert: SPIELLEITUNG_HINWEIS },
 ] as const;
 
 /**
