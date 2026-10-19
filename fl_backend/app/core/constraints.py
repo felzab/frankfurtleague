@@ -1847,7 +1847,9 @@ async def report_duplicates(db: AsyncDatabase) -> list[DuplicateReport]:
             # The index's own reach, ahead of the grouping: rows outside it would group as a
             # duplicate the boot never refuses, sending an operator to repair data the index ignores.
             *([{"$match": dict(index.partial_filter)}] if index.partial_filter is not None else []),
-            {"$group": {"_id": {key: f"${key}" for key in index.keys}, "n": {"$sum": 1}}},
+            # A group key may hold no `.`, so a key inside a sub-document is named with `_`; its value,
+            # a missing key's null included, is what the index compares.
+            {"$group": {"_id": {key.replace(".", "_"): f"${key}" for key in index.keys}, "n": {"$sum": 1}}},
             {"$match": {"n": {"$gt": 1}}},
         ]
         counted = await (await db[index.collection].aggregate([*offenders, {"$count": "groups"}])).to_list(length=1)
