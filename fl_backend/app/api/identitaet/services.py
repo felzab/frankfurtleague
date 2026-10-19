@@ -660,6 +660,16 @@ def eigene_namen(
         *(row.get(part) for row in registrierung_rows for part in ("vorname", "nachname")),
         *(_referee_entry(row)["name"] for row in referee_rows),
     ]
+
+    return namen_aus(fields)
+
+
+def namen_aus(fields: Iterable[Any]) -> frozenset[str]:
+    """Every name these stored name fields hold: each field whole and each of its words (`_named_words`), for `holds_a_name`.
+
+    The one rule for every record whose free text refuses its people's names, whichever records it gathers the fields from.
+    """
+
     wholes = {composed_name(field) for field in fields}
     names = wholes | {word for whole in wholes for word in _named_words(whole)}
 
