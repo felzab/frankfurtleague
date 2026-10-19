@@ -740,29 +740,35 @@ def erinnerung_tage(*, today: str) -> list[str]:
     return [days_after(day=today, days=tage) for tage in (SPIEL_ERINNERUNG_TAGE_ERSTE, SPIEL_ERINNERUNG_TAGE_ZWEITE)]
 
 
-def build_erinnerung_filter(*, saison_id: str, today: str) -> dict[str, Any]:
-    """The season's open team rows a reminder falls due on today and none has gone out for."""
+def build_erinnerung_filter(*, saison_id: str, today: str, minted: Sequence[Any]) -> dict[str, Any]:
+    """The season's open team rows owed a message: a reminder due today, or a request never stamped as sent (`docs/backend/spec.md :: I781`).
+
+    Never a row minted by this pass, nor reminded on its request's day (`:: I782`).
+    """
 
     return {
         "saison_id": saison_id,
         "partei.art": "team",
         **build_answerable_filter(),
-        "frist": {"$in": erinnerung_tage(today=today)},
-        "erinnert_am": {"$ne": today},
+        "_id": {"$nin": list(minted)},
+        "$or": [
+            {"angefragt_am": None},
+            {"frist": {"$in": erinnerung_tage(today=today)}, "erinnert_am": {"$ne": today}, "angefragt_am": {"$ne": today}},
+        ],
     }
 
 
-def compose_erinnerung_update(*, hashes: Mapping[str, str], today: str) -> dict[str, Any]:
-    """The reminder's one update: each seat's fresh hash appended beside the ones already mailed, and the day.
+def compose_erinnerung_update(*, hashes: Mapping[str, str], today: str, erinnert: bool) -> dict[str, Any]:
+    """Each seat's fresh hash appended beside the ones already mailed, and with `erinnert` the day a reminder went.
 
-    Appended, never replacing: every link a seat was mailed answers until the deadline.
+    Appended, never replacing: every link a seat was mailed answers until the deadline. A request asked again marks no day.
     """
 
     pushed: dict[str, Any] = {
         f"kontakte.{seat}.token_hashes": {"$each": [token_hash], "$slice": -TOKEN_HASHES_PER_SEAT} for seat, token_hash in hashes.items()
     }
 
-    return {"$push": {**pushed, "erinnert_am": today}}
+    return {"$push": {**pushed, "erinnert_am": today} if erinnert else pushed}
 
 
 def compose_seats_update(*, hashes: Mapping[str, str]) -> dict[str, Any]:

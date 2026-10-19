@@ -183,8 +183,12 @@ class TestOneLinkPerPerson:
 def test_a_reminder_appends_its_hash_and_keeps_three():
     """Every link a seat was mailed answers until the deadline: a `$set` here would kill the request link at the first reminder."""
 
-    assert compose_erinnerung_update(hashes={"trainer": "h"}, today=TODAY) == {
+    assert compose_erinnerung_update(hashes={"trainer": "h"}, today=TODAY, erinnert=True) == {
         "$push": {"kontakte.trainer.token_hashes": {"$each": ["h"], "$slice": -3}, "erinnert_am": TODAY}
+    }
+    # A request asked again marks no reminder.
+    assert compose_erinnerung_update(hashes={"trainer": "h"}, today=TODAY, erinnert=False) == {
+        "$push": {"kontakte.trainer.token_hashes": {"$each": ["h"], "$slice": -3}}
     }
 
 
@@ -221,7 +225,7 @@ ROUND_TRIPS_A_ROW = 3
 
 # Each worst call's commands beside its rows, counted on the wire by
 # `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
-SWEEP_OTHER_COMMANDS = 23
+SWEEP_OTHER_COMMANDS = 25
 ANGEFRAGT_OTHER_COMMANDS = 3
 
 # A `getMore` apiece for the reads taking a season's rows rather than a share's, once those outrun the driver's first

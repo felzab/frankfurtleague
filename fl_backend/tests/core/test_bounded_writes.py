@@ -30,7 +30,7 @@ from app.api.identitaet.crud import erase_if_still_due
 from app.api.sperrliste import crud as sperrliste_crud
 from app.api.sperrliste.admin_router import _pull_the_season_a_ban_counts_from
 from app.api.sperrliste.lookup import adressen_gesperrt, hash_gesperrt, hashes_gesperrt
-from app.api.spielbestaetigungen.crud import anchor_the_seats_minted
+from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, anchor_the_referees_told, anchor_the_seats_minted
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.crud import anchor_a_booked_referee, anchor_a_booked_venue, pull_booked_referee, pull_booked_venue
 from app.api.spieler.crud import pull_a_person_to_enter, refuse_a_full_squad, refuse_a_taken_rolle
@@ -151,6 +151,10 @@ CALLERS: dict[str, frozenset[str]] = {
     ),
     # The confirmation pass's mint, which reads the seats it mints links for off season rows every seat write writes.
     "anchor_the_seats_minted": frozenset({"app/api/spielbestaetigungen/sweep_router.py :: mint"}),
+    # The mint again, for the referees its rows name, whose erasure deletes the rows it reads.
+    "anchor_the_referees_told": frozenset({"app/api/spielbestaetigungen/sweep_router.py :: mint"}),
+    # The pass's close, which reads its notices' mailboxes off season rows an erasure empties.
+    "anchor_the_mailboxes_told": frozenset({"app/api/spielbestaetigungen/sweep_router.py :: close"}),
 }
 
 # The callers no `with_transaction` is handed, each run by `transaction_session` inside every attempt
@@ -172,6 +176,8 @@ ANCHORS: tuple[tuple[Callable[..., Any], str], ...] = (
     (erase_if_still_due, "saisons_collection"),
     (pull_the_season_after, "saisons_collection"),
     (anchor_the_seats_minted, "saison_teams_collection"),
+    (anchor_the_referees_told, "schiedsrichter_collection"),
+    (anchor_the_mailboxes_told, "saison_teams_collection"),
 )
 
 ANCHORING_FUNCTIONS = tuple(function for function, _ in ANCHORS)
