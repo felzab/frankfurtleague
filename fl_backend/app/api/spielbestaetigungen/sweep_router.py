@@ -276,7 +276,8 @@ async def sweep_spielbestaetigungen(
     both, and the raw tokens are answered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so
     a request that never went out shows as never asked. An open row's occupied seat holding no link -- its holder replaced,
     newly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows are answered in
-    `einteilungen`, with the referee's address and no token.
+    `einteilungen`, with the referee's address and no token. A fixture holding rows about an Ansetzung it has left is asked
+    on the pass whose close shuts them, so the notice that their links are void goes out first.
 
     The reminder mints a fresh link per seat on each row whose deadline is three or one days away, appended beside the links
     already mailed so every one of them still answers, and stamps the day BEFORE answering: a failed send costs one reminder,
@@ -461,6 +462,12 @@ async def sweep_spielbestaetigungen(
         if len(holding) > LIST_LIMIT_MAX:
             raise ValueError(f"season {saison_id}'s window holds more held confirmations than one read answers")
         held = {(row["spiel_id"], partei_key(row["partei"]), row["ansetzung"]["stand"]): row for row in holding}
+        stande = {spiel["_id"]: ansetzung_stand_of(spiel) for spiel in spiele}
+        # A fixture holding rows about an Ansetzung it left waits for the close to shut them, a share's overflow or
+        # a move since the close: their "link is void" notice goes out ahead of the fresh request (`docs/backend/spec.md :: I769`).
+        waiting = {
+            row["spiel_id"] for row in holding if row.get("geschlossen") is None and row["ansetzung"]["stand"] != stande[row["spiel_id"]]
+        }
 
         junctions = await _junctions(
             saison_teams_collection=saison_teams_collection,
@@ -478,10 +485,10 @@ async def sweep_spielbestaetigungen(
 
         def plan_of(spiel: Mapping[str, Any]) -> _MintPlan:
             plan = _MintPlan()
-            if not anfrage_is_due(spiel=spiel, austritte=austritte, today=today):
+            if spiel["_id"] in waiting or not anfrage_is_due(spiel=spiel, austritte=austritte, today=today):
                 return plan
 
-            stand = ansetzung_stand_of(spiel)
+            stand = stande[spiel["_id"]]
             for partei in parteien_of(spiel):
                 existing = held.get((spiel["_id"], partei_key(partei), stand))
                 if partei["art"] == "schiedsrichter":

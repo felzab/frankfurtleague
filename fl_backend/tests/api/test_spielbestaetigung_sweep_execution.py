@@ -535,6 +535,48 @@ class TestAMovedFixtureAsksAgain:
         assert sorted(empfaenger.address for empfaenger in alpha_notice.empfaenger) == sorted(address(ALPHA, seat) for seat in KONTAKT_ROLLEN)
 
 
+class TestTheVoidNoticeGoesAheadOfTheFreshRequest:
+    """`docs/backend/spec.md :: I769`: a full close share leaves a moved fixture's mailed rows open for one more pass."""
+
+    def test_the_moved_fixture_is_asked_on_the_pass_that_announces_it(self, mongo_replica_set_url: str):
+        decided = [
+            fixture(ObjectId(f"6890a1b2c3d4e5f6077{position:05d}"), 10 + position, YESTERDAY, ergebnis="1:0")
+            for position in range(CLOSES_PER_PASS)
+        ]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            await angefragt(database, client, [row["_id"] for row in await rows(database)])
+            # Older than the moved fixture's, so the close's share takes them first.
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
+                [
+                    compose_spielbestaetigung(
+                        row_id=ObjectId(),
+                        saison_id=SAISON_ID,
+                        spiel=spiel,
+                        partei={"art": "team", "team_id": ALPHA},
+                        hashes={},
+                        today=days_after(day=TODAY, days=-10),
+                    )
+                    for spiel in decided
+                ]
+            )
+            await move(database, client, SPIEL, uhrzeit="19:00:00")
+
+            return await sweep(database, client), await sweep(database, client)
+
+        overflowed, announced = on_a_league(mongo_replica_set_url, body, spiele=[*decided, fixture(SPIEL, 1, NEXT_WEEK)])
+
+        assert (overflowed.geschlossen, overflowed.neue_ansetzungen, overflowed.anfragen, overflowed.einteilungen) == (
+            CLOSES_PER_PASS,
+            [],
+            [],
+            [],
+        )
+        assert (len(announced.neue_ansetzungen), len(announced.schiedsrichter_neue_ansetzungen)) == (2, 1)
+        assert (len(announced.anfragen), len(announced.einteilungen)) == (2, 1)
+
+
 class TestAMoveIsAnnouncedOnlyToAPartyMailed:
     def test_an_unstamped_row_closed_by_a_move_is_no_notice(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
