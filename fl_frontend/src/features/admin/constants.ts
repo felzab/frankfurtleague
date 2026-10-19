@@ -202,7 +202,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         iconName: "Tray",
         hint: {
           lead: "Alle Bewerbungen von Schulen, die in eine Saison wollen.",
-          points: [{ term: "Eine Zusage", detail: "legt das Team an und nimmt es in die Saison auf." }],
+          points: [{ term: "Eine Zusage", detail: "nimmt das Team in die Saison auf und legt es an, wenn die Schule neu ist." }],
           // What an admin comes here to do and cannot: neither decision has a control that takes it back.
           note: "Über eine Bewerbung wird einmal entschieden.",
         },
