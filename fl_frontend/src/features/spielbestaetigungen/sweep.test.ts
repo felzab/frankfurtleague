@@ -65,6 +65,15 @@ const anfrage = (n: number, address: string) => ({
   links: [{ address: address, rollen: ["ansprechperson"], token: `token-${String(n)}` }],
 });
 
+/** One row asked of two mailboxes, a link each, in the order given. */
+const zweiLinks = (n: number, erste: string, zweite: string) => ({
+  ...anfrage(n, erste),
+  links: [
+    { address: erste, rollen: ["ansprechperson"], token: `token-${String(n)}a` },
+    { address: zweite, rollen: ["trainer"], token: `token-${String(n)}b` },
+  ],
+});
+
 const einteilung = (n: number, address: string) => ({ spielbestaetigung_id: id(n), spiel_id: id(500), ansetzung: ANSETZUNG, address: address });
 
 doubleApiClient(async (call: ApiCall, schema) => {
@@ -288,6 +297,8 @@ describe("which first requests the pass stamps", () => {
     ausgang.set("ungewiss@schule.de", "lost");
     ausgang.set("schiri-zurueckgehalten@schule.de", "withheld");
     ausgang.set("schiri-gesperrt@schule.de", "barred");
+    ausgang.set("schiri-abgewiesen@schule.de", "refused");
+    ausgang.set("schiri-ungewiss@schule.de", "lost");
     passAnswer = (saisonId) => ({
       ...leererPass(saisonId),
       anfragen: [
@@ -301,6 +312,8 @@ describe("which first requests the pass stamps", () => {
         einteilung(6, "schiri@schule.de"),
         einteilung(7, "schiri-zurueckgehalten@schule.de"),
         einteilung(8, "schiri-gesperrt@schule.de"),
+        einteilung(9, "schiri-abgewiesen@schule.de"),
+        einteilung(10, "schiri-ungewiss@schule.de"),
       ],
     });
   }
@@ -340,6 +353,47 @@ describe("which first requests the pass stamps", () => {
     assert.ok(stempel > letzteMail, "the pass stamped before its last message went");
     assert.deepEqual(gestempelt(), [id(1), id(2)]);
     assert.equal(gesendet().length, 3, "the reminder was not mailed");
+  });
+
+  /* The referee's lane is no fan-out, so its failure is this pass's own line, and an address in it would be a person
+     written to the log. */
+  it("files a booking that was refused or lost its answer as one failure line each, naming no address", async () => {
+    ausgang.set("schiri-abgewiesen@schule.de", "refused");
+    ausgang.set("schiri-ungewiss@schule.de", "lost");
+    passAnswer = (saisonId) => ({
+      ...leererPass(saisonId),
+      einteilungen: [einteilung(1, "schiri-abgewiesen@schule.de"), einteilung(2, "schiri-ungewiss@schule.de")],
+    });
+
+    await runSpielSweep();
+
+    const spielleitung = { error_code: "FE-MAIL-002", operation: "spielbestaetigungSweep" };
+    assert.deepEqual(
+      passLines().filter(({ level }) => level === "error"),
+      [
+        { level: "error", event: "spielbestaetigung.spielleitung_failed", fields: { ...spielleitung, name: "MailSendError" } },
+        { level: "error", event: "spielbestaetigung.spielleitung_failed", fields: { ...spielleitung, name: "APINetworkError" } },
+      ],
+    );
+  });
+
+  /* A row holding several links counts as asked once ANY of them went, whichever went first: a team whose second
+     mailbox bounced was still asked. */
+  it("stamps a row of two links where either went, and none where neither did", async () => {
+    ausgang.set("abgewiesen@schule.de", "refused");
+    passAnswer = (saisonId) => ({
+      ...leererPass(saisonId),
+      anfragen: [
+        zweiLinks(1, "erste@schule.de", "abgewiesen@schule.de"),
+        zweiLinks(2, "abgewiesen@schule.de", "zweite@schule.de"),
+        zweiLinks(3, "abgewiesen@schule.de", "abgewiesen@schule.de"),
+      ],
+    });
+
+    await runSpielSweep();
+
+    assert.deepEqual(gestempelt(), [id(1), id(2)]);
+    assert.equal(gesendet().length, 6, "a link went unmailed once its row counted as asked");
   });
 
   it("asks for no stamp where no request counts as made", async () => {
