@@ -1388,10 +1388,12 @@ whether they ran, as the retention sweep's does:
     docker compose exec frontend node -e "fetch('http://backend:8000/api/v0/spielbestaetigungen/sweep',{headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim()}}).then(r=>r.text()).then(console.log)"
 
 **`spiel_sweep_gelaufen_am` is the day the last pass ran**, today or yesterday on a healthy stack
-with the switch on, and null where none ever has. Each pass writes one `spielbestaetigung.sweep_pass`
-line counting the rows it closed, the first requests it stamped, the reminders it sent and the rows
-it passed over, at `INFO`, and as a warning under `FE-SWEEP-004` where it passed rows over; a season
-it could not sweep files `spielbestaetigung.sweep_failed` besides. A `spielbestaetigung.sweep_skipped`
+with the switch on, and null where none ever has. Each pass that could list the seasons writes one
+`spielbestaetigung.sweep_pass` line counting the rows it closed, the first requests and Einteilungen
+it stamped as asked, the reminders the backend stamped for it to mail, whether or not each then
+went, and the rows it passed over, at `INFO`, and as a warning under `FE-SWEEP-004` where it passed
+rows over. A season it could not sweep files `spielbestaetigung.sweep_failed` besides, and a listing
+that failed files that line alone. A `spielbestaetigung.sweep_skipped`
 line in every hour says a pass is stuck, which recreating the frontend service ends:
 
     docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_
