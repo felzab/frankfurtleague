@@ -13,13 +13,14 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
   // visitor holding none meets sign-in, never an area's frame. Every verdict past it is a guard's
   // (`docs/frontend/spec.md :: I122`).
   if (sessionCookieOf(req.headers) === null) {
+    // No return destination carried across: honouring one needs it checked against an allowlist first.
     return inBereich(req.nextUrl.pathname) ? turnAway(req, "/signin") : NextResponse.next();
   }
 
   try {
     // Only here can a person who only reads slide their cookie with their row (`docs/frontend/spec.md :: I495`).
-    // Its answer decides nothing: the library expires a cookie naming no session, and the page's guard
-    // turns it away.
+    // Its answer decides nothing: the library expires a cookie whose row is gone or expired, and the
+    // page's guard refuses the rest.
     await slideSession(req.headers);
   } catch {
     // A store that did not answer signs nobody out: the page's own guard reads it again and fails
