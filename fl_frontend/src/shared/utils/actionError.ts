@@ -17,6 +17,12 @@ import type { ZodError } from "zod";
 import type { FieldErrors } from "./validation";
 
 /**
+ * What every spine's guard answers a session that drew the page and has lapsed or ended by the press, an
+ * administrator's too: one cause and one remedy in every lane, so one sentence, never naming a missing role.
+ */
+export const ANMELDUNG_ABGELAUFEN = "Deine Anmeldung ist abgelaufen. Melde Dich neu an.";
+
+/**
  * What an administrator whose grant is gone is told, by the guard, by the backend's actor check and by the
  * grant's own refusal: neither a retry nor a new sign-in restores it.
  */

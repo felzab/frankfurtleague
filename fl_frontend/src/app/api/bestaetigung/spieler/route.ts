@@ -1,23 +1,21 @@
-import { nullUnlessContractBreak } from "@/core/errors";
-import { runAnsweringOwnCut } from "@/core/requestScope";
 import { postSpielerBestaetigung } from "@/features/registrierungen/mutations";
 import { getSpielerBestaetigungAnsicht } from "@/features/registrierungen/queries";
 import { FLRegistrierungBestaetigungPayloadSchema } from "@/features/registrierungen/schemas";
 import { mapBestaetigungRefusal } from "@/features/registrierungen/utils";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
-import { handlePublicRequest } from "@/shared/utils/publicRoute";
+import { handlePublicRequest, readAfterRefusal } from "@/shared/utils/publicRoute";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type { GelesenerLink } from "@/features/registrierungen/utils";
 import type { NextRequest } from "next/server";
 
+const ROUTE_NAME = "postSpielerBestaetigung";
+
 // Handed as a thunk and never resolved in front of the mapper: a caller reading the view first
 // spends a second backend read on every refusal naming one state alone.
 /** This link's own view, for the refusals that name a floor or a state the view tells apart. A failed read is `null`. */
 async function ansichtFuerToken(token: string): Promise<GelesenerLink | null> {
-  // Under its own cut: the write was refused, so a deadline cutting this read is no unknown outcome. A contract break is
-  // no failed read, and reaches the spine's log.
-  return runAnsweringOwnCut(() => getSpielerBestaetigungAnsicht(token)).catch(nullUnlessContractBreak);
+  return readAfterRefusal(ROUTE_NAME, () => getSpielerBestaetigungAnsicht(token));
 }
 
 // A route handler and not a server action, for the reason `docs/frontend/spec.md` §1.3 gives.
@@ -28,7 +26,7 @@ async function ansichtFuerToken(token: string): Promise<GelesenerLink | null> {
  */
 export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {
-    routeName: "postSpielerBestaetigung",
+    routeName: ROUTE_NAME,
     run: async () => {
       const body: unknown = await request.json().catch(() => null);
 

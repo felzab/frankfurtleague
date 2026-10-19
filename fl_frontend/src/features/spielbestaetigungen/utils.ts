@@ -16,7 +16,8 @@ export type SpielbestaetigungAnsicht =
   | { zustand: "vorschlag"; ansicht: FLSpielbestaetigungAnsichtResponse }
   | { zustand: "zugesagt"; beantwortet_von: FLSpielbestaetigungVon }
   | { zustand: "abgelehnt"; beantwortet_von: FLSpielbestaetigungVon }
-  | { zustand: "abgelaufen" | "ungueltig" | "gesperrt" };
+  // `termin-vorbei` is the page's own: an `abgelaufen` link whose fixture's day has gone by.
+  | { zustand: "abgelaufen" | "termin-vorbei" | "ungueltig" | "gesperrt" };
 
 /** Every state a link opens on once no press can spend it. */
 export type SpielbestaetigungLinkZustand = Exclude<SpielbestaetigungAnsicht["zustand"], "gueltig" | "vorschlag">;
@@ -30,9 +31,6 @@ export type SpielbestaetigungRefusal = {
   /** The route's instruction to read the link back, never a key the page receives. */
   nachlesen?: true;
 };
-
-/** The name refusal on the reason box, on the erasure reason's pattern: the sentence names no matched person. */
-export const NAME_IN_BEGRUENDUNG = "Die Begründung enthält ein Wort, das dem Namen einer beteiligten Person gleicht.";
 
 /**
  * A refused read as the panel it renders, or `null` where the read failed instead.
@@ -97,8 +95,6 @@ export function mapAnsetzungRefusal(error: unknown): SpielbestaetigungRefusal | 
           repair: `Schlag einen anderen Tag vor, oder eine Uhrzeit mit mindestens ${CLASH_BUFFER_TEXT} Abstand`,
         }),
       };
-    case "REQ-ANSETZUNG-012":
-      return { fieldErrors: { begruendung: NAME_IN_BEGRUENDUNG } };
     default:
       return null;
   }

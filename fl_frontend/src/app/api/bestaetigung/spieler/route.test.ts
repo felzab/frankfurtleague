@@ -178,10 +178,12 @@ describe("the pupil's confirmation handler", () => {
     assert.deepEqual(answer.body, { success: false, zustand: "bestaetigt" });
   });
 
-  /* The view decides this panel, so an answer off its schema is the deploy's fault rather than a failed read: the
-     lapsed panel standing in for it would hide it from everyone who could repair it. */
-  it("logs a view answered off its schema rather than standing the lapsed panel in for it", async () => {
+  /* An answer off the view's schema is the deploy's fault, logged for whoever can repair it. The refusal settled the
+     write, so the person reads its panel as after a failed read, never that the answer may not have arrived. */
+  it("logs a view answered off its schema and answers the refusal as a failed read does", async () => {
     schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-REGISTRIERUNG-005");
+    ansichtAntwort = () => new Error("the backend did not answer");
+    const nachFehler = await bodyOf(aRequest(gueltigerKoerper));
     ansichtAntwort = () =>
       new APIMalformedDataError({
         message: "Response failed schema.",
@@ -193,10 +195,13 @@ describe("the pupil's confirmation handler", () => {
         traceId: "0",
       });
 
-    await bodyOf(aRequest(gueltigerKoerper));
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
 
+    assert.deepEqual(answer.body, nachFehler.body, "a contract break after a refusal answered otherwise than a failed read");
     assert.ok(
-      errors.some((logged) => logged.includes("Public route failed") && logged.includes("FE-API-002")),
+      errors.some(
+        (logged) => logged.includes("read broke its contract after a refusal: postSpielerBestaetigung") && logged.includes("FE-API-002"),
+      ),
       "the contract break left no line",
     );
   });

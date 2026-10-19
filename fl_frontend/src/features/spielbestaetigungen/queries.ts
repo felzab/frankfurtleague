@@ -1,4 +1,5 @@
 import { ContractBreakError } from "@/core/errors";
+import { getGermanTodayStr } from "@/shared/utils/date";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { postSpielbestaetigungAnsicht } from "./mutations";
@@ -18,6 +19,9 @@ export async function getSpielbestaetigungAnsicht(token: string): Promise<Spielb
       (ansicht): SpielbestaetigungAnsicht => {
         const { zustand } = ansicht;
         if (zustand === "gueltig" || zustand === "vorschlag") return { zustand: zustand, ansicht: ansicht };
+        // The view serves no close reason, so the day the link asked about decides, on Berlin's calendar as the
+        // backend's: a link to a match already due must not say the league will still set its date.
+        if (zustand === "abgelaufen" && ansicht.ansetzung.datum < getGermanTodayStr()) return { zustand: "termin-vorbei" };
         if (zustand !== "zugesagt" && zustand !== "abgelehnt") return { zustand: zustand };
 
         // The role is a seat and never a person, and it is what tells the club's other two seats who

@@ -7,7 +7,7 @@ import { logger } from "@/core/logging";
 import { declareWriteTags, requestWriteSent, requestWriteTags } from "@/core/requestScope";
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
 
-import { outcomeUnknown, ZUGANG_WEG } from "./actionError";
+import { ANMELDUNG_ABGELAUFEN, outcomeUnknown, ZUGANG_WEG } from "./actionError";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "./refusal";
 import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
@@ -18,12 +18,6 @@ import type { StepUpDemand } from "@/shared/components/ui/stepUp";
 import type { ActionFailure } from "@/shared/types/types";
 import type { Wording } from "./actionError";
 import type { FieldErrors } from "./validation";
-
-/**
- * What an admin write answers a session a sign-in repairs: none, or one short of the administrator's
- * factor or window. It reaches a toast, so it names the remedy rather than the role that is absent.
- */
-export const ADMIN_FORBIDDEN = "Deine Sitzung hat keine Administratorrechte. Melde Dich neu an.";
 
 /** A grant the backend did not answer: nothing ran, and a sign-in would meet the same unread grant. */
 export const BERECHTIGUNG_UNGELESEN = "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen.";
@@ -181,7 +175,7 @@ function judgingGuard(): { readonly guard: Guard<AdminSession>; readonly verdict
 
 /** Each reason the guard turns an admin write away for, in the words of its remedy; a record, so a reason added to the guard is worded here. */
 export const FORBIDDEN_BY_REFUSAL: Readonly<Record<AdminRefusal, string>> = {
-  signIn: ADMIN_FORBIDDEN,
+  signIn: ANMELDUNG_ABGELAUFEN,
   // One sentence for an address holding no grant, whether it was revoked or never held: no sign-in repairs either.
   noGrant: ZUGANG_WEG,
   grantGone: ZUGANG_WEG,

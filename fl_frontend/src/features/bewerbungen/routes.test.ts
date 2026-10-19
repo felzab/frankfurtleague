@@ -38,6 +38,16 @@ describe("the route the sidemenu names", () => {
     assert.ok(existsSync(path.join(SRC_DIR, "app", "bereich", "admin", entry.id, "page.tsx")), `/bereich/admin/${entry.id} has no page`);
   });
 
+  /* A school that played before keeps its team: an acceptance creates one only for a new school, so a hint
+     promising a new team on every acceptance misleads the administrator deciding a returning club's application. */
+  it("tells the administrator an acceptance creates a team only for a new school", () => {
+    const entry = ADMIN_SIDEMENU_STRUCTURE.flatMap((group) => group.sub_options).find((option) => option.id === "bewerbungen");
+
+    assert.deepEqual(entry?.hint?.points, [
+      { term: "Eine Zusage", detail: "nimmt das Team in die Saison auf und legt es an, wenn die Schule neu ist." },
+    ]);
+  });
+
   /* Both segments draw a skeleton while their data resolves; without one the shell holds an empty
      frame for the length of an admin-tier round trip. */
   it("gives both segments a loading state", () => {

@@ -67,11 +67,18 @@ function zeilenOf(
 }
 
 /**
+ * The person's own erasure page's reasons line, in the third person as this reveal's other lines are. Always named:
+ * the reasons are matched by a digest of the address, which no read counts.
+ */
+const BEGRUENDUNGEN_ZEILE = "Die Begründungen zu Spielterminen, die unter dieser Adresse über einen Bestätigungslink abgegeben wurden";
+
+/**
  * Named on every reveal whatever the read found: the account goes only after the records, and no read lists the
- * log's or the authorship's rewrite. Both reach an address holding no record, so „nichts gespeichert“ there is false.
+ * log's or the authorship's rewrite. Each reaches an address holding no record, so „nichts gespeichert“ there is false.
  */
 const IMMER: readonly Zeile[] = [
   { text: "Das Konto der Adresse mit Passkeys und Anmeldungen, falls eines besteht" },
+  { text: BEGRUENDUNGEN_ZEILE },
   { text: "Die Adresse im Änderungsprotokoll und als Urheberin von Sperren, Einladungen, Entscheidungen und Zugängen" },
 ];
 

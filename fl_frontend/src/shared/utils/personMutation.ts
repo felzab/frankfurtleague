@@ -5,9 +5,8 @@ import { funktionenOf, isSeatAt } from "@/core/funktionen";
 import { logger } from "@/core/logging";
 import { getSubjectSession } from "@/core/subject";
 
-import { SITZ_WEG } from "./actionError";
+import { ANMELDUNG_ABGELAUFEN, SITZ_WEG } from "./actionError";
 import { runGuardedMutation, stepUpRequired } from "./adminMutation";
-import { KONTO_FORBIDDEN } from "./kontoMutation";
 import { logVerweigert } from "./verweigert";
 
 import type { Funktion } from "@/core/funktionen";
@@ -58,7 +57,7 @@ export async function runPersonMutation<T extends { success: boolean }>(
   return runGuardedMutation(
     mutationName,
     // Each refusal in the words of its repair: a sign-in for a lapsed session, a reload for a seat gone.
-    { lane: "Person", resolve, forbidden: () => Promise.resolve(verdict.grund === "keine_sitzung" ? KONTO_FORBIDDEN : SITZ_WEG) },
+    { lane: "Person", resolve, forbidden: () => Promise.resolve(verdict.grund === "keine_sitzung" ? ANMELDUNG_ABGELAUFEN : SITZ_WEG) },
     fn,
   );
 }
@@ -80,7 +79,7 @@ export async function runPersonRecordMutation<T extends { success: boolean }>(
     return subject;
   };
 
-  return runGuardedMutation(mutationName, { lane: "Person", resolve, forbidden: KONTO_FORBIDDEN }, async (subject) => {
+  return runGuardedMutation(mutationName, { lane: "Person", resolve, forbidden: ANMELDUNG_ABGELAUFEN }, async (subject) => {
     try {
       return await fn(subject);
     } catch (error) {
