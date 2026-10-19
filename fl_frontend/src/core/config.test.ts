@@ -526,6 +526,38 @@ describe("the switch the account sweep is armed by", () => {
   });
 });
 
+describe("the switch the retention sweep is armed by", () => {
+  it("leaves the sweep armed where the server sets nothing", async () => {
+    assert.equal((await bootWith({ BEWERBUNG_SWEEP: undefined })).frontend_config.BEWERBUNG_SWEEP, "on");
+  });
+
+  it("reads off in either case", async () => {
+    assert.equal((await bootWith({ BEWERBUNG_SWEEP: "off" })).frontend_config.BEWERBUNG_SWEEP, "off");
+    assert.equal((await bootWith({ BEWERBUNG_SWEEP: "OFF" })).frontend_config.BEWERBUNG_SWEEP, "off");
+  });
+
+  it("refuses anything else by name, rather than reading it as one side or the other", async () => {
+    assert.equal(await refusedNames({ BEWERBUNG_SWEEP: "false" }), "BEWERBUNG_SWEEP");
+  });
+});
+
+/* Off by default, so the first activation after a deploy deletes nobody until an operator has read the season
+   page's count and turned it on. */
+describe("the switch the pupils' deletion is armed by", () => {
+  it("leaves the deletion off where the server sets nothing", async () => {
+    assert.equal((await bootWith({ LOESCHUNG_SWEEP: undefined })).frontend_config.LOESCHUNG_SWEEP, "off");
+  });
+
+  it("reads on in either case", async () => {
+    assert.equal((await bootWith({ LOESCHUNG_SWEEP: "on" })).frontend_config.LOESCHUNG_SWEEP, "on");
+    assert.equal((await bootWith({ LOESCHUNG_SWEEP: "ON" })).frontend_config.LOESCHUNG_SWEEP, "on");
+  });
+
+  it("refuses anything else by name, rather than reading it as one side or the other", async () => {
+    assert.equal(await refusedNames({ LOESCHUNG_SWEEP: "false" }), "LOESCHUNG_SWEEP");
+  });
+});
+
 /* The default is the difference between a deploy and a mailing (`docs/frontend/spec.md :: I740`). */
 describe("the switch the fixture confirmations are armed by", () => {
   it("leaves the confirmations off where the server sets nothing", async () => {
