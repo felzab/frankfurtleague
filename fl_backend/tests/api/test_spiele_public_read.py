@@ -113,6 +113,7 @@ def joined_document() -> dict[str, Any]:
         **document,
         "team1": {**document["team1"], "austritt": None, AUSTRITT_TYPE_KEY: None},
         "team2": {**document["team2"], "austritt": dict(AUSTRITT), AUSTRITT_TYPE_KEY: AUSTRITT["type"]},
+        "ansetzung_bestaetigt": None,
     }
 
 
@@ -241,6 +242,8 @@ BASE_TIER_FIXTURE_FIELDS = frozenset(
         "saison_id",
         # Published by decision, and past what an erasure rewrites (`READ-FREETEXT-001`).
         "notiz",
+        # A verdict and never a row: no seat, no answer's reason (`docs/backend/spec.md :: I763`).
+        "ansetzung_bestaetigt",
     }
 )
 

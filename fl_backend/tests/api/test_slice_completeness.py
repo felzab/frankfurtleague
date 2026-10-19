@@ -256,6 +256,7 @@ def faulted_season(spiel: PayloadFactory) -> list[dict[str, Any]]:
                 # would otherwise double-book every fixture here against every other.
                 "ort": None,
                 "schiedsrichter": None,
+                "ansetzung_bestaetigt": None,
                 **overrides,
             }
         )
