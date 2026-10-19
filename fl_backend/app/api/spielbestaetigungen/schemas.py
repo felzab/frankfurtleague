@@ -8,6 +8,7 @@ from app.shared.schemas.bounds import BEWERBUNG_TOKEN_MAX_LENGTH, SPIELBESTAETIG
 from app.shared.schemas.custom import (
     SINGLE_LINE_PATTERN,
     CustomDateString,
+    CustomNonEmptyString,
     CustomObjectId,
     CustomOptionalDateString,
     CustomTimeString,
@@ -126,8 +127,9 @@ class FLSpielbestaetigungAntwort(BaseModel):
     am: CustomDateString
     von: FLSpielbestaetigungVon
     vorschlag: FLSpielbestaetigungTermin | None
-    # The party's own words, bounded on the payload; read here as stored, a refusal on read 500ing the list.
-    begruendung: str | None
+    # Its length and its one line are the payload's: the read keeps a ban reason's floor alone, as
+    # `app/api/sperrliste/schemas.py`'s row does.
+    begruendung: CustomNonEmptyString | None
 
 
 class FLSpielbestaetigungGeschlossen(BaseModel):

@@ -103,6 +103,12 @@ _KONTAKT_KENNTNISNAHME_QUELLEN = ["person", "administrativ"]
 # Mirrors `app/api/teams/schemas.py :: FLKontaktEingetragenVon`.
 _KONTAKT_EINGETRAGEN_VON = ["bewerbung", "liga"]
 _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
+# Mirror `app/api/spielbestaetigungen/schemas.py`'s Literals and discriminators, and `FLKontaktRolle`.
+_SPIELBESTAETIGUNG_PARTEIEN = ["team", "schiedsrichter"]
+_SPIELBESTAETIGUNG_ANTWORTEN = ["zugesagt", "abgelehnt"]
+_SPIELBESTAETIGUNG_VON = ["kontakt", "admin", "schiedsrichter"]
+_SPIELBESTAETIGUNG_GRUENDE = ["ansetzung_geaendert", "austritt", "spiel_entschieden", "abgesagt", "schiedsrichter_gewechselt", "verworfen"]
+_KONTAKT_ROLLEN = ["trainer", "ansprechperson", "stellvertretung"]
 
 # Derived, not spelled: these ARE the collection names. The log never records itself, nor the day's
 # write counts, which bypass `app/core/crud.py` (`app/core/drosselung.py`), nor an address's anchor,
@@ -634,6 +640,78 @@ _SPIEL_SCHIEDSRICHTER_FIELD = _object(
 )
 
 
+# Keyed on `art` as `_SPIEL_QUELLE` is on `type`, requiring the discriminator alone for its reason.
+_SPIELBESTAETIGUNG_PARTEI = _object(
+    required=("art",),
+    properties={
+        "art": {"bsonType": "string", "enum": _SPIELBESTAETIGUNG_PARTEIEN},
+        "team_id": {"bsonType": "objectId"},
+        "schiedsrichter_id": {"bsonType": "objectId"},
+    },
+)
+
+_SPIELBESTAETIGUNG_ANSETZUNG = _object(
+    required=("datum", "uhrzeit", "spielort_id", "team1_id", "team2_id", "stand"),
+    properties={
+        "datum": {"bsonType": "string"},
+        "uhrzeit": {"bsonType": "string"},
+        "spielort_id": {"bsonType": ["objectId", "null"]},
+        "team1_id": {"bsonType": "objectId"},
+        "team2_id": {"bsonType": "objectId"},
+        "stand": {"bsonType": "string"},
+    },
+)
+
+# One seat's links on a confirmation row. The hashes are typed alone: their bound of three is the
+# reminder's `$slice`, a count being no type (`docs/backend/spec.md :: I16`).
+_SPIELBESTAETIGUNG_SITZ = _object(
+    nullable=True,
+    required=("token_hashes",),
+    properties={
+        "token_hashes": {"bsonType": "array", "items": {"bsonType": "string"}},
+        # Out of `required` for `_BEWERBUNG_BESTAETIGUNG`'s reason.
+        "zustellung": _ZUSTELLUNG,
+    },
+)
+
+_SPIELBESTAETIGUNG_KONTAKTE = _object(
+    nullable=True,
+    required=("trainer", "ansprechperson", "stellvertretung"),
+    properties={"trainer": _SPIELBESTAETIGUNG_SITZ, "ansprechperson": _SPIELBESTAETIGUNG_SITZ, "stellvertretung": _SPIELBESTAETIGUNG_SITZ},
+)
+
+_SPIELBESTAETIGUNG_TERMIN = _object(
+    nullable=True,
+    required=("datum", "uhrzeit"),
+    properties={"datum": {"bsonType": "string"}, "uhrzeit": {"bsonType": "string"}},
+)
+
+_SPIELBESTAETIGUNG_ANTWORT = _object(
+    nullable=True,
+    required=("art", "am", "von", "vorschlag", "begruendung"),
+    properties={
+        "art": {"bsonType": "string", "enum": _SPIELBESTAETIGUNG_ANTWORTEN},
+        "am": {"bsonType": "string"},
+        # `rolle` out of `required` for `_SPIELBESTAETIGUNG_PARTEI`'s reason: only a seat's answer names one.
+        "von": _object(
+            required=("art",),
+            properties={
+                "art": {"bsonType": "string", "enum": _SPIELBESTAETIGUNG_VON},
+                "rolle": {"bsonType": "string", "enum": _KONTAKT_ROLLEN},
+            },
+        ),
+        "vorschlag": _SPIELBESTAETIGUNG_TERMIN,
+        "begruendung": {"bsonType": _STRING_OR_NULL},
+    },
+)
+
+_SPIELBESTAETIGUNG_GESCHLOSSEN = _object(
+    nullable=True,
+    required=("am", "grund"),
+    properties={"am": {"bsonType": "string"}, "grund": {"bsonType": "string", "enum": _SPIELBESTAETIGUNG_GRUENDE}},
+)
+
+
 # Hand-written, never generated: `model_json_schema()` types a `CustomObjectId` as a string, so a
 # generated validator would admit the ObjectId-as-string documents these refuse. Types and enums
 # only (`docs/backend/spec.md :: I16`).
@@ -698,6 +776,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # reader chasing a stale date learns WHICH pass stopped, and one key over both would
                 # answer that the other one ran.
                 "registrierung_sweep_gelaufen_am": {"bsonType": _STRING_OR_NULL},
+                # The fixture-confirmation pass's own key, on the same terms as the two above.
+                "spiel_sweep_gelaufen_am": {"bsonType": _STRING_OR_NULL},
             },
         )
     },
@@ -1203,6 +1283,38 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             },
         )
     },
+    Collection.SPIELBESTAETIGUNGEN: {
+        "$jsonSchema": _object(
+            # No key arrived late: every row is written by the pass that mints it.
+            required=(
+                "_id",
+                "saison_id",
+                "spiel_id",
+                "partei",
+                "ansetzung",
+                "frist",
+                "angefragt_am",
+                "erinnert_am",
+                "kontakte",
+                "antwort",
+                "geschlossen",
+            ),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "saison_id": {"bsonType": "string"},
+                "spiel_id": {"bsonType": "objectId"},
+                "partei": _SPIELBESTAETIGUNG_PARTEI,
+                "ansetzung": _SPIELBESTAETIGUNG_ANSETZUNG,
+                # STORED for `_SCHIEDSRICHTER_BESTAETIGUNG`'s reason.
+                "frist": {"bsonType": "string"},
+                "angefragt_am": {"bsonType": _STRING_OR_NULL},
+                "erinnert_am": {"bsonType": "array", "items": {"bsonType": "string"}},
+                "kontakte": _SPIELBESTAETIGUNG_KONTAKTE,
+                "antwort": _SPIELBESTAETIGUNG_ANTWORT,
+                "geschlossen": _SPIELBESTAETIGUNG_GESCHLOSSEN,
+            },
+        )
+    },
 }
 
 
@@ -1297,6 +1409,16 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # Also the READ path of every admin-tier request (`app/core/security.py :: verify_actor_is_admin`),
     # and what refuses a second grant a Playground paste adds for an address already holding one.
     UniqueIndex(Collection.BERECHTIGUNGEN, "uniq_berechtigung_adresse", ("adresse",), "one grant per address"),
+    # What makes a pass run twice mint once, and a second decline need a new stand rather than a
+    # refusal. Both party ids are keys, the one a row lacks indexing as null. `$type` for
+    # `uniq_einladung_live`'s reason.
+    UniqueIndex(
+        Collection.SPIELBESTAETIGUNGEN,
+        "uniq_spielbestaetigung_offen",
+        ("spiel_id", "partei.art", "partei.team_id", "partei.schiedsrichter_id", "ansetzung.stand"),
+        "one open confirmation per party per Ansetzung",
+        partial_filter={"antwort": {"$type": "null"}, "geschlossen": {"$type": "null"}},
+    ),
 )
 
 
@@ -1470,6 +1592,23 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "registrierungen_saison_id_team_id_queue",
         (("saison_id", ASCENDING), ("team_id", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING), ("status", ASCENDING)),
         "one team's pending registrations for one season, newest first, narrowed by status or not",
+    ),
+    SupportIndex(
+        Collection.SPIELBESTAETIGUNGEN,
+        "spielbestaetigungen_saison_id_spiel_id",
+        (("saison_id", ASCENDING), ("spiel_id", ASCENDING)),
+        "a season's or one fixture's confirmations, which the pass, the admin read and the verdict filter on",
+    ),
+    # One per clause of the token filter's `$or`, for the registration's pair's reason; each multikey,
+    # a seat keeping every link it was mailed.
+    *(
+        SupportIndex(
+            Collection.SPIELBESTAETIGUNGEN,
+            f"spielbestaetigungen_kontakte_{seat}_token_hashes",
+            ((f"kontakte.{seat}.token_hashes", ASCENDING),),
+            "a fixture confirmation link's lookup, driven by strangers",
+        )
+        for seat in _KONTAKTE_REQUIRED[:3]
     ),
 )
 
@@ -1804,6 +1943,8 @@ _DAY = TypeAdapter(CustomDateString)
 _DAY_OR_NULL = TypeAdapter(CustomDateString | None)
 _OPTIONAL_DAY = TypeAdapter(CustomOptionalDateString)
 _TIME_OR_NULL = TypeAdapter(CustomTimeString | None)
+_TIME = TypeAdapter(CustomTimeString)
+_DAYS = TypeAdapter(list[CustomDateString])
 _ERGEBNIS_OR_NULL = TypeAdapter(CustomErgebnisString | None)
 _OPTIONAL_URL = TypeAdapter(CustomOptionalExternalUrl)
 _SAISON_ID = TypeAdapter(Annotated[str, StringConstraints(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)])
@@ -1964,6 +2105,18 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "erstellt_von": _NON_EMPTY,
         "erstellt_am": _DAY,
         "gesperrt_bis_saison_id": _SAISON_ID,
+    },
+    Collection.SPIELBESTAETIGUNGEN: {
+        "frist": _DAY,
+        "angefragt_am": _OPTIONAL_DAY,
+        "erinnert_am": _DAYS,
+        "ansetzung.datum": _DAY,
+        "ansetzung.uhrzeit": _TIME,
+        "antwort.am": _DAY,
+        "antwort.begruendung": _NON_EMPTY_OR_NULL,
+        "antwort.vorschlag.datum": _DAY,
+        "antwort.vorschlag.uhrzeit": _TIME,
+        "geschlossen.am": _DAY,
     },
     Collection.SPIELE: {
         "datum": _DAY_OR_NULL,
