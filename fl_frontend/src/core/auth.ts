@@ -9,7 +9,7 @@ import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { passkey } from "@better-auth/passkey";
 import { betterAuth, getCurrentAdapter } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
-import { getSessionCookie } from "better-auth/cookies";
+import { getSessionCookie, SECURE_COOKIE_PREFIX } from "better-auth/cookies";
 import { makeSignature } from "better-auth/crypto";
 import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins/email-otp";
@@ -885,7 +885,14 @@ const cookieNaming = (origin: URL): { useSecureCookies?: false; cookiePrefix?: s
  * optimistic check, which reads no store and slides nothing (`docs/frontend/spec.md :: I243`).
  */
 export function sessionCookieOf(requestHeaders: Headers): string | null {
-  return getSessionCookie(requestHeaders, { cookiePrefix: cookieNaming(new URL(frontend_config.AUTH_URL)).cookiePrefix });
+  // The library reads a `__Secure-` spelling of the name ahead of the name, which a sibling subdomain can plant where it
+  // cannot plant a `__Host-` one. This origin writes none, `useSecureCookies` being off, so none is read.
+  const ownCookies = (requestHeaders.get("cookie") ?? "")
+    .split(";")
+    .filter((pair) => !pair.trimStart().startsWith(SECURE_COOKIE_PREFIX))
+    .join(";");
+
+  return getSessionCookie(new Headers({ cookie: ownCookies }), { cookiePrefix: cookieNaming(new URL(frontend_config.AUTH_URL)).cookiePrefix });
 }
 
 // Called by `build`, never at import: `next build` imports this module in every page-data worker
