@@ -33,6 +33,7 @@ const WITHHELD = [
   "/registrierung",
   "/bestaetigung/spieler",
   "/bestaetigung/spieler/adresse",
+  "/bestaetigung/spiel",
   "/loeschung",
 ];
 

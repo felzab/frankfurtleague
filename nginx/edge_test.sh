@@ -254,6 +254,7 @@ CASES=(
   "LEAK|${BASE}/bestaetigung/schiedsrichter?token=${TOK}"
   "LEAK|${BASE}/bestaetigung/spieler?token=${TOK}"
   "LEAK|${BASE}/bestaetigung/kontakt?token=${TOK}"
+  "LEAK|${BASE}/bestaetigung/spiel?token=${TOK}"
   "LEAK|${BASE}/registrierung?token=${TOK}"
   "LEAK|${BASE}/signin?token=${TOK}"
   "LEAK|${BASE}/signin?foo=1&token=${TOK}"
