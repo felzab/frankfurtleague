@@ -723,6 +723,9 @@ trap '_on_err_trap "$?" "$LINENO" "$BASH_COMMAND" "${BASH_SOURCE[0]}"' ERR
 # dies by its signal, with no statement and `quietly`'s capture left behind, a hangup exiting 129,
 # which the exit contract never names.
 on_interrupt() {
+  # Once: a second signal would re-enter here from inside the EXIT trap and exit it half done, and a
+  # stopped Windows gate takes the console's interrupt and the watcher's SIGTERM both.
+  trap '' INT TERM HUP
   spinner_stop
   if [[ -n "$_QUIETLY_CAPTURE" ]]; then rm -f -- "$_QUIETLY_CAPTURE" || true; fi
   printf '\n' >&2

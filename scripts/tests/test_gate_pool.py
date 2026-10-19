@@ -8,13 +8,16 @@ drives the module as a subprocess, for `scripts/tests/conftest.py :: withdraw`'s
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
+import threading
 from pathlib import Path
 from typing import Final
 
-from conftest import declared, lift_function
+import pytest
+from conftest import BASH, WINDOWS, base_env, copy_scripts, declared, lift_function, new_root, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 POOL: Final = SCRIPTS / "gate" / "gate_pool.py"
@@ -411,6 +414,23 @@ def test_a_unit_writing_nothing_past_the_bound_is_named_with_what_it_last_wrote(
     assert [(row[0], row[1]) for row in _rows(tmp_path)] == [("hushed", "0")]
 
 
+# Exits 0 only where its pool had named itself before starting it.
+ANNOUNCED: Final = "import os, sys; from pathlib import Path; sys.exit(0 if Path(os.environ['FL_GATE_POOLS']).read_bytes() else 9)"
+
+
+def test_a_pool_names_itself_where_a_stop_reads_it_before_any_unit_starts(tmp_path: Path) -> None:
+    """A Windows stop spares the pools named there, so a unit started first could see its pool ended under it."""
+    registry = tmp_path / "pools"
+    registry.write_bytes(b"")
+    named = f"os.environ[gate_pool.POOLS] = {str(registry)!r}"
+    result = _drive(
+        (*STALLING, named, "print(os.getpid(), flush=True)", f"run_pool(('unit', (sys.executable, '-c', {ANNOUNCED!r})))"), tmp_path
+    )
+    assert result.returncode == 0, result.stderr
+    assert [(row[0], row[1]) for row in _rows(tmp_path)] == [("unit", "0")], "the unit started before its pool named itself"
+    assert registry.read_bytes() == result.stdout.strip().encode("ascii") + b"\n"
+
+
 def test_a_unit_still_writing_is_never_named_however_long_it_runs(tmp_path: Path) -> None:
     """Silence and not age: an age bound names every slow build and teaches the reader to skip the line."""
     script = tmp_path / "moving.py"
@@ -473,11 +493,41 @@ RELEASING: Final[tuple[str, ...]] = (
 )
 
 
-def test_a_stalled_pytest_case_s_stack_reaches_the_notice_through_its_worker(tmp_path: Path) -> None:
-    """The notice names the step; the stack is pytest's faulthandler dump, written by an xdist worker whose stderr must reach the capture."""
+# The stalled frame under a stack past faulthandler's hundred frames a thread, so its thread's block
+# alone outruns a notice's tail.
+DEEP_STALLED_CASE: Final = """import time
+from pathlib import Path
+
+
+def waits_for_release() -> None:
+    deadline = time.monotonic() + 60
+    while not Path({release!r}).exists() and time.monotonic() < deadline:
+        time.sleep(0.1)
+
+
+def descends(depth: int) -> None:
+    if depth:
+        descends(depth - 1)
+    else:
+        waits_for_release()
+
+
+def test_a_deep_case_that_stalls() -> None:
+    descends(150)
+"""
+
+
+@pytest.mark.parametrize(
+    ("source", "stalled"), [(STALLED_CASE, "test_a_case_that_stalls"), (DEEP_STALLED_CASE, "in waits_for_release")], ids=["shallow", "deep"]
+)
+def test_a_stalled_pytest_case_s_stack_reaches_the_notice_through_its_worker(source: str, stalled: str, tmp_path: Path) -> None:
+    """The notice names the step; the stack is pytest's faulthandler dump, written by an xdist worker whose stderr must reach the capture.
+
+    The deep case's stalled frame opens the dump's last block, which a tail of the capture cuts first.
+    """
     case = tmp_path / "suite" / "test_stalled.py"
     case.parent.mkdir()
-    case.write_bytes(STALLED_CASE.format(release=str(tmp_path / "release")).encode("utf-8"))
+    case.write_bytes(source.format(release=str(tmp_path / "release")).encode("utf-8"))
     # Its own root and conftest boundary: pytest otherwise walks the system temporary directory,
     # whose entries other cases create and remove under it.
     (case.parent / "pytest.ini").write_bytes(b"[pytest]\n")
@@ -489,7 +539,7 @@ def test_a_stalled_pytest_case_s_stack_reaches_the_notice_through_its_worker(tmp
     said = (tmp_path / "pytest.out").read_bytes().decode("utf-8", "replace")
     assert (tmp_path / "release").exists(), f"no notice carried the stalled case's stack; it wrote:\n{said}\n{_rows(tmp_path)}"
     carried = next(notice for notice in result.stderr.split(_notice("pytest")) if "Timeout (" in notice)
-    assert "test_a_case_that_stalls" in carried, result.stderr
+    assert stalled in carried, result.stderr
 
 
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
@@ -509,3 +559,87 @@ def test_every_gate_pytest_dumps_a_stalled_case_s_stack_before_the_pool_names_it
     assert len(running) >= 3, "the scripts, backend and db pytest bodies are no longer found, so nothing below is checked"
     bare = [body.splitlines()[0] for body in running if '-o "faulthandler_timeout=${FAULTHANDLER_S}"' not in body]
     assert not bare, f"a gate pytest dumps no stack when a case stalls: {bare}"
+
+
+# The default full run's shape, the db scope one worker of several: its tier has a case past
+# pytest's bound. The gate's two bounds are cut to a second in its copy, each text asserted first.
+DB_STALLED_CASE: Final = """import time
+from pathlib import Path
+
+import pytest
+
+
+@pytest.mark.db
+def test_a_db_case_that_stalls() -> None:
+    deadline = time.monotonic() + 60
+    while not Path({release!r}).exists() and time.monotonic() < deadline:
+        time.sleep(0.1)
+"""
+SHORTENED: Final = (
+    ("gate/verify.sh", "FAULTHANDLER_S=120\n", "FAULTHANDLER_S=1\n"),
+    ("gate/gate_pool.py", "STALL_S: Final = 600.0\n", "STALL_S: Final = 1.0\n"),
+    ("gate/gate_pool.py", "STALL_POLL_S: Final = 5.0\n", "STALL_POLL_S: Final = 0.1\n"),
+)
+# Above the stalled case's own 60 s, so a notice that never came fails here rather than hanging.
+DB_STALL_BOUND_S: Final = 90
+QUIET_TOOL: Final = "#!/usr/bin/env bash\nexit 0\n"
+INTERPRETER: Final = '#!/usr/bin/env bash\nexec "{interpreter}" "$@"\n'
+
+
+def test_a_db_case_stalled_in_a_full_run_has_its_stack_named_while_it_runs(tmp_path: Path) -> None:
+    """Run in place in its scope's worker, the stack sat in `quietly`'s capture, which no notice reads, until the hang ended."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    root = new_root("fl-gate-db-stall-")
+    copy_scripts(root / "scripts")
+    for rel, before, after in SHORTENED:
+        path = root / "scripts" / rel
+        text = path.read_bytes().decode("utf-8")
+        assert before in text, f"scripts/{rel} no longer spells {before.strip()}, so this copy would run at the gate's own bound"
+        path.write_bytes(text.replace(before, after).encode("utf-8"))
+    (root / "fl_frontend" / "node_modules").mkdir(parents=True)
+    (root / "fl_backend").mkdir()
+    release = tmp_path / "release"
+    write_shell(root / "fl_backend" / "test_stalled.py", DB_STALLED_CASE.format(release=str(release)))
+    write_shell(root / "fl_backend" / "pytest.ini", "[pytest]\nmarkers =\n    db: the db tier\n")
+    venv = root / "fl_backend" / ".venv" / ("Scripts/python.exe" if WINDOWS else "bin/python")
+    venv.parent.mkdir(parents=True)
+    os.chmod(write_shell(venv, INTERPRETER.format(interpreter=Path(sys.executable).as_posix())), 0o755)
+    stubs = new_root("fl-gate-db-stall-stubs-")
+    for name in ("docker", "uv", "pnpm"):
+        os.chmod(write_shell(stubs / name, QUIET_TOOL), 0o755)
+    env = base_env()
+    env["PATH"] = str(stubs) + os.pathsep + env["PATH"]
+    env["TMPDIR"] = tmp_path.as_posix()
+    out = tmp_path / "gate.out"
+    with out.open("wb") as written:
+        gate = subprocess.Popen(
+            (BASH, (root / "scripts" / "gate" / "verify.sh").as_posix(), "--db", "--format"),
+            stdin=subprocess.DEVNULL,
+            stdout=written,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+    said: list[str] = []
+    carried: list[bool] = []
+
+    # The notices reach the gate's stderr while the case stalls; one carrying its stack releases it.
+    def read_notices() -> None:
+        assert gate.stderr is not None
+        for line in iter(gate.stderr.readline, b""):
+            said.append(line.decode("utf-8", "replace"))
+            dumped = "".join(said).split("Timeout (", 1)
+            if not carried and len(dumped) == 2 and "test_a_db_case_that_stalls" in dumped[1]:
+                carried.append(True)
+                release.touch()
+
+    reader = threading.Thread(target=read_notices, daemon=True)
+    reader.start()
+    try:
+        gate.wait(DB_STALL_BOUND_S)
+    finally:
+        release.touch()
+        gate.kill()
+        gate.wait()
+    reader.join(DB_STALL_BOUND_S)
+    assert carried, f"no notice carried the stalled db case's stack:\n{''.join(said)}"
+    assert gate.returncode == 0, out.read_bytes().decode("utf-8", "replace") + "".join(said)
