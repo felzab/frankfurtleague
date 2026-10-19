@@ -35,6 +35,7 @@ DATABASE_NAME = worker_database("fl_zustellung_test")
 ZIEL_OID = ObjectId("6890a1b2c3d4e5f607970001")
 ABSENT_OID = ObjectId("6890a1b2c3d4e5f607979999")
 SPIEL_OID = ObjectId("6890a1b2c3d4e5f607970005")
+OTHER_ROW_OID = ObjectId("6890a1b2c3d4e5f607970006")
 
 FIRST_MESSAGE = "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"
 SECOND_MESSAGE = "7c1f2b5e-3d44-4a91-9f0b-1e2d3c4b5a60"
@@ -570,3 +571,45 @@ class TestTheSeatAxis:
             return await state_of(database, "kontakt", "bestaetigungen.stellvertretung")
 
         assert on_a_league(mongo_replica_set_url, "kontakt", body) is None
+
+    def test_a_bounce_on_one_mailbox_s_request_stands_beside_another_mailbox_s_later_accept(self, mongo_replica_set_url: str):
+        """The reason a confirmation keeps its record per seat: one record per row would hold the later accept alone and drop the bounce.
+
+        The other team's row on the same fixture is one `ziel_id` does not name, and stays unwritten.
+        """
+
+        other_row = {
+            **ZIEL_FIXTURES["spielbestaetigung"],
+            "_id": OTHER_ROW_OID,
+            "partei": {"art": "team", "team_id": ObjectId("6890a1b2c3d4e5f607970004")},
+            "kontakte": {"trainer": compose_seat_entry(token_hash=SEEDED_TOKEN_HASH), "ansprechperson": None, "stellvertretung": None},
+        }
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            collection = database[Collection.SPIELBESTAETIGUNGEN]
+            stellvertretung = compose_seat_entry(token_hash=SEEDED_TOKEN_HASH)
+            await collection.update_one({"_id": ZIEL_OID}, {"$set": {"kontakte.stellvertretung": stellvertretung}})
+            await collection.insert_one(other_row)
+            await accept(database, client, ziel="spielbestaetigung", rollen=["trainer"])
+            await accept(database, client, ziel="spielbestaetigung", rollen=["stellvertretung"], nachricht_id=SECOND_MESSAGE, am=DELIVERED_AT)
+            bounced = await report(database, client, ziel="spielbestaetigung", rollen=["trainer"], stand="unzustellbar", grund="NoEmail")
+
+            return bounced, await collection.find_one({"_id": ZIEL_OID}), await collection.find_one({"_id": OTHER_ROW_OID})
+
+        bounced, document, other = on_a_league(mongo_replica_set_url, "spielbestaetigung", body)
+
+        assert bounced.angewendet is True
+        assert document["kontakte"]["trainer"]["zustellung"] == {
+            "nachricht_id": FIRST_MESSAGE,
+            "stand": "unzustellbar",
+            "grund": "NoEmail",
+            "am": BOUNCED_AT,
+        }
+        assert document["kontakte"]["stellvertretung"]["zustellung"] == {
+            "nachricht_id": SECOND_MESSAGE,
+            "stand": "angenommen",
+            "grund": None,
+            "am": DELIVERED_AT,
+        }
+        assert document["kontakte"]["ansprechperson"] is None
+        assert other["kontakte"]["trainer"]["zustellung"] is None
