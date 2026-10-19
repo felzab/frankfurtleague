@@ -344,6 +344,11 @@ async def delete_many_from_db(
         # cost of it being wrong is a log row nobody can trust, and the count is free to compare.
         raise RuntimeError(f"{collection.name}: removed {result.deleted_count} documents against {len(before)} images")
 
+    # A removal that took nothing records nothing (`docs/backend/spec.md :: I744`): a cascade keyed on a
+    # season would otherwise log an empty row on every replace of a season holding none.
+    if not before:
+        return result
+
     await record_write(
         collection=collection,
         operation="delete_many",

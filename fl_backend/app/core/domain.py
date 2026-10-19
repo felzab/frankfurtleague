@@ -328,6 +328,20 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "conflict, so no anchor is ever kept for safety."
         ),
     ),
+    Aggregate(
+        name="Spielbestaetigung",
+        root=Collection.SPIELBESTAETIGUNGEN,
+        members=(),
+        boundary=(
+            "One party's answer about one Ansetzung of a fixture. Held true against nothing: a row states what one party "
+            "answered about one stand, which stays true however the fixture moves afterwards -- so it is in no boundary with "
+            "`spiele`, and NOT a member of the season's: the answer writes no fixture, no fixture write reaches a row, and a "
+            "move is reconciled up to an hour later by the sweep, which closes the row with why it stopped applying. Nothing "
+            "reads a row as the fixture's current state but through a comparison: the answer compares `ansetzung.stand` "
+            "against the fixture's own, and the public verdict the five stored values. What is held is a rule over this "
+            "collection alone, `uniq_spielbestaetigung_offen`: one open row per party per stand."
+        ),
+    ),
 )
 
 
@@ -631,6 +645,34 @@ REFERENCES: tuple[Reference, ...] = (
             "(`REQ-EINLADUNG-003`), so every registration names an invite that stood when it was made. A REVOKED invite keeps "
             "its row, which is what leaves this reference resolvable after a reissue; nothing writes back to the invite, so a "
             "registration marks no link as used and a link opens as many registrations as a team's pupils make."
+        ),
+    ),
+    Reference(
+        source=Collection.SPIELBESTAETIGUNGEN,
+        fields=("spiel_id",),
+        target=Collection.SPIELE,
+        on_reference_created=Action.NO_ACTION,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.CASCADE,
+        note=(
+            "No request names a fixture: the sweep mints a row from the fixture it has just read. A fixture moved is left "
+            "alone at its write and reconciled by the next pass, which closes every row about the stand it left; the answer "
+            "compares stands at the press, so nothing between the two lets a link confirm a moved fixture. A fixture is "
+            "removed only with its season's whole draw, by a confirmed replace or an undraw, and each removes the season's "
+            "rows in the same transaction (`app/api/saisons/admin_router.py :: undraw_spielplan`)."
+        ),
+    ),
+    Reference(
+        source=Collection.SPIELBESTAETIGUNGEN,
+        fields=("partei.team_id",),
+        target=Collection.TEAMS,
+        on_reference_created=Action.NO_ACTION,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.NO_ACTION,
+        note=(
+            "Copied off the fixture's side by the sweep, which names a club the fixture already holds. Nothing is embedded: "
+            "the club's name is read off the fixture whenever a page or a message states it. A club is retired by a date "
+            "and never deleted, so the reference stays resolvable."
         ),
     ),
 )
@@ -1281,6 +1323,23 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "checked for (`REQ-REGISTRIERUNG-007`). No "
         "control puts it back, so a mistyped date is corrected by registering again",
         "app.api.registrierungen.services.find_alter_refusal",
+    ),
+    FieldPolicy(
+        Collection.SPIELBESTAETIGUNGEN,
+        "antwort",
+        Editability.CONDITIONAL,
+        "written once, by the party or by an administrator settling for it, while neither `antwort` nor `geschlossen` "
+        "holds a value: the write filters on both, so a second press finds the row answered and changes nothing, and a "
+        "close never touches it -- the answer stands as the record of what was agreed",
+        "app.api.spielbestaetigungen.services.build_answerable_filter",
+    ),
+    FieldPolicy(
+        Collection.SPIELBESTAETIGUNGEN,
+        "geschlossen",
+        Editability.COMPOSED,
+        "on no payload: the sweep stamps it on a row whose fixture moved, was decided or called off, lost a club or "
+        "changed referee, and an administrator discarding a proposal stamps it on the declining row, each composing "
+        "the reason itself",
     ),
 )
 
