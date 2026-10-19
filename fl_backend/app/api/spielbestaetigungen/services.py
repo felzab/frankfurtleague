@@ -367,9 +367,9 @@ def beteiligte_namen(*, lage: AnsetzungLage) -> frozenset[str]:
 
 
 def find_name_in_begruendung_refusal(*, begruendung: str, names: Iterable[str]) -> WriteRefusal | None:
-    """`REQ-ANSETZUNG-012`: no name of the Ansetzung's people stands in a reason the row keeps for the season (`holds_a_name`).
+    """`REQ-ANSETZUNG-012`: no name of the Ansetzung's people stands in a reason the row keeps until its season's contacts are cleared.
 
-    A common word equal to a name is refused with it, and the club rephrases.
+    By `holds_a_name`: a common word equal to a name is refused with it, and the club rephrases.
     """
 
     if not holds_a_name(begruendung, names):
@@ -379,7 +379,7 @@ def find_name_in_begruendung_refusal(*, begruendung: str, names: Iterable[str]) 
     return WriteRefusal(
         error_code=ANSETZUNG_NAME_IN_BEGRUENDUNG,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        message="the reason names a person of this fixture's clubs or its referee, and the confirmation keeps it for the season",
+        message="the reason names a person of this fixture's clubs or its referee, and the confirmation keeps it with the season's contacts",
         fields=(("begruendung",),),
     )
 

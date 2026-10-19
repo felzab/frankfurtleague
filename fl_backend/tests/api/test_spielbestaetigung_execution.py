@@ -921,3 +921,20 @@ class TestWhatALinksOwnRowReadLoads:
         assert outcome == ANSETZUNG_BEANTWORTET
         assert leaf_paths(viewed) <= LINK_ROW_RESOLVES and "antwort.art" in leaf_paths(viewed)
         assert leaf_paths(pressed) <= LINK_ROW_RESOLVES and "antwort.art" in leaf_paths(pressed)
+
+
+class TestTheNameRefusalComesLast:
+    def test_a_proposal_refused_for_its_date_says_nothing_of_the_name_in_its_reason(self, mongo_replica_set_url: str):
+        """Judged first, the name would answer `-012` over a refused date, so presses could test guesses without spending the link."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            named = "Leider hat Cordes keine Zeit"
+            outside, inside = ("2027-05-20", "18:00:00"), ("2027-05-15", "18:00:00")
+            return (
+                await outcome_of(ablehnen(database, client, token(TEAM1, "trainer"), outside, begruendung=named)),
+                await outcome_of(ablehnen(database, client, token(TEAM1, "trainer"), inside, begruendung=named)),
+                (await row_now(database, ROW1))["antwort"],
+            )
+
+        # The premise: the same reason on a date the matchday holds is the name refusal, and neither press wrote.
+        assert on_a_fixture(mongo_replica_set_url, body) == (FIXTURE_OUTSIDE_SPIELTAG, ANSETZUNG_NAME_IN_BEGRUENDUNG, None)

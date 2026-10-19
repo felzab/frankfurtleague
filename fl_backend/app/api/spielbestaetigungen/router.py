@@ -168,16 +168,17 @@ async def post_spielbestaetigung(
     are one answer and one `REQ-ANSETZUNG-002`. Writes no fixture: a proposal is the administrator's to act on.
 
     Refuses, in this order: a token no seat holds (`REQ-ANSETZUNG-001`); a link whose seat's address the ban list holds
-    now, whenever it was minted (`REQ-ANSETZUNG-011`); a row already answered, closed since or not (`REQ-ANSETZUNG-002`);
-    one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club (`REQ-ANSETZUNG-005`),
-    then one whose date, time, ground or sides moved since the link (`REQ-ANSETZUNG-004`), each as the confirmation
-    pass's close judges the row; an answer after the deadline's day (`REQ-ANSETZUNG-003`); a proposal dated
-    before today (`REQ-ANSETZUNG-007`); a reason holding a name of either club's three seats or of the booked referee
-    (`REQ-ANSETZUNG-012`); and a proposal the administrator's own save of that date would be refused, judged on what it
-    newly claims: outside the matchday (`REQ-DATE-001`), on or after a club's exit (`REQ-ELIGIBILITY-001`), or within
-    four hours of the ground's or the referee's other fixture (`REQ-CLASH-001`). Every refusal after the ban's is asked
-    again outside the transaction just before answering, so a write landing mid-answer on what was judged refuses the
-    answer rather than letting it stand.
+    now, whenever it was minted (`REQ-ANSETZUNG-011`); a row already answered, closed since or not
+    (`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club
+    (`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the link (`REQ-ANSETZUNG-004`), each
+    as the confirmation pass's close judges the row; an answer after the deadline's day (`REQ-ANSETZUNG-003`); a
+    proposal dated before today (`REQ-ANSETZUNG-007`); a proposal the administrator's own save of that date would be
+    refused, judged on what it newly claims: outside the matchday (`REQ-DATE-001`), on or after a club's exit
+    (`REQ-ELIGIBILITY-001`), or within four hours of the ground's or the referee's other fixture (`REQ-CLASH-001`); and
+    last a reason holding a name of either club's three seats or of the booked referee (`REQ-ANSETZUNG-012`), so an
+    answer refused for anything else says nothing about a name. Every refusal after the ban's is asked again outside the
+    transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather than
+    letting it stand.
     """
 
     token_hash = hash_token(antwort_data.token)
@@ -223,32 +224,31 @@ async def post_spielbestaetigung(
             if vorschlag is not None:
                 refuse(find_vorschlag_vergangen_refusal(vorschlag=vorschlag, today=today))
 
+                stored = FLSpiel.model_validate(gegen.spiel)
+                proposed = proposal_payload(stored, vorschlag)
+
+                # The administrator's save's judges in its order, each read just ahead of the one refusal that consumes it.
+                membership = await pull_saison_membership(
+                    saison_teams_collection=saison_teams_collection, saison_id=stored.saison_id, session=reads
+                )
+                # The composer spelled at the call: its kept sides are what disarm this check's no-membership code here.
+                refuse(find_eligibility_refusal(stored.id, proposal_payload(stored, vorschlag), [stored], membership))
+
+                span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=reads)
+                if span is not None:
+                    refuse(find_fixture_date_refusal(datum=proposed.datum, spieltag_beginn=span.beginn, spieltag_ende=span.ende))
+
+                # Last, as in the save: it validates every season's fixtures, and a hand-edited one raises, answering 500 for a
+                # proposal an earlier rule refuses. Only claims the stored fixture did not make (`docs/backend/spec.md :: I258`).
+                booked = await pull_booked_slots(
+                    spiele_collection=spiele_collection, spiel_id=stored.id, claims=find_claims_made(stored, proposed), session=reads
+                )
+                refuse(find_clash_refusal(datum=proposed.datum, uhrzeit=proposed.uhrzeit, booked=booked))
+
+            # LAST, behind every judge that writes nothing either: a reason naming nobody is then stored and the link spent,
+            # so a stranger probing guessed names learns one answer per link rather than one per press.
             if antwort_data.begruendung is not None:
                 refuse(find_name_in_begruendung_refusal(begruendung=antwort_data.begruendung, names=beteiligte_namen(lage=gegen)))
-
-            if vorschlag is None:
-                return
-
-            stored = FLSpiel.model_validate(gegen.spiel)
-            proposed = proposal_payload(stored, vorschlag)
-
-            # The administrator's save's judges in its order, each read just ahead of the one refusal that consumes it.
-            membership = await pull_saison_membership(
-                saison_teams_collection=saison_teams_collection, saison_id=stored.saison_id, session=reads
-            )
-            # The composer spelled at the call: its kept sides are what disarm this check's no-membership code here.
-            refuse(find_eligibility_refusal(stored.id, proposal_payload(stored, vorschlag), [stored], membership))
-
-            span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=reads)
-            if span is not None:
-                refuse(find_fixture_date_refusal(datum=proposed.datum, spieltag_beginn=span.beginn, spieltag_ende=span.ende))
-
-            # Last, as in the save: it validates every season's fixtures, and a hand-edited one raises, answering 500 for a
-            # proposal an earlier rule refuses. Only claims the stored fixture did not make (`docs/backend/spec.md :: I258`).
-            booked = await pull_booked_slots(
-                spiele_collection=spiele_collection, spiel_id=stored.id, claims=find_claims_made(stored, proposed), session=reads
-            )
-            refuse(find_clash_refusal(datum=proposed.datum, uhrzeit=proposed.uhrzeit, booked=booked))
 
         await judge(lage, session)
 
