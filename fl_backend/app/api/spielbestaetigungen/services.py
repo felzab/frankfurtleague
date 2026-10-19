@@ -337,6 +337,8 @@ def find_vorschlag_vergangen_refusal(*, vorschlag: FLSpielbestaetigungTermin, to
         error_code=ANSETZUNG_VORSCHLAG_VERGANGEN,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         message=f"the proposed date {vorschlag.datum} lies before today",
+        # The date box the form holds the proposal in, so it is marked where the reader typed the day.
+        fields=(("vorschlag", "datum"),),
     )
 
 

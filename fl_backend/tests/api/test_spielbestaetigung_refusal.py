@@ -397,7 +397,7 @@ class TestAProposalBeforeToday:
     def test_yesterday_is_refused_and_today_is_not(self):
         refusal = find_vorschlag_vergangen_refusal(vorschlag=FLSpielbestaetigungTermin(datum="2027-04-30", uhrzeit="18:00:00"), today=TODAY)
 
-        assert refusal is not None and refusal.error_code == ANSETZUNG_VORSCHLAG_VERGANGEN
+        assert refusal is not None and (refusal.error_code, refusal.fields) == (ANSETZUNG_VORSCHLAG_VERGANGEN, (("vorschlag", "datum"),))
         assert find_vorschlag_vergangen_refusal(vorschlag=FLSpielbestaetigungTermin(datum=TODAY, uhrzeit="18:00:00"), today=TODAY) is None
 
 
