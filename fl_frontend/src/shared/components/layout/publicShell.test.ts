@@ -9,6 +9,7 @@ import { renderTree } from "@/shared/testing/renderTest.ts";
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
 const { PublicShell } = await import("./shell/PublicShell.tsx");
+const { AppTopBar } = await import("./shell/AppTopBar.tsx");
 const { default: PublicLayout } = await import("@/app/(public)/layout.tsx");
 const { default: NotfoundPage } = await import("@/app/not-found.tsx");
 const { default: PublicNotFound } = await import("@/app/(public)/not-found.tsx");
@@ -77,6 +78,21 @@ describe("where the public shell puts its footer", () => {
       classesIn(MAIN).includes("min-h-[calc(100dvh-var(--navbar-height)-1px)]"),
       `the floor is ${MAIN}, which is not the navbar token less the header's border`,
     );
+  });
+
+  /* A move between the public pages and an area swaps one bar for the other, and a pixel either one
+     wears beyond the other is the whole page jumping under the reader's eye. */
+  it("stands as high as the app shell's bar, on the same token and box", () => {
+    const appBar = /<header\b[^>]*>/.exec(
+      renderTree(
+        h(AppTopBar, { heading: null, isMobileOpen: false, onToggleMobileMenu: () => undefined, isDesktopCollapsed: false, kontoHref: null }),
+      ),
+    )?.[0];
+    assert.ok(appBar, "the app shell's bar renders no header");
+
+    for (const token of ["box-content", "h-(--navbar-height)", "border-b"]) {
+      assert.equal(classesIn(appBar).includes(token), classesIn(HEADER).includes(token), `the two bars part on ${token}`);
+    }
   });
 
   /* A height the columns outgrow stops the fill where the separator and the copyright row are still

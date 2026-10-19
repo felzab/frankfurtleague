@@ -10,7 +10,8 @@ import { BrandLink } from "../../ui/BrandLink";
  */
 export function SidemenuDrawerHeader({ onClose }: { onClose: () => void }) {
   return (
-    <div className="flex h-(--navbar-height) shrink-0 items-center justify-between border-b border-border px-4 lg:hidden">
+    // `box-content` with the bar's own reason, so the two stand the same height.
+    <div className="box-content flex h-(--navbar-height) shrink-0 items-center justify-between border-b border-border px-4 lg:hidden">
       {/* Closes the drawer as it navigates, for the reason `SidemenuFooter`'s link to the same page gives. */}
       <BrandLink
         title="Zur öffentlichen Website"

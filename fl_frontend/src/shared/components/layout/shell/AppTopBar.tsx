@@ -42,9 +42,11 @@ export function AppTopBar({
   return (
     /* `inert` with `<main>` and for its reason: the open drawer covers the left of this bar and the
        dismiss layer the rest, so nothing here is a stop the reader can see (WCAG 2.4.11). */
+    /* `box-content`, as the public bar is (`fl_frontend/src/shared/components/layout/shell/PublicShell.tsx`):
+       the border sits outside the token on both, so a move between them shifts nothing by a pixel. */
     <header
       inert={isMobileOpen}
-      className="z-30 flex h-(--navbar-height) w-full shrink-0 flex-row items-stretch border-b border-border bg-surface">
+      className="z-30 box-content flex h-(--navbar-height) w-full shrink-0 flex-row items-stretch border-b border-border bg-surface">
       {/* Exactly the rail's width, so the bar's `border-b` and the rail's `border-r` meet in a cross rather than a
           T. `transition-[width]` runs at the rail's own duration, or the bar snaps ahead of the panel. */}
       <div
