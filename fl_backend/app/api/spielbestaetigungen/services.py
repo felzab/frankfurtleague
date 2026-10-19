@@ -27,6 +27,7 @@ from app.api.teams.services import has_taken_place, seats_changing_holder
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import (
     SPIEL_ANFRAGE_VORLAUF_TAGE,
     SPIEL_BESTAETIGUNG_FRIST_TAGE,
@@ -446,6 +447,12 @@ def ansicht_vorschlag_of(
     return None
 
 
+def halter_of(address: str) -> str:
+    """Who answered from a seat, as the answer stores it: the digest of the address on the fold the seat's holder is judged on."""
+
+    return hashlib.sha256(sign_in_identifier(address).encode("utf-8")).hexdigest()
+
+
 def compose_antwort_update(
     *,
     antwort: FLSpielbestaetigungAntwortArt,
@@ -770,53 +777,31 @@ def group_seat_voids(
     return list(groups.items())
 
 
-# --- A CONTACT PERSON'S ERASURE: the reason a seat they hold gave on their team's confirmations.
+# --- A CONTACT PERSON'S ERASURE OR WIDERSPRUCH: the reasons they typed, from whichever seat they held then.
 
 
-class TeamSeats(NamedTuple):
-    """The seats one person held on one team's season row, keyed as that team's confirmations name it."""
+def build_contact_reasons_filter(halter: Sequence[str]) -> dict[str, Any]:
+    """Every row these holders answered from a seat, closed since or not, whatever team or seat; the digest goes with no reason too."""
 
-    saison_id: Any
-    team_id: Any
-    seats: Sequence[str]
+    return {"antwort.von.halter": {"$in": list(halter)}}
 
 
-def build_contact_reasons_filter(held: Sequence[TeamSeats]) -> dict[str, Any]:
-    """Every row of these teams answered from one of these seats with a reason, closed since or not."""
+def build_contact_reason_images_filter(halter: Sequence[str]) -> dict[str, Any]:
+    """Log rows whose image holds such an answer, an undraw's removal among them, which no row standing now reaches."""
 
-    return {
-        "partei.art": "team",
-        "antwort.von.art": "kontakt",
-        "antwort.begruendung": {"$ne": None},
-        "$or": [{**_team_rows(team.saison_id, team.team_id), "antwort.von.rolle": {"$in": list(team.seats)}} for team in held],
-    }
+    return {"collection": str(Collection.SPIELBESTAETIGUNGEN), "before.antwort.von.halter": {"$in": list(halter)}}
 
 
-def build_contact_reason_images_filter(held: Sequence[TeamSeats]) -> dict[str, Any]:
-    """Log rows whose image may hold such a reason; `contact_reason_image_edits` decides, an image at a time."""
+def contact_reason_image_edits(image: Mapping[str, Any], halter: Sequence[str]) -> dict[str, Any]:
+    """One image's reason and holder nulled where one of these holders gave its answer from a seat, as the rows' own write nulls them.
 
-    return {
-        "collection": str(Collection.SPIELBESTAETIGUNGEN),
-        "before.antwort.von.art": "kontakt",
-        "$or": [{"before.saison_id": team.saison_id, "before.partei.team_id": team.team_id} for team in held],
-    }
+    The answer's day, its way and its role stay: they are the club's.
+    """
 
-
-def contact_reason_image_edits(image: Mapping[str, Any], held: Sequence[TeamSeats]) -> dict[str, Any]:
-    """One image's reason nulled where one of these seats gave it for its team; its answer, day and role stay."""
-
-    partei, antwort = image.get("partei"), image.get("antwort")
-    if not isinstance(partei, Mapping) or not isinstance(antwort, Mapping) or antwort.get("begruendung") is None:
-        return {}
-
-    von = antwort.get("von")
-    given = (image.get("saison_id"), partei.get("team_id"), von.get("rolle") if isinstance(von, Mapping) else None)
-    if (
-        isinstance(von, Mapping)
-        and von.get("art") == "kontakt"
-        and any(given == (t.saison_id, t.team_id, seat) for t in held for seat in t.seats)
-    ):
-        return {"antwort.begruendung": None}
+    antwort = image.get("antwort")
+    von = antwort.get("von") if isinstance(antwort, Mapping) else None
+    if isinstance(von, Mapping) and von.get("halter") in halter:
+        return {"antwort.begruendung": None, "antwort.von.halter": None}
 
     return {}
 

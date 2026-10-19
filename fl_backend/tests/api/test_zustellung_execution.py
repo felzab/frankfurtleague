@@ -27,7 +27,7 @@ from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
 from app.shared.schemas.bounds import REGISTRIERUNG_ERINNERUNG_TAGE
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import saison_team_document, spieler_document
+from tests.documents import saison_team_document, spiel_document, spielbestaetigung_document, spieler_document
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_zustellung_test")
@@ -98,26 +98,22 @@ ZIEL_FIXTURES: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
     "spieler_adresswechsel": spieler_document(ZIEL_OID, "Thessaly", "Okonkwo-Brandt", email="thessaly@example.invalid"),
     # One team's open request about one fixture. Its seat block is a required key, so a row nothing was
     # mailed about holds every seat empty rather than no block.
-    "spielbestaetigung": {
-        "_id": ZIEL_OID,
-        "saison_id": "2026",
-        "spiel_id": SPIEL_OID,
-        "partei": {"art": "team", "team_id": ObjectId("6890a1b2c3d4e5f607970002")},
-        "ansetzung": {
-            "datum": "2026-04-12",
-            "uhrzeit": "18:00:00",
-            "spielort_id": None,
-            "team1_id": ObjectId("6890a1b2c3d4e5f607970002"),
-            "team2_id": ObjectId("6890a1b2c3d4e5f607970004"),
-            "stand": "d" * 64,
-        },
-        "frist": "2026-04-05",
-        "angefragt_am": "2026-03-28",
-        "erinnert_am": [],
-        "kontakte": {"trainer": None, "ansprechperson": None, "stellvertretung": None},
-        "antwort": None,
-        "geschlossen": None,
-    },
+    "spielbestaetigung": spielbestaetigung_document(
+        spiel_document(
+            spiel_id=SPIEL_OID,
+            saison_id="2026",
+            spiel_nr=1,
+            spieltag_id=None,
+            datum="2026-04-12",
+            uhrzeit="18:00:00",
+            team1={"team_id": ObjectId("6890a1b2c3d4e5f607970002")},
+            team2={"team_id": ObjectId("6890a1b2c3d4e5f607970004")},
+        ),
+        partei={"art": "team", "team_id": ObjectId("6890a1b2c3d4e5f607970002")},
+        _id=ZIEL_OID,
+        frist="2026-04-05",
+        angefragt_am="2026-03-28",
+    ),
 }
 
 ZIELE = sorted(ZIEL_PFADE)

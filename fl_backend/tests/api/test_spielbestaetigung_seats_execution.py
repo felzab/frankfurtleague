@@ -2,8 +2,9 @@
 API · every write moving a season seat's holder voids that seat's links on its team's open match confirmations, at the write
 
 Each writer of an existing season row's seats is driven against the shipped validators, and straight after it commits,
-with no sweep run, each link is resolved as a link's page resolves it (`app/api/spielbestaetigungen/services.py ::
-build_token_filter`): a link resolving to no row is the page's `REQ-ANSETZUNG-001`.
+with no sweep run, each link is opened through the link's own view (`app/api/spielbestaetigungen/router.py ::
+get_spielbestaetigung_ansicht`): a link it refuses with `REQ-ANSETZUNG-001` is voided. A contact's erasure and their
+Widerspruch also take every reason they typed, matched on the holder each answer stored.
 """
 
 from collections.abc import Awaitable, Callable, Mapping
@@ -24,12 +25,14 @@ from app.api.identitaet.services import build_erasure_seat_pipeline
 from app.api.identitaet.wiederherstellung import Read, Window, replay_line
 from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.kontakte.services import rows_naming
-from app.api.spielbestaetigungen.services import build_token_filter, compose_ansetzung
+from app.api.spielbestaetigungen.router import get_spielbestaetigung_ansicht
+from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAnsichtPayload
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, patch_one_in_db
+from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_one_in_db
+from app.core.exceptions import WriteRefusalException
 from app.core.journal import JournalLine
 from app.core.security import loeschung_journal_hash
 from app.core.transactions import transaction_session
@@ -59,6 +62,8 @@ ROW_OID = ObjectId("6890a1b2c3d4e5f607b60011")
 OTHER_ROW_OID = ObjectId("6890a1b2c3d4e5f607b60012")
 SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b60021")
 ANSWERED_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b60022")
+REASON_SPIEL_OIDS = [ObjectId(f"6890a1b2c3d4e5f607b6003{position}") for position in range(5)]
+SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607b60041")
 
 FORM_LABEL = LAUFENDE_FASSUNGEN["bewerbung"]
 SEAT_PAGE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt_saison"]
@@ -103,34 +108,47 @@ def link(row: str, seat: str) -> str:
     return f"{row}-{seat}"
 
 
-def confirmation_row(row: str, team_id: ObjectId, spiel_id: ObjectId, *, answered: bool) -> dict[str, Any]:
-    """One team's row about one fixture, each seat holding the link it was mailed; `answered` by the Trainer's press."""
+def fixture(spiel_id: ObjectId, *, saison_id: str = SAISON_ID, spiel_nr: int = 1) -> dict[str, Any]:
+    """This team at home to the other, as the league's schedule holds it."""
 
-    fixture = {"datum": "2026-04-18", "uhrzeit": "14:00:00", "ort": None, "team1": {"team_id": TEAM_OID}, "team2": {"team_id": OTHER_TEAM_OID}}
-
-    return {
-        "saison_id": SAISON_ID,
-        "spiel_id": spiel_id,
-        "partei": {"art": "team", "team_id": team_id},
-        "ansetzung": compose_ansetzung(fixture),
-        "frist": "2026-04-11",
-        "angefragt_am": TODAY,
-        "erinnert_am": [],
-        "kontakte": {seat: {"token_hashes": [hash_token(link(row, seat))], "zustellung": None} for seat in KONTAKT_ROLLEN},
-        "antwort": (
-            {"art": "zugesagt", "am": TODAY, "von": {"art": "kontakt", "rolle": "trainer"}, "vorschlag": None, "begruendung": None}
-            if answered
-            else None
-        ),
-        "geschlossen": None,
+    sides = {
+        f"team{position}": {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": None}
+        for position, (team_id, name, shorthand) in enumerate(((TEAM_OID, "Adler", "AD"), (OTHER_TEAM_OID, "Falken", "FA")), start=1)
     }
+
+    return documents.spiel_document(
+        spiel_id=spiel_id, saison_id=saison_id, spiel_nr=spiel_nr, spieltag_id=SPIELTAG_OID, datum="2026-04-18", uhrzeit="14:00:00", **sides
+    )
+
+
+FIXTURES = [
+    fixture(spiel_id, spiel_nr=position) for position, spiel_id in enumerate([SPIEL_OID, ANSWERED_SPIEL_OID, *REASON_SPIEL_OIDS], start=1)
+]
+
+
+def confirmation_row(row: str, team_id: ObjectId, spiel: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
+    """One team's mailed row about `spiel`, each seat holding the link it was mailed."""
+
+    return documents.spielbestaetigung_document(
+        spiel,
+        partei={"art": "team", "team_id": team_id},
+        frist="2026-04-11",
+        angefragt_am=TODAY,
+        kontakte={seat: {"token_hashes": [hash_token(link(row, seat))], "zustellung": None} for seat in KONTAKT_ROLLEN},
+        **fields,
+    )
 
 
 # The team's open row, its answered row, and the other team's open row about the same fixture.
 ROWS = {
-    "open": confirmation_row("open", TEAM_OID, SPIEL_OID, answered=False),
-    "answered": confirmation_row("answered", TEAM_OID, ANSWERED_SPIEL_OID, answered=True),
-    "other": confirmation_row("other", OTHER_TEAM_OID, SPIEL_OID, answered=False),
+    "open": confirmation_row("open", TEAM_OID, FIXTURES[0]),
+    "answered": confirmation_row(
+        "answered",
+        TEAM_OID,
+        FIXTURES[1],
+        antwort={"art": "zugesagt", "am": TODAY, "von": {"art": "kontakt", "rolle": "trainer"}, "vorschlag": None, "begruendung": None},
+    ),
+    "other": confirmation_row("other", OTHER_TEAM_OID, FIXTURES[0]),
 }
 
 Write = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -168,6 +186,7 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
                     {"_id": OTHER_ROW_OID, **documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, "Falken", "FA", kontakte=None)},
                 ]
             )
+            await database[Collection.SPIELE].insert_many([dict(spiel) for spiel in FIXTURES])
             await database[Collection.SPIELBESTAETIGUNGEN].insert_many([dict(row) for row in ROWS.values()])
 
             await body(database, client)
@@ -180,14 +199,27 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
 
 
 async def links_answering(database: AsyncDatabase) -> dict[str, set[str]]:
-    """Per row, the seats whose mailed link still resolves to a row; a seat absent here answers `REQ-ANSETZUNG-001`."""
+    """Per row, the seats whose mailed link the link's view still opens; a seat absent here is refused `REQ-ANSETZUNG-001`."""
 
-    collection = database[Collection.SPIELBESTAETIGUNGEN]
+    answering: dict[str, set[str]] = {}
+    for row in ROWS:
+        answering[row] = set()
+        for seat in KONTAKT_ROLLEN:
+            try:
+                await get_spielbestaetigung_ansicht(
+                    ansicht_data=FLSpielbestaetigungAnsichtPayload(token=link(row, seat)),
+                    spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                    spiele_collection=database[Collection.SPIELE],
+                    saison_teams_collection=database[Collection.SAISON_TEAMS],
+                    sperrliste=ban_list(database),
+                    today=TODAY,
+                )
+            except WriteRefusalException as refused:
+                assert refused.error_code == "REQ-ANSETZUNG-001"
+                continue
+            answering[row].add(seat)
 
-    return {
-        row: {seat for seat in KONTAKT_ROLLEN if await collection.find_one(build_token_filter(token_hash=hash_token(link(row, seat))))}
-        for row in ROWS
-    }
+    return answering
 
 
 async def answers(database: AsyncDatabase) -> list[Any]:
@@ -398,65 +430,101 @@ class TestEverySeatWriteVoidsItsLinks:
         assert (logged, logged_with_an_entry) == (0, 1)
 
 
-REASON_SPIEL_OIDS = [ObjectId(f"6890a1b2c3d4e5f607b6003{position}") for position in range(3)]
+IDA = "ida@example.com"
+UNDRAWN_SPIEL_OIDS = [ObjectId(f"6890a1b2c3d4e5f607b6005{position}") for position in range(2)]
 
 
-def declined_from(team_id: ObjectId, spiel_id: ObjectId, rolle: str, begruendung: str) -> dict[str, Any]:
-    """A row the team declined from `rolle`'s link, giving a reason; closed since, as a move closes an answered row."""
+def declined(row: str, team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, adresse: str, begruendung: str) -> dict[str, Any]:
+    """A row the team declined from `rolle`'s link, pressed by `adresse`, giving a reason; closed since, as a move closes an answered row."""
 
-    return {
-        **confirmation_row("reason", team_id, spiel_id, answered=False),
-        "antwort": {
-            "art": "abgelehnt",
-            "am": TODAY,
-            "von": {"art": "kontakt", "rolle": rolle},
-            "vorschlag": {"datum": "2026-04-25", "uhrzeit": "14:00:00"},
-            "begruendung": begruendung,
-        },
-        "geschlossen": {"am": TODAY, "grund": "ansetzung_geaendert"},
-    }
+    return confirmation_row(
+        row,
+        team_id,
+        spiel,
+        antwort=documents.kontakt_antwort_document(rolle, adresse, begruendung=begruendung),
+        geschlossen={"am": TODAY, "grund": "ansetzung_geaendert"},
+    )
 
 
-class TestAnErasedContactsReasonGoes:
-    """The erased person's seat gave the reason, so it goes with them; the club's answer, its day and its role stay."""
+# Ida holds this team's Trainer seat now. Hers go with her whichever seat and team she typed them from, an
+# address she typed in another case among them; her predecessor's, from the seat she holds now, stays.
+REASONS = {
+    "hers, from her seat": declined("hers", TEAM_OID, FIXTURES[2], "trainer", IDA, "Ida ist an dem Tag verreist"),
+    "hers, from a seat she left": declined("left", OTHER_TEAM_OID, FIXTURES[3], "ansprechperson", "IDA@Example.com", "Die Fahrt ist zu weit"),
+    "her predecessor's, from her seat": declined("before", TEAM_OID, FIXTURES[4], "trainer", "lea@example.com", "Lea hat Spätdienst"),
+    "another seat's": declined("seat", TEAM_OID, FIXTURES[5], "ansprechperson", "jonas@example.com", "Die Halle ist belegt"),
+    "another team's": declined("team", OTHER_TEAM_OID, FIXTURES[6], "trainer", "klara@example.com", "Unser Trainer ist krank"),
+}
+# Removed by an undraw, so one array image holds both, hers second: a judge taking every element, or the first, fails.
+UNDRAWN = {
+    "another seat's, undrawn": declined(
+        "undrawn-seat", TEAM_OID, fixture(UNDRAWN_SPIEL_OIDS[0], saison_id=LATER_SAISON_ID), "ansprechperson", "jonas@example.com", "Halle zu"
+    ),
+    "hers, undrawn": declined(
+        "undrawn-hers", TEAM_OID, fixture(UNDRAWN_SPIEL_OIDS[1], saison_id=LATER_SAISON_ID), "trainer", IDA, "Ida ist krank"
+    ),
+}
+HERS = {"hers, from her seat", "hers, from a seat she left", "hers, undrawn"}
+NAMED = {row["spiel_id"]: name for name, row in {**REASONS, **UNDRAWN}.items()}
 
-    def test_the_reason_their_seat_gave_goes_from_the_row_and_its_image_and_no_other_does(self, mongo_replica_set_url: str):
-        rows = {
-            "theirs": declined_from(TEAM_OID, REASON_SPIEL_OIDS[0], "trainer", "Ida ist an dem Tag verreist"),
-            "another seat's": declined_from(TEAM_OID, REASON_SPIEL_OIDS[1], "ansprechperson", "Die Halle ist belegt"),
-            "another team's": declined_from(OTHER_TEAM_OID, REASON_SPIEL_OIDS[2], "trainer", "Unser Trainer ist krank"),
-        }
+
+def left_behind(name: str, antwort: Mapping[str, Any]) -> tuple[str, Any, Any]:
+    return name, antwort["begruendung"], antwort["von"].get("halter")
+
+
+def expected(name: str) -> tuple[str, Any, Any]:
+    if name in HERS:
+        return name, None, None
+
+    return left_behind(name, {**REASONS, **UNDRAWN}[name]["antwort"])
+
+
+class TestALeavingContactsReasonsGo:
+    """Every reason the person typed goes from its row and every log image, with the holder it was matched on; the answer stays."""
+
+    @pytest.mark.parametrize(
+        "write",
+        [
+            pytest.param(erase_the_trainer, id="their erasure"),
+            pytest.param(contradict, id="their Widerspruch on the season row"),
+            pytest.param(replay_the_widerspruch, id="the replay of that Widerspruch"),
+        ],
+    )
+    def test_theirs_go_from_the_rows_and_the_images_and_nobody_elses_do(self, mongo_replica_set_url: str, write: Write):
+        """The predecessor's reason from the same seat is what a judge keyed on the seat rather than the holder takes."""
+
         found: dict[str, Any] = {}
 
-        async def erase_after_the_answers(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        async def after_the_answers(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             collection = database[Collection.SPIELBESTAETIGUNGEN]
-            await collection.insert_many([dict(row) for row in rows.values()])
-            # A write after the answer files the answered row's image, reason and all.
-            await patch_one_in_db(
-                collection=collection,
-                db_filter={"spiel_id": REASON_SPIEL_OIDS[0]},
-                update={"$set": {"erinnert_am": [TODAY]}},
-                return_document=ReturnDocument.BEFORE,
+            await collection.insert_many([dict(row) for row in (*REASONS.values(), *UNDRAWN.values())])
+            # A write after each answer files the answered row's image, reason, holder and all.
+            for row in REASONS.values():
+                await patch_one_in_db(
+                    collection=collection,
+                    db_filter={"_id": row["_id"]},
+                    update={"$set": {"erinnert_am": [TODAY]}},
+                    return_document=ReturnDocument.BEFORE,
+                )
+            async with client.start_session() as session:
+                await delete_many_from_db(collection=collection, db_filter={"saison_id": LATER_SAISON_ID}, session=session)
+
+            await write(database, client)
+
+            found["rows"] = sorted(
+                [left_behind(NAMED[row["spiel_id"]], row["antwort"]) async for row in collection.find({"spiel_id": {"$in": list(NAMED)}})]
             )
-            await erase_the_trainer(database, client)
-            found["antworten"] = {
-                name: await collection.find_one(
-                    {"spiel_id": row["spiel_id"], "partei.team_id": row["partei"]["team_id"]}, {"antwort": 1, "_id": 0}
-                )
-                for name, row in rows.items()
-            }
-            found["images"] = [
-                row["before"]["antwort"]["begruendung"]
-                async for row in database[Collection.AKTIONEN].find(
-                    {"collection": str(Collection.SPIELBESTAETIGUNGEN), "before.antwort": {"$ne": None}}
-                )
-            ]
+            logged = database[Collection.AKTIONEN].find({"collection": str(Collection.SPIELBESTAETIGUNGEN), "before": {"$ne": None}})
+            found["images"] = sorted(
+                [
+                    left_behind(NAMED[image["spiel_id"]], image["antwort"])
+                    async for row in logged
+                    for image in (row["before"] if isinstance(row["before"], list) else [row["before"]])
+                    if image.get("spiel_id") in NAMED
+                ]
+            )
 
-        on_a_league(mongo_replica_set_url, erase_after_the_answers)
+        on_a_league(mongo_replica_set_url, after_the_answers)
 
-        assert found["antworten"] == {
-            "theirs": {"antwort": {**rows["theirs"]["antwort"], "begruendung": None}},
-            "another seat's": {"antwort": rows["another seat's"]["antwort"]},
-            "another team's": {"antwort": rows["another team's"]["antwort"]},
-        }
-        assert found["images"] == [None]
+        assert found["rows"] == sorted(expected(name) for name in REASONS)
+        assert found["images"] == sorted(expected(name) for name in NAMED.values())

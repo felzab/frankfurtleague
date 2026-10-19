@@ -50,7 +50,7 @@ from app.api.bewerbungen.services import (
     zustand_of,
 )
 from app.api.einwilligung.services import find_fassung_refusal, find_selbst_medien_refusal
-from app.api.kontakte.crud import redact_the_decliner
+from app.api.kontakte.crud import redact_the_decliner, remove_their_reasons
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.services import kontakte_ohne, seat_void_of
 from app.api.teams.crud import void_moved_seats
@@ -267,7 +267,8 @@ async def post_einwilligung(
     for `REQ-BEWERBUNG-010`, nothing deciding a season row, and its answer carries nothing to compose a message from. Its
     own deadline passed is `REQ-KONTAKT-004`, and a consent once its season has ended or its team has left it is
     `REQ-KONTAKT-006`, a Widerspruch being taken all the same. A Widerspruch there also voids the seat's links on the
-    team's open match confirmations.
+    team's open match confirmations, and takes every reason its person typed answering a match confirmation, from any
+    seat they held, from its row and its log images, the answer standing.
     """
 
     token_hash = hash_token(antwort_data.token)
@@ -369,6 +370,14 @@ async def post_einwilligung(
                     kontakte=kontakte_ohne(stored_kontakte, seats),
                 )
             ],
+            session=session,
+        )
+        # As an erasure takes them: the person's reasons on every confirmation, from whichever seat they typed them.
+        await remove_their_reasons(
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            aktionen_collection=aktionen_collection,
+            adressen=seat_adressen(kontakte=kontakte, seats=seats),
+            stamp=am,
             session=session,
         )
 
