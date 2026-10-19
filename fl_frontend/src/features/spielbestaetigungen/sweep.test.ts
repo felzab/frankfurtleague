@@ -1,8 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { after, beforeEach, describe, it, mock } from "node:test";
+import { beforeEach, describe, it, mock } from "node:test";
 
 import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
@@ -168,71 +165,6 @@ beforeEach(() => {
     // Recorded here as well, so a message and a call stay in the order they ran.
     ereignisse.push({ art: "mail", mail: sent });
     return ausgang.get(sent.to) ?? "accepted";
-  });
-});
-
-/* The default is the difference between a deploy and a mailing (`docs/frontend/spec.md :: I740`): read through the
-   real module, the double above standing in for it everywhere else. */
-describe("the switch the fixture confirmations are armed by", () => {
-  /** The whole environment `createEnv` needs, so the case under test is the only variable in it. */
-  const COMPLETE_ENV: Record<string, string> = {
-    APP_ENV: "production",
-    API_URL: "http://backend:8000",
-    API_VERSION: "0",
-    AUTH_URL: "http://localhost:3000",
-    LOG_FORMAT: "console",
-    // Of no published test key's shape, which production refuses.
-    TURNSTILE_SITE_KEY: "fabricated-site-key",
-  };
-
-  /** And every secret file it reads, by the file's own name, as `fl_frontend/src/features/bewerbungen/sweep.test.ts` writes them. */
-  const SECRETS_DIR = mkdtempSync(path.join(tmpdir(), "fl-spiel-sweep-secrets-"));
-  after(() => rmSync(SECRETS_DIR, { recursive: true, force: true }));
-  for (const [name, value] of Object.entries({
-    frontend_mongodb_uri: "mongodb://localhost:27017/probe",
-    auth_secret: "s".repeat(32),
-    auth_resend_key: "resend",
-    resend_webhook_secret: "whsec_probe",
-    internal_api_key_base: "b".repeat(64),
-    internal_api_key_system: "s".repeat(64),
-    internal_api_key_admin: "a".repeat(64),
-    turnstile_secret_key: "fabricated-turnstile-secret",
-  })) {
-    writeFileSync(path.join(SECRETS_DIR, name), value);
-  }
-
-  let probe = 0;
-
-  /** The real module's own parse of the switch, with the gate the `test:base` script stands down put back up. */
-  async function parseWith(value: string | undefined): Promise<string> {
-    const before = { ...process.env };
-    Object.assign(process.env, COMPLETE_ENV, { SECRETS_DIR });
-    delete process.env.SKIP_ENV_VALIDATION;
-    delete process.env.SPIEL_SWEEP;
-    if (value !== undefined) process.env.SPIEL_SWEEP = value;
-
-    probe += 1;
-    try {
-      // A fresh module per case, and one the double above steps past, matching the bare path alone.
-      const parsed = (await import(`../../core/config.ts?probe=${String(probe)}`)) as { frontend_config: { SPIEL_SWEEP: string } };
-      return parsed.frontend_config.SPIEL_SWEEP;
-    } finally {
-      for (const name of Object.keys(process.env)) delete process.env[name];
-      Object.assign(process.env, before);
-    }
-  }
-
-  it("leaves the confirmations off where the server sets nothing", async () => {
-    assert.equal(await parseWith(undefined), "off");
-  });
-
-  it("reads on in either case", async () => {
-    assert.equal(await parseWith("on"), "on");
-    assert.equal(await parseWith("ON"), "on");
-  });
-
-  it("refuses anything else by name, rather than reading it as one side or the other", async () => {
-    await assert.rejects(parseWith("false"), (error: Error) => error.message.includes("SPIEL_SWEEP"));
   });
 });
 

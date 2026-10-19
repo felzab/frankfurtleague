@@ -526,6 +526,22 @@ describe("the switch the account sweep is armed by", () => {
   });
 });
 
+/* The default is the difference between a deploy and a mailing (`docs/frontend/spec.md :: I740`). */
+describe("the switch the fixture confirmations are armed by", () => {
+  it("leaves the confirmations off where the server sets nothing", async () => {
+    assert.equal((await bootWith({ SPIEL_SWEEP: undefined })).frontend_config.SPIEL_SWEEP, "off");
+  });
+
+  it("reads on in either case", async () => {
+    assert.equal((await bootWith({ SPIEL_SWEEP: "on" })).frontend_config.SPIEL_SWEEP, "on");
+    assert.equal((await bootWith({ SPIEL_SWEEP: "ON" })).frontend_config.SPIEL_SWEEP, "on");
+  });
+
+  it("refuses anything else by name, rather than reading it as one side or the other", async () => {
+    assert.equal(await refusedNames({ SPIEL_SWEEP: "false" }), "SPIEL_SWEEP");
+  });
+});
+
 /* One row per clause of the two installed regexes, each keyed by the clause it drives: a clause with
    no row here is drift the agreement case cannot see, and a row nothing drives is a row to delete. */
 const ADDRESS_TABLE: [clause: string, address: string][] = [
