@@ -121,6 +121,10 @@ describe("the fixture confirmation page", () => {
     assert.ok(shown.includes("FC Alpha gegen Lessing-Kolleg"));
     assert.ok(shown.includes("07.11.2026") && shown.includes("14:30") && shown.includes("Sportpark Nord"));
     assert.ok(shown.includes("Antworte bis zum 31.10.2026."), "the page states no deadline");
+    assert.ok(
+      shown.includes("Danach legt die Verwaltung der Liga den Termin fest."),
+      "the page does not say who sets the date past the deadline",
+    );
   });
 
   /* The opponent's proposal is in front of the reader, and the reader still answers the date standing. */
