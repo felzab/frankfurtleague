@@ -63,8 +63,8 @@ const linkRollen = ({ rolle, zugleich_rolle }: EinwilligungGeoeffnet): string =>
 function nachAntwort(abschluss: BestaetigungAbschluss, ansicht: EinwilligungGeoeffnet, token: string): Stand {
   if (abschluss.zustand === "erfolg") return { ...abschluss, ansicht: ansicht };
   if (abschluss.zustand === "widersprochen-neu") return { zustand: "widersprochen-neu", ansicht: ansicht };
-  // The season closed between the open and the press: the token still takes a Widerspruch. Named off the read after
-  // the press where the route made one, as a reload names it: the opening read cannot tell a team that left since.
+  // The season closed since the page opened, and the token still takes a Widerspruch. Named off the read after the
+  // press where there is one, as a reload names it: the opening read cannot know the team left since.
   if (abschluss.zustand === "saison_vorbei") return { zustand: "saison_vorbei", ansicht: abschluss.ansicht ?? ansicht, token: token };
 
   // The read that opened the page knew the record, which the spent link's panel words itself by.

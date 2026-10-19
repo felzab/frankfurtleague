@@ -229,8 +229,8 @@ export type EinwilligungRefusal = {
 /**
  * A confirmation refusal as what the page should show, or `null` where the code is none of these.
  *
- * The floors are the token's own view's, which `gelesen` answers `null` where the read failed: a number
- * of this mapper's own would be wrong for two of the three seats.
+ * The floors are the token's own view's: a number of this mapper's own would be wrong for two of the
+ * three seats.
  */
 export async function mapEinwilligungRefusal(
   error: unknown,

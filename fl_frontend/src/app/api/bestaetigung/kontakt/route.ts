@@ -21,8 +21,8 @@ import type { NextRequest } from "next/server";
 // naming one state alone.
 /** This link's own view, for the refusals that name a floor or a state the view tells apart. A failed read is `null`. */
 async function ansichtFuerToken(token: string): Promise<EinwilligungAnsicht | null> {
-  // Its own cut, and its failure answered by the mapper: the write was refused, so no doubt about it may reach the
-  // spine, which would call the outcome unknown. A contract break is no failed read, and reaches the spine's log.
+  // Its own cut, its failure answered by the mapper: the write was refused, so no doubt may reach the spine, which
+  // would call the outcome unknown. A contract break is no failed read, and reaches the spine's log.
   return runAnsweringOwnCut(() => getEinwilligungAnsicht(token)).catch(nullUnlessContractBreak);
 }
 

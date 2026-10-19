@@ -32,8 +32,8 @@ const { FLSpielAdminSchema } = await import("@/features/spiele/schemas.ts");
 
 const SPIEL = FLSpielAdminSchema.parse(spielFields());
 
-/* The type holds each prop present and never where its value comes from: a literal, or the neighbouring boolean, in
-   its place passes tsc and every sheet of the form, and raises the near-date warning for a pass that never runs. */
+/* The type holds each prop present, never where its value comes from: a literal or the neighbouring boolean in its
+   place passes tsc and every sheet of the form, and warns of a pass that never runs. */
 describe("what the match editor's view hands its form", () => {
   for (const [isSpielSweepOn, isActiveSaison, today] of [
     [true, false, "2026-05-01"],
