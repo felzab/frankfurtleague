@@ -608,3 +608,22 @@ class TestTheSeatAxis:
         }
         assert document["kontakte"]["ansprechperson"] is None
         assert other["kontakte"]["trainer"]["zustellung"] is None
+
+
+@pytest.mark.db
+class TestANeueAnsetzungReportOnASeatHoldingNoLink:
+    """The void notice goes to the seats as they stand now, so its report may name a seat the closed row holds no entry for."""
+
+    def test_the_seat_is_skipped_its_sibling_written_and_one_naming_it_alone_writes_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            both = await accept(database, client, ziel="spielbestaetigung", rollen=["trainer", "ansprechperson"])
+            alone = await report(database, client, ziel="spielbestaetigung", rollen=["ansprechperson"], stand="unzustellbar", grund="NoEmail")
+            document = await database[Collection.SPIELBESTAETIGUNGEN].find_one({"_id": ZIEL_OID})
+
+            return both, alone, document
+
+        both, alone, document = on_a_league(mongo_replica_set_url, "spielbestaetigung", body)
+
+        assert (both.angewendet, alone.angewendet) == (True, False)
+        assert document["kontakte"]["ansprechperson"] is None
+        assert document["kontakte"]["trainer"]["zustellung"]["nachricht_id"] == FIRST_MESSAGE
