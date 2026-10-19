@@ -14,7 +14,6 @@ from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.crud import anchor_the_seats_minted
 from app.api.spielbestaetigungen.schemas import (
-    FLSpielbestaetigungAnsichtAnsetzung,
     FLSpielbestaetigungGrund,
     FLSpielbestaetigungSweepAnfrage,
     FLSpielbestaetigungSweepAngefragtPayload,
@@ -48,6 +47,7 @@ from app.api.spielbestaetigungen.services import (
     partei_key,
     parteien_of,
     seite_of,
+    vereinsnamen_of,
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.config import API_VERSION
@@ -167,14 +167,6 @@ async def _gesperrt(
     ]
 
     return await adressen_gesperrt(sperrliste, adressen, massgebliche_saison_id=massgebliche_saison_id, session=session)
-
-
-def _ansetzung_now(
-    *, row: Mapping[str, Any], spiel: Mapping[str, Any], junctions: Mapping[Any, Mapping[str, Any]]
-) -> FLSpielbestaetigungAnsichtAnsetzung:
-    """What a message states of the fixture, composed as the link's own page states it."""
-
-    return ansicht_ansetzung_of(spielbestaetigung_raw=row, lage=AnsetzungLage(spiel=spiel, vereine=list(junctions.values())))
 
 
 @dataclass
@@ -388,8 +380,10 @@ async def sweep_spielbestaetigungen(
 
             ansetzung, partei = row["ansetzung"], row["partei"]
             # Named as the requests are, off the fixture as it stands: a club replaced since holds no season row to name it by.
-            jetzt = _ansetzung_now(row=row, spiel=spiele[row["spiel_id"]], junctions=junctions)
-            namen = {"team1_name": jetzt.team1_name, "team2_name": jetzt.team2_name}
+            team1_name, team2_name = vereinsnamen_of(
+                spielbestaetigung_raw=row, lage=AnsetzungLage(spiel=spiele[row["spiel_id"]], vereine=list(junctions.values()))
+            )
+            namen = {"team1_name": team1_name, "team2_name": team2_name}
             alt = FLSpielbestaetigungTermin(datum=ansetzung["datum"], uhrzeit=ansetzung["uhrzeit"])
             if partei["art"] == "schiedsrichter":
                 address = adressen.get(partei["schiedsrichter_id"])
@@ -513,7 +507,7 @@ async def sweep_spielbestaetigungen(
                             FLSpielbestaetigungSweepEinteilung(
                                 spielbestaetigung_id=row["_id"],
                                 spiel_id=spiel["_id"],
-                                ansetzung=_ansetzung_now(row=row, spiel=spiel, junctions=junctions),
+                                ansetzung=ansicht_ansetzung_of(spiel),
                                 address=address,
                             )
                         )
@@ -548,7 +542,7 @@ async def sweep_spielbestaetigungen(
                             spielbestaetigung_id=row["_id"],
                             spiel_id=spiel["_id"],
                             seite=seite_of(row),
-                            ansetzung=_ansetzung_now(row=row, spiel=spiel, junctions=junctions),
+                            ansetzung=ansicht_ansetzung_of(spiel),
                             frist=row["frist"],
                             links=minted.links,
                         )
@@ -641,7 +635,7 @@ async def sweep_spielbestaetigungen(
                 spielbestaetigung_id=row["_id"],
                 spiel_id=row["spiel_id"],
                 seite=seite_of(row),
-                ansetzung=_ansetzung_now(row=row, spiel=spiel, junctions=junctions),
+                ansetzung=ansicht_ansetzung_of(spiel),
                 frist=row["frist"],
                 links=minted.links,
             )

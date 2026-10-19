@@ -6,7 +6,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import hash_token
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
-from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, pull_ansetzung_lage, pull_vorschlag_offen, verein_fields
+from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, pull_ansetzung_lage, pull_vereinsnamen, pull_vorschlag_offen, verein_fields
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnsichtPayload,
     FLSpielbestaetigungAnsichtResponse,
@@ -24,6 +24,7 @@ from app.api.spielbestaetigungen.services import (
     beteiligte_namen,
     build_answerable_filter,
     build_token_filter,
+    clubs_without_a_season_row,
     compose_antwort_update,
     find_gesperrt_link_refusal,
     find_name_in_begruendung_refusal,
@@ -50,6 +51,7 @@ from app.core.dependencies import (
     SpieleCollection,
     SpielorteCollection,
     SpieltageCollection,
+    TeamsCollection,
     get_german_date_str,
 )
 from app.core.exception_handlers import stores_nothing
@@ -77,6 +79,7 @@ async def get_spielbestaetigung_ansicht(
     spiele_collection: SpieleCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spielorte_collection: SpielorteCollection,
+    teams_collection: TeamsCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielbestaetigungAnsichtResponse:
@@ -125,9 +128,12 @@ async def get_spielbestaetigung_ansicht(
             if venue is None
             else FLSpielOrtFieldPublic(spielort_id=row["ansetzung"]["spielort_id"], name=venue.name, maps_link=venue.maps_link)
         )
-        ansetzung = ansicht_snapshot_of(spielbestaetigung_raw=row, lage=lage, spielort=spielort)
+        vereinsnamen = await pull_vereinsnamen(
+            teams_collection=teams_collection, team_ids=clubs_without_a_season_row(spielbestaetigung_raw=row, lage=lage)
+        )
+        ansetzung = ansicht_snapshot_of(spielbestaetigung_raw=row, lage=lage, vereinsnamen=vereinsnamen, spielort=spielort)
     else:
-        ansetzung = ansicht_ansetzung_of(spielbestaetigung_raw=row, lage=lage)
+        ansetzung = ansicht_ansetzung_of(lage.spiel)
 
     return FLSpielbestaetigungAnsichtResponse(
         zustand=zustand,

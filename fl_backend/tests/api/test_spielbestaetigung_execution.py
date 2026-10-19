@@ -8,7 +8,9 @@ fixture.
 
 import hashlib
 from collections.abc import Awaitable, Callable, Mapping
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
@@ -32,7 +34,8 @@ from app.api.spielbestaetigungen.services import (
     ANSETZUNG_TOKEN_UNKNOWN,
 )
 from app.api.spiele.services import ELIGIBILITY_DISQUALIFIED, FIXTURE_DOUBLE_BOOKED, FIXTURE_OUTSIDE_SPIELTAG
-from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.api.teams.admin_router import replace_saison_team
+from app.api.teams.schemas import KONTAKT_ROLLEN, FLReplaceSaisonTeamPayload
 from app.core.collections import Collection
 from tests import documents
 from tests.bans import ban_list
@@ -189,6 +192,7 @@ async def ansicht(
         spiele_collection=either(database, Collection.SPIELE, spiele),
         saison_teams_collection=either(database, Collection.SAISON_TEAMS, saison_teams),
         spielorte_collection=database[Collection.SPIELORTE],
+        teams_collection=database[Collection.TEAMS],
         sperrliste=ban_list(database),
         today=today,
     )
@@ -847,3 +851,36 @@ class TestTwoSeatsPressingAtOnce:
         # The premise: the write conflicted and the press was judged afresh. Whether the judgement or the write's filter
         # then refuses it, both answer the same code.
         assert judged == 2
+
+
+class TestALinkToAReplacedClubsFixture:
+    def test_the_old_ansetzung_names_the_club_that_left_off_its_own_document(self, mongo_replica_set_url: str):
+        """The replacement hands TEAM2's season row and its fixture side to another club, so only `teams` still names Biber."""
+
+        incoming = ObjectId("6890a1b2c3d4e5f607d50003")
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.TEAMS].insert_one(documents.team_document(incoming, "Dachs", "DA"))
+            await replace_saison_team(
+                team_id=TEAM2,
+                saison_id=SAISON_ID,
+                replacement_data=FLReplaceSaisonTeamPayload(incoming_team_id=incoming),
+                teams_collection=database[Collection.TEAMS],
+                saison_teams_collection=database[Collection.SAISON_TEAMS],
+                saisons_collection=database[Collection.SAISONS],
+                spiele_collection=database[Collection.SPIELE],
+                saison_spieler_collection=database[Collection.SAISON_SPIELER],
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                aktionen_collection=database[Collection.AKTIONEN],
+                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                db=client,
+                today=TODAY,
+                germany_now=datetime(2027, 5, 1, 12, 0, tzinfo=ZoneInfo("Europe/Berlin")),
+            )
+
+            return await ansicht(database, token(TEAM1, "trainer"))
+
+        view = on_a_fixture(mongo_replica_set_url, body)
+
+        assert view.zustand == "ungueltig"
+        assert (view.ansetzung.team1_name, view.ansetzung.team2_name) == ("Adler", "Biber")

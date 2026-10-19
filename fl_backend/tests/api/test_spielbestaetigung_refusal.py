@@ -19,6 +19,7 @@ from app.api.spielbestaetigungen.services import (
     ansicht_ansetzung_of,
     ansicht_snapshot_of,
     beteiligte_namen,
+    clubs_without_a_season_row,
     compose_ansetzung,
     find_name_in_begruendung_refusal,
     find_spent_link_refusal,
@@ -291,7 +292,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
         )
 
         assert zustand_of(spielbestaetigung_raw=zeile(), lage=situation, today=TODAY, gesperrt=False, vorschlag_offen=None) == "gueltig"
-        ansicht_ansetzung_of(spielbestaetigung_raw=zeile(), lage=situation)
+        ansicht_ansetzung_of(situation.spiel)
         seat_adresse(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
 
         # The premise: `entscheidung_of` read the fixture to its last test.
@@ -373,19 +374,23 @@ class TestWhatTheViewStatesOfTheFixture:
         """The new hour beside the old day would describe an Ansetzung that never stood; the side gone is named off its season row."""
 
         moved = lage(spiel_overrides={"datum": None, "uhrzeit": "20:00:00", "team2": None})
-        ansetzung = ansicht_snapshot_of(spielbestaetigung_raw=zeile(), lage=moved, spielort=None)
+        ansetzung = ansicht_snapshot_of(spielbestaetigung_raw=zeile(), lage=moved, vereinsnamen={}, spielort=None)
 
         assert (ansetzung.team1_name, ansetzung.team2_name, ansetzung.datum, ansetzung.uhrzeit) == ("Adler", "Biber", DATUM, "18:30:00")
 
-    def test_a_club_replaced_since_is_stated_nameless_rather_than_answering_500(self):
-        """Its season row went to the incoming club, which a replacement also seats in the fixture: no read names the club that left."""
+    def test_a_club_replaced_since_is_named_off_its_club_document(self):
+        """Its season row went to the incoming club, which a replacement also seats in the fixture: only `teams` names the club that left."""
 
         replaced = AnsetzungLage(
             spiel=spiel(team2={"team_id": ObjectId(), "name": "Dachs", "shorthand": "DA", "tore": None}), vereine=[verein(TEAM1)]
         )
-        ansetzung = ansicht_snapshot_of(spielbestaetigung_raw=zeile(), lage=replaced, spielort=None)
 
-        assert (ansetzung.team1_name, ansetzung.team2_name) == ("Adler", "")
+        assert clubs_without_a_season_row(spielbestaetigung_raw=zeile(), lage=replaced) == [TEAM2]
+        ansetzung = ansicht_snapshot_of(spielbestaetigung_raw=zeile(), lage=replaced, vereinsnamen={TEAM2: "Biber"}, spielort=None)
+        assert (ansetzung.team1_name, ansetzung.team2_name) == ("Adler", "Biber")
+        # A season row's name wins over the club's own, the name the club plays this season under.
+        renamed = ansicht_snapshot_of(spielbestaetigung_raw=zeile(), lage=lage(), vereinsnamen={TEAM1: "Adler e.V."}, spielort=None)
+        assert renamed.team1_name == "Adler"
 
 
 class TestAProposalBeforeToday:
