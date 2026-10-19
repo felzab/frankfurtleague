@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from pymongo import AsyncMongoClient
+from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.einwilligung_router import post_einwilligung
@@ -29,7 +29,7 @@ from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saiso
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db
+from app.core.crud import aggregate_many_from_db, patch_one_in_db
 from app.core.journal import JournalLine
 from app.core.security import loeschung_journal_hash
 from app.core.transactions import transaction_session
@@ -396,3 +396,67 @@ class TestEverySeatWriteVoidsItsLinks:
         _, _, logged_with_an_entry = on_a_league(mongo_replica_set_url, hand_the_trainer_on)
 
         assert (logged, logged_with_an_entry) == (0, 1)
+
+
+REASON_SPIEL_OIDS = [ObjectId(f"6890a1b2c3d4e5f607b6003{position}") for position in range(3)]
+
+
+def declined_from(team_id: ObjectId, spiel_id: ObjectId, rolle: str, begruendung: str) -> dict[str, Any]:
+    """A row the team declined from `rolle`'s link, giving a reason; closed since, as a move closes an answered row."""
+
+    return {
+        **confirmation_row("reason", team_id, spiel_id, answered=False),
+        "antwort": {
+            "art": "abgelehnt",
+            "am": TODAY,
+            "von": {"art": "kontakt", "rolle": rolle},
+            "vorschlag": {"datum": "2026-04-25", "uhrzeit": "14:00:00"},
+            "begruendung": begruendung,
+        },
+        "geschlossen": {"am": TODAY, "grund": "ansetzung_geaendert"},
+    }
+
+
+class TestAnErasedContactsReasonGoes:
+    """The erased person's seat gave the reason, so it goes with them; the club's answer, its day and its role stay."""
+
+    def test_the_reason_their_seat_gave_goes_from_the_row_and_its_image_and_no_other_does(self, mongo_replica_set_url: str):
+        rows = {
+            "theirs": declined_from(TEAM_OID, REASON_SPIEL_OIDS[0], "trainer", "Ida ist an dem Tag verreist"),
+            "another seat's": declined_from(TEAM_OID, REASON_SPIEL_OIDS[1], "ansprechperson", "Die Halle ist belegt"),
+            "another team's": declined_from(OTHER_TEAM_OID, REASON_SPIEL_OIDS[2], "trainer", "Unser Trainer ist krank"),
+        }
+        found: dict[str, Any] = {}
+
+        async def erase_after_the_answers(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            collection = database[Collection.SPIELBESTAETIGUNGEN]
+            await collection.insert_many([dict(row) for row in rows.values()])
+            # A write after the answer files the answered row's image, reason and all.
+            await patch_one_in_db(
+                collection=collection,
+                db_filter={"spiel_id": REASON_SPIEL_OIDS[0]},
+                update={"$set": {"erinnert_am": [TODAY]}},
+                return_document=ReturnDocument.BEFORE,
+            )
+            await erase_the_trainer(database, client)
+            found["antworten"] = {
+                name: await collection.find_one(
+                    {"spiel_id": row["spiel_id"], "partei.team_id": row["partei"]["team_id"]}, {"antwort": 1, "_id": 0}
+                )
+                for name, row in rows.items()
+            }
+            found["images"] = [
+                row["before"]["antwort"]["begruendung"]
+                async for row in database[Collection.AKTIONEN].find(
+                    {"collection": str(Collection.SPIELBESTAETIGUNGEN), "before.antwort": {"$ne": None}}
+                )
+            ]
+
+        on_a_league(mongo_replica_set_url, erase_after_the_answers)
+
+        assert found["antworten"] == {
+            "theirs": {"antwort": {**rows["theirs"]["antwort"], "begruendung": None}},
+            "another seat's": {"antwort": rows["another seat's"]["antwort"]},
+            "another team's": {"antwort": rows["another team's"]["antwort"]},
+        }
+        assert found["images"] == [None]
