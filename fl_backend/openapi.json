@@ -7865,6 +7865,122 @@
         "x-fl-tier": "base"
       }
     },
+    "/api/v0/spielbestaetigungen/ansicht": {
+      "post": {
+        "summary": "What one fixture confirmation link opens",
+        "description": "Answer what the page renders for the fixture this token asks a club about, and nobody's name or address (`READ-ANSETZUNG-001`).\n\nThe state, which side the reader's club plays, the fixture as it stands now, the row's deadline, the proposal in\nfront of the reader and which role answered. A POST that reads, so the token travels in a body and never in a\nsecond URL. Refuses only a token no seat of any row holds (`REQ-ANSETZUNG-001`), a guess and a link voided when its\nseat changed hands alike: an answered, closed, moved, decided or expired link is SERVED in that state rather than\nrefused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever the ban\nlist holds the address the seat's links were mailed to. `vorschlag` is the state of an open link while the other\nclub's decline proposes another date for the same Ansetzung, whose date and hour alone are served.",
+        "operationId": "get_spielbestaetigung_ansicht_api_v0_spielbestaetigungen_ansicht_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielbestaetigungAnsichtPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungAnsichtResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
+          },
+          "404": {
+            "$ref": "#/components/responses/404.REQ-ANSETZUNG-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base",
+        "x-fl-stores-nothing": true
+      }
+    },
+    "/api/v0/spielbestaetigungen": {
+      "post": {
+        "summary": "Confirm a fixture's Ansetzung, or decline it proposing another date",
+        "description": "Record one club's answer about one Ansetzung, from whichever of its three seats presses first, and the seat it came from.\n\nThe first press binds: the write itself takes only a row neither answered nor closed, so two seats pressing at once\nare one answer and one `REQ-ANSETZUNG-002`. Writes no fixture: a proposal is the administrator's to act on.\n\nRefuses, in this order: a token no seat holds (`REQ-ANSETZUNG-001`); a link whose seat's address the ban list holds\nnow, whenever it was minted (`REQ-ANSETZUNG-011`); a row already answered, closed since or not (`REQ-ANSETZUNG-002`);\none closed unanswered (`REQ-ANSETZUNG-009`); an answer after the deadline's day (`REQ-ANSETZUNG-003`); a fixture\nwhose date, time, ground or sides moved since the link (`REQ-ANSETZUNG-004`), asked again outside the transaction\njust before answering; a fixture decided, called off or left by a club (`REQ-ANSETZUNG-005`); a proposal dated\nbefore today (`REQ-ANSETZUNG-007`); a reason holding a name of either club's three seats or of the booked referee\n(`REQ-ANSETZUNG-012`); and a proposal the administrator's own save of that date would be refused, judged on what it\nnewly claims: outside the matchday (`REQ-DATE-001`), on or after a club's exit (`REQ-ELIGIBILITY-001`), or within\nfour hours of the ground's or the referee's other fixture (`REQ-CLASH-001`).",
+        "operationId": "post_spielbestaetigung_api_v0_spielbestaetigungen_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielbestaetigungAntwortPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungAntwortResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-ANSETZUNG-007.REQ-ANSETZUNG-012.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-ANSETZUNG-011"
+          },
+          "404": {
+            "$ref": "#/components/responses/404.REQ-ANSETZUNG-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001"
+          },
+          "410": {
+            "$ref": "#/components/responses/410.REQ-ANSETZUNG-002.REQ-ANSETZUNG-003.REQ-ANSETZUNG-004.REQ-ANSETZUNG-005.REQ-ANSETZUNG-009"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base"
+      }
+    },
     "/api/v0/bewerbungen/sweep": {
       "get": {
         "summary": "Every season the sweep has to visit",
@@ -23853,6 +23969,366 @@
         "title": "FLSpielTeamFieldPayload",
         "description": "One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the server composes them from the season's `saison_teams` row\n(`docs/backend/spec.md :: I3`). A submitted copy is IGNORED rather than refused, as\n`docs/backend/spec.md :: I114` allows."
       },
+      "FLSpielbestaetigungAnsichtAnsetzung": {
+        "properties": {
+          "team1_name": {
+            "type": "string",
+            "title": "Team1 Name"
+          },
+          "team2_name": {
+            "type": "string",
+            "title": "Team2 Name"
+          },
+          "datum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum"
+          },
+          "uhrzeit": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
+            "title": "Uhrzeit"
+          },
+          "spielort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielOrtFieldPublic"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "team1_name",
+          "team2_name",
+          "datum",
+          "uhrzeit",
+          "spielort"
+        ],
+        "title": "FLSpielbestaetigungAnsichtAnsetzung",
+        "description": "The fixture as it stands now, as a page or a message states it: the clubs, the day, the hour, the ground."
+      },
+      "FLSpielbestaetigungAnsichtPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "FLSpielbestaetigungAnsichtPayload",
+        "description": "A POST that reads: the token travels in a body, never in a second URL."
+      },
+      "FLSpielbestaetigungAnsichtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "gueltig",
+              "vorschlag",
+              "zugesagt",
+              "abgelehnt",
+              "abgelaufen",
+              "ungueltig",
+              "gesperrt"
+            ],
+            "title": "Zustand"
+          },
+          "seite": {
+            "type": "string",
+            "enum": [
+              "team1",
+              "team2"
+            ],
+            "title": "Seite"
+          },
+          "ansetzung": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungAnsichtAnsetzung"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "vorschlag": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungTermin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "beantwortet_von": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FLSpielbestaetigungVonAdmin"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "art",
+                  "mapping": {
+                    "admin": "#/components/schemas/FLSpielbestaetigungVonAdmin",
+                    "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
+                    "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beantwortet Von"
+          }
+        },
+        "type": "object",
+        "required": [
+          "zustand",
+          "seite",
+          "ansetzung",
+          "frist",
+          "vorschlag",
+          "beantwortet_von"
+        ],
+        "title": "FLSpielbestaetigungAnsichtResponse",
+        "description": "What one link's page renders, filled in every state; the frontend narrows a spent one to its `zustand`."
+      },
+      "FLSpielbestaetigungAntwortPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          },
+          "antwort": {
+            "type": "string",
+            "enum": [
+              "zugesagt",
+              "abgelehnt"
+            ],
+            "title": "Antwort"
+          },
+          "vorschlag": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungVorschlagPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "begruendung": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "minLength": 1,
+                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Begruendung"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token",
+          "antwort",
+          "vorschlag",
+          "begruendung"
+        ],
+        "title": "FLSpielbestaetigungAntwortPayload",
+        "description": "One club's answer about one Ansetzung, from whichever of its seats pressed first."
+      },
+      "FLSpielbestaetigungAntwortResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "zugesagt",
+              "abgelehnt"
+            ],
+            "title": "Zustand"
+          },
+          "beantwortet_von": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungVonAdmin"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
+              }
+            ],
+            "title": "Beantwortet Von",
+            "discriminator": {
+              "propertyName": "art",
+              "mapping": {
+                "admin": "#/components/schemas/FLSpielbestaetigungVonAdmin",
+                "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
+                "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
+              }
+            }
+          },
+          "vorschlag": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungTermin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "zustand",
+          "beantwortet_von",
+          "vorschlag"
+        ],
+        "title": "FLSpielbestaetigungAntwortResponse",
+        "description": "What the answer recorded, in the view's own fields; no receipt is mailed, so nothing here composes one."
+      },
+      "FLSpielbestaetigungTermin": {
+        "properties": {
+          "datum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum"
+          },
+          "uhrzeit": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
+            "title": "Uhrzeit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "datum",
+          "uhrzeit"
+        ],
+        "title": "FLSpielbestaetigungTermin",
+        "description": "A date and time without a ground: a team's proposal, and the slot a moved fixture left."
+      },
+      "FLSpielbestaetigungVonAdmin": {
+        "properties": {
+          "art": {
+            "type": "string",
+            "const": "admin",
+            "title": "Art"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art"
+        ],
+        "title": "FLSpielbestaetigungVonAdmin",
+        "description": "An administrator's settlement, naming nobody: the row is the league's record of how a date was agreed, not of who typed it."
+      },
+      "FLSpielbestaetigungVonKontakt": {
+        "properties": {
+          "art": {
+            "type": "string",
+            "const": "kontakt",
+            "title": "Art"
+          },
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art",
+          "rolle"
+        ],
+        "title": "FLSpielbestaetigungVonKontakt",
+        "description": "The seat whose link was pressed, never the person: two seats one person holds share a link, and the first seat in order is recorded."
+      },
+      "FLSpielbestaetigungVonSchiedsrichter": {
+        "properties": {
+          "art": {
+            "type": "string",
+            "const": "schiedsrichter",
+            "title": "Art"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art"
+        ],
+        "title": "FLSpielbestaetigungVonSchiedsrichter"
+      },
+      "FLSpielbestaetigungVorschlagPayload": {
+        "properties": {
+          "datum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum"
+          },
+          "uhrzeit": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
+            "title": "Uhrzeit"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "datum",
+          "uhrzeit"
+        ],
+        "title": "FLSpielbestaetigungVorschlagPayload"
+      },
       "FLSpieleActionRequiredResponse": {
         "properties": {
           "acknowledged": {
@@ -26733,6 +27209,29 @@
           }
         }
       },
+      "403.REQ-ANSETZUNG-011": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-ANSETZUNG-011"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "403.REQ-AUTH-006": {
         "description": "Forbidden",
         "content": {
@@ -27102,6 +27601,29 @@
                       "enum": [
                         "DB-COMMON-001",
                         "REQ-EINLADUNG-003"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "404.REQ-ANSETZUNG-001": {
+        "description": "Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-ANSETZUNG-001"
                       ]
                     }
                   }
@@ -27840,6 +28362,31 @@
           }
         }
       },
+      "409.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-CLASH-001",
+                        "REQ-DATE-001",
+                        "REQ-ELIGIBILITY-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "409.REQ-DATE-002.REQ-DATE-003.REQ-DATE-008": {
         "description": "Conflict",
         "content": {
@@ -28358,6 +28905,33 @@
           }
         }
       },
+      "410.REQ-ANSETZUNG-002.REQ-ANSETZUNG-003.REQ-ANSETZUNG-004.REQ-ANSETZUNG-005.REQ-ANSETZUNG-009": {
+        "description": "Gone",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-ANSETZUNG-002",
+                        "REQ-ANSETZUNG-003",
+                        "REQ-ANSETZUNG-004",
+                        "REQ-ANSETZUNG-005",
+                        "REQ-ANSETZUNG-009"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "410.REQ-BEWERBUNG-010.REQ-KONTAKT-004.REQ-KONTAKT-006": {
         "description": "Gone",
         "content": {
@@ -28443,6 +29017,31 @@
                     "error_code": {
                       "enum": [
                         "REQ-SPIELER-002"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "422.REQ-ANSETZUNG-007.REQ-ANSETZUNG-012.REQ-VAL-001": {
+        "description": "Unprocessable Content",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-ANSETZUNG-007",
+                        "REQ-ANSETZUNG-012",
+                        "REQ-VAL-001"
                       ]
                     }
                   }
