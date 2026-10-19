@@ -99,19 +99,14 @@ def _still_beating(beats: list[Path]) -> list[Path]:
     return [beat for beat in beats if time.monotonic() - still_since[beat] < STILL_S]
 
 
-@pytest.mark.parametrize("kind", list(LAUNCHERS))
-def test_stopping_the_gate_ends_every_tool_it_started(kind: str) -> None:
-    """Started by a shell, as a harness or a terminal starts it, and by a native process.
-
-    The two reach the watcher by different routes, MSYS's parent and Windows' own.
-    """
+def _tree(pnpm: str, python3: str) -> tuple[Path, dict[str, str], Path]:
+    """A copy of `scripts/` whose only tools are stubs: its root, the gate's environment, and where the tools report."""
     root = new_root("fl-gate-stop-")
     copy_scripts(root / "scripts")
     (root / "fl_frontend" / "node_modules").mkdir(parents=True)
     stubs = new_root("fl-gate-stop-stubs-")
-    for name, text in (("pnpm", STUB_PNPM), ("python3", STUB_PYTHON.format(interpreter=Path(sys.executable).as_posix()))):
+    for name, text in (("pnpm", pnpm), ("python3", python3)):
         os.chmod(write_shell(stubs / name, text), 0o755)
-    sleeper = write_shell(stubs / "sleeper.py", SLEEPER)
     started = stubs / "started"
     started.mkdir()
     scratch = stubs / "tmp"
@@ -120,9 +115,18 @@ def test_stopping_the_gate_ends_every_tool_it_started(kind: str) -> None:
     env["PATH"] = str(stubs) + os.pathsep + env["PATH"]
     env["FL_STUB_LOG"] = str(started)
     env["FL_STUB_PYTHON"] = Path(sys.executable).as_posix()
-    env["FL_STUB_SLEEPER"] = str(sleeper)
+    env["FL_STUB_SLEEPER"] = str(write_shell(stubs / "sleeper.py", SLEEPER))
     env["TMPDIR"] = scratch.as_posix()
+    return root, env, started
 
+
+@pytest.mark.parametrize("kind", list(LAUNCHERS))
+def test_stopping_the_gate_ends_every_tool_it_started(kind: str) -> None:
+    """Started by a shell, as a harness or a terminal starts it, and by a native process.
+
+    The two reach the watcher by different routes, MSYS's parent and Windows' own.
+    """
+    root, env, started = _tree(STUB_PNPM, STUB_PYTHON.format(interpreter=Path(sys.executable).as_posix()))
     launcher = _launch(kind, root / "scripts" / "gate" / "verify.sh", env)
     output: list[bytes] = []
     reader = threading.Thread(target=lambda: output.append(launcher.stdout.read() if launcher.stdout else b""), daemon=True)
@@ -176,3 +180,22 @@ def test_a_windows_run_nothing_can_watch_says_so(ostype: str, unwatched: bool, t
     done = run_shell(BASH, write_shell(tmp_path / "join.sh", fixture), env=base_env())
     assert done.returncode == 0, done.stdout + done.stderr
     assert bool(done.stdout) is unwatched, f"{ostype}: {done.stdout!r}"
+
+
+# The first `python3` on PATH, under the checkers' floor, so nothing can watch the run.
+BELOW_FLOOR: Final = """#!/usr/bin/env bash
+printf 'Python 3.9.13\\n'
+"""
+QUICK_PNPM: Final = """#!/usr/bin/env bash
+exit 0
+"""
+UNWATCHED_NOTICE: Final = "this run is unwatched"
+
+
+def test_an_unwatched_run_says_so_where_a_watcher_was_owed() -> None:
+    """On Windows alone: a POSIX run is stopped through its group and owes no watcher, so the line there would be false."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    root, env, _ = _tree(QUICK_PNPM, BELOW_FLOOR)
+    done = run_shell(BASH, root / "scripts" / "gate" / "verify.sh", "--format", env=env)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert (UNWATCHED_NOTICE in done.stdout) is WINDOWS, done.stdout
