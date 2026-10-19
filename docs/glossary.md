@@ -209,8 +209,8 @@ where the row carries the stamp the expiry reads (I119).\
 
 **Is:** `ausstehend` · `vergangen` · `heute` · `abgesagt` · `unbekannt`, derived on both ends and stored nowhere.\
 **In code:** `fl_backend/app/api/spiele/services.py :: build_spiele_filter` compiles the filter; `fl_frontend/src/features/spiele/utils.ts :: computeSpielStatus` derives the label.\
-**Trap:** the two definitions differ on purpose — the server's `ausstehend` is `datum >= today` and **includes** today, the client's is `datum > today` and **excludes** it, because a filter selects while a label partitions; `unbekannt` as a filter returns everything, no branch matching it; and `abgesagt` is not the whole of `sonderereignis` — an abandoned fixture took place, so it reads by its date like any other.\
-**See:** [backend spec §1.2](backend/spec.md#12-get-spiele-parameters) for the filter each value compiles to.
+**Trap:** the two definitions differ on purpose — the server's `ausstehend` is `datum >= today` and **includes** today, the client's is `datum > today` and **excludes** it, because a filter selects while a label partitions; `unbekannt` as a filter returns everything, no branch matching it; and `abgesagt` is not the whole of `sonderereignis` — an abandoned fixture took place, so it reads by its date like any other. And „Vorläufig“ is no value of it: the chip lays that word over `ausstehend` from the served confirmation verdict, which no filter reads.\
+**See:** [backend spec §1.2](backend/spec.md#12-get-spiele-parameters) for the filter each value compiles to, frontend spec I764 and the `Ansetzung` entry for „Vorläufig“.
 
 ### `sonderereignis` — what happened to a fixture beyond being played
 
