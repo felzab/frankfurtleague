@@ -9,7 +9,7 @@ import { revalidateOverLoopback } from "@/core/revalidation";
 import { buildSpielAnfrageEmail, buildSpielEinteilungEmail, buildSpielErinnerungEmail, buildSpielNeueAnsetzungEmail } from "@/core/spielEmail";
 import { versandAusfallOf } from "@/core/versandAusfall";
 import { SPIELLEITUNG_HINWEIS, SPIELLEITUNG_TAG } from "@/features/bewerbungen/zustellung";
-import { sendZielMail } from "@/features/zustellung/notifications";
+import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum, formatUhrzeit, NICHT_HINTERLEGT } from "@/shared/utils/format";
 
@@ -17,7 +17,7 @@ import { spielBestaetigungsLink } from "./bestaetigungLink";
 import { getSpielbestaetigungSweepSaisons, postSpielbestaetigungSweep, postSpielbestaetigungSweepAngefragt } from "./mutations";
 
 import type { SpielAnsetzungText, SpielEmail } from "@/core/spielEmail";
-import type { ZielMailOutcome } from "@/features/zustellung/notifications";
+import type { VersandAusfall } from "@/core/versandAusfall";
 import type {
   FLSpielbestaetigungAnsichtAnsetzung,
   FLSpielbestaetigungSweepAnfrage,
@@ -154,11 +154,13 @@ function ansetzungText(ansetzung: FLSpielbestaetigungAnsichtAnsetzung): SpielAns
 }
 
 /**
- * Whether a request counts as made (`docs/frontend/spec.md :: I742`). Production waits for a real send: withheld
- * there is a deployment missing its key, and stamping it would turn a team nobody asked into a silent one.
+ * Whether a request counts as made, on either lane (`docs/frontend/spec.md :: I742`). Production waits for a real send:
+ * withheld there is a deployment missing its key, and stamping it would turn a party nobody asked into a silent one.
  */
-function istAngefragt({ delivered, withheld, gesperrt }: Pick<ZielMailOutcome, "delivered" | "withheld" | "gesperrt">): boolean {
-  return delivered.length > 0 || gesperrt > 0 || (withheld.length > 0 && frontend_config.APP_ENV !== "production");
+function istAngefragt(versand: "gesendet" | VersandAusfall): boolean {
+  if (versand === "gesendet" || versand === "gesperrt") return true;
+
+  return versand === "zurueckgehalten" && frontend_config.APP_ENV !== "production";
 }
 
 /**
@@ -192,7 +194,7 @@ async function mailAnfrage(anfrage: FLSpielbestaetigungSweepAnfrage, art: "anfra
           fristText: formatSpielDatum(anfrage.frist),
         }),
     });
-    angefragt = angefragt || istAngefragt(ergebnis);
+    angefragt = angefragt || istAngefragt(linkVersandOf(ergebnis));
   }
 
   return angefragt;
@@ -242,13 +244,15 @@ async function mailSchiedsrichterNeueAnsetzung(neu: FLSpielbestaetigungSweepSchi
 }
 
 async function mailEinteilung(einteilung: FLSpielbestaetigungSweepEinteilung): Promise<boolean> {
-  return mailSpielleitung(einteilung.address, ["einteilung", einteilung.spielbestaetigung_id], () =>
+  const versand = await mailSpielleitung(einteilung.address, ["einteilung", einteilung.spielbestaetigung_id], () =>
     buildSpielEinteilungEmail({ origin: frontend_config.AUTH_URL, ansetzung: ansetzungText(einteilung.ansetzung) }),
   );
+
+  return istAngefragt(versand);
 }
 
 /** One message to a referee, on the lane no record holds (`fl_frontend/src/features/bewerbungen/zustellung.ts :: SPIELLEITUNG_TAG`). */
-async function mailSpielleitung(address: string, scope: readonly string[], bauen: () => SpielEmail): Promise<boolean> {
+async function mailSpielleitung(address: string, scope: readonly string[], bauen: () => SpielEmail): Promise<"gesendet" | VersandAusfall> {
   try {
     await sendMail({
       to: address,
@@ -257,19 +261,18 @@ async function mailSpielleitung(address: string, scope: readonly string[], bauen
       // The day in the key: the body carries no token and cannot change inside the provider's window.
       idempotencyKey: mailIdempotencyKey([...scope, getGermanTodayStr()], address),
     });
-    return true;
+    return "gesendet";
   } catch (error) {
     const ausfall = versandAusfallOf(error);
-    // A barred or a withheld message is the mailer's own line, as on every lane, and counts as `istAngefragt` counts it.
-    if (ausfall === "gesperrt") return true;
-    if (ausfall === "zurueckgehalten") return frontend_config.APP_ENV !== "production";
+    // A barred or a withheld message is the mailer's own line, as on every lane.
+    if (ausfall === "gesperrt" || ausfall === "zurueckgehalten") return ausfall;
     // Name only, never the error: its message can carry the address (`docs/logging/spec.md :: L9`).
     logger.error("spielbestaetigung.spielleitung_failed", undefined, {
       error_code: "FE-MAIL-002",
       name: error instanceof Error ? error.name : undefined,
       operation: SWEEP_OPERATION,
     });
-    return false;
+    return ausfall;
   }
 }
 
