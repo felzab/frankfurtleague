@@ -29,7 +29,6 @@ from app.api.spielbestaetigungen.services import (
     ANSETZUNG_GESPERRT,
     ANSETZUNG_NAME_IN_BEGRUENDUNG,
     ANSETZUNG_TOKEN_UNKNOWN,
-    compose_ansetzung,
 )
 from app.api.spiele.services import ELIGIBILITY_DISQUALIFIED, FIXTURE_DOUBLE_BOOKED, FIXTURE_OUTSIDE_SPIELTAG
 from app.api.teams.schemas import KONTAKT_ROLLEN
@@ -116,20 +115,15 @@ def confirmation(row_id: ObjectId, team_id: ObjectId, *, hashes: Mapping[str, li
 
     held = hashes if hashes is not None else {seat: [hash_token(token(team_id, seat))] for seat in KONTAKT_ROLLEN}
 
-    return {
-        "_id": row_id,
-        "saison_id": SAISON_ID,
-        "spiel_id": SPIEL,
-        "partei": {"art": "team", "team_id": team_id},
-        "ansetzung": compose_ansetzung(fixture()),
-        "frist": FRIST,
-        "angefragt_am": TODAY,
-        "erinnert_am": [],
-        "kontakte": {seat: {"token_hashes": held[seat]} if seat in held else None for seat in KONTAKT_ROLLEN},
-        "antwort": None,
-        "geschlossen": None,
+    return documents.spielbestaetigung_document(
+        fixture(),
+        partei={"art": "team", "team_id": team_id},
+        _id=row_id,
+        frist=FRIST,
+        angefragt_am=TODAY,
+        kontakte={seat: {"token_hashes": held[seat]} if seat in held else None for seat in KONTAKT_ROLLEN},
         **fields,
-    }
+    )
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]

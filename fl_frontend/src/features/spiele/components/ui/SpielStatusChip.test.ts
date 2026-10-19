@@ -14,7 +14,7 @@ import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { FLSpielSchema } from "../../schemas.ts";
 import { computeSpielStatus } from "../../utils.ts";
 
-import type { FLSpielWithDraftFields } from "../../schemas.ts";
+import type { FLSonderereignis, FLSpielWithDraftFields } from "../../schemas.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SpielStatusChip } = await import("./SpielStatusChip.tsx");
@@ -26,8 +26,8 @@ const TOMORROW = "2026-05-03";
 const YESTERDAY = "2026-05-01";
 
 /** The chip's word for a fixture on `datum`, through the scheduling derivation the card runs and the verdict the read served. */
-function wordFor(datum: string, ansetzungBestaetigt: boolean | null): string {
-  const spielStatus = computeSpielStatus({ datum, sonderereignis: null, today: TODAY });
+function wordFor(datum: string, ansetzungBestaetigt: boolean | null, sonderereignis: FLSonderereignis | null = null): string {
+  const spielStatus = computeSpielStatus({ datum, sonderereignis, today: TODAY });
   const { container, unmount } = render(h(SpielStatusChip, { spielStatus, ansetzungBestaetigt }));
   const word = container.textContent;
   unmount();
@@ -45,6 +45,12 @@ describe("what the status chip says about a fixture's confirmation", () => {
   it("lets the scheduling state win from match day on", () => {
     assert.equal(wordFor(TODAY, false), "Heute");
     assert.equal(wordFor(YESTERDAY, false), "Vergangen");
+  });
+
+  // A call-off changes none of the five values, so the rows still match until the hourly close: a chip yielding to
+  // „Heute“ and „Vergangen“ alone would call a cancelled fixture provisional.
+  it("lets a call-off win over the verdict", () => {
+    assert.equal(wordFor(TOMORROW, false, "ausgefallen"), "Abgesagt");
   });
 
   // Folding `null` into `false` would call every fixture nobody was ever asked about provisional.

@@ -20,6 +20,7 @@ from bson import ObjectId
 from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
+from app.api.spielbestaetigungen.services import compose_ansetzung
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from tests.config import build_test_config
@@ -128,6 +129,28 @@ def spiel_document(*, spiel_id: Any, saison_id: str, spiel_nr: int, spieltag_id:
         "elfmeterschiessen": None,
         "sonderereignis": None,
         "notiz": None,
+        **fields,
+    }
+
+
+def spielbestaetigung_document(spiel: Mapping[str, Any], *, partei: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
+    """An open, unanswered row as the pass mints it, its snapshot composed from `spiel` by the composer the mint calls.
+
+    So its `stand` is the digest of its own values, which a hand-written one never is.
+    """
+
+    return {
+        "_id": ObjectId(),
+        "saison_id": spiel["saison_id"],
+        "spiel_id": spiel["_id"],
+        "partei": dict(partei),
+        "ansetzung": compose_ansetzung(spiel),
+        "frist": "2026-04-25",
+        "angefragt_am": None,
+        "erinnert_am": [],
+        "kontakte": dict.fromkeys(KONTAKT_ROLLEN),
+        "antwort": None,
+        "geschlossen": None,
         **fields,
     }
 

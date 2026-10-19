@@ -131,11 +131,15 @@ SPIELBESTAETIGUNGEN_AS_NAME = "spielbestaetigungen_rows"
 ANSETZUNG_BESTAETIGT = "ansetzung_bestaetigt"
 
 
-def _confirmations_lookup() -> Mapping[str, Any]:
-    """Compared on the five stored snapshot values, never on `ansetzung.stand`, which no aggregation recomputes.
+# Each joined row's mark: whether it is about the Ansetzung the fixture stands at now.
+_AKTUELL = "aktuell"
 
-    So an answer given before the fixture moved stops counting at the move, not when the hourly close
-    runs (`docs/backend/spec.md :: I763`).
+
+def _confirmations_lookup() -> Mapping[str, Any]:
+    """Every unclosed row, marked on the five stored snapshot values, never on `ansetzung.stand`, which no aggregation recomputes.
+
+    So an answer given before the fixture moved stops counting at the move, not at the hourly close
+    (`docs/backend/spec.md :: I763`).
     """
 
     return {
@@ -159,13 +163,21 @@ def _confirmations_lookup() -> Mapping[str, Any]:
                                 # them every fixture of the most-read endpoint scans the collection.
                                 {"$eq": ["$saison_id", "$$spiel_saison_id"]},
                                 {"$eq": ["$spiel_id", "$$spiel_id"]},
-                                *({"$eq": [f"$ansetzung.{key}", f"$${key}"]} for key in ANSETZUNG_QUELLEN),
                             ]
                         },
                     }
                 },
-                # No seat, no hash, no `begruendung`: the verdict is what leaves the join.
-                {"$project": {"_id": 0, "partei.art": 1, "antwort.art": 1}},
+                # No seat, no hash, no `begruendung`: the verdict is what leaves the join. The club's id
+                # is the fixture's own side id, public already, and lets the verdict count clubs, not rows.
+                {
+                    "$project": {
+                        "_id": 0,
+                        "partei.art": 1,
+                        "partei.team_id": 1,
+                        "antwort.art": 1,
+                        _AKTUELL: {"$and": [{"$eq": [f"$ansetzung.{key}", f"$${key}"]} for key in ANSETZUNG_QUELLEN]},
+                    }
+                },
             ],
             "as": SPIELBESTAETIGUNGEN_AS_NAME,
         }
@@ -173,31 +185,31 @@ def _confirmations_lookup() -> Mapping[str, Any]:
 
 
 def _ansetzung_bestaetigt() -> Mapping[str, Any]:
-    """`None`, nobody asked about this Ansetzung, never folds into `False`, which marks the card provisional (`docs/backend/spec.md :: I763`).
+    """Three-valued, `None` never folding into `False`, which marks the card provisional (`docs/backend/spec.md :: I763`).
 
-    A referee's row counts towards asked and never towards confirmed.
+    A row about an Ansetzung the fixture has left counts towards asked; a referee's row towards neither.
     """
 
     team_rows = {"$filter": {"input": f"${SPIELBESTAETIGUNGEN_AS_NAME}", "cond": {"$eq": ["$$this.partei.art", "team"]}}}
+    current_rows = {"$filter": {"input": "$$team_rows", "cond": f"$$this.{_AKTUELL}"}}
+    all_agreed = {"$allElementsTrue": [{"$map": {"input": "$$current_rows", "in": {"$eq": ["$$this.antwort.art", "zugesagt"]}}}]}
+    # `$ifNull` for the side lookup's reason; a null side matches no row's snapshot, so it never confirms.
+    sides = [{"$ifNull": [f"${ANSETZUNG_QUELLEN[key]}", None]} for key in ("team1_id", "team2_id")]
+    # The agreeing CLUBS are the two sides, never merely two rows: two answers of one club leave the
+    # other's agreement missing.
+    both_clubs = {"$setEquals": [{"$map": {"input": "$$current_rows", "in": "$$this.partei.team_id"}}, sides]}
 
     return {
-        "$cond": [
-            {"$eq": [{"$size": f"${SPIELBESTAETIGUNGEN_AS_NAME}"}, 0]},
-            None,
-            {
-                "$let": {
-                    "vars": {"team_rows": team_rows},
-                    "in": {
-                        "$and": [
-                            # Exactly two, one per club: a third open team row on one stand is a mint
-                            # gone wrong, and the verdict then errs towards provisional.
-                            {"$eq": [{"$size": "$$team_rows"}, 2]},
-                            {"$allElementsTrue": [{"$map": {"input": "$$team_rows", "in": {"$eq": ["$$this.antwort.art", "zugesagt"]}}}]},
-                        ]
-                    },
-                }
+        "$let": {
+            "vars": {"team_rows": team_rows},
+            "in": {
+                "$cond": [
+                    {"$eq": [{"$size": "$$team_rows"}, 0]},
+                    None,
+                    {"$let": {"vars": {"current_rows": current_rows}, "in": {"$and": [all_agreed, both_clubs]}}},
+                ]
             },
-        ]
+        }
     }
 
 
