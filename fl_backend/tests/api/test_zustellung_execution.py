@@ -150,8 +150,7 @@ TRAEGER: Mapping[FLZustellungZiel, str] = {ziel: traeger_pfade(ziel, ROLLEN[ziel
 def target(ziel: FLZustellungZiel, *, carrier: bool = True) -> dict[str, Any]:
     """One row of that kind's own collection, carrying the confirmation bookkeeping a message is sent about.
 
-    `carrier=False` seeds no carrier, which is a record nothing was ever mailed about: the key absent, or every seat empty where
-    the validator requires the block.
+    `carrier=False` seeds no carrier, a record nothing was mailed about: no key, or every seat empty where the validator requires one.
     """
 
     row = dict(ZIEL_FIXTURES[ziel])

@@ -557,10 +557,9 @@ def _values(node: ast.expr, scope: Mapping[str, Values], module: ModuleType) -> 
 
 
 def _iterated(node: ast.expr, scope: Mapping[str, Values], module: ModuleType) -> Values:
-    """What one pass of a loop over `node` may bind: a list's or a constant collection's members, or a dict's `items()` pairs.
+    """What a loop over `node` binds: a list's or constant collection's members, or a dict's `items()` pairs.
 
-    `UNRESOLVED` wherever any of those cannot be read whole, an empty one included: a loop the trace
-    reads as running over nothing would write nothing at all.
+    `UNRESOLVED` where any is unreadable, an empty one included: a loop read as running over nothing writes nothing.
     """
 
     found: list[Any] = []
@@ -603,10 +602,10 @@ def _bound_targets(target: ast.expr, held: Values) -> dict[str, Values]:
 
 
 def _comprehension_scope(generators: list[ast.comprehension], scope: Mapping[str, Values], module: ModuleType) -> dict[str, Values]:
-    """`scope` with each loop variable bound to what its iterable yields, its `if` clauses read as admitting everything.
+    """`scope` with each loop variable bound to what its iterable yields, `if` clauses admitting everything.
 
-    `app/api/zustellung/router.py :: _apply` names its carriers through two comprehensions, and a
-    variable read as any value there leaves a path a partial filter's document field could be under.
+    `app/api/zustellung/router.py :: _apply` names its carriers through comprehensions: read as any
+    value, each leaves a path a partial filter's document field could sit under.
     """
 
     inner = dict(scope)
