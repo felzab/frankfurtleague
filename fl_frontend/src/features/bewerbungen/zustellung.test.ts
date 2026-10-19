@@ -298,6 +298,25 @@ describe("which record one event names", () => {
     assert.deepEqual(gelesen?.ziel === "kontakt" ? gelesen.meldung.rollen : undefined, ["ansprechperson", "trainer"]);
   });
 
+  /* A team's fixture confirmation goes to up to three mailboxes, and its record is kept per seat: read
+     without its seats, the bounce would be unplaceable and the silent row would read as silence. */
+  it("reads a fixture confirmation's seats off the message's own tag", () => {
+    const gelesen = leseZustellEreignis(
+      zielEvent({ ziel: "spielbestaetigung", ziel_id: ZIEL_ID, rollen: "trainer-stellvertretung", anlass: "anfrage" }),
+    );
+
+    assert.equal(gelesen?.ziel, "spielbestaetigung");
+    assert.deepEqual(gelesen?.ziel === "spielbestaetigung" ? gelesen.meldung : undefined, {
+      ziel: "spielbestaetigung",
+      ziel_id: ZIEL_ID,
+      rollen: ["trainer", "stellvertretung"],
+      nachricht_id: MESSAGE_ID,
+      stand: "unzustellbar",
+      grund: "Suppressed",
+      am: EVENT_AT,
+    });
+  });
+
   /* The endpoint refuses a season row's event naming no seat, and that 422 is answered 200 upstream,
      so the bounce would vanish with nothing to say so. */
   it("marks a season row's event naming no seat it knows as unplaceable", () => {

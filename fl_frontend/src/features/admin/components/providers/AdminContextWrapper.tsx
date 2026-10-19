@@ -37,7 +37,8 @@ export async function AdminContextWrapper({ children, saison_id }: { children: R
       teams={teamsRes.teams}
       saisonSpiele={spieleRes.spiele}
       numberOfGroups={saison?.rules.number_of_groups ?? null}
-      isFinishedSaison={saison?.status === "past"}>
+      isFinishedSaison={saison?.status === "past"}
+      isActiveSaison={saison?.status === "active"}>
       {children}
     </AdminProvider>
   );

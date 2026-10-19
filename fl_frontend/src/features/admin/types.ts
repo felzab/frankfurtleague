@@ -15,4 +15,6 @@ export interface AdminContext {
   numberOfGroups: number | null;
   // Whether that season is `past`, so the draft preview promises no Termin a finished season cannot give.
   isFinishedSaison: boolean;
+  // Whether that season is `active`, the only kind the confirmations' sweep asks about.
+  isActiveSaison: boolean;
 }

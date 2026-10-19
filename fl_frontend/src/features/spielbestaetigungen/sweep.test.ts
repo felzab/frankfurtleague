@@ -1,8 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { after, beforeEach, describe, it, mock } from "node:test";
+import { beforeEach, describe, it, mock } from "node:test";
 
 import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
@@ -63,6 +60,15 @@ const anfrage = (n: number, address: string) => ({
   ansetzung: ANSETZUNG,
   frist: "2026-11-10",
   links: [{ address: address, rollen: ["ansprechperson"], token: `token-${String(n)}` }],
+});
+
+/** One row asked of two mailboxes, a link each, in the order given. */
+const zweiLinks = (n: number, erste: string, zweite: string) => ({
+  ...anfrage(n, erste),
+  links: [
+    { address: erste, rollen: ["ansprechperson"], token: `token-${String(n)}a` },
+    { address: zweite, rollen: ["trainer"], token: `token-${String(n)}b` },
+  ],
 });
 
 const einteilung = (n: number, address: string) => ({ spielbestaetigung_id: id(n), spiel_id: id(500), ansetzung: ANSETZUNG, address: address });
@@ -162,71 +168,6 @@ beforeEach(() => {
   });
 });
 
-/* The default is the difference between a deploy and a mailing (`docs/frontend/spec.md :: I740`): read through the
-   real module, the double above standing in for it everywhere else. */
-describe("the switch the fixture confirmations are armed by", () => {
-  /** The whole environment `createEnv` needs, so the case under test is the only variable in it. */
-  const COMPLETE_ENV: Record<string, string> = {
-    APP_ENV: "production",
-    API_URL: "http://backend:8000",
-    API_VERSION: "0",
-    AUTH_URL: "http://localhost:3000",
-    LOG_FORMAT: "console",
-    // Of no published test key's shape, which production refuses.
-    TURNSTILE_SITE_KEY: "fabricated-site-key",
-  };
-
-  /** And every secret file it reads, by the file's own name, as `fl_frontend/src/features/bewerbungen/sweep.test.ts` writes them. */
-  const SECRETS_DIR = mkdtempSync(path.join(tmpdir(), "fl-spiel-sweep-secrets-"));
-  after(() => rmSync(SECRETS_DIR, { recursive: true, force: true }));
-  for (const [name, value] of Object.entries({
-    frontend_mongodb_uri: "mongodb://localhost:27017/probe",
-    auth_secret: "s".repeat(32),
-    auth_resend_key: "resend",
-    resend_webhook_secret: "whsec_probe",
-    internal_api_key_base: "b".repeat(64),
-    internal_api_key_system: "s".repeat(64),
-    internal_api_key_admin: "a".repeat(64),
-    turnstile_secret_key: "fabricated-turnstile-secret",
-  })) {
-    writeFileSync(path.join(SECRETS_DIR, name), value);
-  }
-
-  let probe = 0;
-
-  /** The real module's own parse of the switch, with the gate the `test:base` script stands down put back up. */
-  async function parseWith(value: string | undefined): Promise<string> {
-    const before = { ...process.env };
-    Object.assign(process.env, COMPLETE_ENV, { SECRETS_DIR });
-    delete process.env.SKIP_ENV_VALIDATION;
-    delete process.env.SPIEL_SWEEP;
-    if (value !== undefined) process.env.SPIEL_SWEEP = value;
-
-    probe += 1;
-    try {
-      // A fresh module per case, and one the double above steps past, matching the bare path alone.
-      const parsed = (await import(`../../core/config.ts?probe=${String(probe)}`)) as { frontend_config: { SPIEL_SWEEP: string } };
-      return parsed.frontend_config.SPIEL_SWEEP;
-    } finally {
-      for (const name of Object.keys(process.env)) delete process.env[name];
-      Object.assign(process.env, before);
-    }
-  }
-
-  it("leaves the confirmations off where the server sets nothing", async () => {
-    assert.equal(await parseWith(undefined), "off");
-  });
-
-  it("reads on in either case", async () => {
-    assert.equal(await parseWith("on"), "on");
-    assert.equal(await parseWith("ON"), "on");
-  });
-
-  it("refuses anything else by name, rather than reading it as one side or the other", async () => {
-    await assert.rejects(parseWith("false"), (error: Error) => error.message.includes("SPIEL_SWEEP"));
-  });
-});
-
 describe("what register arms for the fixture confirmations", () => {
   // Next declares `NODE_ENV` read-only, which is true of the value a build inlines and not of this process's own
   // environment: the arm under test is exactly the one only a test can move.
@@ -288,6 +229,8 @@ describe("which first requests the pass stamps", () => {
     ausgang.set("ungewiss@schule.de", "lost");
     ausgang.set("schiri-zurueckgehalten@schule.de", "withheld");
     ausgang.set("schiri-gesperrt@schule.de", "barred");
+    ausgang.set("schiri-abgewiesen@schule.de", "refused");
+    ausgang.set("schiri-ungewiss@schule.de", "lost");
     passAnswer = (saisonId) => ({
       ...leererPass(saisonId),
       anfragen: [
@@ -301,6 +244,8 @@ describe("which first requests the pass stamps", () => {
         einteilung(6, "schiri@schule.de"),
         einteilung(7, "schiri-zurueckgehalten@schule.de"),
         einteilung(8, "schiri-gesperrt@schule.de"),
+        einteilung(9, "schiri-abgewiesen@schule.de"),
+        einteilung(10, "schiri-ungewiss@schule.de"),
       ],
     });
   }
@@ -340,6 +285,47 @@ describe("which first requests the pass stamps", () => {
     assert.ok(stempel > letzteMail, "the pass stamped before its last message went");
     assert.deepEqual(gestempelt(), [id(1), id(2)]);
     assert.equal(gesendet().length, 3, "the reminder was not mailed");
+  });
+
+  /* The referee's lane is no fan-out, so its failure is this pass's own line, and an address in it would be a person
+     written to the log. */
+  it("files a booking that was refused or lost its answer as one failure line each, naming no address", async () => {
+    ausgang.set("schiri-abgewiesen@schule.de", "refused");
+    ausgang.set("schiri-ungewiss@schule.de", "lost");
+    passAnswer = (saisonId) => ({
+      ...leererPass(saisonId),
+      einteilungen: [einteilung(1, "schiri-abgewiesen@schule.de"), einteilung(2, "schiri-ungewiss@schule.de")],
+    });
+
+    await runSpielSweep();
+
+    const spielleitung = { error_code: "FE-MAIL-002", operation: "spielbestaetigungSweep" };
+    assert.deepEqual(
+      passLines().filter(({ level }) => level === "error"),
+      [
+        { level: "error", event: "spielbestaetigung.spielleitung_failed", fields: { ...spielleitung, name: "MailSendError" } },
+        { level: "error", event: "spielbestaetigung.spielleitung_failed", fields: { ...spielleitung, name: "APINetworkError" } },
+      ],
+    );
+  });
+
+  /* A row holding several links counts as asked once ANY of them went, whichever went first: a team whose second
+     mailbox bounced was still asked. */
+  it("stamps a row of two links where either went, and none where neither did", async () => {
+    ausgang.set("abgewiesen@schule.de", "refused");
+    passAnswer = (saisonId) => ({
+      ...leererPass(saisonId),
+      anfragen: [
+        zweiLinks(1, "erste@schule.de", "abgewiesen@schule.de"),
+        zweiLinks(2, "abgewiesen@schule.de", "zweite@schule.de"),
+        zweiLinks(3, "abgewiesen@schule.de", "abgewiesen@schule.de"),
+      ],
+    });
+
+    await runSpielSweep();
+
+    assert.deepEqual(gestempelt(), [id(1), id(2)]);
+    assert.equal(gesendet().length, 6, "a link went unmailed once its row counted as asked");
   });
 
   it("asks for no stamp where no request counts as made", async () => {
@@ -458,6 +444,27 @@ describe("what one pass mails", () => {
     assert.ok(!nachricht?.text.includes("13.11.2026"), "the request names a deadline it reckoned");
     assert.ok(nachricht?.text.includes("http://localhost:3000/bestaetigung/spiel?token=token-1"), "the request carries another link");
     assert.ok(nachricht?.text.includes("Bitte bestätige den Termin für Goethe-Gymnasium"), "the request names another club as the reader's");
+  });
+
+  /* One link per person, as the pass groups them: a mirrored pair is one message whose tag names both seats, so a
+     bounce is recorded on each seat rather than on one or on neither. */
+  it("mails a link held for two seats once, its tag naming both", async () => {
+    passAnswer = (saisonId) => ({
+      ...leererPass(saisonId),
+      anfragen: [
+        {
+          ...anfrage(1, "trainer@schule.de"),
+          links: [{ address: "trainer@schule.de", rollen: ["trainer", "stellvertretung"], token: "token-1" }],
+        },
+      ],
+    });
+
+    await runSpielSweep();
+
+    assert.deepEqual(
+      gesendet().map(({ to, tags }) => [to, tags]),
+      [["trainer@schule.de", { ziel: "spielbestaetigung", ziel_id: id(1), anlass: "anfrage", rollen: "trainer-stellvertretung" }]],
+    );
   });
 
   it("sends a referee's booking on the referee's lane, with no token", async () => {

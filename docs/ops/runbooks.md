@@ -1388,10 +1388,12 @@ whether they ran, as the retention sweep's does:
     docker compose exec frontend node -e "fetch('http://backend:8000/api/v0/spielbestaetigungen/sweep',{headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim()}}).then(r=>r.text()).then(console.log)"
 
 **`spiel_sweep_gelaufen_am` is the day the last pass ran**, today or yesterday on a healthy stack
-with the switch on, and null where none ever has. Each pass writes one `spielbestaetigung.sweep_pass`
-line counting the rows it closed, the first requests it stamped, the reminders it sent and the rows
-it passed over, at `INFO`, and as a warning under `FE-SWEEP-004` where it passed rows over; a season
-it could not sweep files `spielbestaetigung.sweep_failed` besides. A `spielbestaetigung.sweep_skipped`
+with the switch on, and null where none ever has. Each pass that could list the seasons writes one
+`spielbestaetigung.sweep_pass` line counting the rows it closed, the first requests and Einteilungen
+it stamped as asked, the reminders the backend stamped for it to mail, whether or not each then
+went, and the rows it passed over, at `INFO`, and as a warning under `FE-SWEEP-004` where it passed
+rows over. A season it could not sweep files `spielbestaetigung.sweep_failed` besides, and a listing
+that failed files that line alone. A `spielbestaetigung.sweep_skipped`
 line in every hour says a pass is stuck, which recreating the frontend service ends:
 
     docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_
@@ -1617,9 +1619,22 @@ the switch still off. Its deletions are re-derived rather than replayed: it jour
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I691), so the steps below never list them.
 
 **Before restoring, switch `SPIEL_SWEEP` off as well (§9), and on again only once every step below
-is done:** a pass against the restored state asks again about every fixture whose request the
-snapshot predates, mailing teams already asked a fresh link while the links they hold answer
-nothing.
+is done:** the restore brings back every seat holder and referee erased since the snapshot, still
+seated or booked and holding their address, and a pass before their erasure runs again below mails
+them a request or a booking.
+
+**Switched on again, it asks once more about what the window asked**, the restore having taken back
+every confirmation row minted and every answer given since the snapshot:
+
+- **A request mailed inside the window** names a row that is gone, so its link answers nothing; the
+  first pass mints the fixture again and mails a fresh request.
+- **An answer given inside the window** is gone, and the fixture reads unconfirmed again. The link
+  of a first request mailed before the snapshot answers again; a reminder's mailed inside the
+  window does not.
+
+Write to each club mailed inside the window, which the mail provider's list of sent messages names
+by subject, that a link from those days answers nothing and an answer given then is to be given
+again.
 
 **The action log cannot be the list, because the restore rolls it back too; the erasure journal is.**
 Everything written between the snapshot and the restore is gone, the log's own rows about it

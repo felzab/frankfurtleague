@@ -7,6 +7,7 @@ import { beforeEach, describe, it } from "node:test";
 import { act, createElement as h } from "react";
 
 import { render, screen } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 
 import { APINetworkError } from "@/core/errors.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -89,6 +90,7 @@ async function renderAndPreview(t: TestContext): Promise<void> {
         saisonSpiele: [EDITED, NEIGHBOUR],
         numberOfGroups: 2,
         isFinishedSaison: false,
+        isActiveSaison: true,
         today: "2026-09-14",
         categorize: () => new Set<never>(),
         pageHeader: { title: "Spiel 1" },
@@ -142,5 +144,71 @@ describe("the match editor's preview when its dry run is not answered", () => {
     await renderAndPreview(t);
 
     assert.equal(screen.queryAllByText(UNGEPRUEFT).length, 0, "a preview that answered is worded as one that could not check");
+  });
+});
+
+/** The day every editor below is rendered on, and a fixture's day so many days after it. */
+const HEUTE = "2026-09-14";
+const tagNach = (tage: number): string => new Date(Date.parse(HEUTE) + tage * 86_400_000).toISOString().slice(0, 10);
+
+const SOFORT = /müssen die Teams noch am Tag der Anfrage bestätigen/;
+
+/** EDITED, dated, with a kick-off and a ground: a fixture the confirmations' sweep asks about. */
+const angesetzt = (datum: string): FLSpielAdmin => ({
+  ...EDITED,
+  datum: datum,
+  uhrzeit: "14:30:00",
+  ort: { spielort_id: "68c1f0a2b3c4d5e6f7a8b9d1", name: "Sportpark Rebstock", maps_link: "Sportpark Rebstock, Frankfurt", mietpreis: 0 },
+});
+
+/** The editor over one fixture of a running season, with no Spieltag neighbour to ask the dry run about. */
+function renderEditor(spielData: FLSpielAdmin): void {
+  render(
+    underNext(
+      h(AdminEditSpielDataForm, {
+        spielData: spielData,
+        teams: [],
+        spielorte: [],
+        schiedsrichter: [],
+        saisonSpiele: [spielData],
+        numberOfGroups: 2,
+        isFinishedSaison: false,
+        isActiveSaison: true,
+        today: HEUTE,
+        categorize: () => new Set<never>(),
+        pageHeader: { title: "Spiel 1" },
+      }),
+      { search: "saison_id=2026" },
+    ),
+  );
+}
+
+/* The form's half of the banner: which date is the draft's and which the stored one is decided here alone. */
+describe("the match editor's warning that a near date leaves the teams no notice", () => {
+  beforeEach(() => {
+    calls.length = 0;
+  });
+
+  /* A save leaving the Ansetzung alone asks nobody, so a near fixture opened to add a referee warns of nothing. */
+  it("raises nothing on opening a fixture stored inside the deadline's days", () => {
+    renderEditor(angesetzt(tagNach(3)));
+
+    assert.equal(screen.queryAllByText(SOFORT).length, 0, "an unchanged near fixture warns of a request no save causes");
+  });
+
+  /* Read the stored date as the draft's, or the draft's twice, and this re-dating raises nothing and saves unasked. */
+  it("raises it once a date is moved into the deadline's days, and asks before saving", async () => {
+    const user = userEvent.setup();
+    renderEditor(angesetzt(tagNach(8)));
+
+    // One day back puts the fixture on the deadline's last day.
+    const tag = screen.getAllByRole("spinbutton", { name: /^Tag/ }).at(-1) ?? assert.fail("the editor renders no day to step");
+    await act(async () => tag.focus());
+    await user.keyboard("{ArrowDown}");
+
+    assert.ok(screen.queryAllByText(SOFORT).length > 0, "a date moved into the window raised nothing");
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    assert.ok(screen.queryByRole("button", { name: "Trotzdem speichern" }) !== null, "the save went unasked");
+    assert.deepEqual(calls, [], "the save was sent before it was confirmed");
   });
 });

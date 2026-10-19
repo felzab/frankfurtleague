@@ -81,7 +81,7 @@ describe("each message states the same facts in both parts", () => {
     "Neue Ansetzung an ein Team": [
       "Ernst-Reuter-Schule gegen Goethe-Gymnasium, bisher am 20.11.2026 um 14:30 Uhr, ist neu angesetzt.",
       "Die Anfrage zum bisherigen Termin und ihr Link gelten nicht mehr.",
-      "Zum neuen Termin bekommst Du eine neue Anfrage.",
+      "Bleibt Dein Team in diesem Spiel, bekommst Du für einen neuen Termin nach dem heutigen Tag eine neue Anfrage.",
     ],
     "Neue Ansetzung an die Schiedsrichterin oder den Schiedsrichter": [
       "Ernst-Reuter-Schule gegen Goethe-Gymnasium, bisher am 20.11.2026 um 14:30 Uhr, ist neu angesetzt.",
@@ -137,7 +137,7 @@ describe("each message states the same facts in both parts", () => {
     const { html, text } = NACHRICHTEN.Einteilung;
 
     assert.ok(html.includes(`href="${ORIGIN}/bereich/schiedsrichter"`), "the card's control leads elsewhere");
-    assert.ok(text.includes(`Zu Deinen Spielen: ${ORIGIN}/bereich/schiedsrichter`), "the text part leads elsewhere");
+    assert.ok(text.includes(`Zu Deinen Einsätzen: ${ORIGIN}/bereich/schiedsrichter`), "the text part leads elsewhere");
     assert.ok(!html.includes("token=") && !text.includes("token="), "the referee's message carries a token");
   });
 

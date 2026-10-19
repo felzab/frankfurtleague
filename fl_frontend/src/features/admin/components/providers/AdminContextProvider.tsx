@@ -26,6 +26,7 @@ export function AdminProvider({
   saisonSpiele,
   numberOfGroups,
   isFinishedSaison,
+  isActiveSaison,
   children,
 }: {
   spielorte: FLSpielort[];
@@ -34,13 +35,14 @@ export function AdminProvider({
   saisonSpiele: FLSpiel[];
   numberOfGroups: number | null;
   isFinishedSaison: boolean;
+  isActiveSaison: boolean;
   children: ReactNode;
 }) {
   // Memoised by hand: the React Compiler is deliberately off, so a fresh literal would re-render
   // every `useAdmin()` consumer whenever only `children` changed.
   const value = useMemo(
-    () => ({ spielorte, schiedsrichter, teams, saisonSpiele, numberOfGroups, isFinishedSaison }),
-    [spielorte, schiedsrichter, teams, saisonSpiele, numberOfGroups, isFinishedSaison],
+    () => ({ spielorte, schiedsrichter, teams, saisonSpiele, numberOfGroups, isFinishedSaison, isActiveSaison }),
+    [spielorte, schiedsrichter, teams, saisonSpiele, numberOfGroups, isFinishedSaison, isActiveSaison],
   );
 
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;

@@ -29,8 +29,8 @@ export type ZielAuftrag = {
    */
   idempotenzTag?: string;
 } &
-  // A team's season row holds three seats, so its message names the ones it covers, at least one; every
-  // other kind has one carrier and names none.
+  // A `ZIELE_JE_SITZ` kind's row holds three seats, so its message names the ones it covers, at least one;
+  // every other kind has one carrier and names none.
   (
     | { ziel: FLZielJeSitz; rollen: readonly [FLKontaktRolle, ...FLKontaktRolle[]] }
     | { ziel: Exclude<FLZustellungZiel, FLZielJeSitz>; rollen?: never }
