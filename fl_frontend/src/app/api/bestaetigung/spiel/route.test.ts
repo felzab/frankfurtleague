@@ -14,16 +14,17 @@ const NEXT_CACHE = {
     throw new Error("updateTag in a route handler");
   },
 };
-// Silent: each refusal a case drives would otherwise print an ERROR line into a passing run.
+// Silent: each refusal a case drives would otherwise print an ERROR line into a passing run. Errors are kept to be read.
 const inert = (): undefined => undefined;
-const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
+const errors: string[] = [];
+const LOGGING = { logger: { info: inert, warn: inert, error: (...args: unknown[]) => void errors.push(JSON.stringify(args)) } };
 
 const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint));
 
 doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING }, specifiers: { "next/cache": NEXT_CACHE } });
 
 const { POST } = await import("./route.ts");
-const { APINetworkError } = await import("@/core/errors.ts");
+const { APIMalformedDataError, APINetworkError } = await import("@/core/errors.ts");
 const { publishedRefusals, refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
@@ -218,6 +219,33 @@ describe("a club's answer to a fixture confirmation link", () => {
       assert.equal(gelesen, 1);
     });
   }
+
+  /* An answer off the view's schema is the deploy's fault, logged for whoever can repair it. The refusal settled the
+     write, so the club reads the panel a failed read gives, and never that its answer may not have arrived. */
+  it("logs a view answered off its schema after a refusal and answers the dead-link panel, dropping nothing", async () => {
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-ANSETZUNG-009");
+    leseAntwort = () =>
+      new APIMalformedDataError({
+        message: "Response failed schema.",
+        url: "http://localhost/spielbestaetigungen/ansicht",
+        statusCode: 200,
+        endpoint: "/spielbestaetigungen/ansicht",
+        method: "POST",
+        readOnly: true,
+        traceId: "0",
+      });
+
+    const answer = await bodyOf(aRequest(vorschlagKoerper));
+
+    assert.deepEqual(answer.body, { success: false, zustand: "ungueltig" });
+    assert.deepEqual(tags, []);
+    assert.ok(
+      errors.some(
+        (logged) => logged.includes("read broke its contract after a refusal: postSpielbestaetigung") && logged.includes("FE-API-002"),
+      ),
+      "the contract break left no line",
+    );
+  });
 
   /* The write's refusal and the read disagreeing claims nothing about the row. */
   it("answers an already answered row whose read finds it open with the dead-link panel", async () => {

@@ -1,8 +1,6 @@
 import { buildBewerbungVollstaendigEmail, buildBewerbungWiderspruchEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
-import { nullUnlessContractBreak } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { runAnsweringOwnCut } from "@/core/requestScope";
 import { postEinwilligung } from "@/features/bewerbungen/mutations";
 import { rollenText, rolleText, sendBewerbungMail } from "@/features/bewerbungen/notifications";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
@@ -10,20 +8,20 @@ import { FLBewerbungEinwilligungAntwortPayloadSchema } from "@/features/bewerbun
 import { mapEinwilligungRefusal } from "@/features/bewerbungen/utils";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { handlePublicRequest } from "@/shared/utils/publicRoute";
+import { handlePublicRequest, readAfterRefusal } from "@/shared/utils/publicRoute";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type { FLBewerbungEinwilligungAntwortResponse } from "@/features/bewerbungen/schemas";
 import type { EinwilligungAnsicht } from "@/features/bewerbungen/types";
 import type { NextRequest } from "next/server";
 
+const ROUTE_NAME = "postEinwilligung";
+
 // Never resolved in front of the mapper: a caller reading the view first spends a backend read on every refusal
 // naming one state alone.
 /** This link's own view, for the refusals that name a floor or a state the view tells apart. A failed read is `null`. */
 async function ansichtFuerToken(token: string): Promise<EinwilligungAnsicht | null> {
-  // Its own cut, its failure answered by the mapper: the write was refused, so no doubt may reach the spine, which
-  // would call the outcome unknown. A contract break is no failed read, and reaches the spine's log.
-  return runAnsweringOwnCut(() => getEinwilligungAnsicht(token)).catch(nullUnlessContractBreak);
+  return readAfterRefusal(ROUTE_NAME, () => getEinwilligungAnsicht(token));
 }
 
 /**
@@ -78,7 +76,7 @@ async function notifyAnsprechperson(antwort: FLBewerbungEinwilligungAntwortRespo
  */
 export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {
-    routeName: "postEinwilligung",
+    routeName: ROUTE_NAME,
     run: async () => {
       const body: unknown = await request.json().catch(() => null);
 

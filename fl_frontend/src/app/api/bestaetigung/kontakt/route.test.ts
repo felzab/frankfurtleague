@@ -303,16 +303,19 @@ describe("the contact seat's confirmation handler", () => {
     });
   });
 
-  /* An answer off the view's schema is the deploy's fault, never a failed read: a sentence naming no age would hide it
-     from everyone who could repair it. */
-  it("logs a view answered off its schema rather than naming no age", async () => {
+  /* An answer off the view's schema is the deploy's fault, logged for whoever can repair it. The refusal settled the
+     write, so the person reads its panel as after a failed read, never that the answer may not have arrived. */
+  it("logs a view answered off its schema and answers the refusal as a failed read does", async () => {
     schreibAntwort = () => aRefusal("REQ-BEWERBUNG-012");
+    ansichtAntwort = aLostRead;
+    const nachFehler = await bodyOf(aRequest(gueltigerKoerper));
     ansichtAntwort = anOffSchemaRead;
 
-    await bodyOf(aRequest(gueltigerKoerper));
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
 
+    assert.deepEqual(answer.body, nachFehler.body, "a contract break after a refusal answered otherwise than a failed read");
     assert.ok(
-      logs.some((logged) => logged.includes("Public route failed") && logged.includes("FE-API-002")),
+      logs.some((logged) => logged.includes("read broke its contract after a refusal: postEinwilligung") && logged.includes("FE-API-002")),
       "the contract break left no line",
     );
   });
