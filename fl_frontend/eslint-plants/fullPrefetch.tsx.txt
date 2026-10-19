@@ -1,0 +1,31 @@
+// Linted as src/features/zzplant/fullPrefetch.tsx.
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+declare const voll: boolean;
+declare const PrefetchKind: { FULL: "full" }; // expect: full-prefetch
+
+export function FullPrefetch() {
+  const router = useRouter();
+  // A router prefetch naming no kind is the partial one.
+  router.prefetch("/spiele");
+  router.prefetch("/spiele", { kind: "full" as never }); // expect: full-prefetch
+  router.prefetch("/spiele", { kind: PrefetchKind.FULL as never }); // expect: full-prefetch expect: full-prefetch
+
+  return (
+    <div>
+      {/* The partial prefetch, spelled or left out. */}
+      <Link href="/spiele">Spiele</Link>
+      <Link href="/spiele" prefetch={false}>Spiele</Link>
+      <Link href="/spiele" prefetch={null}>Spiele</Link>
+      <Link href="/spiele" prefetch="auto">Spiele</Link>
+      <Link href="/spiele" prefetch={"auto"}>Spiele</Link>
+      <Link href="/spiele" prefetch>Spiele</Link>{/* expect: full-prefetch */}
+      <Link href="/spiele" prefetch={true}>Spiele</Link>{/* expect: full-prefetch */}
+      <Link href="/spiele" prefetch={voll}>Spiele</Link>{/* expect: full-prefetch */}
+      <Link href="/spiele" unstable_dynamicOnHover>Spiele</Link>{/* expect: full-prefetch */}
+    </div>
+  );
+}
