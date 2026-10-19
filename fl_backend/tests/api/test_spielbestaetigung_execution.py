@@ -807,3 +807,41 @@ class TestWhatTheProposalIsJudgedOnMovingMidAnswerIsJudgedAgain:
         assert antwort is None
         # Once: none of these conflicts, so a retry would mean the rival was caught some other way.
         assert passes == 1
+
+
+class ConfirmationsCountingTheJudgements(ConfirmationsRunningARivalBeforeTheWrite):
+    """`ConfirmationsRunningARivalBeforeTheWrite`, counting each time the answer reads its row to judge it."""
+
+    def __init__(self, collection: Any, rival: Any) -> None:
+        super().__init__(collection, rival)
+        self.judged = 0
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        self.judged += 1
+        return await self._collection.find_one(*args, **kwargs)
+
+
+class TestTwoSeatsPressingAtOnce:
+    def test_the_second_press_landing_under_the_first_is_one_answer_and_one_refusal(self, mongo_replica_set_url: str):
+        """The other seat commits between this press's judgement and its write: the write conflicts, and the retry finds the row answered.
+
+        `docs/backend/spec.md :: I755`, driven rather than reasoned: the answer stored is the seat that committed first.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def the_other_seat_presses() -> None:
+                await antworten(database, client, token(TEAM1, "ansprechperson"))
+
+            confirmations = ConfirmationsCountingTheJudgements(database[Collection.SPIELBESTAETIGUNGEN], the_other_seat_presses)
+            outcome = await outcome_of(antworten(database, client, token(TEAM1, "trainer"), spielbestaetigungen=confirmations))
+            confirmations.assert_landed_inside(serially=0)
+            answered = await database[Collection.SPIELBESTAETIGUNGEN].count_documents({"partei.team_id": TEAM1, "antwort": {"$ne": None}})
+
+            return outcome, (await row_now(database, ROW1))["antwort"]["von"]["rolle"], answered, confirmations.judged
+
+        outcome, rolle, answered, judged = on_a_fixture(mongo_replica_set_url, body)
+
+        assert (outcome, rolle, answered) == (ANSETZUNG_BEANTWORTET, "ansprechperson", 1)
+        # The premise: the write conflicted and the press was judged afresh. Whether the judgement or the write's filter
+        # then refuses it, both answer the same code.
+        assert judged == 2
