@@ -29,6 +29,9 @@ body:
       options:
         - Just me
         - Everyone visiting the site
+        - Contact people
+        - Pupils
+        - Referees
         - Admins
         - One team or one season
     validations:
