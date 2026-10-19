@@ -737,3 +737,73 @@ class TestAFixtureMovedMidAnswerIsJudgedAgain:
         assert outcome == ANSETZUNG_GEAENDERT
         assert antwort is None
         assert passes == 1
+
+
+# A decline every rival below turns into a refusal: inside the matchday, clear of the referee's other bookings, on a day
+# both clubs still play, its reason naming nobody.
+PROPOSAL = ("2027-05-15", "18:00:00")
+REASON = "Leider hat Zora an dem Tag Prüfungen"
+
+
+async def narrow_the_matchday(database: AsyncDatabase) -> None:
+    await database[Collection.SPIELTAGE].update_one({"_id": SPIELTAG}, {"$set": {"ende": "2027-05-14"}})
+
+
+async def book_the_referee_beside_it(database: AsyncDatabase) -> None:
+    await database[Collection.SPIELE].insert_one(
+        fixture(NEIGHBOUR, spiel_nr=2, datum=PROPOSAL[0], uhrzeit="19:00:00", ort=None, team1=None, team2=None)
+    )
+
+
+async def let_a_club_leave_before_the_proposal(database: AsyncDatabase) -> None:
+    exit_record = {"type": "rueckzug", "grund": "Schule zieht zurück", "datum": PROPOSAL[0]}
+    await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM2}, {"$set": {"austritt": exit_record}})
+
+
+async def rename_a_seat_to_the_name_in_the_reason(database: AsyncDatabase) -> None:
+    await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM2}, {"$set": {"kontakte.trainer.vorname": "Zora"}})
+
+
+async def rename_the_referee_to_the_name_in_the_reason(database: AsyncDatabase) -> None:
+    await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"schiedsrichter.name": "Zora Gruber"}})
+
+
+class TestWhatTheProposalIsJudgedOnMovingMidAnswerIsJudgedAgain:
+    """Each a write the answer's transaction reads and never writes, so none conflicts: the re-judgement outside it is all that sees them."""
+
+    def test_the_decline_commits_where_nothing_moves(self, mongo_replica_set_url: str):
+        """The premise: without its rival each case below would commit."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            return await outcome_of(ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON))
+
+        assert on_a_fixture(mongo_replica_set_url, body) == COMMITTED
+
+    @pytest.mark.parametrize(
+        ("rival", "code"),
+        [
+            pytest.param(narrow_the_matchday, FIXTURE_OUTSIDE_SPIELTAG, id="the-matchday-narrowed"),
+            pytest.param(book_the_referee_beside_it, FIXTURE_DOUBLE_BOOKED, id="a-rival-booking-of-the-referee"),
+            pytest.param(let_a_club_leave_before_the_proposal, ELIGIBILITY_DISQUALIFIED, id="a-club-leaving-before-the-new-day"),
+            pytest.param(rename_a_seat_to_the_name_in_the_reason, ANSETZUNG_NAME_IN_BEGRUENDUNG, id="a-seat-renamed"),
+            pytest.param(rename_the_referee_to_the_name_in_the_reason, ANSETZUNG_NAME_IN_BEGRUENDUNG, id="the-referee-renamed"),
+        ],
+    )
+    def test_the_answer_is_refused_on_what_moved_and_writes_nothing(
+        self, mongo_replica_set_url: str, rival: Callable[[AsyncDatabase], Awaitable[None]], code: str
+    ):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            confirmations = ConfirmationsRunningARivalBeforeTheWrite(database[Collection.SPIELBESTAETIGUNGEN], lambda: rival(database))
+            outcome = await outcome_of(
+                ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON, spielbestaetigungen=confirmations)
+            )
+            confirmations.assert_landed_inside(serially=0)
+
+            return outcome, (await row_now(database, ROW1))["antwort"], confirmations.passes
+
+        outcome, antwort, passes = on_a_fixture(mongo_replica_set_url, body)
+
+        assert outcome == code
+        assert antwort is None
+        # Once: none of these conflicts, so a retry would mean the rival was caught some other way.
+        assert passes == 1
