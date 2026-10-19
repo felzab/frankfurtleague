@@ -62,6 +62,7 @@ describe("the match editor's undo whose dispatch never answered", () => {
           saisonSpiele: [SPIEL],
           numberOfGroups: 2,
           isFinishedSaison: false,
+          isActiveSaison: true,
           today: "2026-09-14",
           categorize: () => new Set<never>(),
           pageHeader: { title: "Spiel 1" },

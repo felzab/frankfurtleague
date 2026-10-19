@@ -123,6 +123,7 @@ describe("the match editor's save of an asserted event", () => {
           saisonSpiele: [OHNE_EREIGNIS],
           numberOfGroups: 2,
           isFinishedSaison: false,
+          isActiveSaison: true,
           today: "2026-09-14",
           categorize: () => new Set<never>(),
           pageHeader: { title: "Spiel 1" },

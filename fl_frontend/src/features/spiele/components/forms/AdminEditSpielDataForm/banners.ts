@@ -104,6 +104,26 @@ const REFUSAL_BANNER_IDS: ReadonlySet<SpielBannerId> = new Set<SpielBannerId>(Ob
 /** Whether this banner names a save the endpoint refuses, rather than a consequence a save would cause. */
 export const isSpielRefusalBannerId = (id: SpielBannerId): boolean => REFUSAL_BANNER_IDS.has(id);
 
+/**
+ * A fixture's Ansetzung as the confirmations read it, `YYYY-MM-DD` and `HH:MM:SS` or `null`: the five inputs of
+ * `fl_backend/app/api/spielbestaetigungen/services.py :: ansetzung_stand_of`, so a sixth there is a sixth here.
+ */
+export type SpielBannerAnsetzung = {
+  datum: string | null;
+  uhrzeit: string | null;
+  spielortId: string | null;
+  team1Id: string | null;
+  team2Id: string | null;
+};
+
+/** Whether a save moves the stand the sweep closes a fixture's open rows on, and so mints afresh. */
+const ansetzungGeaendert = (draft: SpielBannerAnsetzung, stored: SpielBannerAnsetzung): boolean =>
+  draft.datum !== stored.datum ||
+  draft.uhrzeit !== stored.uhrzeit ||
+  draft.spielortId !== stored.spielortId ||
+  draft.team1Id !== stored.team1Id ||
+  draft.team2Id !== stored.team2Id;
+
 const MS_PER_DAY = 86_400_000;
 
 /**
@@ -115,6 +135,25 @@ function ohneVorlauf(datum: string | null, today: string): boolean {
   const tage = (Date.parse(datum) - Date.parse(today)) / MS_PER_DAY;
 
   return tage > 0 && tage <= SPIEL_BESTAETIGUNG_FRIST_TAGE;
+}
+
+/**
+ * The conditions the sweep mints a fixture's rows on, spelled again for the draft and moved with them: a banner over a
+ * fixture no pass asks about warns of a request that never comes.
+ */
+function wirdAngefragt(
+  ansetzung: SpielBannerAnsetzung,
+  {
+    isActiveSaison,
+    sonderereignis,
+    hasAnyTore,
+    today,
+  }: { isActiveSaison: boolean; sonderereignis: FLSonderereignis | null; hasAnyTore: boolean; today: string },
+): boolean {
+  if (!isActiveSaison || sonderereignis !== null || hasAnyTore) return false;
+  if (ansetzung.uhrzeit === null || ansetzung.spielortId === null || ansetzung.team1Id === null || ansetzung.team2Id === null) return false;
+
+  return ohneVorlauf(ansetzung.datum, today);
 }
 
 /** A list of fixture numbers as German writes it: "29, 30 und 31", with "und" and no serial comma. */
@@ -136,8 +175,9 @@ export function buildSpielBanners({
   releasedSpielNummern,
   voidPreviewFailed,
   refusalCode,
-  datum,
-  storedDatum,
+  ansetzung,
+  storedAnsetzung,
+  isActiveSaison,
   today,
 }: {
   isKnockout: boolean;
@@ -172,9 +212,11 @@ export function buildSpielBanners({
    * judged — the caller's staleness rule, so a corrected draft never carries the old remedies.
    */
   refusalCode: SpielRefusalCode | null;
-  /** The draft's day and the stored one, `YYYY-MM-DD` or `null`, and the German today the page was rendered on. */
-  datum: string | null;
-  storedDatum: string | null;
+  ansetzung: SpielBannerAnsetzung;
+  storedAnsetzung: SpielBannerAnsetzung;
+  /** The fixture's season is the running one, the only kind the sweep visits. */
+  isActiveSaison: boolean;
+  /** The German today the page was rendered on. */
   today: string;
 }): readonly SpielBanner[] {
   const banners: SpielBanner[] = [];
@@ -360,13 +402,13 @@ export function buildSpielBanners({
     });
   }
 
-  // The notice the deadline promises cannot be given: the next pass asks at once, and the link answers only that day.
-  // On the rail rather than a standing hint, being a fact about this date and never about the feature.
-  if (ohneVorlauf(datum, today)) {
+  // The notice the deadline promises cannot be given: the next pass asks at once, and the link answers that day alone.
+  // Raised only by a save that asks, never as a standing hint on every near fixture.
+  if (ansetzungGeaendert(ansetzung, storedAnsetzung) && wirdAngefragt(ansetzung, { isActiveSaison, sonderereignis, hasAnyTore, today })) {
     banners.push({
       id: "spiel.bestaetigung-sofort",
       severity: "warning",
-      raisedBy: ohneVorlauf(storedDatum, today) ? "state" : "change",
+      raisedBy: ohneVorlauf(storedAnsetzung.datum, today) ? "state" : "change",
       // The rule rather than this date: the reader carries it to the next fixture they move.
       title: `Ein Spiel in den nächsten ${String(SPIEL_BESTAETIGUNG_FRIST_TAGE)} Tagen müssen die Teams noch am Tag der Anfrage bestätigen`,
       inline: null,

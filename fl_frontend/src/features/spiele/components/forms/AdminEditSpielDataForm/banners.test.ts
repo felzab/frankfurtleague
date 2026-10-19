@@ -7,7 +7,7 @@ import { resolveBlockingBanners, resolveRailBanners } from "@/shared/components/
 import { SONDEREREIGNIS_LABELS, SPIEL_BESTAETIGUNG_FRIST_TAGE } from "../../../constants.ts";
 import { buildSpielBanners, isSpielRefusalBannerId, isSpielRefusalCode } from "./banners.ts";
 
-import type { SpielBanner, SpielBannerSide } from "./banners.ts";
+import type { SpielBanner, SpielBannerAnsetzung, SpielBannerSide } from "./banners.ts";
 
 const side = (fieldName: "team1" | "team2", overrides: Partial<SpielBannerSide> = {}): SpielBannerSide => {
   const draft = {
@@ -26,6 +26,17 @@ const side = (fieldName: "team1" | "team2", overrides: Partial<SpielBannerSide> 
 /** The day every case is rendered on, and a fixture's day so many days after it. */
 const HEUTE = "2026-10-19";
 const tagNach = (tage: number): string => new Date(Date.parse(HEUTE) + tage * 86_400_000).toISOString().slice(0, 10);
+
+const KEINE_ANSETZUNG: SpielBannerAnsetzung = { datum: null, uhrzeit: null, spielortId: null, team1Id: null, team2Id: null };
+
+/** A fixture the sweep would ask about, on this day: a kick-off, a ground and both sides. */
+const angesetzt = (datum: string | null): SpielBannerAnsetzung => ({
+  datum: datum,
+  uhrzeit: "14:30:00",
+  spielortId: "spielort-a",
+  team1Id: "team-a",
+  team2Id: "team-b",
+});
 
 const team = (teamId: string, name: string) => ({ team_id: teamId, name, shorthand: name.slice(0, 3), tore: null, austritt: null });
 
@@ -47,13 +58,18 @@ const build = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]> = {})
     releasedSpielNummern: [],
     voidPreviewFailed: false,
     refusalCode: null,
-    datum: null,
-    storedDatum: null,
+    ansetzung: KEINE_ANSETZUNG,
+    storedAnsetzung: KEINE_ANSETZUNG,
+    isActiveSaison: true,
     today: HEUTE,
     ...overrides,
   });
 
 const ids = (banners: readonly SpielBanner[]): string[] => banners.map((banner) => banner.id);
+
+/** Whether the confirmation's lost-notice banner is raised. */
+const sofort = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]>): boolean =>
+  ids(build(overrides)).includes("spiel.bestaetigung-sofort");
 
 describe("buildSpielBanners", () => {
   it("raises nothing for an untouched knockout fixture with both sides wired", () => {
@@ -423,7 +439,9 @@ describe("buildSpielBanners", () => {
   /* Acceptance (d). A date inside the deadline's days leaves the teams no notice: the next pass asks at once, and the
      link answers only that day. Whose doing it is decides whether the save confirms. */
   it("raises the confirmation's lost notice as this save's doing where the stored date was outside the window", () => {
-    const banner = build({ datum: tagNach(3), storedDatum: tagNach(30) }).find(({ id }) => id === "spiel.bestaetigung-sofort");
+    const banner = build({ ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(30)) }).find(
+      ({ id }) => id === "spiel.bestaetigung-sofort",
+    );
 
     assert.equal(banner?.raisedBy, "change");
     assert.equal(banner?.severity, "warning");
@@ -435,7 +453,9 @@ describe("buildSpielBanners", () => {
   });
 
   it("raises it as the fixture's standing state where the stored date was already inside the window", () => {
-    const banner = build({ datum: tagNach(2), storedDatum: tagNach(5) }).find(({ id }) => id === "spiel.bestaetigung-sofort");
+    const banner = build({ ansetzung: angesetzt(tagNach(2)), storedAnsetzung: angesetzt(tagNach(5)) }).find(
+      ({ id }) => id === "spiel.bestaetigung-sofort",
+    );
 
     assert.equal(banner?.raisedBy, "state");
   });
@@ -447,15 +467,47 @@ describe("buildSpielBanners", () => {
       [tagNach(-2), tagNach(30)],
       [tagNach(-2), tagNach(3)],
       [HEUTE, tagNach(30)],
-      [tagNach(SPIEL_BESTAETIGUNG_FRIST_TAGE + 1), null],
+      [tagNach(SPIEL_BESTAETIGUNG_FRIST_TAGE + 1), tagNach(30)],
       [null, tagNach(3)],
     ] as const) {
-      assert.ok(!ids(build({ datum: datum, storedDatum: gespeichert })).includes("spiel.bestaetigung-sofort"), `raised for ${String(datum)}`);
+      assert.ok(!sofort({ ansetzung: angesetzt(datum), storedAnsetzung: angesetzt(gespeichert) }), `raised for ${String(datum)}`);
     }
     assert.ok(
-      ids(build({ datum: tagNach(SPIEL_BESTAETIGUNG_FRIST_TAGE) })).includes("spiel.bestaetigung-sofort"),
+      sofort({ ansetzung: angesetzt(tagNach(SPIEL_BESTAETIGUNG_FRIST_TAGE)), storedAnsetzung: angesetzt(tagNach(30)) }),
       "the window's last day raised nothing",
     );
+  });
+
+  /* An unchanged stand mints nothing, so the near fixtures edited most often, a referee added, carry no warning. */
+  it("raises nothing for a save that leaves the Ansetzung as it stands, however near the fixture", () => {
+    assert.ok(!sofort({ ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(3)) }));
+  });
+
+  /* Every input of the stand moves it, so each mints afresh and warns where the date is near. */
+  it("raises it for a save moving any one input of the Ansetzung", () => {
+    const gespeichert = angesetzt(tagNach(3));
+    for (const anders of [{ uhrzeit: "18:00:00" }, { spielortId: "spielort-b" }, { team1Id: "team-c" }, { team2Id: "team-c" }] as const) {
+      assert.ok(
+        sofort({ ansetzung: { ...gespeichert, ...anders }, storedAnsetzung: gespeichert }),
+        `raised nothing for ${Object.keys(anders)[0]}`,
+      );
+    }
+  });
+
+  /* A warning beside a fixture no pass asks about, called off or decided, is the standing hint the window rule refuses. */
+  it("raises nothing for a re-dated fixture the sweep would not ask about", () => {
+    const nah = { ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(30)) };
+    for (const [was, overrides] of [
+      ["a called-off fixture", { sonderereignis: "ausgefallen" }],
+      ["a no-show", { sonderereignis: "nichtantreten_team1" }],
+      ["a fixture carrying a goal", { hasAnyTore: true }],
+      ["a fixture of a season not yet running", { isActiveSaison: false }],
+      ["a fixture with no kick-off", { ansetzung: { ...nah.ansetzung, uhrzeit: null } }],
+      ["a fixture with no ground", { ansetzung: { ...nah.ansetzung, spielortId: null } }],
+      ["a fixture with an empty side", { ansetzung: { ...nah.ansetzung, team2Id: null } }],
+    ] as const) {
+      assert.ok(!sofort({ ...nah, ...overrides }), `raised for ${was}`);
+    }
   });
 
   it("sorts danger over warning over info on the rail", () => {

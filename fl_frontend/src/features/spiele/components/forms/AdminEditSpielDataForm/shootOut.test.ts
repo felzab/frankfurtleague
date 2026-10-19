@@ -52,6 +52,7 @@ function renderEditor(): void {
         saisonSpiele: [DECIDED_ON_PENALTIES],
         numberOfGroups: 2,
         isFinishedSaison: false,
+        isActiveSaison: true,
         today: "2026-09-14",
         categorize: () => new Set<never>(),
         pageHeader: { title: "Spiel 1" },

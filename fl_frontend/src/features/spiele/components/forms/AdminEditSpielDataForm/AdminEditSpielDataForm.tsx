@@ -77,6 +77,7 @@ export function AdminEditSpielDataForm({
   saisonSpiele,
   numberOfGroups,
   isFinishedSaison,
+  isActiveSaison,
   today,
   categorize,
   pageHeader,
@@ -89,6 +90,7 @@ export function AdminEditSpielDataForm({
   /** The season's `rules.number_of_groups`, bounding the Herkunft group offer; `null` offers all. */
   numberOfGroups: number | null;
   isFinishedSaison: boolean;
+  isActiveSaison: boolean;
   today: string;
   /** Rendered inside the scroll container, so it scrolls while the action bar stays put. */
   pageHeader: EditPageHeaderContent;
@@ -295,8 +297,21 @@ export function AdminEditSpielDataForm({
     releasedSpielNummern: voidPreview.preview?.released ?? [],
     voidPreviewFailed: voidPreview.failed,
     refusalCode: refusal?.key === refusalKey ? refusal.code : null,
-    datum: datum?.toString() ?? null,
-    storedDatum: spielData.datum,
+    ansetzung: {
+      datum: draft.datum,
+      uhrzeit: draft.uhrzeit,
+      spielortId: ortPayload?.spielort_id ?? null,
+      team1Id: team1Payload?.team_id ?? null,
+      team2Id: team2Payload?.team_id ?? null,
+    },
+    storedAnsetzung: {
+      datum: spielData.datum,
+      uhrzeit: spielData.uhrzeit,
+      spielortId: spielData.ort?.spielort_id ?? null,
+      team1Id: spielData.team1?.team_id ?? null,
+      team2Id: spielData.team2?.team_id ?? null,
+    },
+    isActiveSaison,
     today,
   });
 
