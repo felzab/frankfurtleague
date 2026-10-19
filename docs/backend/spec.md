@@ -655,7 +655,7 @@ around it, are [`../ops/runbooks.md`](../ops/runbooks.md#5-when-somebody-asks-fo
 
 **It is a master key and no corpus is hashed under it directly.** Each purpose derives a sub-key —
 one HMAC of the master under its own label — so a compromise or a mistake in one corpus cannot read
-another, and a later purpose joins by choosing a label rather than by sharing a digest. **Four
+another, and a later purpose joins by choosing a label rather than by sharing a digest. **Five
 purposes derive one, and a replaced master costs each its own way:**
 
 - the ban list (`fl_backend/app/api/sperrliste/services.py :: SPERRLISTE_SCHLUESSEL_VERSION`, which
@@ -666,6 +666,9 @@ purposes derive one, and a replaced master costs each its own way:**
 - the erasure journal's hash (`fl_backend/app/core/security.py :: LOESCHUNG_JOURNAL_VERSION`): every
   line written before it matches no address a restore holds, so neither an erasure nor a choice it
   records can be run again after a restore;
+- the digest naming who answered a fixture confirmation from a seat
+  (`fl_backend/app/api/spielbestaetigungen/services.py :: halter_of`): no erasure or Widerspruch
+  finds a reason typed before it, so that reason stays until its season's contacts are cleared;
 - the address's anchor (`fl_backend/app/core/adressanker.py :: ADRESSANKER_VERSION`): nothing that
   lasts, an anchor standing only until the expiry pass after its last write (I719).
 
