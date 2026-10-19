@@ -193,9 +193,14 @@ def on_a_league(url: str, body: Body, *, spiele: list[dict[str, Any]], junctions
 
 
 async def sweep(
-    database: AsyncDatabase, client: AsyncMongoClient, *, saison_id: str = SAISON_ID, today: str = TODAY
+    database: AsyncDatabase, client: AsyncMongoClient, *, saison_id: str = SAISON_ID, today: str = TODAY, passed_over: int = 0
 ) -> FLSpielbestaetigungSweepResponse:
-    return await sweep_spielbestaetigungen(
+    """One pass, asserting how many rows it passed over: a pass refusing a fixture for an unrelated reason mints nothing either.
+
+    So a case asserting that nothing was minted, closed or reminded holds only for the reason it names.
+    """
+
+    answer = await sweep_spielbestaetigungen(
         saison_id=saison_id,
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         spiele_collection=database[Collection.SPIELE],
@@ -206,12 +211,17 @@ async def sweep(
         db=client,
         today=today,
     )
+    assert answer.fehlgeschlagen == passed_over, answer
+
+    return answer
 
 
 async def angefragt(
     database: AsyncDatabase, client: AsyncMongoClient, ids: list[Any], *, saison_id: str = SAISON_ID, today: str = TODAY
 ) -> Any:
-    return await angefragt_spielbestaetigungen(
+    """The stamp, asserting it passed nothing over, for `sweep`'s reason."""
+
+    answer = await angefragt_spielbestaetigungen(
         saison_id=saison_id,
         angefragt_data=FLSpielbestaetigungSweepAngefragtPayload(spielbestaetigung_ids=ids),
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
@@ -219,6 +229,9 @@ async def angefragt(
         db=client,
         today=today,
     )
+    assert answer.fehlgeschlagen == 0, answer
+
+    return answer
 
 
 async def move(database: AsyncDatabase, client: AsyncMongoClient, spiel_id: ObjectId, **overrides: Any) -> None:
@@ -308,7 +321,7 @@ class TestTheSweepAsksAboutNothingItCannotHelp:
         listed, answers, asked = on_a_league(mongo_replica_set_url, body, spiele=spiele, junctions=junctions)
 
         assert listed == [SAISON_ID]
-        assert [answer.fehlgeschlagen for answer in answers] == [0, 0]
+        assert len(answers) == 2
         assert asked == [(SAISON_ID, str(SPIEL))]
 
     def test_the_same_pass_twice_mints_once(self, mongo_replica_set_url: str):
@@ -508,7 +521,7 @@ class TestAReplacedClubsRowsClose:
         second, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
 
         closed = row_of([row for row in stored if row["geschlossen"] is not None], team_id=BETA)
-        assert (second.fehlgeschlagen, second.geschlossen) == (0, 3)
+        assert second.geschlossen == 3
         assert Counter(row["geschlossen"]["grund"] for row in stored if row["geschlossen"] is not None) == {"ansetzung_geaendert": 3}
         # The leaving club's people left with its row, so its own row closes telling nobody.
         assert [(notice.spielbestaetigung_id, notice.team1_name, notice.team2_name) for notice in second.neue_ansetzungen] == [
@@ -829,13 +842,14 @@ class TestOneRowHoldsBackNoOther:
 
     def test_a_fixture_fielding_a_club_without_a_season_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await sweep(database, client), await sweep(database, client), await rows(database)
+            await sweep(database, client, passed_over=1)
+            await sweep(database, client, passed_over=1)
+            return await rows(database)
 
-        first, second, stored = on_a_league(
+        stored = on_a_league(
             mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK, team2=side(GAMMA)), fixture(OTHER_SPIEL, 2, NEXT_WEEK)]
         )
 
-        assert (first.fehlgeschlagen, second.fehlgeschlagen) == (1, 1)
         assert {row["spiel_id"] for row in stored} == {OTHER_SPIEL}
 
 
