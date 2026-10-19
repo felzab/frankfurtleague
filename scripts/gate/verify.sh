@@ -1453,12 +1453,11 @@ if (( RUN_DB )); then
   # no test collected, and none is a db-tier failure. The width flag is the live route to a 4, an
   # empty one otherwise reading as the tests having failed.
   DB_RC=0
-  if (( DB_TOGETHER )); then
-    unit_join backend_db
-    quietly unit_replay backend_db || DB_RC=$?
-  else
-    quietly do_backend_db || DB_RC=$?
-  fi
+  # Apart, still a pool's unit: run in place, a stalled case's stack would sit in `quietly`'s memory,
+  # where no stall notice reaches it (`scripts/gate/gate_pool.py :: STALL_S`).
+  if (( ! DB_TOGETHER )); then start_steps --db backend_db; fi
+  unit_join backend_db
+  quietly unit_replay backend_db || DB_RC=$?
   case "$DB_RC" in
     0) ;;
     1) die "fl_backend db-tier tests failed.
@@ -1475,12 +1474,9 @@ Re-run without \`-n auto --dist loadfile --maxprocesses ${GATE_WIDTH_DB_PYTEST}\
   # The runner's own codes, as the unit tests read them: 1 is a failing test, anything else a run
   # that reached no verdict.
   FRONTEND_DB_RC=0
-  if (( DB_TOGETHER )); then
-    unit_join frontend_db
-    quietly unit_replay frontend_db || FRONTEND_DB_RC=$?
-  else
-    quietly do_frontend_db || FRONTEND_DB_RC=$?
-  fi
+  if (( ! DB_TOGETHER )); then start_steps --db frontend_db; fi
+  unit_join frontend_db
+  quietly unit_replay frontend_db || FRONTEND_DB_RC=$?
   case "$FRONTEND_DB_RC" in
     0) ;;
     1) die "fl_frontend db-tier tests failed.

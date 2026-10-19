@@ -863,8 +863,9 @@ answer for it.
 
 **Most scopes carry that shape one level down, through the same pool**, so a scope costs its
 slowest check rather than the sum; the format, frontend-units and ops scopes run theirs
-in place, and so does the database scope wherever other scopes run beside it, the frontend's
-db-tier files asserting the sign-in store's 3 s bounds. **A pool's own wiring is refused at 3 before anything runs**, each refusal carrying its
+in place, and the database scope runs its two as units one after the other wherever other scopes
+run beside it, the frontend's db-tier files asserting the sign-in store's 3 s bounds, so a stalled
+case's stack still reaches a notice. **A pool's own wiring is refused at 3 before anything runs**, each refusal carrying its
 argument at the line it guards.
 
 **A failure is reported once the pool is done, never while it runs**, so a scope whose first check
