@@ -104,7 +104,7 @@ export const FLSpielbestaetigungAnsichtResponseSchema = BaseAPIResponseSchema.ex
   seite: FLSpielbestaetigungSeiteSchema,
   ansetzung: FLSpielbestaetigungAnsichtAnsetzungSchema,
   frist: CustomDateStringSchema,
-  // The other club's proposal on `vorschlag`, this row's own on `abgelehnt`, null otherwise.
+  // The other club's proposal, on the `vorschlag` state alone; null in every other state, `abgelehnt` included.
   vorschlag: FLSpielbestaetigungTerminSchema.nullable(),
   // Non-null exactly on `zugesagt` and `abgelehnt`.
   beantwortet_von: FLSpielbestaetigungVonSchema.nullable(),
@@ -143,7 +143,10 @@ export const FLSpielbestaetigungAntwortPayloadSchema = z
   });
 export type FLSpielbestaetigungAntwortPayload = z.infer<typeof FLSpielbestaetigungAntwortPayloadSchema>;
 
-/** What the answer recorded, in the view's own fields; no receipt is mailed. */
+/**
+ * What the answer recorded; no receipt is mailed. Its `vorschlag` is the answering club's own proposal, which no state
+ * of the view serves, so the receipt reads it from here and never from a re-read.
+ */
 export const FLSpielbestaetigungAntwortResponseSchema = BaseAPIResponseSchema.extend({
   zustand: FLSpielbestaetigungAntwortArtSchema,
   beantwortet_von: FLSpielbestaetigungVonSchema,
