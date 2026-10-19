@@ -115,6 +115,8 @@ SYSTEM_WRITES = [
     ("/api/v0/bewerbungen/sweep/{saison_id}/angekuendigt", "post"),
     ("/api/v0/bewerbungen/sweep/{saison_id}/loeschen", "post"),
     ("/api/v0/registrierungen/sweep/{saison_id}", "post"),
+    ("/api/v0/spielbestaetigungen/sweep/{saison_id}", "post"),
+    ("/api/v0/spielbestaetigungen/sweep/{saison_id}/angefragt", "post"),
     ("/api/v0/bewerbungen/zustellung", "post"),
     ("/api/v0/bewerbungen/zustellung/angenommen", "post"),
     ("/api/v0/zustellung", "post"),
@@ -447,7 +449,12 @@ def test_a_public_write_is_unreachable_without_the_base_key(path: str, method: s
 # The sweep's one read, listing every season for the caller: system tier because
 # `docs/backend/spec.md :: I47` keeps a `future` season off the base one, and the seasons taking
 # applications are exactly those.
-SYSTEM_READS = [("/api/v0/bewerbungen/sweep", "get")]
+SYSTEM_READS = [
+    ("/api/v0/bewerbungen/sweep", "get"),
+    # The confirmation pass's own bookkeeping, asked by the timer running it and by no page: the
+    # seasons it lists are `active`, which the base tier serves, so `docs/backend/spec.md :: I47` is not its reason.
+    ("/api/v0/spielbestaetigungen/sweep", "get"),
+]
 
 
 @pytest.mark.parametrize(("path", "method"), [*SYSTEM_WRITES, *SYSTEM_READS], ids=lambda value: value)

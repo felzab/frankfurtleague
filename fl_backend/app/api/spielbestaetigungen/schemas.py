@@ -322,13 +322,14 @@ class FLSpielbestaetigungSweepResponse(BaseAPIResponse):
     fehlgeschlagen: int
 
 
-# `DELETIONS_LISTED_PER_PASS`'s arithmetic, the stamp being the same three commands a row. Provisional
-# until the pass's own per-row count is measured on the wire.
+# Three commands a row beside the call's other 3
+# (`tests/api/test_spielbestaetigung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
+# 255 commands at a 38 ms round trip plus 1.01 ms take 9.95 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 ANFRAGEN_LISTED_PER_PASS: Final = 84
 
 
 class FLSpielbestaetigungSweepAngefragtPayload(BaseModel):
-    """Which rows' first messages went. The backend re-judges each: a row already stamped, closed or answered is skipped."""
+    """Which rows' first messages went. Stamped whether or not answered or closed since: the stamp records the send."""
 
     model_config = ConfigDict(extra="forbid")
 
