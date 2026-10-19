@@ -908,16 +908,20 @@ class TestTheReminderSkipsARowTheCloseWouldShut:
         reminded_spiel = fixture(SPIEL, 1, datum, ergebnis="1:0", team1=side(ALPHA, 1), team2=side(BETA, 0))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            # The rows the mint wrote once these fixtures were still open, on the day each was minted.
+            # The rows the mint wrote once these fixtures were still open, on the day each was minted and mailed: a
+            # reminder of a request never stamped would be answered in `anfragen` instead.
             seeded = [
-                compose_spielbestaetigung(
-                    row_id=ObjectId(),
-                    saison_id=SAISON_ID,
-                    spiel=spiel,
-                    partei={"art": "team", "team_id": ALPHA},
-                    hashes={seat: hash_token(f"{spiel['_id']}-{seat}") for seat in KONTAKT_ROLLEN},
-                    today=days_after(day=TODAY, days=-10),
-                )
+                {
+                    **compose_spielbestaetigung(
+                        row_id=ObjectId(),
+                        saison_id=SAISON_ID,
+                        spiel=spiel,
+                        partei={"art": "team", "team_id": ALPHA},
+                        hashes={seat: hash_token(f"{spiel['_id']}-{seat}") for seat in KONTAKT_ROLLEN},
+                        today=days_after(day=TODAY, days=-10),
+                    ),
+                    "angefragt_am": days_after(day=TODAY, days=-10),
+                }
                 for spiel in [*decided, reminded_spiel]
             ]
             await database[Collection.SPIELBESTAETIGUNGEN].insert_many(seeded)
@@ -928,7 +932,8 @@ class TestTheReminderSkipsARowTheCloseWouldShut:
         answer, standing = on_a_league(mongo_replica_set_url, body, spiele=[*decided, reminded_spiel])
 
         assert standing["frist"] == days_after(day=TODAY, days=3)
-        assert (answer.geschlossen, answer.erinnerungen, standing["geschlossen"], standing["erinnert_am"]) == (CLOSES_PER_PASS, [], None, [])
+        assert (answer.geschlossen, standing["geschlossen"]) == (CLOSES_PER_PASS, None)
+        assert (answer.erinnerungen, answer.anfragen, standing["erinnert_am"]) == ([], [], [])
 
 
 class TestTheRequestStamp:
@@ -996,6 +1001,10 @@ async def a_pass_owing_every_message(database: AsyncDatabase, client: AsyncMongo
 EVERY_MESSAGE = [fixture(SPIEL, 1, NEXT_WEEK), fixture(OTHER_SPIEL, 2, FORTNIGHT, schiedsrichter=None)]
 
 
+# Every first name a seat of either club holds.
+NAMED = [vorname for seated in SEATS.values() for vorname in seated.values()]
+
+
 class TestWhatThePassAnswers:
     """`READ-ANSETZUNG-002`: a message's raw link and its mailbox, and nobody's name nor any stored hash."""
 
@@ -1012,7 +1021,8 @@ class TestWhatThePassAnswers:
         tokens = [link.token for anfrage in [*answer.anfragen, *answer.erinnerungen] for link in anfrage.links]
 
         assert all([answer.anfragen, answer.erinnerungen, answer.einteilungen, answer.neue_ansetzungen, answer.schiedsrichter_neue_ansetzungen])
-        assert "Mustermann" not in served
+        # Capitalised as the seat and the referee hold them, where a mailbox spells a first name in lower case.
+        assert [name for name in [*NAMED, "Mustermann", "Pfiff", "Flagge"] if name in served] == []
         assert [token_hash for token_hash in hashes if token_hash in served] == []
         assert {hash_token(token) for token in tokens} <= hashes
 
@@ -1323,10 +1333,9 @@ FIRST_BATCH = 101
 
 
 class TestEverySeasonSizedReadSendsOneGetMore:
-    """`tests/api/test_spielbestaetigung_sweep_refusal.py :: SWEEP_GET_MORES`: every population a read takes whole, past the first batch.
+    """`tests/api/test_spielbestaetigung_sweep_refusal.py :: SWEEP_GET_MORES`, every season-sized population past the first batch.
 
-    A fixture per club pair and referee, each moved since its three mailed rows were minted and due a reminder, a seat of
-    each club barred: the close, the mint and the reminder each read every row, fixture, club, referee and ban of them.
+    Fixtures moved since their rows were mailed, each with its own clubs and referee, due a reminder, a seat of each club barred.
     """
 
     def test_one_get_more_a_read(self, mongo_replica_set_url: str):

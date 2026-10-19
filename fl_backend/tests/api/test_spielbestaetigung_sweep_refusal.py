@@ -199,8 +199,8 @@ ROUND_TRIPS_A_ROW = 3
 SWEEP_OTHER_COMMANDS = 24
 ANGEFRAGT_OTHER_COMMANDS = 3
 
-# A `getMore` apiece for the reads whose rows are the season's rather than a share's, once those outrun the driver's
-# first batch -- each page taking one, a page being far under a batch's bytes -- pinned on the wire by
+# A `getMore` apiece for the reads taking a season's rows rather than a share's, once those outrun the driver's first
+# batch, pinned on the wire by
 # `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py :: TestEverySeasonSizedReadSendsOneGetMore`.
 SWEEP_GET_MORES = 13
 

@@ -74,13 +74,13 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# The three shares together, at three commands a row beside the worst call's other commands and its `getMore`s, fit
-# `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 36 ms round trip
+# The three shares together fit `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 36 ms round trip, beside the worst
+# call's other commands and `getMore`s
 # (`tests/api/test_spielbestaetigung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`).
 CLOSES_PER_PASS: Final = 25
 
-# Counted in rows written, a fixture taken whole; a fresh row costs less than three, its share taking one insert.
-# At most `ANFRAGEN_LISTED_PER_PASS`, so one `/angefragt` call stamps every row a call answers.
+# Counted in rows written, a fixture taken whole. With `REMINDERS_PER_PASS` at most `ANFRAGEN_LISTED_PER_PASS`, a
+# reminder of a request never stamped going out as one: so one `/angefragt` call stamps every row a call answers.
 MINTS_PER_PASS: Final = 26
 
 REMINDERS_PER_PASS: Final = 25
