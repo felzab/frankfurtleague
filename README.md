@@ -18,9 +18,10 @@ League, _die Oberstufenliga der Frankfurter Schulen_.
 ## About
 
 The Frankfurt League is a football league for Frankfurt's schools. Each team is one school's
-graduating year group (_Abi-Jahrgang_), and every match raises money, through tickets and catering,
-for the year group hosting it, toward its graduation celebrations. The league is run by Frankfurt
-League e. V., an association of pupils and volunteers.
+graduating year group (_Abi-Jahrgang_), and every match raises money for both teams' graduation
+celebrations (_Abibälle_): its takings from tickets and sales on site are split between them after
+the match, usually half each. The league is run by Frankfurt League e. V., an association of pupils
+and volunteers.
 
 This repository is the league's website: the public pages, and the tools the season is organised
 with. The site is in German; the code and its documentation are in English.
