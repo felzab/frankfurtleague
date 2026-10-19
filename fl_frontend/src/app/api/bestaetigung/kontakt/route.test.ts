@@ -443,6 +443,18 @@ describe("a seat an administrator typed onto a team's season row", () => {
     assert.deepEqual(mails, []);
   });
 
+  /* The page opened on the row as open, so only the read after the press can say the team left since, which the
+     closed row's page names apart from an ended season, as a reload of it does. */
+  it("hands that page the view the read after the refusal answered, naming the team's withdrawal", async () => {
+    const ausgetreten = { ...ANSICHT, zustand: "saison_vorbei", quelle: "saison", zeile: "ausgetreten", text_version: null };
+    schreibAntwort = () => aRefusal("REQ-KONTAKT-006");
+    ansichtAntwort = () => ausgetreten;
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, zustand: "saison_vorbei", ansicht: ausgetreten });
+  });
+
   it("answers the browser the same echo an application's seat is answered", async () => {
     schreibAntwort = () => SAISON_GESCHRIEBEN;
 

@@ -21,6 +21,7 @@ import type {
   BewerbungKontaktpersonDraft,
   BewerbungSchuleDraft,
   EinwilligungAnsicht,
+  EinwilligungGeoeffnet,
   FensterZustand,
   KuerzelVerdikt,
   LinkZustand,
@@ -219,6 +220,8 @@ export type EinwilligungRefusal = {
   fieldErrors?: FieldErrors;
   unplacedError?: string;
   zustand?: LinkZustand | "saison_vorbei";
+  /** The view a closed season's page names its cause from, as the read after the refusal answered it. */
+  ansicht?: EinwilligungGeoeffnet;
 };
 
 // A THUNK and never a resolved read: the codes naming one state alone answer without it, and a caller
@@ -242,7 +245,11 @@ export async function mapEinwilligungRefusal(
   // The panel a reload opens on, which the press's own panel stands in for where the read finds the link open or reads nothing.
   const stand = async (sonst: LinkZustand | "saison_vorbei"): Promise<EinwilligungRefusal> => {
     const link = await gelesen();
-    return { zustand: link === null || link.zustand === "gueltig" ? sonst : link.zustand };
+    if (link === null || link.zustand === "gueltig") return { zustand: sonst };
+
+    // With the read it came from: the page's own read predates the press, and names a team that left since as a
+    // season that ended.
+    return link.zustand === "saison_vorbei" ? { zustand: link.zustand, ansicht: link.ansicht } : { zustand: link.zustand };
   };
 
   switch (error.serverErrorCode) {
