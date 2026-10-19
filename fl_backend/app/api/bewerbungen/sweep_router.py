@@ -47,6 +47,7 @@ from app.api.bewerbungen.services import (
 from app.api.kontakte.services import contact_block_image_edits
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.api.spielbestaetigungen.crud import strip_the_seasons_team_rows
 from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.teams.crud import void_moved_seats
 from app.api.teams.schemas import FLKontaktRolle
@@ -78,14 +79,14 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Both shares at three commands a row beside the 35 of the worst call erasing one page per clock
+# Both shares at three commands a row beside the 52 of the worst call erasing one page per clock
 # (`tests/api/test_bewerbung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
-# 266 commands at a 36 ms round trip plus 1.35 ms take 9.94 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
+# 265 commands at a 36 ms round trip plus 1.35 ms take 9.90 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 39
 
-# A season at the capacity its rules allow holds more junction rows than this, and takes more passes. One below
-# the reminders': voiding the cleared people's match links costs three commands, and 39 would make 269, 10.05 s.
-BLOCKS_CLEARED_PER_PASS: Final = 38
+# A season at its rules' capacity holds more junction rows and takes more passes. Seven below the reminders': the
+# season's end strips its confirmations' images in up to fifteen writes, and 33 would make 268, 10.01 s.
+BLOCKS_CLEARED_PER_PASS: Final = 32
 
 
 async def _club_names(
@@ -247,7 +248,9 @@ async def sweep_saison(
     season-after rule stops keeping this season's pupils: a running season keeps both, and a later season planned and never run
     holds neither back. A season whose id is not a four-digit year fails the whole pass rather than running the four clocks
     that need no later season, because a pass that skipped those two quietly would leave both stopped for ever with nothing
-    anywhere saying so.
+    anywhere saying so. Clearing the contact blocks also strips the season's fixture confirmation team rows, on the rows and
+    in their log images: every seat's link entry, each reason a contact typed and its holder digest; which way each answer
+    went, its day and the answering role stay as the season's record.
 
     One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
     answers it. So a day's first call records the day and the rest of that day's calls record nothing.
@@ -273,21 +276,10 @@ async def sweep_saison(
     async def stamp_the_run(session: AsyncClientSession) -> None:
         """One fan-out over every season today has not reached, inside the pass's LAST transaction, so a stamped day is a committed call."""
 
-        stale = await pull_many_from_db(
-            collection=saisons_collection,
-            db_filter={"sweep_gelaufen_am": {"$ne": today}},
-            projection=["_id"],
-            limit=LIST_LIMIT_MAX,
-            session=session,
-        )
-        # The guard that keeps a day to ONE log row: `patch_many_in_db` files one per call, a call
-        # matching nothing included, and this runs hourly against every season.
-        if not stale:
-            return
-
         await patch_many_in_db(
             collection=saisons_collection,
-            db_filter={"_id": {"$in": [row["_id"] for row in stale]}},
+            # Every season today has not reached, so the hourly pass writes, and logs, the first of the day alone.
+            db_filter={"sweep_gelaufen_am": {"$ne": today}},
             # The whole PASS's day, on every stale season at once: it says when the sweep last ran
             # and never when this season was visited.
             update={"$set": {"sweep_gelaufen_am": today}},
@@ -525,6 +517,15 @@ async def sweep_saison(
         # Once for the share, so voiding its people's match links costs the pass the same however many rows it
         # clears (`docs/backend/spec.md :: I758`).
         await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
+        # The season's contacts gone, what they typed on its fixture confirmations goes too: the answers stay its record.
+        if taken:
+            await strip_the_seasons_team_rows(
+                spielbestaetigungen_collection=spielbestaetigungen_collection,
+                aktionen_collection=aktionen_collection,
+                saison_id=saison_id,
+                stamp=stamp,
+                session=session,
+            )
         # The block alone leaves the row's images, as it leaves the row: its exit record and every
         # earlier state are the season's, not the people's.
         redacted = await redact_images_in_session(

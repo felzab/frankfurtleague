@@ -180,6 +180,11 @@ async def patch_many_in_db(
     _sending_a_write()
     result = await collection.update_many(filter=db_filter, update=update, session=session)
 
+    # A fan-out that changed nothing records nothing, as a removal that took nothing (`docs/backend/spec.md :: I744`): so a
+    # caller sends its write unguarded, and an hourly pass matching nothing files no row saying so.
+    if not result.modified_count:
+        return result
+
     await record_write(
         collection=collection,
         operation="patch_many",

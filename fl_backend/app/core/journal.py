@@ -75,12 +75,17 @@ class JournalLine:
     # An erasure's person as the action log and the day counts key them (`app/core/security.py :: akteur_pseudonym`): the
     # one way a replay finds those rows where the restored database holds the address nowhere. Absent on an older line.
     pseudonym: str | None = None
+    # An erasure's person as their fixture answers stored them (`app/api/spielbestaetigungen/services.py :: halter_of`), for
+    # the pseudonym's reason: a restore brings their reasons back with no address beside them. Absent on an older line.
+    halter: str | None = None
 
     def __post_init__(self) -> None:
         if not _HASH.fullmatch(self.person_hash):
             raise ValueError("a journal line names its person by a journal hash")
         if self.pseudonym is not None and (self.art != "loeschung" or not _HASH.fullmatch(self.pseudonym)):
             raise ValueError("an erasure's line alone names its person's log pseudonym")
+        if self.halter is not None and (self.art != "loeschung" or not _HASH.fullmatch(self.halter)):
+            raise ValueError("an erasure's line alone names its person's holder digest")
 
         if self.art == "loeschung":
             if (
@@ -116,7 +121,9 @@ class JournalLine:
     def text(self) -> str:
         """The line as the stream carries it."""
 
-        return " ".join([JOURNAL_TOKEN, self.person_hash, self.act(), *([f"pseudonym={self.pseudonym}"] if self.pseudonym is not None else [])])
+        keyed = [f"{name}={value}" for name, value in (("pseudonym", self.pseudonym), ("halter", self.halter)) if value is not None]
+
+        return " ".join([JOURNAL_TOKEN, self.person_hash, self.act(), *keyed])
 
     def act(self) -> str:
         """The act and its record, as the listing and a replay's log row name a line: neither the token nor anything keyed on its person."""
@@ -175,7 +182,7 @@ def parse_line(message: str) -> JournalLine | None:
             wahlen[key] = _read_value(key, value)
         elif key == "sitze":
             fields["sitze"] = tuple(value.split(","))
-        elif key in ("am", "text_version", "pseudonym"):
+        elif key in ("am", "text_version", "pseudonym", "halter"):
             fields[key] = value
         else:
             raise ValueError("a journal line names a value no act carries")

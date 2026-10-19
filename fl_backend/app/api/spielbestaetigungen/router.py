@@ -6,7 +6,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import hash_token
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
-from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, pull_ansetzung_lage, pull_vorschlag_offen, verein_fields
+from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, pull_ansetzung_lage, pull_vereinsnamen, pull_vorschlag_offen, verein_fields
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnsichtPayload,
     FLSpielbestaetigungAnsichtResponse,
@@ -20,10 +20,10 @@ from app.api.spielbestaetigungen.services import (
     AnsetzungLage,
     ansicht_ansetzung_of,
     ansicht_snapshot_of,
-    ansicht_vorschlag_of,
     beteiligte_namen,
     build_answerable_filter,
     build_token_filter,
+    clubs_without_a_season_row,
     compose_antwort_update,
     find_gesperrt_link_refusal,
     find_name_in_begruendung_refusal,
@@ -50,6 +50,7 @@ from app.core.dependencies import (
     SpieleCollection,
     SpielorteCollection,
     SpieltageCollection,
+    TeamsCollection,
     get_german_date_str,
 )
 from app.core.exception_handlers import stores_nothing
@@ -77,19 +78,21 @@ async def get_spielbestaetigung_ansicht(
     spiele_collection: SpieleCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spielorte_collection: SpielorteCollection,
+    teams_collection: TeamsCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielbestaetigungAnsichtResponse:
     """
     Answer what the page renders for the fixture this token asks a club about, and nobody's name or address (`READ-ANSETZUNG-001`).
 
-    The state, which side the reader's club plays, the fixture as it stands now, the row's deadline, the proposal in
-    front of the reader and which role answered. A POST that reads, so the token travels in a body and never in a
-    second URL. Refuses only a token no seat of any row holds (`REQ-ANSETZUNG-001`), a guess and a link voided when its
-    seat changed hands alike: an answered, closed, moved, decided or expired link is SERVED in that state rather than
-    refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever the ban
-    list holds the address the seat's links were mailed to. `vorschlag` is the state of an open link while the other
-    club's decline proposes another date for the same Ansetzung, whose date and hour alone are served.
+    The state, which side the reader's club plays, the fixture as it stands now (or, where it moved since the link, the
+    Ansetzung the link asked about), the row's deadline, the other club's proposal and which role answered. A POST that
+    reads, so the token travels in a body and never in a second URL. Refuses only a token no seat of any row holds
+    (`REQ-ANSETZUNG-001`), a guess and a link voided when its seat changed hands alike: an answered, closed, moved,
+    decided or expired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The
+    state is `gesperrt`, ahead of every other, wherever the ban list holds the address the seat's links were mailed to.
+    `vorschlag` is the state of an open link while the other club's decline proposes another date for the same
+    Ansetzung, whose date and hour alone are served.
     """
 
     token_hash = hash_token(ansicht_data.token)
@@ -125,16 +128,20 @@ async def get_spielbestaetigung_ansicht(
             if venue is None
             else FLSpielOrtFieldPublic(spielort_id=row["ansetzung"]["spielort_id"], name=venue.name, maps_link=venue.maps_link)
         )
-        ansetzung = ansicht_snapshot_of(spielbestaetigung_raw=row, lage=lage, spielort=spielort)
+        vereinsnamen = await pull_vereinsnamen(
+            teams_collection=teams_collection, team_ids=clubs_without_a_season_row(spielbestaetigung_raw=row, lage=lage)
+        )
+        ansetzung = ansicht_snapshot_of(spielbestaetigung_raw=row, lage=lage, vereinsnamen=vereinsnamen, spielort=spielort)
     else:
-        ansetzung = ansicht_ansetzung_of(spielbestaetigung_raw=row, lage=lage)
+        ansetzung = ansicht_ansetzung_of(lage.spiel)
 
     return FLSpielbestaetigungAnsichtResponse(
         zustand=zustand,
         seite=seite_of(row),
         ansetzung=ansetzung,
         frist=str(row["frist"]),
-        vorschlag=ansicht_vorschlag_of(spielbestaetigung_raw=row, zustand=zustand, vorschlag_offen=vorschlag_offen),
+        # Never the row's own proposal on `abgelehnt`: the page shows an answered link its answering role alone.
+        vorschlag=vorschlag_offen if zustand == "vorschlag" else None,
         beantwortet_von=antwort["von"] if zustand in ("zugesagt", "abgelehnt") and antwort is not None else None,
     )
 
@@ -161,16 +168,17 @@ async def post_spielbestaetigung(
     are one answer and one `REQ-ANSETZUNG-002`. Writes no fixture: a proposal is the administrator's to act on.
 
     Refuses, in this order: a token no seat holds (`REQ-ANSETZUNG-001`); a link whose seat's address the ban list holds
-    now, whenever it was minted (`REQ-ANSETZUNG-011`); a row already answered, closed since or not (`REQ-ANSETZUNG-002`);
-    one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club (`REQ-ANSETZUNG-005`),
-    then one whose date, time, ground or sides moved since the link (`REQ-ANSETZUNG-004`), each as the confirmation
-    pass's close judges the row; an answer after the deadline's day (`REQ-ANSETZUNG-003`); a proposal dated
-    before today (`REQ-ANSETZUNG-007`); a reason holding a name of either club's three seats or of the booked referee
-    (`REQ-ANSETZUNG-012`); and a proposal the administrator's own save of that date would be refused, judged on what it
-    newly claims: outside the matchday (`REQ-DATE-001`), on or after a club's exit (`REQ-ELIGIBILITY-001`), or within
-    four hours of the ground's or the referee's other fixture (`REQ-CLASH-001`). Every refusal after the ban's is asked
-    again outside the transaction just before answering, so a write landing mid-answer on what was judged refuses the
-    answer rather than letting it stand.
+    now, whenever it was minted (`REQ-ANSETZUNG-011`); a row already answered, closed since or not
+    (`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club
+    (`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the link (`REQ-ANSETZUNG-004`), each
+    as the confirmation pass's close judges the row; an answer after the deadline's day (`REQ-ANSETZUNG-003`); a
+    proposal dated before today (`REQ-ANSETZUNG-007`); a proposal the administrator's own save of that date would be
+    refused, judged on what it newly claims: outside the matchday (`REQ-DATE-001`), on or after a club's exit
+    (`REQ-ELIGIBILITY-001`), or within four hours of the ground's or the referee's other fixture (`REQ-CLASH-001`); and
+    last a reason holding a name of either club's three seats or of the booked referee (`REQ-ANSETZUNG-012`), so an
+    answer refused for anything else says nothing about a name. Every refusal after the ban's is asked again outside the
+    transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather than
+    letting it stand.
     """
 
     token_hash = hash_token(antwort_data.token)
@@ -216,32 +224,31 @@ async def post_spielbestaetigung(
             if vorschlag is not None:
                 refuse(find_vorschlag_vergangen_refusal(vorschlag=vorschlag, today=today))
 
+                stored = FLSpiel.model_validate(gegen.spiel)
+                proposed = proposal_payload(stored, vorschlag)
+
+                # The administrator's save's judges in its order, each read just ahead of the one refusal that consumes it.
+                membership = await pull_saison_membership(
+                    saison_teams_collection=saison_teams_collection, saison_id=stored.saison_id, session=reads
+                )
+                # The composer spelled at the call: its kept sides are what disarm this check's no-membership code here.
+                refuse(find_eligibility_refusal(stored.id, proposal_payload(stored, vorschlag), [stored], membership))
+
+                span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=reads)
+                if span is not None:
+                    refuse(find_fixture_date_refusal(datum=proposed.datum, spieltag_beginn=span.beginn, spieltag_ende=span.ende))
+
+                # Last, as in the save: it validates every season's fixtures, and a hand-edited one raises, answering 500 for a
+                # proposal an earlier rule refuses. Only claims the stored fixture did not make (`docs/backend/spec.md :: I258`).
+                booked = await pull_booked_slots(
+                    spiele_collection=spiele_collection, spiel_id=stored.id, claims=find_claims_made(stored, proposed), session=reads
+                )
+                refuse(find_clash_refusal(datum=proposed.datum, uhrzeit=proposed.uhrzeit, booked=booked))
+
+            # LAST, behind every judge that writes nothing either: a reason naming nobody is then stored and the link spent,
+            # so a stranger probing guessed names learns one answer per link rather than one per press.
             if antwort_data.begruendung is not None:
                 refuse(find_name_in_begruendung_refusal(begruendung=antwort_data.begruendung, names=beteiligte_namen(lage=gegen)))
-
-            if vorschlag is None:
-                return
-
-            stored = FLSpiel.model_validate(gegen.spiel)
-            proposed = proposal_payload(stored, vorschlag)
-
-            # The administrator's save's judges in its order, each read just ahead of the one refusal that consumes it.
-            membership = await pull_saison_membership(
-                saison_teams_collection=saison_teams_collection, saison_id=stored.saison_id, session=reads
-            )
-            # The composer spelled at the call: its kept sides are what disarm this check's no-membership code here.
-            refuse(find_eligibility_refusal(stored.id, proposal_payload(stored, vorschlag), [stored], membership))
-
-            span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=reads)
-            if span is not None:
-                refuse(find_fixture_date_refusal(datum=proposed.datum, spieltag_beginn=span.beginn, spieltag_ende=span.ende))
-
-            # Last, as in the save: it validates every season's fixtures, and a hand-edited one raises, answering 500 for a
-            # proposal an earlier rule refuses. Only claims the stored fixture did not make (`docs/backend/spec.md :: I258`).
-            booked = await pull_booked_slots(
-                spiele_collection=spiele_collection, spiel_id=stored.id, claims=find_claims_made(stored, proposed), session=reads
-            )
-            refuse(find_clash_refusal(datum=proposed.datum, uhrzeit=proposed.uhrzeit, booked=booked))
 
         await judge(lage, session)
 
@@ -253,6 +260,7 @@ async def post_spielbestaetigung(
                     antwort=antwort_data.antwort,
                     seat=seat,
                     adresse=adresse,
+                    schluessel=sperrliste.schluessel,
                     vorschlag=vorschlag,
                     begruendung=antwort_data.begruendung,
                     today=today,

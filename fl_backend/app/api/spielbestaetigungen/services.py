@@ -1,8 +1,11 @@
 import hashlib
-from collections.abc import Iterable, Mapping, Sequence
+import hmac
+from collections.abc import Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Any, Final, NamedTuple, cast
+
+from pydantic import SecretStr
 
 from app.api.bewerbungen.services import days_after, seat_named
 from app.api.identitaet.services import holds_a_name, namen_aus
@@ -34,6 +37,7 @@ from app.shared.schemas.bounds import (
     SPIEL_ERINNERUNG_TAGE_ERSTE,
     SPIEL_ERINNERUNG_TAGE_ZWEITE,
 )
+from app.shared.sub_keys import derive_sub_key
 
 # Each stored `ansetzung` key and its fixture path: the ONE list the digest, the snapshot and the public
 # verdict's `$lookup` read, a key one lacks giving two answers to which Ansetzung a row is about.
@@ -144,14 +148,17 @@ ANSETZUNG_NAME_IN_BEGRUENDUNG = "REQ-ANSETZUNG-012"
 # page tells apart from a deadline that ran out.
 GRUENDE_UNGUELTIG: Final = frozenset({"ansetzung_geaendert", "schiedsrichter_gewechselt"})
 
-# An INCLUSION: of a row's links the hashes alone, which resolve the seat and never leave the handler.
+# An INCLUSION: of a row's links the hashes alone, which resolve the seat and never leave the handler; of its answer
+# which way it went and the role, never the reason, the proposal or the holder digest (`docs/backend/spec.md :: I185`).
 LINK_FIELDS: Mapping[str, int] = {
     "saison_id": 1,
     "spiel_id": 1,
     "partei": 1,
     "ansetzung": 1,
     "frist": 1,
-    "antwort": 1,
+    "antwort.art": 1,
+    "antwort.von.art": 1,
+    "antwort.von.rolle": 1,
     "geschlossen": 1,
     **{f"kontakte.{seat}.token_hashes": 1 for seat in KONTAKT_ROLLEN},
 }
@@ -334,6 +341,8 @@ def find_vorschlag_vergangen_refusal(*, vorschlag: FLSpielbestaetigungTermin, to
         error_code=ANSETZUNG_VORSCHLAG_VERGANGEN,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         message=f"the proposed date {vorschlag.datum} lies before today",
+        # The date box the form holds the proposal in, so it is marked where the reader typed the day.
+        fields=(("vorschlag", "datum"),),
     )
 
 
@@ -358,9 +367,9 @@ def beteiligte_namen(*, lage: AnsetzungLage) -> frozenset[str]:
 
 
 def find_name_in_begruendung_refusal(*, begruendung: str, names: Iterable[str]) -> WriteRefusal | None:
-    """`REQ-ANSETZUNG-012`: no name of the Ansetzung's people stands in a reason the row keeps for the season (`holds_a_name`).
+    """`REQ-ANSETZUNG-012`: no name of the Ansetzung's people stands in a reason the row keeps until its season's contacts are cleared.
 
-    A common word equal to a name is refused with it, and the club rephrases.
+    By `holds_a_name`: a common word equal to a name is refused with it, and the club rephrases.
     """
 
     if not holds_a_name(begruendung, names):
@@ -370,7 +379,7 @@ def find_name_in_begruendung_refusal(*, begruendung: str, names: Iterable[str]) 
     return WriteRefusal(
         error_code=ANSETZUNG_NAME_IN_BEGRUENDUNG,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        message="the reason names a person of this fixture's clubs or its referee, and the confirmation keeps it for the season",
+        message="the reason names a person of this fixture's clubs or its referee, and the confirmation keeps it with the season's contacts",
         fields=(("begruendung",),),
     )
 
@@ -415,12 +424,25 @@ def stand_moved(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage
     return ansetzung_stand_of(lage.spiel) != spielbestaetigung_raw["ansetzung"]["stand"]
 
 
-def ansicht_ansetzung_of(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage) -> FLSpielbestaetigungAnsichtAnsetzung:
-    """The fixture as it stands now; where it lost its day, hour or a side, the row's own value for it.
+def ansicht_ansetzung_of(spiel: Mapping[str, Any]) -> FLSpielbestaetigungAnsichtAnsetzung:
+    """The fixture as it stands, for a row about that very Ansetzung: every value is the fixture's, none filled in from a row."""
 
-    The pass names a moved row's clubs by it, a club replaced since holding no season row. A value it fills in from
-    the row describes no Ansetzung that stood, so the link's page states a moved row by `ansicht_snapshot_of` instead.
-    """
+    # Absent rather than null where a projection met a fixture without a ground.
+    ort = spiel.get("ort")
+
+    return FLSpielbestaetigungAnsichtAnsetzung(
+        team1_name=spiel["team1"]["name"],
+        team2_name=spiel["team2"]["name"],
+        datum=spiel["datum"],
+        uhrzeit=spiel["uhrzeit"],
+        spielort=None
+        if not isinstance(ort, Mapping)
+        else FLSpielOrtFieldPublic(spielort_id=ort["spielort_id"], name=ort["name"], maps_link=ort["maps_link"]),
+    )
+
+
+def vereinsnamen_of(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage) -> tuple[str, str]:
+    """The clubs a notice about a moved row names: each side as the fixture fields it now, a side it lost by its season row."""
 
     snapshot = spielbestaetigung_raw["ansetzung"]
     namen = {row.get("team_id"): row.get("name") for row in lage.vereine}
@@ -429,28 +451,31 @@ def ansicht_ansetzung_of(*, spielbestaetigung_raw: Mapping[str, Any], lage: Anse
         side = lage.spiel.get(slot)
         return str(side["name"]) if isinstance(side, Mapping) else str(namen.get(snapshot[snapshot_key]) or "")
 
-    # Absent rather than null where a projection met a fixture without a ground.
-    ort = lage.spiel.get("ort")
+    return side_name("team1", "team1_id"), side_name("team2", "team2_id")
 
-    return FLSpielbestaetigungAnsichtAnsetzung(
-        team1_name=side_name("team1", "team1_id"),
-        team2_name=side_name("team2", "team2_id"),
-        datum=lage.spiel.get("datum") or snapshot["datum"],
-        uhrzeit=lage.spiel.get("uhrzeit") or snapshot["uhrzeit"],
-        spielort=None
-        if not isinstance(ort, Mapping)
-        else FLSpielOrtFieldPublic(spielort_id=ort["spielort_id"], name=ort["name"], maps_link=ort["maps_link"]),
-    )
+
+def clubs_without_a_season_row(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage) -> list[Any]:
+    """The row's clubs no season row names: one replaced since, whose row went to the incoming club with its name."""
+
+    snapshot = spielbestaetigung_raw["ansetzung"]
+    seated = {row.get("team_id") for row in lage.vereine}
+
+    return [team_id for team_id in (snapshot["team1_id"], snapshot["team2_id"]) if team_id not in seated]
 
 
 def ansicht_snapshot_of(
-    *, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage, spielort: FLSpielOrtFieldPublic | None
+    *,
+    spielbestaetigung_raw: Mapping[str, Any],
+    lage: AnsetzungLage,
+    # A club replaced since, by the name its `teams` document holds.
+    vereinsnamen: Mapping[Any, str],
+    spielort: FLSpielOrtFieldPublic | None,
 ) -> FLSpielbestaetigungAnsichtAnsetzung:
     """The Ansetzung a row whose stand moved was about, whole: its clubs by their season names and `spielort`, its ground read now."""
 
     snapshot = spielbestaetigung_raw["ansetzung"]
-    # Empty for a club replaced since: its season row went to the incoming club, and its `teams` document may not exist.
-    namen = {row.get("team_id"): str(row.get("name") or "") for row in lage.vereine}
+    # Empty only for a club no document names at all, a dangling id a replacement exists to repair.
+    namen = {**vereinsnamen, **{row.get("team_id"): str(row.get("name") or "") for row in lage.vereine}}
 
     return FLSpielbestaetigungAnsichtAnsetzung(
         team1_name=namen.get(snapshot["team1_id"], ""),
@@ -461,28 +486,18 @@ def ansicht_snapshot_of(
     )
 
 
-def ansicht_vorschlag_of(
-    *, spielbestaetigung_raw: Mapping[str, Any], zustand: FLSpielbestaetigungZustand, vorschlag_offen: FLSpielbestaetigungTermin | None
-) -> FLSpielbestaetigungTermin | None:
-    """The proposal in front of the reader: the other club's on `vorschlag`, this row's own on `abgelehnt`."""
-
-    if zustand == "vorschlag":
-        return vorschlag_offen
-
-    antwort = spielbestaetigung_raw.get("antwort")
-    if zustand == "abgelehnt" and isinstance(antwort, Mapping) and isinstance(antwort.get("vorschlag"), Mapping):
-        return FLSpielbestaetigungTermin.model_validate(antwort["vorschlag"])
-
-    return None
+# Its own label under the `sperrliste_schluessel` master, beside the ban list's, the log's, the journal's and the anchors'
+# (`app/core/adressanker.py :: ADRESSANKER_VERSION`): under theirs a holder would equal one of their digests.
+HALTER_VERSION: Final = "halter-v1"
 
 
-def halter_of(address: str) -> str:
+def halter_of(address: str, *, schluessel: SecretStr) -> str:
     """The answering seat's holder, as the person's erasure finds the reasons they typed from any seat.
 
-    A digest, so the row keeps no address, over the fold `app/api/teams/services.py :: seats_changing_holder` tells holders apart by.
+    KEYED, an address being a dictionary word; over the fold `app/api/teams/services.py :: seats_changing_holder` tells holders apart by.
     """
 
-    return hashlib.sha256(sign_in_identifier(address).encode("utf-8")).hexdigest()
+    return hmac.new(derive_sub_key(schluessel, HALTER_VERSION), sign_in_identifier(address).encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def compose_antwort_update(
@@ -490,6 +505,7 @@ def compose_antwort_update(
     antwort: FLSpielbestaetigungAntwortArt,
     seat: FLKontaktRolle,
     adresse: str | None,
+    schluessel: SecretStr,
     vorschlag: FLSpielbestaetigungTermin | None,
     begruendung: str | None,
     today: str,
@@ -500,7 +516,7 @@ def compose_antwort_update(
                 "art": antwort,
                 "am": today,
                 # Never served (`tests/core/test_constraints.py :: STORED_BUT_NOT_SERVED`).
-                "von": {"art": "kontakt", "rolle": seat, "halter": None if adresse is None else halter_of(adresse)},
+                "von": {"art": "kontakt", "rolle": seat, "halter": None if adresse is None else halter_of(adresse, schluessel=schluessel)},
                 "vorschlag": None if vorschlag is None else {"datum": vorschlag.datum, "uhrzeit": vorschlag.uhrzeit},
                 "begruendung": begruendung,
             }
@@ -724,29 +740,35 @@ def erinnerung_tage(*, today: str) -> list[str]:
     return [days_after(day=today, days=tage) for tage in (SPIEL_ERINNERUNG_TAGE_ERSTE, SPIEL_ERINNERUNG_TAGE_ZWEITE)]
 
 
-def build_erinnerung_filter(*, saison_id: str, today: str) -> dict[str, Any]:
-    """The season's open team rows a reminder falls due on today and none has gone out for."""
+def build_erinnerung_filter(*, saison_id: str, today: str, minted: Sequence[Any]) -> dict[str, Any]:
+    """The season's open team rows owed a message: a reminder due today, or a request never stamped as sent (`docs/backend/spec.md :: I781`).
+
+    Never a row minted by this pass, nor reminded on its request's day (`:: I782`).
+    """
 
     return {
         "saison_id": saison_id,
         "partei.art": "team",
         **build_answerable_filter(),
-        "frist": {"$in": erinnerung_tage(today=today)},
-        "erinnert_am": {"$ne": today},
+        "_id": {"$nin": list(minted)},
+        "$or": [
+            {"angefragt_am": None},
+            {"frist": {"$in": erinnerung_tage(today=today)}, "erinnert_am": {"$ne": today}, "angefragt_am": {"$ne": today}},
+        ],
     }
 
 
-def compose_erinnerung_update(*, hashes: Mapping[str, str], today: str) -> dict[str, Any]:
-    """The reminder's one update: each seat's fresh hash appended beside the ones already mailed, and the day.
+def compose_erinnerung_update(*, hashes: Mapping[str, str], today: str, erinnert: bool) -> dict[str, Any]:
+    """Each seat's fresh hash appended beside the ones already mailed, and with `erinnert` the day a reminder went.
 
-    Appended, never replacing: every link a seat was mailed answers until the deadline.
+    Appended, never replacing: every link a seat was mailed answers until the deadline. A request asked again marks no day.
     """
 
     pushed: dict[str, Any] = {
         f"kontakte.{seat}.token_hashes": {"$each": [token_hash], "$slice": -TOKEN_HASHES_PER_SEAT} for seat, token_hash in hashes.items()
     }
 
-    return {"$push": {**pushed, "erinnert_am": today}}
+    return {"$push": {**pushed, "erinnert_am": today} if erinnert else pushed}
 
 
 def compose_seats_update(*, hashes: Mapping[str, str]) -> dict[str, Any]:
@@ -798,33 +820,19 @@ def _team_rows(saison_id: Any, team_id: Any) -> dict[str, Any]:
     return {"saison_id": saison_id, "partei.team_id": team_id}
 
 
-def build_open_team_rows_filter(pairs: Sequence[tuple[Any, Any]]) -> dict[str, Any]:
-    """These teams' rows in these seasons that are still answerable, so an answered row keeps its answer and its links."""
+def build_team_rows_filter(pairs: Sequence[tuple[Any, Any]]) -> dict[str, Any]:
+    """These teams' rows in these seasons, answered and closed ones too: a link opens nothing once its seat changed holder.
 
-    return {"partei.art": "team", **build_answerable_filter(), "$or": [_team_rows(saison_id, team_id) for saison_id, team_id in pairs]}
+    Left on an answered row, it would show whoever holds the old mail the successor's ban (`docs/backend/spec.md :: I567`).
+    """
 
-
-def build_open_seat_rows_pipeline(voids: Sequence[SeatVoid]) -> list[Mapping[str, Any]]:
-    """Per team and season, which seats hold an entry on any open row: one document per row written, so one batch answers it."""
-
-    return [
-        {"$match": build_open_team_rows_filter([(void.saison_id, void.team_id) for void in voids])},
-        {
-            "$group": {
-                "_id": {"saison_id": "$saison_id", "team_id": "$partei.team_id"},
-                # An object sorts above null, so only a standing entry counts.
-                **{seat: {"$max": {"$gt": [f"$kontakte.{seat}", None]}} for seat in KONTAKT_ROLLEN},
-            }
-        },
-    ]
+    return {"partei.art": "team", "$or": [_team_rows(saison_id, team_id) for saison_id, team_id in pairs]}
 
 
-def group_seat_voids(
-    *, voids: Sequence[SeatVoid], held: Sequence[Mapping[str, Any]]
-) -> list[tuple[tuple[FLKontaktRolle, ...], list[tuple[Any, Any]]]]:
-    """The teams whose open rows hold an entry of a seat their write moved, grouped by the seats to null.
+def group_seat_voids(voids: Sequence[SeatVoid]) -> list[tuple[tuple[FLKontaktRolle, ...], list[tuple[Any, Any]]]]:
+    """The teams these writes moved seats on, grouped by the seats to null: one write per group, never per row.
 
-    One write per group rather than per row, so a call costs the same however many rows it voids.
+    Unread first: a group whose rows hold none of the entries changes, and logs, nothing.
     """
 
     seats_of: dict[tuple[Any, Any], set[str]] = {}
@@ -832,14 +840,71 @@ def group_seat_voids(
         seats_of.setdefault((void.saison_id, void.team_id), set()).update(void.seats)
 
     groups: dict[tuple[FLKontaktRolle, ...], list[tuple[Any, Any]]] = {}
-    for team in held:
-        pair = (team["_id"]["saison_id"], team["_id"]["team_id"])
-        seats = seats_of.get(pair, set())
-        # A team whose rows hold none of them is not written: the update would change nothing and still file a log row.
-        if any(team.get(seat) is True for seat in seats):
-            groups.setdefault(tuple(seat for seat in KONTAKT_ROLLEN if seat in seats), []).append(pair)
+    for pair, seats in seats_of.items():
+        groups.setdefault(tuple(seat for seat in KONTAKT_ROLLEN if seat in seats), []).append(pair)
 
     return list(groups.items())
+
+
+def build_seat_entry_images_filter(voids: Sequence[SeatVoid]) -> dict[str, Any]:
+    """Log rows whose image may be one of these teams' rows in these seasons, an undraw's removal among them; the judge decides."""
+
+    return {
+        "collection": str(Collection.SPIELBESTAETIGUNGEN),
+        "$or": [{"before.saison_id": void.saison_id, "before.partei.team_id": void.team_id} for void in voids],
+    }
+
+
+def seat_entry_image_edits(image: Mapping[str, Any], voids: Sequence[SeatVoid], *, reasons: bool) -> dict[str, None]:
+    """One image's entries of the voided seats nulled: a link's hashes and the delivery record of its mail.
+
+    With `reasons`, the contact's typed reason and holder digest too; which way the answer went and the role stay.
+    """
+
+    partei = image.get("partei")
+    team_id = partei.get("team_id") if isinstance(partei, Mapping) and partei.get("art") == "team" else None
+    seats = {seat for void in voids if (void.saison_id, void.team_id) == (image.get("saison_id"), team_id) for seat in void.seats}
+
+    return _left_by_contacts(image, seats, reasons=reasons) if team_id is not None and seats else {}
+
+
+def build_season_images_filter(saison_id: str) -> dict[str, Any]:
+    """Every log row whose image may be one of this season's team rows; the judge decides."""
+
+    return {"collection": str(Collection.SPIELBESTAETIGUNGEN), "before.saison_id": saison_id, "before.partei.art": "team"}
+
+
+def season_end_image_edits(image: Mapping[str, Any], saison_id: str) -> dict[str, None]:
+    """One image of this season's team rows stripped as its season's end strips the row: every seat's link entry, the reason, the holder."""
+
+    partei = image.get("partei")
+    if image.get("saison_id") != saison_id or not isinstance(partei, Mapping) or partei.get("art") != "team":
+        return {}
+
+    return _left_by_contacts(image, set(KONTAKT_ROLLEN), reasons=True)
+
+
+def _left_by_contacts(image: Mapping[str, Any], seats: Set[str], *, reasons: bool) -> dict[str, None]:
+    kontakte, antwort = image.get("kontakte"), image.get("antwort")
+    held = [seat for seat in KONTAKT_ROLLEN if seat in seats and isinstance(kontakte, Mapping) and kontakte.get(seat) is not None]
+    edits: dict[str, None] = {f"kontakte.{seat}": None for seat in held}
+    von = antwort.get("von") if isinstance(antwort, Mapping) else None
+    typed = isinstance(antwort, Mapping) and isinstance(von, Mapping) and (antwort.get("begruendung"), von.get("halter")) != (None, None)
+    if reasons and isinstance(von, Mapping) and von.get("art") == "kontakt" and typed:
+        edits.update({"antwort.begruendung": None, "antwort.von.halter": None})
+
+    return edits
+
+
+def build_season_reasons_filter(saison_id: str) -> dict[str, Any]:
+    """This season's team rows a contact answered holding a reason or a holder: the season's end takes both, answer and role kept."""
+
+    return {
+        "saison_id": saison_id,
+        "partei.art": "team",
+        "antwort.von.art": "kontakt",
+        "$or": [{"antwort.begruendung": {"$ne": None}}, {"antwort.von.halter": {"$ne": None}}],
+    }
 
 
 # --- A CONTACT PERSON'S ERASURE OR WIDERSPRUCH: the reasons they typed, from whichever seat they held then.

@@ -52,6 +52,7 @@ from app.api.bewerbungen.services import (
 from app.api.einwilligung.services import find_fassung_refusal, find_selbst_medien_refusal
 from app.api.kontakte.crud import redact_the_decliner, remove_their_reasons
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import kontakte_ohne, seat_void_of
 from app.api.teams.crud import void_moved_seats
 from app.api.teams.services import kontakt_zeile_of
@@ -360,23 +361,22 @@ async def post_einwilligung(
         )
         # The emptied seats' links on the team's open confirmations go with them (`docs/backend/spec.md :: I758`).
         stored_kontakte = before.get("kontakte")
-        await void_moved_seats(
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
-            voids=[
-                seat_void_of(
-                    saison_id=before["saison_id"],
-                    team_id=before["team_id"],
-                    stored_kontakte=stored_kontakte,
-                    kontakte=kontakte_ohne(stored_kontakte, seats),
-                )
-            ],
-            session=session,
-        )
+        voids = [
+            seat_void_of(
+                saison_id=before["saison_id"],
+                team_id=before["team_id"],
+                stored_kontakte=stored_kontakte,
+                kontakte=kontakte_ohne(stored_kontakte, seats),
+            )
+        ]
+        await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
+        await redact_seat_entries_in_images(aktionen_collection=aktionen_collection, voids=voids, reasons=False, stamp=am, session=session)
         # As an erasure takes them: the person's reasons on every confirmation, from whichever seat they typed them.
         await remove_their_reasons(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             aktionen_collection=aktionen_collection,
             adressen=seat_adressen(kontakte=kontakte, seats=seats),
+            schluessel=config.sperrliste_schluessel,
             stamp=am,
             session=session,
         )

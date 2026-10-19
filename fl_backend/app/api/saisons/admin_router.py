@@ -1190,8 +1190,7 @@ async def _mail_one_team(
                 hatte_link=bool(live),
             )
 
-        # Only where the read above found one: an unconditional revoke files a log row per team
-        # holding no link, which is sixteen rows saying nothing happened.
+        # Only where the read above found one: a team holding no link is spared the command.
         if live:
             await patch_many_in_db(
                 collection=einladungen_collection,

@@ -25,6 +25,7 @@ from app.api.kontakte.services import (
     same_address,
     seat_image_edits,
 )
+from app.api.spielbestaetigungen.services import halter_of
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLSaisonTeamKontakte
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_one_in_db
@@ -32,8 +33,10 @@ from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import CustomEmail
 from tests import documents
+from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.erasure import erased
+from tests.plans import plans_of_sent_reads
 from tests.wire import commands_sent
 from tests.worker import worker_database
 
@@ -726,6 +729,7 @@ def test_a_spelling_handed_in_unfolded_still_clears_and_redacts(mongo_replica_se
                 aktionen_collection=database[Collection.AKTIONEN],
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 identifier=VARIANT_REQUEST_EMAIL,
+                schluessel=build_test_config().sperrliste_schluessel,
                 saison_team_rows=reached[Collection.SAISON_TEAMS],
                 bewerbung_rows=reached[Collection.BEWERBUNGEN],
                 stamp=REDACTED_AT,
@@ -1487,13 +1491,16 @@ def a_bystanders_row(saison_id: str) -> dict[str, Any]:
     return documents.spielbestaetigung_document(a_fixture_of(TEAM_B_OID, saison_id=saison_id), partei={"art": "team", "team_id": TEAM_B_OID})
 
 
-# The images of the person's reasons the driver answers in its first batch: a read past it costs a `getMore`.
+# The rows and images of the person's reasons the driver answers in its first batch: a read past it costs a `getMore`.
 IMAGES_A_FIRST_BATCH = 101
 
 
 @pytest.mark.db
 def test_the_images_of_their_reasons_cost_one_read_more_past_the_first_batch_and_no_write_more(mongo_replica_set_url: str):
-    """The reason step's fixed cost grows with the person's history here alone; a write per row or per image would show as more."""
+    """Past the first batch, each of the three reads selecting their rows takes one `getMore`, and no write more.
+
+    The rows and their images by holder, and the images again as a team's rows their seats leave.
+    """
 
     def counted(images: int) -> int:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> int:
@@ -1512,7 +1519,7 @@ def test_the_images_of_their_reasons_cost_one_read_more_past_the_first_batch_and
 
         return on_a_league(mongo_replica_set_url, body)
 
-    assert counted(2 * IMAGES_A_FIRST_BATCH) - counted(IMAGES_A_FIRST_BATCH - 1) == 1
+    assert counted(2 * IMAGES_A_FIRST_BATCH) - counted(IMAGES_A_FIRST_BATCH - 1) == 3
 
 
 @pytest.mark.db
@@ -1534,3 +1541,81 @@ def test_each_distinct_place_of_theirs_in_an_undraws_image_costs_one_write(mongo
         return on_a_league(mongo_replica_set_url, body)
 
     assert counted([0, 1, 2]) - counted([0, 0, 0]) == 2
+
+
+# Every non-empty set of the three seats, the widest spread one erasure's void can write.
+SEAT_SETS = [tuple(seat for bit, seat in enumerate(KONTAKT_ROLLEN) if mask >> bit & 1) for mask in range(1, 2 ** len(KONTAKT_ROLLEN))]
+
+
+def a_row_voiding(row_id: ObjectId, seats: tuple[str, ...]) -> dict[str, Any]:
+    """The person on the first of `seats`, the rest of them empty and every other seat held: the erasure voids exactly `seats`."""
+
+    others = iter([person(BYSTANDER_NACHNAME, BYSTANDER_TELEFON), person(UNREACHED_NACHNAME, UNREACHED_TELEFON)])
+    block = {
+        slot: ({**person(ERASED_NACHNAME, ERASED_TELEFON)} if slot == seats[0] else None) if slot in seats else next(others)
+        for slot in KONTAKT_ROLLEN
+    }
+
+    return a_junction_row(row_id, LATER_SAISON, {**block, "trainer_ist_zugleich": None})
+
+
+@pytest.mark.db
+def test_each_further_seat_set_the_void_meets_costs_one_write_and_its_log_row(mongo_replica_set_url: str):
+    """Seven rows voiding seven different seat sets against seven voiding one: the void writes once per set, and nothing reads first."""
+
+    def counted(seat_sets: list[tuple[str, ...]]) -> int:
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> int:
+            rows = [a_row_voiding(an_extra_row(position), seats) for position, seats in enumerate(seat_sets)]
+            await database[Collection.SAISON_TEAMS].insert_many(rows)
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many([an_open_confirmation(row["team_id"]) for row in rows])
+
+            return await commands_sent(mongo_replica_set_url, DATABASE_NAME, call_erasure)
+
+        return on_a_league(mongo_replica_set_url, body)
+
+    assert len(set(SEAT_SETS)) == 7
+    assert counted(SEAT_SETS) - counted([KONTAKT_ROLLEN] * len(SEAT_SETS)) == 2 * (len(SEAT_SETS) - 1)
+
+
+THEIR_HALTER = halter_of(ERASED_EMAIL, schluessel=build_test_config().sperrliste_schluessel)
+
+
+@pytest.mark.db
+def test_the_reason_steps_log_row_names_no_digest_of_theirs(mongo_replica_set_url: str):
+    """The log keeps a fan-out's filter as text for twelve months, so the step's write names their rows by id alone."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await database[Collection.SPIELBESTAETIGUNGEN].insert_many([a_reason_of_theirs(), a_reason_of_theirs()])
+        await call_erasure(database, client)
+
+        return (
+            await database[Collection.SPIELBESTAETIGUNGEN].find({}, {"antwort": 1}).to_list(length=None),
+            await database[Collection.AKTIONEN].find({}).to_list(length=None),
+        )
+
+    stored, log = on_a_league(mongo_replica_set_url, body)
+
+    # The premise: the step wrote both rows, and logged doing so.
+    assert [row["antwort"]["begruendung"] for row in stored] == [None, None]
+    assert [row["modified_count"] for row in log if row["collection"] == Collection.SPIELBESTAETIGUNGEN] == [2]
+    assert THEIR_HALTER not in str(log)
+
+
+@pytest.mark.db
+def test_the_reason_steps_read_walks_the_holder_index(mongo_replica_set_url: str):
+    """The collection keeps every season's rows, and every contact erasure reads it inside its transaction."""
+
+    async def body(database: AsyncDatabase, _client: AsyncMongoClient) -> Any:
+        await database[Collection.SPIELBESTAETIGUNGEN].insert_many([a_reason_of_theirs(), a_bystanders_row(LATER_SAISON)])
+        _, sent = await plans_of_sent_reads(
+            mongo_replica_set_url,
+            database,
+            call_erasure,
+            lambda collection, command: collection == Collection.SPIELBESTAETIGUNGEN and "antwort.von.halter" in str(command.get("pipeline")),
+        )
+
+        return sent
+
+    [(_, plan)] = on_a_league(mongo_replica_set_url, body)
+
+    assert plan == "IXSCAN { antwort.von.halter: 1 }"

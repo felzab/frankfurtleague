@@ -9,9 +9,15 @@ from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungTermin
 from app.api.spielbestaetigungen.services import (
     ANSETZUNG_QUELLEN,
     AnsetzungLage,
+    SeatVoid,
     build_referee_images_filter,
     build_referee_rows_filter,
+    build_season_images_filter,
+    build_season_reasons_filter,
+    build_seat_entry_images_filter,
     referee_image_edits,
+    season_end_image_edits,
+    seat_entry_image_edits,
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
@@ -95,6 +101,84 @@ async def pull_vorschlag_offen(
     return FLSpielbestaetigungTermin.model_validate(vorschlag) if isinstance(vorschlag, Mapping) else None
 
 
+async def pull_vereinsnamen(*, teams_collection: AsyncCollection, team_ids: Sequence[Any]) -> dict[Any, str]:
+    """These clubs' names off their `teams` documents; no command for none."""
+
+    if not team_ids:
+        return {}
+
+    teams = await teams_collection.find({"_id": {"$in": list(team_ids)}}, {"name": 1}).to_list(length=None)
+
+    return {team["_id"]: str(team.get("name") or "") for team in teams}
+
+
+# --- A LEAVING CONTACT'S seats in the log: an erasure's, a Widerspruch's, and the season's end.
+
+
+async def redact_seat_entries_in_images(
+    *,
+    aktionen_collection: AsyncCollection,
+    voids: Sequence[SeatVoid | None],
+    reasons: bool,
+    stamp: str,
+    # REQUIRED for `redact_images_in_session`'s reason.
+    session: AsyncClientSession,
+) -> int:
+    """These seats' link entries out of every log image of their teams' rows, as the void took them off the rows.
+
+    A seat handed on keeps its images: only a person's leaving owes them (`build_clearing_update`'s rule for the season row).
+    """
+
+    voided = [void for void in voids if void is not None]
+    if not voided:
+        return 0
+
+    return await redact_images_in_session(
+        aktionen_collection=aktionen_collection,
+        db_filter=build_seat_entry_images_filter(voided),
+        judge=lambda image: seat_entry_image_edits(image, voided, reasons=reasons),
+        stamp=stamp,
+        session=session,
+    )
+
+
+async def strip_the_seasons_team_rows(
+    *,
+    spielbestaetigungen_collection: AsyncCollection,
+    aktionen_collection: AsyncCollection,
+    saison_id: str,
+    stamp: str,
+    # REQUIRED: the strip commits with the season's contact blocks, or neither does.
+    session: AsyncClientSession,
+) -> int:
+    """At the season's end, every link entry, reason and holder digest its contacts left on the season's team rows and their images.
+
+    Season-wide, a replaced club's rows among them; each answer's way and role stay as the record.
+    """
+
+    # Every seat, whoever held it: what a block's void left standing, a hand edit's or a restore's, goes too.
+    await patch_many_in_db(
+        collection=spielbestaetigungen_collection,
+        db_filter={"saison_id": saison_id, "partei.art": "team"},
+        update={"$set": {f"kontakte.{seat}": None for seat in KONTAKT_ROLLEN}},
+        session=session,
+    )
+    await patch_many_in_db(
+        collection=spielbestaetigungen_collection,
+        db_filter=build_season_reasons_filter(saison_id),
+        update={"$set": {"antwort.begruendung": None, "antwort.von.halter": None}},
+        session=session,
+    )
+
+    return await redact_images_in_session(
+        aktionen_collection=aktionen_collection,
+        db_filter=build_season_images_filter(saison_id),
+        judge=lambda image: season_end_image_edits(image, saison_id),
+        stamp=stamp,
+        session=session,
+    )
+
+
 # --- The REFEREE'S ERASURE, the registry's member for their confirmation rows.
 
 
@@ -171,3 +255,33 @@ async def anchor_the_seats_minted(
     """
 
     await anchor_in_db(collection=saison_teams_collection, db_filter={"_id": {"$in": list(saison_team_ids)}}, session=session)
+
+
+async def anchor_the_mailboxes_told(
+    *,
+    saison_teams_collection: AsyncCollection,
+    saison_team_ids: Sequence[Any],
+    # REQUIRED: committed on its own, the anchor conflicts with no seat write.
+    session: AsyncClientSession,
+) -> None:
+    """Write the season rows a close read its notices' mailboxes off (`docs/backend/spec.md :: I780`).
+
+    An erasure or a Widerspruch empties the seat on that row and writes nothing the close writes.
+    """
+
+    await anchor_in_db(collection=saison_teams_collection, db_filter={"_id": {"$in": list(saison_team_ids)}}, session=session)
+
+
+async def anchor_the_referees_told(
+    *,
+    schiedsrichter_collection: AsyncCollection,
+    schiedsrichter_ids: Sequence[Any],
+    # REQUIRED: committed on its own, the anchor conflicts with no erasure.
+    session: AsyncClientSession,
+) -> None:
+    """Write the referees a mint writes a row for (`docs/backend/spec.md :: I779`), as a fixture's save anchors the referee it books.
+
+    A referee's erasure deletes the rows its snapshot holds, never one inserted beside it.
+    """
+
+    await anchor_in_db(collection=schiedsrichter_collection, db_filter={"_id": {"$in": list(schiedsrichter_ids)}}, session=session)

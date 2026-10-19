@@ -5,10 +5,10 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spielbestaetigungen.services import SeatVoid, build_open_seat_rows_pipeline, build_open_team_rows_filter, group_seat_voids
+from app.api.spielbestaetigungen.services import SeatVoid, build_team_rows_filter, group_seat_voids
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import find_entry_refusal
-from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_many_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import anchor_in_db, patch_many_in_db, pull_many_from_db, pull_one_from_db, refuse
 
 
 async def refuse_a_full_gruppe(
@@ -86,23 +86,15 @@ async def void_moved_seats(
     # REQUIRED: the void commits with the seat writes or neither does, so the old holder's link dies at the write.
     session: AsyncClientSession,
 ) -> None:
-    """Null the links of every seat these writes emptied or handed on, on their teams' open confirmations (`docs/backend/spec.md :: I758`).
+    """Null the links of every seat these writes emptied or handed on, on their teams' confirmations (`docs/backend/spec.md :: I758`).
 
     Once per transaction, after its seat writes: a call costs the same however many rows it covers.
     """
 
-    moved = [void for void in voids if void is not None]
-    # No read for none, and no write for a group the read left empty: a fan-out matching nothing still files a log row.
-    if not moved:
-        return
-
-    held = await aggregate_many_from_db(
-        collection=spielbestaetigungen_collection, pipeline=build_open_seat_rows_pipeline(moved), session=session
-    )
-    for seats, pairs in group_seat_voids(voids=moved, held=held):
+    for seats, pairs in group_seat_voids([void for void in voids if void is not None]):
         await patch_many_in_db(
             collection=spielbestaetigungen_collection,
-            db_filter=build_open_team_rows_filter(pairs),
+            db_filter=build_team_rows_filter(pairs),
             # Spelled here, so the write traces read the seat entries it sets, none of them a unique key.
             update={"$set": {f"kontakte.{seat}": None for seat in seats}},
             session=session,

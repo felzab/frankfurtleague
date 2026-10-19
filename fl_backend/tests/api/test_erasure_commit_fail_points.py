@@ -20,6 +20,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
 from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET
+from app.api.spielbestaetigungen.services import halter_of, seite_of
 from app.core.collections import Collection
 from app.core.db import NO_OWNER
 from app.core.exception_handlers import DATABASE_FAILED, UNKNOWN_OUTCOME
@@ -215,7 +216,8 @@ class TestAnErasureOnRequest:
 
         assert journal_lines(caplog) == [
             f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} loeschung "
-            f"pseudonym={akteur_pseudonym(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
+            f"pseudonym={akteur_pseudonym(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} "
+            f"halter={halter_of(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
         ]
         # The premise last: one commit refused, so the line above is the rerun's alone.
         assert (refused, erased) == ([WRITE_CONFLICT, None], 1)
@@ -243,7 +245,8 @@ class TestAnErasureOnRequest:
         assert (commits, labelled, after) == ([MAX_TIME_EXPIRED], True, {IDENTIFIER: []})
         assert journal_lines(caplog) == [
             f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} loeschung "
-            f"pseudonym={akteur_pseudonym(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
+            f"pseudonym={akteur_pseudonym(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} "
+            f"halter={halter_of(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
         ]
 
 
@@ -440,3 +443,36 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
                 "and the rest stay due",
             )
         ]
+
+
+@pytest.mark.db
+class TestTheMintsUnansweredRowsAreAskedOnTheNextPass:
+    """The lost answer leaves rows holding links nobody was mailed; the next pass asks them, a fresh link a seat beside the first."""
+
+    def test_both_sides_of_the_moved_fixture_are_asked_again(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await confirmations.sweep(database, client)
+            await confirmations.angefragt(database, client, [row["_id"] for row in await confirmations.rows(database)])
+            await database[Collection.SPIELE].update_one({"_id": confirmations.SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
+            commits = _Commits()
+            losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
+            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"skip": 1}, data=UNANSWERED)
+            try:
+                lost = await confirmations.sweep(losing[database.name], losing)
+            finally:
+                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
+                await losing.close()
+            nxt = await confirmations.sweep(database, client)
+
+            return commits.answered, lost, nxt, await confirmations.rows(database, geschlossen=None, **{"partei.art": "team"})
+
+        commits, lost, nxt, standing = confirmations.on_a_league(
+            mongo_replica_set_url, body, spiele=[confirmations.fixture(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
+        )
+
+        # The premise: the mint's commit landed and lost its answer, so its pass mailed none of its rows.
+        assert (commits, lost.anfragen) == ([None, MAX_TIME_EXPIRED], [])
+        assert sorted((anfrage.spielbestaetigung_id, anfrage.seite) for anfrage in nxt.anfragen) == sorted(
+            (row["_id"], seite_of(row)) for row in standing
+        )
+        assert {len(entry["token_hashes"]) for row in standing for entry in row["kontakte"].values()} == {2}

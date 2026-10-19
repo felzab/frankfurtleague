@@ -1,5 +1,5 @@
 """
-API · every write moving a season seat's holder voids that seat's links on its team's open match confirmations, at the write
+API · every write moving a season seat's holder voids that seat's links on its team's match confirmations, at the write
 
 Each writer of an existing season row's seats is driven against the shipped validators, and straight after it commits,
 with no sweep run, each link is opened through the link's own view (`app/api/spielbestaetigungen/router.py ::
@@ -212,6 +212,7 @@ async def links_answering(database: AsyncDatabase) -> dict[str, set[str]]:
                     spiele_collection=database[Collection.SPIELE],
                     saison_teams_collection=database[Collection.SAISON_TEAMS],
                     spielorte_collection=database[Collection.SPIELORTE],
+                    teams_collection=database[Collection.TEAMS],
                     sperrliste=ban_list(database),
                     today=TODAY,
                 )
@@ -290,6 +291,7 @@ async def erase_the_trainer(database: AsyncDatabase, client: AsyncMongoClient) -
             aktionen_collection=database[Collection.AKTIONEN],
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
             identifier=identifier,
+            schluessel=CONFIG.sperrliste_schluessel,
             saison_team_rows=rows,
             bewerbung_rows=[],
             stamp=AM,
@@ -377,25 +379,26 @@ class TestEverySeatWriteVoidsItsLinks:
     """Every route and step writing an existing season row's seats, each voiding what it moves and nothing else."""
 
     @pytest.mark.parametrize(
-        ("write", "voided", "saison_status"),
+        ("write", "voided", "saison_status", "other"),
         [
-            pytest.param(hand_the_trainer_on, {"trainer"}, "active", id="the contacts save handing a seat on"),
-            pytest.param(empty_the_trainer, {"trainer"}, "active", id="the contacts save emptying a seat"),
-            pytest.param(replace_the_club, ALL, "active", id="the club's replacement"),
-            pytest.param(erase_the_trainer, {"trainer"}, "active", id="the person erasure's seat member"),
-            pytest.param(clear_the_blocks, ALL, "past", id="the sweep clearing a past season's blocks"),
-            pytest.param(contradict, {"trainer"}, "active", id="the Widerspruch on the season row"),
-            pytest.param(replay_the_widerspruch, {"trainer"}, "active", id="the replay of that Widerspruch"),
+            pytest.param(hand_the_trainer_on, {"trainer"}, "active", ALL, id="the contacts save handing a seat on"),
+            pytest.param(empty_the_trainer, {"trainer"}, "active", ALL, id="the contacts save emptying a seat"),
+            pytest.param(replace_the_club, ALL, "active", ALL, id="the club's replacement"),
+            pytest.param(erase_the_trainer, {"trainer"}, "active", ALL, id="the person erasure's seat member"),
+            # The season's end strips every team row of the season, a club whose block was empty already included.
+            pytest.param(clear_the_blocks, ALL, "past", set(), id="the sweep clearing a past season's blocks"),
+            pytest.param(contradict, {"trainer"}, "active", ALL, id="the Widerspruch on the season row"),
+            pytest.param(replay_the_widerspruch, {"trainer"}, "active", ALL, id="the replay of that Widerspruch"),
         ],
     )
     def test_the_moved_seat_s_link_stops_answering_and_nothing_else_does(
-        self, mongo_replica_set_url: str, write: Write, voided: set[str], saison_status: str
+        self, mongo_replica_set_url: str, write: Write, voided: set[str], saison_status: str, other: set[str]
     ):
-        """The answered row and the other team's row are the controls: a void reaching past the open rows of this team fails here."""
+        """The other team's row is the control; this team's answered row loses the seat's links too and keeps its answer."""
 
         links, stored_answers, _ = on_a_league(mongo_replica_set_url, write, saison_status=saison_status)
 
-        assert links == {**KEPT, "open": ALL - voided}
+        assert links == {"open": ALL - voided, "answered": ALL - voided, "other": other}
         assert stored_answers == [row["antwort"] for row in ROWS.values()]
 
     def test_a_retyped_case_moves_nobody_and_voids_nothing(self, mongo_replica_set_url: str):
@@ -416,10 +419,10 @@ class TestEverySeatWriteVoidsItsLinks:
 
         links, _, _ = on_a_league(mongo_replica_set_url, hand_on_in_place)
 
-        assert links == {**KEPT, "open": ALL - {"trainer"}}
+        assert links == {**KEPT, "open": ALL - {"trainer"}, "answered": ALL - {"trainer"}}
 
-    def test_a_seat_holding_no_entry_on_any_open_row_is_written_nowhere(self, mongo_replica_set_url: str):
-        """A void matching nothing still files a log row, which names a write that changed nothing; the open row's Trainer entry is null."""
+    def test_a_seat_holding_no_entry_on_any_row_is_written_nowhere(self, mongo_replica_set_url: str):
+        """A void that changes nothing files no log row naming a write that changed nothing; the open row's Trainer entry is null."""
 
         async def hand_on_an_unasked_seat(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELBESTAETIGUNGEN].update_many({"partei.team_id": TEAM_OID}, {"$set": {"kontakte.trainer": None}})
@@ -529,6 +532,57 @@ class TestALeavingContactsReasonsGo:
 
         assert found["rows"] == sorted(expected(name) for name in REASONS)
         assert found["images"] == sorted(expected(name) for name in NAMED.values())
+
+
+class TestAnAnsweredRowsLinkOutlivesNoHolder:
+    def test_the_old_trainers_link_tells_nobody_that_the_new_trainer_is_barred(self, mongo_replica_set_url: str):
+        """The page would read the successor's address against the ban list and tell whoever holds the old mail that it is barred."""
+
+        async def hand_on_then_bar(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await hand_the_trainer_on(database, client)
+            await database[Collection.SPERRLISTE].insert_one(documents.ban_document("lea@example.com", bis=SAISON_ID))
+
+        links, stored_answers, _ = on_a_league(mongo_replica_set_url, hand_on_then_bar)
+
+        # Refused `REQ-ANSETZUNG-001` (`links_answering` admits no other refusal), never served as `gesperrt`.
+        assert links["answered"] == ALL - {"trainer"}
+        assert stored_answers == [row["antwort"] for row in ROWS.values()]
+
+
+class TestALeavingPersonsLinksLeaveTheLog:
+    """The answered row's image, filed by a later write, holds every seat's link hashes and delivery record."""
+
+    @pytest.mark.parametrize(
+        ("write", "gone"),
+        [
+            pytest.param(erase_the_trainer, {"trainer"}, id="their erasure"),
+            pytest.param(contradict, {"trainer"}, id="their Widerspruch"),
+            pytest.param(replay_the_widerspruch, {"trainer"}, id="the replay of their Widerspruch"),
+            # A seat handed on is no leaving of a person: the season row's own images keep the predecessor too.
+            pytest.param(hand_the_trainer_on, set(), id="a seat handed on"),
+        ],
+    )
+    def test_their_seats_entries_go_from_the_images_and_every_other_seat_s_stay(self, mongo_replica_set_url: str, write: Write, gone: set[str]):
+        found: dict[str, Any] = {}
+
+        async def after_an_image(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            delivered = {"nachricht_id": "msg-1", "stand": "zugestellt", "grund": None, "am": "2026-04-01T09:00:00+00:00"}
+            await database[Collection.SPIELBESTAETIGUNGEN].update_one(
+                {"_id": ROWS["answered"]["_id"]}, {"$set": {"kontakte.trainer.zustellung": delivered}}
+            )
+            await patch_one_in_db(
+                collection=database[Collection.SPIELBESTAETIGUNGEN],
+                db_filter={"_id": ROWS["answered"]["_id"]},
+                update={"$set": {"erinnert_am": [TODAY]}},
+                return_document=ReturnDocument.BEFORE,
+            )
+            await write(database, client)
+            image = await database[Collection.AKTIONEN].find_one({"document_id": ROWS["answered"]["_id"], "before": {"$ne": None}})
+            found["held"] = {seat for seat in KONTAKT_ROLLEN if (image or {}).get("before", {}).get("kontakte", {}).get(seat) is not None}
+
+        on_a_league(mongo_replica_set_url, after_an_image)
+
+        assert found["held"] == ALL - gone
 
 
 class TestAReasonIsMatchedOnTheFoldOfTheSeatsStoredAddress:

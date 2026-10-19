@@ -7,8 +7,11 @@ fixture.
 """
 
 import hashlib
+import hmac
 from collections.abc import Awaitable, Callable, Mapping
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
@@ -33,10 +36,12 @@ from app.api.spielbestaetigungen.services import (
     ANSETZUNG_VORSCHLAG_VERGANGEN,
 )
 from app.api.spiele.services import ELIGIBILITY_DISQUALIFIED, FIXTURE_DOUBLE_BOOKED, FIXTURE_OUTSIDE_SPIELTAG
-from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.api.teams.admin_router import replace_saison_team
+from app.api.teams.schemas import KONTAKT_ROLLEN, FLReplaceSaisonTeamPayload
 from app.core.collections import Collection
 from tests import documents
 from tests.bans import ban_list
+from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.plans import plans_of_sent_reads
@@ -73,8 +78,10 @@ PEOPLE = {
 NAMES = {TEAM1: ("Adler", "AD"), TEAM2: ("Biber", "BI")}
 REFEREE = "Otto Gruber"
 
-# Spelled out rather than through the code under test: the stellvertretung's address on the sign-in fold, hashed.
-KLARA = hashlib.sha256(b"klara@example.com").hexdigest()
+# Spelled out rather than through the code under test: the stellvertretung's address on the sign-in fold, keyed under the
+# suite's master by the holder's own label, so an unkeyed digest or another purpose's label fails here.
+_HALTER_KEY = hmac.new(build_test_config().sperrliste_schluessel.get_secret_value().encode("utf-8"), b"halter-v1", hashlib.sha256).digest()
+KLARA = hmac.new(_HALTER_KEY, b"klara@example.com", hashlib.sha256).hexdigest()
 
 
 def token(team_id: ObjectId, seat: str, nth: int = 0) -> str:
@@ -190,6 +197,7 @@ async def ansicht(
         spiele_collection=either(database, Collection.SPIELE, spiele),
         saison_teams_collection=either(database, Collection.SAISON_TEAMS, saison_teams),
         spielorte_collection=database[Collection.SPIELORTE],
+        teams_collection=database[Collection.TEAMS],
         sperrliste=ban_list(database),
         today=today,
     )
@@ -264,7 +272,7 @@ class TestWhatALinkOpens:
         }
 
     def test_the_other_clubs_open_decline_is_the_proposal_in_front_of_the_reader(self, mongo_replica_set_url: str):
-        """Its date and hour alone; the declining club's own link reads its answer and the role that gave it."""
+        """Its date and hour alone; the declining club's own link reads its answer and the role that gave it, and no proposal."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ablehnen(database, client, token(TEAM1, "trainer"), ("2027-05-15", "17:00:00"), begruendung="Die Halle ist belegt")
@@ -273,9 +281,9 @@ class TestWhatALinkOpens:
 
         other, own = on_a_fixture(mongo_replica_set_url, body)
 
-        assert (other.zustand, other.vorschlag, other.beantwortet_von) == ("vorschlag", own.vorschlag, None)
-        assert own.zustand == "abgelehnt"
-        assert own.vorschlag is not None and (own.vorschlag.datum, own.vorschlag.uhrzeit) == ("2027-05-15", "17:00:00")
+        assert other.zustand == "vorschlag" and other.beantwortet_von is None
+        assert other.vorschlag is not None and (other.vorschlag.datum, other.vorschlag.uhrzeit) == ("2027-05-15", "17:00:00")
+        assert (own.zustand, own.vorschlag) == ("abgelehnt", None)
         assert own.beantwortet_von is not None and own.beantwortet_von.model_dump() == {"art": "kontakt", "rolle": "trainer"}
 
     def test_a_link_whose_fixture_moved_states_the_ansetzung_it_asked_about_whole(self, mongo_replica_set_url: str):
@@ -848,6 +856,89 @@ class TestTwoSeatsPressingAtOnce:
         # The premise: the write conflicted and the press was judged afresh. Whether the judgement or the write's filter
         # then refuses it, both answer the same code.
         assert judged == 2
+
+
+class TestALinkToAReplacedClubsFixture:
+    def test_the_old_ansetzung_names_the_club_that_left_off_its_own_document(self, mongo_replica_set_url: str):
+        """The replacement hands TEAM2's season row and its fixture side to another club, so only `teams` still names Biber."""
+
+        incoming = ObjectId("6890a1b2c3d4e5f607d50003")
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.TEAMS].insert_one(documents.team_document(incoming, "Dachs", "DA"))
+            await replace_saison_team(
+                team_id=TEAM2,
+                saison_id=SAISON_ID,
+                replacement_data=FLReplaceSaisonTeamPayload(incoming_team_id=incoming),
+                teams_collection=database[Collection.TEAMS],
+                saison_teams_collection=database[Collection.SAISON_TEAMS],
+                saisons_collection=database[Collection.SAISONS],
+                spiele_collection=database[Collection.SPIELE],
+                saison_spieler_collection=database[Collection.SAISON_SPIELER],
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                aktionen_collection=database[Collection.AKTIONEN],
+                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                db=client,
+                today=TODAY,
+                germany_now=datetime(2027, 5, 1, 12, 0, tzinfo=ZoneInfo("Europe/Berlin")),
+            )
+
+            return await ansicht(database, token(TEAM1, "trainer"))
+
+        view = on_a_fixture(mongo_replica_set_url, body)
+
+        assert view.zustand == "ungueltig"
+        assert (view.ansetzung.team1_name, view.ansetzung.team2_name) == ("Adler", "Biber")
+
+
+# What a link's own row read resolves: the hashes find the seat, and of an answer which way it went and the role.
+LINK_ROW_RESOLVES = frozenset(
+    {"_id", "saison_id", "spiel_id", "partei.art", "partei.team_id", "frist", "geschlossen", "antwort.art", "antwort.von.art"}
+    | {"antwort.von.rolle", *(f"ansetzung.{key}" for key in ("datum", "uhrzeit", "spielort_id", "team1_id", "team2_id", "stand"))}
+    | {f"kontakte.{seat}.token_hashes" for seat in KONTAKT_ROLLEN}
+)
+
+
+class TestWhatALinksOwnRowReadLoads:
+    def test_an_answered_rows_reason_proposal_and_holder_stay_in_the_database(self, mongo_replica_set_url: str):
+        """Declined with a reason by the trainer, then opened and pressed from the Stellvertretung's link."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ablehnen(database, client, token(TEAM1, "trainer"), ("2027-05-15", "17:00:00"), begruendung="Die Halle ist belegt")
+            viewed = ReadsRecorded(database[Collection.SPIELBESTAETIGUNGEN])
+            view = await ansicht(database, token(TEAM1, "stellvertretung"), spielbestaetigungen=viewed)
+            pressed = ReadsRecorded(database[Collection.SPIELBESTAETIGUNGEN])
+            outcome = await outcome_of(antworten(database, client, token(TEAM1, "stellvertretung"), spielbestaetigungen=pressed))
+
+            return view, viewed.loaded[0], outcome, pressed.loaded[0]
+
+        view, viewed, outcome, pressed = on_a_fixture(mongo_replica_set_url, body)
+
+        # The premise: each read met the answered row, and both handlers still read its answer.
+        assert view.beantwortet_von is not None and (view.zustand, view.beantwortet_von.model_dump()) == (
+            "abgelehnt",
+            {"art": "kontakt", "rolle": "trainer"},
+        )
+        assert outcome == ANSETZUNG_BEANTWORTET
+        assert leaf_paths(viewed) <= LINK_ROW_RESOLVES and "antwort.art" in leaf_paths(viewed)
+        assert leaf_paths(pressed) <= LINK_ROW_RESOLVES and "antwort.art" in leaf_paths(pressed)
+
+
+class TestTheNameRefusalComesLast:
+    def test_a_proposal_refused_for_its_date_says_nothing_of_the_name_in_its_reason(self, mongo_replica_set_url: str):
+        """Judged first, the name would answer `-012` over a refused date, so presses could test guesses without spending the link."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            named = "Leider hat Cordes keine Zeit"
+            outside, inside = ("2027-05-20", "18:00:00"), ("2027-05-15", "18:00:00")
+            return (
+                await outcome_of(ablehnen(database, client, token(TEAM1, "trainer"), outside, begruendung=named)),
+                await outcome_of(ablehnen(database, client, token(TEAM1, "trainer"), inside, begruendung=named)),
+                (await row_now(database, ROW1))["antwort"],
+            )
+
+        # The premise: the same reason on a date the matchday holds is the name refusal, and neither press wrote.
+        assert on_a_fixture(mongo_replica_set_url, body) == (FIXTURE_OUTSIDE_SPIELTAG, ANSETZUNG_NAME_IN_BEGRUENDUNG, None)
 
 
 class TestAProposalOfAPastDayIsRefusedThroughTheRoute:
