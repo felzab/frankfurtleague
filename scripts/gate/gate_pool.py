@@ -54,7 +54,8 @@ STALL_TAIL_LINES: Final = 100
 # A faulthandler dump lists threads newest first, each innermost frame first, so the stalled frame
 # opens its last block, which a tail cuts first: `shown` keeps that block from its header.
 DUMP_RE: Final = re.compile(r"^Timeout \([0-9]+:[0-9]{2}:[0-9]{2}(\.[0-9]+)?\)!$")
-THREAD_RE: Final = re.compile(r"^(Current thread|Thread) 0x[0-9a-fA-F]+ \(most recent call first\):$")
+# The header names its thread in brackets where the platform can (`[python]` on Linux, none on Windows).
+THREAD_RE: Final = re.compile(r"^(Current thread|Thread) 0x[0-9a-fA-F]+( \[.*\])? \(most recent call first\):$")
 
 # Where a pool nested in a unit sends its notices, the one pool whose stderr reaches the reader
 # relaying them: a nested pool's own stderr is a capture nobody reads until the run ends.
