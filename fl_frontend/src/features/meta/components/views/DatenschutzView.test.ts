@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "18. Oktober 2026", digest: "fe094ddb041e1be9192675ee3f4977be83a0ec79c4c686ba587c77e829b8d377" } as const;
+const FASSUNG = { stand: "20. Oktober 2026", digest: "3d2a92bcf25d39867ce53f3a75d03822066d452b5d20e6af17bb6acd1a53fcf3" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -182,6 +182,22 @@ describe("the privacy notice's retention table", () => {
         "im Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung, und mit ihr Datum, Grund und " +
         "E-Mail-Adresse der Person aus dem Team, die abgelehnt hat. Ist bis zum Ende der Saison nicht " +
         "entschieden, löschen wir sie dann",
+    );
+  });
+
+  /* The season-end strip clears what tells the people apart with the season's contact data, and keeps the answer
+     (`docs/datenschutz.md` §6): the row says when, and that a seat's handover and an erasure come sooner. */
+  it("gives a club's fixture answer the season-end clock its reasons, keys, links and delivery state go on", () => {
+    assert.equal(
+      ANGABEN.get(
+        "Antwort eines Teams auf eine Spielbestätigung: Zusage oder Absage mit Datum und Rolle, dazu eine Begründung, ein " +
+          "vorgeschlagener Termin, ein unlesbarer Schlüssel der antwortenden Person, die Bestätigungslinks als unlesbare Schlüssel " +
+          "und der Zustellstand ihrer E-Mails",
+      ),
+      "Begründung, Schlüssel, Links und Zustellstand bis zum Ende der Saison, die auf die Saison des Spiels folgt, zusammen mit " +
+        "den Kontaktdaten dieser Saison. Zusage oder Absage, Datum, Rolle und vorgeschlagener Termin bleiben als Chronik der " +
+        "Saison bestehen. Wechselt die Person auf einem Platz, gilt ihr Link nicht mehr. Wird eine Kontaktperson auf Wunsch " +
+        "gelöscht, löschen wir auch die Begründungen, die sie geschrieben hat",
     );
   });
 
