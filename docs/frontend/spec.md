@@ -91,7 +91,9 @@ would be a slot of one administrator's or one person's data any caller could rea
 goes through `fl_frontend/src/shared/utils/personRead.ts :: runPersonRead` and carries the admin key,
 and the caller-read entry of `fl_frontend/eslint.config.mjs :: SOURCE_BANS` refuses `"use cache"` in
 any function reading either way directly. **A cached function calling another that reads for its caller
-is not caught by it**: a selector follows no call. **An admin-tier read several components on one page
+is not caught by it**: a selector follows no call. Such a call throws under `"use cache"`, the caller's
+read taking `headers()`, and the one directive it would run under, `"use cache: private"`, is refused
+everywhere by the entry after it. **An admin-tier read several components on one page
 make is wrapped in React's `cache`, never in `"use cache"`** — that wrapper dedupes within one
 render pass, so it costs the confinement nothing. None carries a cache tag either: a tag only means
 something inside a cache scope. Each seeds the request's trace scope, which a `"use cache"`

@@ -1349,6 +1349,13 @@ const SOURCE_BANS = [
       "A function reading for its caller directly, through runPersonRead or with the admin key, is never cached: `\"use cache\"` keys on the arguments, not the caller, so a person's or an administrator's read would become a slot every caller shares (docs/frontend/spec.md §1.2).",
   },
   {
+    // Anywhere, since a selector follows no call: a wrapper over a caller's read is caught by no ban above, and
+    // the private directive alone lets that read run, its `headers()` included.
+    selector: "ExpressionStatement[directive=/^use cache:\\s*private/]",
+    message:
+      'No `"use cache: private"`: it caches a read made for its caller, which this app never caches, and its stale time keeps the page in the client router, so an editor reopens on what another administrator has since changed (docs/frontend/spec.md §1.2).',
+  },
+  {
     // `error` is `unknown`, so the type checker passes an empty one, which reads an edge's 429 as an unclear save.
     selector:
       ':matches(CallExpression[callee.name="unansweredAction"], CallExpression[callee.property.name="unansweredAction"]) > :matches(Identifier[name="undefined"], Literal[raw="null"], UnaryExpression[operator="void"]).arguments:nth-child(1)',
