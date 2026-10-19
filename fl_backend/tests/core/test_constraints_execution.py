@@ -1624,9 +1624,9 @@ OTHER_SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607200010")
 
 class TestTwoRefereesOpenRowsOnOneStand:
     def test_each_referee_holds_an_open_row_of_their_own(self, mongo_url: str):
-        """A referee changed while the close's share leaves the old one's row open: the mint inserts the new one's beside it.
+        """The mint inserts a new referee's row while the close's share still leaves the old one's open.
 
-        Without the referee key the insert collides, and the fixture is passed over every pass until the close reaches the old row.
+        Without the referee key that insert collides, passing the fixture over every pass until the close shuts the old row.
         """
 
         async def body(database: AsyncDatabase) -> int:

@@ -28,6 +28,7 @@ from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from tests.whole_database import where_held
 
+from . import test_spielbestaetigung_sweep_execution as confirmations
 from .test_erasure_auf_anfrage import CONFIG as REQUEST_CONFIG
 from .test_erasure_auf_anfrage import erased_by_the_handler as erased_on_request
 from .test_erasure_auf_anfrage import journal_lines
@@ -44,9 +45,6 @@ from .test_schiedsrichter_sweep_execution import MINTED_TO_LAPSE_YESTERDAY, a_re
 from .test_schiedsrichter_sweep_execution import numbered as referee_numbered
 from .test_schiedsrichter_sweep_execution import on_a_league as on_the_referees_league
 from .test_schiedsrichter_sweep_execution import sweep as an_address_change_call
-from .test_spielbestaetigung_sweep_execution import NEXT_WEEK, SPIEL, angefragt, fixture, rows
-from .test_spielbestaetigung_sweep_execution import on_a_league as on_the_confirmations_league
-from .test_spielbestaetigung_sweep_execution import sweep as a_confirmation_pass
 
 # The client a configuration hits, chosen by its name: the commits of every other client, each seed's own among them,
 # run as they would.
@@ -404,23 +402,25 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
         """The close's notices committed first, so the pass answers them rather than raising (`docs/backend/spec.md :: I753`)."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await a_confirmation_pass(database, client)
-            await angefragt(database, client, [row["_id"] for row in await rows(database)])
-            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
+            await confirmations.sweep(database, client)
+            await confirmations.angefragt(database, client, [row["_id"] for row in await confirmations.rows(database)])
+            await database[Collection.SPIELE].update_one({"_id": confirmations.SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
             commits = _Commits()
             losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
             # The close's commit passes; the mint's, the next one this client sends, lands and loses its answer.
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"skip": 1}, data=UNANSWERED)
             try:
-                answer = await a_confirmation_pass(losing[database.name], losing)
+                answer = await confirmations.sweep(losing[database.name], losing)
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await losing.close()
 
-            return commits.answered, answer, await rows(database, geschlossen=None)
+            return commits.answered, answer, await confirmations.rows(database, geschlossen=None)
 
         with caplog.at_level(logging.WARNING):
-            commits, answer, standing = on_the_confirmations_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+            commits, answer, standing = confirmations.on_a_league(
+                mongo_replica_set_url, body, spiele=[confirmations.fixture(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
+            )
 
         # The premise first: the close committed, and the mint's commit landed with its answer lost.
         assert commits == [None, MAX_TIME_EXPIRED]
@@ -435,7 +435,8 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
         assert _stopping_lines(caplog) == [
             (
                 UNKNOWN_OUTCOME,
-                f"The mint clock's commit went unanswered after the call committed messages it owes: the rows minted for fixture(s) {SPIEL} "
-                "may have been written with nobody told, the call answers what else committed, and the rest stay due",
+                "The mint clock's commit went unanswered after the call committed messages it owes: the rows minted for "
+                f"fixture(s) {confirmations.SPIEL} may have been written with nobody told, the call answers what else committed, "
+                "and the rest stay due",
             )
         ]
