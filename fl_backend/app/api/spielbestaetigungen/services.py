@@ -58,6 +58,26 @@ def compose_ansetzung(spiel: Mapping[str, Any]) -> dict[str, Any]:
     return {**values, "stand": _digest(values)}
 
 
+def build_answerable_filter() -> dict[str, Any]:
+    """A row the answer may write: neither answered nor closed, the reach of `uniq_spielbestaetigung_offen`.
+
+    The first press binds because this filter rides on the write itself, so two seats pressing at once
+    are one answer.
+    """
+
+    return {"antwort": None, "geschlossen": None}
+
+
+def build_closable_filter() -> dict[str, Any]:
+    """A row the sweep's close reaches: not yet closed, ANSWERED OR NOT.
+
+    Never `build_answerable_filter`: an agreement a move overtook would keep no stamp saying why it
+    stopped applying.
+    """
+
+    return {"geschlossen": None}
+
+
 def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
     """Every seat's hashes, so the hash alone finds the row. No state term: a reopened link shows its own state."""
 
