@@ -681,19 +681,23 @@ class TestTheView:
         assert seen.model_dump() == {"acknowledged": 1, "zustand": "gueltig", "frist": spieler_adresswechsel_frist_from(today=TODAY)}
 
     @pytest.mark.parametrize(
-        ("ban_on", "held_by_another", "today", "zustand"),
+        ("ban_on", "held_by_another", "today", "zustand", "code"),
         [
-            pytest.param((), False, AFTER_THE_DEADLINE, "abgelaufen", id="lapsed"),
-            pytest.param((NEW_EMAIL,), False, TODAY, "gesperrt", id="new-address-barred"),
-            pytest.param((NEW_EMAIL, EMAIL), False, AFTER_THE_DEADLINE, "gesperrt", id="the-link-s-own-ban-first"),
-            pytest.param((EMAIL,), False, TODAY, "nicht_bestaetigbar", id="replaced-address-barred"),
-            pytest.param((), True, TODAY, "nicht_bestaetigbar", id="new-address-held-by-another"),
-            pytest.param((EMAIL,), True, AFTER_THE_DEADLINE, "abgelaufen", id="the-deadline-before-either"),
+            pytest.param((), False, AFTER_THE_DEADLINE, "abgelaufen", SPIELER_TOKEN_EXPIRED, id="lapsed"),
+            pytest.param((NEW_EMAIL,), False, TODAY, "gesperrt", SPIELER_BESTAETIGUNG_GESPERRT, id="new-address-barred"),
+            pytest.param(
+                (NEW_EMAIL, EMAIL), False, AFTER_THE_DEADLINE, "gesperrt", SPIELER_BESTAETIGUNG_GESPERRT, id="the-link-s-own-ban-first"
+            ),
+            pytest.param((EMAIL,), False, TODAY, "nicht_bestaetigbar", SPIELER_ERSETZTE_ADRESSE_GESPERRT, id="replaced-address-barred"),
+            pytest.param((), True, TODAY, "nicht_bestaetigbar", SPIELER_ADRESSE_VERGEBEN, id="new-address-held-by-another"),
+            pytest.param((EMAIL,), True, AFTER_THE_DEADLINE, "abgelaufen", SPIELER_TOKEN_EXPIRED, id="the-deadline-before-either"),
         ],
     )
     def test_it_ranks_the_states_as_the_press_refuses(
-        self, mongo_replica_set_url: str, ban_on: tuple[str, ...], held_by_another: bool, today: str, zustand: str
+        self, mongo_replica_set_url: str, ban_on: tuple[str, ...], held_by_another: bool, today: str, zustand: str, code: str
     ):
+        """And the press refuses in that rank, so a refused confirmation names what a reload of the link shows."""
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             token = (await request(database, client, email=NEW_AS_TYPED)).adresswechsel.token
             for email in ban_on:
@@ -701,9 +705,11 @@ class TestTheView:
             if held_by_another:
                 await database[Collection.SPIELER].update_one({"_id": OTHER_OID}, {"$set": {"email": NEW_EMAIL}})
 
-            return (await view(database, token, today=today)).zustand
+            return (await view(database, token, today=today)).zustand, await refused_code(
+                answer(database, client, token, "bestaetigt", today=today)
+            )
 
-        assert on_a_league(mongo_replica_set_url, body) == zustand
+        assert on_a_league(mongo_replica_set_url, body) == (zustand, code)
 
     def test_a_token_no_pupil_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
