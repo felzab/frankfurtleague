@@ -884,3 +884,36 @@ class TestALinkToAReplacedClubsFixture:
 
         assert view.zustand == "ungueltig"
         assert (view.ansetzung.team1_name, view.ansetzung.team2_name) == ("Adler", "Biber")
+
+
+# What a link's own row read resolves: the hashes find the seat, and of an answer which way it went and the role.
+LINK_ROW_RESOLVES = frozenset(
+    {"_id", "saison_id", "spiel_id", "partei.art", "partei.team_id", "frist", "geschlossen", "antwort.art", "antwort.von.art"}
+    | {"antwort.von.rolle", *(f"ansetzung.{key}" for key in ("datum", "uhrzeit", "spielort_id", "team1_id", "team2_id", "stand"))}
+    | {f"kontakte.{seat}.token_hashes" for seat in KONTAKT_ROLLEN}
+)
+
+
+class TestWhatALinksOwnRowReadLoads:
+    def test_an_answered_rows_reason_proposal_and_holder_stay_in_the_database(self, mongo_replica_set_url: str):
+        """Declined with a reason by the trainer, then opened and pressed from the Stellvertretung's link."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ablehnen(database, client, token(TEAM1, "trainer"), ("2027-05-15", "17:00:00"), begruendung="Die Halle ist belegt")
+            viewed = ReadsRecorded(database[Collection.SPIELBESTAETIGUNGEN])
+            view = await ansicht(database, token(TEAM1, "stellvertretung"), spielbestaetigungen=viewed)
+            pressed = ReadsRecorded(database[Collection.SPIELBESTAETIGUNGEN])
+            outcome = await outcome_of(antworten(database, client, token(TEAM1, "stellvertretung"), spielbestaetigungen=pressed))
+
+            return view, viewed.loaded[0], outcome, pressed.loaded[0]
+
+        view, viewed, outcome, pressed = on_a_fixture(mongo_replica_set_url, body)
+
+        # The premise: each read met the answered row, and both handlers still read its answer.
+        assert view.beantwortet_von is not None and (view.zustand, view.beantwortet_von.model_dump()) == (
+            "abgelehnt",
+            {"art": "kontakt", "rolle": "trainer"},
+        )
+        assert outcome == ANSETZUNG_BEANTWORTET
+        assert leaf_paths(viewed) <= LINK_ROW_RESOLVES and "antwort.art" in leaf_paths(viewed)
+        assert leaf_paths(pressed) <= LINK_ROW_RESOLVES and "antwort.art" in leaf_paths(pressed)

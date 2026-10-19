@@ -144,14 +144,17 @@ ANSETZUNG_NAME_IN_BEGRUENDUNG = "REQ-ANSETZUNG-012"
 # page tells apart from a deadline that ran out.
 GRUENDE_UNGUELTIG: Final = frozenset({"ansetzung_geaendert", "schiedsrichter_gewechselt"})
 
-# An INCLUSION: of a row's links the hashes alone, which resolve the seat and never leave the handler.
+# An INCLUSION: of a row's links the hashes alone, which resolve the seat and never leave the handler; of its answer
+# which way it went and the role, never the reason, the proposal or the holder digest (`docs/backend/spec.md :: I185`).
 LINK_FIELDS: Mapping[str, int] = {
     "saison_id": 1,
     "spiel_id": 1,
     "partei": 1,
     "ansetzung": 1,
     "frist": 1,
-    "antwort": 1,
+    "antwort.art": 1,
+    "antwort.von.art": 1,
+    "antwort.von.rolle": 1,
     "geschlossen": 1,
     **{f"kontakte.{seat}.token_hashes": 1 for seat in KONTAKT_ROLLEN},
 }
