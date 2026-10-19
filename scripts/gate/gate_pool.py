@@ -204,8 +204,8 @@ def stop_on_signal(number: int, frame: FrameType | None) -> None:
 def arm(pool: Pool, stop: threading.Event) -> None:
     """Install both ways a run can be ended before its units are done.
 
-    Off POSIX neither can be, so neither is installed and the run is only ever waited out --
-    the reason is on `POSIX`.
+    Off POSIX neither can be, for the reason on `POSIX`, and on Windows the job
+    `scripts/gate/gate_watch.py` holds ends the run instead.
     """
     if not POSIX:
         return

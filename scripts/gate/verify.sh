@@ -63,6 +63,33 @@ if [[ -n "$VERIFY_TEST_SHARD" ]]; then
   fi
 fi
 
+# Windows alone, where no signal reaches the gate past its launching shell: the gate joins the job
+# `scripts/gate/gate_watch.py` ends with the gate or its launcher. Unwatched, the run still reaches
+# its verdict, and says which guarantee it lacks.
+UNWATCHED=""
+join_the_job() {
+  local python said="" fd
+  local -a watched
+  if [[ "$OSTYPE" != msys && "$OSTYPE" != cygwin ]]; then return 0; fi
+  python="$(any_python || true)"
+  if [[ -z "$python" ]] || ! python_at_floor "$python"; then
+    UNWATCHED="nothing at the checkers' interpreter floor can watch it"
+    return 0
+  fi
+  watched=(--gate "$(< "/proc/$$/winpid")")
+  # MSYS's parent wherever it is still there to read: Windows records the gate's parent as the
+  # forked shell that has already exited.
+  if (( PPID != 1 )) && [[ -r "/proc/${PPID}/winpid" ]]; then watched+=(--launcher "$(< "/proc/${PPID}/winpid")"); fi
+  # `exec`, so no bash of the substitution's own carries the ERR trap a crashed watcher would fire.
+  exec {fd}< <(exec "$python" scripts/gate/gate_watch.py "${watched[@]}")
+  read -r -u "$fd" said || true
+  exec {fd}<&-
+  if [[ "$said" != armed ]]; then UNWATCHED="scripts/gate/gate_watch.py did not arm, its own words above"; fi
+}
+# Before anything starts a process, which would start outside the job; at the top level alone, whose
+# workers and steps are inside it.
+if ! worker && [[ -z "${FL_GATE_STEP:-}" ]]; then join_the_job; fi
+
 # Fail on a missing prerequisite now: otherwise a full run on a sleeping Docker discovers it at
 # the db tier, minutes of green checks in.
 if (( RUN_OPS || RUN_DB || RUN_IMAGES )); then
@@ -651,6 +678,10 @@ if ! worker; then
     info "no python at the checkers' floor (\`scripts/lib/_lib.sh :: PYTHON_FLOOR\`), so every
 scope and every check runs one at a time — the same proof, at the cost of their sum rather than
 their longest. \`cd fl_backend && uv sync --dev\` creates an interpreter that meets it."
+  fi
+  if [[ -n "$UNWATCHED" ]]; then
+    info "this run is unwatched — ${UNWATCHED} — so stopping whatever started it leaves every process
+the run started still running."
   fi
 fi
 

@@ -871,9 +871,11 @@ argument at the line it guards.
 fails still costs its longest unit before saying so; what that buys is one mechanism for both
 levels, the alternative being a second per-unit join living beside the pool, and a green run — the
 common one — costs the same either way. **The pool ends its units rather than outliving them**
-(`scripts/gate/gate_pool.py :: terminate`), down to the build a unit was waiting on. **None of that
-is installed off POSIX** (`scripts/gate/gate_pool.py :: arm`), so on Windows a run under way is
-only ever waited out, and an interrupt there leaves the builds running.
+(`scripts/gate/gate_pool.py :: terminate`), down to the build a unit was waiting on. **On Windows,
+where no signal reaches a gate past its launching shell, the job object `scripts/gate/gate_watch.py`
+holds does the same**: every process the gate started ends once the gate ends, an interrupt
+included, or once whatever started the gate does
+(`scripts/tests/test_gate_stop.py :: test_stopping_the_gate_ends_every_tool_it_started`).
 
 **`next typegen` goes first and alone** because it writes the route types under
 `fl_frontend/.next/types/` and `fl_frontend/next-env.d.ts` that `tsc` reads: without them a
