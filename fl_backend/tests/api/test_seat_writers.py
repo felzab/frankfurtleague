@@ -441,10 +441,9 @@ async def second_route(saison_teams_collection):
 
 
 def test_the_reader_tells_each_shape_apart(tmp_path: Path):
-    """The control for the reader's reach: the tree's writers are uniform enough that a reader stopping early passes over them.
+    """The tree's writers are uniform enough that a reader stopping early passes them, so a sample holds its reach.
 
-    Read beside the module declaring `clear_seats`, a relay the tree holds, so a call reaching it by a module attribute
-    or a `partial` resolves as a call from the tree would.
+    Read beside `clear_seats`'s module, a relay the tree holds, so a module attribute or a `partial` reaching it resolves.
     """
 
     sample = tmp_path / "sample.py"
