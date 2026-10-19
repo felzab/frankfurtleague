@@ -12,7 +12,7 @@ import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import type { SpielbestaetigungAnsicht } from "@/features/spielbestaetigungen/utils";
 import type { NextRequest } from "next/server";
 
-/** Which way a link answered in another window went, and from which seat, read after the backend refused the write. */
+/** What the link reads as now, its answer's way and seat or its closing's panel, read after the backend refused the write. */
 async function beantworteterStand(token: string): Promise<Exclude<SpielbestaetigungAnsicht, { zustand: "gueltig" | "vorschlag" }>> {
   // Its own cut, and its failure answered here: the write was refused, so no doubt about it may reach the spine,
   // which would call the outcome unknown and drop the fixture list for a write that never stood.

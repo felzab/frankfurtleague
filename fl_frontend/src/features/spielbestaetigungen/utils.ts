@@ -62,19 +62,19 @@ export function mapAnsetzungRefusal(error: unknown): SpielbestaetigungRefusal | 
     case "REQ-VAL-002":
     case "REQ-VAL-001":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
-    // A token nothing stores, a voided seat's included, a fixture moved since the link, and a row closed
-    // unanswered for whatever reason, which one code covers: one panel, which tells a guessed link
-    // nothing about a row.
+    // A token nothing stores, a voided seat's included, and a fixture moved since the link: one panel,
+    // which tells a guessed link nothing about a row.
     case "REQ-ANSETZUNG-001":
     case "REQ-ANSETZUNG-004":
-    case "REQ-ANSETZUNG-009":
       return { zustand: "ungueltig" };
     case "REQ-ANSETZUNG-003":
     case "REQ-ANSETZUNG-005":
       return { zustand: "abgelaufen" };
-    // One code covers both answers, so „zugesagt“ here would tell a club that declined in another
-    // window that it confirmed. Which way it went, and from which seat, is the read's to say.
+    // Each covers several states the read tells apart: `-002` both answers, where „zugesagt“ would tell a
+    // club that declined in another window it confirmed; `-009` every closing reason, so the press shows
+    // the panel a reload would.
     case "REQ-ANSETZUNG-002":
+    case "REQ-ANSETZUNG-009":
       return { nachlesen: true };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
     case "REQ-ANSETZUNG-011":
