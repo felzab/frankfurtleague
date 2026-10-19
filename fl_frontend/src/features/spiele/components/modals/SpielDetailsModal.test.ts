@@ -187,3 +187,12 @@ describe("the fixture dialog's links into a club", () => {
     }
   });
 });
+
+describe("the fixture dialog's status chip", () => {
+  it("passes the served verdict, so a fixture still to come whose clubs have not both confirmed reads „Vorläufig“", () => {
+    const { dialog, unmount } = openDialog({ ...UNGESPIELT, datum: "2026-09-15", ansetzung_bestaetigt: false });
+
+    assert.match(dialog.textContent, /Vorläufig/);
+    unmount();
+  });
+});

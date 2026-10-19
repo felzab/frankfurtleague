@@ -8,10 +8,18 @@ import { createElement as h } from "react";
 
 import { render } from "@testing-library/react";
 
+import { spielFields } from "@/shared/testing/fixtures.ts";
+import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
+
+import { FLSpielSchema } from "../../schemas.ts";
 import { computeSpielStatus } from "../../utils.ts";
+
+import type { FLSpielWithDraftFields } from "../../schemas.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SpielStatusChip } = await import("./SpielStatusChip.tsx");
+const { SpielCard } = await import("./SpielCard.tsx");
+const { SpielDraftPreview } = await import("../forms/AdminEditSpielDataForm/SpielDraftPreview.tsx");
 
 const TODAY = "2026-05-02";
 const TOMORROW = "2026-05-03";
@@ -43,5 +51,27 @@ describe("what the status chip says about a fixture's confirmation", () => {
   it("reads a fixture nobody was asked about, and a confirmed one, exactly as before", () => {
     assert.equal(wordFor(TOMORROW, null), "Ausstehend");
     assert.equal(wordFor(TOMORROW, true), "Ausstehend");
+  });
+});
+
+/** A fixture dated tomorrow whose clubs were asked and have not both confirmed. */
+const PROVISIONAL = FLSpielSchema.parse(spielFields({ datum: TOMORROW, uhrzeit: "18:00:00", ansetzung_bestaetigt: false }));
+
+describe("which mounts pass the verdict to the chip", () => {
+  it("puts „Vorläufig“ on the public card", () => {
+    const text = textOf(
+      renderMarkup(SpielCard, { spielData: PROVISIONAL, onOpenInfoModal: () => undefined, today: TODAY, isFinishedSaison: false }),
+    );
+
+    assert.match(text, /Vorläufig/);
+  });
+
+  // The verdict is about the STORED Ansetzung, and the draft the preview renders may already be another one.
+  it("never puts it on the editor's draft preview", () => {
+    const draft: FLSpielWithDraftFields = { ...PROVISIONAL, ort: null, schiedsrichter: null };
+    const text = textOf(renderMarkup(SpielDraftPreview, { previewSpiel: draft, today: TODAY, isDirty: false, isFinishedSaison: false }));
+
+    assert.match(text, /Ausstehend/);
+    assert.doesNotMatch(text, /Vorläufig/);
   });
 });
