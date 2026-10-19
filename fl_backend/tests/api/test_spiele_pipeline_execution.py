@@ -5,11 +5,10 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.spielbestaetigungen.services import compose_ansetzung
 from app.api.spiele.services import ANSETZUNG_BESTAETIGT, SAISON_TEAMS_AS_NAME, SPIELBESTAETIGUNGEN_AS_NAME, build_spiele_pipeline
 from app.core.collections import Collection
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import spiel_document
+from tests.documents import spiel_document, spielbestaetigung_document
 from tests.worker import worker_database
 
 from .conftest import AUSTRITT, PRIOR_SAISON, SAISON, TEAM_OIDS, SeededLeague
@@ -138,22 +137,7 @@ def zugesagt() -> dict[str, Any]:
 
 
 def a_row(fixture: Mapping[str, Any], team_id: ObjectId, **fields: Any) -> dict[str, Any]:
-    """An open team row as the pass mints it, its snapshot composed from `fixture` by the composer the mint calls."""
-
-    return {
-        "_id": ObjectId(),
-        "saison_id": fixture["saison_id"],
-        "spiel_id": fixture["_id"],
-        "partei": {"art": "team", "team_id": team_id},
-        "ansetzung": compose_ansetzung(fixture),
-        "frist": "2026-04-25",
-        "angefragt_am": "2026-04-18",
-        "erinnert_am": [],
-        "kontakte": {"trainer": None, "ansprechperson": None, "stellvertretung": None},
-        "antwort": None,
-        "geschlossen": None,
-        **fields,
-    }
+    return spielbestaetigung_document(fixture, partei={"art": "team", "team_id": team_id}, **fields)
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]

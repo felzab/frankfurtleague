@@ -34,6 +34,7 @@ from app.core.constraints import (
 from app.shared.schemas.bounds import TEAM_DESCRIPTION_MAX_LENGTH
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.documents import spiel_document, spielbestaetigung_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -337,30 +338,27 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         },
         # An open team row as the pass mints it: one seat holding the link the request went out with,
         # one sharing it as a mirrored pair does, one empty.
-        "spielbestaetigungen": {
-            "_id": SPIELBESTAETIGUNG_OID,
-            "saison_id": SAISON_ID,
-            "spiel_id": SPIEL_OID,
-            "partei": {"art": "team", "team_id": TEAM_OID},
-            "ansetzung": {
-                "datum": "2026-03-15",
-                "uhrzeit": "18:00:00",
-                "spielort_id": SPIELORT_OID,
-                "team1_id": TEAM_OID,
-                "team2_id": OTHER_TEAM_OID,
-                "stand": "d" * 64,
-            },
-            "frist": "2026-03-08",
-            "angefragt_am": None,
-            "erinnert_am": [],
-            "kontakte": {
+        "spielbestaetigungen": spielbestaetigung_document(
+            spiel_document(
+                spiel_id=SPIEL_OID,
+                saison_id=SAISON_ID,
+                spiel_nr=1,
+                spieltag_id=SPIELTAG_OID,
+                team1={"team_id": TEAM_OID, "name": "Lessing", "shorthand": "LE", "tore": None},
+                team2={"team_id": OTHER_TEAM_OID, "name": "Helmholtz", "shorthand": "HE", "tore": None},
+                datum="2026-03-15",
+                uhrzeit="18:00:00",
+                ort={"spielort_id": SPIELORT_OID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80},
+            ),
+            partei={"art": "team", "team_id": TEAM_OID},
+            _id=SPIELBESTAETIGUNG_OID,
+            frist="2026-03-08",
+            kontakte={
                 "trainer": {"token_hashes": ["e" * 64]},
                 "ansprechperson": {"token_hashes": ["e" * 64], "zustellung": None},
                 "stellvertretung": None,
             },
-            "antwort": None,
-            "geschlossen": None,
-        },
+        ),
         "drosselung": {
             "_id": "kontakt:" + "a" * 64 + ":2026-03-15",
             "n": 1,
