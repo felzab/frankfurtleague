@@ -874,7 +874,9 @@ levels, the alternative being a second per-unit join living beside the pool, and
 common one — costs the same either way. **A unit silent past `scripts/gate/gate_pool.py :: STALL_S`
 is named while it runs and never ended or failed**: the outermost pool prints which unit, how long,
 and the end of its capture, nested pools' notices relayed through it, and a pytest step's capture
-carries the stalled case's stack (`scripts/gate/verify.sh :: FAULTHANDLER_S`). **The pool ends its units rather than outliving them**
+carries every thread's stack (`scripts/gate/verify.sh :: FAULTHANDLER_S`), the stalled thread's whole
+(`scripts/gate/gate_pool.py :: shown`). That names a synchronous case's stalled frame; an async
+case's suspended coroutine is on no thread, so its dump shows only the event loop. **The pool ends its units rather than outliving them**
 (`scripts/gate/gate_pool.py :: terminate`), down to the build a unit was waiting on. **On Windows,
 where no signal reaches a gate past its launching shell, the job object `scripts/gate/gate_watch.py`
 holds does the same**: every process the gate started ends once the gate ends, an interrupt
@@ -884,7 +886,10 @@ SIGTERM and runs its trap, each pool outlives its units, and only what is still 
 (`scripts/tests/test_gate_stop.py :: test_stopping_the_gate_ends_every_tool_it_started`, which also
 finds nothing the traps reclaim left behind). A console's Ctrl-C is the same stop: the watcher takes it,
 a shell with no console of its own never seeing one, and the gate exits as an interrupt
-(`:: test_an_interrupt_ends_every_tool_and_leaves_nothing_behind`).
+(`:: test_an_interrupt_ends_every_tool_and_leaves_nothing_behind`). **A run nothing can watch keeps
+none of this**: with no interpreter at the checkers' floor, or a watcher that did not arm, a stop
+leaves what the run started running, and the run says so where it announces its scopes
+(`scripts/gate/verify.sh :: join_the_job`).
 
 **`next typegen` goes first and alone** because it writes the route types under
 `fl_frontend/.next/types/` and `fl_frontend/next-env.d.ts` that `tsc` reads: without them a
