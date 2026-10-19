@@ -420,7 +420,7 @@ class TestEverySeatWriteVoidsItsLinks:
         assert links == {**KEPT, "open": ALL - {"trainer"}}
 
     def test_a_seat_holding_no_entry_on_any_open_row_is_written_nowhere(self, mongo_replica_set_url: str):
-        """A void matching nothing still files a log row, which names a write that changed nothing; the open row's Trainer entry is null."""
+        """A void that changes nothing files no log row naming a write that changed nothing; the open row's Trainer entry is null."""
 
         async def hand_on_an_unasked_seat(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELBESTAETIGUNGEN].update_many({"partei.team_id": TEAM_OID}, {"$set": {"kontakte.trainer": None}})

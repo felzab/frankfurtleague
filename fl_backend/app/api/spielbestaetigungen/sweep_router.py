@@ -314,17 +314,7 @@ async def sweep_spielbestaetigungen(
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def stamp_the_run(session: AsyncClientSession) -> None:
-        """Inside the pass's last transaction, so a stamped day is a committed call; the read keeps a day to one log row."""
-
-        stale = await pull_many_from_db(
-            collection=saisons_collection,
-            db_filter={"_id": saison_id, "spiel_sweep_gelaufen_am": {"$ne": today}},
-            projection=["_id"],
-            limit=1,
-            session=session,
-        )
-        if not stale:
-            return
+        """Inside the pass's last transaction, so a stamped day is a committed call; a day already stamped changes, and logs, nothing."""
 
         await patch_many_in_db(
             collection=saisons_collection, db_filter={"_id": saison_id}, update={"$set": {"spiel_sweep_gelaufen_am": today}}, session=session

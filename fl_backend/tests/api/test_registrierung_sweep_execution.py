@@ -441,7 +441,7 @@ class TestTheOneMonthClock:
 
 class TestThePassRecordsTheDayItRan:
     def test_it_stamps_every_season_and_a_second_pass_appends_no_row(self, mongo_replica_set_url: str):
-        """`patch_many_in_db` files a row per call even where its filter matches nothing, so the guard read is what the hourly pass rests on."""
+        """The stamp reaches only a season not yet stamped today, and a fan-out that changed nothing logs nothing: one row a day."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)

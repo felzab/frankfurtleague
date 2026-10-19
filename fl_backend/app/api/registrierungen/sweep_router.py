@@ -55,9 +55,9 @@ router = APIRouter(
 # a pass that stops on a club somebody retired.
 _TEAM_UNBEKANNT = ""
 
-# Three commands a row beside the nineteen of the worst call erasing one page per clock
-# (`tests/api/test_registrierung_sweep_refusal.py :: OTHER_COMMANDS`): 262 commands at a 37 ms round trip
-# plus 1.07 ms take 9.97 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S` (`docs/backend/spec.md :: I322`).
+# Three commands a row beside the eighteen of the worst call erasing one page per clock
+# (`tests/api/test_registrierung_sweep_refusal.py :: OTHER_COMMANDS`): 261 commands at a 37 ms round trip
+# plus 1.07 ms take 9.94 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S` (`docs/backend/spec.md :: I322`).
 REMINDERS_PER_PASS: Final = 81
 
 
@@ -162,21 +162,9 @@ async def sweep_registrierungen(
     async def stamp_the_run(session: AsyncClientSession) -> None:
         """One fan-out over every season today has not reached, inside the pass's LAST transaction, so a stamped day is a committed call."""
 
-        stale = await pull_many_from_db(
-            collection=saisons_collection,
-            db_filter=build_stale_stamp_filter(today=today),
-            projection=["_id"],
-            limit=LIST_LIMIT_MAX,
-            session=session,
-        )
-        # The guard that keeps a day to ONE log row: `patch_many_in_db` files one per call, a call
-        # matching nothing included, and this runs hourly against every season.
-        if not stale:
-            return
-
         await patch_many_in_db(
             collection=saisons_collection,
-            db_filter={"_id": {"$in": [row["_id"] for row in stale]}},
+            db_filter=build_stale_stamp_filter(today=today),
             update=compose_sweep_stamp(today=today),
             session=session,
         )

@@ -809,27 +809,10 @@ def build_open_team_rows_filter(pairs: Sequence[tuple[Any, Any]]) -> dict[str, A
     return {"partei.art": "team", **build_answerable_filter(), "$or": [_team_rows(saison_id, team_id) for saison_id, team_id in pairs]}
 
 
-def build_open_seat_rows_pipeline(voids: Sequence[SeatVoid]) -> list[Mapping[str, Any]]:
-    """Per team and season, which seats hold an entry on any open row: one document per row written, so one batch answers it."""
+def group_seat_voids(voids: Sequence[SeatVoid]) -> list[tuple[tuple[FLKontaktRolle, ...], list[tuple[Any, Any]]]]:
+    """The teams these writes moved seats on, grouped by the seats to null: one write per group, never per row.
 
-    return [
-        {"$match": build_open_team_rows_filter([(void.saison_id, void.team_id) for void in voids])},
-        {
-            "$group": {
-                "_id": {"saison_id": "$saison_id", "team_id": "$partei.team_id"},
-                # An object sorts above null, so only a standing entry counts.
-                **{seat: {"$max": {"$gt": [f"$kontakte.{seat}", None]}} for seat in KONTAKT_ROLLEN},
-            }
-        },
-    ]
-
-
-def group_seat_voids(
-    *, voids: Sequence[SeatVoid], held: Sequence[Mapping[str, Any]]
-) -> list[tuple[tuple[FLKontaktRolle, ...], list[tuple[Any, Any]]]]:
-    """The teams whose open rows hold an entry of a seat their write moved, grouped by the seats to null.
-
-    One write per group rather than per row, so a call costs the same however many rows it voids.
+    Unread first: a group whose rows hold none of the entries changes, and logs, nothing.
     """
 
     seats_of: dict[tuple[Any, Any], set[str]] = {}
@@ -837,12 +820,8 @@ def group_seat_voids(
         seats_of.setdefault((void.saison_id, void.team_id), set()).update(void.seats)
 
     groups: dict[tuple[FLKontaktRolle, ...], list[tuple[Any, Any]]] = {}
-    for team in held:
-        pair = (team["_id"]["saison_id"], team["_id"]["team_id"])
-        seats = seats_of.get(pair, set())
-        # A team whose rows hold none of them is not written: the update would change nothing and still file a log row.
-        if any(team.get(seat) is True for seat in seats):
-            groups.setdefault(tuple(seat for seat in KONTAKT_ROLLEN if seat in seats), []).append(pair)
+    for pair, seats in seats_of.items():
+        groups.setdefault(tuple(seat for seat in KONTAKT_ROLLEN if seat in seats), []).append(pair)
 
     return list(groups.items())
 

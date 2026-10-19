@@ -1534,3 +1534,37 @@ def test_each_distinct_place_of_theirs_in_an_undraws_image_costs_one_write(mongo
         return on_a_league(mongo_replica_set_url, body)
 
     assert counted([0, 1, 2]) - counted([0, 0, 0]) == 2
+
+
+# Every non-empty set of the three seats, the widest spread one erasure's void can write.
+SEAT_SETS = [tuple(seat for bit, seat in enumerate(KONTAKT_ROLLEN) if mask >> bit & 1) for mask in range(1, 2 ** len(KONTAKT_ROLLEN))]
+
+
+def a_row_voiding(row_id: ObjectId, seats: tuple[str, ...]) -> dict[str, Any]:
+    """The person on the first of `seats`, the rest of them empty and every other seat held: the erasure voids exactly `seats`."""
+
+    others = iter([person(BYSTANDER_NACHNAME, BYSTANDER_TELEFON), person(UNREACHED_NACHNAME, UNREACHED_TELEFON)])
+    block = {
+        slot: ({**person(ERASED_NACHNAME, ERASED_TELEFON)} if slot == seats[0] else None) if slot in seats else next(others)
+        for slot in KONTAKT_ROLLEN
+    }
+
+    return a_junction_row(row_id, LATER_SAISON, {**block, "trainer_ist_zugleich": None})
+
+
+@pytest.mark.db
+def test_each_further_seat_set_the_void_meets_costs_one_write_and_its_log_row(mongo_replica_set_url: str):
+    """Seven rows voiding seven different seat sets against seven voiding one: the void writes once per set, and nothing reads first."""
+
+    def counted(seat_sets: list[tuple[str, ...]]) -> int:
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> int:
+            rows = [a_row_voiding(an_extra_row(position), seats) for position, seats in enumerate(seat_sets)]
+            await database[Collection.SAISON_TEAMS].insert_many(rows)
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many([an_open_confirmation(row["team_id"]) for row in rows])
+
+            return await commands_sent(mongo_replica_set_url, DATABASE_NAME, call_erasure)
+
+        return on_a_league(mongo_replica_set_url, body)
+
+    assert len(set(SEAT_SETS)) == 7
+    assert counted(SEAT_SETS) - counted([KONTAKT_ROLLEN] * len(SEAT_SETS)) == 2 * (len(SEAT_SETS) - 1)

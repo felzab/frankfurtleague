@@ -221,7 +221,7 @@ ROUND_TRIPS_A_ROW = 3
 
 # Each worst call's commands beside its rows, counted on the wire by
 # `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
-SWEEP_OTHER_COMMANDS = 24
+SWEEP_OTHER_COMMANDS = 23
 ANGEFRAGT_OTHER_COMMANDS = 3
 
 # A `getMore` apiece for the reads taking a season's rows rather than a share's, once those outrun the driver's first

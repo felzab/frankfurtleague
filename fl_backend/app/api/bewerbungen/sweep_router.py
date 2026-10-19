@@ -78,13 +78,12 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Both shares at three commands a row beside the 35 of the worst call erasing one page per clock
+# Both shares at three commands a row beside the 33 of the worst call erasing one page per clock
 # (`tests/api/test_bewerbung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
-# 266 commands at a 36 ms round trip plus 1.35 ms take 9.94 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
+# 264 commands at a 36 ms round trip plus 1.35 ms take 9.86 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 39
 
-# A season at the capacity its rules allow holds more junction rows than this, and takes more passes. One below
-# the reminders': voiding the cleared people's match links costs three commands, and 39 would make 269, 10.05 s.
+# A season at the capacity its rules allow holds more junction rows than this, and takes more passes.
 BLOCKS_CLEARED_PER_PASS: Final = 38
 
 
@@ -273,21 +272,10 @@ async def sweep_saison(
     async def stamp_the_run(session: AsyncClientSession) -> None:
         """One fan-out over every season today has not reached, inside the pass's LAST transaction, so a stamped day is a committed call."""
 
-        stale = await pull_many_from_db(
-            collection=saisons_collection,
-            db_filter={"sweep_gelaufen_am": {"$ne": today}},
-            projection=["_id"],
-            limit=LIST_LIMIT_MAX,
-            session=session,
-        )
-        # The guard that keeps a day to ONE log row: `patch_many_in_db` files one per call, a call
-        # matching nothing included, and this runs hourly against every season.
-        if not stale:
-            return
-
         await patch_many_in_db(
             collection=saisons_collection,
-            db_filter={"_id": {"$in": [row["_id"] for row in stale]}},
+            # Every season today has not reached, so the hourly pass writes, and logs, the first of the day alone.
+            db_filter={"sweep_gelaufen_am": {"$ne": today}},
             # The whole PASS's day, on every stale season at once: it says when the sweep last ran
             # and never when this season was visited.
             update={"$set": {"sweep_gelaufen_am": today}},
