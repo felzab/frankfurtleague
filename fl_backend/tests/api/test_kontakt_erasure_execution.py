@@ -25,6 +25,7 @@ from app.api.kontakte.services import (
     same_address,
     seat_image_edits,
 )
+from app.api.spielbestaetigungen.services import compose_ansetzung
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLSaisonTeamKontakte
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, patch_one_in_db
@@ -1407,7 +1408,8 @@ def test_the_reveal_lists_exactly_the_seats_the_erasure_then_clears(mongo_replic
 
 
 # The erasure clears every row naming the person in one transaction with no share, so this, a round trip
-# each, bounds how many rows a person may hold inside the request's deadline.
+# each, bounds how many rows a person may hold inside the request's deadline. The void of their match links
+# is one call beside it, whatever the rows hold.
 COMMANDS_A_CLEARED_ROW = 3
 
 # Two erasures apart by this many rows naming the person.
@@ -1418,14 +1420,39 @@ def an_extra_row(position: int) -> ObjectId:
     return ObjectId(f"6890a1b2c3d4e5f6079{position:05d}")
 
 
+def an_open_confirmation(team_id: ObjectId) -> dict[str, Any]:
+    """The row's team asked about a fixture and not yet answered, each seat holding the link it was mailed."""
+
+    fixture = {"datum": "2026-04-18", "uhrzeit": "14:00:00", "ort": None, "team1": {"team_id": team_id}, "team2": {"team_id": team_id}}
+
+    return {
+        "saison_id": LATER_SAISON,
+        "spiel_id": ObjectId(),
+        "partei": {"art": "team", "team_id": team_id},
+        "ansetzung": compose_ansetzung(fixture),
+        "frist": "2026-04-11",
+        "angefragt_am": "2026-04-01",
+        "erinnert_am": [],
+        "kontakte": {seat: {"token_hashes": [hash_token(f"{team_id}-{seat}")], "zustellung": None} for seat in KONTAKT_ROLLEN},
+        "antwort": None,
+        "geschlossen": None,
+    }
+
+
 @pytest.mark.db
 def test_each_row_the_erasure_clears_costs_the_commands_counted_for_it(mongo_replica_set_url: str):
-    """A command added per row passes every other case, and shrinks the person whose erasure still finishes inside the deadline."""
+    """A command added per row passes every other case, and shrinks the person whose erasure still finishes inside the deadline.
+
+    Each row's team holds an open match confirmation, so a void written per row rather than per call is counted too.
+    """
 
     def counted(rows: int) -> int:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> int:
             await database[Collection.SAISON_TEAMS].insert_many(
                 [a_row_naming(an_extra_row(position), ERASED_EMAIL) for position in range(rows)]
+            )
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
+                [an_open_confirmation(an_extra_row(position)) for position in range(rows)]
             )
 
             return await commands_sent(mongo_replica_set_url, DATABASE_NAME, call_erasure)
