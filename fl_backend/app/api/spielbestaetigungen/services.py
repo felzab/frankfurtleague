@@ -192,10 +192,8 @@ def seat_adresse(*, lage: AnsetzungLage, spielbestaetigung_raw: Mapping[str, Any
 
     team_id = (spielbestaetigung_raw.get("partei") or {}).get("team_id")
     verein = next((row for row in lage.vereine if row.get("team_id") == team_id), None)
-    sitz = ((verein or {}).get("kontakte") or {}).get(seat)
-    email = sitz.get("email") if isinstance(sitz, Mapping) else None
 
-    return email if isinstance(email, str) else None
+    return kontakt_adresse(kontakte=(verein or {}).get("kontakte"), seat=seat)
 
 
 def _stand_moved(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage) -> bool:
@@ -635,12 +633,15 @@ def compose_spielbestaetigung(
 
 
 def kontakt_adresse(*, kontakte: Any, seat: str) -> str | None:
-    """The address a seat's holder is reached at, or `None` where the seat is empty."""
+    """The address a seat's holder is mailed at, banned on and recorded under, or `None` where the seat is empty.
+
+    Unstripped: every seat payload stores `league_address`'s trimmed form, so a reader trimming would change nothing a write leaves.
+    """
 
     slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
-    email = str(slot.get("email") or "").strip() if isinstance(slot, Mapping) else ""
+    email = slot.get("email") if isinstance(slot, Mapping) else None
 
-    return email or None
+    return email if isinstance(email, str) and email else None
 
 
 def link_groups(*, kontakte: Any, seats: Sequence[str]) -> list[list[FLKontaktRolle]]:
