@@ -374,7 +374,7 @@ KEPT = {"open": ALL, "answered": ALL, "other": ALL}
 
 
 class TestEverySeatWriteVoidsItsLinks:
-    """Acceptance (i): every route and step writing an existing season row's seats, each voiding what it moves and nothing else."""
+    """Every route and step writing an existing season row's seats, each voiding what it moves and nothing else."""
 
     @pytest.mark.parametrize(
         ("write", "voided", "saison_status"),
