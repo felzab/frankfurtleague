@@ -173,6 +173,8 @@ ELSEWHERE_SEAT_ROW_OID = ObjectId("6890a1b2c3d4e5f607b00096")
 THEIR_CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607b000a1")
 THEIR_UNDRAWN_CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607b000a2")
 OTHER_CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607b000a3")
+# Their team's open row, its link on the seat they hold, which the seat member voids.
+TEAM_CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607b000a4")
 UNDRAWN_SAISON_ID = "2025"
 OTHER_REASON = "Dienstreise nach Hamburg"
 # Every record of their own the erasure removes, each id looked for in the whole database afterwards: a reference left
@@ -261,14 +263,14 @@ async def the_one(database: AsyncDatabase, collection: Collection, db_filter: Ma
     return found
 
 
-def a_referee_confirmation(row_id: ObjectId, schiedsrichter_id: ObjectId, *, spiel_id: ObjectId, saison_id: str = SAISON_ID) -> dict[str, Any]:
-    """An open referee row, as the sweep mints one for a booked fixture."""
+def a_confirmation(row_id: ObjectId, partei: dict[str, Any], *, spiel_id: ObjectId, saison_id: str = SAISON_ID) -> dict[str, Any]:
+    """An open, unanswered row, as the sweep mints one."""
 
     return {
         "_id": row_id,
         "saison_id": saison_id,
         "spiel_id": spiel_id,
-        "partei": {"art": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id},
+        "partei": partei,
         "ansetzung": {
             "datum": "2026-03-15",
             "uhrzeit": "14:00:00",
@@ -286,21 +288,32 @@ def a_referee_confirmation(row_id: ObjectId, schiedsrichter_id: ObjectId, *, spi
     }
 
 
+def a_referee(schiedsrichter_id: ObjectId) -> dict[str, Any]:
+    return {"art": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id}
+
+
 def declined(begruendung: str) -> dict[str, Any]:
     return {"art": "abgelehnt", "am": "2026-03-03", "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": begruendung}
 
 
 async def their_confirmations(database: AsyncDatabase) -> None:
-    """Each kind of log image holding their id or their reason: two patches' and an undraw's array of the removed season's rows."""
+    """Each kind of log image holding their id or reason, two patches' and an undraw's array, and their team's row linking their seat."""
 
     confirmations = database[Collection.SPIELBESTAETIGUNGEN]
     await confirmations.insert_many(
         [
-            a_referee_confirmation(THEIR_CONFIRMATION_OID, REFEREE_OID, spiel_id=THEIR_SPIEL_OID),
-            {**a_referee_confirmation(OTHER_CONFIRMATION_OID, OTHER_REFEREE_OID, spiel_id=OTHER_SPIEL_OID), "antwort": declined(OTHER_REASON)},
+            a_confirmation(THEIR_CONFIRMATION_OID, a_referee(REFEREE_OID), spiel_id=THEIR_SPIEL_OID),
             {
-                **a_referee_confirmation(THEIR_UNDRAWN_CONFIRMATION_OID, REFEREE_OID, spiel_id=ObjectId(), saison_id=UNDRAWN_SAISON_ID),
+                **a_confirmation(OTHER_CONFIRMATION_OID, a_referee(OTHER_REFEREE_OID), spiel_id=OTHER_SPIEL_OID),
+                "antwort": declined(OTHER_REASON),
+            },
+            {
+                **a_confirmation(THEIR_UNDRAWN_CONFIRMATION_OID, a_referee(REFEREE_OID), spiel_id=ObjectId(), saison_id=UNDRAWN_SAISON_ID),
                 "antwort": declined(THEIR_REASON),
+            },
+            {
+                **a_confirmation(TEAM_CONFIRMATION_OID, {"art": "team", "team_id": HOME_TEAM_OID}, spiel_id=THEIR_SPIEL_OID),
+                "kontakte": {"trainer": None, "ansprechperson": {"token_hashes": [hash_token("their-seats-link")]}, "stellvertretung": None},
             },
         ]
     )
@@ -845,7 +858,7 @@ class TestWhatStandsBesideThem:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await erased_over_http(mongo_replica_set_url)
 
-            rows = await database[Collection.SPIELBESTAETIGUNGEN].find().to_list(length=None)
+            rows = await database[Collection.SPIELBESTAETIGUNGEN].find().sort("_id", 1).to_list(length=None)
             logged = await database[Collection.AKTIONEN].find({"collection": str(Collection.SPIELBESTAETIGUNGEN)}).to_list(length=None)
             images = [image for row in logged for image in (row["before"] if isinstance(row["before"], list) else [row["before"]]) if image]
 
@@ -853,7 +866,7 @@ class TestWhatStandsBesideThem:
 
         standing, images = on_a_league(mongo_replica_set_url, body)
 
-        assert standing == [OTHER_CONFIRMATION_OID]
+        assert standing == [OTHER_CONFIRMATION_OID, TEAM_CONFIRMATION_OID]
         assert images == sorted(
             [(GHOST_SCHIEDSRICHTER_ID, None), (OTHER_REFEREE_OID, OTHER_REASON)],
             key=str,

@@ -555,7 +555,7 @@ class ErasureStep:
 # address pass after every image they filed.
 ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ErasureStep(
-        reaches=frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN, Collection.AKTIONEN}),
+        reaches=frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN, Collection.SPIELBESTAETIGUNGEN, Collection.AKTIONEN}),
         personengruppe="kontakt",
         run=erase_kontaktperson_in_session,
     ),
@@ -685,6 +685,7 @@ async def erase_everything(
             await erase_kontaktperson_in_session(
                 saison_teams_collection=saison_teams_collection,
                 bewerbungen_collection=bewerbungen_collection,
+                spielbestaetigungen_collection=spielbestaetigungen_collection,
                 aktionen_collection=aktionen_collection,
                 identifier=identifier,
                 saison_team_rows=subject.saison_teams,
