@@ -1457,3 +1457,84 @@ class TestEverySeasonSizedReadSendsOneGetMore:
         # The premise first: the close's share taken, and every row due a reminder about an Ansetzung its fixture left.
         assert (answer.geschlossen, answer.erinnerungen) == (CLOSES_PER_PASS, [])
         assert names["getMore"] == budget.SWEEP_GET_MORES, names
+
+
+class HandedOnAfterTheSecondRead(HandedOnAfterTheMintRead):
+    """The rival at the pass's second in-session read of the season rows: wherever a row stands open the close reads them first."""
+
+    def __init__(self, collection: Any, rival: Callable[[], Awaitable[None]]) -> None:
+        super().__init__(collection, rival)
+        self.reads = 0
+
+    def find(self, *args: Any, **kwargs: Any) -> Any:
+        if kwargs.get("session") is not None:
+            self.reads += 1
+            if self.reads >= 2:
+                return super().find(*args, **kwargs)
+
+        return self._collection.find(*args, **kwargs)
+
+
+class TestAnEmptiedEntryFilledBesideAHandoverIsMintedForTheNewHolder:
+    """`docs/backend/spec.md :: I770`'s second shape: the handover's void finds the open row's entry already empty and writes nothing.
+
+    So only the anchor parts the two, on a club the mint writes no new row for.
+    """
+
+    def test_the_new_trainer_is_asked_and_the_old_one_holds_no_link(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            # Emptied as a ban or an earlier void leaves an entry, for the mint to fill.
+            await database[Collection.SPIELBESTAETIGUNGEN].update_one({"partei.team_id": ALPHA}, {"$set": {"kontakte.trainer": None}})
+
+            async def hand_the_trainer_on() -> None:
+                stored = await database[Collection.SAISON_TEAMS].find_one({"saison_id": SAISON_ID, "team_id": ALPHA})
+                assert stored is not None
+                kept = {
+                    seat: a_payload_person(vorname, f"{vorname}-Mustermann", f"+491701000000{position}")
+                    for position, (seat, vorname) in enumerate(SEATS[ALPHA].items())
+                }
+                await patch_saison_team_kontakte(
+                    team_id=ALPHA,
+                    saison_id=SAISON_ID,
+                    kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate(
+                        {
+                            "kontakte": {
+                                **kept,
+                                "trainer": a_payload_person("Lea", "Musterfrau", "+4917010000009"),
+                                "trainer_ist_zugleich": None,
+                            },
+                            "kontakte_stand": kontakte_stand_of(stored["kontakte"]),
+                        }
+                    ),
+                    saison_teams_collection=database[Collection.SAISON_TEAMS],
+                    saisons_collection=database[Collection.SAISONS],
+                    spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                    sperrliste=ban_list(database),
+                    adressanker_collection=database[Collection.ADRESSANKER],
+                    db=client,
+                    refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+                    today=TODAY,
+                )
+
+            interleaved = HandedOnAfterTheSecondRead(database[Collection.SAISON_TEAMS], hand_the_trainer_on)
+            answer = await sweep_spielbestaetigungen(
+                saison_id=SAISON_ID,
+                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                spiele_collection=database[Collection.SPIELE],
+                saison_teams_collection=cast(Any, interleaved),
+                saisons_collection=database[Collection.SAISONS],
+                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                sperrliste=ban_list(database),
+                db=client,
+                today=TODAY,
+            )
+
+            return interleaved, answer, row_of(await rows(database), team_id=ALPHA)
+
+        interleaved, answer, alpha = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        links = [link for anfrage in answer.anfragen if anfrage.seite == "team1" for link in anfrage.links]
+        assert [(link.address, link.rollen) for link in links] == [("lea@example.com", ["trainer"])]
+        assert alpha["kontakte"]["trainer"]["token_hashes"] == [hash_token(links[0].token)]
+        interleaved.assert_landed_inside(serially=1)
