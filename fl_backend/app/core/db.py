@@ -285,3 +285,9 @@ async def get_adressanker_collection(
     db: AsyncDatabase = Depends(get_database),
 ) -> AsyncCollection:
     return db[Collection.ADRESSANKER]
+
+
+async def get_spielbestaetigungen_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.SPIELBESTAETIGUNGEN]

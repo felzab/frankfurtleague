@@ -98,22 +98,13 @@ describe("the account page", () => {
 const SHELLS = {
   admin: (pathname: string) =>
     underNext(h(AdminShell, { saisonMetadataDisplay: null, funktionSwitcher: null, children: h("p", null, "Seite") }), { pathname }),
-  person: (pathname: string) => underNext(h(PersonShell, { structure: [], orte: [], children: h("p", null, "Seite") }), { pathname }),
+  person: (pathname: string) =>
+    underNext(h(PersonShell, { structure: [], funktionSwitcher: null, children: h("p", null, "Seite") }), { pathname }),
   team: (pathname: string) =>
-    underNext(
-      h(TeamShell, {
-        teamId: "6890a1b2c3d4e5f607250011",
-        saisonId: "2526",
-        structure: [],
-        saison: null,
-        isRefused: false,
-        orte: [],
-        children: h("p", null, "Seite"),
-      }),
-      {
-        pathname,
-      },
-    ),
+    underNext(h(TeamShell, { saisonMetadataDisplay: null, funktionSwitcher: null, children: h("p", null, "Seite") }), {
+      pathname,
+      params: { team_id: "6890a1b2c3d4e5f607250011", saison_id: "2526" },
+    }),
 };
 
 describe("how every shell reaches the account page (`docs/frontend/spec.md :: I423`)", () => {

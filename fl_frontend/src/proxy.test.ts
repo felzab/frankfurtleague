@@ -55,6 +55,7 @@ const { getSubjectSession } = await import("./core/subject.ts");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
 const { adapter } = await import("next/dist/server/web/adapter.js");
 const { config, proxy } = await import("./proxy.ts");
+const { SIGN_IN_LANDING } = await import("./core/signInLanding.ts");
 const { EDGE_REFUSAL_BODY } = await import("./shared/utils/actionError.ts");
 
 /** What the landing reads, for the cases that put its answer and this proxy's side by side. */
@@ -211,14 +212,20 @@ function matched(
     // Left as written, as Next leaves an escape it cannot decode.
   }
 
+  // Handed over as the helper's own `cookies`: it writes that header from them whatever `headers` carried.
+  const { cookie = "", ...rest } = headers;
+  const cookies = Object.fromEntries(cookie.split(";").flatMap((pair) => (pair.includes("=") ? [pair.trim().split(/=(.*)/s, 2)] : [])));
+
   return [pathname, spelled].some((path) =>
     // A copy each time: the helper writes a `host` into the object it is handed.
-    unstable_doesMiddlewareMatch({ config: { matcher }, url: new URL(path, url).href, headers: { ...headers } }),
+    unstable_doesMiddlewareMatch({ config: { matcher }, url: new URL(path, url).href, headers: { ...rest }, cookies }),
   );
 }
 
-/** What Next's router sends on a prefetch, which carries no page a person asked for. */
-const PREFETCH = { "next-router-prefetch": "1" };
+/** What Next's router sends on a prefetch, and what a browser's own sends, neither carrying a page a person asked for. */
+const PREFETCHES: Record<string, string>[] = [{ "next-router-prefetch": "1" }, { purpose: "prefetch" }];
+
+const TEAM_URL = "http://localhost:3000/bereich/team/6890a1b2c3d4e5f607190001/2526";
 
 describe("which addresses the proxy is run on", () => {
   it("runs on every page a session serves, and on no public page or route handler", () => {
@@ -239,12 +246,27 @@ describe("which addresses the proxy is run on", () => {
     }
   });
 
-  // The administrator's subtree keeps its turn-away on a prefetch too, as it had with the admin entry alone.
-  it("skips a prefetch everywhere but the administrator's subtree", () => {
-    for (const url of ["http://localhost:3000/bereich/konto", "http://localhost:3000/signin"]) {
-      assert.equal(matched(url, { headers: PREFETCH }), false, `${url} runs the proxy on a prefetch`);
+  /* Next strips the prefetch header before the proxy runs, so a prefetch reaching it carrying a session would
+     slide it (`docs/frontend/spec.md :: I495`). The administrator's subtree keeps its turn-away on a prefetch. */
+  it("skips a prefetch carrying a session cookie everywhere but the administrator's subtree", async () => {
+    const { cookie } = await signIn("leserin@example.org");
+    for (const prefetch of PREFETCHES) {
+      for (const url of ["http://localhost:3000/bereich", "http://localhost:3000/bereich/konto", TEAM_URL, "http://localhost:3000/signin"]) {
+        assert.equal(matched(url, { headers: { ...prefetch, cookie } }), false, `${url} runs the proxy on a signed-in prefetch`);
+      }
+      assert.equal(matched("http://localhost:3000/bereich/admin/spiele", { headers: { ...prefetch, cookie } }), true);
     }
-    assert.equal(matched("http://localhost:3000/bereich/admin/spiele", { headers: PREFETCH }), true);
+  });
+
+  /* The cookie alone answers it, before any read: a visitor holding none is sent to sign in rather than
+     shown the person's prefetched frame. A sign-in page's prefetch reads nothing either way. */
+  it("runs on a prefetch of a person's page carrying no session cookie, and of no sign-in page", () => {
+    for (const prefetch of PREFETCHES) {
+      for (const url of ["http://localhost:3000/bereich", "http://localhost:3000/bereich/konto", TEAM_URL]) {
+        assert.equal(matched(url, { headers: { ...prefetch, cookie: "theme=dark" } }), true, `${url} skips a signed-out prefetch`);
+      }
+      assert.equal(matched("http://localhost:3000/signin", { headers: prefetch }), false);
+    }
   });
 
   /* The proxy's prefix test is a second reading of the admin entry: a spelling that entry admits and
@@ -253,6 +275,8 @@ describe("which addresses the proxy is run on", () => {
   it("judges exactly the spellings the administrator's own entry admits", async () => {
     // The first entry, which names the subtree and nothing else.
     const adminEntry = config.matcher.slice(0, 1);
+    // Code-borne, which the person lane lets through and the administrator's checks send to the landing.
+    const { cookie } = await signIn("leserin@example.org");
     for (const url of [
       "http://localhost:3000/bereich/admin",
       "http://localhost:3000/bereich/admin/",
@@ -265,19 +289,74 @@ describe("which addresses the proxy is run on", () => {
       // A malformed escape the decoding cannot read, which must not take the request down with it.
       "http://localhost:3000/bereich/team/%E0%A4%A",
     ]) {
-      const judged = redirectedTo(await arriveAtAdmin({ url })) === "/signin";
+      const judged = redirectedTo(await arriveAtAdmin({ url, cookie })) === SIGN_IN_LANDING;
       assert.equal(judged, matched(url, { matcher: adminEntry }), `${url} is judged otherwise than the admin entry matches it`);
     }
   });
 
   // The person lane's words share the prefix, and the administrator's checks would turn every person away.
-  it("lets every page outside the administrator's subtree through, whoever arrives", async () => {
+  it("lets a person's session through every page outside the administrator's subtree, a grant held or none", async () => {
     for (const url of ["http://localhost:3000/bereich/konto", "http://localhost:3000/bereich/administration", "http://localhost:3000/signin"]) {
-      for (const cookie of [undefined, removed.cookie]) {
+      for (const cookie of [(await signIn("leserin@example.org")).cookie, removed.cookie]) {
         const answer = await arriveAtAdmin({ url, cookie });
 
         assert.equal(answer.headers.get("x-middleware-next"), "1", `${url} was judged by the administrator's checks`);
       }
+    }
+  });
+
+  // The sign-in's own pages are where a visitor holding no session is sent, so they turn nobody away.
+  it("lets every sign-in page through with no session", async () => {
+    for (const url of ["http://localhost:3000/signin", "http://localhost:3000/signin/weiter"]) {
+      assert.equal((await arriveAtAdmin({ url })).headers.get("x-middleware-next"), "1", `${url} turned a visitor away`);
+    }
+  });
+});
+
+const PERSON_URLS = [
+  "http://localhost:3000/bereich",
+  "http://localhost:3000/bereich/konto",
+  "http://localhost:3000/bereich/zorbanax",
+  TEAM_URL,
+];
+
+describe("where the proxy sends a request for a person's or a team's page (`docs/frontend/spec.md :: I495`)", () => {
+  /* Optimistic, as Next and the library document a proxy's check: turned away before any bar paints, where
+     the page's own guard would turn it away only once the area's frame had streamed. */
+  it("sends a request carrying no session cookie to sign in, reading no store", async (t) => {
+    const read = t.mock.method(auth.api, "getSession");
+    for (const url of PERSON_URLS) {
+      assert.equal(redirectedTo(await arriveAtAdmin({ url })), "/signin", `${url} let a visitor holding no session through`);
+    }
+    assert.equal(read.mock.callCount(), 0, "the cookie check read the store");
+  });
+
+  // An action's POST takes the same turn-away in the header its client reads, for the admin arm's reason.
+  it("turns a signed-out action's POST away in the action's own redirect", async () => {
+    for (const url of PERSON_URLS) {
+      const answer = await arriveAtAdmin({ url, method: "POST", action: true });
+
+      assert.equal(answer.headers.get("x-action-redirect"), "/signin;replace", `${url} answered a signed-out action otherwise`);
+    }
+  });
+
+  /* The cookie is no session: one whose row is gone is turned away on the read the slide makes anyway, which
+     every guard there makes again. */
+  it("sends a cookie whose session is gone to sign in", async () => {
+    const { cookie, row } = await signIn("leserin@example.org");
+    store.session.splice(store.session.indexOf(row), 1);
+
+    for (const url of PERSON_URLS) {
+      assert.equal(redirectedTo(await arriveAtAdmin({ url, cookie })), "/signin", `${url} let an ended session through`);
+    }
+  });
+
+  // The control: a live session, code-borne and holding no grant, reaches every one of these pages.
+  it("lets a person's live session through", async () => {
+    const { cookie } = await signIn("leserin@example.org");
+
+    for (const url of PERSON_URLS) {
+      assert.equal((await arriveAtAdmin({ url, cookie })).headers.get("x-middleware-next"), "1", `${url} turned a live session away`);
     }
   });
 });

@@ -19,10 +19,6 @@ const contentLoader = tv({
   defaultVariants: { fills: "region" },
 });
 
-/**
- * Deliberately a different shape from `PageLoader`'s ringed spinner, so the two are tellable at a glance: that one means
- * a whole page is loading, this that the shell is painted and only the content region is streaming.
- */
 export function ContentLoader({ fills }: { fills?: "region" | "viewport" } = {}) {
   return (
     <div

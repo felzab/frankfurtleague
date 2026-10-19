@@ -1,45 +1,37 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import Bars from "@gravity-ui/icons/Bars";
 import PersonGear from "@gravity-ui/icons/PersonGear";
 
-import { FOCUS_HEADING } from "../../../utils/focusAfterWrite";
 import { BrandLink } from "../../ui/BrandLink";
-import { InfoHint } from "../../ui/InfoHint";
 import { ThemeSwitch } from "../../ui/ThemeSwitch";
 import { KONTO_SECTION } from "./kontoSection";
 import { RAIL_WIDTH_LG_CLASSES } from "./railWidth";
 import { SignOutButton } from "./SignOutButton";
 
-import type { SidemenuHint, SignOutResult } from "@/shared/types/types";
+import type { SignOutResult } from "@/shared/types/types";
+import type React from "react";
 
-/**
- * **This is the page's `h1` and a view under it must not carry a second.** `SidemenuStructure` is the one declaration
- * of a route's name, read by both the nav item and this title, so the two cannot disagree.
- */
 export function AppTopBar({
-  title,
-  hint,
+  heading,
   isMobileOpen,
   onToggleMobileMenu,
   isDesktopCollapsed,
   kontoHref,
-  isOnKonto,
   onSignOut,
 }: {
-  title: string;
-  /** The active route's `hint`, already resolved against the shell's fallback, so the glyph is a fixture of the bar. */
-  hint?: SidemenuHint;
+  /** The page's `h1` and its hint (`fl_frontend/src/shared/components/layout/shell/ShellHeading.tsx :: ShellTitle`). */
+  heading: React.ReactNode;
   isMobileOpen: boolean;
   onToggleMobileMenu: () => void;
   /** Only to size the brand block to the rail beneath it — the bar has no collapse control of its own. */
   isDesktopCollapsed: boolean;
   /** The person's account page, `null` in a shell no session stands behind. */
   kontoHref: string | null;
-  /** Whether the page under the bar is that account page, which the link then marks as the current one. */
-  isOnKonto: boolean;
   /** Forwarded to the options menu; a shell for the public dashboard supplies none. */
   onSignOut?: () => Promise<SignOutResult>;
 }) {
@@ -50,9 +42,11 @@ export function AppTopBar({
   return (
     /* `inert` with `<main>` and for its reason: the open drawer covers the left of this bar and the
        dismiss layer the rest, so nothing here is a stop the reader can see (WCAG 2.4.11). */
+    /* `box-content`, as the public bar is (`fl_frontend/src/shared/components/layout/shell/PublicShell.tsx`):
+       the border sits outside the token on both, so a move between them shifts nothing by a pixel. */
     <header
       inert={isMobileOpen}
-      className="z-30 flex h-(--navbar-height) w-full shrink-0 flex-row items-stretch border-b border-border bg-surface">
+      className="z-30 box-content flex h-(--navbar-height) w-full shrink-0 flex-row items-stretch border-b border-border bg-surface">
       {/* Exactly the rail's width, so the bar's `border-b` and the rail's `border-r` meet in a cross rather than a
           T. `transition-[width]` runs at the rail's own duration, or the bar snaps ahead of the panel. */}
       <div
@@ -87,34 +81,7 @@ export function AppTopBar({
           it on a narrow screen. From `lg` a border separates the two blocks, so each wants its own inset. */}
       <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3 pe-4 lg:ps-4">
         {/* `truncate` and not wrap: the bar is a fixed height, so a wrapped title is clipped mid-letter. */}
-        <div className="min-w-0 truncate fluid-base">
-          {/* The glyph beside the h1 and not inside it, or a screen reader names the page with the hint's label. Both
-              inline in one block, whose size reaches `InfoHint`'s 1em icon on the title's line box (`docs/frontend/spec.md` I81). */}
-          <h1
-            {...FOCUS_HEADING}
-            className="inline font-semibold tracking-wide text-foreground">
-            {title}
-          </h1>
-          {/* `InfoHint` rather than `IconTooltip`: react-aria's tooltip never opens on tap, so a phone could not reach it. */}
-          {hint && (
-            <InfoHint label={`Was auf „${title}“ zu finden ist`}>
-              <p>
-                <strong>{title}</strong>
-              </p>
-              <p>{hint.lead}</p>
-              {hint.points && (
-                <ul>
-                  {hint.points.map((point) => (
-                    <li key={point.term}>
-                      <strong>{point.term}</strong>: {point.detail}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {hint.note && <p className="text-foreground-muted">{hint.note}</p>}
-            </InfoHint>
-          )}
-        </div>
+        <div className="min-w-0 truncate fluid-base">{heading}</div>
 
         {/* Inline rather than behind a menu, so ending a session does not need the drawer opened first. Inside this
             block rather than beside it, so the pair takes the same inset the title does. */}
@@ -128,21 +95,46 @@ export function AppTopBar({
               same address. */}
           {kontoHref !== null && (
             <span className="hidden lg:flex">
-              <Link
-                href={kontoHref}
-                aria-current={isOnKonto ? "page" : undefined}
-                className="flex h-9 shrink-0 items-center gap-x-2 rounded-md px-2 fluid-sm font-semibold text-foreground transition-colors hover:bg-hover">
-                <PersonGear
-                  aria-hidden="true"
-                  className="size-4.5 shrink-0"
-                />
-                {KONTO_SECTION.label}
-              </Link>
+              {/* The link itself in the boundary's stead, unmarked: only its current mark reads the address. */}
+              <Suspense
+                fallback={
+                  <KontoLink
+                    href={kontoHref}
+                    isCurrent={false}
+                  />
+                }>
+                <KontoLinkAtAddress href={kontoHref} />
+              </Suspense>
             </span>
           )}
           {onSignOut && <SignOutButton onSignOut={onSignOut} />}
         </div>
       </div>
     </header>
+  );
+}
+
+/** Under a Suspense boundary only, for `ShellHeading`'s reason. */
+function KontoLinkAtAddress({ href }: { href: string }) {
+  return (
+    <KontoLink
+      href={href}
+      isCurrent={usePathname() === href}
+    />
+  );
+}
+
+function KontoLink({ href, isCurrent }: { href: string; isCurrent: boolean }) {
+  return (
+    <Link
+      href={href}
+      aria-current={isCurrent ? "page" : undefined}
+      className="flex h-9 shrink-0 items-center gap-x-2 rounded-md px-2 fluid-sm font-semibold text-foreground transition-colors hover:bg-hover">
+      <PersonGear
+        aria-hidden="true"
+        className="size-4.5 shrink-0"
+      />
+      {KONTO_SECTION.label}
+    </Link>
   );
 }

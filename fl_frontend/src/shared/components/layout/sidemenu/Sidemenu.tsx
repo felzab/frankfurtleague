@@ -7,17 +7,14 @@ import { RAIL_WIDTH_LG_CLASSES } from "../shell/railWidth";
 import { RAIL_GUTTER_CLASSES } from "./railGutter";
 import { SidemenuDrawerHeader } from "./SidemenuDrawerHeader";
 import { SidemenuFooter } from "./SidemenuFooter";
-import { SidemenuNavLinks, SidemenuNavLinksWithSaisonQuery } from "./SidemenuNavLinks";
 import { SidemenuStateProvider } from "./SidemenuState";
 
-import type { SidemenuStructure, SignOutResult } from "@/shared/types/types";
+import type { SignOutResult } from "@/shared/types/types";
+import type { LinkPrefix } from "../shell/linkPrefix";
 
-/**
- * The navigation rail, fully controlled by `AppShell`. Generic over the icon key, so the structure and the dictionary
- * are checked against each other and `iconDictionary[iconName]` cannot miss.
- */
-export function Sidemenu<TIcon extends string>({
-  structure,
+/** The navigation rail, fully controlled by `AppShell`, which pairs the structure with the icon dictionary. */
+export function Sidemenu({
+  entries,
   linkPrefix,
   keepsSaisonQuery,
   saisonMetadataDisplay,
@@ -25,23 +22,22 @@ export function Sidemenu<TIcon extends string>({
   iconDictionary,
   onSignOut,
   kontoHref,
-  pathname,
   isMobileOpen,
   onMobileClose,
   isDesktopCollapsed,
   onToggleDesktopMenu,
 }: {
-  structure: SidemenuStructure<TIcon>;
-  linkPrefix: string;
+  /** The list of entries (`fl_frontend/src/shared/components/layout/sidemenu/SidemenuNavLinks.tsx :: SidemenuEntries`). */
+  entries: React.ReactNode;
+  linkPrefix: LinkPrefix;
   keepsSaisonQuery: boolean;
   saisonMetadataDisplay: React.ReactNode;
   funktionSwitcher: React.ReactNode;
-  iconDictionary: Record<TIcon, React.ElementType>;
+  iconDictionary: Readonly<Record<string, React.ElementType>>;
   /** Forwarded to the footer's options menu; the bar carries the same control. */
   onSignOut?: () => Promise<SignOutResult>;
   /** Forwarded to that same menu, which is where a phone reaches the account page the bar links from `lg`. */
   kontoHref: string | null;
-  pathname: string;
   isMobileOpen: boolean;
   onMobileClose: () => void;
   isDesktopCollapsed: boolean;
@@ -51,15 +47,6 @@ export function Sidemenu<TIcon extends string>({
   // Hoisted out of the class template for the reason `AppTopBar` gives.
   const railWidth = `w-sidemenu ${RAIL_WIDTH_LG_CLASSES[isDesktopCollapsed ? "collapsed" : "expanded"]}`;
   const railGutter = RAIL_GUTTER_CLASSES[isDesktopCollapsed ? "collapsed" : "expanded"];
-
-  const navLinkProps = {
-    structure,
-    linkPrefix,
-    iconDictionary,
-    isDesktopCollapsed,
-    pathname,
-    onMobileClose,
-  };
 
   return (
     /* Each fails silently if changed: `lg:h-auto`, or the page scrolls as one; `invisible`, or the closed
@@ -76,38 +63,27 @@ export function Sidemenu<TIcon extends string>({
       {/* The gutter is reserved on both edges while collapsed: a one-edge reservation takes its strip off the right
           alone, so the icon column sits left of the rail's centre. Expanded, the content is left-aligned text. */}
       <div className={`flex flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto px-3 py-4 ${railGutter}`}>
-        {/* First, above the season, and kept while collapsed where the season slot is not: which Funktion the
-            person is acting in frames everything below it. */}
-        <SidemenuStateProvider state={{ isDesktopCollapsed: isDesktopCollapsed, onMobileClose: onMobileClose }}>
+        <SidemenuStateProvider
+          state={{
+            isDesktopCollapsed: isDesktopCollapsed,
+            onMobileClose: onMobileClose,
+            linkPrefix: linkPrefix,
+            keepsSaisonQuery: keepsSaisonQuery,
+            iconDictionary: iconDictionary,
+          }}>
+          {/* First, above the season, and kept while collapsed where the season slot is not: which Funktion the
+              person is acting in frames everything below it. */}
           {funktionSwitcher}
-        </SidemenuStateProvider>
 
-        {/* The same placeholder `SaisonSelector` shows until it hydrates, so the wait reads as one continuous state. */}
-        <Suspense fallback={<SaisonSlotSkeleton />}>
-          <div className={`transition-opacity duration-300 ${isDesktopCollapsed ? "hidden h-0 lg:block lg:opacity-0" : "opacity-100"}`}>
-            {!isDesktopCollapsed && <>{saisonMetadataDisplay}</>}
-          </div>
-        </Suspense>
-
-        {/* Only a shell keeping its season in the query reads one, below this boundary: `useSearchParams()` hangs
-            unconditionally during a prerender, so hoisting it bails out the whole route root. Nothing in the fallback
-            may call a dynamic hook either. */}
-        {keepsSaisonQuery ? (
-          <Suspense
-            fallback={
-              <SidemenuNavLinks
-                {...navLinkProps}
-                queryString=""
-              />
-            }>
-            <SidemenuNavLinksWithSaisonQuery {...navLinkProps} />
+          {/* The same placeholder `SaisonSelector` shows until it hydrates, so the wait reads as one continuous state. */}
+          <Suspense fallback={<SaisonSlotSkeleton />}>
+            <div className={`transition-opacity duration-300 ${isDesktopCollapsed ? "hidden h-0 lg:block lg:opacity-0" : "opacity-100"}`}>
+              {!isDesktopCollapsed && <>{saisonMetadataDisplay}</>}
+            </div>
           </Suspense>
-        ) : (
-          <SidemenuNavLinks
-            {...navLinkProps}
-            queryString=""
-          />
-        )}
+
+          {entries}
+        </SidemenuStateProvider>
       </div>
 
       <SidemenuFooter
