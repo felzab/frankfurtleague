@@ -9,6 +9,7 @@ import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { passkey } from "@better-auth/passkey";
 import { betterAuth, getCurrentAdapter } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
+import { getSessionCookie } from "better-auth/cookies";
 import { makeSignature } from "better-auth/crypto";
 import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins/email-otp";
@@ -874,6 +875,22 @@ async function eraseBeforeTheAccount(user: { id: string; email: string }): Promi
 // Called by `build`, never at import: `next build` imports this module in every page-data worker
 // holding no environment, where neither the URL nor the client can be built
 // (`docs/frontend/spec.md :: I45`). `origin` gives both halves of the WebAuthn binding.
+/**
+ * Host-bound over https (`docs/frontend/spec.md :: I401`). Through the prefix and never a cookie name: the
+ * library puts `__Secure-` ahead of any name while `useSecureCookies` is on, and a `__Secure-__Host-` cookie
+ * is bound to no host.
+ */
+const cookieNaming = (origin: URL): { useSecureCookies?: false; cookiePrefix?: string } =>
+  origin.protocol === "https:" ? { useSecureCookies: false, cookiePrefix: `__Host-${MONGO_DB_NAME}` } : {};
+
+/**
+ * The session cookie the request carries, read as the library names it and never validated: the proxy's
+ * optimistic check, which reads no store and slides nothing (`docs/frontend/spec.md :: I495`).
+ */
+export function sessionCookieOf(requestHeaders: Headers): string | null {
+  return getSessionCookie(requestHeaders, { cookiePrefix: cookieNaming(new URL(frontend_config.AUTH_URL)).cookiePrefix });
+}
+
 const authOptions = (origin: URL, client: MongoClient) =>
   ({
     // The `Db` off the one client this process opens, never a second connection
@@ -897,10 +914,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
       database: { joins: true },
       // The edge's own access line already carries the address, under a bound (`docs/datenschutz.md` §6).
       ipAddress: { disableIpTracking: true },
-      // Host-bound over https (`docs/frontend/spec.md :: I401`). Through the prefix and never a cookie
-      // name: the library puts `__Secure-` ahead of any name while `useSecureCookies` is on, and a
-      // `__Secure-__Host-` cookie is bound to no host.
-      ...(origin.protocol === "https:" ? { useSecureCookies: false, cookiePrefix: `__Host-${MONGO_DB_NAME}` } : {}),
+      ...cookieNaming(origin),
     },
 
     // Never "hashed": the hook below matches a code row by its plain prefix, and each bound writes through
