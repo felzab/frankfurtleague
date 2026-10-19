@@ -7,6 +7,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.errors import PyMongoError
 
 from app.api.bewerbungen.services import SWEEP_PAGE, group_seats_by_mailbox, mint_token
 from app.api.saisons.cache import dropping_the_saison_cache
@@ -58,10 +59,10 @@ from app.core.dependencies import (
     SpieleCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
 from app.core.logging import fl_logger
 from app.core.security import bind_system_actor, verify_access_system
-from app.core.transactions import Batch, diagnosis_of, refuse_a_stalled_page, run_isolated, transaction_session
+from app.core.transactions import UNKNOWN_COMMIT_RESULT, Batch, diagnosis_of, refuse_a_stalled_page, run_isolated, transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 
 # System tier and the system actor, for `app/api/bewerbungen/sweep_router.py`'s reason: the timer
@@ -284,9 +285,9 @@ async def sweep_spielbestaetigungen(
     it once the ban is lifted; each pass logs how many seats it withheld, never which.
 
     Each step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has
-    committed something owed a message, a later step's failure is logged and the call answers what committed. A row whose
-    write or answer fails is passed over alone, logged by id and counted in `fehlgeschlagen`. The pass's day is stamped on
-    this season.
+    committed something owed a message, a later failure -- the stamp of the pass's day on this season included -- is logged
+    and the call answers what committed. A row whose write or answer fails is passed over alone, logged by id and counted in
+    `fehlgeschlagen`.
 
     A season that is not `active` is passed by whole -- nothing closed, minted, reminded or stamped, every list empty -- so a
     mistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.
@@ -644,19 +645,32 @@ async def sweep_spielbestaetigungen(
         # have arrived would point at a link nobody holds.
         return [(anfrage, row.get("angefragt_am") is not None) for row, (anfrage, _) in taken if anfrage is not None]
 
+    async def stamp_alone() -> None:
+        async with transaction_session(db) as session:
+            await session.with_transaction(stamp_the_run)
+
     owed = False
     fehlgeschlagen = 0
 
-    async def after_what_is_owed[T](
-        step: Callable[[], Awaitable[tuple[list[T], list[Any]]]], *, clock: str
-    ) -> tuple[list[T], list[Any]] | None:
-        """`docs/backend/spec.md :: I323` across the steps: once one committed something owed, a later failure is answered, not raised."""
+    async def after_what_is_owed[R](step: Callable[[], Awaitable[R]], *, clock: str, may_stand: Callable[[], str]) -> R | None:
+        """`docs/backend/spec.md :: I753`: once a step committed something owed, a later failure is answered, not raised.
+
+        `may_stand` names what the step's commit would have written, for a commit whose answer was lost.
+        """
 
         try:
             return await step()
         except Exception as stop:
             if not owed:
                 raise
+            # The label, as `app/core/transactions.py :: _log_stopped` reads it: a lost answer may hide a commit.
+            if isinstance(stop, PyMongoError) and stop.has_error_label(UNKNOWN_COMMIT_RESULT):
+                fl_logger.warning(
+                    f"The {clock} clock's commit went unanswered after the call committed messages it owes: {may_stand()} may have "
+                    "been written with nobody told, the call answers what else committed, and the rest stay due",
+                    extra={"error_code": UNKNOWN_OUTCOME},
+                )
+                return None
             code, diagnosis = diagnosis_of(stop)
             fl_logger.warning(
                 f"The {clock} clock stopped at a failure ({diagnosis}) after the call committed messages it owes: "
@@ -664,6 +678,9 @@ async def sweep_spielbestaetigungen(
                 extra={"error_code": code},
             )
             return None
+
+    def taken_by(batch: Batch, noun: str) -> Callable[[], str]:
+        return lambda: f"the {noun} {', '.join(map(str, batch.taken or batch.ids))}"
 
     closed, passed = await run_isolated(
         db=db,
@@ -693,6 +710,7 @@ async def sweep_spielbestaetigungen(
             clock="mint",
         ),
         clock="mint",
+        may_stand=taken_by(mint_share, "rows minted for fixture(s)"),
     )
     if minted is not None:
         fehlgeschlagen += len(minted[1])
@@ -716,15 +734,16 @@ async def sweep_spielbestaetigungen(
                     clock="reminder",
                 ),
                 clock="reminder",
+                may_stand=taken_by(reminder_share, "reminders of confirmation(s)"),
             )
             if reminded is not None:
                 fehlgeschlagen += len(reminded[1])
                 erinnerungen = [anfrage for answered in reminded[0] for anfrage, angefragt in answered if angefragt]
                 anfragen += [anfrage for answered in reminded[0] for anfrage, angefragt in answered if not angefragt]
-                # Every attempt that committed stamped the day; where none did, it is stamped alone.
+                # Every attempt that committed stamped the day; where none did, it is stamped alone, under the same
+                # contract as every step after a message is owed.
                 if not reminded[0]:
-                    async with transaction_session(db) as session:
-                        await session.with_transaction(stamp_the_run)
+                    await after_what_is_owed(stamp_alone, clock="run stamp", may_stand=lambda: f"season {saison_id}'s day")
 
     # After the commits, so a retried transaction writes no second line. A count and never an id: a line
     # naming the row would tie its club to the ban for as long as the log is kept.

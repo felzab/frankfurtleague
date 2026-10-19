@@ -1,14 +1,15 @@
+import logging
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
-from typing import Any, cast
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import ExecutionTimeout
+from pymongo.errors import ExecutionTimeout, OperationFailure
 
 from app.api.bewerbungen.services import days_after, hash_token
 from app.api.spielbestaetigungen.router import post_spielbestaetigung
@@ -36,8 +37,10 @@ from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.teams.admin_router import replace_saison_team
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLReplaceSaisonTeamPayload
 from app.core.collections import Collection
+from app.core.exception_handlers import DATABASE_FAILED, UNKNOWN_OUTCOME
 from app.core.exceptions import WriteRefusalException
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from tests import documents
 from tests.api import test_spielbestaetigung_sweep_refusal as budget
 from tests.bans import ban_list
@@ -829,44 +832,120 @@ class TestWhatThePassAnswers:
         assert {hash_token(token) for token in tokens} <= hashes
 
 
-class _MintReadFails:
-    """The fixtures collection with the mint's own read refused as a deadline refuses it, which no halving can carry."""
+class _Refusing:
+    """A collection whose one named operation raises where `refused` holds of its keyword arguments, every other call delegated."""
 
-    def __init__(self, collection: Any) -> None:
+    def __init__(self, collection: Any, operation: str, refused: Callable[[Mapping[str, Any]], bool], failure: Callable[[], Exception]) -> None:
         self._collection = collection
+        self._operation = operation
+        self._refused = refused
+        self._failure = failure
 
     def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
+        attribute = getattr(self._collection, name)
+        if name != self._operation:
+            return attribute
 
-    def find(self, *args: Any, **kwargs: Any) -> Any:
-        if "$gt" in (kwargs.get("filter") or {}).get("datum", {}):
-            raise ExecutionTimeout("operation exceeded time limit")
-        return self._collection.find(*args, **kwargs)
+        def guarded(*args: Any, **kwargs: Any) -> Any:
+            if self._refused(kwargs):
+                raise self._failure()
+            return attribute(*args, **kwargs)
+
+        return guarded
+
+
+def the_mints_read(sent: Mapping[str, Any]) -> bool:
+    return "$gt" in (sent.get("filter") or {}).get("datum", {})
+
+
+def a_deadline() -> Exception:
+    return ExecutionTimeout("operation exceeded time limit")
+
+
+def a_commit_unanswered() -> Exception:
+    """What `with_transaction` raises once a commit's answer is lost, which no halving can carry either."""
+
+    return ExecutionTimeout("operation exceeded time limit", 50, {"ok": 0, "code": 50, "errorLabels": [UNKNOWN_COMMIT_RESULT]})
+
+
+async def a_pass_failing(database: AsyncDatabase, client: AsyncMongoClient, **collections: Any) -> tuple[Any, Any]:
+    """The pass on `FIRST_REMINDER` owing every message, `collections` standing in for the database's own; and the season's day."""
+
+    await a_pass_owing_every_message(database, client)
+    answer = await sweep_spielbestaetigungen(
+        saison_id=SAISON_ID,
+        spielbestaetigungen_collection=collections.get("spielbestaetigungen", database[Collection.SPIELBESTAETIGUNGEN]),
+        spiele_collection=collections.get("spiele", database[Collection.SPIELE]),
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=collections.get("saisons", database[Collection.SAISONS]),
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        sperrliste=ban_list(database),
+        db=client,
+        today=FIRST_REMINDER,
+    )
+
+    return answer, (await database[Collection.SAISONS].find_one({"_id": SAISON_ID}) or {}).get("spiel_sweep_gelaufen_am")
+
+
+def warnings_of(caplog: pytest.LogCaptureFixture) -> list[tuple[Any, str]]:
+    return [(getattr(record, "error_code", None), record.getMessage()) for record in caplog.records if record.levelname == "WARNING"]
 
 
 class TestALaterStepFailingAnswersWhatCommitted:
-    """`docs/backend/spec.md :: I323` across the call's steps: the close's notices committed, so the mint's failure is no error."""
+    """`docs/backend/spec.md :: I753`: the close's notices committed, so a later step's failure is no error."""
 
-    def test_the_notices_are_answered_and_the_day_is_not_stamped(self, mongo_replica_set_url: str):
+    def test_the_notices_are_answered_and_the_day_is_not_stamped(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await a_pass_owing_every_message(database, client)
-            answer = await sweep_spielbestaetigungen(
-                saison_id=SAISON_ID,
-                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                spiele_collection=cast(Any, _MintReadFails(database[Collection.SPIELE])),
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                saisons_collection=database[Collection.SAISONS],
-                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                sperrliste=ban_list(database),
-                db=client,
-                today=FIRST_REMINDER,
-            )
-            return answer, (await database[Collection.SAISONS].find_one({"_id": SAISON_ID}) or {}).get("spiel_sweep_gelaufen_am")
+            return await a_pass_failing(database, client, spiele=_Refusing(database[Collection.SPIELE], "find", the_mints_read, a_deadline))
 
-        answer, stamped = on_a_league(mongo_replica_set_url, body, spiele=EVERY_MESSAGE)
+        with caplog.at_level(logging.WARNING):
+            answer, stamped = on_a_league(mongo_replica_set_url, body, spiele=EVERY_MESSAGE)
 
         assert (len(answer.neue_ansetzungen), answer.anfragen, answer.erinnerungen) == (2, [], [])
         assert stamped == days_after(day=FIRST_REMINDER, days=-1)
+        assert [code for code, _ in warnings_of(caplog)] == [DATABASE_FAILED]
+
+    def test_a_commit_whose_answer_was_lost_names_what_may_stand(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """The mint's rows may stand holding links nobody was mailed: logged as an unknown outcome, never as an ordinary failure."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            rows_written = _Refusing(database[Collection.SPIELBESTAETIGUNGEN], "insert_many", lambda _: True, a_commit_unanswered)
+            return await a_pass_failing(database, client, spielbestaetigungen=rows_written)
+
+        with caplog.at_level(logging.WARNING):
+            answer, _ = on_a_league(mongo_replica_set_url, body, spiele=EVERY_MESSAGE)
+
+        assert (len(answer.neue_ansetzungen), answer.anfragen) == (2, [])
+        assert warnings_of(caplog) == [
+            (
+                UNKNOWN_OUTCOME,
+                f"The mint clock's commit went unanswered after the call committed messages it owes: the rows minted for fixture(s) {SPIEL} "
+                "may have been written with nobody told, the call answers what else committed, and the rest stay due",
+            )
+        ]
+
+    def test_the_runs_stamp_failing_alone_answers_the_notices(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Every reminder refused, so the day is stamped in a transaction of its own after the notices and requests committed."""
+
+        def a_refusal() -> Exception:
+            return OperationFailure("refused", code=2)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            return await a_pass_failing(
+                database,
+                client,
+                spielbestaetigungen=_Refusing(
+                    database[Collection.SPIELBESTAETIGUNGEN], "find_one_and_update", lambda sent: "$push" in sent["update"], a_refusal
+                ),
+                saisons=_Refusing(database[Collection.SAISONS], "update_many", lambda _: True, a_refusal),
+            )
+
+        with caplog.at_level(logging.WARNING):
+            answer, stamped = on_a_league(mongo_replica_set_url, body, spiele=EVERY_MESSAGE)
+
+        assert (len(answer.neue_ansetzungen), len(answer.anfragen), answer.erinnerungen, answer.fehlgeschlagen) == (2, 2, [], 2)
+        assert stamped == days_after(day=FIRST_REMINDER, days=-1)
+        assert [message.split(" (")[0] for _, message in warnings_of(caplog)] == ["The run stamp clock stopped at a failure"]
 
 
 class TestOneRowHoldsBackNoOther:
