@@ -32,7 +32,7 @@ import { BestaetigungHinweise, KlickBestaetigung, MedienHinweis, WhatsappHinweis
 import { ANTWORT_NICHT_GESPEICHERT, ANTWORT_NICHT_GESPEICHERT_SATZ, BestaetigungAbschnitt } from "./BestaetigungPanels";
 
 import type { FLBewerbungEinwilligungAntwortPayload } from "@/features/bewerbungen/schemas";
-import type { LinkZustand } from "@/features/bewerbungen/types";
+import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/types";
 import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { CalendarDate } from "@internationalized/date";
@@ -42,11 +42,12 @@ import type { KontaktFassung } from "./BestaetigungHinweise";
 export type BestaetigungAbschluss =
   | { zustand: "erfolg"; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
   | { zustand: "widersprochen-neu" }
-  | { zustand: LinkZustand | "saison_vorbei" };
+  // `ansicht` is the read the route made after the refusal, where it found a closed season.
+  | { zustand: LinkZustand | "saison_vorbei"; ansicht?: EinwilligungGeoeffnet };
 
 type EinwilligungAntwort =
   | { success: true; ergebnis: "bestaetigt" | "abgelehnt"; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
-  | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei" });
+  | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei"; ansicht?: EinwilligungGeoeffnet });
 
 /**
  * What the armed press sends. A constant rather than a literal in the branch: it is where
@@ -362,7 +363,7 @@ export function BestaetigungFormPanel({
     startTransition(() => {
       if (!antwort.success) {
         reportRefusedConfirmation(antwort, {
-          onZustand: (zustand) => onAbschluss({ zustand }),
+          onZustand: (zustand) => onAbschluss({ zustand, ansicht: antwort.ansicht }),
           // The hook owns the press's one toast: none where a field shows the refusal.
           onRefusal: () =>
             reportSubmitFailure(

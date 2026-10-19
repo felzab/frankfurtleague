@@ -65,7 +65,25 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "DELETE /berechtigungen/{berechtigung_id}": berechtigungen.mapEntziehenRefusal,
   "PATCH /berechtigungen/{berechtigung_id}": berechtigungen.mapStufeRefusal,
   "POST /bewerbungen": bewerbungUtils.mapBewerbungSubmitRefusal,
-  "POST /bewerbungen/einwilligung": (error) => bewerbungUtils.mapEinwilligungRefusal(error, BEWERBUNG_MIN_ALTER, MEDIEN_MIN_ALTER),
+  "POST /bewerbungen/einwilligung": (error) =>
+    bewerbungUtils.mapEinwilligungRefusal(error, async () => ({
+      zustand: "gueltig" as const,
+      // The floors the link's read serves, as the contact page takes them.
+      ansicht: {
+        acknowledged: 1 as const,
+        zustand: "gueltig" as const,
+        quelle: "bewerbung" as const,
+        zeile: null,
+        saison_id: "2026",
+        schule: "Lessing-Kolleg",
+        rolle: "ansprechperson" as const,
+        zugleich_rolle: null,
+        text_version: null,
+        laufende_fassung: "bestaetigung_kontakt",
+        mindestalter: BEWERBUNG_MIN_ALTER,
+        medien_mindestalter: MEDIEN_MIN_ALTER,
+      },
+    })),
   "POST /bewerbungen/einwilligung/ansicht": bewerbungUtils.mapEinwilligungAnsichtRefusal,
   "POST /bewerbungen/{bewerbung_id}/annehmen": (error) => bewerbungen.mapTriageRefusal(error, "neue_schule"),
   "POST /bewerbungen/{bewerbung_id}/ablehnen": (error) => bewerbungen.mapTriageRefusal(error, null),

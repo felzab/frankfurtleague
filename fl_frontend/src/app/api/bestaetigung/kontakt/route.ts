@@ -14,18 +14,16 @@ import { handlePublicRequest } from "@/shared/utils/publicRoute";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type { FLBewerbungEinwilligungAntwortResponse } from "@/features/bewerbungen/schemas";
-import type { LinkZustand } from "@/features/bewerbungen/types";
+import type { EinwilligungAnsicht } from "@/features/bewerbungen/types";
 import type { NextRequest } from "next/server";
 
-/** The panel a reload of the link opens on, read after the backend refused the write: `sonst` where it reads open or nothing. */
-async function gelesenerZustand(token: string, sonst: LinkZustand | "saison_vorbei"): Promise<LinkZustand | "saison_vorbei"> {
-  // Its own cut, and its failure answered here: the write was refused, so no doubt about it may reach the spine,
-  // which would call the outcome unknown.
-  const gelesen = await runAnsweringOwnCut(() => getEinwilligungAnsicht(token)).catch(nullUnlessContractBreak);
-
-  // An open link is the write's refusal and this read disagreeing, and an unread one says nothing either way: the
-  // refusal's own panel, which claims no more than the refusal did.
-  return gelesen === null || gelesen.zustand === "gueltig" ? sonst : gelesen.zustand;
+// Never resolved in front of the mapper: a caller reading the view first spends a backend read on every refusal
+// naming one state alone.
+/** This link's own view, for the refusals that name a floor or a state the view tells apart. A failed read is `null`. */
+async function ansichtFuerToken(token: string): Promise<EinwilligungAnsicht | null> {
+  // Its own cut, its failure answered by the mapper: the write was refused, so no doubt may reach the spine, which
+  // would call the outcome unknown. A contract break is no failed read, and reaches the spine's log.
+  return runAnsweringOwnCut(() => getEinwilligungAnsicht(token)).catch(nullUnlessContractBreak);
 }
 
 /**
@@ -92,25 +90,11 @@ export async function POST(request: NextRequest) {
       try {
         antwort = await postEinwilligung(parsed.data);
       } catch (error) {
-        // Read on this path alone, under its own cut: the age refusals spend nothing, so the link still answers the
-        // floors its own seats ask (`fl_frontend/src/features/bewerbungen/utils.ts :: mapEinwilligungRefusal`), and
-        // an unread floor names no age rather than an unknown outcome.
-        const ansicht = await runAnsweringOwnCut(() => getEinwilligungAnsicht(parsed.data.token)).then(
-          (gelesen) => (gelesen.zustand === "gueltig" ? gelesen.ansicht : null),
-          () => null,
-        );
-
         // The refusal belongs under the field or on the dead-link panel, not on the error page.
-        const refusal = mapEinwilligungRefusal(error, ansicht?.mindestalter ?? null, ansicht?.medien_mindestalter ?? null);
+        const refusal = await mapEinwilligungRefusal(error, () => ansichtFuerToken(parsed.data.token));
         if (refusal === null) throw error;
 
-        // Destructured rather than spread whole: `nachlesen` is this handler's instruction, and the
-        // page has no arm for it.
-        const { nachlesen, ...panel } = refusal;
-
-        if (nachlesen !== undefined) return { success: false as const, zustand: await gelesenerZustand(parsed.data.token, nachlesen) };
-
-        return { success: false as const, ...panel };
+        return { success: false as const, ...refusal };
       }
 
       // A season row's seat was typed in by an administrator: no application stands behind it, so no

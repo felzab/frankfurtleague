@@ -1,3 +1,4 @@
+import { nullUnlessContractBreak } from "@/core/errors";
 import { runAnsweringOwnCut } from "@/core/requestScope";
 import { postSpielerBestaetigung } from "@/features/registrierungen/mutations";
 import { getSpielerBestaetigungAnsicht } from "@/features/registrierungen/queries";
@@ -14,8 +15,9 @@ import type { NextRequest } from "next/server";
 // spends a second backend read on every refusal naming one state alone.
 /** This link's own view, for the refusals that name a floor or a state the view tells apart. A failed read is `null`. */
 async function ansichtFuerToken(token: string): Promise<GelesenerLink | null> {
-  // Under its own cut: the write was refused, so a deadline cutting this read is no unknown outcome.
-  return runAnsweringOwnCut(() => getSpielerBestaetigungAnsicht(token)).catch(() => null);
+  // Under its own cut: the write was refused, so a deadline cutting this read is no unknown outcome. A contract break is
+  // no failed read, and reaches the spine's log.
+  return runAnsweringOwnCut(() => getSpielerBestaetigungAnsicht(token)).catch(nullUnlessContractBreak);
 }
 
 // A route handler and not a server action, for the reason `docs/frontend/spec.md` §1.3 gives.

@@ -17,14 +17,16 @@ const NEXT_CACHE = {
 };
 // Silent: each refusal a case drives would otherwise print an ERROR line into a passing run.
 const inert = (): undefined => undefined;
-const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
+/** Every ERROR line the handler was handed, serialised whole. */
+const errors: string[] = [];
+const LOGGING = { logger: { info: inert, warn: inert, error: (...args: unknown[]) => void errors.push(JSON.stringify(args)) } };
 
 const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint));
 
 doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING }, specifiers: { "next/cache": NEXT_CACHE } });
 
 const { POST } = await import("./route.ts");
-const { APINetworkError } = await import("@/core/errors.ts");
+const { APIMalformedDataError, APINetworkError } = await import("@/core/errors.ts");
 const { markOutcomeUnknown } = await import("@/core/requestScope.ts");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
@@ -97,6 +99,7 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
   (await POST(request)) as unknown as Record<string, unknown>;
 
 beforeEach(() => {
+  errors.length = 0;
   tags.length = 0;
   gelesen = 0;
   schreibAntwort = () => GESCHRIEBEN;
@@ -201,6 +204,29 @@ describe("the referee's confirmation handler", () => {
       assert.equal(gelesen, lesungen, `${code} read the link otherwise than its panel needs`);
     });
   }
+
+  /* The view decides this panel, so an answer off its schema is the deploy's fault rather than a failed read: the
+     lapsed panel standing in for it would hide it from everyone who could repair it. */
+  it("logs a view answered off its schema rather than standing the lapsed panel in for it", async () => {
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-SCHIEDSRICHTER-003");
+    leseAntwort = () =>
+      new APIMalformedDataError({
+        message: "Response failed schema.",
+        url: "http://localhost/schiedsrichter/bestaetigung/ansicht",
+        statusCode: 200,
+        endpoint: "/schiedsrichter/bestaetigung/ansicht",
+        method: "POST",
+        readOnly: true,
+        traceId: "0",
+      });
+
+    await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.ok(
+      errors.some((logged) => logged.includes("Public route failed") && logged.includes("FE-API-002")),
+      "the contract break left no line",
+    );
+  });
 
   /* The one refusal that spends nothing, so the typed date survives it and the form stays live —
      reading the floor its sentence names. */

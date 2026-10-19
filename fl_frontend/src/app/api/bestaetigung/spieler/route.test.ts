@@ -9,7 +9,9 @@ import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
 // Silent: each refusal a case drives would otherwise print an ERROR line into a passing run.
 const inert = (): undefined => undefined;
-const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
+/** Every ERROR line the handler was handed, serialised whole. */
+const errors: string[] = [];
+const LOGGING = { logger: { info: inert, warn: inert, error: (...args: unknown[]) => void errors.push(JSON.stringify(args)) } };
 
 const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint));
 
@@ -17,7 +19,7 @@ doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING } });
 
 const { POST } = await import("./route.ts");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
-const { APINetworkError } = await import("@/core/errors.ts");
+const { APIMalformedDataError, APINetworkError } = await import("@/core/errors.ts");
 const { markOutcomeUnknown } = await import("@/core/requestScope.ts");
 const { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 
@@ -86,6 +88,7 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
 const ansichten = () => calls.filter((call) => call.endpoint === "/registrierungen/bestaetigung/ansicht").length;
 
 beforeEach(() => {
+  errors.length = 0;
   schreibAntwort = () => GESCHRIEBEN;
   ansichtAntwort = () => ANSICHT;
 });
@@ -173,6 +176,29 @@ describe("the pupil's confirmation handler", () => {
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
     assert.deepEqual(answer.body, { success: false, zustand: "bestaetigt" });
+  });
+
+  /* The view decides this panel, so an answer off its schema is the deploy's fault rather than a failed read: the
+     lapsed panel standing in for it would hide it from everyone who could repair it. */
+  it("logs a view answered off its schema rather than standing the lapsed panel in for it", async () => {
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-REGISTRIERUNG-005");
+    ansichtAntwort = () =>
+      new APIMalformedDataError({
+        message: "Response failed schema.",
+        url: "http://localhost/registrierungen/bestaetigung/ansicht",
+        statusCode: 200,
+        endpoint: "/registrierungen/bestaetigung/ansicht",
+        method: "POST",
+        readOnly: true,
+        traceId: "0",
+      });
+
+    await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.ok(
+      errors.some((logged) => logged.includes("Public route failed") && logged.includes("FE-API-002")),
+      "the contract break left no line",
+    );
   });
 
   /* The one refusal that spends nothing, so the typed date survives it and the form stays live. */
