@@ -102,7 +102,9 @@ async def erase_selbst(
     address, pending or declined; another referee's or pupil's pending address change naming this address, that row itself
     standing; every grant the address holds, an `owner` grant and the last two among them, every administrator being told it
     ended; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an
-    application of any status, the row and its other seats standing. Every record the person made as an administrator or
+    application of any status, the row and its other seats standing, an emptied seat's links on its team's open match
+    confirmations stopping to answer. Every reason the person typed answering a match confirmation, from any seat they held,
+    goes from its row and its log images, the answer standing. Every record the person made as an administrator or
     decided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's decision -- and every
     log row they wrote name a fixed marker in their place, this erasure's own rows included. The log images of the removed
     records are emptied, and every other image holding the address loses it, the people beside them keeping theirs.
@@ -192,7 +194,9 @@ async def get_erasure_ansicht(
     named, that row not being this address's until the change is confirmed. Reached and not named: the fixtures booking
     their referee record, which move onto the ghost, and their name in each of those fixtures' log images, which goes; the
     confirmations their referee record was asked for, which go, and its id and reason in a removed season's log images;
-    what the person made or decided for others, which names a marker in their place; their day counts; their rows in the
+    the links their contact seats were mailed on their teams' open match confirmations, which stop answering; every reason
+    they typed answering a match confirmation, from any seat they held, which goes from its row and its log images, the
+    answer standing; what the person made or decided for others, which names a marker in their place; their day counts; their rows in the
     log; every log image of a record the erasure removes, emptied whole whether or not it holds the address, and every
     other log image holding the address; each grant's announced row, and an announced row holding the address under
     another grant's id; and the address in every notice still queued, withheld. Written besides: the notice that their

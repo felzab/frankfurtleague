@@ -267,7 +267,8 @@ async def post_einwilligung(
     for `REQ-BEWERBUNG-010`, nothing deciding a season row, and its answer carries nothing to compose a message from. Its
     own deadline passed is `REQ-KONTAKT-004`, and a consent once its season has ended or its team has left it is
     `REQ-KONTAKT-006`, a Widerspruch being taken all the same. A Widerspruch there also voids the seat's links on the
-    team's open match confirmations.
+    team's open match confirmations, and takes every reason its person typed answering a match confirmation, from any
+    seat they held, from its row and its log images, the answer standing.
     """
 
     token_hash = hash_token(antwort_data.token)
