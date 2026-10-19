@@ -513,6 +513,24 @@ def build_anfrage_filter(*, saison_id: str, today: str) -> dict[str, Any]:
     }
 
 
+# A closing that settles the party's one answer about its Ansetzung rather than ending the question: a second answer
+# needs a new stand, which only a move mints (`docs/backend/spec.md :: I768`).
+GRUENDE_ANSWERED_FOR_THE_STAND: Final = frozenset({"verworfen"})
+
+
+def build_held_filter(*, saison_id: str, spiel_ids: Sequence[Any]) -> dict[str, Any]:
+    """These fixtures' rows that hold their party's question about their Ansetzung: unclosed, or closed as answered.
+
+    Every other closing ends the question, so a fixture reinstated or moved back to its old slot is asked afresh.
+    """
+
+    return {
+        "saison_id": saison_id,
+        "spiel_id": {"$in": list(spiel_ids)},
+        "$or": [build_closable_filter(), {"geschlossen.grund": {"$in": sorted(GRUENDE_ANSWERED_FOR_THE_STAND)}}],
+    }
+
+
 def _side_id(spiel: Mapping[str, Any], side: str) -> Any:
     block = spiel.get(side)
 
