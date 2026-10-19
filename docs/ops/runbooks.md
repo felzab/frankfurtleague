@@ -1290,7 +1290,10 @@ failure, with the file, line and function it was raised in. The rest of that clo
 the named one stays due: every later pass names it again until its record is repaired
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I720). **An application whose
 announcement stamp is passed over is mailed its deletion notice again each day**, and stands past
-its fourteen days until the stamp lands or its season is `past`.
+its fourteen days until the stamp lands or its season is `past`. **The confirmation strip clock
+names the season**, as it takes an ended season's fixture confirmations whole: its line says what of
+theirs the season's end could not strip, the contact blocks clear all the same, and every later pass
+tries again ([`../backend/spec.md`](../backend/spec.md#2-invariants) I778).
 
 **A fresh date beside a `bewerbung.sweep_pass` or `registrierung.sweep_pass` warning is a clock
 passing rows over, not a pass that ran clean.** A clock failing on every row still moves its date,

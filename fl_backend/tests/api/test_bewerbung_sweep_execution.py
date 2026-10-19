@@ -46,7 +46,7 @@ from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db
+from app.core.crud import delete_many_from_db, patch_one_in_db
 from app.core.exception_handlers import DATABASE_FAILED, STORED_DATA_INVALID
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.logging import FL_LOGGER_NAME
@@ -1879,13 +1879,13 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
     def test_the_sweep(self, mongo_replica_set_url: str):
         """Every clock takes a page, every conditional read is made: two applications name a club, the images take all three shapes.
 
-        Two cleared clubs hold open confirmations, the void at its widest; the strip meets its every image edit set.
+        Two cleared clubs hold open confirmations, the void at its widest; the strip meets its worst images.
         """
 
         link = {"token_hash": "a" * 64, "verschickt_am": "2026-03-02", "frist": "2026-03-16", "abgelehnt_am": None, "zustellung": None}
         links = {"trainer": link, "ansprechperson": None, "stellvertretung": None}
 
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             await database[Collection.BEWERBUNGEN].update_many(
                 {"_id": {"$in": [REMIND_OID, DELETE_OID]}}, {"$set": {"team_id": CLUB_OID, "schule": None}}
             )
@@ -1896,7 +1896,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
                 ]
             )
             await database[Collection.SPIELBESTAETIGUNGEN].insert_many([open_confirmation(CLUB_OID), open_confirmation(numbered(2))])
-            await images_of_every_strip_edit_set(database)
+            await images_of_every_strip_edit_set(database, client)
 
             return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
 
@@ -2014,25 +2014,55 @@ def a_declined_confirmation(team_id: ObjectId, saison_id: str) -> dict[str, Any]
     )
 
 
-async def images_of_every_strip_edit_set(database: AsyncDatabase) -> None:
-    """A row and an image for each set of seats holding a link, with a reason and without: the edit sets an image can need."""
+# The server's first batch for a cursor naming no size: one imaged row more takes the strip's image read a `getMore`.
+IMAGES_A_FIRST_BATCH = 101
 
+
+def a_strip_edit_set(mask: int, begruendung: bool, halter: bool) -> dict[str, Any]:
+    """A row holding the seats `mask` names and, where asked, a reason and a holder digest: one set of fields the strip nulls."""
+
+    row = a_declined_confirmation(CLUB_OID, SAISON_ID)
+    row["kontakte"] = {seat: row["kontakte"][seat] if mask >> bit & 1 else None for bit, seat in enumerate(KONTAKT_ROLLEN)}
+    antwort = row["antwort"]
+    row["antwort"] = (
+        {**antwort, "begruendung": antwort["begruendung"] if begruendung else None, "von": {**antwort["von"], "halter": antwort["von"]["halter"] if halter else None}}
+        if begruendung or halter
+        else None
+    )
+
+    return row
+
+
+async def images_of_every_strip_edit_set(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    """An image for each set of fields the strip can null, single images past the read's first batch, and an undraw's list.
+
+    A reason and a digest apart: an administrator's settle reason holds no digest, a Zusage no reason.
+    """
+
+    edit_sets = [
+        (mask, begruendung, halter)
+        for mask in range(2 ** len(KONTAKT_ROLLEN))
+        for begruendung in (False, True)
+        for halter in (False, True)
+        if mask or begruendung or halter
+    ]
     confirmations = database[Collection.SPIELBESTAETIGUNGEN]
-    for mask in range(2 ** len(KONTAKT_ROLLEN)):
-        for typed in (False, True):
-            if not mask and not typed:
-                continue
-            row = a_declined_confirmation(CLUB_OID, SAISON_ID)
-            row["kontakte"] = {seat: row["kontakte"][seat] if mask >> bit & 1 else None for bit, seat in enumerate(KONTAKT_ROLLEN)}
-            if not typed:
-                row["antwort"] = None
-            await confirmations.insert_one(row)
-            await patch_one_in_db(
-                collection=confirmations,
-                db_filter={"_id": row["_id"]},
-                update={"$set": {"erinnert_am": []}},
-                return_document=ReturnDocument.BEFORE,
+    for position in range(IMAGES_A_FIRST_BATCH + 1):
+        row = a_strip_edit_set(*edit_sets[position % len(edit_sets)])
+        await confirmations.insert_one(row)
+        await patch_one_in_db(
+            collection=confirmations, db_filter={"_id": row["_id"]}, update={"$set": {"erinnert_am": []}}, return_document=ReturnDocument.BEFORE
+        )
+
+    # An undraw's removal, whose one log row holds every removed row's image in a list.
+    undrawn = [a_strip_edit_set(1, True, True), a_strip_edit_set(2, False, True)]
+    await confirmations.insert_many(undrawn)
+    async with client.start_session() as session:
+        await session.with_transaction(
+            lambda session: delete_many_from_db(
+                collection=confirmations, db_filter={"_id": {"$in": [row["_id"] for row in undrawn]}}, session=session
             )
+        )
 
 
 class TestTheSeasonsEndStripsItsConfirmations:
@@ -2075,3 +2105,58 @@ class TestTheSeasonsEndStripsItsConfirmations:
                 assert (left["antwort"], left["kontakte"]) == (stripped, dict.fromkeys(KONTAKT_ROLLEN)), name
         for left in (stored["next season"], images["next season"]):
             assert (left["antwort"], left["kontakte"]) == (rows["next season"]["antwort"], rows["next season"]["kontakte"])
+
+    def test_a_season_with_no_block_left_to_clear_is_stripped_all_the_same(self, mongo_replica_set_url: str):
+        """The club entered no contacts, as a replacement's incoming side holds none: no pass clears a block of the season."""
+
+        row = a_declined_confirmation(CLUB_OID, SAISON_ID)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISON_TEAMS].update_one({"_id": JUNCTION_OID}, {"$set": {"kontakte": None, "bestaetigungen": None}})
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(row)
+            response = await sweep(database, client)
+            return response, await database[Collection.SPIELBESTAETIGUNGEN].find_one({"_id": row["_id"]})
+
+        response, stripped = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+
+        assert (response.kontaktbloecke_geleert, response.fehlgeschlagen) == (0, 0)
+        assert (stripped["antwort"]["begruendung"], stripped["antwort"]["von"]["halter"], stripped["kontakte"]) == (
+            None,
+            None,
+            dict.fromkeys(KONTAKT_ROLLEN),
+        )
+
+    def test_a_strip_failing_holds_back_no_block_and_is_passed_over_under_the_season(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
+        """A replaced club's row the validator refuses, which no block clearing writes: the strip alone meets it."""
+
+        refused = {key: value for key, value in a_declined_confirmation(REPLACED_CLUB_OID, SAISON_ID).items() if key != "frist"}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(refused, bypass_document_validation=True)
+            with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
+                response = await sweep(database, client)
+            return response, await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID})
+
+        response, junction = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+
+        assert (response.kontaktbloecke_geleert, response.fehlgeschlagen, junction["kontakte"]) == (1, 1, None)
+        assert [(level, message.split(":")[0]) for level, _, message in passed_over(caplog)] == [
+            ("ERROR", f"Season {SAISON_ID} was passed over by the confirmation strip clock")
+        ]
+
+    def test_an_administrators_settle_reason_goes_and_their_answer_gains_no_holder(self, mongo_replica_set_url: str):
+        settled = {
+            **a_declined_confirmation(CLUB_OID, SAISON_ID),
+            "antwort": {"art": "abgelehnt", "am": "2026-04-03", "von": {"art": "admin"}, "vorschlag": None, "begruendung": "Platz gesperrt"},
+        }
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(settled)
+            await sweep(database, client)
+            return await database[Collection.SPIELBESTAETIGUNGEN].find_one({"_id": settled["_id"]})
+
+        stripped = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+
+        assert stripped["antwort"] == {**settled["antwort"], "begruendung": None}

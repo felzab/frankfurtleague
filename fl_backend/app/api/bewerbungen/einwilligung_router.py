@@ -359,7 +359,7 @@ async def post_einwilligung(
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
-        # The emptied seats' links on the team's open confirmations go with them (`docs/backend/spec.md :: I758`).
+        # The emptied seats' links on the team's confirmations, answered and closed ones too, go with them (`docs/backend/spec.md :: I758`).
         stored_kontakte = before.get("kontakte")
         voids = [
             seat_void_of(
@@ -370,7 +370,7 @@ async def post_einwilligung(
             )
         ]
         await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
-        await redact_seat_entries_in_images(aktionen_collection=aktionen_collection, voids=voids, reasons=False, stamp=am, session=session)
+        await redact_seat_entries_in_images(aktionen_collection=aktionen_collection, voids=voids, stamp=am, session=session)
         # As an erasure takes them: the person's reasons on every confirmation, from whichever seat they typed them.
         await remove_their_reasons(
             spielbestaetigungen_collection=spielbestaetigungen_collection,

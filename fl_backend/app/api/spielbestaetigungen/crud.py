@@ -12,6 +12,8 @@ from app.api.spielbestaetigungen.services import (
     SeatVoid,
     build_referee_images_filter,
     build_referee_rows_filter,
+    build_season_entries_filter,
+    build_season_halter_filter,
     build_season_images_filter,
     build_season_reasons_filter,
     build_seat_entry_images_filter,
@@ -119,7 +121,6 @@ async def redact_seat_entries_in_images(
     *,
     aktionen_collection: AsyncCollection,
     voids: Sequence[SeatVoid | None],
-    reasons: bool,
     stamp: str,
     # REQUIRED for `redact_images_in_session`'s reason.
     session: AsyncClientSession,
@@ -136,7 +137,7 @@ async def redact_seat_entries_in_images(
     return await redact_images_in_session(
         aktionen_collection=aktionen_collection,
         db_filter=build_seat_entry_images_filter(voided),
-        judge=lambda image: seat_entry_image_edits(image, voided, reasons=reasons),
+        judge=lambda image: seat_entry_image_edits(image, voided),
         stamp=stamp,
         session=session,
     )
@@ -148,25 +149,31 @@ async def strip_the_seasons_team_rows(
     aktionen_collection: AsyncCollection,
     saison_id: str,
     stamp: str,
-    # REQUIRED: the strip commits with the season's contact blocks, or neither does.
+    # REQUIRED: the season's end judged in the same snapshot, so an activation since the caller's read keeps the rows.
     session: AsyncClientSession,
 ) -> int:
-    """At the season's end, every link entry, reason and holder digest its contacts left on the season's team rows and their images.
+    """At the season's end, every link entry, reason and holder digest left on the season's team rows and their images.
 
-    Season-wide, a replaced club's rows among them; each answer's way and role stay as the record.
+    A replaced club's rows and an administrator's reason among them; each answer's way and role stay as the record.
     """
 
     # Every seat, whoever held it: what a block's void left standing, a hand edit's or a restore's, goes too.
     await patch_many_in_db(
         collection=spielbestaetigungen_collection,
-        db_filter={"saison_id": saison_id, "partei.art": "team"},
+        db_filter=build_season_entries_filter(saison_id),
         update={"$set": {f"kontakte.{seat}": None for seat in KONTAKT_ROLLEN}},
         session=session,
     )
     await patch_many_in_db(
         collection=spielbestaetigungen_collection,
         db_filter=build_season_reasons_filter(saison_id),
-        update={"$set": {"antwort.begruendung": None, "antwort.von.halter": None}},
+        update={"$set": {"antwort.begruendung": None}},
+        session=session,
+    )
+    await patch_many_in_db(
+        collection=spielbestaetigungen_collection,
+        db_filter=build_season_halter_filter(saison_id),
+        update={"$set": {"antwort.von.halter": None}},
         session=session,
     )
 

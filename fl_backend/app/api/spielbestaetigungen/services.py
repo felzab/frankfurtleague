@@ -781,7 +781,7 @@ def compose_closing_update(*, grund: FLSpielbestaetigungGrund, today: str) -> di
     return {"$set": {"geschlossen": {"am": today, "grund": grund}}}
 
 
-# --- A seat write's void: the open rows' entries of every seat whose holder the write moves.
+# --- A seat write's void: its team's rows' entries, answered and closed ones too, of every seat whose holder the write moves.
 
 
 class SeatVoid(NamedTuple):
@@ -823,7 +823,7 @@ def _team_rows(saison_id: Any, team_id: Any) -> dict[str, Any]:
 def build_team_rows_filter(pairs: Sequence[tuple[Any, Any]]) -> dict[str, Any]:
     """These teams' rows in these seasons, answered and closed ones too: a link opens nothing once its seat changed holder.
 
-    Left on an answered row, it would show whoever holds the old mail the successor's ban (`docs/backend/spec.md :: I567`).
+    Left on an answered row, it would show whoever holds the old mail the successor's ban (`docs/backend/spec.md :: I758`).
     """
 
     return {"partei.art": "team", "$or": [_team_rows(saison_id, team_id) for saison_id, team_id in pairs]}
@@ -855,17 +855,27 @@ def build_seat_entry_images_filter(voids: Sequence[SeatVoid]) -> dict[str, Any]:
     }
 
 
-def seat_entry_image_edits(image: Mapping[str, Any], voids: Sequence[SeatVoid], *, reasons: bool) -> dict[str, None]:
-    """One image's entries of the voided seats nulled: a link's hashes and the delivery record of its mail.
+def seat_entry_image_edits(image: Mapping[str, Any], voids: Sequence[SeatVoid]) -> dict[str, None]:
+    """One image's entries of the voided seats nulled: a link's hashes and its mail's delivery record.
 
-    With `reasons`, the contact's typed reason and holder digest too; which way the answer went and the role stay.
+    An earlier holder's go too, an image naming no holder; the season's end strips them anyway (`docs/backend/spec.md :: I778`).
     """
 
     partei = image.get("partei")
     team_id = partei.get("team_id") if isinstance(partei, Mapping) and partei.get("art") == "team" else None
     seats = {seat for void in voids if (void.saison_id, void.team_id) == (image.get("saison_id"), team_id) for seat in void.seats}
 
-    return _left_by_contacts(image, seats, reasons=reasons) if team_id is not None and seats else {}
+    return _seat_entries(image, seats) if team_id is not None and seats else {}
+
+
+def _seat_entries(image: Mapping[str, Any], seats: Set[str]) -> dict[str, None]:
+    kontakte = image.get("kontakte")
+
+    return {
+        f"kontakte.{seat}": None
+        for seat in KONTAKT_ROLLEN
+        if seat in seats and isinstance(kontakte, Mapping) and kontakte.get(seat) is not None
+    }
 
 
 def build_season_images_filter(saison_id: str) -> dict[str, Any]:
@@ -881,30 +891,34 @@ def season_end_image_edits(image: Mapping[str, Any], saison_id: str) -> dict[str
     if image.get("saison_id") != saison_id or not isinstance(partei, Mapping) or partei.get("art") != "team":
         return {}
 
-    return _left_by_contacts(image, set(KONTAKT_ROLLEN), reasons=True)
-
-
-def _left_by_contacts(image: Mapping[str, Any], seats: Set[str], *, reasons: bool) -> dict[str, None]:
-    kontakte, antwort = image.get("kontakte"), image.get("antwort")
-    held = [seat for seat in KONTAKT_ROLLEN if seat in seats and isinstance(kontakte, Mapping) and kontakte.get(seat) is not None]
-    edits: dict[str, None] = {f"kontakte.{seat}": None for seat in held}
+    edits = _seat_entries(image, set(KONTAKT_ROLLEN))
+    antwort = image.get("antwort")
     von = antwort.get("von") if isinstance(antwort, Mapping) else None
-    typed = isinstance(antwort, Mapping) and isinstance(von, Mapping) and (antwort.get("begruendung"), von.get("halter")) != (None, None)
-    if reasons and isinstance(von, Mapping) and von.get("art") == "kontakt" and typed:
-        edits.update({"antwort.begruendung": None, "antwort.von.halter": None})
+    if isinstance(antwort, Mapping) and antwort.get("begruendung") is not None:
+        edits["antwort.begruendung"] = None
+    # A contact's answer alone carries the digest: nulled on another answerer's `von`, it would add a key only a seat's answer names.
+    if isinstance(von, Mapping) and von.get("art") == "kontakt" and von.get("halter") is not None:
+        edits["antwort.von.halter"] = None
 
     return edits
 
 
 def build_season_reasons_filter(saison_id: str) -> dict[str, Any]:
-    """This season's team rows a contact answered holding a reason or a holder: the season's end takes both, answer and role kept."""
+    """This season's team rows holding a reason, whoever gave it: the season's end takes every one, the answer's way and role kept."""
 
-    return {
-        "saison_id": saison_id,
-        "partei.art": "team",
-        "antwort.von.art": "kontakt",
-        "$or": [{"antwort.begruendung": {"$ne": None}}, {"antwort.von.halter": {"$ne": None}}],
-    }
+    return {"saison_id": saison_id, "partei.art": "team", "antwort.begruendung": {"$ne": None}}
+
+
+def build_season_halter_filter(saison_id: str) -> dict[str, Any]:
+    """This season's team rows a contact answered still holding the holder digest, which only a contact's answer carries."""
+
+    return {"saison_id": saison_id, "partei.art": "team", "antwort.von.art": "kontakt", "antwort.von.halter": {"$ne": None}}
+
+
+def build_season_entries_filter(saison_id: str) -> dict[str, Any]:
+    """This season's team rows still holding a seat's link entry, so a season stripped already is written, and logged, nothing."""
+
+    return {"saison_id": saison_id, "partei.art": "team", "$or": [{f"kontakte.{seat}": {"$ne": None}} for seat in KONTAKT_ROLLEN]}
 
 
 # --- A CONTACT PERSON'S ERASURE OR WIDERSPRUCH: the reasons they typed, from whichever seat they held then.

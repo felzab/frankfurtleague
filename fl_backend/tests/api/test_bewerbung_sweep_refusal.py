@@ -467,7 +467,7 @@ ROUND_TRIPS_A_ROW = 3
 
 # Each worst call's commands beside its rows, counted on the wire by
 # `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
-SWEEP_OTHER_COMMANDS = 52
+SWEEP_OTHER_COMMANDS = 75
 ANGEKUENDIGT_OTHER_COMMANDS = 3
 
 

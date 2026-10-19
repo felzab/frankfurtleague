@@ -171,7 +171,7 @@ async def erase_kontaktperson_in_session(
         ]
         await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
         # Their links' hashes and the delivery records of the mails they went in, as the season row's own clearing takes them.
-        await redact_seat_entries_in_images(aktionen_collection=aktionen_collection, voids=voids, reasons=False, stamp=stamp, session=session)
+        await redact_seat_entries_in_images(aktionen_collection=aktionen_collection, voids=voids, stamp=stamp, session=session)
     # Seated now or not: a seat they have left keeps the reasons they typed from it until this.
     await remove_their_reasons(
         spielbestaetigungen_collection=spielbestaetigungen_collection,

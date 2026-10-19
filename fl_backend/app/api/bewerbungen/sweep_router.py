@@ -79,14 +79,14 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Both shares at three commands a row beside the 52 of the worst call erasing one page per clock
+# Both shares at three commands a row beside the 75 of the worst call erasing one page per clock
 # (`tests/api/test_bewerbung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
-# 265 commands at a 36 ms round trip plus 1.35 ms take 9.90 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
+# 267 commands at a 36 ms round trip plus 1.35 ms take 9.97 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 39
 
-# A season at its rules' capacity holds more junction rows and takes more passes. Seven below the reminders': the
-# season's end strips its confirmations' images in up to fifteen writes, and 33 would make 268, 10.01 s.
-BLOCKS_CLEARED_PER_PASS: Final = 32
+# A season at its rules' capacity takes more passes. Below the reminders': the season's end strip writes once per set
+# of fields its images hold and once per list image, and 26 would make 270, 10.08 s.
+BLOCKS_CLEARED_PER_PASS: Final = 25
 
 
 async def _club_names(
@@ -248,9 +248,11 @@ async def sweep_saison(
     season-after rule stops keeping this season's pupils: a running season keeps both, and a later season planned and never run
     holds neither back. A season whose id is not a four-digit year fails the whole pass rather than running the four clocks
     that need no later season, because a pass that skipped those two quietly would leave both stopped for ever with nothing
-    anywhere saying so. Clearing the contact blocks also strips the season's fixture confirmation team rows, on the rows and
-    in their log images: every seat's link entry, each reason a contact typed and its holder digest; which way each answer
-    went, its day and the answering role stay as the season's record.
+    anywhere saying so. From that moment every pass also strips the season's fixture confirmation team rows, on the rows and in
+    their log images, of whatever is still left on them: every seat's link entry, each reason whoever gave it, and a contact's
+    holder digest; which way each answer went, its day and the answering role stay as the season's record. The strip is a
+    transaction of its own after the blocks' share: one that fails is logged under the season's id and counted in
+    `fehlgeschlagen`, and the blocks clear all the same.
 
     One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
     answers it. So a day's first call records the day and the rest of that day's calls record nothing.
@@ -517,15 +519,6 @@ async def sweep_saison(
         # Once for the share, so voiding its people's match links costs the pass the same however many rows it
         # clears (`docs/backend/spec.md :: I758`).
         await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
-        # The season's contacts gone, what they typed on its fixture confirmations goes too: the answers stay its record.
-        if taken:
-            await strip_the_seasons_team_rows(
-                spielbestaetigungen_collection=spielbestaetigungen_collection,
-                aktionen_collection=aktionen_collection,
-                saison_id=saison_id,
-                stamp=stamp,
-                session=session,
-            )
         # The block alone leaves the row's images, as it leaves the row: its exit record and every
         # earlier state are the season's, not the people's.
         redacted = await redact_images_in_session(
@@ -537,6 +530,25 @@ async def sweep_saison(
         )
 
         return len(cleared), redacted
+
+    async def strip_the_confirmations(session: AsyncClientSession, batch: Batch) -> int:
+        """The season-and-one clock's last part, apart from the blocks' share. Read in-session, the season with it, so a retry re-judges."""
+
+        if not season_after_has_ended(
+            later_saison_status=await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
+        ):
+            return 0
+        # The season the step's one row: a strip failing is passed over alone under the season's id, never charged to a block,
+        # and every pass strips what is still left whether or not a block clears on it.
+        batch.took([{"_id": saison_id}])
+
+        return await strip_the_seasons_team_rows(
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            aktionen_collection=aktionen_collection,
+            saison_id=saison_id,
+            stamp=stamp,
+            session=session,
+        )
 
     # Every transaction before the LAST, which is the reminder's: what that one hands back is owed a
     # message, and a failure after it would answer this request with an error instead
@@ -587,9 +599,20 @@ async def sweep_saison(
                 what="Season team",
                 clock="contact block",
             )
+            fehlgeschlagen += len(passed)
+
+            _, passed = await run_isolated(
+                db=db,
+                batch=Batch(),
+                attempt=lambda session, batch: session.with_transaction(strip_the_confirmations, batch),
+                moved=lambda _: 0,
+                owes=False,
+                what="Season",
+                clock="confirmation strip",
+            )
+            fehlgeschlagen += len(passed)
         geleert = sum(blocks for blocks, _ in cleared)
         redacted_accepted += sum(redacted for _, redacted in cleared)
-        fehlgeschlagen += len(passed)
 
     # Reads alone: the notice goes out first, and the erasure is the caller's second call.
     candidates = await pull_many_from_db(
