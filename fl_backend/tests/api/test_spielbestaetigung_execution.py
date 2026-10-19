@@ -870,3 +870,23 @@ class TestAProposalOfAPastDayIsRefusedThroughTheRoute:
 
         assert outcome == ANSETZUNG_VORSCHLAG_VERGANGEN
         assert row["antwort"] is None
+
+
+class TestADiscardedDeclineIsNoProposalInFrontOfTheOtherClub:
+    def test_the_other_link_opens_as_asked_once_the_decline_is_closed(self, mongo_replica_set_url: str):
+        """Closed `verworfen`, which keeps the decline's proposal stored: a read blind to the close serves a discarded date."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ablehnen(database, client, token(TEAM1, "trainer"), ("2027-05-15", "17:00:00"))
+            standing = await ansicht(database, token(TEAM2, "trainer"))
+            await database[Collection.SPIELBESTAETIGUNGEN].update_one(
+                {"_id": ROW1}, {"$set": {"geschlossen": {"am": TODAY, "grund": "verworfen"}}}
+            )
+
+            return standing, await ansicht(database, token(TEAM2, "trainer"))
+
+        standing, discarded = on_a_fixture(mongo_replica_set_url, body)
+
+        # The premise: while the decline stood, the other club's link opened on its proposal.
+        assert (standing.zustand, standing.vorschlag is not None) == ("vorschlag", True)
+        assert (discarded.zustand, discarded.vorschlag) == ("gueltig", None)
