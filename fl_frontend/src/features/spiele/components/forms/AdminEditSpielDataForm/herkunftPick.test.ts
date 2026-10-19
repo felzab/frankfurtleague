@@ -52,6 +52,7 @@ const SPIEL: FLSpiel = FLSpielSchema.parse({
   saison_phase: "halbfinale",
   saison_id: SAISON,
   notiz: null,
+  ansetzung_bestaetigt: null,
 } satisfies FLSpiel);
 
 const spiel = (spielNr: number, phase: FLSaisonPhase, quelle: FLSpielQuelle | null = null): FLSpiel => ({

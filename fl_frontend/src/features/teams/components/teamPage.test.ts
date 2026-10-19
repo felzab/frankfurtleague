@@ -46,6 +46,7 @@ const HALBFINALE: FLSpiel = {
   saison_phase: "halbfinale",
   saison_id: "2025",
   notiz: null,
+  ansetzung_bestaetigt: null,
 };
 
 const GRUPPENSPIEL: FLSpiel = {
