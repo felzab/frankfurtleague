@@ -61,7 +61,7 @@ export interface SpielEinteilungData {
 }
 
 /** Who a moved fixture's notice goes to: a team's mailbox was asked, a referee was booked. */
-export type SpielEmpfaenger = "team" | "schiedsrichter";
+type SpielEmpfaenger = "team" | "schiedsrichter";
 
 /** What a party asked about a fixture since moved is told: the slot it was asked about, which is the one it knows. */
 export interface SpielNeueAnsetzungData {
