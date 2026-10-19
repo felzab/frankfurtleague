@@ -63,6 +63,36 @@ if [[ -n "$VERIFY_TEST_SHARD" ]]; then
   fi
 fi
 
+# Windows alone, where no signal reaches the gate past its launching shell: the gate joins the job
+# `scripts/gate/gate_watch.py` ends with the gate or anything that started it. Unwatched, the run
+# still reaches its verdict, and says which guarantee it lacks.
+UNWATCHED=""
+join_the_job() {
+  local python said="" fd ancestor="$PPID"
+  local -a watched
+  if [[ "$OSTYPE" != msys && "$OSTYPE" != cygwin ]]; then return 0; fi
+  python="$(any_python || true)"
+  if [[ -z "$python" ]] || ! python_at_floor "$python"; then
+    UNWATCHED="nothing at the checkers' interpreter floor can watch it"
+    return 0
+  fi
+  watched=(--gate "$(< "/proc/$$/winpid")")
+  # Every MSYS ancestor, from MSYS's own records: Windows records each one's parent as a forked
+  # shell already gone, so a stop ending the outermost reaches none below it.
+  while (( ancestor > 1 )) && [[ -r "/proc/${ancestor}/winpid" ]]; do
+    watched+=(--launcher "$(< "/proc/${ancestor}/winpid")")
+    ancestor="$(< "/proc/${ancestor}/ppid")"
+  done
+  # `exec`, so no bash of the substitution's own carries the ERR trap a crashed watcher would fire.
+  exec {fd}< <(exec "$python" scripts/gate/gate_watch.py "${watched[@]}")
+  read -r -u "$fd" said || true
+  exec {fd}<&-
+  if [[ "$said" != armed ]]; then UNWATCHED="scripts/gate/gate_watch.py did not arm, its own words above"; fi
+}
+# Before anything starts a process, which would start outside the job; at the top level alone, whose
+# workers and steps are inside it.
+if ! worker && [[ -z "${FL_GATE_STEP:-}" ]]; then join_the_job; fi
+
 # Fail on a missing prerequisite now: otherwise a full run on a sleeping Docker discovers it at
 # the db tier, minutes of green checks in.
 if (( RUN_OPS || RUN_DB || RUN_IMAGES )); then
@@ -223,6 +253,11 @@ GATE_WIDTH_DB_PYTEST=6
 # 17.5-17.8s at 8, 20.3-21.5s at 4, 29.5-30.1s at 2 and 46.0-46.6s serial.
 GATE_WIDTH_BACKEND_PYTEST=6
 
+# Past this a pytest case has every thread's stack dumped into its step's capture, for
+# `scripts/gate/gate_pool.py :: STALL_S`'s notice to carry: below that bound, above the widest
+# measured span holding one case, the db tier's 113 s on a runner.
+FAULTHANDLER_S=120
+
 # --- what a unit runs --------------------------------------------------------------------------------
 
 # Every check that runs beside its neighbours is a `do_<check>` function, called by name: the pool
@@ -247,7 +282,7 @@ do_pyright() { ( cd "${REPO_ROOT}/scripts" && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "
 # copytree and its `git init` once per worker that draws a case from the module.
 do_pytest() {
   "$PY" -m pytest scripts/tests -n auto --dist loadfile \
-    --maxprocesses "$GATE_WIDTH_SCRIPTS_PYTEST"
+    --maxprocesses "$GATE_WIDTH_SCRIPTS_PYTEST" -o "faulthandler_timeout=${FAULTHANDLER_S}"
 }
 
 # Only `check_docs.py` writes `.git/index` (`scripts/checks/docs_gate/branch.py :: _added_by_file`), so
@@ -279,7 +314,7 @@ do_backend_pyright() { ( cd fl_backend && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY"
 # Distributed by file as the db tier is: serial, this tier alone takes the backend job past its
 # budget on a runner. No worker starts a server (`fl_backend/tests/conftest.py ::
 # pytest_configure_node`).
-do_backend_pytest()  { ( cd fl_backend && "$PY" -m pytest -n auto --dist loadfile --maxprocesses "$GATE_WIDTH_BACKEND_PYTEST" ); }
+do_backend_pytest()  { ( cd fl_backend && "$PY" -m pytest -n auto --dist loadfile --maxprocesses "$GATE_WIDTH_BACKEND_PYTEST" -o "faulthandler_timeout=${FAULTHANDLER_S}" ); }
 # What ruff, pyright and pytest between them cannot answer: pytest runs what it collected, and says
 # nothing about a guarantee that stopped being collected.
 do_backend_estate()  { "$PY" scripts/checks/check_test_estate.py; }
@@ -287,7 +322,7 @@ do_backend_estate()  { "$PY" scripts/checks/check_test_estate.py; }
 # need every first-party module it imports off `sys.path` named to deptry by hand.
 do_backend_deps()    { ( cd fl_backend && "$PY" -m deptry . ); }
 do_backend_db() {
-  ( cd fl_backend && "$PY" -m pytest -m db -n auto --dist loadfile --maxprocesses "$GATE_WIDTH_DB_PYTEST" )
+  ( cd fl_backend && "$PY" -m pytest -m db -n auto --dist loadfile --maxprocesses "$GATE_WIDTH_DB_PYTEST" -o "faulthandler_timeout=${FAULTHANDLER_S}" )
 }
 do_frontend_db()     { ( cd fl_frontend && pnpm run test:db ); }
 
@@ -651,6 +686,10 @@ if ! worker; then
     info "no python at the checkers' floor (\`scripts/lib/_lib.sh :: PYTHON_FLOOR\`), so every
 scope and every check runs one at a time — the same proof, at the cost of their sum rather than
 their longest. \`cd fl_backend && uv sync --dev\` creates an interpreter that meets it."
+  fi
+  if [[ -n "$UNWATCHED" ]]; then
+    info "this run is unwatched — ${UNWATCHED} — so stopping whatever started it leaves every process
+the run started still running."
   fi
 fi
 

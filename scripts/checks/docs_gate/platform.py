@@ -76,6 +76,8 @@ PLATFORM_ALLOW: Final[dict[str, str]] = {
     "scripts/gate/selfcheck.sh :: run_actionlint": "the same rewrite, in front of the actionlint image",
     "scripts/gate/verify.sh :: POOL_BASH": "`cygpath -w` so a Windows python can launch the parent's own bash",
     "scripts/gate/verify.sh :: ops · nginx accepts prod.conf": "MSYS rewrites the container-side path of the nginx config mount",
+    "scripts/gate/verify.sh :: join_the_job": "no signal reaches a Windows gate past its launching shell, so there the gate joins a job",
+    'scripts/gate/gate_watch.py :: if sys.platform != "win32":': "Windows' job API, read where pyright narrows its calls",
     "scripts/ops/local.sh :: take_dump": "MSYS rewrites the container-side `/dump` mount",
     "scripts/ops/local.sh :: restore_dump": "MSYS rewrites `/dump` on the way into the container",
     "scripts/ops/local.sh :: dump_collections_seen": "MSYS rewrites `/dump` in the container-side find",
