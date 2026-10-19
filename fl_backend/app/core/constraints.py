@@ -692,12 +692,13 @@ _SPIELBESTAETIGUNG_ANTWORT = _object(
     properties={
         "art": {"bsonType": "string", "enum": _SPIELBESTAETIGUNG_ANTWORTEN},
         "am": {"bsonType": "string"},
-        # `rolle` out of `required` for `_SPIELBESTAETIGUNG_PARTEI`'s reason: only a seat's answer names one.
+        # `rolle` and `halter` out of `required` for `_SPIELBESTAETIGUNG_PARTEI`'s reason: only a seat's answer names one.
         "von": _object(
             required=("art",),
             properties={
                 "art": {"bsonType": "string", "enum": _SPIELBESTAETIGUNG_VON},
                 "rolle": {"bsonType": "string", "enum": _KONTAKT_ROLLEN},
+                "halter": {"bsonType": _STRING_OR_NULL},
             },
         ),
         "vorschlag": _SPIELBESTAETIGUNG_TERMIN,

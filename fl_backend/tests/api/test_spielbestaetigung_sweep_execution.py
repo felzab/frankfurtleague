@@ -479,6 +479,7 @@ class TestADiscardedDeclineIsNotAskedAgain:
                     **compose_antwort_update(
                         antwort="abgelehnt",
                         seat="trainer",
+                        adresse=None,
                         vorschlag=FLSpielbestaetigungTermin(datum=days_after(day=NEXT_WEEK, days=1), uhrzeit="18:00:00"),
                         begruendung="Klassenfahrt",
                         today=TODAY,
@@ -524,7 +525,7 @@ class TestAMovedFixtureAsksAgain:
         standing = [row for row in stored if row["geschlossen"] is None]
         assert answered_id in {row["_id"] for row in closed}
         assert [row["geschlossen"]["grund"] for row in closed] == ["ansetzung_geaendert"] * 3
-        assert (answered["antwort"]["art"], answered["antwort"]["von"]) == ("zugesagt", {"art": "kontakt", "rolle": "trainer"})
+        assert (answered["antwort"]["art"], answered["antwort"]["von"]["rolle"]) == ("zugesagt", "trainer")
         assert next(row for row in closed if row["_id"] == answered_id)["antwort"] == answered["antwort"]
         assert [row["antwort"] for row in closed if row["_id"] != answered_id] == [None, None]
         assert refusals == [ANSETZUNG_BEANTWORTET, ANSETZUNG_GESCHLOSSEN]

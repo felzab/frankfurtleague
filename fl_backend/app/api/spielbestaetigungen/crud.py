@@ -7,6 +7,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungTermin
 from app.api.spielbestaetigungen.services import (
+    ANSETZUNG_QUELLEN,
     AnsetzungLage,
     build_referee_images_filter,
     build_referee_rows_filter,
@@ -20,14 +21,27 @@ from app.shared.schemas.custom import CustomObjectId
 
 # --- The LINK's view and answer.
 
-# What a link is judged on from the clubs: the season's name, the exit, the seat's address the ban
-# list is asked about, and the names a reason may not hold.
-VEREIN_FIELDS: Mapping[str, int] = {
-    "team_id": 1,
-    "name": 1,
-    "austritt": 1,
-    **{f"kontakte.{seat}.{part}": 1 for seat in KONTAKT_ROLLEN for part in ("email", "vorname", "nachname")},
+# What the VIEW reads off the fixture: the Ansetzung's inputs, what the page states of it, and what
+# `grund_to_close` decides on. Never the referee, the rent or the note (`docs/backend/spec.md :: I185`).
+ANSICHT_SPIEL_FIELDS: Mapping[str, int] = {
+    "_id": 0,
+    **dict.fromkeys(ANSETZUNG_QUELLEN.values(), 1),
+    **dict.fromkeys(("team1.name", "team2.name", "team1.tore", "team2.tore", "ort.name", "ort.maps_link"), 1),
+    **dict.fromkeys(("ergebnis", "elfmeterschiessen", "sonderereignis"), 1),
 }
+
+
+def verein_fields(*, team_id: Any, seat: str, namen: bool) -> dict[str, Any]:
+    """`namen` for the answer, which judges a reason against every seat holder of both clubs; the view states the clubs' names."""
+
+    return {
+        "_id": 0,
+        "team_id": 1,
+        "austritt.datum": 1,
+        **({f"kontakte.{slot}.{part}": 1 for slot in KONTAKT_ROLLEN for part in ("vorname", "nachname")} if namen else {"name": 1}),
+        # The other club's row and every other seat load no address.
+        f"kontakte.{seat}.email": {"$cond": [{"$eq": ["$team_id", team_id]}, f"$kontakte.{seat}.email", "$$REMOVE"]},
+    }
 
 
 async def pull_ansetzung_lage(
@@ -35,19 +49,21 @@ async def pull_ansetzung_lage(
     spiele_collection: AsyncCollection,
     saison_teams_collection: AsyncCollection,
     spielbestaetigung_raw: Mapping[str, Any],
+    # `None` for the whole fixture, which a proposal is judged as.
+    spiel_projection: Mapping[str, Any] | None,
+    verein_projection: Mapping[str, Any],
     session: AsyncClientSession | None = None,
-) -> AnsetzungLage:
-    """The fixture whole, and the season rows of the two clubs the row's snapshot names."""
+) -> AnsetzungLage | None:
+    """`None` where the fixture is gone: an undraw or a replace removes it with its rows, so a row read outside a transaction can outlive it."""
 
-    # `find_one` rather than `pull_one_from_db`'s 404: removing a fixture removes its rows with it in one
-    # transaction, so a miss is a broken invariant rather than an answer.
-    spiel = await spiele_collection.find_one({"_id": spielbestaetigung_raw["spiel_id"]}, session=session)
-    assert spiel is not None, f"spielbestaetigung {spielbestaetigung_raw['_id']} outlived its fixture"
+    spiel = await spiele_collection.find_one({"_id": spielbestaetigung_raw["spiel_id"]}, spiel_projection, session=session)
+    if spiel is None:
+        return None
 
     snapshot = spielbestaetigung_raw["ansetzung"]
     vereine = await saison_teams_collection.find(
         {"saison_id": spielbestaetigung_raw["saison_id"], "team_id": {"$in": [snapshot["team1_id"], snapshot["team2_id"]]}},
-        VEREIN_FIELDS,
+        verein_projection,
         session=session,
     ).to_list(length=None)
 

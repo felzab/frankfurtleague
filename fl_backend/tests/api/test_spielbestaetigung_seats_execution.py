@@ -211,6 +211,7 @@ async def links_answering(database: AsyncDatabase) -> dict[str, set[str]]:
                     spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                     spiele_collection=database[Collection.SPIELE],
                     saison_teams_collection=database[Collection.SAISON_TEAMS],
+                    spielorte_collection=database[Collection.SPIELORTE],
                     sperrliste=ban_list(database),
                     today=TODAY,
                 )

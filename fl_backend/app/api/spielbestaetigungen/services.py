@@ -140,8 +140,8 @@ ANSETZUNG_GESCHLOSSEN = "REQ-ANSETZUNG-009"
 ANSETZUNG_GESPERRT = "REQ-ANSETZUNG-011"
 ANSETZUNG_NAME_IN_BEGRUENDUNG = "REQ-ANSETZUNG-012"
 
-# A row closed for one of these is about an Ansetzung the fixture has left, which the page tells apart
-# from a deadline that ran out.
+# A row closed, or due to close, for one of these is about an Ansetzung the fixture has left, which the
+# page tells apart from a deadline that ran out.
 GRUENDE_UNGUELTIG: Final = frozenset({"ansetzung_geaendert", "schiedsrichter_gewechselt"})
 
 # An INCLUSION: of a row's links the hashes alone, which resolve the seat and never leave the handler.
@@ -192,22 +192,16 @@ def seat_adresse(*, lage: AnsetzungLage, spielbestaetigung_raw: Mapping[str, Any
 
     team_id = (spielbestaetigung_raw.get("partei") or {}).get("team_id")
     verein = next((row for row in lage.vereine if row.get("team_id") == team_id), None)
-    sitz = ((verein or {}).get("kontakte") or {}).get(seat)
-    email = sitz.get("email") if isinstance(sitz, Mapping) else None
 
-    return email if isinstance(email, str) else None
+    return kontakt_adresse(kontakte=(verein or {}).get("kontakte"), seat=seat)
 
 
-def _stand_moved(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage) -> bool:
-    return ansetzung_stand_of(lage.spiel) != spielbestaetigung_raw["ansetzung"]["stand"]
+def _grund_now(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage) -> FLSpielbestaetigungGrund | None:
+    """Why the pass's next close would shut this row, read off its own judge: a link never shows or refuses otherwise than it records."""
 
+    austritte = {row.get("team_id"): str(datum) for row in lage.vereine if (datum := (row.get("austritt") or {}).get("datum")) is not None}
 
-def _decided(*, lage: AnsetzungLage) -> bool:
-    """`entscheidung_of` over the fixture as it stands and both clubs' season rows, the rule the pass's close shuts a row by."""
-
-    austritte = [str(datum) for row in lage.vereine if (datum := (row.get("austritt") or {}).get("datum")) is not None]
-
-    return entscheidung_of(spiel=lage.spiel, austritte=austritte, tag=lage.spiel.get("datum")) is not None
+    return grund_to_close(row=spielbestaetigung_raw, spiel=lage.spiel, austritte=austritte)
 
 
 def _past_frist(*, spielbestaetigung_raw: Mapping[str, Any], today: str) -> bool:
@@ -233,12 +227,13 @@ def zustand_of(
     if isinstance(antwort, Mapping):
         return "zugesagt" if antwort["art"] == "zugesagt" else "abgelehnt"
 
-    if (isinstance(geschlossen, Mapping) and geschlossen["grund"] in GRUENDE_UNGUELTIG) or _stand_moved(
-        spielbestaetigung_raw=spielbestaetigung_raw, lage=lage
-    ):
+    # Closed, by the reason stored; open, by the one the close would store.
+    grund = geschlossen["grund"] if isinstance(geschlossen, Mapping) else _grund_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage)
+
+    if grund in GRUENDE_UNGUELTIG:
         return "ungueltig"
 
-    if geschlossen is not None or _decided(lage=lage) or _past_frist(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
+    if grund is not None or _past_frist(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
         return "abgelaufen"
 
     return "gueltig" if vorschlag_offen is None else "vorschlag"
@@ -281,9 +276,9 @@ def first_press_refusal() -> WriteRefusal:
 
 
 def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage, today: str) -> WriteRefusal | None:
-    """Why this row takes no answer now, or `None`, in the order a spent token meets its code.
+    """Why this row takes no answer now, or `None`, in the order `zustand_of` ranks the same states.
 
-    An answered row first, closed since or not, then one closed unanswered, then the deadline, the Ansetzung and the fixture.
+    Answered, closed unanswered, what the close would shut it for, then the deadline.
     """
 
     if spielbestaetigung_raw.get("antwort") is not None:
@@ -296,25 +291,27 @@ def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: A
             message="this confirmation was closed before anybody answered; a fresh request is a new link",
         )
 
-    if _past_frist(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
-        return WriteRefusal(
-            error_code=ANSETZUNG_FRIST_VORBEI,
-            status=HTTPStatus.GONE,
-            message=f"this confirmation's deadline {spielbestaetigung_raw['frist']} has passed, and the date is the administrator's now",
-        )
+    grund = _grund_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage)
 
-    if _stand_moved(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage):
+    if grund in GRUENDE_UNGUELTIG:
         return WriteRefusal(
             error_code=ANSETZUNG_GEAENDERT,
             status=HTTPStatus.GONE,
             message="the fixture's date, time, ground or sides changed since this link was sent; the new Ansetzung is asked afresh",
         )
 
-    if _decided(lage=lage):
+    if grund is not None:
         return WriteRefusal(
             error_code=ANSETZUNG_ENTSCHIEDEN,
             status=HTTPStatus.GONE,
             message="this fixture has been decided, called off or lost a club since this link was sent",
+        )
+
+    if _past_frist(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
+        return WriteRefusal(
+            error_code=ANSETZUNG_FRIST_VORBEI,
+            status=HTTPStatus.GONE,
+            message=f"this confirmation's deadline {spielbestaetigung_raw['frist']} has passed, and the date is the administrator's now",
         )
 
     return None
@@ -406,10 +403,15 @@ def seite_of(spielbestaetigung_raw: Mapping[str, Any]) -> FLSpielbestaetigungSei
     return "team1" if team_id == spielbestaetigung_raw["ansetzung"]["team1_id"] else "team2"
 
 
-def ansicht_ansetzung_of(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage) -> FLSpielbestaetigungAnsichtAnsetzung:
-    """The fixture as it stands now; where it has lost its day, hour or a side, the Ansetzung the row was about.
+def stand_moved(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage) -> bool:
+    return ansetzung_stand_of(lage.spiel) != spielbestaetigung_raw["ansetzung"]["stand"]
 
-    Only a link whose stand moved meets such a fixture, and its page renders the state alone.
+
+def ansicht_ansetzung_of(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage) -> FLSpielbestaetigungAnsichtAnsetzung:
+    """The fixture as it stands now; where it lost its day, hour or a side, the row's own value for it.
+
+    The pass names a moved row's clubs by it, a club replaced since holding no season row. A value it fills in from
+    the row describes no Ansetzung that stood, so the link's page states a moved row by `ansicht_snapshot_of` instead.
     """
 
     snapshot = spielbestaetigung_raw["ansetzung"]
@@ -419,6 +421,7 @@ def ansicht_ansetzung_of(*, spielbestaetigung_raw: Mapping[str, Any], lage: Anse
         side = lage.spiel.get(slot)
         return str(side["name"]) if isinstance(side, Mapping) else str(namen.get(snapshot[snapshot_key]) or "")
 
+    # Absent rather than null where a projection met a fixture without a ground.
     ort = lage.spiel.get("ort")
 
     return FLSpielbestaetigungAnsichtAnsetzung(
@@ -429,6 +432,24 @@ def ansicht_ansetzung_of(*, spielbestaetigung_raw: Mapping[str, Any], lage: Anse
         spielort=None
         if not isinstance(ort, Mapping)
         else FLSpielOrtFieldPublic(spielort_id=ort["spielort_id"], name=ort["name"], maps_link=ort["maps_link"]),
+    )
+
+
+def ansicht_snapshot_of(
+    *, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage, spielort: FLSpielOrtFieldPublic | None
+) -> FLSpielbestaetigungAnsichtAnsetzung:
+    """The Ansetzung a row whose stand moved was about, whole: its clubs by their season names and `spielort`, its ground read now."""
+
+    snapshot = spielbestaetigung_raw["ansetzung"]
+    # Empty for a club replaced since: its season row went to the incoming club, and its `teams` document may not exist.
+    namen = {row.get("team_id"): str(row.get("name") or "") for row in lage.vereine}
+
+    return FLSpielbestaetigungAnsichtAnsetzung(
+        team1_name=namen.get(snapshot["team1_id"], ""),
+        team2_name=namen.get(snapshot["team2_id"], ""),
+        datum=snapshot["datum"],
+        uhrzeit=snapshot["uhrzeit"],
+        spielort=spielort,
     )
 
 
@@ -448,7 +469,10 @@ def ansicht_vorschlag_of(
 
 
 def halter_of(address: str) -> str:
-    """Who answered from a seat, as the answer stores it: the digest of the address on the fold the seat's holder is judged on."""
+    """The answering seat's holder, as the person's erasure finds the reasons they typed from any seat.
+
+    A digest, so the row keeps no address, over the fold `app/api/teams/services.py :: seats_changing_holder` tells holders apart by.
+    """
 
     return hashlib.sha256(sign_in_identifier(address).encode("utf-8")).hexdigest()
 
@@ -457,6 +481,7 @@ def compose_antwort_update(
     *,
     antwort: FLSpielbestaetigungAntwortArt,
     seat: FLKontaktRolle,
+    adresse: str | None,
     vorschlag: FLSpielbestaetigungTermin | None,
     begruendung: str | None,
     today: str,
@@ -466,7 +491,8 @@ def compose_antwort_update(
             "antwort": {
                 "art": antwort,
                 "am": today,
-                "von": {"art": "kontakt", "rolle": seat},
+                # Never served (`tests/core/test_constraints.py :: STORED_BUT_NOT_SERVED`).
+                "von": {"art": "kontakt", "rolle": seat, "halter": None if adresse is None else halter_of(adresse)},
                 "vorschlag": None if vorschlag is None else {"datum": vorschlag.datum, "uhrzeit": vorschlag.uhrzeit},
                 "begruendung": begruendung,
             }
@@ -648,12 +674,15 @@ def compose_spielbestaetigung(
 
 
 def kontakt_adresse(*, kontakte: Any, seat: str) -> str | None:
-    """The address a seat's holder is reached at, or `None` where the seat is empty."""
+    """The address a seat's holder is mailed at, banned on and recorded under, or `None` where the seat is empty.
+
+    Unstripped: every seat payload stores `league_address`'s trimmed form, so a reader trimming would change nothing a write leaves.
+    """
 
     slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
-    email = str(slot.get("email") or "").strip() if isinstance(slot, Mapping) else ""
+    email = slot.get("email") if isinstance(slot, Mapping) else None
 
-    return email or None
+    return email if isinstance(email, str) and email else None
 
 
 def link_groups(*, kontakte: Any, seats: Sequence[str]) -> list[list[FLKontaktRolle]]:

@@ -1,8 +1,10 @@
+from collections.abc import Iterator, Mapping
 from typing import Any
 
 import pytest
 from bson import ObjectId
 
+from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, verein_fields
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungTermin
 from app.api.spielbestaetigungen.services import (
     ANSETZUNG_BEANTWORTET,
@@ -15,13 +17,16 @@ from app.api.spielbestaetigungen.services import (
     ANSETZUNG_VORSCHLAG_VERGANGEN,
     AnsetzungLage,
     ansicht_ansetzung_of,
+    ansicht_snapshot_of,
     beteiligte_namen,
     compose_ansetzung,
     find_name_in_begruendung_refusal,
     find_spent_link_refusal,
     find_unknown_link_refusal,
     find_vorschlag_vergangen_refusal,
+    grund_to_close,
     proposal_payload,
+    seat_adresse,
     zustand_of,
 )
 from app.api.spiele.schemas import FLSpiel
@@ -138,15 +143,12 @@ class TestASpentLinkMeetsTheCodeThatNamesWhy:
                 ANSETZUNG_GESCHLOSSEN,
                 id="closed-ahead-of-late-and-moved",
             ),
+            # What the close would shut the row for, ahead of the deadline, as the view ranks them.
+            pytest.param({}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, "2027-05-08", ANSETZUNG_GEAENDERT, id="moved-ahead-of-late"),
+            pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, "2027-05-08", ANSETZUNG_ENTSCHIEDEN, id="decided-ahead-of-late"),
+            # The close's own order: a decided fixture is owed no notice that it moved.
             pytest.param(
-                {},
-                {"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}},
-                "2027-05-08",
-                ANSETZUNG_FRIST_VORBEI,
-                id="late-ahead-of-moved",
-            ),
-            pytest.param(
-                {}, {"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}}, TODAY, ANSETZUNG_GEAENDERT, id="moved-ahead-of-decided"
+                {}, {"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}}, TODAY, ANSETZUNG_ENTSCHIEDEN, id="decided-ahead-of-moved"
             ),
         ],
     )
@@ -185,6 +187,10 @@ class TestWhatAReopenedLinkShows:
             pytest.param({"antwort": {**ANSWERED, "art": "abgelehnt"}}, {}, TODAY, False, None, "abgelehnt", id="declined"),
             pytest.param({}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, "2027-05-08", False, None, "ungueltig", id="moved-ahead-of-late"),
             pytest.param(
+                {}, {"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}}, TODAY, False, None, "abgelaufen", id="decided-and-moved"
+            ),
+            pytest.param({}, {"austritt": DATUM}, TODAY, False, None, "abgelaufen", id="a-club-left-by-the-day"),
+            pytest.param(
                 {"geschlossen": {"am": TODAY, "grund": "schiedsrichter_gewechselt"}}, {}, TODAY, False, None, "ungueltig", id="referee-changed"
             ),
             pytest.param({"geschlossen": {"am": TODAY, "grund": "verworfen"}}, {}, TODAY, False, None, "abgelaufen", id="closed-otherwise"),
@@ -209,20 +215,134 @@ class TestWhatAReopenedLinkShows:
         )
 
 
-class TestWhatTheViewStatesOfTheFixture:
-    def test_a_fixture_that_lost_its_day_and_a_side_is_stated_as_the_row_asked_about_it(self):
-        """Only a spent link meets such a fixture; the required fields still fill rather than answering 500."""
+class Recorded(Mapping[str, Any]):
+    """A stored document noting every dotted path read off it, a key it lacks included."""
 
-        moved = lage(spiel_overrides={"datum": None, "uhrzeit": None, "team2": None, "ort": None})
-        ansetzung = ansicht_ansetzung_of(spielbestaetigung_raw=zeile(), lage=moved)
+    def __init__(self, document: Mapping[str, Any], seen: set[str], prefix: str = "") -> None:
+        self._document, self._seen, self._prefix = document, seen, prefix
 
-        assert (ansetzung.team1_name, ansetzung.team2_name, ansetzung.datum, ansetzung.uhrzeit, ansetzung.spielort) == (
-            "Adler",
-            "Biber",
-            DATUM,
-            "18:30:00",
-            None,
+    def __getitem__(self, key: str) -> Any:
+        path = f"{self._prefix}.{key}" if self._prefix else key
+        self._seen.add(path)
+        value = self._document[key]
+        return Recorded(value, self._seen, path) if isinstance(value, Mapping) else value
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._document)
+
+    def __len__(self) -> int:
+        return len(self._document)
+
+
+def loaded_by(projection: Mapping[str, Any], path: str) -> bool:
+    """Whether a read through this projection holds the path, or the block a projected path sits under."""
+
+    return any(path == key or path.startswith(f"{key}.") or key.startswith(f"{path}.") for key, kept in projection.items() if kept != 0)
+
+
+class TestTheProjectionsHoldEverythingTheJudgesRead:
+    """The other half of the db sheet's `TestWhatAnAnonymousReadLoads`: a path a judge reads that a projection drops reads as null.
+
+    So a decided fixture would show `gueltig`, or a seat's address read as empty pass the ban, with nothing failing.
+    """
+
+    def test_the_view_reads_nothing_its_projections_leave_out(self):
+        spiel_seen: set[str] = set()
+        vereine_seen: set[str] = set()
+        # Undecided, unmoved and open, so every judge reads to its end; the exit after the fixture's day, so its date is read.
+        situation = AnsetzungLage(
+            spiel=Recorded(spiel(), spiel_seen),
+            vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)],
         )
+
+        assert zustand_of(spielbestaetigung_raw=zeile(), lage=situation, today=TODAY, gesperrt=False, vorschlag_offen=None) == "gueltig"
+        ansicht_ansetzung_of(spielbestaetigung_raw=zeile(), lage=situation)
+        seat_adresse(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
+
+        # The premise: `entscheidung_of` read the fixture to its last test.
+        assert {"ergebnis", "elfmeterschiessen", "sonderereignis", "team2.tore", "austritt.datum"} <= spiel_seen | vereine_seen
+        assert [path for path in sorted(spiel_seen) if not loaded_by(ANSICHT_SPIEL_FIELDS, path)] == []
+        projection = verein_fields(team_id=TEAM1, seat="trainer", namen=False)
+        assert [path for path in sorted(vereine_seen) if not loaded_by(projection, path)] == []
+
+    def test_the_answer_reads_nothing_of_the_clubs_its_projection_leaves_out(self):
+        """The fixture it reads whole, a proposal being judged as the stored fixture on a new date."""
+
+        vereine_seen: set[str] = set()
+        situation = AnsetzungLage(
+            spiel=spiel(), vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)]
+        )
+
+        assert find_spent_link_refusal(spielbestaetigung_raw=zeile(), lage=situation, today=TODAY) is None
+        beteiligte_namen(lage=situation)
+        seat_adresse(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
+
+        assert {"austritt.datum", "kontakte.stellvertretung.nachname", "kontakte.trainer.email"} <= vereine_seen
+        projection = verein_fields(team_id=TEAM1, seat="trainer", namen=True)
+        assert [path for path in sorted(vereine_seen) if not loaded_by(projection, path)] == []
+
+
+# Open rows in every situation a link meets, each keyed by what the close would shut it for.
+SITUATIONS = [
+    pytest.param({}, TODAY, id="open"),
+    pytest.param({}, "2027-05-08", id="late"),
+    pytest.param({"spiel_overrides": {"uhrzeit": "19:00:00"}}, TODAY, id="moved"),
+    pytest.param({"spiel_overrides": {"uhrzeit": "19:00:00"}}, "2027-05-08", id="moved-and-late"),
+    pytest.param({"spiel_overrides": {"team2": None}}, TODAY, id="a-side-gone"),
+    pytest.param({"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, id="a-result"),
+    pytest.param({"spiel_overrides": {"elfmeterschiessen": {"team1": 4, "team2": 3}}}, TODAY, id="a-lone-shoot-out"),
+    pytest.param({"spiel_overrides": {"sonderereignis": "ausgefallen"}}, TODAY, id="called-off"),
+    pytest.param({"austritt": DATUM}, TODAY, id="a-club-left-by-the-day"),
+    pytest.param({"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}}, "2027-05-08", id="moved-decided-and-late"),
+]
+
+# The page a refused answer's code sends the reader to (`fl_frontend/src/features/spielbestaetigungen/utils.ts`).
+STATE_OF_CODE = {None: "gueltig", ANSETZUNG_GEAENDERT: "ungueltig", ANSETZUNG_ENTSCHIEDEN: "abgelaufen", ANSETZUNG_FRIST_VORBEI: "abgelaufen"}
+
+
+class TestTheLinkAndTheCloseReadOneVerdict:
+    """The view, the answer and the pass's close judge an open row alike: a link shows and refuses only what the close would record."""
+
+    @pytest.mark.parametrize(("situation", "today"), SITUATIONS)
+    def test_the_view_shows_the_state_the_answer_refuses_with(self, situation: dict[str, Any], today: str):
+        refusal = find_spent_link_refusal(spielbestaetigung_raw=zeile(), lage=lage(**situation), today=today)
+        shown = zustand_of(spielbestaetigung_raw=zeile(), lage=lage(**situation), today=today, gesperrt=False, vorschlag_offen=None)
+
+        assert shown == STATE_OF_CODE[None if refusal is None else refusal.error_code]
+
+    @pytest.mark.parametrize(("situation", "today"), SITUATIONS)
+    def test_a_row_shows_the_same_state_before_the_close_and_after_it(self, situation: dict[str, Any], today: str):
+        """Closed for the reason `grund_to_close` gives, the row reads as it did open: the next pass changes no page under its reader."""
+
+        situated = lage(**situation)
+        austritte = {} if "austritt" not in situation else {TEAM1: situation["austritt"]}
+        grund = grund_to_close(row=zeile(), spiel=situated.spiel, austritte=austritte)
+        closed = zeile(geschlossen=None if grund is None else {"am": today, "grund": grund})
+
+        before = zustand_of(spielbestaetigung_raw=zeile(), lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
+        after = zustand_of(spielbestaetigung_raw=closed, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
+
+        assert before == after
+
+
+class TestWhatTheViewStatesOfTheFixture:
+    def test_a_fixture_that_lost_its_day_is_stated_as_the_row_asked_about_it_and_never_half_of_each(self):
+        """The new hour beside the old day would describe an Ansetzung that never stood; the side gone is named off its season row."""
+
+        moved = lage(spiel_overrides={"datum": None, "uhrzeit": "20:00:00", "team2": None})
+        ansetzung = ansicht_snapshot_of(spielbestaetigung_raw=zeile(), lage=moved, spielort=None)
+
+        assert (ansetzung.team1_name, ansetzung.team2_name, ansetzung.datum, ansetzung.uhrzeit) == ("Adler", "Biber", DATUM, "18:30:00")
+
+    def test_a_club_replaced_since_is_stated_nameless_rather_than_answering_500(self):
+        """Its season row went to the incoming club, which a replacement also seats in the fixture: no read names the club that left."""
+
+        replaced = AnsetzungLage(
+            spiel=spiel(team2={"team_id": ObjectId(), "name": "Dachs", "shorthand": "DA", "tore": None}), vereine=[verein(TEAM1)]
+        )
+        ansetzung = ansicht_snapshot_of(spielbestaetigung_raw=zeile(), lage=replaced, spielort=None)
+
+        assert (ansetzung.team1_name, ansetzung.team2_name) == ("Adler", "")
 
 
 class TestAProposalBeforeToday:
@@ -243,12 +363,9 @@ class TestTheProposalIsTheFixtureOnItsNewDate:
         assert (proposed.datum, proposed.uhrzeit) == ("2027-05-15", "17:00:00")
         assert proposed.ort is not None and stored.ort is not None and proposed.ort.spielort_id == stored.ort.spielort_id
         assert proposed.schiedsrichter is not None and proposed.schiedsrichter.schiedsrichter_id == SCHIEDSRICHTER
-        assert (proposed.team1, proposed.team2, proposed.sonderereignis) == (
-            proposal_payload(stored, FLSpielbestaetigungTermin(datum=DATUM, uhrzeit="18:30:00")).team1,
-            proposal_payload(stored, FLSpielbestaetigungTermin(datum=DATUM, uhrzeit="18:30:00")).team2,
-            None,
-        )
-        assert proposed.team1 is not None and proposed.team1.team_id == TEAM1
+        # Against the stored sides, spelled out: the exit judge weighs exactly the clubs the fixture already fields.
+        sides = [None if side is None else (side.team_id, side.tore) for side in (proposed.team1, proposed.team2)]
+        assert (sides, proposed.sonderereignis) == ([(TEAM1, None), (TEAM2, None)], None)
 
 
 class TestANameInTheBegruendung:
