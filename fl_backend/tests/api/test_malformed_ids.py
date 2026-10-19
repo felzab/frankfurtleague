@@ -1,7 +1,7 @@
 import asyncio
 import re
 from collections.abc import Mapping
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 import pymongo
 import pytest
@@ -119,7 +119,8 @@ def test_every_objectid_path_parameter_reaches_its_handler_as_an_object_id():
         for name, convertor in route.convertors.items():
             if isinstance(convertor, ObjectIdConvertor):
                 info = fields[name].field_info
-                annotation = Annotated[info.annotation, *info.metadata] if info.metadata else info.annotation
+                # A field's type read at run time, which no type expression spells, so the checker takes it as `Any`.
+                annotation = cast(Any, Annotated[info.annotation, *info.metadata] if info.metadata else info.annotation)
                 reached.append((route.path_format, name, type(TypeAdapter(annotation).validate_python(HEX_ID))))
 
     assert reached and [(path, name) for path, name, handed in reached if handed is not ObjectId] == []

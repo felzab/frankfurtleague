@@ -3,7 +3,7 @@ import importlib
 import pkgutil
 import warnings
 from collections.abc import Callable, Iterator, Mapping
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 import pymongo
 import pytest
@@ -154,7 +154,8 @@ def _address_fields() -> dict[str, TypeAdapter[Any]]:
             # The field whole, so what it publishes is what the API document carries for it. Its
             # alias means nothing outside its model, which pydantic warns of and which judges nothing here.
             with warnings.catch_warnings(action="ignore", category=UnsupportedFieldAttributeWarning):
-                adapter = TypeAdapter(Annotated[field.annotation, field])
+                # A field's type read at run time, which no type expression spells, so the checker takes it as `Any`.
+                adapter = TypeAdapter(cast(Any, Annotated[field.annotation, field]))
             if _publishes_an_address(adapter.json_schema()):
                 fields[f"{model.__module__}.{model.__qualname__}.{field_name}"] = adapter
 
