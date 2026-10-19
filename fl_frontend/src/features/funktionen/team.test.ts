@@ -25,6 +25,7 @@ import {
   readsOf,
   redirectTarget,
   renderPage,
+  resolvedPage,
   steps,
 } from "@/shared/testing/pageHarness.ts";
 import { textOf } from "@/shared/testing/renderTest.ts";
@@ -80,7 +81,11 @@ const landingAt = (teamId: string, saisonId: string) => {
 async function rendered(teamId: string, saisonId: string): Promise<{ markup: string; text: string; reads: string[] }> {
   clearSteps();
   const markup = await renderPage(
-    underNext(h(landingAt(teamId, saisonId)), { pathname: `/bereich/team/${teamId}/${saisonId}`, search: `saison_id=${saisonId}` }),
+    underNext(h(landingAt(teamId, saisonId)), {
+      pathname: `/bereich/team/${teamId}/${saisonId}`,
+      search: `saison_id=${saisonId}`,
+      params: { team_id: teamId, saison_id: saisonId },
+    }),
   );
 
   return { markup: markup, text: textOf(markup, " ").replace(/\s+/g, " "), reads: readsOf(steps).map(({ endpoint }) => endpoint) };
@@ -111,10 +116,9 @@ describe("the guard over a team's area", () => {
       h(TeamLayout, { params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526" }), children: h("p", null, "Seite") });
     const { thrown } = await callPage(layoutAlone, { params: Promise.resolve({}), searchParams: Promise.resolve({}) });
 
-    assert.deepEqual(
-      thrown.flatMap((error) => redirectTarget(error) ?? []),
-      ["/signin"],
-    );
+    // Every part reading the session turns the request away alike, each slot of the frame and the guard.
+    assert.ok(thrown.length > 0, "the layout turns nobody away");
+    assert.deepEqual([...new Set(thrown.map(redirectTarget))], ["/signin"]);
   });
 });
 
@@ -275,14 +279,13 @@ describe("what a person meets at an address they hold no seat on", () => {
   });
 
   /* The layout's own word, where `TeamForbiddenPanel.test.ts` hands the shell its flag: only here does a
-     layout that stops telling the shell the address is refused leave the bar calling it a missing page. */
+     layout that stops telling the shell the address is refused leave the bar heading the landing by its entry. */
   it("opens the bar's hint on why the person is not entered, never on a missing page", async () => {
     setSubject(person({ sitze: [sitz({ team_id: TEAM_B, team_name: "Lessing-Gymnasium" })] }));
     const params = { team_id: TEAM_A, saison_id: "2526" };
-    // The guard, then the chrome, each called as Next calls it; what the chrome returns is the browser's to render.
-    const guarded = await pageBody(TeamLayout, { params: Promise.resolve(params), children: h("p", null, "Seite") });
-    const shell = await pageBody(() => guarded, {});
-    render(underNext(shell, { pathname: `/bereich/team/${TEAM_A}/2526`, params: params }));
+    // Every server component called as Next calls it; what they return is the browser's to render.
+    const tree = await resolvedPage(TeamLayout, { params: Promise.resolve(params), children: h("p", null, "Seite") });
+    render(underNext(tree, { pathname: `/bereich/team/${TEAM_A}/2526`, params: params }));
     await userEvent.setup().click(screen.getByRole("button", { name: `Was auf „${TEAM_SHELL_FALLBACK.label}“ zu finden ist` }));
     const shown = document.body.textContent;
 

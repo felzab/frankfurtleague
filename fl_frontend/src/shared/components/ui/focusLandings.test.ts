@@ -44,6 +44,7 @@ const { SicherheitPanel } = await import("@/features/konto/components/views/Sich
 const { AdminSperrlisteView } = await import("@/features/sperrliste/components/views/AdminSperrlisteView.tsx");
 const { AdminBerechtigungenView } = await import("@/features/berechtigungen/components/views/AdminBerechtigungenView.tsx");
 const { AppTopBar } = await import("@/shared/components/layout/shell/AppTopBar.tsx");
+const { ShellTitle } = await import("@/shared/components/layout/shell/ShellHeading.tsx");
 const { formatSpielDatum } = await import("@/shared/utils/format.ts");
 const { EinladungLinkHolder } = await import("@/features/einladungen/components/EinladungLinkHolder.tsx");
 const { FormEinladungSection } = await import("@/features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx");
@@ -508,12 +509,11 @@ const aufheben = (erstellt_am: string) => `Sperre vom ${formatSpielDatum(erstell
 /** The page's own heading, as the shell's top bar draws it over every admin list. */
 const topBar = (title: string) =>
   h(AppTopBar, {
-    title,
+    heading: h(ShellTitle, { label: title }),
     isMobileOpen: false,
     onToggleMobileMenu: () => undefined,
     isDesktopCollapsed: false,
     kontoHref: null,
-    isOnKonto: false,
   });
 const sperrliste = (rows: ReturnType<typeof sperre>[]) =>
   h(Fragment, null, topBar("Sperrliste"), h(AdminSperrlisteView, { sperrliste: rows, anzahlGesamt: rows.length }));

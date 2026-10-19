@@ -16,7 +16,8 @@ export const metadata: Metadata = {
 
 /**
  * No Suspense boundary here: Next nests `loading.tsx` INSIDE the layout, so that fallback always
- * wins the race, and nothing else here suspends. `bereich/admin/layout.tsx` is the opposite case.
+ * wins the race, and the season slot waits in the rail's own boundary. `bereich/admin/layout.tsx`
+ * is the opposite case.
  */
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return <DashboardShell saisonMetadataDisplay={<SaisonMetadataDisplay tier="base" />}>{children}</DashboardShell>;

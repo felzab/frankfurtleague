@@ -1,19 +1,24 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import { Separator } from "@heroui/react/separator";
 
+import { skeletonBlock } from "../../ui/skeleton";
+import { useLinkPrefix } from "../shell/linkPrefix";
 import { SidemenuNavItem } from "./SidemenuNavItem";
+import { useSidemenuState } from "./SidemenuState";
 
 import type { SidemenuStructure } from "@/shared/types/types";
 
 interface SidemenuNavLinksProps<TIcon extends string> {
   structure: SidemenuStructure<TIcon>;
   linkPrefix: string;
-  iconDictionary: Record<TIcon, React.ElementType>;
+  iconDictionary: Readonly<Record<string, React.ElementType>>;
   isDesktopCollapsed: boolean;
-  pathname: string;
+  /** `null` where the address is not yet read, which marks no entry current. */
+  pathname: string | null;
   onMobileClose: () => void;
 }
 
@@ -21,7 +26,7 @@ interface SidemenuNavLinksProps<TIcon extends string> {
  * The nav list itself, deliberately hook-free — it is its own Suspense fallback, so `queryString` is passed in rather
  * than read here and this can render during a prerender.
  */
-export function SidemenuNavLinks<TIcon extends string>({
+function SidemenuNavLinks<TIcon extends string>({
   structure,
   linkPrefix,
   iconDictionary,
@@ -37,7 +42,7 @@ export function SidemenuNavLinks<TIcon extends string>({
   // alone, or it would light beside whichever entry the reader is on.
   const checkIsActive = (itemId: string) => {
     const targetPath = targetPathOf(itemId);
-    return pathname === targetPath || (itemId !== "" && pathname.startsWith(`${targetPath}/`));
+    return pathname === targetPath || (pathname !== null && itemId !== "" && pathname.startsWith(`${targetPath}/`));
   };
 
   return (
@@ -71,7 +76,7 @@ export function SidemenuNavLinks<TIcon extends string>({
                   label={sub_option.label}
                   isActive={checkIsActive(sub_option.id)}
                   isDesktopCollapsed={isDesktopCollapsed}
-                  icon={iconDictionary[sub_option.iconName]}
+                  icon={iconDictionary[sub_option.iconName] ?? null}
                   onMobileNavigate={onMobileClose}
                 />
               );
@@ -85,9 +90,9 @@ export function SidemenuNavLinks<TIcon extends string>({
 
 /**
  * Isolates `useSearchParams()` below a Suspense boundary: it hangs unconditionally in a client prerender, so with
- * no boundary the bailout reaches the route root. `usePathname()` stays in `Sidemenu`, hanging only on a dynamic segment.
+ * no boundary the bailout reaches the route root.
  */
-export function SidemenuNavLinksWithSaisonQuery<TIcon extends string>(props: SidemenuNavLinksProps<TIcon>) {
+function SidemenuNavLinksWithSaisonQuery<TIcon extends string>(props: SidemenuNavLinksProps<TIcon>) {
   const searchParams = useSearchParams();
 
   const globalSaisonId = searchParams.get("saison_id");
@@ -100,6 +105,90 @@ export function SidemenuNavLinksWithSaisonQuery<TIcon extends string>(props: Sid
     <SidemenuNavLinks
       {...props}
       queryString={globalQuery.toString()}
+    />
+  );
+}
+
+/**
+ * The rail's entries, built by a layout as plain data where the session says which show. `usePathname()` hangs in a
+ * prerender wherever a segment is unknown, so the list waits in a boundary of its own, marking nothing current.
+ */
+export function SidemenuEntries<TIcon extends string>({ structure }: { structure: SidemenuStructure<TIcon> }) {
+  const { linkPrefix, iconDictionary, isDesktopCollapsed, onMobileClose } = useSidemenuState();
+
+  return (
+    <Suspense
+      fallback={
+        // A prefix off the address is no more known than the address, so that list waits whole.
+        typeof linkPrefix === "string" ? (
+          <SidemenuNavLinks
+            structure={structure}
+            linkPrefix={linkPrefix}
+            iconDictionary={iconDictionary}
+            isDesktopCollapsed={isDesktopCollapsed}
+            pathname={null}
+            onMobileClose={onMobileClose}
+            queryString=""
+          />
+        ) : null
+      }>
+      <SidemenuEntriesAtAddress structure={structure} />
+    </Suspense>
+  );
+}
+
+/**
+ * Stands in for entries the session decides, in `SidemenuNavItem`'s row box, so nothing below moves when they
+ * arrive; no link, since where they lead is what the read decides.
+ */
+export function SidemenuEntriesSkeleton({ rows }: { rows: number }) {
+  const { isDesktopCollapsed } = useSidemenuState();
+
+  return (
+    <div
+      role="status"
+      className={`flex flex-col gap-0.5 ${isDesktopCollapsed ? "items-center" : ""}`}>
+      {/* In the subtree rather than in `aria-label`, for `SaisonSlotSkeleton`'s reason. */}
+      <span className="sr-only">Menü wird geladen</span>
+      {Array.from({ length: rows }, (_, row) => (
+        <div
+          key={row}
+          className={`flex h-9 items-center rounded-md ${isDesktopCollapsed ? "w-9 justify-center" : "w-full gap-2 px-3"}`}>
+          <span className={`${skeletonBlock()} size-4.5 shrink-0 rounded`} />
+          {!isDesktopCollapsed && <span className={`${skeletonBlock()} block w-24 rounded fluid-sm`}>&nbsp;</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SidemenuEntriesAtAddress<TIcon extends string>({ structure }: { structure: SidemenuStructure<TIcon> }) {
+  const state = useSidemenuState();
+  const props = {
+    structure: structure,
+    linkPrefix: useLinkPrefix(state.linkPrefix),
+    iconDictionary: state.iconDictionary,
+    isDesktopCollapsed: state.isDesktopCollapsed,
+    pathname: usePathname(),
+    onMobileClose: state.onMobileClose,
+  };
+
+  // Only a shell keeping its season in the query reads one, in a boundary of its own: the address's path is
+  // known to the build wherever no segment is a parameter, its query never.
+  return state.keepsSaisonQuery ? (
+    <Suspense
+      fallback={
+        <SidemenuNavLinks
+          {...props}
+          queryString=""
+        />
+      }>
+      <SidemenuNavLinksWithSaisonQuery {...props} />
+    </Suspense>
+  ) : (
+    <SidemenuNavLinks
+      {...props}
+      queryString=""
     />
   );
 }

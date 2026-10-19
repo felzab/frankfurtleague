@@ -93,6 +93,12 @@ export function personStructureFor(eintraege: ReadonlySet<PersonEintrag>): Sidem
   return sub_options.length === 0 ? [] : [{ category_name: "", sub_options: sub_options }];
 }
 
+/**
+ * Every entry, which the bar's title resolves against before the session is read: a page the person
+ * may not open sends them away itself, so its own name heads it meanwhile.
+ */
+export const PERSON_SIDEMENU_STRUCTURE = personStructureFor(new Set(Object.keys(PERSON_SIDEMENU_ENTRIES) as PersonEintrag[]));
+
 /** `TeamIconName` is derived from this, so an `iconName` typo below is a compile error. */
 export const TEAM_SIDEMENU_ICONS = {
   House,
