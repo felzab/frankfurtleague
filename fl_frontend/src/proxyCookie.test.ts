@@ -30,7 +30,7 @@ const { auth, sessionCookieOf } = await import("./core/auth.ts");
 
 const HEADERS = { host: "liga.example", "x-forwarded-proto": "https" };
 
-describe("the proxy's session cookie over https (`docs/frontend/spec.md :: I495`)", () => {
+describe("the proxy's session cookie over https (`docs/frontend/spec.md :: I243`)", () => {
   /* Read under the library's default name, it would find nothing a signed-in person carries in production,
      and the proxy would send every one of them to sign in. */
   it("is the cookie the library writes there", async () => {
