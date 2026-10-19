@@ -276,7 +276,7 @@ describe("the match editor's warning that a near date leaves the teams no notice
       "the ground",
       async (user: UserEvent) => {
         await user.click(pickerTrigger("Spielort"));
-        await user.click(await screen.findByRole("option", { name: ANDERER_ORT.name }));
+        await user.click(screen.getByRole("option", { name: ANDERER_ORT.name }));
       },
     ],
     ...(["Team 1", "Team 2"] as const).map(
@@ -285,7 +285,7 @@ describe("the match editor's warning that a near date leaves the teams no notice
           `${seite}'s club`,
           async (user: UserEvent) => {
             await user.click(pickerTrigger(seite));
-            await user.click(await screen.findByRole("option", { name: "SG Epsilon" }));
+            await user.click(screen.getByRole("option", { name: "SG Epsilon" }));
           },
         ] as const,
     ),
@@ -319,7 +319,7 @@ describe("the match editor's warning that a near date leaves the teams no notice
     );
 
     await user.click(pickerTrigger("Spielort"));
-    await user.click(await screen.findByRole("option", { name: ANDERER_ORT.name }));
+    await user.click(screen.getByRole("option", { name: ANDERER_ORT.name }));
 
     assert.equal(screen.queryAllByText(SOFORT).length, 0, "a fixture the pass never asks about warned of a request");
   });
