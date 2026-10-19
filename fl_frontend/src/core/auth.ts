@@ -1559,8 +1559,8 @@ export async function readAdmittedSession(requestHeaders: Headers): Promise<Serv
  * refresh past `updateAge` lands whole, `nextCookies()` carrying its cookie onto the proxy's answer
  * (`docs/frontend/spec.md :: I495`).
  */
-export async function slideSession(requestHeaders: Headers): Promise<ServedSession | null> {
-  return readLibrarySession(requestHeaders, true);
+export async function slideSession(requestHeaders: Headers): Promise<void> {
+  await readLibrarySession(requestHeaders, true);
 }
 
 /**
@@ -1584,7 +1584,7 @@ export function endedByItsAccount({ user, session }: { user: object; session: ob
  * holds made it: a sign-in racing that passkey's removal inserts its session after the removal's
  * sign-out ran (`docs/frontend/spec.md :: I313`).
  */
-export async function servedSessionOf(served: ServedSession | null): Promise<ServedSession | null> {
+async function servedSessionOf(served: ServedSession | null): Promise<ServedSession | null> {
   if (served === null || endedByItsAccount(served)) return null;
   if (served.session.authFactor !== PASSKEY_FACTOR) return served;
 
@@ -1759,8 +1759,7 @@ async function ended(read: ServedSession): Promise<Landing> {
 async function destinationOf(served: ServedSession, verwaltung: Verwaltung): Promise<SignInDestination> {
   if (verwaltung.verwaltung !== null) {
     // The guard's own verdict rather than a second spelling of it: `/bereich` sends a granted session
-    // the guard refuses on to `/bereich/admin`, which the proxy (a session no passkey made) or
-    // `runAdminRead` (any other refused one) sends back here.
+    // the guard refuses on to `/bereich/admin`, whose guards send it back here.
     if (isAdminSession(served, verwaltung)) return "/bereich";
 
     // Where the passkey page has no step to offer, the session is spent, and an administrator signs in

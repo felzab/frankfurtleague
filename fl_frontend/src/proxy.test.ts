@@ -56,6 +56,7 @@ const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing
 const { adapter } = await import("next/dist/server/web/adapter.js");
 const { config, proxy } = await import("./proxy.ts");
 const { SIGN_IN_LANDING } = await import("./core/signInLanding.ts");
+const { requireAdminRequest } = await import("./shared/utils/adminRead.ts");
 const { EDGE_REFUSAL_BODY } = await import("./shared/utils/actionError.ts");
 
 /** What the landing reads, for the cases that put its answer and this proxy's side by side. */
@@ -165,34 +166,19 @@ describe("where the admin proxy sends a signed-in request", () => {
     assert.equal(answer.headers.get("x-action-redirect"), null);
   });
 
-  /* The arm that made the public root wrong: an administrator who has typed the code and not yet
-     used the passkey was dropped on a page offering neither the step nor a way back. */
-  it("sends a code-borne administrator to the landing, which answers the passkey step for it", async () => {
+  /* The factor is the guard's, read where the data is: the landing then answers the passkey step, where the
+     public root would offer an administrator who has typed the code neither the step nor a way back. */
+  it("lets a code-borne administrator through to the guard, which sends it to the landing's passkey step", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
 
-    assert.equal(redirectedTo(await arriveAtAdmin({ cookie })), "/signin/weiter");
+    assert.equal((await arriveAtAdmin({ cookie })).headers.get("x-middleware-next"), "1", "the proxy judged the session's factor");
 
     arriveAs(cookie);
+    await assert.rejects(
+      requireAdminRequest(),
+      (error: { digest?: unknown }) => error.digest === `NEXT_REDIRECT;replace;${SIGN_IN_LANDING};307;`,
+    );
     assert.equal(await getSignInDestination(), "/signin/passkey", "the landing sends a code-borne administrator somewhere else");
-  });
-
-  /* `/bereich` sends a granted session the admin guard refuses on to `/bereich/admin`, so the landing's
-     `/bereich` for one is the guard's own verdict: the pair cannot bounce a caller between them. */
-  it("lands no granted session on `/bereich` that this proxy would turn away from `/bereich/admin`", async () => {
-    for (const { name, cookie } of [
-      { name: "code-borne administrator", cookie: (await signIn(ADMIN_EMAIL)).cookie },
-      { name: "administrator signed in by passkey", cookie: admin.cookie },
-    ]) {
-      arriveAs(cookie);
-
-      const landing = await getSignInDestination();
-      const turned = redirectedTo(await arriveAtAdmin({ cookie }));
-
-      assert.ok(landing !== "/bereich" || turned === null, `${name} is bounced between the landing and the proxy`);
-    }
-
-    arriveAs(admin.cookie);
-    assert.equal(await getSignInDestination(), "/bereich", "the administrator was not landed on `/bereich`, so the case proves nothing");
   });
 });
 
@@ -222,8 +208,16 @@ function matched(
   );
 }
 
-/** What Next's router sends on a prefetch, and what a browser's own sends, neither carrying a page a person asked for. */
-const PREFETCHES: Record<string, string>[] = [{ "next-router-prefetch": "1" }, { purpose: "prefetch" }];
+/**
+ * What Next's router sends on a prefetch, a partial one's `2` and `3` among them, and what a browser's own sends,
+ * none carrying a page a person asked for (`next/dist/client/components/segment-cache/cache.js`).
+ */
+const PREFETCHES: Record<string, string>[] = [
+  { "next-router-prefetch": "1" },
+  { "next-router-prefetch": "2" },
+  { "next-router-prefetch": "3" },
+  { purpose: "prefetch" },
+];
 
 const TEAM_URL = "http://localhost:3000/bereich/team/6890a1b2c3d4e5f607190001/2526";
 
@@ -247,60 +241,76 @@ describe("which addresses the proxy is run on", () => {
   });
 
   /* Next strips the prefetch header before the proxy runs, so a prefetch reaching it carrying a session would
-     slide it (`docs/frontend/spec.md :: I495`). The administrator's subtree keeps its turn-away on a prefetch. */
-  it("skips a prefetch carrying a session cookie everywhere but the administrator's subtree", async () => {
+     slide it, a store read for a page nobody asked for (`docs/frontend/spec.md :: I495`). */
+  it("skips a prefetch carrying a session cookie everywhere, the administrator's subtree included", async () => {
     const { cookie } = await signIn("leserin@example.org");
     for (const prefetch of PREFETCHES) {
-      for (const url of ["http://localhost:3000/bereich", "http://localhost:3000/bereich/konto", TEAM_URL, "http://localhost:3000/signin"]) {
-        assert.equal(matched(url, { headers: { ...prefetch, cookie } }), false, `${url} runs the proxy on a signed-in prefetch`);
+      for (const url of [
+        "http://localhost:3000/bereich",
+        "http://localhost:3000/bereich/konto",
+        TEAM_URL,
+        "http://localhost:3000/signin",
+        ADMIN_URL,
+        "http://localhost:3000/bereich/%61dmin/spiele",
+      ]) {
+        assert.equal(
+          matched(url, { headers: { ...prefetch, cookie } }),
+          false,
+          `${url} runs the proxy on a signed-in prefetch, ${JSON.stringify(prefetch)}`,
+        );
       }
-      assert.equal(matched("http://localhost:3000/bereich/admin/spiele", { headers: { ...prefetch, cookie } }), true);
     }
   });
 
   /* The cookie alone answers it, before any read: a visitor holding none is sent to sign in rather than
-     shown the person's prefetched frame. A sign-in page's prefetch reads nothing either way. */
-  it("runs on a prefetch of a person's page carrying no session cookie, and of no sign-in page", () => {
+     shown the area's prefetched frame. A sign-in page's prefetch reads nothing either way. */
+  it("runs on a prefetch of an area's page carrying no session cookie, and of no sign-in page", () => {
     for (const prefetch of PREFETCHES) {
-      for (const url of ["http://localhost:3000/bereich", "http://localhost:3000/bereich/konto", TEAM_URL]) {
-        assert.equal(matched(url, { headers: { ...prefetch, cookie: "theme=dark" } }), true, `${url} skips a signed-out prefetch`);
+      for (const url of ["http://localhost:3000/bereich", "http://localhost:3000/bereich/konto", TEAM_URL, ADMIN_URL]) {
+        assert.equal(
+          matched(url, { headers: { ...prefetch, cookie: "theme=dark" } }),
+          true,
+          `${url} skips a signed-out prefetch, ${JSON.stringify(prefetch)}`,
+        );
       }
       assert.equal(matched("http://localhost:3000/signin", { headers: prefetch }), false);
     }
   });
 
-  /* The proxy's prefix test is a second reading of the admin entry: a spelling that entry admits and
-     the test misses reaches the panel past the proxy, judged by the admin reads and, on a full load,
-     the shell's guard. */
-  it("judges exactly the spellings the administrator's own entry admits", async () => {
-    // The first entry, which names the subtree and nothing else.
-    const adminEntry = config.matcher.slice(0, 1);
-    // Code-borne, which the person lane lets through and the administrator's checks send to the landing.
-    const { cookie } = await signIn("leserin@example.org");
+  /* The proxy's prefix test is a second reading of the area's entry: a spelling that entry admits and the
+     test misses reaches a page past the cookie check, judged by its guard alone after the frame painted. */
+  it("turns a request carrying no session cookie away on exactly the spellings the area's own entry admits", async () => {
+    // The first entry, which names the area and nothing else.
+    const areaEntry = config.matcher.slice(0, 1);
     for (const url of [
-      "http://localhost:3000/bereich/admin",
-      "http://localhost:3000/bereich/admin/",
+      "http://localhost:3000/bereich",
+      "http://localhost:3000/bereich/",
       "http://localhost:3000/bereich/admin/spiele",
       "http://localhost:3000/bereich/%61dmin/spiele",
-      "http://localhost:3000/bereich/ADMIN/spiele",
-      "http://localhost:3000/bereich//admin/spiele",
-      "http://localhost:3000/bereich/administration",
-      "http://localhost:3000/bereich/team/6890a1b2c3d4e5f607190001",
+      "http://localhost:3000/%62ereich/konto",
+      "http://localhost:3000/BEREICH/konto",
+      "http://localhost:3000/bereichsweise",
+      "http://localhost:3000/signin",
       // A malformed escape the decoding cannot read, which must not take the request down with it.
       "http://localhost:3000/bereich/team/%E0%A4%A",
     ]) {
-      const judged = redirectedTo(await arriveAtAdmin({ url, cookie })) === SIGN_IN_LANDING;
-      assert.equal(judged, matched(url, { matcher: adminEntry }), `${url} is judged otherwise than the admin entry matches it`);
+      const judged = redirectedTo(await arriveAtAdmin({ url })) === "/signin";
+      assert.equal(judged, matched(url, { matcher: areaEntry }), `${url} is judged otherwise than the area's entry matches it`);
     }
   });
 
-  // The person lane's words share the prefix, and the administrator's checks would turn every person away.
-  it("lets a person's session through every page outside the administrator's subtree, a grant held or none", async () => {
-    for (const url of ["http://localhost:3000/bereich/konto", "http://localhost:3000/bereich/administration", "http://localhost:3000/signin"]) {
+  // The verdicts past the cookie are each guard's, read where the data is (`docs/frontend/spec.md :: I122`).
+  it("lets every session carrying a cookie through, the administrator's subtree included, a grant held or none", async () => {
+    for (const url of [
+      "http://localhost:3000/bereich/konto",
+      "http://localhost:3000/bereich/administration",
+      "http://localhost:3000/signin",
+      ADMIN_URL,
+    ]) {
       for (const cookie of [(await signIn("leserin@example.org")).cookie, removed.cookie]) {
         const answer = await arriveAtAdmin({ url, cookie });
 
-        assert.equal(answer.headers.get("x-middleware-next"), "1", `${url} was judged by the administrator's checks`);
+        assert.equal(answer.headers.get("x-middleware-next"), "1", `${url} was judged past the cookie`);
       }
     }
   });
@@ -320,12 +330,12 @@ const PERSON_URLS = [
   TEAM_URL,
 ];
 
-describe("where the proxy sends a request for a person's or a team's page (`docs/frontend/spec.md :: I495`)", () => {
+describe("where the proxy sends a request for an area's page (`docs/frontend/spec.md :: I495`)", () => {
   /* Optimistic, as Next and the library document a proxy's check: turned away before any bar paints, where
      the page's own guard would turn it away only once the area's frame had streamed. */
-  it("sends a request carrying no session cookie to sign in, reading no store", async (t) => {
+  it("sends a request carrying no session cookie to sign in, reading no store, the administrator's subtree included", async (t) => {
     const read = t.mock.method(auth.api, "getSession");
-    for (const url of PERSON_URLS) {
+    for (const url of [...PERSON_URLS, ADMIN_URL, "http://localhost:3000/bereich/%61dmin/spiele"]) {
       assert.equal(redirectedTo(await arriveAtAdmin({ url })), "/signin", `${url} let a visitor holding no session through`);
     }
     assert.equal(read.mock.callCount(), 0, "the cookie check read the store");
@@ -340,14 +350,33 @@ describe("where the proxy sends a request for a person's or a team's page (`docs
     }
   });
 
-  /* The cookie is no session: one whose row is gone is turned away on the read the slide makes anyway, which
-     every guard there makes again. */
-  it("sends a cookie whose session is gone to sign in", async () => {
-    const { cookie, row } = await signIn("leserin@example.org");
-    store.session.splice(store.session.indexOf(row), 1);
+  /* The cookie is no session, and the slide's answer decides nothing: the library expires the cookie on the
+     slide's read, and the page's guard, reading the session it serves, turns the visitor away. */
+  it("lets a cookie whose session is gone through, expired, to the guard that turns it away", async () => {
+    const administrator = await signIn(ADMIN_EMAIL);
+    madeByPasskey(store, administrator.row);
 
-    for (const url of PERSON_URLS) {
-      assert.equal(redirectedTo(await arriveAtAdmin({ url, cookie })), "/signin", `${url} let an ended session through`);
+    for (const [name, { cookie, row }] of [
+      ["person", await signIn("leserin@example.org")],
+      ["administrator", administrator],
+    ] as const) {
+      store.session.splice(store.session.indexOf(row), 1);
+
+      for (const url of [...PERSON_URLS, ADMIN_URL]) {
+        const answer = await visit(url, cookie, "document");
+
+        assert.equal(answer.headers.get("location"), null, `${url} turned a ${name}'s cookie away on the slide's answer`);
+        assert.equal(setSessionCookie(answer, cookie)?.maxAge, 0, `${url} left a ${name}'s ended cookie standing`);
+      }
+
+      // A person's guard reads no session, which every person page sends to sign in
+      // (`fl_frontend/src/features/funktionen/guard.test.ts`); the administrator's sends it to the landing.
+      arriveAs(cookie);
+      assert.equal(await getSubjectSession(), null, `the person guard served a ${name}'s ended session`);
+      await assert.rejects(
+        requireAdminRequest(),
+        (error: { digest?: unknown }) => error.digest === `NEXT_REDIRECT;replace;${SIGN_IN_LANDING};307;`,
+      );
     }
   });
 
