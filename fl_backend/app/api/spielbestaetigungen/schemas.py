@@ -24,7 +24,9 @@ FLSpielbestaetigungAntwortArt = Literal["zugesagt", "abgelehnt"]
 
 # Why a row stopped applying. `verworfen` closes an answered row alone: the decline stands as the
 # record, and what is discarded is the administrator's obligation to act on its proposal.
-FLSpielbestaetigungGrund = Literal["ansetzung_geaendert", "austritt", "spiel_entschieden", "abgesagt", "schiedsrichter_gewechselt", "verworfen"]
+FLSpielbestaetigungGrund = Literal[
+    "ansetzung_geaendert", "austritt", "spiel_entschieden", "abgesagt", "schiedsrichter_gewechselt", "verworfen", "spiel_vergangen"
+]
 
 # What a reopened link shows; `gesperrt` ranks first (`docs/backend/spec.md :: I515`). `vorschlag` is a
 # link still answerable while the other club's decline proposes another date for the same Ansetzung.

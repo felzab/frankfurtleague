@@ -107,7 +107,15 @@ _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
 _SPIELBESTAETIGUNG_PARTEIEN = ["team", "schiedsrichter"]
 _SPIELBESTAETIGUNG_ANTWORTEN = ["zugesagt", "abgelehnt"]
 _SPIELBESTAETIGUNG_VON = ["kontakt", "admin", "schiedsrichter"]
-_SPIELBESTAETIGUNG_GRUENDE = ["ansetzung_geaendert", "austritt", "spiel_entschieden", "abgesagt", "schiedsrichter_gewechselt", "verworfen"]
+_SPIELBESTAETIGUNG_GRUENDE = [
+    "ansetzung_geaendert",
+    "austritt",
+    "spiel_entschieden",
+    "abgesagt",
+    "schiedsrichter_gewechselt",
+    "verworfen",
+    "spiel_vergangen",
+]
 _KONTAKT_ROLLEN = ["trainer", "ansprechperson", "stellvertretung"]
 
 # Derived, not spelled: these ARE the collection names. The log never records itself, nor the day's

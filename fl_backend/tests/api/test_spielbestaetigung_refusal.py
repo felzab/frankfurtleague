@@ -41,6 +41,7 @@ SPIELTAG = ObjectId("650000000000000000000105")
 TODAY = "2027-05-01"
 FRIST = "2027-05-07"
 DATUM = "2027-05-14"
+AFTER_THE_DAY = "2027-05-15"
 
 SEATS = {
     TEAM1: {"trainer": ("Ida", "Albers"), "ansprechperson": ("Jonas", "Brandt"), "stellvertretung": ("Klara", "Cordes")},
@@ -150,6 +151,9 @@ class TestASpentLinkMeetsTheCodeThatNamesWhy:
             pytest.param(
                 {}, {"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}}, TODAY, ANSETZUNG_ENTSCHIEDEN, id="decided-ahead-of-moved"
             ),
+            # Its day gone by unplayed, the close's last reason, is a deadline gone by too and answers as one.
+            pytest.param({}, {}, AFTER_THE_DAY, ANSETZUNG_FRIST_VORBEI, id="the-day-passed"),
+            pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, AFTER_THE_DAY, ANSETZUNG_ENTSCHIEDEN, id="decided-ahead-of-the-day"),
         ],
     )
     def test_the_first_reason_in_order_answers(self, row: dict[str, Any], situation: dict[str, Any], today: str, code: str):
@@ -194,6 +198,15 @@ class TestWhatAReopenedLinkShows:
                 {"geschlossen": {"am": TODAY, "grund": "schiedsrichter_gewechselt"}}, {}, TODAY, False, None, "ungueltig", id="referee-changed"
             ),
             pytest.param({"geschlossen": {"am": TODAY, "grund": "verworfen"}}, {}, TODAY, False, None, "abgelaufen", id="closed-otherwise"),
+            pytest.param(
+                {"geschlossen": {"am": AFTER_THE_DAY, "grund": "spiel_vergangen"}},
+                {},
+                AFTER_THE_DAY,
+                False,
+                None,
+                "abgelaufen",
+                id="day-passed",
+            ),
             pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, False, None, "abgelaufen", id="decided"),
             pytest.param({}, {}, "2027-05-08", False, OTHER, "abgelaufen", id="late-ahead-of-a-proposal"),
             pytest.param({}, {}, TODAY, False, OTHER, "vorschlag", id="the-other-club-proposes"),
@@ -294,6 +307,8 @@ SITUATIONS = [
     pytest.param({"spiel_overrides": {"sonderereignis": "ausgefallen"}}, TODAY, id="called-off"),
     pytest.param({"austritt": DATUM}, TODAY, id="a-club-left-by-the-day"),
     pytest.param({"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}}, "2027-05-08", id="moved-decided-and-late"),
+    pytest.param({}, DATUM, id="on-the-day"),
+    pytest.param({}, AFTER_THE_DAY, id="the-day-passed"),
 ]
 
 # The page a refused answer's code sends the reader to (`fl_frontend/src/features/spielbestaetigungen/utils.ts`).
@@ -316,7 +331,7 @@ class TestTheLinkAndTheCloseReadOneVerdict:
 
         situated = lage(**situation)
         austritte = {} if "austritt" not in situation else {TEAM1: situation["austritt"]}
-        grund = grund_to_close(row=zeile(), spiel=situated.spiel, austritte=austritte)
+        grund = grund_to_close(row=zeile(), spiel=situated.spiel, austritte=austritte, today=today)
         closed = zeile(geschlossen=None if grund is None else {"am": today, "grund": grund})
 
         before = zustand_of(spielbestaetigung_raw=zeile(), lage=situated, today=today, gesperrt=False, vorschlag_offen=None)

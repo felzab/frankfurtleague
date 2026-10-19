@@ -269,8 +269,10 @@ async def sweep_spielbestaetigungen(
     Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what the caller must mail.
 
     The close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club
-    to an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none. A team row closed for
-    a move whose first request went out is answered in `neue_ansetzungen`, a referee's in `schiedsrichter_neue_ansetzungen`.
+    to an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of
+    those, a row whose fixture's day is before today closes `spiel_vergangen`, so nobody is asked about a past date. A
+    team row closed for a move whose first request went out is answered in `neue_ansetzungen`, a referee's in
+    `schiedsrichter_neue_ansetzungen`.
 
     The mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and
     ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for
@@ -363,7 +365,7 @@ async def sweep_spielbestaetigungen(
         austritte = _austritte(junctions)
 
         def grund_of(row: Mapping[str, Any]) -> FLSpielbestaetigungGrund | None:
-            return grund_to_close(row=row, spiel=spiele[row["spiel_id"]], austritte=austritte)
+            return grund_to_close(row=row, spiel=spiele[row["spiel_id"]], austritte=austritte, today=today)
 
         gruende: dict[Any, FLSpielbestaetigungGrund] = {row["_id"]: grund for row, grund in batch.judged(rows, grund_of) if grund is not None}
         closable = [row for row in rows if row["_id"] in gruende]
@@ -622,7 +624,7 @@ async def sweep_spielbestaetigungen(
         def reminder_of(row: Mapping[str, Any]) -> tuple[FLSpielbestaetigungSweepAnfrage | None, _Links]:
             spiel = spiele[row["spiel_id"]]
             # A row the close would shut answers no press, so a fresh link to it would be a dead one.
-            if grund_to_close(row=row, spiel=spiel, austritte=austritte) is not None:
+            if grund_to_close(row=row, spiel=spiel, austritte=austritte, today=today) is not None:
                 return None, _Links()
 
             entries = row.get("kontakte") or {}

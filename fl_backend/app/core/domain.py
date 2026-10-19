@@ -1356,8 +1356,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "geschlossen",
         Editability.COMPOSED,
         "on no payload: the sweep stamps it on a row whose fixture moved, was decided or called off, lost a club or "
-        "changed referee, and an administrator discarding a proposal stamps it on the declining row, each composing "
-        "the reason itself",
+        "changed referee, or whose day went by without any of those, and an administrator discarding a proposal stamps "
+        "it on the declining row, each composing the reason itself",
     ),
 )
 

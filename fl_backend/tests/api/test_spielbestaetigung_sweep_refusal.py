@@ -25,6 +25,9 @@ ALPHA = ObjectId("6890a1b2c3d4e5f607760001")
 BETA = ObjectId("6890a1b2c3d4e5f607760002")
 SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f6077600c1")
 WINDOW = SPIEL_BESTAETIGUNG_FRIST_TAGE + SPIEL_ANFRAGE_VORLAUF_TAGE
+# `spiel()`'s own day, and the day after it.
+ON_THE_DAY = days_after(day=TODAY, days=7)
+AFTER_THE_DAY = days_after(day=TODAY, days=8)
 
 
 def spiel(**overrides: Any) -> dict[str, Any]:
@@ -118,14 +121,36 @@ class TestWhyARowCloses:
         ],
     )
     def test_the_reason(self, partei: dict[str, Any], overrides: dict[str, Any], austritte: dict[Any, str], grund: str | None):
-        assert grund_to_close(row=row(partei), spiel=spiel(**overrides), austritte=austritte) == grund
+        assert grund_to_close(row=row(partei), spiel=spiel(**overrides), austritte=austritte, today=TODAY) == grund
 
     def test_an_answered_row_closes_as_an_open_one_does(self):
         """The close's reach is `geschlossen: null` alone, so a kept agreement records why it stopped applying."""
 
         answered = row(TEAM, antwort={"art": "zugesagt"})
 
-        assert grund_to_close(row=answered, spiel=spiel(uhrzeit="19:00:00"), austritte={}) == "ansetzung_geaendert"
+        assert grund_to_close(row=answered, spiel=spiel(uhrzeit="19:00:00"), austritte={}, today=TODAY) == "ansetzung_geaendert"
+        assert grund_to_close(row=answered, spiel=spiel(), austritte={}, today=AFTER_THE_DAY) == "spiel_vergangen"
+
+
+class TestARowClosesOnceItsDayHasPassed:
+    """Its day is the fixture's: every reason that judges the fixture itself, or a move, outranks it."""
+
+    @pytest.mark.parametrize(
+        ("partei", "overrides", "austritte", "today", "grund"),
+        [
+            pytest.param(TEAM, {}, {}, ON_THE_DAY, None, id="the day itself"),
+            pytest.param(TEAM, {}, {}, AFTER_THE_DAY, "spiel_vergangen", id="the day after"),
+            pytest.param(REFEREE, {}, {}, AFTER_THE_DAY, "spiel_vergangen", id="a referee's row"),
+            pytest.param(TEAM, {"ergebnis": "1:0"}, {}, AFTER_THE_DAY, "spiel_entschieden", id="played"),
+            pytest.param(TEAM, {"sonderereignis": "ausgefallen"}, {}, AFTER_THE_DAY, "abgesagt", id="called off"),
+            pytest.param(TEAM, {}, {BETA: ON_THE_DAY}, AFTER_THE_DAY, "austritt", id="a club gone by the day"),
+            pytest.param(REFEREE, {"schiedsrichter": None}, {}, AFTER_THE_DAY, "schiedsrichter_gewechselt", id="the referee taken off"),
+            pytest.param(TEAM, {"datum": days_after(day=TODAY, days=14)}, {}, AFTER_THE_DAY, "ansetzung_geaendert", id="moved on"),
+            pytest.param(TEAM, {"datum": TODAY}, {}, AFTER_THE_DAY, "ansetzung_geaendert", id="moved back"),
+        ],
+    )
+    def test_the_reason(self, partei: dict[str, Any], overrides: dict[str, Any], austritte: dict[Any, str], today: str, grund: str | None):
+        assert grund_to_close(row=row(partei), spiel=spiel(**overrides), austritte=austritte, today=today) == grund
 
 
 class TestWhoIsAsked:

@@ -196,12 +196,12 @@ def seat_adresse(*, lage: AnsetzungLage, spielbestaetigung_raw: Mapping[str, Any
     return kontakt_adresse(kontakte=(verein or {}).get("kontakte"), seat=seat)
 
 
-def _grund_now(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage) -> FLSpielbestaetigungGrund | None:
+def _grund_now(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage, today: str) -> FLSpielbestaetigungGrund | None:
     """Why the pass's next close would shut this row, read off its own judge: a link never shows or refuses otherwise than it records."""
 
     austritte = {row.get("team_id"): str(datum) for row in lage.vereine if (datum := (row.get("austritt") or {}).get("datum")) is not None}
 
-    return grund_to_close(row=spielbestaetigung_raw, spiel=lage.spiel, austritte=austritte)
+    return grund_to_close(row=spielbestaetigung_raw, spiel=lage.spiel, austritte=austritte, today=today)
 
 
 def _past_frist(*, spielbestaetigung_raw: Mapping[str, Any], today: str) -> bool:
@@ -228,7 +228,11 @@ def zustand_of(
         return "zugesagt" if antwort["art"] == "zugesagt" else "abgelehnt"
 
     # Closed, by the reason stored; open, by the one the close would store.
-    grund = geschlossen["grund"] if isinstance(geschlossen, Mapping) else _grund_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage)
+    grund = (
+        geschlossen["grund"]
+        if isinstance(geschlossen, Mapping)
+        else _grund_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage, today=today)
+    )
 
     if grund in GRUENDE_UNGUELTIG:
         return "ungueltig"
@@ -291,7 +295,7 @@ def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: A
             message="this confirmation was closed before anybody answered; a fresh request is a new link",
         )
 
-    grund = _grund_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage)
+    grund = _grund_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage, today=today)
 
     if grund in GRUENDE_UNGUELTIG:
         return WriteRefusal(
@@ -300,14 +304,15 @@ def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: A
             message="the fixture's date, time, ground or sides changed since this link was sent; the new Ansetzung is asked afresh",
         )
 
-    if grund is not None:
+    # A day gone by unplayed is a deadline gone by too, the deadline lying before the day: late rather than decided.
+    if grund is not None and grund != "spiel_vergangen":
         return WriteRefusal(
             error_code=ANSETZUNG_ENTSCHIEDEN,
             status=HTTPStatus.GONE,
             message="this fixture has been decided, called off or lost a club since this link was sent",
         )
 
-    if _past_frist(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
+    if grund is not None or _past_frist(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
         return WriteRefusal(
             error_code=ANSETZUNG_FRIST_VORBEI,
             status=HTTPStatus.GONE,
@@ -569,7 +574,9 @@ def _referee_id(spiel: Mapping[str, Any]) -> Any:
     return block.get("schiedsrichter_id") if isinstance(block, Mapping) else None
 
 
-def grund_to_close(*, row: Mapping[str, Any], spiel: Mapping[str, Any], austritte: Mapping[Any, str]) -> FLSpielbestaetigungGrund | None:
+def grund_to_close(
+    *, row: Mapping[str, Any], spiel: Mapping[str, Any], austritte: Mapping[Any, str], today: str
+) -> FLSpielbestaetigungGrund | None:
     """Why this unclosed row stops applying to its fixture as it stands, or `None`; `austritte` maps clubs to exit days.
 
     The mint asks it of every row it would write, so the close shuts nothing the mint asked.
@@ -592,6 +599,11 @@ def grund_to_close(*, row: Mapping[str, Any], spiel: Mapping[str, Any], austritt
 
     if ansetzung_stand_of(spiel) != ansetzung["stand"]:
         return "ansetzung_geaendert"
+
+    # Last, so a move to or from a past day is still announced. Kept open, a row whose day went by unplayed would ask
+    # about a past date for good, at the front of the close's oldest-first page.
+    if ansetzung["datum"] < today:
+        return "spiel_vergangen"
 
     return None
 
@@ -618,7 +630,10 @@ def anfrage_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], to
     # shoot-out, would otherwise be minted, closed and minted again, a fresh request every pass.
     return (
         asked
-        and grund_to_close(row={"partei": {"art": "team"}, "ansetzung": compose_ansetzung(spiel)}, spiel=spiel, austritte=austritte) is None
+        and grund_to_close(
+            row={"partei": {"art": "team"}, "ansetzung": compose_ansetzung(spiel)}, spiel=spiel, austritte=austritte, today=today
+        )
+        is None
     )
 
 
