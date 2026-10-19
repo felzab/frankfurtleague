@@ -2025,7 +2025,11 @@ def a_strip_edit_set(mask: int, begruendung: bool, halter: bool) -> dict[str, An
     row["kontakte"] = {seat: row["kontakte"][seat] if mask >> bit & 1 else None for bit, seat in enumerate(KONTAKT_ROLLEN)}
     antwort = row["antwort"]
     row["antwort"] = (
-        {**antwort, "begruendung": antwort["begruendung"] if begruendung else None, "von": {**antwort["von"], "halter": antwort["von"]["halter"] if halter else None}}
+        {
+            **antwort,
+            "begruendung": antwort["begruendung"] if begruendung else None,
+            "von": {**antwort["von"], "halter": antwort["von"]["halter"] if halter else None},
+        }
         if begruendung or halter
         else None
     )

@@ -315,9 +315,10 @@ async def sweep_spielbestaetigungen(
     its booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `verworfen`: a
     decline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased
     referee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period
-    (`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed. Each seat holding an address gets one link, a person holding two seats one link naming
-    both, and the raw tokens are answered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so
-    a request that never went out shows as never asked. An open row's occupied seat holding no link -- its holder replaced,
+    (`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed.
+    Each seat holding an address gets one link, a person holding two seats one link naming both, and the raw tokens are
+    answered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so a request that never went
+    out shows as never asked. An open row's occupied seat holding no link -- its holder replaced,
     newly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows are answered in
     `einteilungen`, with the referee's address and no token. A fixture holding rows about an Ansetzung it has left is asked
     on the pass whose close shuts them, so the notice that their links are void goes out first.
