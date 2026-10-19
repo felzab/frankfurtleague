@@ -1,3 +1,4 @@
+import { CLASH_BUFFER_TEXT } from "@/features/spiele/constants";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
@@ -93,7 +94,7 @@ export function mapAnsetzungRefusal(error: unknown): SpielbestaetigungRefusal | 
       return {
         error: buildRefusal({
           reason: "Zu dieser Zeit ist der Spielort oder die Schiedsrichterin oder der Schiedsrichter schon für ein anderes Spiel eingeteilt",
-          repair: "Schlag einen anderen Tag vor, oder eine Uhrzeit mit mindestens vier Stunden Abstand",
+          repair: `Schlag einen anderen Tag vor, oder eine Uhrzeit mit mindestens ${CLASH_BUFFER_TEXT} Abstand`,
         }),
       };
     case "REQ-ANSETZUNG-012":

@@ -143,7 +143,7 @@ describe("the fixture confirmation page", () => {
         resultPanels(html),
         // The panel's text as one run, the paragraph's and the button's meeting with no space between them.
         [
-          `${DEAD} Wurde das Spiel verlegt, kommt eine neue E-Mail mit dem neuen Termin. Ist die Frist vorbei, legt die Liga den Termin fest.Frage stellen`,
+          `${DEAD} Wurde das Spiel verlegt, kommt eine neue E-Mail mit dem neuen Termin. Ist die Frist vorbei, legt die Verwaltung der Liga den Termin fest.Frage stellen`,
         ],
         `the ${zustand} panel holds more or less than its sentence and its button`,
       );
@@ -230,6 +230,32 @@ describe("what the press sends", () => {
     assert.equal((sent[0] as { begruendung?: unknown } | undefined)?.begruendung, null);
   });
 
+  /* Both presses wait on the one write, and only the pressed one says so: a proposal button reading „Sendet...“ under
+     a Zusage tells the reader the wrong answer is on its way. */
+  for (const [gedrueckt, anderer, gespeichert] of [
+    ["Zusagen", "Vorschlag senden", { success: true, zustand: "zugesagt", vorschlag: null }],
+    ["Vorschlag senden", "Zusagen", { success: true, zustand: "abgelehnt", vorschlag: { datum: "2026-11-14", uhrzeit: "16:00:00" } }],
+  ] as const) {
+    it(`keeps „${anderer}“ under its own words while „${gedrueckt}“ is sending`, async () => {
+      let antworte: (antwort: Response) => void = () => assert.fail("the press sent no request");
+      fetchMock.mock.mockImplementation(() => new Promise<Response>((resolve) => (antworte = resolve)));
+      const user = userEvent.setup();
+
+      render(h(SpielbestaetigungView, { start: OFFEN }));
+      await schlageVor(user, { datum: "2026-11-14", uhrzeit: "16:00" });
+      await user.click(screen.getByRole("button", { name: new RegExp(gedrueckt) }));
+
+      // Answered whatever the reading, so a failure here leaves no write in flight into the next case.
+      try {
+        assert.equal(screen.getAllByRole("button", { name: /Sendet\.\.\./ }).length, 1, "both presses read as sending, or neither");
+        assert.ok(screen.getByRole("button", { name: new RegExp(anderer) }), `„${anderer}“ lost its words under the other press`);
+      } finally {
+        antworte(new Response(JSON.stringify(gespeichert), { status: 200 }));
+        await act(fetchMock.answered);
+      }
+    });
+  }
+
   /* A decline without a date would leave the league nothing to decide on, which the endpoint refuses. */
   it("sends no proposal that names no date", async () => {
     const { sent } = answerEveryFetch({ success: true, zustand: "abgelehnt", vorschlag: null });
@@ -288,5 +314,14 @@ describe("what a refused press does to the page", () => {
 
     await waitFor(() => assert.ok(screen.getByText(NAME_IN_BEGRUENDUNG), "the reason box shows no refusal"));
     assert.ok(screen.getByRole("button", { name: /Vorschlag senden/ }), "the form went with a refusal that spends nothing");
+    assert.equal(screen.getByRole<HTMLInputElement>("textbox", { name: /Begründung/ }).value, "Kein Platz", "the typed reason went");
+    assert.equal(
+      within(screen.getByRole("group", { name: "Neues Datum" }))
+        .getAllByRole("spinbutton")
+        .map((segment) => segment.textContent)
+        .join("."),
+      "14.11.2026",
+      "the typed date went",
+    );
   });
 });

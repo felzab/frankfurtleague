@@ -123,7 +123,7 @@ function fristSaetze(frist: string): readonly string[] {
   return [
     `Bitte antworte bis zum ${frist}.`,
     "Es gilt die erste Antwort aus Deinem Team, danach funktioniert der Link nicht mehr.",
-    "Kommt bis dahin keine Antwort, legt die Verwaltung den Termin fest.",
+    "Kommt bis dahin keine Antwort, legt die Verwaltung der Liga den Termin fest.",
   ];
 }
 
@@ -133,7 +133,7 @@ const fremdSatz = (team: string, kontakt: string): string =>
 
 /** One control, as every link message carries one: the message exists for this link alone. */
 function anfrageAktionen(url: string): readonly Aktion[] {
-  return [{ href: url, label: "Termin bestätigen", ton: "primary" }];
+  return [{ href: url, label: ANFRAGE_UEBERSCHRIFT, ton: "primary" }];
 }
 
 type AnfrageArt = "anfrage" | "erinnerung";
@@ -277,7 +277,7 @@ const NEU_SAETZE: Record<SpielEmpfaenger, readonly string[]> = {
   ],
   schiedsrichter: [
     "Deine Einteilung zum bisherigen Termin gilt nicht mehr.",
-    "Bleibst Du für das Spiel eingeteilt, bekommst Du zum neuen Termin eine neue Einteilung.",
+    "Bleibst Du für das Spiel eingeteilt, bekommst Du für einen neuen Termin nach dem heutigen Tag eine neue Einteilung.",
   ],
 };
 

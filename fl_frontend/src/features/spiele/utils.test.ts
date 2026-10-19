@@ -1410,7 +1410,14 @@ const SCORE_SURFACES: readonly { name: string; markup: (spiel: FLSpiel) => strin
   },
   {
     name: "SpielDraftPreview",
-    markup: (spiel) => renderMarkup(SpielDraftPreview, { previewSpiel: asDraft(spiel), today: TODAY, isDirty: false, isFinishedSaison: false }),
+    markup: (spiel) =>
+      renderMarkup(SpielDraftPreview, {
+        previewSpiel: asDraft(spiel),
+        ansetzungBestaetigt: null,
+        today: TODAY,
+        isDirty: false,
+        isFinishedSaison: false,
+      }),
     club: (team) => team.name,
   },
 ];

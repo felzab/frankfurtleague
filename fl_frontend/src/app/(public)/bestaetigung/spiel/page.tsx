@@ -15,7 +15,7 @@ import type { Metadata } from "next";
  * path; `referrer` keeps the link's token off the referer any link on the page would send.
  */
 export const metadata: Metadata = {
-  title: "Spiel bestätigen",
+  title: "Spieltermin bestätigen",
   description: "Bestätige den Termin eines Spiels Deines Teams in der Frankfurt League, oder schlag einen anderen vor.",
   robots: { index: false, follow: false },
   referrer: "no-referrer",

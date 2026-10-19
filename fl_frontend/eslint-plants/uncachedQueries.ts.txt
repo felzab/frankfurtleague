@@ -16,7 +16,7 @@ export async function plantedReads(): Promise<void> {
 }
 
 export async function plantedPrivate(): Promise<void> {
-  "use cache: private"; // expect: uncached-read
+  "use cache: private"; // expect: uncached-read expect: private-cache
 }
 
 // React's `cache` dedupes within one render pass, and a string naming the directive is no directive.

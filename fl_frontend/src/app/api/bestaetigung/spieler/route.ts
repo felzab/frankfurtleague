@@ -7,20 +7,15 @@ import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
+import type { GelesenerLink } from "@/features/registrierungen/utils";
 import type { NextRequest } from "next/server";
 
-// Handed as a thunk and never resolved in front of the mapper: a caller reading the floors first
-// spends a second backend read on every refusal that is not an age.
-/**
- * The floors this link's own read answered, for the two refusals that name one. A failed read names
- * none rather than guessing a floor.
- */
-async function ansichtFuerToken(token: string): Promise<{ mindestalter: number; medien_mindestalter: number } | null> {
+// Handed as a thunk and never resolved in front of the mapper: a caller reading the view first
+// spends a second backend read on every refusal naming one state alone.
+/** This link's own view, for the refusals that name a floor or a state the view tells apart. A failed read is `null`. */
+async function ansichtFuerToken(token: string): Promise<GelesenerLink | null> {
   // Under its own cut: the write was refused, so a deadline cutting this read is no unknown outcome.
-  return runAnsweringOwnCut(() => getSpielerBestaetigungAnsicht(token)).then(
-    (gelesen) => (gelesen.zustand === "gueltig" ? gelesen.ansicht : null),
-    () => null,
-  );
+  return runAnsweringOwnCut(() => getSpielerBestaetigungAnsicht(token)).catch(() => null);
 }
 
 // A route handler and not a server action, for the reason `docs/frontend/spec.md` §1.3 gives.

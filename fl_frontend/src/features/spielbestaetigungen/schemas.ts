@@ -229,7 +229,10 @@ export const FLSpielbestaetigungSweepResponseSchema = BaseAPIResponseSchema.exte
 });
 export type FLSpielbestaetigungSweepResponse = z.infer<typeof FLSpielbestaetigungSweepResponseSchema>;
 
-/** Which rows' first messages went. The backend re-judges each, so a row already stamped, closed or answered is skipped. */
+/**
+ * Which rows' first messages went. Only a row already stamped is skipped: one answered or closed since is stamped all
+ * the same, since a row closed for a move is told of the new date only once stamped.
+ */
 export const FLSpielbestaetigungSweepAngefragtPayloadSchema = z.object({
   spielbestaetigung_ids: z.array(CustomObjectIdStringSchema).max(ANFRAGEN_LISTED_PER_PASS),
 });

@@ -79,8 +79,8 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /registrierungen": registrierungen.mapRegistrierungSubmitRefusal,
   "POST /registrierungen/bestaetigung": (error) =>
     registrierungen.mapBestaetigungRefusal(error, async () => ({
-      mindestalter: REGISTRIERUNG_MIN_ALTER,
-      medien_mindestalter: MEDIEN_MIN_ALTER,
+      zustand: "gueltig" as const,
+      ansicht: { mindestalter: REGISTRIERUNG_MIN_ALTER, medien_mindestalter: MEDIEN_MIN_ALTER },
     })),
   "POST /registrierungen/einladung/ansicht": registrierungen.mapRegistrierungAnsichtRefusal,
   "POST /registrierungen/bestaetigung/ansicht": registrierungen.mapRegistrierungAnsichtRefusal,
@@ -101,9 +101,9 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": schiedsrichter.mapEinladenRefusal,
   "POST /schiedsrichter/bestaetigung": (error) =>
     schiedsrichterQueries.mapSchiedsrichterBestaetigungRefusal(error, async () => ({
+      zustand: "gueltig" as const,
       // The floor the link's read serves, as the referee page takes it.
-      mindestalter: 16,
-      medien_mindestalter: MEDIEN_MIN_ALTER,
+      ansicht: { mindestalter: 16, medien_mindestalter: MEDIEN_MIN_ALTER },
     })),
   "POST /schiedsrichter/bestaetigung/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,
   "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": schiedsrichter.mapAdresswechselRefusal,

@@ -21,6 +21,12 @@ export const PAARUNGEN_MAX = 1024;
 export const SPIEL_BESTAETIGUNG_FRIST_TAGE = 7;
 
 /**
+ * `fl_backend/app/api/spiele/services.py :: CLASH_BUFFER_MINUTES` in the words every clash sentence says it in, held to
+ * that number by `fl_backend/tests/shared/test_frontend_mirrors.py`.
+ */
+export const CLASH_BUFFER_TEXT = "vier Stunden";
+
+/**
  * The reason box's bound on a fixture confirmation, mirroring the backend's
  * `SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH` (`fl_backend/app/shared/schemas/bounds.py`).
  */

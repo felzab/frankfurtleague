@@ -19,8 +19,9 @@ from app.api.bewerbungen.services import days_after
 from app.api.identitaet.schemas import ADRESSE_UNTER_INVALID, ANLASS_HOLDS_AN_ADDRESS, ErasureAdresse, FLErasurePayload
 from app.api.identitaet.services import grants_a_panel
 from app.api.saisons.schemas import FLSaisonStatus, TeamsPerGroup
-from app.api.spielbestaetigungen.services import anfrage_is_due
+from app.api.spielbestaetigungen.services import ANSETZUNG_QUELLEN, anfrage_is_due
 from app.api.spiele.schemas import MAX_QUALIFIERS
+from app.api.spiele.services import CLASH_BUFFER_MINUTES
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.spielorte.admin_router import _maps_link
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
@@ -645,10 +646,11 @@ QUALIFIER_CEILING: Final = ("features/saisons/schemas.ts", "MAX_QUALIFIERS", "2 
 STRING_MEMBER: Final = re.compile(r'"([^"]+)"')
 
 
-def _declared_members(module: str, name: str) -> tuple[str, ...]:
+def _declared_members(module: str, name: str, *, exported: bool = True) -> tuple[str, ...]:
     """One frontend list literal's members. A member this reader cannot see fails a case below rather than dropping quietly out of it."""
 
-    found = re.search(rf"^export const {name} = (?:z\.enum\()?\[(?P<members>[^\]]*)\]", _source(module), re.MULTILINE)
+    prefix = "export " if exported else ""
+    found = re.search(rf"^{prefix}const {name} = (?:z\.enum\()?\[(?P<members>[^\]]*)\]", _source(module), re.MULTILINE)
 
     assert found is not None, f"{module} no longer opens {name} as one list literal on one line"
 
@@ -688,6 +690,38 @@ def test_the_bracket_ceiling_the_offer_opens_is_the_one_this_package_caps_a_seas
     assert phases, f"{PHASE_SET[1]} names no phase, so the ceiling derived from it below rests on nothing"
     assert 2 ** (len(phases) - 1) == MAX_QUALIFIERS, (
         f"{name} opens a bracket of {2 ** (len(phases) - 1)}, where this package caps one at {MAX_QUALIFIERS}"
+    )
+
+
+# The clash buffer as every frontend sentence naming it says it: in words, which no number reader above reads, so
+# this table gives each spelling its hours. A buffer outside it fails rather than passing unread.
+CLASH_BUFFER_TEXT: Final = ("features/spiele/constants.ts", "CLASH_BUFFER_TEXT")
+STUNDEN_IN_WORTEN: Final = (
+    "eine Stunde",
+    "zwei Stunden",
+    "drei Stunden",
+    "vier Stunden",
+    "fünf Stunden",
+    "sechs Stunden",
+    "sieben Stunden",
+    "acht Stunden",
+    "neun Stunden",
+    "zehn Stunden",
+    "elf Stunden",
+    "zwölf Stunden",
+)
+
+
+def test_the_clash_sentences_name_the_buffer_the_clash_check_holds():
+    """A sentence naming another buffer sends the administrator, or a club proposing a date, to a time the save refuses again."""
+
+    module, name = CLASH_BUFFER_TEXT
+    found = re.search(rf'^export const {name} = "([^"]+)";$', _source(module), re.MULTILINE)
+
+    assert found is not None, f"{module} no longer exports {name} as one string literal"
+    assert found[1] in STUNDEN_IN_WORTEN, f"{name} reads {found[1]!r}, which this table gives no hours"
+    assert (STUNDEN_IN_WORTEN.index(found[1]) + 1) * 60 == CLASH_BUFFER_MINUTES, (
+        f"{name} says {found[1]}, where the clash check spaces fixtures {CLASH_BUFFER_MINUTES} minutes apart"
     )
 
 
@@ -1713,7 +1747,7 @@ def _anfrage_case(anders: dict[str, Any]) -> tuple[dict[str, Any], dict[Any, str
         match key:
             case "tage":
                 spiel["datum"] = None if value is None else days_after(day=ANFRAGE_TODAY, days=value)
-            case "uhrzeit" | "sonderereignis" | "team1" | "team2":
+            case "uhrzeit" | "sonderereignis" | "team1" | "team2" | "elfmeterschiessen":
                 spiel[key] = value
             case "spielort":
                 spiel["ort"] = value
@@ -1725,6 +1759,20 @@ def _anfrage_case(anders: dict[str, Any]) -> tuple[dict[str, Any], dict[Any, str
                 raise ValueError(f"the table moves {key}, which this tier does not read")
 
     return spiel, austritte
+
+
+# The inputs of the stand as the near-date warning compares them, so a save moving an input the warning never reads
+# re-asks the clubs unannounced.
+ANSETZUNG_QUELLEN_SET: Final = ("features/spiele/components/forms/AdminEditSpielDataForm/banners.ts", "ANSETZUNG_QUELLEN")
+
+
+def test_the_near_date_warning_compares_every_input_of_the_stand():
+    """The table below moves a fixture's fields, never its stand: an input on one side alone fails here instead."""
+
+    compared = _declared_members(*ANSETZUNG_QUELLEN_SET, exported=False)
+
+    assert compared, f"{ANSETZUNG_QUELLEN_SET[1]} names no input, so the comparison below rests on nothing"
+    assert sorted(compared) == sorted(re.sub(r"_(\w)", lambda found: found[1].upper(), quelle) for quelle in ANSETZUNG_QUELLEN)
 
 
 @pytest.mark.parametrize("row", json.loads(ANFRAGE_IS_DUE.read_bytes().decode("utf-8")), ids=lambda row: row["fall"])

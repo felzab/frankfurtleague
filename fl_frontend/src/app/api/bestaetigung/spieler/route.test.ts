@@ -149,10 +149,11 @@ describe("the pupil's confirmation handler", () => {
   /* The link died between the open and the press, so the page swaps the form for a panel; a field
      error would leave a dead link looking like a mistyped one. */
   it("answers an unknown, a lapsed and a spent link as a state rather than a field", async () => {
-    for (const [code, zustand] of [
-      ["REQ-REGISTRIERUNG-004", "ungueltig"],
-      ["REQ-REGISTRIERUNG-005", "abgelaufen"],
-      ["REQ-REGISTRIERUNG-006", "bestaetigt"],
+    for (const [code, zustand, gelesen] of [
+      ["REQ-REGISTRIERUNG-004", "ungueltig", 0],
+      // Each its own panel where the link's view reads open, the view telling apart the states the press judged after it.
+      ["REQ-REGISTRIERUNG-005", "abgelaufen", 1],
+      ["REQ-REGISTRIERUNG-006", "bestaetigt", 1],
     ] as const) {
       calls.length = 0;
       schreibAntwort = () => refusedOn(WRITE_OPERATION, code);
@@ -160,8 +161,18 @@ describe("the pupil's confirmation handler", () => {
       const answer = await bodyOf(aRequest(gueltigerKoerper));
 
       assert.deepEqual(answer.body, { success: false, zustand: zustand }, `${code} does not reach the page as a panel`);
-      assert.equal(ansichten(), 0, `${code} spent a second read on a floor it never words`);
+      assert.equal(ansichten(), gelesen, `${code} read the link's view otherwise than it needs`);
     }
+  });
+
+  /* A link confirmed in another window before its deadline passed reads as a reload shows it, never as lapsed. */
+  it("answers a lapsed link the view reads as confirmed with the confirmed panel", async () => {
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-REGISTRIERUNG-005");
+    ansichtAntwort = () => ({ ...ANSICHT, zustand: "bestaetigt" });
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, zustand: "bestaetigt" });
   });
 
   /* The one refusal that spends nothing, so the typed date survives it and the form stays live. */
