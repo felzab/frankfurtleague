@@ -470,7 +470,7 @@ describe("buildSpielBanners", () => {
     assert.ok(!isSpielRefusalCode(undefined));
   });
 
-  /* Acceptance (d). A date inside the deadline's days leaves the teams no notice: the next pass asks at once, and the
+  /* A date inside the deadline's days leaves the teams no notice: the next pass asks at once, and the
      link answers only that day. Whose doing it is decides whether the save confirms. */
   it("raises the confirmation's lost notice as this save's doing where the stored date was outside the window", () => {
     const banner = build({ ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(30)) }).find(

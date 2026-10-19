@@ -218,7 +218,7 @@ describe("what register arms for the fixture confirmations", () => {
   });
 });
 
-/* Acceptance (e): the stamp is the half no local run can show, a stack that mails nothing filing every message. */
+/* The stamp is what no local run can show, a stack that mails nothing filing every message. */
 describe("which first requests the pass stamps", () => {
   /** One row per way a send ends, each to its own mailbox, and one referee booked. */
   function eineZeileJeAusgang(): void {
@@ -341,7 +341,7 @@ describe("which first requests the pass stamps", () => {
   });
 });
 
-/* Acceptance (e)'s second half: a mint or a close moves the verdict a public fixture card reads, and a call whose
+/* A mint or a close moves the verdict a public fixture card reads, and a call whose
    answer was lost may have done either where no count shows it (`docs/frontend/spec.md :: I741`). */
 describe("the fixtures cache's drop", () => {
   const PASSES = [
@@ -432,7 +432,7 @@ describe("what one pass mails", () => {
     assert.equal(frische?.idempotencyKey, undefined, "a request carrying a fresh token was keyed");
   });
 
-  /* Acceptance (b)'s sweep half: the deadline the row carries, never one reckoned from the fixture's day. */
+  /* The deadline the row carries, never one reckoned from the fixture's day. */
   it("names the deadline the pass answered and the link the row's token makes, to the mailbox that holds it", async () => {
     passAnswer = (saisonId) => ({ ...leererPass(saisonId), anfragen: [anfrage(1, "team@schule.de")] });
 
