@@ -124,6 +124,39 @@ to go, or whether it is. The warning was counted over a single import in a fresh
 than over a full suite run, where what keeps it to one is the warning filter's own per-location
 deduplication.
 
+### `5ap7-2b2u` · TypeScript stays on 6.0 until 7.1 ships a compiler API and typescript-eslint admits it
+
+| Status   | Depends on |
+| -------- | ---------- |
+| Standing | —          |
+
+**TypeScript 7.0 carries no compiler API, and two things here import one.** `fl_frontend/package.json`
+declares `^6.0.3`, the newest 6.x, while the registry serves 7.0.2 as `latest`. Read 2026-10-19:
+7.0.2's package exports only its version at its root and an API under `typescript/unstable/*`, and
+its announcement (https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/, 2026-07-08)
+says 7.0 "does not ship with an API" and expects 7.1 "to ship with a new (and different) API". The
+two importers:
+
+- **typescript-eslint**, whose newest release, 8.71.2, declares `typescript` `>=4.8.4 <6.1.0`. Its
+  TypeScript 7 work is open upstream as typescript-eslint issue 10940, a maintainer writing on
+  2026-09-29 that it targets 7.1 and is in progress, with no release date.
+- **This repository's own readers** — every file `git grep -l "from \"typescript\"" -- fl_frontend`
+  lists, `fl_frontend/src/core/treeWalk.ts`, the sweeps built on it and `fl_frontend/eslint.config.mjs`
+  among them — which parse source through the 6.0 API.
+
+**7.1's API is new and different, so the move is a port of those readers rather than a version
+bump.** Every sweep a reader feeds fails in the direction of passing when it misparses — a sweep that
+finds nothing reports nothing — so each one is driven red again on 7.1 before it is trusted.
+
+**The announcement's interim is not the move here.** It aliases `typescript` to its
+`@typescript/typescript6` compatibility package for whatever imports the API while 7's `tsc`
+type-checks beside it, so the type check and every sweep would read the tree through two compilers.
+`next build` is not a blocker either way: under its `experimental.useTypeScriptCli`, on by default
+in the installed Next, it runs the project's own `tsc` rather than the API.
+
+**Trigger to revisit:** a TypeScript 7.1 release carrying its API, under a typescript-eslint release
+whose `typescript` peer range admits it.
+
 ### `645h-nj9q` · The linter runs a version past its end of life, and the documentation for it describes another
 
 | Status   | Depends on |
@@ -133,8 +166,9 @@ deduplication.
 **eslint 9.x reached end of life on 2026-08-06, and `fl_frontend/package.json` declares `^9.39.5`** —
 a caret range spanning a line that will publish nothing further, so `pnpm update` cannot move it and
 reports nothing that would say it is frozen. Confirmed 2026-08-26 against eslint's own
-version-support page, and re-confirmed 2026-08-31, when the registry served 10.9.1 as `latest` and
-9.39.5 as the whole of its `maintenance` channel. The linter takes no further fix of any kind,
+version-support page, and re-confirmed 2026-10-19, when the registry served 10.13.0 as `latest`,
+9.39.5 as the whole of its `maintenance` channel, and 9.39.5 deprecated as unsupported, which a
+resolving install now warns of. The linter takes no further fix of any kind,
 security or otherwise, and it is still the only check in the toolchain that catches some things at
 all: `fl_frontend/eslint.config.mjs`'s own comment beside `better-tailwindcss/no-unknown-classes`
 records that tsc, the Prettier plugin and the browser each accept an unresolvable class in silence.
@@ -142,16 +176,24 @@ records that tsc, the Prettier plugin and the browser each accept an unresolvabl
 it runs — the gate's frontend scope and a developer's machine, never the production image — so this
 is a toolchain exposure rather than a product one.
 
-**`eslint-plugin-jsx-a11y` is the direct blocker and it is dormant.** Measured 2026-08-31 against the
-installed packages and the npm registry: its newest release is the one installed, 6.10.2, published
-2024-10-26, its eslint peer range stops at `^9`, and two upstream pull requests adding v10 support
-sit open with nothing merged and nothing released behind them. `eslint-config-next` compounds it —
-its own peer range admits v10 while it carries that plugin beside `eslint-plugin-import` and
-`eslint-plugin-react` as plain dependencies, each on a newest release whose peer range stops at
-`^9` — so the framework config cannot run supported on v10 either. Flat configuration, the larger
-half of a v9-to-v10 migration, is already in use. **Forcing the install past the declared peer ranges
-is not the move**: a linter defect fails in the direction of passing, and an unsupported combination
-makes that one direction likelier.
+**Three plugins block it, and none has moved.** Measured 2026-10-19 against the installed packages
+and the npm registry, each one's newest release is the one installed, and each one's eslint peer
+range stops at 9:
+
+| Plugin                   | Newest | eslint peer range ends at |
+| ------------------------ | ------ | ------------------------- |
+| `eslint-plugin-jsx-a11y` | 6.10.2 | `^9`                      |
+| `eslint-plugin-import`   | 2.32.0 | `^9`                      |
+| `eslint-plugin-react`    | 7.37.5 | `^9.7`                    |
+
+`eslint-plugin-jsx-a11y` is the dormant one: 6.10.2 was published 2024-10-26, and two upstream pull
+requests adding v10 support sit open with nothing merged and nothing released behind them.
+`eslint-config-next` 16.4.2 compounds it — its own peer range, `>=9.0.0`, admits v10 while it
+carries all three as plain dependencies — so the framework config cannot run supported on v10
+either. Flat configuration, the larger half of a v9-to-v10 migration, is already in use. **Forcing
+the install past the declared peer ranges is not the move**: a linter defect fails in the direction
+of passing, and an unsupported combination makes that one direction likelier. The gate refuses it
+besides: `pnpm peers check` (`scripts/gate/verify.sh :: do_peers`) names all three.
 
 **`eslint.org/docs/latest` serves v10**, so for 9.39.5 it fails `.claude/CLAUDE.md` §4's test of a
 reference — official **and** current, with the installed version in it as a documented release —
@@ -159,8 +201,8 @@ and nothing in the reading marks the gap. **An eslint API claim here has to come
 version-pinned page or from the installed package under `fl_frontend/node_modules`, and has to say
 which.**
 
-**Trigger to revisit:** an `eslint-plugin-jsx-a11y` release whose peer range admits eslint 10, under
-an `eslint-config-next` whose bundled `eslint-plugin-import` and `eslint-plugin-react` admit it too.
+**Trigger to revisit:** a release of each of the three plugins above whose peer range admits eslint
+10, under an `eslint-config-next` carrying all three.
 
 **Not verified:** which v10 changes bite here once the set moves — the migration guide was not read
 against the configuration, no move shipping while the walk holds it, and a plugin that does move may
@@ -278,6 +320,31 @@ ships today and nothing about what would. Per-component coverage was confirmed o
 pickers, table and overlays and taken from index pages for the rest; whether Mantine can emit its
 theme variables without the runtime `<style>` element was not established, and it is the one open
 question that could move Mantine's rank.
+
+### `7hfw-b7ah` · The backend stays on Python 3.14 until PyYAML publishes a wheel for 3.15
+
+| Status   | Depends on |
+| -------- | ---------- |
+| Standing | —          |
+
+**Python 3.15.0 is out, and one locked package has no wheel for it.** 3.15.0 was released on
+2026-10-09 (https://peps.python.org/pep-0790/), and `fl_backend/.python-version` and
+`fl_backend/Dockerfile`'s `FROM python:` hold the backend on 3.14. Read 2026-10-19 against PyPI:
+PyYAML 6.0.3, its newest release, published 2025-09-25, ships CPython wheels from 3.8 to 3.14 and
+none for 3.15, and it is the one compiled package in `fl_backend/uv.lock` with neither a 3.15 wheel
+nor a stable-ABI one. On 3.15 `uv sync` would build it from its source distribution in the image's
+builder stage, which installs no compiler; that build was not tried.
+
+**PyYAML reaches the backend only through uvicorn's `standard` extra** (`fl_backend/pyproject.toml`),
+and uvicorn imports it only to read a YAML logging configuration, which nothing here passes. Naming
+the extra's other members in place of the extra is the route that needs no PyYAML release, and it
+moves a dependency declaration, which is mine to take.
+
+**Nothing holds Dependabot off the 3.15 base image**: `.github/dependabot.yml` ignores only 3.15's
+release candidates for `fl_backend/Dockerfile`, so its update may arrive before PyYAML's wheel, and
+it stays red until `fl_backend/.python-version` moves with it (`docs/ops/spec.md :: I513`).
+
+**Trigger to revisit:** a PyYAML release carrying a 3.15 wheel, or my ruling for the route above.
 
 ### `8wd7-ff49` · A guardian's provenance stays in the consent vocabulary, and a pupil's birthdate is not yet required
 
