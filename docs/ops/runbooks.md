@@ -643,9 +643,11 @@ so compute that address's digest under `secrets/sperrliste_schluessel` — the s
 — and look it up against `spielbestaetigungen.antwort.von.halter`, which finds every answer they
 gave from any seat. The paste belongs in the operator's own checklist, as the ban's does (below).
 Their seats' links and the delivery records of the messages that carried them sit under
-`kontakte.<seat>` on their club's rows of each season they held a seat (`saison_id`,
-`partei.team_id`), read beside that season's contact block, which says whose seat it was. Send the
-fixture, the answer, its day and the reason, and never the digest, the value that identifies them.
+`kontakte.<seat>` on their club's rows of each season in which they hold a seat now (`saison_id`,
+`partei.team_id`), read beside that season's contact block, which says whose seat it is: a seat they
+have left took its entries off every row of that team and season, answered and closed ones too
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I758). Send the fixture, the answer, its day and the
+reason, and never the digest, the value that identifies them.
 **Once the season's contact block is cleared, its rows keep the answers alone**: the reasons, the
 digests, the links and the delivery records go with the block
 ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)), so an

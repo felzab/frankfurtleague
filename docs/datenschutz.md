@@ -862,9 +862,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   their row on request or with the link a re-send replaces, and a season contact person's with
   their seat's link, which a re-send replaces and an erasure, the row's clearing or replacement and
   the season-and-one clock below each remove; a fixture confirmation's sits beside each seat's link
-  on the row, which a seat's handover on an open row, its person's erasure and that same clock each
-  remove. **A Widerspruch empties the seat and keeps its link
-  entry, the delivery state of the message included**, on an application until the application goes
+  on the row, which any write emptying or handing on that seat removes from every row of its team
+  that season, answered and closed ones too, the person's erasure and their Widerspruch on the season
+  row among them (`docs/backend/spec.md :: I758`), and which that same clock removes. **A Widerspruch
+  empties the seat and keeps its link entry, the delivery state of the message included**, on an application until the application goes
   and on a team's season row until a save fills that seat again or the row is cleared or replaced
   (`fl_backend/app/api/teams/services.py :: compose_bestaetigungen_nach`), because that entry is what lets
   the page answer a second press as already declined
