@@ -7,10 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        If the idea needs analysis before anyone can decide on it, it belongs in
-        [docs/_roadmap/items.md](https://github.com/felzab/frankfurtleague/blob/main/docs/_roadmap/items.md)
-        rather than here, since that is where undecided questions keep their reasoning. Use this form
-        for something concrete enough to act on.
+        Ideas are welcome here, including ones that aren't fully thought through yet.
 
         Keep the title in the shape `Area: what should be possible`, for example
         `Spielplan: filter the fixture list by team`.
