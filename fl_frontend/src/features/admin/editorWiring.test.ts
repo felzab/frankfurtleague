@@ -478,6 +478,7 @@ const EDITORS: Record<string, Editor> = {
           numberOfGroups: 2,
           isFinishedSaison: false,
           isActiveSaison: true,
+          isSpielSweepOn: true,
           today: "2026-09-14",
           categorize: () => new Set<never>(),
           pageHeader: { title: "Spiel 1" },

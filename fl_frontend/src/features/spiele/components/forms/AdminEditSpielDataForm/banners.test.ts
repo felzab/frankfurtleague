@@ -66,6 +66,7 @@ const build = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]> = {})
     ansetzung: KEINE_ANSETZUNG,
     storedAnsetzung: KEINE_ANSETZUNG,
     isActiveSaison: true,
+    isSpielSweepOn: true,
     austrittTage: [],
     today: HEUTE,
     ...overrides,
@@ -523,6 +524,11 @@ describe("buildSpielBanners", () => {
         `raised nothing for ${Object.keys(anders)[0]}`,
       );
     }
+  });
+
+  /* Off, as it ships, the pass runs at all nowhere, which no fixture's fields can say. */
+  it("raises nothing for a re-dated fixture while the confirmations' pass is switched off", () => {
+    assert.ok(!sofort({ ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(30)), isSpielSweepOn: false }));
   });
 
   /* The pass visits the running season alone, which the shared table below cannot say: it holds a fixture's own fields. */

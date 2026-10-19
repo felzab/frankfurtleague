@@ -35,6 +35,7 @@ const { spielStateKey } = await import("@/features/spiele/utils.ts");
 const { AdminContextWrapper } = await import("@/features/admin/components/providers/AdminContextWrapper.tsx");
 const { FLSaisonSchema } = await import("@/features/saisons/schemas.ts");
 const { default: nextConfig } = await import("../../../../../../next.config.ts");
+const { frontend_config } = await import("@/core/config.ts");
 
 const ENDPOINT = `/spiele/${OBJECT_ID}/admin`;
 const PROPS: NextPageProps<{ spiel_id: string }> = { params: Promise.resolve({ spiel_id: OBJECT_ID }), searchParams: Promise.resolve({}) };
@@ -50,13 +51,13 @@ answerReadsWith((endpoint, schema, params) =>
   endpoint === ENDPOINT ? answer(schema, endpoint, { spiel: stored }) : EMPTIEST_ANSWER(endpoint, schema, params),
 );
 
-type EditView = ReactElement<{ spielData: FLSpielAdmin }>;
+type EditView = ReactElement<{ spielData: FLSpielAdmin; isSpielSweepOn: boolean }>;
 
-/** The editor a navigation opens: the fixture its fields seed from and the key that remounts it. */
-async function opened(): Promise<{ spielData: FLSpielAdmin; key: string | null }> {
+/** The editor a navigation opens: the fixture its fields seed from, the key that remounts it and the switch it reads. */
+async function opened(): Promise<{ spielData: FLSpielAdmin; key: string | null; isSpielSweepOn: boolean }> {
   const body = (await pageBody(AdminSpielEditPage, PROPS)) as ReactElement<{ children: EditView }>;
   const view = body.props.children;
-  return { spielData: view.props.spielData, key: view.key };
+  return { spielData: view.props.spielData, key: view.key, isSpielSweepOn: view.props.isSpielSweepOn };
 }
 
 /**
@@ -97,6 +98,22 @@ describe("the match editor's freshness across a prefetch", () => {
      `staleTimes.dynamic`, a reopening inside it seeding from the fixture as the first opening read it. */
   it("keeps no opened editor in the client router", () => {
     assert.equal(nextConfig.experimental?.staleTimes?.dynamic ?? 0, 0, "the client router serves a reopened editor its earlier payload");
+  });
+});
+
+/* The confirmations' timer arms on `SPIEL_SWEEP` alone, so the editor's near-date warning reads that switch: a
+   warning raised while it is off announces a request no pass sends. */
+describe("which switch the match editor's near-date warning reads", () => {
+  it("hands the editor the pass as off where the server sets nothing", async () => {
+    assert.equal((await opened()).isSpielSweepOn, false);
+  });
+
+  it("hands the editor the pass as on where the switch reads on", async (t) => {
+    const gesetzt = frontend_config.SPIEL_SWEEP;
+    Reflect.set(frontend_config, "SPIEL_SWEEP", "on");
+    t.after(() => Reflect.set(frontend_config, "SPIEL_SWEEP", gesetzt));
+
+    assert.equal((await opened()).isSpielSweepOn, true);
   });
 });
 

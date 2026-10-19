@@ -79,6 +79,7 @@ export function AdminEditSpielDataForm({
   isFinishedSaison,
   isActiveSaison,
   today,
+  isSpielSweepOn,
   categorize,
   pageHeader,
 }: {
@@ -92,6 +93,8 @@ export function AdminEditSpielDataForm({
   isFinishedSaison: boolean;
   isActiveSaison: boolean;
   today: string;
+  /** `SPIEL_SWEEP` reads `on`, so the confirmations' pass runs at all. */
+  isSpielSweepOn: boolean;
   /** Rendered inside the scroll container, so it scrolls while the action bar stays put. */
   pageHeader: EditPageHeaderContent;
   /**
@@ -312,6 +315,7 @@ export function AdminEditSpielDataForm({
       team2Id: spielData.team2?.team_id ?? null,
     },
     isActiveSaison,
+    isSpielSweepOn,
     // From `teams`, which joins each club's exit on every read; the payload's copy of a side carries none.
     austrittTage: [team1Payload, team2Payload].flatMap((seite) => {
       const datum = teams.find((team) => team.id === seite?.team_id)?.austritt?.datum;

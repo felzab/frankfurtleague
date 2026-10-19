@@ -94,6 +94,7 @@ async function renderAndPreview(t: TestContext): Promise<void> {
         numberOfGroups: 2,
         isFinishedSaison: false,
         isActiveSaison: true,
+        isSpielSweepOn: true,
         today: "2026-09-14",
         categorize: () => new Set<never>(),
         pageHeader: { title: "Spiel 1" },
@@ -209,7 +210,7 @@ const VEREINE: FLTeam[] = [
 ];
 
 /** The editor over one fixture of a running season, with no Spieltag neighbour to ask the dry run about. */
-function renderEditor(spielData: FLSpielAdmin, teams: FLTeam[] = VEREINE): void {
+function renderEditor(spielData: FLSpielAdmin, teams: FLTeam[] = VEREINE, isSpielSweepOn = true): void {
   render(
     underNext(
       h(AdminEditSpielDataForm, {
@@ -221,6 +222,7 @@ function renderEditor(spielData: FLSpielAdmin, teams: FLTeam[] = VEREINE): void 
         numberOfGroups: 2,
         isFinishedSaison: false,
         isActiveSaison: true,
+        isSpielSweepOn: isSpielSweepOn,
         today: HEUTE,
         categorize: () => new Set<never>(),
         pageHeader: { title: "Spiel 1" },
@@ -267,6 +269,21 @@ describe("the match editor's warning that a near date leaves the teams no notice
     await user.click(screen.getByRole("button", { name: "Speichern" }));
     assert.ok(screen.queryByRole("button", { name: "Trotzdem speichern" }) !== null, "the save went unasked");
     assert.deepEqual(calls, [], "the save was sent before it was confirmed");
+  });
+
+  /* The pass is switched off as shipped, so it asks nobody: a warning and a confirmation over a save would announce a
+     request that never comes. */
+  it("raises nothing, and saves unasked, where the confirmations' pass is switched off", async () => {
+    const user = userEvent.setup();
+    renderEditor(angesetzt(tagNach(8)), VEREINE, false);
+
+    const tag = screen.getAllByRole("spinbutton", { name: /^Tag/ }).at(-1) ?? assert.fail("the editor renders no day to step");
+    await act(async () => tag.focus());
+    await user.keyboard("{ArrowDown}");
+
+    assert.equal(screen.queryAllByText(SOFORT).length, 0, "a date moved into the window warned of a request no pass sends");
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    assert.equal(screen.queryAllByRole("button", { name: "Trotzdem speichern" }).length, 0, "the save asked about a request no pass sends");
   });
 
   /* The date stays inside the window, so only the stored ground, side or kick-off tells this save from one that
