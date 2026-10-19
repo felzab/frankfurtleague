@@ -214,6 +214,7 @@ async def call_draw(
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(replace=replace, shape=shape),
         today=today,
@@ -915,6 +916,44 @@ def a_replaced_season(url: str) -> ReplacedSeason:
     assert replaced.first_ids, "the first draw wrote nothing, so the replace had nothing to remove"
 
     return replaced
+
+
+def a_confirmation(saison_id: str, oid: ObjectId) -> dict[str, Any]:
+    """An open team row of one season's fixture, as the sweep mints it; the fixture itself need not exist for the removal's filter."""
+
+    return {
+        "_id": oid,
+        "saison_id": saison_id,
+        "spiel_id": oid,
+        "partei": {"art": "team", "team_id": oid},
+        "ansetzung": {"datum": "2026-05-01", "uhrzeit": "18:00:00", "spielort_id": None, "team1_id": oid, "team2_id": oid, "stand": "d" * 64},
+        "frist": "2026-04-24",
+        "angefragt_am": None,
+        "erinnert_am": [],
+        "kontakte": {"trainer": None, "ansprechperson": None, "stellvertretung": None},
+        "antwort": None,
+        "geschlossen": None,
+    }
+
+
+class TestAReplaceTakesTheSeasonsConfirmations:
+    def test_the_seasons_rows_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
+        """Drop the replace's confirmation delete and this fails: a row would name a fixture the replace removed."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
+            await call_draw(database, client)
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
+                [a_confirmation(SAISON_ID, ObjectId()), a_confirmation(NEIGHBOUR_SAISON_ID, ObjectId())]
+            )
+            await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
+
+            confirmations = database[Collection.SPIELBESTAETIGUNGEN]
+            return (
+                await confirmations.count_documents({"saison_id": SAISON_ID}),
+                await confirmations.count_documents({"saison_id": NEIGHBOUR_SAISON_ID}),
+            )
+
+        assert on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
 
 
 class TestAConfirmedReplaceRedrawsTheWholeSeason:
