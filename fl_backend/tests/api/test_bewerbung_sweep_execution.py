@@ -1876,7 +1876,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
     def test_the_sweep(self, mongo_replica_set_url: str):
         """Every clock takes a page and every conditional read is made: two applications name a club, and the images take all three shapes.
 
-        Two cleared clubs hold open match confirmations, so the void of their links is made at its widest.
+        Two cleared clubs hold open match confirmations, so the void runs at its widest.
         """
 
         link = {"token_hash": "a" * 64, "verschickt_am": "2026-03-02", "frist": "2026-03-16", "abgelehnt_am": None, "zustellung": None}

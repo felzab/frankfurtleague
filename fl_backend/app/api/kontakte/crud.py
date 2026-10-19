@@ -14,7 +14,8 @@ from app.api.kontakte.services import (
     departing_slots,
     seat_image_edits,
 )
-from app.api.teams.crud import SeatWrite, write_saison_team_kontakte
+from app.api.spielbestaetigungen.services import kontakte_ohne, seat_void_of
+from app.api.teams.crud import void_moved_seats
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
 from app.core.recording import RedactionTarget, build_redaction_filter
@@ -37,28 +38,19 @@ async def clear_seats(
     """
 
     cleared = 0
-    for row, slots in _clearings(rows, identifiers, names):
+    for row in rows:
+        slots = departing_slots(row, identifiers, names)
+        # A row none of them sits in is not written, so its history gains no image.
+        if not slots:
+            continue
+
+        update = build_clearing_update(slots, bestaetigungen=isinstance(row.get("bestaetigungen"), Mapping))
         await patch_one_in_db(
-            collection=collection,
-            db_filter={"_id": row["_id"]},
-            update=_clearing_of(row, slots),
-            session=session,
-            return_document=ReturnDocument.BEFORE,
+            collection=collection, db_filter={"_id": row["_id"]}, update=update, session=session, return_document=ReturnDocument.BEFORE
         )
         cleared += len(slots)
 
     return cleared
-
-
-def _clearings(
-    rows: Sequence[Mapping[str, Any]], identifiers: Set[str], names: Set[PersonName]
-) -> list[tuple[Mapping[str, Any], tuple[str, ...]]]:
-    # A row none of them sits in is not written, so its history gains no image.
-    return [(row, slots) for row in rows if (slots := departing_slots(row, identifiers, names))]
-
-
-def _clearing_of(row: Mapping[str, Any], slots: Sequence[str]) -> Mapping[str, Any]:
-    return build_clearing_update(slots, bestaetigungen=isinstance(row.get("bestaetigungen"), Mapping))
 
 
 class SeatsCleared(NamedTuple):
@@ -89,18 +81,26 @@ async def erase_kontaktperson_in_session(
     # spelling would match no seat and the erasure would commit having removed nothing.
     identifier = sign_in_identifier(identifier)
 
-    # A season row's seats through the seat helper, in ONE call: its void then costs the erasure the same however many
-    # rows the person sat in (`docs/backend/spec.md :: I758`).
-    seats = _clearings(saison_team_rows, {identifier}, frozenset())
-    await write_saison_team_kontakte(
-        saison_teams_collection=saison_teams_collection,
-        spielbestaetigungen_collection=spielbestaetigungen_collection,
-        writes=[SeatWrite(db_filter={"_id": row["_id"]}, update=_clearing_of(row, slots)) for row, slots in seats],
-        return_document=ReturnDocument.BEFORE,
-        session=session,
-    )
-    cleared_slots = sum(len(slots) for _, slots in seats)
+    cleared_slots = await clear_seats(saison_teams_collection, saison_team_rows, {identifier}, session)
     cleared_slots += await clear_seats(bewerbungen_collection, bewerbung_rows, {identifier}, session)
+
+    # Off the rows read in this transaction, as `clear_seats` judged them, once for the whole erasure: the void then
+    # costs it the same however many rows the person sat in (`docs/backend/spec.md :: I758`).
+    held = [(row, slots) for row in saison_team_rows if (slots := departing_slots(row, {identifier}))]
+    if held:
+        await void_moved_seats(
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            voids=[
+                seat_void_of(
+                    saison_id=row["saison_id"],
+                    team_id=row["team_id"],
+                    stored_kontakte=row.get("kontakte"),
+                    kontakte=kontakte_ohne(row.get("kontakte"), slots),
+                )
+                for row, slots in held
+            ],
+            session=session,
+        )
 
     # LAST, so both passes reach the pre-images the clearing just filed. The rows reached by document
     # first, by address and by name; then by address alone, which also finds a swap's orphan.

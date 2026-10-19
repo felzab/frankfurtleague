@@ -52,7 +52,8 @@ from app.api.bewerbungen.services import (
 from app.api.einwilligung.services import find_fassung_refusal, find_selbst_medien_refusal
 from app.api.kontakte.crud import redact_the_decliner
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
-from app.api.teams.crud import SeatWrite, write_saison_team_kontakte
+from app.api.spielbestaetigungen.services import kontakte_ohne, seat_void_of
+from app.api.teams.crud import void_moved_seats
 from app.api.teams.services import kontakt_zeile_of
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -349,11 +350,25 @@ async def post_einwilligung(
                 ergebnis="bestaetigt", geburtsdatum=geburtsdatum, whatsapp=antwort_data.whatsapp, medien=antwort_data.medien
             )
 
-        await write_saison_team_kontakte(
-            saison_teams_collection=saison_teams_collection,
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
-            writes=[SeatWrite(db_filter={"_id": row["_id"]}, update=compose_saison_decline_update(seats=seats, today=today))],
+        before = await patch_one_in_db(
+            collection=saison_teams_collection,
+            db_filter={"_id": row["_id"]},
+            update=compose_saison_decline_update(seats=seats, today=today),
+            session=session,
             return_document=ReturnDocument.BEFORE,
+        )
+        # The emptied seats' links on the team's open confirmations go with them (`docs/backend/spec.md :: I758`).
+        stored_kontakte = before.get("kontakte")
+        await void_moved_seats(
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            voids=[
+                seat_void_of(
+                    saison_id=before["saison_id"],
+                    team_id=before["team_id"],
+                    stored_kontakte=stored_kontakte,
+                    kontakte=kontakte_ohne(stored_kontakte, seats),
+                )
+            ],
             session=session,
         )
 

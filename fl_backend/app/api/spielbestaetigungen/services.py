@@ -110,48 +110,35 @@ class SeatVoid(NamedTuple):
     seats: tuple[FLKontaktRolle, ...]
 
 
-def _kontakte_after(*, before: Any, update: Mapping[str, Any]) -> Any:
-    """The contact block a write leaves, off the row's pre-image and the write's `$set`."""
+def kontakte_ohne(stored_kontakte: Any, seats: Sequence[str]) -> Any:
+    """The block a write emptying these seats leaves: what a Widerspruch or an erasure hands `seat_void_of`."""
 
-    block = dict(before) if isinstance(before, Mapping) else None
-    for operator, fields in update.items():
-        for path, value in fields.items():
-            if path != "kontakte" and not path.startswith("kontakte."):
-                continue
-            seat = path.removeprefix("kontakte.")
-            # Whole seats alone: a write moving one field of a seat could hand it on, which only the
-            # identity rule may decide, over a seat it reads whole.
-            if operator != "$set" or (path != "kontakte" and seat not in KONTAKT_ROLLEN):
-                raise ValueError(f"a seat write sets the block or whole seats, never {operator} {path}")
-            if path == "kontakte":
-                block = dict(value) if isinstance(value, Mapping) else None
-            elif block is not None:
-                block[seat] = value
+    if not isinstance(stored_kontakte, Mapping):
+        return stored_kontakte
 
-    return block
+    return {**stored_kontakte, **dict.fromkeys(seats)}
 
 
-def seat_void_of(*, before: Mapping[str, Any], update: Mapping[str, Any]) -> SeatVoid | None:
-    """What one season row's write voids, or `None` where it moves no holder."""
+def seat_void_of(*, saison_id: Any, team_id: Any, stored_kontakte: Any, kontakte: Any) -> SeatVoid | None:
+    """What one season row's write voids, read off the block it replaced and the block it leaves; `None` where it moves no holder."""
 
-    kontakte = _kontakte_after(before=before.get("kontakte"), update=update)
-    moved = set(seats_changing_holder(stored=before.get("kontakte"), kontakte=kontakte))
+    moved = set(seats_changing_holder(stored=stored_kontakte, kontakte=kontakte))
     if not moved:
         return None
 
-    # Every seat the write leaves empty too, whose entry is null already wherever no write slipped past this helper: so
+    # Every seat the write leaves empty too, whose entry is null already wherever no write slipped past the void: so
     # every whole-block clear nulls one seat set, and a call clearing many rows writes once.
     block = kontakte if isinstance(kontakte, Mapping) else {}
-    seats = tuple(seat for seat in KONTAKT_ROLLEN if seat in moved or not isinstance(block.get(seat), Mapping))
+    seats: tuple[FLKontaktRolle, ...] = tuple(seat for seat in KONTAKT_ROLLEN if seat in moved or not isinstance(block.get(seat), Mapping))
 
-    return SeatVoid(saison_id=before["saison_id"], team_id=before["team_id"], seats=seats)
+    return SeatVoid(saison_id=saison_id, team_id=team_id, seats=seats)
 
 
 def _team_rows(saison_id: Any, team_id: Any) -> dict[str, Any]:
     return {"saison_id": saison_id, "partei.team_id": team_id}
 
 
-def _open_team_rows(pairs: Sequence[tuple[Any, Any]]) -> dict[str, Any]:
+def build_open_team_rows_filter(pairs: Sequence[tuple[Any, Any]]) -> dict[str, Any]:
     """These teams' rows in these seasons that are still answerable, so an answered row keeps its answer and its links."""
 
     return {"partei.art": "team", **build_answerable_filter(), "$or": [_team_rows(saison_id, team_id) for saison_id, team_id in pairs]}
@@ -161,7 +148,7 @@ def build_open_seat_rows_pipeline(voids: Sequence[SeatVoid]) -> list[Mapping[str
     """Per team and season, which seats hold an entry on any open row: one document per row written, so one batch answers it."""
 
     return [
-        {"$match": _open_team_rows([(void.saison_id, void.team_id) for void in voids])},
+        {"$match": build_open_team_rows_filter([(void.saison_id, void.team_id) for void in voids])},
         {
             "$group": {
                 "_id": {"saison_id": "$saison_id", "team_id": "$partei.team_id"},
@@ -193,9 +180,3 @@ def group_seat_voids(
             groups.setdefault(tuple(seat for seat in KONTAKT_ROLLEN if seat in seats), []).append(pair)
 
     return list(groups.items())
-
-
-def compose_seat_void(*, seats: Sequence[str], pairs: Sequence[tuple[Any, Any]]) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
-    """The filter and update nulling these seats' entries, their hashes and delivery state with them, on these teams' open rows."""
-
-    return _open_team_rows(pairs), {"$set": {f"kontakte.{seat}": None for seat in seats}}

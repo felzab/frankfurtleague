@@ -47,7 +47,8 @@ from app.api.bewerbungen.services import (
 from app.api.kontakte.services import contact_block_image_edits
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
-from app.api.teams.crud import SeatWrite, write_saison_team_kontakte
+from app.api.spielbestaetigungen.services import seat_void_of
+from app.api.teams.crud import void_moved_seats
 from app.api.teams.schemas import FLKontaktRolle
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -83,8 +84,7 @@ router = APIRouter(
 REMINDERS_PER_PASS: Final = 39
 
 # A season at the capacity its rules allow holds more junction rows than this, and takes more passes. One below
-# the reminders': the void of the cleared people's match links costs the pass three commands, and at 39 its
-# 269 take 10.05 s.
+# the reminders': voiding the cleared people's match links costs three commands, and 39 would make 269, 10.05 s.
 BLOCKS_CLEARED_PER_PASS: Final = 38
 
 
@@ -506,21 +506,25 @@ async def sweep_saison(
         # A cleared row leaves the filter, so the rows past the share are the next pass's.
         taken = batch.took(junction_rows[: batch.share])
 
-        # One call for the whole share, so voiding its people's match links costs the pass the same however
-        # many rows it clears (`docs/backend/spec.md :: I758`).
-        await write_saison_team_kontakte(
-            saison_teams_collection=saison_teams_collection,
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
-            writes=[
+        # `patch_one_in_db` per row and never `patch_many_in_db`, which records no `document_id`: the
+        # redaction below must match the rows it logs (`app/api/kontakte/crud.py :: clear_seats`).
+        cleared: list[Any] = []
+        voids = []
+        for row in taken:
+            before = await patch_one_in_db(
+                collection=saison_teams_collection,
+                db_filter={"_id": row["_id"]},
                 # The links go with their people: each holds a token hash and the delivery record of the
                 # message it went out in (`docs/datenschutz.md :: "No delivery state has a clock of its own"`).
-                SeatWrite(db_filter={"_id": row["_id"]}, update={"$set": {"kontakte": None, "bestaetigungen": None}})
-                for row in taken
-            ],
-            return_document=ReturnDocument.BEFORE,
-            session=session,
-        )
-        cleared: list[Any] = [row["_id"] for row in taken]
+                update={"$set": {"kontakte": None, "bestaetigungen": None}},
+                session=session,
+                return_document=ReturnDocument.BEFORE,
+            )
+            voids.append(seat_void_of(saison_id=saison_id, team_id=before["team_id"], stored_kontakte=before.get("kontakte"), kontakte=None))
+            cleared.append(row["_id"])
+        # Once for the share, so voiding its people's match links costs the pass the same however many rows it
+        # clears (`docs/backend/spec.md :: I758`).
+        await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
         # The block alone leaves the row's images, as it leaves the row: its exit record and every
         # earlier state are the season's, not the people's.
         redacted = await redact_images_in_session(

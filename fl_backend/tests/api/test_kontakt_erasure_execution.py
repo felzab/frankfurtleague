@@ -1408,8 +1408,7 @@ def test_the_reveal_lists_exactly_the_seats_the_erasure_then_clears(mongo_replic
 
 
 # The erasure clears every row naming the person in one transaction with no share, so this, a round trip
-# each, bounds how many rows a person may hold inside the request's deadline. The void of their match links
-# is one call beside it, whatever the rows hold.
+# each, bounds how many rows a person may hold inside the request's deadline.
 COMMANDS_A_CLEARED_ROW = 3
 
 # Two erasures apart by this many rows naming the person.
@@ -1443,7 +1442,7 @@ def an_open_confirmation(team_id: ObjectId) -> dict[str, Any]:
 def test_each_row_the_erasure_clears_costs_the_commands_counted_for_it(mongo_replica_set_url: str):
     """A command added per row passes every other case, and shrinks the person whose erasure still finishes inside the deadline.
 
-    Each row's team holds an open match confirmation, so a void written per row rather than per call is counted too.
+    Each row's team holds an open confirmation, so a void written per row is counted too.
     """
 
     def counted(rows: int) -> int:

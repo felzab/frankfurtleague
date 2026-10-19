@@ -28,8 +28,9 @@ from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.sperrliste.services import withheld_actor
+from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.spiele.schemas import FLSpielListAdapter
-from app.api.teams.crud import SeatWrite, pull_a_club_to_enter, refuse_a_full_gruppe, write_saison_team_kontakte
+from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe, void_moved_seats
 from app.api.teams.schemas import (
     KONTAKT_ROLLEN,
     FLKontaktEinladenResponse,
@@ -709,14 +710,20 @@ async def patch_saison_team_kontakte(
         if links or voids:
             refuse_unconfirmed()
 
-        [updated_raw] = await write_saison_team_kontakte(
-            saison_teams_collection=saison_teams_collection,
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
+        updated_raw = await patch_one_in_db(
+            collection=saison_teams_collection,
+            db_filter=db_filter,
             # The two paths, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
             # `trikot_farbe` belong to the junction PATCH, and a `$set` carrying them would reinstate
             # whatever this caller last read.
-            writes=[SeatWrite(db_filter=db_filter, update={"$set": {"kontakte": kontakte, "bestaetigungen": bestaetigungen}})],
+            update={"$set": {"kontakte": kontakte, "bestaetigungen": bestaetigungen}},
+            session=session,
             return_document=ReturnDocument.AFTER,
+        )
+        # Judged on the block read in this transaction (`docs/backend/spec.md :: I758`).
+        await void_moved_seats(
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            voids=[seat_void_of(saison_id=saison_id, team_id=team_id, stored_kontakte=stored.get("kontakte"), kontakte=kontakte)],
             session=session,
         )
         # The addresses entering here, which an erasure of one running now never read (`docs/backend/spec.md :: I719`): the
@@ -854,19 +861,20 @@ async def replace_saison_team(
             session=session,
         )
 
-        [updated_raw] = await write_saison_team_kontakte(
-            saison_teams_collection=saison_teams_collection,
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
-            writes=[
-                SeatWrite(
-                    db_filter={"saison_id": saison_id, "team_id": team_id},
-                    # `austritt` cleared: left standing it marks the INCOMING club withdrawn to
-                    # `REQ-SWAP-006` and `_may_hold_a_platz`; the exit survives in the logged pre-image. The
-                    # colour, the contacts and their links leave with the OUTGOING school (`docs/backend/spec.md :: I137`, `:: I567`).
-                    update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "bestaetigungen": None}},
-                )
-            ],
+        updated_raw = await patch_one_in_db(
+            collection=saison_teams_collection,
+            db_filter={"saison_id": saison_id, "team_id": team_id},
+            # `austritt` cleared: left standing it marks the INCOMING club withdrawn to
+            # `REQ-SWAP-006` and `_may_hold_a_platz`; the exit survives in the logged pre-image. The
+            # colour, the contacts and their links leave with the OUTGOING school (`docs/backend/spec.md :: I137`, `:: I567`).
+            update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "bestaetigungen": None}},
+            session=session,
             return_document=ReturnDocument.AFTER,
+        )
+        # The outgoing club's people, read in this transaction, leave their match links behind (`docs/backend/spec.md :: I758`).
+        await void_moved_seats(
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            voids=[seat_void_of(saison_id=saison_id, team_id=team_id, stored_kontakte=outgoing_raw.get("kontakte"), kontakte=None)],
             session=session,
         )
 
