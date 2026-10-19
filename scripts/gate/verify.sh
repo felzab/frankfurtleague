@@ -1059,7 +1059,7 @@ output is above." ;;
   fi
   ok "manifest and lockfile agree"
 
-  # `strictPeerDependencies` refuses an out-of-range peer only while an install resolves, and that
+  # `strictPeerDependencies` refuses an out-of-range peer only while `pnpm install` resolves, and that
   # failed install still writes the lockfile every frozen install accepts. This reads the installed
   # tree, which the start-up dependency check holds to the committed lockfile.
   step "frontend · pnpm  (every peer in range)"
