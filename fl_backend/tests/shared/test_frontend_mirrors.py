@@ -21,6 +21,7 @@ from app.api.identitaet.services import grants_a_panel
 from app.api.saisons.schemas import FLSaisonStatus, TeamsPerGroup
 from app.api.spielbestaetigungen.services import anfrage_is_due
 from app.api.spiele.schemas import MAX_QUALIFIERS
+from app.api.spiele.services import CLASH_BUFFER_MINUTES
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.spielorte.admin_router import _maps_link
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
@@ -688,6 +689,38 @@ def test_the_bracket_ceiling_the_offer_opens_is_the_one_this_package_caps_a_seas
     assert phases, f"{PHASE_SET[1]} names no phase, so the ceiling derived from it below rests on nothing"
     assert 2 ** (len(phases) - 1) == MAX_QUALIFIERS, (
         f"{name} opens a bracket of {2 ** (len(phases) - 1)}, where this package caps one at {MAX_QUALIFIERS}"
+    )
+
+
+# The clash buffer as every frontend sentence naming it says it: in words, which no number reader above reads, so
+# this table gives each spelling its hours. A buffer outside it fails rather than passing unread.
+CLASH_BUFFER_TEXT: Final = ("features/spiele/constants.ts", "CLASH_BUFFER_TEXT")
+STUNDEN_IN_WORTEN: Final = (
+    "eine Stunde",
+    "zwei Stunden",
+    "drei Stunden",
+    "vier Stunden",
+    "fünf Stunden",
+    "sechs Stunden",
+    "sieben Stunden",
+    "acht Stunden",
+    "neun Stunden",
+    "zehn Stunden",
+    "elf Stunden",
+    "zwölf Stunden",
+)
+
+
+def test_the_clash_sentences_name_the_buffer_the_clash_check_holds():
+    """A sentence naming another buffer sends the administrator, or a club proposing a date, to a time the save refuses again."""
+
+    module, name = CLASH_BUFFER_TEXT
+    found = re.search(rf'^export const {name} = "([^"]+)";$', _source(module), re.MULTILINE)
+
+    assert found is not None, f"{module} no longer exports {name} as one string literal"
+    assert found[1] in STUNDEN_IN_WORTEN, f"{name} reads {found[1]!r}, which this table gives no hours"
+    assert (STUNDEN_IN_WORTEN.index(found[1]) + 1) * 60 == CLASH_BUFFER_MINUTES, (
+        f"{name} says {found[1]}, where the clash check spaces fixtures {CLASH_BUFFER_MINUTES} minutes apart"
     )
 
 
