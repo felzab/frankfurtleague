@@ -322,6 +322,7 @@ do_cache_backend()  { export_image_cache backend fl_backend/Dockerfile fl_backen
 do_prettier()   { ( cd fl_frontend && pnpm format:check ); }
 do_lockfile()   { ( cd fl_frontend && pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install ); }
 do_peers()      { ( cd fl_frontend && pnpm peers check ); }
+do_dedupe()     { ( cd fl_frontend && pnpm dedupe --check ); }
 do_typegen()    { ( cd fl_frontend && pnpm typegen ); }
 do_typecheck()  { ( cd fl_frontend && pnpm typecheck:only ); }
 # Threads on a runner alone: it restores no eslint cache, so it pays the cold fill threads divide,
@@ -1078,6 +1079,27 @@ output is above." ;;
     esac
   fi
   ok "every peer in range"
+
+  # `pnpm add` keeps every copy the lockfile already pins, so an added range can leave two copies of
+  # one package, neither out of range; HeroUI then takes the app's react-aria and its own components
+  # the other, splitting React context.
+  step "frontend · pnpm  (no copy a dedupe would remove)"
+  DEDUPE_RC=0
+  # Serial: it rewrites the install state every pooled `pnpm run` reads under `verifyDepsBeforeRun`.
+  quietly do_dedupe || DEDUPE_RC=$?
+  if (( DEDUPE_RC )); then
+    case "$QUIETLY_OUTPUT" in
+      *ERR_PNPM_DEDUPE_CHECK_ISSUES*)
+        die "fl_frontend's lockfile holds a copy of a package that a dedupe would remove — pnpm names
+each change above.
+Fix with:  cd fl_frontend && pnpm dedupe  -- then commit the lockfile." ;;
+      # `refuse`, not `die`: naming no change, the step cannot say the change needs work.
+      *)
+        refuse "pnpm stopped its dedupe check of fl_frontend's lockfile for a reason this step does not read —
+its own output is above." ;;
+    esac
+  fi
+  ok "no copy a dedupe would remove"
 
   # A `FRONTEND_WRITERS` entry, for that list's reason.
   step "frontend · next typegen  (the ambient types tsc checks against)"

@@ -951,6 +951,17 @@
 # tier taking 113 s and the frontend's db-tier files 66 s beside it. No row moves and none takes a
 # stamp.
 #
+# `frontend` gained a check: `scripts/gate/verify.sh`'s dedupe step, `pnpm dedupe --check` behind the
+# peer step, took 5.89-13.24 s, median 6.51 s, against 1.52-5.89 s for the lockfile step and
+# 1.30-4.16 s for the peer step, six interleaved rounds with pnpm's metadata cache warm. With that
+# cache empty, as the toolchain leaves a runner's, restoring the store and pnpm's verification log
+# alone, it took 36.8-39.5 s against 6.2-7.4 s warm, four interleaved rounds, every package's
+# metadata fetched from the registry. It runs before the frontend pool, which it cannot join because
+# it rewrites the install state every pooled `pnpm run` reads, so the job pays it whole. Measured
+# locally on 2026-10-19 on a sixteen-core Windows machine carrying a fleet of agent sessions, so upper
+# bounds, the runner's own registry round trips unmeasured. The row carries `-` for its reference, so
+# the check moves no figure and answers to the budget alone; the budget does not move.
+#
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
 # reference was re-stamped from the one population it reads, and `--base` refuses a total floor that
