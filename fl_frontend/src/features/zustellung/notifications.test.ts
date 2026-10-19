@@ -119,6 +119,8 @@ describe("the tags one message rides out with", () => {
       "loeschung",
       "einladung",
       "ablehnung",
+      "anfrage",
+      "neue_ansetzung",
     ] as const satisfies readonly ZustellAnlass[];
     const vollstaendig: [Exclude<ZustellAnlass, (typeof ANLAESSE)[number]>] extends [never] ? true : false = true;
 
