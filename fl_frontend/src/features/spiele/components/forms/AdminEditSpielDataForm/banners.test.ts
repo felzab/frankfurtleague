@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { resolveBlockingBanners, resolveRailBanners } from "@/shared/components/ui/railBanner.ts";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { SONDEREREIGNIS_LABELS } from "../../../constants.ts";
+import { SONDEREREIGNIS_LABELS, SPIEL_BESTAETIGUNG_FRIST_TAGE } from "../../../constants.ts";
 import { buildSpielBanners, isSpielRefusalBannerId, isSpielRefusalCode } from "./banners.ts";
 
 import type { SpielBanner, SpielBannerSide } from "./banners.ts";
@@ -22,6 +22,10 @@ const side = (fieldName: "team1" | "team2", overrides: Partial<SpielBannerSide> 
   // case about a takeover sets the two apart, so the rest keep reading as inherited situations.
   return { storedQuelle: draft.quelle, storedTeam: draft.team, ...draft };
 };
+
+/** The day every case is rendered on, and a fixture's day so many days after it. */
+const HEUTE = "2026-10-19";
+const tagNach = (tage: number): string => new Date(Date.parse(HEUTE) + tage * 86_400_000).toISOString().slice(0, 10);
 
 const team = (teamId: string, name: string) => ({ team_id: teamId, name, shorthand: name.slice(0, 3), tore: null, austritt: null });
 
@@ -43,6 +47,9 @@ const build = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]> = {})
     releasedSpielNummern: [],
     voidPreviewFailed: false,
     refusalCode: null,
+    datum: null,
+    storedDatum: null,
+    today: HEUTE,
     ...overrides,
   });
 
@@ -411,6 +418,44 @@ describe("buildSpielBanners", () => {
     assert.ok(isSpielRefusalCode("REQ-SPIELTAG-001"));
     assert.ok(!isSpielRefusalCode("REQ-STATE-003"));
     assert.ok(!isSpielRefusalCode(undefined));
+  });
+
+  /* Acceptance (d). A date inside the deadline's days leaves the teams no notice: the next pass asks at once, and the
+     link answers only that day. Whose doing it is decides whether the save confirms. */
+  it("raises the confirmation's lost notice as this save's doing where the stored date was outside the window", () => {
+    const banner = build({ datum: tagNach(3), storedDatum: tagNach(30) }).find(({ id }) => id === "spiel.bestaetigung-sofort");
+
+    assert.equal(banner?.raisedBy, "change");
+    assert.equal(banner?.severity, "warning");
+    assert.equal(banner?.inline, null, "the banner sits at a field rather than on the rail");
+    assert.equal(
+      banner?.title,
+      `Ein Spiel in den nächsten ${String(SPIEL_BESTAETIGUNG_FRIST_TAGE)} Tagen müssen die Teams noch am Tag der Anfrage bestätigen`,
+    );
+  });
+
+  it("raises it as the fixture's standing state where the stored date was already inside the window", () => {
+    const banner = build({ datum: tagNach(2), storedDatum: tagNach(5) }).find(({ id }) => id === "spiel.bestaetigung-sofort");
+
+    assert.equal(banner?.raisedBy, "state");
+  });
+
+  /* The case a window check alone gets wrong: no pass asks about a fixture whose day has come, so the banner would
+     announce something the sweep never does. The deadline's last day still raises it, the first day past it does not. */
+  it("raises nothing for a date in the past or today, whatever else is true, and nothing past the window", () => {
+    for (const [datum, gespeichert] of [
+      [tagNach(-2), tagNach(30)],
+      [tagNach(-2), tagNach(3)],
+      [HEUTE, tagNach(30)],
+      [tagNach(SPIEL_BESTAETIGUNG_FRIST_TAGE + 1), null],
+      [null, tagNach(3)],
+    ] as const) {
+      assert.ok(!ids(build({ datum: datum, storedDatum: gespeichert })).includes("spiel.bestaetigung-sofort"), `raised for ${String(datum)}`);
+    }
+    assert.ok(
+      ids(build({ datum: tagNach(SPIEL_BESTAETIGUNG_FRIST_TAGE) })).includes("spiel.bestaetigung-sofort"),
+      "the window's last day raised nothing",
+    );
   });
 
   it("sorts danger over warning over info on the rail", () => {
