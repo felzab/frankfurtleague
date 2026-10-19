@@ -935,9 +935,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   change**, so a pass copying a late line into a day starts that day's thirty again. Each line names
   a requested erasure, or a consent its person withdrew, a Widerspruch or an address change declined
   through its link, and its person by keyed hashes of the address alone. An erasure's line holds
-  two, the journal's own and the pseudonym the action log and the day counts key that person on, so
-  a restore holding the address nowhere still finds those rows (`docs/backend/spec.md :: I666`, `:: I731`); a
-  choice's line holds the journal's one, beside the record that act changed and its moment, a
+  three, the journal's own, the pseudonym the action log and the day counts key that person on, and
+  the digest their fixture answers carry, so a restore holding the address nowhere still finds those
+  rows and the reasons those answers hold (`docs/backend/spec.md :: I666`, `:: I731`); a choice's
+  line holds the journal's one, beside the record that act changed and its moment, a
   withdrawal's text version and the withholding values it set, and the seats a Widerspruch emptied
   (`:: I706`). The day file keeps each line's whole log envelope, its trace and span ids among them,
   and the trace id joins the line to the edge's access line, which names the visitor's address for
