@@ -180,7 +180,12 @@ class TestTheStampTakesOnePassList:
         assert [entry["type"] for entry in failure.value.errors()] == ["too_long"]
 
     def test_every_row_a_pass_answers_fits_one_list(self):
-        assert MINTS_PER_PASS <= ANFRAGEN_LISTED_PER_PASS
+        """A request goes out from the mint's share and from a reminder whose first request was never stamped.
+
+        One list past the bound is refused whole, leaving every row the pass mailed unstamped for good.
+        """
+
+        assert MINTS_PER_PASS + REMINDERS_PER_PASS <= ANFRAGEN_LISTED_PER_PASS
 
 
 # Three commands a row -- the update, its read-back, its log row -- pinned on the wire by

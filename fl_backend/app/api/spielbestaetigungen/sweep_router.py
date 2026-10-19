@@ -280,7 +280,8 @@ async def sweep_spielbestaetigungen(
 
     The reminder mints a fresh link per seat on each row whose deadline is three or one days away, appended beside the links
     already mailed so every one of them still answers, and stamps the day BEFORE answering: a failed send costs one reminder,
-    never a daily repeat.
+    never a daily repeat. A row whose first request was never stamped as sent is answered in `anfragen` instead, its fresh
+    links a request rather than a reminder of one that may never have arrived, and is stamped through `/angefragt` like any.
 
     A seat whose address the ban list holds is minted nothing and has nothing written, so it stays due and a later pass mints
     it once the ban is lifted; each pass logs how many seats it withheld, never which.
@@ -549,7 +550,7 @@ async def sweep_spielbestaetigungen(
             sum(plan.written for _, plan in taken),
         )
 
-    async def remind(session: AsyncClientSession, batch: Batch) -> list[FLSpielbestaetigungSweepAnfrage]:
+    async def remind(session: AsyncClientSession, batch: Batch) -> list[tuple[FLSpielbestaetigungSweepAnfrage, bool]]:
         """Mint, stamp, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges.
 
         Counts on the batch how many seats on the page a ban kept from their reminder, for the log line.
@@ -619,7 +620,9 @@ async def sweep_spielbestaetigungen(
 
         await stamp_the_run(session)
 
-        return [anfrage for _, (anfrage, _) in taken if anfrage is not None]
+        # Each beside whether its first request was recorded as sent: a reminder of one that may never
+        # have arrived would point at a link nobody holds.
+        return [(anfrage, row.get("angefragt_am") is not None) for row, (anfrage, _) in taken if anfrage is not None]
 
     owed = False
     fehlgeschlagen = 0
@@ -699,7 +702,8 @@ async def sweep_spielbestaetigungen(
             )
             if reminded is not None:
                 fehlgeschlagen += len(reminded[1])
-                erinnerungen = [anfrage for answered in reminded[0] for anfrage in answered]
+                erinnerungen = [anfrage for answered in reminded[0] for anfrage, angefragt in answered if angefragt]
+                anfragen += [anfrage for answered in reminded[0] for anfrage, angefragt in answered if not angefragt]
                 # Every attempt that committed stamped the day; where none did, it is stamped alone.
                 if not reminded[0]:
                     async with transaction_session(db) as session:

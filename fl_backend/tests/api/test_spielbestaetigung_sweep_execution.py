@@ -17,6 +17,7 @@ from app.api.spielbestaetigungen.services import (
 )
 from app.api.spielbestaetigungen.sweep_router import (
     CLOSES_PER_PASS,
+    MINTS_PER_PASS,
     angefragt_spielbestaetigungen,
     get_spiel_sweep_saisons,
     sweep_spielbestaetigungen,
@@ -463,9 +464,11 @@ class TestEveryMailedLinkLivesToTheDeadline:
     def test_three_links_a_seat_each_find_the_row_and_the_seat(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             mailed: dict[str, list[str]] = {seat: [] for seat in KONTAKT_ROLLEN}
-            answers = [
+            answers = [await sweep(database, client)]
+            await angefragt(database, client, [row["_id"] for row in await rows(database)])
+            answers += [
                 await sweep(database, client, today=day)
-                for day in (TODAY, FIRST_REMINDER, days_after(day=FIRST_REMINDER, days=1), SECOND_REMINDER, SECOND_REMINDER)
+                for day in (FIRST_REMINDER, days_after(day=FIRST_REMINDER, days=1), SECOND_REMINDER, SECOND_REMINDER)
             ]
             for answer in answers:
                 for anfrage in [*answer.anfragen, *answer.erinnerungen]:
@@ -491,6 +494,46 @@ class TestEveryMailedLinkLivesToTheDeadline:
         assert resolved == {seat: [seat, seat, seat] for seat in KONTAKT_ROLLEN}
         assert alpha["erinnert_am"] == [FIRST_REMINDER, SECOND_REMINDER]
         assert alpha["frist"] == FRIST
+
+
+class TestAReminderOfARequestNeverStampedIsARequest:
+    """A first request the timer never recorded as sent may never have arrived, so its reminder goes out worded as the request."""
+
+    def test_the_unstamped_side_is_asked_and_the_stamped_one_reminded(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            stored = await rows(database)
+            await angefragt(database, client, [row_of(stored, team_id=ALPHA)["_id"]])
+            answer = await sweep(database, client, today=FIRST_REMINDER)
+            stamped = await angefragt(database, client, [anfrage.spielbestaetigung_id for anfrage in answer.anfragen], today=FIRST_REMINDER)
+            return stored, answer, stamped
+
+        stored, answer, stamped = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, FORTNIGHT, schiedsrichter=None)])
+
+        assert [anfrage.spielbestaetigung_id for anfrage in answer.erinnerungen] == [row_of(stored, team_id=ALPHA)["_id"]]
+        assert [anfrage.spielbestaetigung_id for anfrage in answer.anfragen] == [row_of(stored, team_id=BETA)["_id"]]
+        assert stamped.angefragt == 1
+
+
+class TestAPassListsNoMoreThanOneStampTakes:
+    """The timer stamps a pass's requests in one `/angefragt` call: a list past its bound is refused whole, every row left unstamped."""
+
+    def test_a_window_fuller_than_the_share_is_asked_over_two_passes_each_stamped_whole(self, mongo_replica_set_url: str):
+        spiele = [fixture(ObjectId(f"6890a1b2c3d4e5f6079{position:05d}"), 200 + position, NEXT_WEEK) for position in range(14)]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            listed: list[tuple[int, int]] = []
+            for _ in range(2):
+                answer = await sweep(database, client)
+                ids = [entry.spielbestaetigung_id for entry in [*answer.anfragen, *answer.einteilungen]]
+                listed.append((len(ids), (await angefragt(database, client, ids)).angefragt))
+            return listed
+
+        listed = on_a_league(mongo_replica_set_url, body, spiele=spiele)
+
+        # Whole fixtures of three rows each, so the first pass takes the share's last whole fixture.
+        first = MINTS_PER_PASS - MINTS_PER_PASS % 3
+        assert listed == [(first, first), (42 - first, 42 - first)]
 
 
 class TestABarredSeatIsMintedNothingAndStaysDue:
@@ -635,7 +678,7 @@ async def a_pass_owing_every_message(database: AsyncDatabase, client: AsyncMongo
     """Seeds the pass on `FIRST_REMINDER` to answer every list: a moved fixture's notices and fresh rows, and a reminder."""
 
     await sweep(database, client, today=days_after(day=FIRST_REMINDER, days=-1))
-    await angefragt(database, client, [row["_id"] for row in await rows(database, spiel_id=SPIEL)])
+    await angefragt(database, client, [row["_id"] for row in await rows(database)])
     await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
 
 
@@ -851,9 +894,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             await database[Collection.SPIELE].insert_many([moved, reminded])
-            await sweep(database, client, today=days_after(day=FIRST_REMINDER, days=-1))
-            await angefragt(database, client, [row["_id"] for row in await rows(database, spiel_id=SPIEL)])
-            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
+            await a_pass_owing_every_message(database, client)
             await database[Collection.SPIELBESTAETIGUNGEN].update_one(
                 {"spiel_id": OTHER_SPIEL, "partei.team_id": ALPHA}, {"$set": {"kontakte.trainer": None}}
             )
