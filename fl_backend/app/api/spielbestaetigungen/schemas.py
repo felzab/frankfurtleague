@@ -176,7 +176,10 @@ class FLSpielbestaetigungAnsichtPayload(BaseModel):
 
 
 class FLSpielbestaetigungAnsichtAnsetzung(BaseModel):
-    """The fixture as it stands now, as a page or a message states it: the clubs, the day, the hour, the ground."""
+    """The clubs, the day, the hour and the ground a page or a message states.
+
+    The fixture as it stands, or on a link whose fixture moved since, the Ansetzung the row asked about.
+    """
 
     team1_name: str
     team2_name: str
@@ -192,8 +195,8 @@ class FLSpielbestaetigungAnsichtResponse(BaseAPIResponse):
     seite: FLSpielbestaetigungSeite
     ansetzung: FLSpielbestaetigungAnsichtAnsetzung
     frist: CustomDateString
-    # The OTHER club's proposal on `vorschlag`, this row's own on `abgelehnt`, null otherwise: its date
-    # and hour alone, never that club's reason or which of its seats answered.
+    # The OTHER club's proposal, on `vorschlag` alone and null otherwise: its date and hour alone, never
+    # that club's reason or which of its seats answered.
     vorschlag: FLSpielbestaetigungTermin | None
     # Non-null exactly on `zugesagt` and `abgelehnt`: a role, never a name.
     beantwortet_von: FLSpielbestaetigungVon | None

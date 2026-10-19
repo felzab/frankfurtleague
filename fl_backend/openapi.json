@@ -7868,7 +7868,7 @@
     "/api/v0/spielbestaetigungen/ansicht": {
       "post": {
         "summary": "What one fixture confirmation link opens",
-        "description": "Answer what the page renders for the fixture this token asks a club about, and nobody's name or address (`READ-ANSETZUNG-001`).\n\nThe state, which side the reader's club plays, the fixture as it stands now, the row's deadline, the proposal in\nfront of the reader and which role answered. A POST that reads, so the token travels in a body and never in a\nsecond URL. Refuses only a token no seat of any row holds (`REQ-ANSETZUNG-001`), a guess and a link voided when its\nseat changed hands alike: an answered, closed, moved, decided or expired link is SERVED in that state rather than\nrefused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever the ban\nlist holds the address the seat's links were mailed to. `vorschlag` is the state of an open link while the other\nclub's decline proposes another date for the same Ansetzung, whose date and hour alone are served.",
+        "description": "Answer what the page renders for the fixture this token asks a club about, and nobody's name or address (`READ-ANSETZUNG-001`).\n\nThe state, which side the reader's club plays, the fixture as it stands now (or, where it moved since the link, the\nAnsetzung the link asked about), the row's deadline, the other club's proposal and which role answered. A POST that\nreads, so the token travels in a body and never in a second URL. Refuses only a token no seat of any row holds\n(`REQ-ANSETZUNG-001`), a guess and a link voided when its seat changed hands alike: an answered, closed, moved,\ndecided or expired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The\nstate is `gesperrt`, ahead of every other, wherever the ban list holds the address the seat's links were mailed to.\n`vorschlag` is the state of an open link while the other club's decline proposes another date for the same\nAnsetzung, whose date and hour alone are served.",
         "operationId": "get_spielbestaetigung_ansicht_api_v0_spielbestaetigungen_ansicht_post",
         "requestBody": {
           "content": {
@@ -24185,7 +24185,7 @@
           "spielort"
         ],
         "title": "FLSpielbestaetigungAnsichtAnsetzung",
-        "description": "The fixture as it stands now, as a page or a message states it: the clubs, the day, the hour, the ground."
+        "description": "The clubs, the day, the hour and the ground a page or a message states.\n\nThe fixture as it stands, or on a link whose fixture moved since, the Ansetzung the row asked about."
       },
       "FLSpielbestaetigungAnsichtPayload": {
         "properties": {

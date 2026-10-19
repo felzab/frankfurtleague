@@ -476,21 +476,6 @@ def ansicht_snapshot_of(
     )
 
 
-def ansicht_vorschlag_of(
-    *, spielbestaetigung_raw: Mapping[str, Any], zustand: FLSpielbestaetigungZustand, vorschlag_offen: FLSpielbestaetigungTermin | None
-) -> FLSpielbestaetigungTermin | None:
-    """The proposal in front of the reader: the other club's on `vorschlag`, this row's own on `abgelehnt`."""
-
-    if zustand == "vorschlag":
-        return vorschlag_offen
-
-    antwort = spielbestaetigung_raw.get("antwort")
-    if zustand == "abgelehnt" and isinstance(antwort, Mapping) and isinstance(antwort.get("vorschlag"), Mapping):
-        return FLSpielbestaetigungTermin.model_validate(antwort["vorschlag"])
-
-    return None
-
-
 def halter_of(address: str) -> str:
     """The answering seat's holder, as the person's erasure finds the reasons they typed from any seat.
 

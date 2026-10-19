@@ -267,7 +267,7 @@ class TestWhatALinkOpens:
         }
 
     def test_the_other_clubs_open_decline_is_the_proposal_in_front_of_the_reader(self, mongo_replica_set_url: str):
-        """Its date and hour alone; the declining club's own link reads its answer and the role that gave it."""
+        """Its date and hour alone; the declining club's own link reads its answer and the role that gave it, and no proposal."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ablehnen(database, client, token(TEAM1, "trainer"), ("2027-05-15", "17:00:00"), begruendung="Die Halle ist belegt")
@@ -276,9 +276,9 @@ class TestWhatALinkOpens:
 
         other, own = on_a_fixture(mongo_replica_set_url, body)
 
-        assert (other.zustand, other.vorschlag, other.beantwortet_von) == ("vorschlag", own.vorschlag, None)
-        assert own.zustand == "abgelehnt"
-        assert own.vorschlag is not None and (own.vorschlag.datum, own.vorschlag.uhrzeit) == ("2027-05-15", "17:00:00")
+        assert other.zustand == "vorschlag" and other.beantwortet_von is None
+        assert other.vorschlag is not None and (other.vorschlag.datum, other.vorschlag.uhrzeit) == ("2027-05-15", "17:00:00")
+        assert (own.zustand, own.vorschlag) == ("abgelehnt", None)
         assert own.beantwortet_von is not None and own.beantwortet_von.model_dump() == {"art": "kontakt", "rolle": "trainer"}
 
     def test_a_link_whose_fixture_moved_states_the_ansetzung_it_asked_about_whole(self, mongo_replica_set_url: str):

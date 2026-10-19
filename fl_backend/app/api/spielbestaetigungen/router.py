@@ -20,7 +20,6 @@ from app.api.spielbestaetigungen.services import (
     AnsetzungLage,
     ansicht_ansetzung_of,
     ansicht_snapshot_of,
-    ansicht_vorschlag_of,
     beteiligte_namen,
     build_answerable_filter,
     build_token_filter,
@@ -86,13 +85,14 @@ async def get_spielbestaetigung_ansicht(
     """
     Answer what the page renders for the fixture this token asks a club about, and nobody's name or address (`READ-ANSETZUNG-001`).
 
-    The state, which side the reader's club plays, the fixture as it stands now, the row's deadline, the proposal in
-    front of the reader and which role answered. A POST that reads, so the token travels in a body and never in a
-    second URL. Refuses only a token no seat of any row holds (`REQ-ANSETZUNG-001`), a guess and a link voided when its
-    seat changed hands alike: an answered, closed, moved, decided or expired link is SERVED in that state rather than
-    refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever the ban
-    list holds the address the seat's links were mailed to. `vorschlag` is the state of an open link while the other
-    club's decline proposes another date for the same Ansetzung, whose date and hour alone are served.
+    The state, which side the reader's club plays, the fixture as it stands now (or, where it moved since the link, the
+    Ansetzung the link asked about), the row's deadline, the other club's proposal and which role answered. A POST that
+    reads, so the token travels in a body and never in a second URL. Refuses only a token no seat of any row holds
+    (`REQ-ANSETZUNG-001`), a guess and a link voided when its seat changed hands alike: an answered, closed, moved,
+    decided or expired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The
+    state is `gesperrt`, ahead of every other, wherever the ban list holds the address the seat's links were mailed to.
+    `vorschlag` is the state of an open link while the other club's decline proposes another date for the same
+    Ansetzung, whose date and hour alone are served.
     """
 
     token_hash = hash_token(ansicht_data.token)
@@ -140,7 +140,8 @@ async def get_spielbestaetigung_ansicht(
         seite=seite_of(row),
         ansetzung=ansetzung,
         frist=str(row["frist"]),
-        vorschlag=ansicht_vorschlag_of(spielbestaetigung_raw=row, zustand=zustand, vorschlag_offen=vorschlag_offen),
+        # Never the row's own proposal on `abgelehnt`: the page shows an answered link its answering role alone.
+        vorschlag=vorschlag_offen if zustand == "vorschlag" else None,
         beantwortet_von=antwort["von"] if zustand in ("zugesagt", "abgelehnt") and antwort is not None else None,
     )
 
