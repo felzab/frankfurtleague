@@ -57,6 +57,12 @@ kernel32.QueryInformationJobObject.argtypes = (wintypes.HANDLE, ctypes.c_int, wi
 kernel32.IsProcessInJob.argtypes = (wintypes.HANDLE, wintypes.HANDLE, ctypes.POINTER(wintypes.BOOL))
 kernel32.QueryFullProcessImageNameW.argtypes = (wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR, wintypes.LPDWORD)
 kernel32.TerminateProcess.argtypes = (wintypes.HANDLE, wintypes.UINT)
+kernel32.CreateEventW.restype = wintypes.HANDLE
+kernel32.CreateEventW.argtypes = (wintypes.LPVOID, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR)
+kernel32.SetEvent.argtypes = (wintypes.HANDLE,)
+HANDLER_ROUTINE = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.DWORD)
+CTRL_C_EVENT: Final = 0
+CTRL_BREAK_EVENT: Final = 1
 
 
 class ProcessEntry(ctypes.Structure):
@@ -248,6 +254,27 @@ def launchers_of(ancestors: list[int], gate_pid: int, gate: int) -> dict[int, in
     return handles or None
 
 
+def take_interrupts(interrupted: int) -> object:
+    """Set `interrupted` on a Ctrl-C or Ctrl-Break at the console, and answer the routine that does, to be held.
+
+    A shell whose input is no console ignores the console's interrupt and the natives MSYS starts
+    under it see none, so a gate started that way never stops on one; turned back on here, the
+    interrupt reaches all of them through `wind_down`.
+    """
+
+    def on_console(event: int) -> bool:
+        if event in (CTRL_C_EVENT, CTRL_BREAK_EVENT):
+            kernel32.SetEvent(interrupted)
+            return True
+        return False
+
+    routine = HANDLER_ROUTINE(on_console)
+    # No console attached fails both calls, and there is then no interrupt to take.
+    kernel32.SetConsoleCtrlHandler(None, False)
+    kernel32.SetConsoleCtrlHandler(routine, True)
+    return routine
+
+
 def first_to_end(*processes: int) -> int:
     """Block until one of the processes ends, and answer which."""
     handles = (wintypes.HANDLE * len(processes))(*processes)
@@ -280,10 +307,13 @@ def main() -> int:
     parser.add_argument("--launcher", type=int, action="append", default=[], help="an MSYS ancestor's Windows pid, nearest first")
     given = parser.parse_args()
 
-    # Ctrl-C is the gate's to answer (`scripts/lib/_lib.sh :: on_interrupt`): ending here on it would
-    # end the gate before its closing statement.
+    # Ending here on Ctrl-C would leave the gate's stop to processes that never see one; it is taken
+    # as a stop below instead.
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     signal.signal(signal.SIGBREAK, signal.SIG_IGN)
+    interrupted = kernel32.CreateEventW(None, True, False, None)
+    _checked(interrupted, "CreateEventW")
+    handler = take_interrupts(interrupted)
 
     job = kernel32.CreateJobObjectW(None, None)
     _checked(job, "CreateJobObjectW")
@@ -310,17 +340,20 @@ def main() -> int:
         sys.stdout.buffer.write(f"{ARMED}\t{registry}\n".encode())
         sys.stdout.flush()
 
-        # Ended either way, the gate leaves nothing behind: an interrupt ends it before the builds its
-        # units were waiting on.
-        ended = first_to_end(gate, *launchers)
+        # Ended either way, the gate leaves nothing behind.
+        ended = first_to_end(gate, interrupted, *launchers)
         if ended != gate:
-            print(stopped(launchers[ended], before_running=False), file=sys.stderr, flush=True)
+            # An interrupt's closing statement is the gate's own (`scripts/lib/_lib.sh :: on_interrupt`).
+            if ended != interrupted:
+                print(stopped(launchers[ended], before_running=False), file=sys.stderr, flush=True)
             outlived = wind_down(job, kill, {int(pid) for pid in registry.read_bytes().split()})
             if outlived:
                 print(outlasted(outlived), file=sys.stderr, flush=True)
         _checked(kernel32.TerminateJobObject(job, EXIT_INTERRUPTED), "TerminateJobObject")
     finally:
         registry.unlink(missing_ok=True)
+        # Held to here: a routine collected while registered is a call into freed memory.
+        del handler
     return EXIT_OK
 
 

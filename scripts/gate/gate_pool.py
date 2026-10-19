@@ -191,10 +191,12 @@ def terminate(pool: Pool) -> None:
     for child in children:
         # Gone between the snapshot and here is the ordinary case, not a fault.
         with contextlib.suppress(OSError):
-            if sys.platform == "win32":
-                child.terminate()
-            else:
+            if sys.platform != "win32":
                 os.killpg(child.pid, signal.SIGTERM)
+            # A watched Windows gate's own stop signals each unit and waits on its trap
+            # (`scripts/gate/gate_watch.py :: wind_down`), where this would end the unit beneath it.
+            elif not os.environ.get(POOLS):
+                child.terminate()
 
 
 def watch_caller(pool: Pool, caller: int, stop: threading.Event) -> None:

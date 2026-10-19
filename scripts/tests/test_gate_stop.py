@@ -175,6 +175,68 @@ def _said(reader: threading.Thread, output: list[bytes]) -> str:
     return output[0].decode("utf-8", "replace") if output else "(the gate is still running; its output is unread)"
 
 
+# A terminal's Ctrl-C on Windows: the gate started in a console of its own, typed into, and the
+# console's interrupt sent from inside it once the tools run. Its exit status is the gate's.
+CONSOLE: Final = 0x0000_0010
+CONSOLE_INTERRUPT: Final = """import ctypes, signal, subprocess, sys, time
+from pathlib import Path
+kernel32 = ctypes.WinDLL("kernel32")
+kernel32.SetConsoleCtrlHandler(None, False)
+started, tools, log, *gate = sys.argv[1:]
+with open(log, "wb") as out:
+    child = subprocess.Popen(gate, stdout=out, stderr=subprocess.STDOUT)
+    while len(list(Path(started).iterdir())) < int(tools) and child.poll() is None:
+        time.sleep(0.1)
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    kernel32.SetConsoleCtrlHandler(None, True)
+    kernel32.GenerateConsoleCtrlEvent(0, 0)
+    raise SystemExit(child.wait())
+"""
+INTERRUPTED: Final = 130
+
+
+def _interrupted(gate: tuple[str, ...], env: dict[str, str], started: Path, log: Path) -> subprocess.Popen[bytes]:
+    """The gate, interrupted as its platform's terminal interrupts a run once every tool has started."""
+    if WINDOWS:
+        command = (sys.executable, "-c", CONSOLE_INTERRUPT, str(started), str(TOOLS), str(log), *gate)
+        return subprocess.Popen(command, env=env, creationflags=CONSOLE)
+    with log.open("wb") as out:
+        run = subprocess.Popen(gate, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, env=env, start_new_session=True)
+    deadline = time.monotonic() + STARTED_BOUND_S
+    while len(list(started.iterdir())) < TOOLS and run.poll() is None and time.monotonic() < deadline:
+        time.sleep(0.1)
+    # The foreground group a terminal's Ctrl-C reaches, a negative pid naming the group it leads.
+    os.kill(-run.pid, signal.SIGINT)
+    return run
+
+
+def test_an_interrupt_ends_every_tool_and_leaves_nothing_behind() -> None:
+    """Ctrl-C at the terminal: on Windows the console's interrupt reaches no shell without a console of its own and no tool MSYS starts."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    root, env, started, scratch = _tree(STUB_PNPM, STUB_PYTHON.format(interpreter=Path(sys.executable).as_posix()))
+    log = started.parent / "gate.log"
+    run = _interrupted((BASH, (root / "scripts" / "gate" / "verify.sh").as_posix(), *FLAGS), env, started, log)
+    try:
+        try:
+            status = run.wait(STARTED_BOUND_S + STOPPED_BOUND_S)
+        except subprocess.TimeoutExpired:
+            raise AssertionError("the interrupted gate was still running") from None
+        said = log.read_bytes().decode("utf-8", "replace")
+        assert len(list(started.iterdir())) == TOOLS, f"not every tool started:\n{said}"
+        survivors = _still_beating(list(started.iterdir()))
+        assert not survivors, f"the interrupted gate left its tools running: {[beat.name for beat in survivors]}"
+        assert status == INTERRUPTED, f"the interrupted gate exited {status}, not as an interrupt:\n{said}"
+        left = sorted(path.name for path in scratch.iterdir())
+        assert not left, f"the interrupted gate's traps left what they make behind: {left}\n{said}"
+    finally:
+        for beat in started.iterdir():
+            with contextlib.suppress(OSError):
+                os.kill(int(beat.name), signal.SIGTERM)
+        with contextlib.suppress(OSError):
+            run.kill()
+        run.wait()
+
+
 # `scripts/gate/verify.sh :: join_the_job` with no interpreter to watch by, under each `$OSTYPE` it
 # can be handed: bash sets the variable at start, and a fixture assigns it after.
 UNWATCHED_FIXTURE: Final = """set -euo pipefail

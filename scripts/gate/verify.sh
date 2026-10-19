@@ -67,6 +67,7 @@ fi
 # `scripts/gate/gate_watch.py` ends with the gate or anything that started it. Unwatched, the run
 # still reaches its verdict, and says which guarantee it lacks.
 UNWATCHED=""
+POOLS_REGISTRY=""
 join_the_job() {
   local python said="" registry="" fd ancestor="$PPID"
   local -a watched
@@ -90,6 +91,9 @@ join_the_job() {
   if [[ "$said" != armed ]]; then UNWATCHED="scripts/gate/gate_watch.py did not arm, its own words above"; return 0; fi
   # Inherited by every pool this run starts, at any depth (`scripts/gate/gate_pool.py :: POOLS`).
   export FL_GATE_POOLS="$registry"
+  # Not exported, so only this process reclaims it: the watcher does too, but a closed console ends
+  # the watcher beside the gate's own trap.
+  POOLS_REGISTRY="$registry"
 }
 # Before anything starts a process, which would start outside the job; at the top level alone, whose
 # workers and steps are inside it.
@@ -157,6 +161,7 @@ gate_exit() {
   # skipping the reclaims after it and reporting the trap's own failure over a body that exited 0.
   cleanup || true
   if [[ -n "$DB_RUN_MARKER" ]]; then rm -rf "$DB_RUN_MARKER" || true; fi
+  if [[ -n "${POOLS_REGISTRY:-}" ]]; then rm -f -- "$POOLS_REGISTRY" || true; fi
   if (( ${#POOL_DIRS[@]} )); then
     # A crash keeps them, named: each unit's own output and the status the pool recorded are all
     # that can say which process ended it, and nothing past this exit reads them otherwise.

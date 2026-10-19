@@ -881,7 +881,9 @@ included, or once whatever started the gate does. That stop is a POSIX group's: 
 SIGTERM and runs its trap, each pool outlives its units, and only what is still running after
 `scripts/gate/gate_watch.py :: GRACE_S` is ended outright, the gate saying so
 (`scripts/tests/test_gate_stop.py :: test_stopping_the_gate_ends_every_tool_it_started`, which also
-finds nothing the traps reclaim left behind).
+finds nothing the traps reclaim left behind). A console's Ctrl-C is the same stop: the watcher takes it,
+a shell with no console of its own never seeing one, and the gate exits as an interrupt
+(`:: test_an_interrupt_ends_every_tool_and_leaves_nothing_behind`).
 
 **`next typegen` goes first and alone** because it writes the route types under
 `fl_frontend/.next/types/` and `fl_frontend/next-env.d.ts` that `tsc` reads: without them a
