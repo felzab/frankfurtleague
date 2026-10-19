@@ -504,7 +504,8 @@ describe("buildSpielBanners", () => {
       ["a fixture of a season not yet running", { isActiveSaison: false }],
       ["a fixture with no kick-off", { ansetzung: { ...nah.ansetzung, uhrzeit: null } }],
       ["a fixture with no ground", { ansetzung: { ...nah.ansetzung, spielortId: null } }],
-      ["a fixture with an empty side", { ansetzung: { ...nah.ansetzung, team2Id: null } }],
+      ["a fixture with no first side", { ansetzung: { ...nah.ansetzung, team1Id: null } }],
+      ["a fixture with no second side", { ansetzung: { ...nah.ansetzung, team2Id: null } }],
     ] as const) {
       assert.ok(!sofort({ ...nah, ...overrides }), `raised for ${was}`);
     }
