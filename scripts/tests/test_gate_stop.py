@@ -64,9 +64,12 @@ STOPPED_BOUND_S: Final = 60
 WATCH: Final = VERIFY.parent / "gate_watch.py"
 
 # A shell as a harness runs a command, `:` keeping bash from replacing itself with the gate; one
-# running it through a script, which outlives the shell a stop ends; and a native process, leaving
-# MSYS no parent to name.
-LAUNCHERS: Final = ("a shell", "a shell through a script", "a native process")
+# running it through a script, which outlives the shell a stop ends; a native process, leaving
+# MSYS no parent to name; and one running Git's own launcher, which waits on the gate's shell when
+# only what ran it is ended, as a harness starts Git Bash.
+LAUNCHERS: Final = ("a shell", "a shell through a script", "a native process") + (
+    ("a native process through Git's launcher",) if WINDOWS else ()
+)
 WRAPPER: Final = """#!/usr/bin/env bash
 "$@"
 :
@@ -81,6 +84,8 @@ def _launch(kind: str, verify: Path, env: dict[str, str], wrapper: Path) -> subp
         "a shell": (BASH, "-c", '"$0" "$@"; :', *gate),
         "a shell through a script": (BASH, "-c", '"$BASH" "$0" "$@"; :', wrapper.as_posix(), *gate),
         "a native process": (sys.executable, "-c", NATIVE, BASH, *gate),
+        # Git's `bin\bash.exe`, two levels above the `usr\bin\bash.exe` a case runs.
+        "a native process through Git's launcher": (sys.executable, "-c", NATIVE, str(Path(BASH).parents[2] / "bin" / "bash.exe"), *gate),
     }
     return subprocess.Popen(
         commands[kind], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env, start_new_session=True
@@ -307,3 +312,40 @@ def test_an_unwatched_run_says_so_where_a_watcher_was_owed() -> None:
     done = run_shell(BASH, root / "scripts" / "gate" / "verify.sh", "--format", env=env)
     assert done.returncode == 0, done.stdout + done.stderr
     assert (UNWATCHED_NOTICE in done.stdout) is WINDOWS, done.stdout
+
+
+# `scripts/gate/gate_watch.py :: _watched` over real processes, in an interpreter of its own: the
+# module refuses to load off Windows.
+WATCHED: Final = """import os, subprocess, sys
+sys.path.insert(0, sys.argv[1])
+import gate_watch as watch
+me = watch.kernel32.GetCurrentProcess()
+later = subprocess.Popen((sys.executable, "-c", "import time; time.sleep(60)"))
+try:
+    # Created after the process it is asked about, as a pid reused since would be: never its launcher.
+    assert watch._watched(later.pid, me) is None, "a process created later was read as this one's launcher"
+    assert watch._watched(os.getppid(), me) is not None, "the process that started this one was not watched"
+finally:
+    later.kill()
+    later.wait()
+# Held by its Popen, an ended process still opens, and reads as ended.
+assert watch._watched(later.pid, me) is None, "an ended launcher was watched"
+try:
+    # The System process, which no account of a developer's opens.
+    watch._watched(4, me)
+except OSError:
+    pass
+else:
+    raise SystemExit("a process this account cannot open was read as one that had ended")
+"""
+REFUSED: Final = 2
+
+
+def test_the_watcher_tells_an_ended_launcher_from_one_it_cannot_see_or_one_a_reused_pid_names() -> None:
+    """Read as ended, a launcher the account cannot open stopped the gate before it ran, naming a launcher that never ended."""
+    if WINDOWS:
+        done = subprocess.run((sys.executable, "-c", WATCHED, str(WATCH.parent)), capture_output=True, text=True, check=False)
+        assert done.returncode == 0, done.stdout + done.stderr
+    else:
+        done = subprocess.run((sys.executable, str(WATCH), "--gate", "1"), capture_output=True, text=True, check=False)
+        assert done.returncode == REFUSED and "a POSIX gate is stopped by a signal" in done.stderr, done.stdout + done.stderr

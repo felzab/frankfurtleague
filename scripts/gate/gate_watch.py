@@ -99,6 +99,7 @@ WAIT_OBJECT_0: Final = 0
 INFINITE: Final = 0xFFFF_FFFF
 JOB_OBJECT_BASIC_PROCESS_ID_LIST: Final = 3
 ERROR_MORE_DATA: Final = 234
+ERROR_INVALID_PARAMETER: Final = 87
 MAX_IMAGE_PATH: Final = 32_768
 
 # What every MSYS program loads from its own directory: a process whose image sits beside it takes a
@@ -220,37 +221,50 @@ def wind_down(job: int, kill: Path, pools: set[int]) -> int:
             kernel32.CloseHandle(handle)
 
 
-def _watched(pid: int, gate: int) -> int | None:
-    """A handle on `pid` where it is still the process running before the gate, else None.
+def _watched(pid: int, child: int) -> int | None:
+    """A handle on `pid` where it is still the process that started `child`, else None.
 
-    A pid names whoever holds it now: one created after the gate did not start it, and a signalled
-    one has ended.
+    A pid names whoever holds it now: one created after `child` did not start it, and a signalled
+    one has ended. Any other failure to open it raises, the run then saying it is unwatched, where
+    None would read a process this account cannot open as one that has ended.
     """
     handle = kernel32.OpenProcess(LAUNCHER_ACCESS, False, pid)
     if not handle:
-        return None
-    if _created(handle) > _created(gate) or kernel32.WaitForSingleObject(handle, 0) == WAIT_OBJECT_0:
+        if ctypes.get_last_error() == ERROR_INVALID_PARAMETER:
+            return None
+        raise ctypes.WinError(ctypes.get_last_error(), f"OpenProcess on what started the gate (Windows pid {pid}) failed")
+    if _created(handle) > _created(child) or kernel32.WaitForSingleObject(handle, 0) == WAIT_OBJECT_0:
         kernel32.CloseHandle(handle)
         return None
     return handle
+
+
+def _git_launcher(process: int) -> bool:
+    """Whether `process` is a Git for Windows launcher, its `bin\\bash.exe` among them, which only starts MSYS's own and waits."""
+    return (image_of(process).parent.parent / "usr" / "bin" / MSYS_RUNTIME).is_file()
 
 
 def launchers_of(ancestors: list[int], gate_pid: int, gate: int) -> dict[int, int] | None:
     """Handles on what started the gate, keyed to their pids, or None where one has ended.
 
     Every MSYS ancestor, a stop ending the outermost shell while a wrapper script outlives it; and
-    the topmost's Windows parent, a native launcher.
+    the topmost's Windows parent, a native launcher, read through any Git launcher between them,
+    which a stop ending the process that ran it leaves waiting on the gate.
     """
     handles: dict[int, int] = {}
+    child, child_pid = gate, gate_pid
     for pid in ancestors:
         handle = _watched(pid, gate)
         if handle is None:
             return None
         handles[handle] = pid
-    above = _windows_parents().get(ancestors[-1] if ancestors else gate_pid)
-    handle = None if above is None else _watched(above, gate)
-    if handle is not None and above is not None:
+        child, child_pid = handle, pid
+    parents = _windows_parents()
+    while (above := parents.get(child_pid)) is not None and (handle := _watched(above, child)) is not None:
         handles[handle] = above
+        if not _git_launcher(handle):
+            break
+        child, child_pid = handle, above
     return handles or None
 
 
