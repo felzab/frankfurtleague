@@ -1746,7 +1746,7 @@ def _anfrage_case(anders: dict[str, Any]) -> tuple[dict[str, Any], dict[Any, str
         match key:
             case "tage":
                 spiel["datum"] = None if value is None else days_after(day=ANFRAGE_TODAY, days=value)
-            case "uhrzeit" | "sonderereignis" | "team1" | "team2":
+            case "uhrzeit" | "sonderereignis" | "team1" | "team2" | "elfmeterschiessen":
                 spiel[key] = value
             case "spielort":
                 spiel["ort"] = value

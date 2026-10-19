@@ -309,6 +309,7 @@ export function AdminEditSpielDataForm({
     sonderereignis,
     dependentSpielNummern: dependentSpiele.map((spiel) => spiel.spiel_nr),
     hasAnyTore,
+    hasShootOut: elfmeterschiessenInDraft !== null,
     hasDecidedErgebnis,
     dropsShootOut,
     voidedSpielNummern: voidPreview.preview?.voided ?? [],

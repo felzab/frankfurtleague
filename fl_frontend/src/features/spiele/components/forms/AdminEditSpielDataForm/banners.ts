@@ -147,11 +147,19 @@ function wirdAngefragt(
     isActiveSaison,
     sonderereignis,
     hasAnyTore,
+    hasShootOut,
     austrittTage,
     today,
-  }: { isActiveSaison: boolean; sonderereignis: FLSonderereignis | null; hasAnyTore: boolean; austrittTage: readonly string[]; today: string },
+  }: {
+    isActiveSaison: boolean;
+    sonderereignis: FLSonderereignis | null;
+    hasAnyTore: boolean;
+    hasShootOut: boolean;
+    austrittTage: readonly string[];
+    today: string;
+  },
 ): boolean {
-  if (!isActiveSaison || sonderereignis !== null || hasAnyTore) return false;
+  if (!isActiveSaison || sonderereignis !== null || hasAnyTore || hasShootOut) return false;
   if (ansetzung.uhrzeit === null || ansetzung.spielortId === null || ansetzung.team1Id === null || ansetzung.team2Id === null) return false;
   // On the fixture's day itself, as the pass closes it: a club gone by then is asked nothing.
   const { datum } = ansetzung;
@@ -173,6 +181,7 @@ export function buildSpielBanners({
   sonderereignis,
   dependentSpielNummern,
   hasAnyTore,
+  hasShootOut,
   hasDecidedErgebnis,
   dropsShootOut,
   voidedSpielNummern,
@@ -205,6 +214,8 @@ export function buildSpielBanners({
   dependentSpielNummern: readonly number[];
   /** Any goal count typed at all — `REQ-STATE-002`'s subject, which is not the decided-result one. */
   hasAnyTore: boolean;
+  /** A shoot-out the save stores, which the pass reads as a played fixture however it got there. */
+  hasShootOut: boolean;
   hasDecidedErgebnis: boolean;
   /** An entered shoot-out this save discards. Work of the admin's, so it is named rather than dropped. */
   dropsShootOut: boolean;
@@ -417,7 +428,7 @@ export function buildSpielBanners({
   if (
     isSpielSweepOn &&
     ansetzungGeaendert(ansetzung, storedAnsetzung) &&
-    wirdAngefragt(ansetzung, { isActiveSaison, sonderereignis, hasAnyTore, austrittTage, today })
+    wirdAngefragt(ansetzung, { isActiveSaison, sonderereignis, hasAnyTore, hasShootOut, austrittTage, today })
   ) {
     banners.push({
       id: "spiel.bestaetigung-sofort",
