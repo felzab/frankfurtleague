@@ -2,6 +2,7 @@ import { buildBewerbungBestaetigungEmail, buildBewerbungEingangOffenEmail } from
 import { frontend_config } from "@/core/config";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
+import { runAnsweringOwnCut } from "@/core/requestScope";
 import { turnstileRefusal } from "@/core/turnstile";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken";
 import { BEWERBUNG_SEATS } from "@/features/bewerbungen/constants";
@@ -81,11 +82,12 @@ export async function POST(request: NextRequest) {
       // production must not mail production links (`docs/frontend/spec.md :: I186`).
       const origin = frontend_config.AUTH_URL;
 
-      // Read rather than taken from the payload, which names a picked club by id alone. Empty on a
-      // failed read: a message naming no school still beats no message at all.
+      // Read rather than taken from the payload, which names a picked club by id alone. A failed or cut
+      // read names no school, which beats no message: the application is stored, so the cut leaves no
+      // outcome unknown.
       const schule =
         parsed.data.schule?.team_name ??
-        (await getBewerbungSchulen()
+        (await runAnsweringOwnCut(() => getBewerbungSchulen())
           .then(({ schulen }) => schulen.find((option) => option.id === parsed.data.team_id)?.name ?? "")
           .catch(() => ""));
 
