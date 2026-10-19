@@ -11,6 +11,7 @@ from app.api.bewerbungen.services import days_after
 from app.api.registrierungen.services import build_erinnerung_filter
 from app.api.registrierungen.services import compose_bestaetigung as compose_registrierung_bestaetigung
 from app.api.schiedsrichter.services import compose_adresswechsel, compose_bestaetigung
+from app.api.spielbestaetigungen.services import compose_seat_entry
 from app.api.spieler.services import compose_spieler_adresswechsel
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.api.zustellung.router import abgewiesen_zustellung, angenommen_zustellung, post_zustellung
@@ -33,6 +34,7 @@ DATABASE_NAME = worker_database("fl_zustellung_test")
 
 ZIEL_OID = ObjectId("6890a1b2c3d4e5f607970001")
 ABSENT_OID = ObjectId("6890a1b2c3d4e5f607979999")
+SPIEL_OID = ObjectId("6890a1b2c3d4e5f607970005")
 
 FIRST_MESSAGE = "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"
 SECOND_MESSAGE = "7c1f2b5e-3d44-4a91-9f0b-1e2d3c4b5a60"
@@ -93,6 +95,28 @@ ZIEL_FIXTURES: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
     },
     # A pupil whose address an administrator asked to move, the link's carrier beside the stored address.
     "spieler_adresswechsel": spieler_document(ZIEL_OID, "Thessaly", "Okonkwo-Brandt", email="thessaly@example.invalid"),
+    # One team's open request about one fixture. Its seat block is a required key, so a row nothing was
+    # mailed about holds every seat empty rather than no block.
+    "spielbestaetigung": {
+        "_id": ZIEL_OID,
+        "saison_id": "2026",
+        "spiel_id": SPIEL_OID,
+        "partei": {"art": "team", "team_id": ObjectId("6890a1b2c3d4e5f607970002")},
+        "ansetzung": {
+            "datum": "2026-04-12",
+            "uhrzeit": "18:00:00",
+            "spielort_id": None,
+            "team1_id": ObjectId("6890a1b2c3d4e5f607970002"),
+            "team2_id": ObjectId("6890a1b2c3d4e5f607970004"),
+            "stand": "d" * 64,
+        },
+        "frist": "2026-04-05",
+        "angefragt_am": "2026-03-28",
+        "erinnert_am": [],
+        "kontakte": {"trainer": None, "ansprechperson": None, "stellvertretung": None},
+        "antwort": None,
+        "geschlossen": None,
+    },
 }
 
 ZIELE = sorted(ZIEL_PFADE)
@@ -112,6 +136,7 @@ CARRIER_SEEDS: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
     "kontakt": compose_kontakt_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
     "schiedsrichter_adresswechsel": compose_adresswechsel(email="quillon@example.com", token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
     "spieler_adresswechsel": compose_spieler_adresswechsel(email="okonkwo@example.com", token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
+    "spielbestaetigung": compose_seat_entry(token_hash=SEEDED_TOKEN_HASH),
 }
 
 # The seats each kind's report names: the Trainer's for a seat kind, none for every other.
@@ -124,7 +149,8 @@ TRAEGER: Mapping[FLZustellungZiel, str] = {ziel: traeger_pfade(ziel, ROLLEN[ziel
 def target(ziel: FLZustellungZiel, *, carrier: bool = True) -> dict[str, Any]:
     """One row of that kind's own collection, carrying the confirmation bookkeeping a message is sent about.
 
-    `carrier=False` seeds the key nowhere at all, which is a record nothing was ever mailed about.
+    `carrier=False` seeds no carrier, which is a record nothing was ever mailed about: the key absent, or every seat empty where
+    the validator requires the block.
     """
 
     row = dict(ZIEL_FIXTURES[ziel])

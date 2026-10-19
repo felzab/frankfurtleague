@@ -15,7 +15,7 @@ import { CustomObjectIdStringSchema, einzeiligerName, FLBewerbungZustellstandSch
  * rather than dispatched to nothing.
  */
 export const FLZustellungZielSchema = z.enum(
-  ["schiedsrichter", "einladung", "registrierung", "kontakt", "schiedsrichter_adresswechsel", "spieler_adresswechsel"],
+  ["schiedsrichter", "einladung", "registrierung", "kontakt", "schiedsrichter_adresswechsel", "spieler_adresswechsel", "spielbestaetigung"],
   {
     error: "Diesen Empfängertyp gibt es nicht.",
   },
@@ -27,7 +27,7 @@ export type FLZustellungZiel = z.infer<typeof FLZustellungZielSchema>;
  * under each contact seat, so their reports name the seats one message reached and every other kind's
  * name none. One list on one line, which `fl_backend/tests/shared/test_frontend_mirrors.py` reads.
  */
-export const ZIELE_JE_SITZ = ["kontakt"] as const satisfies readonly FLZustellungZiel[];
+export const ZIELE_JE_SITZ = ["kontakt", "spielbestaetigung"] as const satisfies readonly FLZustellungZiel[];
 export type FLZielJeSitz = (typeof ZIELE_JE_SITZ)[number];
 
 /** Whether a kind's reports name the seats they reached. */
@@ -52,8 +52,8 @@ const zielMeldungFields = {
     // log rather than a box. `fl_frontend/src/core/schemaGerman.test.ts` holds every payload to it.
     .min(1, { error: "Diese Meldung nennt keinen Zeitpunkt." })
     .max(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH, { error: "Dieser Zeitpunkt ist zu lang." }),
-  // Required on every kind and empty on all but `kontakt`, whose one row holds three seats: the
-  // message names which of them it covered, and a seat it did not name keeps its own record.
+  // Required on every kind and empty on all but a `ZIELE_JE_SITZ` kind, whose one row holds three seats:
+  // the message names which of them it covered, and a seat it did not name keeps its own record.
   rollen: z.array(FLKontaktRolleSchema),
 };
 
