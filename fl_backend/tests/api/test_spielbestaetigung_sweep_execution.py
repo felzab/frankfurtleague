@@ -324,6 +324,38 @@ class TestTheSweepAsksAboutNothingItCannotHelp:
         assert len(answers) == 2
         assert asked == [(SAISON_ID, str(SPIEL))]
 
+    def test_a_season_not_running_is_neither_closed_nor_reminded_nor_stamped(self, mongo_replica_set_url: str):
+        """A mailed row due a reminder today, and one whose fixture moved: each step would answer one were the mint alone gated."""
+
+        spiel = fixture(PAST_SPIEL, 1, days_after(day=TODAY, days=10), saison_id=PAST_SAISON_ID)
+        mailed = [
+            {
+                **compose_spielbestaetigung(
+                    row_id=ObjectId(),
+                    saison_id=PAST_SAISON_ID,
+                    spiel=asked_about,
+                    partei={"art": "team", "team_id": team_id},
+                    hashes={seat: hash_token(f"{team_id}-{seat}") for seat in KONTAKT_ROLLEN},
+                    today=TODAY,
+                ),
+                "angefragt_am": TODAY,
+            }
+            for team_id, asked_about in ((ALPHA, spiel), (BETA, {**spiel, "uhrzeit": "17:00:00"}))
+        ]
+        junctions = [junction(team_id, saison_id=PAST_SAISON_ID) for team_id in (ALPHA, BETA)]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(mailed)
+            answer = await sweep(database, client, saison_id=PAST_SAISON_ID)
+            season = await database[Collection.SAISONS].find_one({"_id": PAST_SAISON_ID})
+
+            return answer, await rows(database), (season or {}).get("spiel_sweep_gelaufen_am")
+
+        answer, stored, stamped = on_a_league(mongo_replica_set_url, body, spiele=[spiel], junctions=junctions)
+
+        assert (answer.anfragen, answer.erinnerungen, answer.einteilungen, answer.neue_ansetzungen, answer.geschlossen) == ([], [], [], [], 0)
+        assert (stored, stamped) == (mailed, None)
+
     def test_the_same_pass_twice_mints_once(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await sweep(database, client)

@@ -265,15 +265,15 @@ async def sweep_spielbestaetigungen(
     to an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none. A team row closed for
     a move whose first request went out is answered in `neue_ansetzungen`, a referee's in `schiedsrichter_neue_ansetzungen`.
 
-    The mint asks, for an `active` season alone, about every fixture dated strictly after today and at most the answer window
-    ahead that has its time and ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one
-    row per side and one for its booked referee, unless a row about that party and that Ansetzung is still unclosed. A fixture
-    booked onto the erased referee's ghost gets no referee row, the ghost holding no address. The deadline is seven days
-    before the fixture, or today where that has passed. Each seat holding an address gets one link, a person holding two
-    seats one link naming both, and the raw tokens are answered in `anfragen` UNSTAMPED: the caller stamps what it mailed
-    through `/angefragt`, so a request that never went out shows as never asked. An open row's occupied seat holding no link
-    -- its holder replaced, newly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows
-    are answered in `einteilungen`, with the referee's address and no token.
+    The mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and
+    ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for
+    its booked referee, unless a row about that party and that Ansetzung is still unclosed. A fixture booked onto the erased
+    referee's ghost gets no referee row, the ghost holding no address. The deadline is seven days before the fixture, or
+    today where that has passed. Each seat holding an address gets one link, a person holding two seats one link naming
+    both, and the raw tokens are answered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so
+    a request that never went out shows as never asked. An open row's occupied seat holding no link -- its holder replaced,
+    newly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows are answered in
+    `einteilungen`, with the referee's address and no token.
 
     The reminder mints a fresh link per seat on each row whose deadline is three or one days away, appended beside the links
     already mailed so every one of them still answers, and stamps the day BEFORE answering: a failed send costs one reminder,
@@ -286,12 +286,27 @@ async def sweep_spielbestaetigungen(
     Each step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has
     committed something owed a message, a later step's failure is logged and the call answers what committed. A row whose
     write or answer fails is passed over alone, logged by id and counted in `fehlgeschlagen`. The pass's day is stamped on
-    this season. 404 where no season has the id.
+    this season.
+
+    A season that is not `active` is passed by whole -- nothing closed, minted, reminded or stamped, every list empty -- so a
+    mistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"])
-    # The mint's own gate as well as the listing's: a mistyped call for another season mails nobody.
-    asks = saison_raw.get("status") == "active"
+    # Every step's gate as well as the listing's, answered rather than refused: a mistyped call, or a season ended
+    # between the listing and this call, mails nobody and writes nothing.
+    if saison_raw.get("status") != "active":
+        return FLSpielbestaetigungSweepResponse(
+            saison_id=saison_id,
+            anfragen=[],
+            erinnerungen=[],
+            einteilungen=[],
+            neue_ansetzungen=[],
+            schiedsrichter_neue_ansetzungen=[],
+            geschlossen=0,
+            fehlgeschlagen=0,
+        )
+
     # Outside the transactions, whose callbacks may run again, as the application sweep reads it.
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
@@ -667,30 +682,27 @@ async def sweep_spielbestaetigungen(
     anfragen: list[FLSpielbestaetigungSweepAnfrage] = []
     einteilungen: list[FLSpielbestaetigungSweepEinteilung] = []
     mint_share = Batch(share=MINTS_PER_PASS)
-    stopped = False
-    if asks:
-        minted = await after_what_is_owed(
-            lambda: run_isolated(
-                db=db,
-                batch=mint_share,
-                attempt=lambda session, batch: session.with_transaction(mint, batch),
-                moved=lambda answered: answered[2],
-                owes=True,
-                what=WHAT,
-                clock="mint",
-            ),
+    minted = await after_what_is_owed(
+        lambda: run_isolated(
+            db=db,
+            batch=mint_share,
+            attempt=lambda session, batch: session.with_transaction(mint, batch),
+            moved=lambda answered: answered[2],
+            owes=True,
+            what=WHAT,
             clock="mint",
-        )
-        stopped = minted is None
-        if minted is not None:
-            fehlgeschlagen += len(minted[1])
-            anfragen = [anfrage for answered in minted[0] for anfrage in answered[0]]
-            einteilungen = [einteilung for answered in minted[0] for einteilung in answered[1]]
-            owed = owed or bool(anfragen or einteilungen)
+        ),
+        clock="mint",
+    )
+    if minted is not None:
+        fehlgeschlagen += len(minted[1])
+        anfragen = [anfrage for answered in minted[0] for anfrage in answered[0]]
+        einteilungen = [einteilung for answered in minted[0] for einteilung in answered[1]]
+        owed = owed or bool(anfragen or einteilungen)
 
     erinnerungen: list[FLSpielbestaetigungSweepAnfrage] = []
     reminder_share = Batch(share=REMINDERS_PER_PASS)
-    if not stopped:
+    if minted is not None:
         # The run's day is a season write, which the cache serves.
         with dropping_the_saison_cache():
             reminded = await after_what_is_owed(
