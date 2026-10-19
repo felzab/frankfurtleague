@@ -2,7 +2,7 @@ import logging
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -37,18 +37,21 @@ from app.api.spielbestaetigungen.sweep_router import (
 )
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.schemas import FLPatchSpielDataPayload
-from app.api.teams.admin_router import replace_saison_team
-from app.api.teams.schemas import KONTAKT_ROLLEN, FLReplaceSaisonTeamPayload
+from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
+from app.api.teams.schemas import KONTAKT_ROLLEN, FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
 from app.core.collections import Collection
 from app.core.exception_handlers import DATABASE_FAILED, UNKNOWN_OUTCOME
 from app.core.exceptions import WriteRefusalException
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
+from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.api import test_spielbestaetigung_sweep_refusal as budget
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, kontaktperson_document
+from tests.isolation import InterleavedCollection
 from tests.payloads import spiel_patch_body
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
@@ -640,6 +643,110 @@ class TestAReplacedClubsRowsClose:
             (closed["_id"], "Gamma", "Beta")
         ]
         assert [(notice.team1_name, notice.address) for notice in second.schiedsrichter_neue_ansetzungen] == [("Gamma", REFEREE_EMAIL)]
+
+
+class _ThenTheRival:
+    """A cursor running the rival once its rows have arrived; `sort` and `limit` chain as the driver's do."""
+
+    def __init__(self, cursor: Any, rival: Callable[[], Awaitable[None]]) -> None:
+        self._cursor = cursor
+        self._rival = rival
+
+    def sort(self, *args: Any, **kwargs: Any) -> _ThenTheRival:
+        self._cursor = self._cursor.sort(*args, **kwargs)
+        return self
+
+    def limit(self, *args: Any, **kwargs: Any) -> _ThenTheRival:
+        self._cursor = self._cursor.limit(*args, **kwargs)
+        return self
+
+    async def to_list(self, *args: Any, **kwargs: Any) -> list[Any]:
+        rows = await self._cursor.to_list(*args, **kwargs)
+        await self._rival()
+
+        return rows
+
+
+class HandedOnAfterTheMintRead(InterleavedCollection):
+    """The season rows, a seat handed on once the mint's own transaction has read the holders it mints links for."""
+
+    def find(self, *args: Any, **kwargs: Any) -> Any:
+        cursor = self._collection.find(*args, **kwargs)
+        if kwargs.get("session") is None:
+            return cursor
+
+        return _ThenTheRival(cursor, self.run_the_rival)
+
+
+def a_payload_person(vorname: str, nachname: str, telefon: str) -> dict[str, Any]:
+    """One person as the contacts editor sends them."""
+
+    return {
+        "vorname": vorname,
+        "nachname": nachname,
+        "email": f"{vorname.lower()}@example.com",
+        "telefon": telefon,
+        "einwilligung": {"umfang": "kontaktdaten", "text_version": LAUFENDE_FASSUNGEN["bewerbung"], "datum": "2026-03-01"},
+    }
+
+
+class TestASeatHandedOnBesideTheMintIsMintedForItsNewHolder:
+    """`docs/backend/spec.md :: I770`: the handover voids the open rows it sees, and the mint's rows are not yet among them."""
+
+    def test_the_new_trainer_is_asked_and_the_old_one_holds_no_link(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def hand_the_trainer_on() -> None:
+                stored = await database[Collection.SAISON_TEAMS].find_one({"saison_id": SAISON_ID, "team_id": ALPHA})
+                assert stored is not None
+                kept = {
+                    seat: a_payload_person(vorname, f"{vorname}-Mustermann", f"+491701000000{position}")
+                    for position, (seat, vorname) in enumerate(SEATS[ALPHA].items())
+                }
+                await patch_saison_team_kontakte(
+                    team_id=ALPHA,
+                    saison_id=SAISON_ID,
+                    kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate(
+                        {
+                            "kontakte": {
+                                **kept,
+                                "trainer": a_payload_person("Lea", "Musterfrau", "+4917010000009"),
+                                "trainer_ist_zugleich": None,
+                            },
+                            "kontakte_stand": kontakte_stand_of(stored["kontakte"]),
+                        }
+                    ),
+                    saison_teams_collection=database[Collection.SAISON_TEAMS],
+                    saisons_collection=database[Collection.SAISONS],
+                    spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                    sperrliste=ban_list(database),
+                    adressanker_collection=database[Collection.ADRESSANKER],
+                    db=client,
+                    refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+                    today=TODAY,
+                )
+
+            interleaved = HandedOnAfterTheMintRead(database[Collection.SAISON_TEAMS], hand_the_trainer_on)
+            answer = await sweep_spielbestaetigungen(
+                saison_id=SAISON_ID,
+                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                spiele_collection=database[Collection.SPIELE],
+                saison_teams_collection=cast(Any, interleaved),
+                saisons_collection=database[Collection.SAISONS],
+                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                sperrliste=ban_list(database),
+                db=client,
+                today=TODAY,
+            )
+
+            return interleaved, answer
+
+        interleaved, answer = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        assert sorted(link.address for anfrage in answer.anfragen if anfrage.seite == "team1" for link in anfrage.links) == sorted(
+            ["lea@example.com", address(ALPHA, "ansprechperson"), address(ALPHA, "stellvertretung")]
+        )
+        # A fresh league: the close reads no row, so the mint's read is the first the pass makes.
+        interleaved.assert_landed_inside(serially=1)
 
 
 class TestTheGhostIsAskedNothing:

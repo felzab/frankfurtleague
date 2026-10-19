@@ -14,7 +14,7 @@ from app.api.spielbestaetigungen.services import (
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db
+from app.core.crud import aggregate_many_from_db, anchor_in_db, erase_many_from_db, patch_many_in_db
 from app.core.recording import build_redaction_filter, build_redaction_update
 from app.shared.schemas.custom import CustomObjectId
 
@@ -137,3 +137,21 @@ async def erase_referee_confirmations_in_session(
     )
 
     return erased
+
+
+# --- The PASS's mint.
+
+
+async def anchor_the_seats_minted(
+    *,
+    saison_teams_collection: AsyncCollection,
+    saison_team_ids: Sequence[Any],
+    # REQUIRED: committed on its own, the anchor conflicts with no seat write.
+    session: AsyncClientSession,
+) -> None:
+    """Write the season rows a mint read its links' holders off (`docs/backend/spec.md :: I770`).
+
+    A seat write voids the links its own snapshot holds, never one a mint writes beside it.
+    """
+
+    await anchor_in_db(collection=saison_teams_collection, db_filter={"_id": {"$in": list(saison_team_ids)}}, session=session)

@@ -12,6 +12,7 @@ from pymongo.errors import PyMongoError
 from app.api.bewerbungen.services import SWEEP_PAGE, group_seats_by_mailbox, mint_token
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.api.spielbestaetigungen.crud import anchor_the_seats_minted
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnsichtAnsetzung,
     FLSpielbestaetigungGrund,
@@ -73,9 +74,9 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# The three shares at three commands a row beside the 23 of the worst call
+# The three shares at three commands a row beside the 24 of the worst call
 # (`tests/api/test_spielbestaetigung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
-# 266 commands at a 36 ms round trip plus 1.35 ms take 9.94 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
+# 267 commands at a 36 ms round trip plus 1.35 ms take 9.97 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 CLOSES_PER_PASS: Final = 27
 
 # Counted in rows written, a fixture taken whole; a fresh row costs less than three, its share taking one insert.
@@ -208,6 +209,8 @@ class _MintPlan:
     anfragen: list[FLSpielbestaetigungSweepAnfrage] = field(default_factory=list)
     einteilungen: list[FLSpielbestaetigungSweepEinteilung] = field(default_factory=list)
     withheld: int = 0
+    # The clubs a link was minted for, off their season rows' seats as the mint read them.
+    seated: set[Any] = field(default_factory=set)
 
     @property
     def written(self) -> int:
@@ -522,6 +525,8 @@ async def sweep_spielbestaetigungen(
 
                 minted = _mint_links(kontakte=kontakte, seats=seats, gesperrt=gesperrt)
                 plan.withheld += minted.withheld
+                if minted.hashes:
+                    plan.seated.add(partei["team_id"])
                 if existing is None:
                     row: Mapping[str, Any] = compose_spielbestaetigung(
                         row_id=ObjectId(), saison_id=saison_id, spiel=spiel, partei=partei, hashes=minted.hashes, today=today
@@ -560,6 +565,11 @@ async def sweep_spielbestaetigungen(
             room -= plan.written
         batch.took([spiel for spiel, _ in taken])
         refuse_a_stalled_page(read=len(spiele), moved=len(taken) + len(batch.refused), page=SWEEP_PAGE, clock="mint", saison_id=saison_id)
+
+        # Ahead of the writes, so a seat handed on since this attempt read is a conflict before any work rather than after.
+        seated = [junctions[team_id]["_id"] for _, plan in taken for team_id in sorted(plan.seated, key=str)]
+        if seated:
+            await anchor_the_seats_minted(saison_teams_collection=saison_teams_collection, saison_team_ids=seated, session=session)
 
         inserts = [document for _, plan in taken for document in plan.inserts]
         if inserts:
