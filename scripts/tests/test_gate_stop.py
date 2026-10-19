@@ -15,6 +15,7 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Final
 
@@ -52,8 +53,9 @@ STUB_PYTHON: Final = """#!/usr/bin/env bash
 exec "{interpreter}" "$@"
 """
 
-# How long a heartbeat stays still before its tool counts as ended: ten beats.
-STILL_S: Final = 1.0
+# How long a heartbeat stays still before its tool counts as ended: ten beats of a control sleeper
+# nothing stops, never a span of the clock, which a machine stalling every sleeper at once outlasts.
+STILL_BEATS: Final = 10
 # The tools' own start, then their end once stopped: the second above the watcher's grace
 # (`scripts/gate/gate_watch.py :: GRACE_S`), so a stop it had to force reads as what its traps left
 # behind rather than as a gate still running.
@@ -94,21 +96,47 @@ def _stop(launcher: subprocess.Popen[bytes]) -> None:
         os.kill(-launcher.pid, signal.SIGTERM)
 
 
-def _still_beating(beats: list[Path]) -> list[Path]:
-    """The heartbeats still growing once every other one has stayed still for `STILL_S`, or the bound passed."""
+@contextlib.contextmanager
+def _control() -> Iterator[Path]:
+    """A sleeper of the test's own, beating beside the tools until the case is done."""
+    beats = new_root("fl-gate-stop-control-")
+    sleeper = subprocess.Popen((sys.executable, "-c", SLEEPER, str(beats)), stdin=subprocess.DEVNULL)
+    try:
+        deadline = time.monotonic() + STARTED_BOUND_S
+        # Named by the interpreter's own pid, which a launcher in front of it does not share.
+        while not (named := list(beats.iterdir())):
+            assert sleeper.poll() is None and time.monotonic() < deadline, "the control sleeper never beat"
+            time.sleep(0.05)
+        yield named[0]
+    finally:
+        sleeper.kill()
+        sleeper.wait()
+
+
+def _still_beating(beats: list[Path], control: Path, bound: float = STOPPED_BOUND_S) -> list[Path]:
+    """The heartbeats that grew within the control's last `STILL_BEATS` beats once the bound passed, else none."""
     sizes = {beat: -1 for beat in beats}
-    still_since = dict.fromkeys(beats, time.monotonic())
-    deadline = time.monotonic() + STOPPED_BOUND_S
-    while time.monotonic() < deadline:
-        now = time.monotonic()
+    # The control's size when each heartbeat last grew.
+    grew_at = dict.fromkeys(beats, 0)
+    deadline = time.monotonic() + bound
+    while True:
+        paced = control.stat().st_size
         for beat in beats:
             size = beat.stat().st_size
             if size != sizes[beat]:
-                sizes[beat], still_since[beat] = size, now
-        if all(now - since >= STILL_S for since in still_since.values()):
-            return []
+                sizes[beat], grew_at[beat] = size, paced
+        moving = [beat for beat in beats if paced - grew_at[beat] < STILL_BEATS]
+        if not moving or time.monotonic() >= deadline:
+            return moving
         time.sleep(0.1)
-    return [beat for beat in beats if time.monotonic() - still_since[beat] < STILL_S]
+
+
+def test_a_stall_freezing_every_heartbeat_never_reads_as_a_stop(tmp_path: Path) -> None:
+    """Paced by a clock, a second's stall of the whole machine passed a stop that had failed, and the cleanup then hid it."""
+    tool, frozen = tmp_path / "tool", tmp_path / "control"
+    tool.write_bytes(b".")
+    frozen.write_bytes(b".")
+    assert _still_beating([tool], frozen, bound=1.5) == [tool]
 
 
 def _tree(pnpm: str, python3: str) -> tuple[Path, dict[str, str], Path, Path]:
@@ -152,8 +180,9 @@ def test_stopping_the_gate_ends_every_tool_it_started(kind: str) -> None:
             assert time.monotonic() < deadline, f"not every tool started:\n{_said(reader, output)}"
             time.sleep(0.1)
 
-        _stop(launcher)
-        survivors = _still_beating(list(started.iterdir()))
+        with _control() as control:
+            _stop(launcher)
+            survivors = _still_beating(list(started.iterdir()), control)
         assert not survivors, f"the stopped gate left its tools running: {[beat.name for beat in survivors]}"
         reader.join(STOPPED_BOUND_S)
         # Every process holding the gate's output closes it as it ends, the gate's own included.
@@ -223,7 +252,8 @@ def test_an_interrupt_ends_every_tool_and_leaves_nothing_behind() -> None:
             raise AssertionError("the interrupted gate was still running") from None
         said = log.read_bytes().decode("utf-8", "replace")
         assert len(list(started.iterdir())) == TOOLS, f"not every tool started:\n{said}"
-        survivors = _still_beating(list(started.iterdir()))
+        with _control() as control:
+            survivors = _still_beating(list(started.iterdir()), control)
         assert not survivors, f"the interrupted gate left its tools running: {[beat.name for beat in survivors]}"
         assert status == INTERRUPTED, f"the interrupted gate exited {status}, not as an interrupt:\n{said}"
         left = sorted(path.name for path in scratch.iterdir())
