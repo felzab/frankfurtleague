@@ -6,7 +6,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import hash_token
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
-from app.api.spielbestaetigungen.crud import pull_ansetzung_lage, pull_vorschlag_offen
+from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, pull_ansetzung_lage, pull_vorschlag_offen, verein_fields
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnsichtPayload,
     FLSpielbestaetigungAnsichtResponse,
@@ -97,8 +97,15 @@ async def get_spielbestaetigung_ansicht(
     assert row is not None and seat is not None
 
     lage = await pull_ansetzung_lage(
-        spiele_collection=spiele_collection, saison_teams_collection=saison_teams_collection, spielbestaetigung_raw=row
+        spiele_collection=spiele_collection,
+        saison_teams_collection=saison_teams_collection,
+        spielbestaetigung_raw=row,
+        spiel_projection=ANSICHT_SPIEL_FIELDS,
+        verein_projection=verein_fields(team_id=row["partei"]["team_id"], seat=seat, namen=False),
     )
+    # The row read outside any transaction: an undraw or a replace committing since took the fixture and the row together.
+    refuse(find_unknown_link_refusal(seat=None if lage is None else seat))
+    assert lage is not None
     adresse = seat_adresse(lage=lage, spielbestaetigung_raw=row, seat=seat)
     gesperrt = bool(await adressen_gesperrt(sperrliste, [] if adresse is None else [adresse]))
     vorschlag_offen = await pull_vorschlag_offen(spielbestaetigungen_collection=spielbestaetigungen_collection, spielbestaetigung_raw=row)
@@ -166,8 +173,15 @@ async def post_spielbestaetigung(
         assert row is not None and seat is not None
 
         lage = await pull_ansetzung_lage(
-            spiele_collection=spiele_collection, saison_teams_collection=saison_teams_collection, spielbestaetigung_raw=row, session=session
+            spiele_collection=spiele_collection,
+            saison_teams_collection=saison_teams_collection,
+            spielbestaetigung_raw=row,
+            spiel_projection=None,
+            verein_projection=verein_fields(team_id=row["partei"]["team_id"], seat=seat, namen=True),
+            session=session,
         )
+        # One snapshot with the row, and the fixture is removed with its rows in one transaction.
+        assert lage is not None
         adresse = seat_adresse(lage=lage, spielbestaetigung_raw=row, seat=seat)
         gesperrt = await adressen_gesperrt(
             sperrliste, [] if adresse is None else [adresse], massgebliche_saison_id=massgebliche_saison_id, session=session
@@ -225,8 +239,16 @@ async def post_spielbestaetigung(
         # The fixture is read and never written here, so a move landing under this transaction raises no conflict:
         # judged again outside it before answering (`docs/backend/spec.md :: I118`).
         jetzt = await pull_ansetzung_lage(
-            spiele_collection=spiele_collection, saison_teams_collection=saison_teams_collection, spielbestaetigung_raw=row, session=None
+            spiele_collection=spiele_collection,
+            saison_teams_collection=saison_teams_collection,
+            spielbestaetigung_raw=row,
+            spiel_projection=None,
+            verein_projection=verein_fields(team_id=row["partei"]["team_id"], seat=seat, namen=True),
+            session=None,
         )
+        # Gone outside the transaction only once an undraw or a replace committed past this one's write.
+        refuse(find_unknown_link_refusal(seat=None if jetzt is None else seat))
+        assert jetzt is not None
         refuse(find_spent_link_refusal(spielbestaetigung_raw=row, lage=jetzt, today=today))
 
         return FLSpielbestaetigungAntwortResponse(

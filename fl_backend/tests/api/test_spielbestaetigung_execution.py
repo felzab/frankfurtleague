@@ -168,12 +168,26 @@ def on_a_fixture(url: str, body: Body, *, rows: list[dict[str, Any]] | None = No
     return on_the_seed_loop(_run())
 
 
-async def ansicht(database: AsyncDatabase, raw: str, *, today: str = TODAY) -> FLSpielbestaetigungAnsichtResponse:
+def either(database: AsyncDatabase, collection: Collection, stand_in: Any) -> Any:
+    """The collection, or the wrapper a case reaches it through."""
+
+    return database[collection] if stand_in is None else stand_in
+
+
+async def ansicht(
+    database: AsyncDatabase,
+    raw: str,
+    *,
+    today: str = TODAY,
+    spielbestaetigungen: Any = None,
+    spiele: Any = None,
+    saison_teams: Any = None,
+) -> FLSpielbestaetigungAnsichtResponse:
     return await get_spielbestaetigung_ansicht(
         ansicht_data=FLSpielbestaetigungAnsichtPayload(token=raw),
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        spiele_collection=database[Collection.SPIELE],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
+        spiele_collection=either(database, Collection.SPIELE, spiele),
+        saison_teams_collection=either(database, Collection.SAISON_TEAMS, saison_teams),
         sperrliste=ban_list(database),
         today=today,
     )
@@ -189,6 +203,9 @@ async def antworten(
     begruendung: str | None = None,
     today: str = TODAY,
     spielbestaetigungen: Any = None,
+    spiele: Any = None,
+    saison_teams: Any = None,
+    spieltage: Any = None,
 ) -> FLSpielbestaetigungAntwortResponse:
     body = {
         "token": raw,
@@ -199,10 +216,10 @@ async def antworten(
 
     return await post_spielbestaetigung(
         antwort_data=FLSpielbestaetigungAntwortPayload.model_validate(body),
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN] if spielbestaetigungen is None else spielbestaetigungen,
-        spiele_collection=database[Collection.SPIELE],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spieltage_collection=database[Collection.SPIELTAGE],
+        spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
+        spiele_collection=either(database, Collection.SPIELE, spiele),
+        saison_teams_collection=either(database, Collection.SAISON_TEAMS, saison_teams),
+        spieltage_collection=either(database, Collection.SPIELTAGE, spieltage),
         sperrliste=ban_list(database),
         db=client,
         today=today,
@@ -275,6 +292,124 @@ class TestWhatALinkOpens:
 
         assert closed == "abgelaufen"
         assert unknown == [ANSETZUNG_TOKEN_UNKNOWN, ANSETZUNG_TOKEN_UNKNOWN]
+
+
+class ConfirmationsRunningARivalAfterTheRowRead(InterleavedCollection):
+    """The confirmations the view reads its row from, a rival run once after that read and before the fixture's."""
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        document = await self._collection.find_one(*args, **kwargs)
+        await self.run_the_rival()
+        return document
+
+
+class TestAFixtureRemovedBetweenTheViewsTwoReads:
+    def test_the_link_opens_nothing_rather_than_answering_500(self, mongo_replica_set_url: str):
+        """An undraw or a replace takes the fixture and its rows in one transaction, landing between the view's two reads."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            async def undraw() -> None:
+                await database[Collection.SPIELBESTAETIGUNGEN].delete_many({"spiel_id": SPIEL})
+                await database[Collection.SPIELE].delete_one({"_id": SPIEL})
+
+            confirmations = ConfirmationsRunningARivalAfterTheRowRead(database[Collection.SPIELBESTAETIGUNGEN], undraw)
+            outcome = await outcome_of(ansicht(database, token(TEAM1, "trainer"), spielbestaetigungen=confirmations))
+
+            return outcome, confirmations.passes
+
+        assert on_a_fixture(mongo_replica_set_url, body) == (ANSETZUNG_TOKEN_UNKNOWN, 1)
+
+
+class ReadsRecorded:
+    """A collection keeping every document its `find_one` and its `find` answered.
+
+    Delegating rather than a stub: mongod applies the projection, and a stub would hand back whatever the handler asked for.
+    """
+
+    def __init__(self, collection: Any) -> None:
+        self._collection = collection
+        self.loaded: list[Mapping[str, Any]] = []
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        document = await self._collection.find_one(*args, **kwargs)
+        self.loaded.append(document)
+        return document
+
+    def find(self, *args: Any, **kwargs: Any) -> Any:
+        return _ListedInto(self._collection.find(*args, **kwargs), self.loaded)
+
+
+class _ListedInto:
+    def __init__(self, cursor: Any, loaded: list[Mapping[str, Any]]) -> None:
+        self._cursor, self._loaded = cursor, loaded
+
+    async def to_list(self, length: int | None = None) -> list[Any]:
+        documents = await self._cursor.to_list(length=length)
+        self._loaded.extend(documents)
+        return documents
+
+
+def leaf_paths(document: Any, prefix: str = "") -> set[str]:
+    """Every dotted path this document holds a value at, an empty block counting as one."""
+
+    if not isinstance(document, Mapping) or not document:
+        return {prefix} if prefix else set()
+
+    return {path for key, value in document.items() for path in leaf_paths(value, f"{prefix}.{key}" if prefix else key)}
+
+
+# What each read resolves, spelled out here rather than read off the projections under test. The seat's bare block
+# is the other club's, holding nothing: the address the projection removes leaves its parents.
+VIEW_FIXTURE_RESOLVES = frozenset(
+    {"datum", "uhrzeit", "ort.spielort_id", "ort.name", "ort.maps_link", "ergebnis", "elfmeterschiessen", "sonderereignis"}
+    | {f"{slot}.{part}" for slot in ("team1", "team2") for part in ("team_id", "name", "tore")}
+)
+VIEW_CLUBS_RESOLVE = frozenset({"team_id", "name", "austritt.datum", "kontakte.stellvertretung.email", "kontakte.stellvertretung"})
+ANSWER_CLUBS_RESOLVE = frozenset(
+    {"team_id", "austritt.datum", "kontakte.trainer.email"}
+    | {f"kontakte.{seat}.{part}" for seat in KONTAKT_ROLLEN for part in ("vorname", "nachname")}
+)
+
+
+def addresses_loaded(loaded: list[Mapping[str, Any]]) -> set[tuple[Any, str]]:
+    return {(document.get("team_id"), path) for document in loaded for path in leaf_paths(document) if path.endswith(".email")}
+
+
+class TestWhatAnAnonymousReadLoads:
+    """The narrowing alone: a projection too short is `test_spielbestaetigung_refusal.py :: TestTheProjectionsHoldEverythingTheJudgesRead`'s."""
+
+    def test_the_view_holds_the_fixture_it_states_and_one_address_and_no_name(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            spiele = ReadsRecorded(database[Collection.SPIELE])
+            saison_teams = ReadsRecorded(database[Collection.SAISON_TEAMS])
+            await ansicht(database, token(TEAM1, "stellvertretung"), spiele=spiele, saison_teams=saison_teams)
+
+            return spiele.loaded, saison_teams.loaded
+
+        fixtures, clubs = on_a_fixture(mongo_replica_set_url, body)
+
+        # The premise: each read ran, the clubs' over both sides.
+        assert len(fixtures) == 1 and len(clubs) == 2
+        assert set().union(*(leaf_paths(document) for document in fixtures)) <= VIEW_FIXTURE_RESOLVES
+        assert set().union(*(leaf_paths(document) for document in clubs)) <= VIEW_CLUBS_RESOLVE
+        # The seat's own, which the ban list is asked about; never the other club's same seat.
+        assert addresses_loaded(clubs) == {(TEAM1, "kontakte.stellvertretung.email")}
+
+    def test_the_answer_holds_the_names_it_judges_and_only_its_own_seats_address(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            saison_teams = ReadsRecorded(database[Collection.SAISON_TEAMS])
+            await antworten(database, client, token(TEAM1, "trainer"), saison_teams=saison_teams)
+
+            return saison_teams.loaded
+
+        clubs = on_a_fixture(mongo_replica_set_url, body)
+
+        assert clubs, "the answer's read of the clubs did not run"
+        assert set().union(*(leaf_paths(document) for document in clubs)) <= ANSWER_CLUBS_RESOLVE
+        assert addresses_loaded(clubs) == {(TEAM1, "kontakte.trainer.email")}
 
 
 class WritesRecorded:

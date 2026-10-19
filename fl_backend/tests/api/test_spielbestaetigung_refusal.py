@@ -1,8 +1,10 @@
+from collections.abc import Iterator, Mapping
 from typing import Any
 
 import pytest
 from bson import ObjectId
 
+from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, verein_fields
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungTermin
 from app.api.spielbestaetigungen.services import (
     ANSETZUNG_BEANTWORTET,
@@ -22,6 +24,7 @@ from app.api.spielbestaetigungen.services import (
     find_unknown_link_refusal,
     find_vorschlag_vergangen_refusal,
     proposal_payload,
+    seat_adresse,
     zustand_of,
 )
 from app.api.spiele.schemas import FLSpiel
@@ -207,6 +210,73 @@ class TestWhatAReopenedLinkShows:
             zustand_of(spielbestaetigung_raw=zeile(**row), lage=lage(**situation), today=today, gesperrt=gesperrt, vorschlag_offen=vorschlag)
             == zustand
         )
+
+
+class Recorded(Mapping[str, Any]):
+    """A stored document noting every dotted path read off it, a key it lacks included."""
+
+    def __init__(self, document: Mapping[str, Any], seen: set[str], prefix: str = "") -> None:
+        self._document, self._seen, self._prefix = document, seen, prefix
+
+    def __getitem__(self, key: str) -> Any:
+        path = f"{self._prefix}.{key}" if self._prefix else key
+        self._seen.add(path)
+        value = self._document[key]
+        return Recorded(value, self._seen, path) if isinstance(value, Mapping) else value
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._document)
+
+    def __len__(self) -> int:
+        return len(self._document)
+
+
+def loaded_by(projection: Mapping[str, Any], path: str) -> bool:
+    """Whether a read through this projection holds the path, or the block a projected path sits under."""
+
+    return any(path == key or path.startswith(f"{key}.") or key.startswith(f"{path}.") for key, kept in projection.items() if kept != 0)
+
+
+class TestTheProjectionsHoldEverythingTheJudgesRead:
+    """The other half of the db sheet's `TestWhatAnAnonymousReadLoads`: a path a judge reads that a projection drops reads as null.
+
+    So a decided fixture would show `gueltig`, or a seat's address read as empty pass the ban, with nothing failing.
+    """
+
+    def test_the_view_reads_nothing_its_projections_leave_out(self):
+        spiel_seen: set[str] = set()
+        vereine_seen: set[str] = set()
+        # Undecided, unmoved and open, so every judge reads to its end; the exit after the fixture's day, so its date is read.
+        situation = AnsetzungLage(
+            spiel=Recorded(spiel(), spiel_seen),
+            vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)],
+        )
+
+        assert zustand_of(spielbestaetigung_raw=zeile(), lage=situation, today=TODAY, gesperrt=False, vorschlag_offen=None) == "gueltig"
+        ansicht_ansetzung_of(spielbestaetigung_raw=zeile(), lage=situation)
+        seat_adresse(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
+
+        # The premise: `entscheidung_of` read the fixture to its last test.
+        assert {"ergebnis", "elfmeterschiessen", "sonderereignis", "team2.tore", "austritt.datum"} <= spiel_seen | vereine_seen
+        assert [path for path in sorted(spiel_seen) if not loaded_by(ANSICHT_SPIEL_FIELDS, path)] == []
+        projection = verein_fields(team_id=TEAM1, seat="trainer", namen=False)
+        assert [path for path in sorted(vereine_seen) if not loaded_by(projection, path)] == []
+
+    def test_the_answer_reads_nothing_of_the_clubs_its_projection_leaves_out(self):
+        """The fixture it reads whole, a proposal being judged as the stored fixture on a new date."""
+
+        vereine_seen: set[str] = set()
+        situation = AnsetzungLage(
+            spiel=spiel(), vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)]
+        )
+
+        assert find_spent_link_refusal(spielbestaetigung_raw=zeile(), lage=situation, today=TODAY) is None
+        beteiligte_namen(lage=situation)
+        seat_adresse(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
+
+        assert {"austritt.datum", "kontakte.stellvertretung.nachname", "kontakte.trainer.email"} <= vereine_seen
+        projection = verein_fields(team_id=TEAM1, seat="trainer", namen=True)
+        assert [path for path in sorted(vereine_seen) if not loaded_by(projection, path)] == []
 
 
 class TestWhatTheViewStatesOfTheFixture:
