@@ -435,15 +435,15 @@ const LINK_LABELS = new Set(["label", "linkLabel"]);
 function zielOf(value: ts.Node | undefined): string | null {
   if (value === undefined) return null;
   if (ts.isJsxExpression(value)) return zielOf(value.expression);
-  const nachOrigin = ts.isTemplateExpression(value) && value.head.text === "" ? (value.templateSpans[0]?.literal.text ?? "") : "";
-  const typed =
-    ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)
-      ? value.text
-      : ts.isTemplateExpression(value)
-        ? nachOrigin.startsWith("/")
-          ? nachOrigin
-          : value.head.text
-        : "";
+  if (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)) return value.text.replace(/[?#].*$/su, "") || null;
+  if (!ts.isTemplateExpression(value)) return null;
+
+  const [erste, ...weitere] = value.templateSpans;
+  const nachOrigin = value.head.text === "" && erste?.literal.text.startsWith("/") === true;
+  const typed = nachOrigin ? (erste?.literal.text ?? "") : value.head.text;
+  // A hole the path runs into before its query computes the page: `${base}/${id}` leads under `base`, never to `/`.
+  const offen = nachOrigin ? weitere.length > 0 : true;
+  if (offen && !/[?#]/u.test(typed)) return null;
 
   return typed.replace(/[?#].*$/su, "") || null;
 }
@@ -596,6 +596,10 @@ describe("a heading, a control or a value's word a sentence names", () => {
       // A message's link, its origin a hole ahead of the path.
       'const i = { href: `${site}/bereich?ziel=${z}`, label: "Dein Bereich" };',
       "const j = { href: `${site}${pfad}`, label: `Weiter` };",
+      // A path a hole completes, after an origin or after none: the page it leads to is the value's.
+      "const k = { href: `${kaderHref}/${id}`, label: `Kader` };",
+      "const l = { href: `/spiele/${id}`, label: `Spiel` };",
+      "const m = { href: `${site}/bereich`, label: `Dein Bereich` };",
     ].join("\n");
 
     assert.deepEqual(
@@ -609,6 +613,9 @@ describe("a heading, a control or a value's word a sentence names", () => {
         ["Alle Teams", "/dashboard/teams"],
         ["Dein Bereich", "/bereich"],
         ["Weiter", null],
+        ["Kader", null],
+        ["Spiel", null],
+        ["Dein Bereich", "/bereich"],
       ],
     );
   });
