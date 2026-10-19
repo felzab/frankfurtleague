@@ -26,6 +26,7 @@ from app.api.spielbestaetigungen.services import (
     compose_antwort_update,
     compose_closing_update,
     compose_spielbestaetigung,
+    parteien_of,
     seat_holding,
 )
 from app.api.spielbestaetigungen.sweep_router import (
@@ -1315,3 +1316,80 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
 
         assert answer.angefragt == 2 * FEW
         assert sum(names.values()) - budget.ROUND_TRIPS_A_ROW * 2 * FEW == budget.ANGEFRAGT_OTHER_COMMANDS, names
+
+
+# The server's first batch for a cursor naming no size: one row more takes a read a `getMore`.
+FIRST_BATCH = 101
+
+
+class TestEverySeasonSizedReadSendsOneGetMore:
+    """`tests/api/test_spielbestaetigung_sweep_refusal.py :: SWEEP_GET_MORES`: every population a read takes whole, past the first batch.
+
+    A fixture per club pair and referee, each moved since its three mailed rows were minted and due a reminder, a seat of
+    each club barred: the close, the mint and the reminder each read every row, fixture, club, referee and ban of them.
+    """
+
+    def test_one_get_more_a_read(self, mongo_replica_set_url: str):
+        count = FIRST_BATCH + 1
+        datum = days_after(day=TODAY, days=10)
+
+        def club(position: int) -> ObjectId:
+            return ObjectId(f"6890a1b2c3d4e5f6071{position:05d}")
+
+        def club_side(position: int) -> dict[str, Any]:
+            return {"team_id": club(position), "name": f"Verein {position}", "shorthand": "VE", "tore": None}
+
+        def seats(position: int) -> dict[str, Any]:
+            return {
+                **{seat: kontaktperson_document(f"Sitz{position}x{index}") for index, seat in enumerate(KONTAKT_ROLLEN)},
+                "trainer_ist_zugleich": None,
+            }
+
+        referees = [ObjectId(f"6890a1b2c3d4e5f6072{position:05d}") for position in range(count)]
+        spiele = [
+            fixture(
+                ObjectId(f"6890a1b2c3d4e5f6073{position:05d}"),
+                300 + position,
+                datum,
+                team1=club_side(2 * position),
+                team2=club_side(2 * position + 1),
+                schiedsrichter=booked(referees[position]),
+            )
+            for position in range(count)
+        ]
+        mailed = [
+            {
+                **compose_spielbestaetigung(
+                    row_id=ObjectId(),
+                    saison_id=SAISON_ID,
+                    spiel={**spiel, "uhrzeit": "17:00:00"},
+                    partei=partei,
+                    hashes={seat: hash_token(f"{spiel['_id']}-{partei.get('team_id')}-{seat}") for seat in KONTAKT_ROLLEN},
+                    today=TODAY,
+                ),
+                "angefragt_am": TODAY,
+            }
+            for spiel in spiele
+            for partei in parteien_of(spiel)
+        ]
+        junctions = [
+            documents.saison_team_document(SAISON_ID, club(position), f"Verein {position}", "VE", kontakte=seats(position))
+            for position in range(2 * count)
+        ]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Counter[str]]:
+            await database[Collection.SCHIEDSRICHTER].insert_many(
+                [referee(referee_id, f"pfeife{position}@example.com", f"Pfiff {position}") for position, referee_id in enumerate(referees)]
+            )
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(mailed)
+            await database[Collection.SPERRLISTE].insert_many(
+                [ban_document(f"sitz{position}x0@example.com", bis=SAISON_ID) for position in range(2 * count)]
+            )
+
+            return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, lambda database, client: sweep(database, client))
+
+        answer, names = on_a_league(mongo_replica_set_url, body, spiele=spiele, junctions=junctions)
+
+        # The premise first: the close's share taken, and every row due a reminder about an Ansetzung its fixture left.
+        assert (answer.geschlossen, answer.erinnerungen) == (CLOSES_PER_PASS, [])
+        assert names["getMore"] == budget.SWEEP_GET_MORES, names

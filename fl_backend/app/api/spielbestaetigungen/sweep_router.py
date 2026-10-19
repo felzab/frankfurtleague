@@ -74,18 +74,20 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# The three shares at three commands a row beside the 24 of the worst call
-# (`tests/api/test_spielbestaetigung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
-# 267 commands at a 36 ms round trip plus 1.35 ms take 9.97 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
-CLOSES_PER_PASS: Final = 27
+# The three shares together, at three commands a row beside the worst call's other commands and its `getMore`s, fit
+# `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 36 ms round trip
+# (`tests/api/test_spielbestaetigung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`).
+CLOSES_PER_PASS: Final = 25
 
 # Counted in rows written, a fixture taken whole; a fresh row costs less than three, its share taking one insert.
 # At most `ANFRAGEN_LISTED_PER_PASS`, so one `/angefragt` call stamps every row a call answers.
-MINTS_PER_PASS: Final = 27
+MINTS_PER_PASS: Final = 26
 
-REMINDERS_PER_PASS: Final = 27
+REMINDERS_PER_PASS: Final = 25
 
 WHAT: Final = "Confirmation"
+
+CLOSE_FIELDS: Final = ["spiel_id", "partei", "ansetzung", "angefragt_am"]
 
 
 def _by(rows: Iterable[Mapping[str, Any]], key: str) -> dict[Any, Mapping[str, Any]]:
@@ -345,6 +347,8 @@ async def sweep_spielbestaetigungen(
                 db_filter=batch.within({"saison_id": saison_id, **build_closable_filter()}),
                 # Oldest Ansetzung first, the likeliest to have been decided; `_id` keeps the page one page.
                 sort_by=[("ansetzung.datum", ASCENDING), ("_id", ASCENDING)],
+                # The season's every unclosed row: what the close and its notices read, and not each seat's hashes.
+                projection=CLOSE_FIELDS,
                 limit=SWEEP_PAGE + 1,
                 session=session,
             )
