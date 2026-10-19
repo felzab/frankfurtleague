@@ -17,6 +17,8 @@ doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING } });
 
 const { POST } = await import("./route.ts");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
+const { APINetworkError } = await import("@/core/errors.ts");
+const { markOutcomeUnknown } = await import("@/core/requestScope.ts");
 const { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 
 /** The label the backend runs on this page, off the registry it generated. */
@@ -206,6 +208,30 @@ describe("the pupil's confirmation handler", () => {
   it("puts the age refusal on the date naming no age where the link's own view could not be read", async () => {
     schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-REGISTRIERUNG-007");
     ansichtAntwort = () => new Error("the backend did not answer");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, {
+      success: false,
+      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt." },
+    });
+  });
+
+  /* The write was refused, so nothing stands to be unsure of: a floor read the request's deadline cut names no age,
+     never an unknown outcome. */
+  it("puts the age refusal on the date naming no age where the deadline cut the link's own view", async () => {
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-REGISTRIERUNG-007");
+    ansichtAntwort = () => {
+      markOutcomeUnknown();
+      return new APINetworkError({
+        message: "Request failed.",
+        url: "http://localhost/registrierungen/bestaetigung/ansicht",
+        method: "POST",
+        readOnly: true,
+        traceId: "0",
+        isTimeout: true,
+      });
+    };
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 

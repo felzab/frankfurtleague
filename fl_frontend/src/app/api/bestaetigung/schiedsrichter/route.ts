@@ -1,3 +1,4 @@
+import { runAnsweringOwnCut } from "@/core/requestScope";
 import { postSchiedsrichterBestaetigung } from "@/features/schiedsrichter/mutations";
 import { getSchiedsrichterBestaetigungAnsicht, mapSchiedsrichterBestaetigungRefusal } from "@/features/schiedsrichter/queries";
 import { FLSchiedsrichterBestaetigungPayloadSchema } from "@/features/schiedsrichter/schemas";
@@ -15,7 +16,8 @@ import type { NextRequest } from "next/server";
  * none rather than guessing a floor.
  */
 async function ansichtFuerToken(token: string): Promise<{ mindestalter: number; medien_mindestalter: number } | null> {
-  return getSchiedsrichterBestaetigungAnsicht(token).then(
+  // Under its own cut: the write was refused, so a deadline cutting this read is no unknown outcome.
+  return runAnsweringOwnCut(() => getSchiedsrichterBestaetigungAnsicht(token)).then(
     (gelesen) => (gelesen.zustand === "gueltig" ? gelesen.ansicht : null),
     () => null,
   );

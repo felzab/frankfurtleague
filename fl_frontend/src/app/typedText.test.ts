@@ -81,6 +81,11 @@ const refusedCeremony = () => Promise.resolve({ data: null, error: { status: 400
 registerDoubles({
   modules: {
     "features/konto/sicherheit.ts": { readSicherheit: () => Promise.resolve(SICHERHEIT) },
+    // The erasure link's read of the grant holder's session, which opens the same store; the holder has a passkey.
+    "features/konto/loeschungStepUp.ts": {
+      readGrantHolderStepUp: () =>
+        Promise.resolve({ stepUp: { freshUntil: null, enrolmentUntil: null, servedAt: 0, holderId: SICHERHEIT.inhaberId }, hasPasskey: true }),
+    },
     // The browser's credential calls, which a press reaches and this runner has none of.
     "core/authClient.ts": { authClient: { passkey: { addPasskey: refusedCeremony }, signIn: { passkey: refusedCeremony } } },
     // The app's one way to load a document, recorded with the address jsdom's own notice leaves out.
@@ -241,7 +246,9 @@ const LINKED: ReadonlySet<string> = new Set([
   "(public)/bestaetigung/schiedsrichter/page.tsx",
   "(public)/bestaetigung/schiedsrichter/adresse/page.tsx",
   "(public)/bestaetigung/spieler/page.tsx",
+  "(public)/bestaetigung/spieler/adresse/page.tsx",
   "(public)/bestaetigung/spiel/page.tsx",
+  "(public)/loeschung/page.tsx",
 ]);
 
 /** Every URL the page's own script sent, by each of the browser's ways to send one that the app could reach for. */
@@ -722,24 +729,40 @@ async function typeIntoEvery(
   }
 }
 
-/** What one page did: threw on the way to its tree, or rendered and reached these. */
-type Visit = { thrown: unknown } | { firstView: FirstView; reached: Reached[] };
+/** What one page did: threw on the way to its tree, or rendered and reached these; and which query parameters it read. */
+type Visit = ({ thrown: unknown } | { firstView: FirstView; reached: Reached[] }) & { asked: ReadonlySet<string> };
+
+/**
+ * A page's query parameters as it reads them: none answered, every name it asks for recorded. Read off the render rather
+ * than the source, so a token reached through a helper or a renamed binding is caught alike.
+ */
+function askedParameters(): { searchParams: Record<string, string>; asked: Set<string> } {
+  const asked = new Set<string>();
+  // `then` is `Promise.resolve`'s own question of every value it settles, never the page's.
+  const record = (_target: object, name: string | symbol): undefined => {
+    if (typeof name === "string" && name !== "then") asked.add(name);
+    return undefined;
+  };
+
+  return { searchParams: new Proxy({}, { get: record }), asked };
+}
 
 async function visit(page: string): Promise<Visit> {
   const { default: Page } = (await import(pathToFileURL(page).href)) as { default: (props: unknown) => unknown };
   const { params, pathname } = addressOf(page);
   if (label(page).startsWith("(public)/")) setSession(null);
 
+  const unlinked = askedParameters();
   let tree: ReactNode;
   try {
     tree = await resolvedPage(Page, {
       params: Promise.resolve(params),
-      searchParams: Promise.resolve(LINKED.has(label(page)) ? { token: "zz-link-aus-der-mail" } : {}),
+      searchParams: Promise.resolve(LINKED.has(label(page)) ? { token: "zz-link-aus-der-mail" } : unlinked.searchParams),
     });
   } catch (error) {
-    return { thrown: error };
+    return { thrown: error, asked: unlinked.asked };
   }
-  return typeIntoEvery(tree, pathname, params);
+  return { ...(await typeIntoEvery(tree, pathname, params)), asked: unlinked.asked };
 }
 
 const NOT_MATCHED = "the area's 404, answered for an address no other route takes";
@@ -1078,6 +1101,8 @@ describe("what a visitor types into a page", () => {
   for (const page of PAGES) {
     it(`reaches no URL from ${label(page)}`, async () => {
       const visited = await visit(page);
+      // Visited without one, a page reading a token renders only its dead-link panel, and the floor below never reaches it.
+      assert.ok(!visited.asked.has("token"), "the page reads a link's token: add it to `LINKED`, so the sweep opens it with one");
       const excuse = TURNED_AWAY[label(page)];
       if ("thrown" in visited) {
         assert.ok(isNavigation(visited.thrown), `the page crashed: ${String(visited.thrown)}`);

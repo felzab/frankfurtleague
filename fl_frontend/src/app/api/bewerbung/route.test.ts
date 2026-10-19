@@ -24,7 +24,9 @@ const calls = doubleApiClient(({ endpoint }, schema) =>
 /* The provider rather than the fan-out: what this handler is judged on is whether a message is
    composed at all, and the real fan-out is what composes it. */
 const { sent: mails } = doubleSendMail();
-const QUERIES = { getBewerbungSchulen: async () => ({ acknowledged: 1, schulen: [] }) };
+/** What the school list answers in this case: the picked club's name, read after the write. */
+let schulenAntwort: () => Promise<unknown> = async () => ({ acknowledged: 1, schulen: [] });
+const QUERIES = { getBewerbungSchulen: () => schulenAntwort() };
 
 doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING, "core/config.ts": CONFIG, "features/bewerbungen/queries.ts": QUERIES } });
 const siteverify = doubleSiteverify();
@@ -42,6 +44,7 @@ const { kontaktBestaetigungsLink } = await import("@/core/kontaktLink.ts");
 const { rollenText } = await import("@/features/bewerbungen/notifications.ts");
 const { formatSpielDatum } = await import("@/shared/utils/format.ts");
 const { TURNSTILE_HEADER } = await import("@/core/turnstileToken.ts");
+const { markOutcomeUnknown } = await import("@/core/requestScope.ts");
 
 /** The label the application form runs, off the registry the backend generated. */
 const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
@@ -119,6 +122,7 @@ beforeEach(() => {
   calls.length = 0;
   logs.length = 0;
   schreibAntwort = () => GESCHRIEBEN;
+  schulenAntwort = async () => ({ acknowledged: 1, schulen: [] });
 });
 
 describe("the application handler's submission key", () => {
@@ -358,6 +362,21 @@ describe("the application handler's bot check", () => {
 });
 
 describe("what the application handler answers", () => {
+  /* The application is stored before the school's name is read for the messages, so a deadline cutting that read
+     leaves nothing unsure: an „unklar“ here sends the visitor to file the same application again. */
+  it("answers a stored application as received where the deadline cut the school read", async () => {
+    const received = (await bodyOf(aRequest())).body;
+    schulenAntwort = async () => {
+      markOutcomeUnknown();
+      throw new Error("the school list went unanswered");
+    };
+
+    const answer = await bodyOf(aRequest());
+
+    assert.deepEqual(answer.body, received);
+    assert.equal((answer.body as { success: boolean }).success, true);
+  });
+
   /* POST alone: a mail scanner fetches every link in a message, and a second method would be one it
      reaches with a fetch nobody made. */
   it("answers one method, POST", () => {

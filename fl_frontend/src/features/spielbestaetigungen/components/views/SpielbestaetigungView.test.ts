@@ -133,13 +133,21 @@ describe("the fixture confirmation page", () => {
     assert.ok(screen.getByRole("button", { name: ANDEREN_TERMIN_VORSCHLAGEN }));
   });
 
-  /* The way out is the button alone, as on the other link pages' dead-link panels: no address beside it in the text. */
+  /* The way out is the button alone, as on the other link pages' dead-link panels: its sentence and the button, with
+     no address, second sentence or other way out beside them. */
   it("states that the league sets the date after the deadline, and offers a question by mail, on a dead link", () => {
     for (const zustand of ["abgelaufen", "ungueltig"] as const) {
       const html = markup({ zustand });
       const shown = words(html);
-      assert.ok(shown.includes("Ist die Frist vorbei, legt die Liga den Termin fest."), `the ${zustand} panel says nothing of the deadline`);
-      assert.ok(html.includes(`href="mailto:${KONTAKT_EMAIL}"`) && shown.includes("Frage stellen"), `the ${zustand} panel offers no question`);
+      assert.deepEqual(
+        resultPanels(html),
+        // The panel's text as one run, the paragraph's and the button's meeting with no space between them.
+        [
+          `${DEAD} Wurde das Spiel verlegt, kommt eine neue E-Mail mit dem neuen Termin. Ist die Frist vorbei, legt die Liga den Termin fest.Frage stellen`,
+        ],
+        `the ${zustand} panel holds more or less than its sentence and its button`,
+      );
+      assert.ok(html.includes(`href="mailto:${KONTAKT_EMAIL}"`), `the ${zustand} panel's button asks no question by mail`);
       assert.ok(!shown.includes(KONTAKT_EMAIL), `the ${zustand} panel writes the address out beside its button`);
     }
   });

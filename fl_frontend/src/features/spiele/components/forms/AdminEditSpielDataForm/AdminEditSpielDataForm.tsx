@@ -312,6 +312,11 @@ export function AdminEditSpielDataForm({
       team2Id: spielData.team2?.team_id ?? null,
     },
     isActiveSaison,
+    // From `teams`, which joins each club's exit on every read; the payload's copy of a side carries none.
+    austrittTage: [team1Payload, team2Payload].flatMap((seite) => {
+      const datum = teams.find((team) => team.id === seite?.team_id)?.austritt?.datum;
+      return datum === undefined ? [] : [datum];
+    }),
     today,
   });
 

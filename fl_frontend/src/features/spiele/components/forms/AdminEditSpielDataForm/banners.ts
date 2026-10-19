@@ -138,8 +138,8 @@ function ohneVorlauf(datum: string | null, today: string): boolean {
 }
 
 /**
- * The conditions the sweep mints a fixture's rows on, spelled again for the draft and moved with them: a banner over a
- * fixture no pass asks about warns of a request that never comes.
+ * The conditions the sweep mints a fixture's rows on, spelled again for the draft: a banner over a fixture no pass asks
+ * about warns of a request that never comes. Both tiers run one table of them (`docs/frontend/spec.md :: I776`).
  */
 function wirdAngefragt(
   ansetzung: SpielBannerAnsetzung,
@@ -147,11 +147,15 @@ function wirdAngefragt(
     isActiveSaison,
     sonderereignis,
     hasAnyTore,
+    austrittTage,
     today,
-  }: { isActiveSaison: boolean; sonderereignis: FLSonderereignis | null; hasAnyTore: boolean; today: string },
+  }: { isActiveSaison: boolean; sonderereignis: FLSonderereignis | null; hasAnyTore: boolean; austrittTage: readonly string[]; today: string },
 ): boolean {
   if (!isActiveSaison || sonderereignis !== null || hasAnyTore) return false;
   if (ansetzung.uhrzeit === null || ansetzung.spielortId === null || ansetzung.team1Id === null || ansetzung.team2Id === null) return false;
+  // On the fixture's day itself, as the pass closes it: a club gone by then is asked nothing.
+  const { datum } = ansetzung;
+  if (datum !== null && austrittTage.some((tag) => tag <= datum)) return false;
 
   return ohneVorlauf(ansetzung.datum, today);
 }
@@ -178,6 +182,7 @@ export function buildSpielBanners({
   ansetzung,
   storedAnsetzung,
   isActiveSaison,
+  austrittTage,
   today,
 }: {
   isKnockout: boolean;
@@ -216,6 +221,8 @@ export function buildSpielBanners({
   storedAnsetzung: SpielBannerAnsetzung;
   /** The fixture's season is the running one, the only kind the sweep visits. */
   isActiveSaison: boolean;
+  /** The day each club the draft fields left this season on, where it has. */
+  austrittTage: readonly string[];
   /** The German today the page was rendered on. */
   today: string;
 }): readonly SpielBanner[] {
@@ -404,7 +411,10 @@ export function buildSpielBanners({
 
   // The notice the deadline promises cannot be given: the next pass asks at once, and the link answers that day alone.
   // Raised only by a save that asks, never as a standing hint on every near fixture.
-  if (ansetzungGeaendert(ansetzung, storedAnsetzung) && wirdAngefragt(ansetzung, { isActiveSaison, sonderereignis, hasAnyTore, today })) {
+  if (
+    ansetzungGeaendert(ansetzung, storedAnsetzung) &&
+    wirdAngefragt(ansetzung, { isActiveSaison, sonderereignis, hasAnyTore, austrittTage, today })
+  ) {
     banners.push({
       id: "spiel.bestaetigung-sofort",
       severity: "warning",

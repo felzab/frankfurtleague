@@ -16,6 +16,7 @@ import {
   pageBody,
   prerenderShell,
   readsOf,
+  saisonFields,
   steps,
 } from "@/shared/testing/pageHarness.ts";
 
@@ -31,6 +32,8 @@ doubleActionRequest();
 const { default: AdminSpielEditPage } = await import("./page.tsx");
 const { FLSpielAdminSchema } = await import("@/features/spiele/schemas.ts");
 const { spielStateKey } = await import("@/features/spiele/utils.ts");
+const { AdminContextWrapper } = await import("@/features/admin/components/providers/AdminContextWrapper.tsx");
+const { FLSaisonSchema } = await import("@/features/saisons/schemas.ts");
 const { default: nextConfig } = await import("../../../../../../next.config.ts");
 
 const ENDPOINT = `/spiele/${OBJECT_ID}/admin`;
@@ -95,4 +98,37 @@ describe("the match editor's freshness across a prefetch", () => {
   it("keeps no opened editor in the client router", () => {
     assert.equal(nextConfig.experimental?.staleTimes?.dynamic ?? 0, 0, "the client router serves a reopened editor its earlier payload");
   });
+});
+
+/* The confirmations' sweep visits the running season alone, so the editor's near-date warning is too: a planned
+   season's fixture raising it warns of a request that never comes. */
+describe("which season the match editor calls running", () => {
+  for (const [status, running] of [
+    ["active", true],
+    ["future", false],
+    ["past", false],
+  ] as const) {
+    it(`calls the fixture's ${status} season ${running ? "running" : "not running"}`, async () => {
+      const saison = FLSaisonSchema.parse({
+        ...saisonFields(STORED.saison_id, status),
+        start_date: `${STORED.saison_id}-03-07`,
+        end_date: `${STORED.saison_id}-10-31`,
+        schedule: [],
+        spielplan: null,
+        bewerbung: null,
+        registrierung: null,
+      });
+      answerReadsWith((endpoint, schema, params) => {
+        if (endpoint === ENDPOINT) return answer(schema, endpoint, { spiel: stored });
+        if (endpoint === "/saisons/list/admin") return answer(schema, endpoint, { saisons: [saison] });
+        return EMPTIEST_ANSWER(endpoint, schema, params);
+      });
+
+      // The page's own wrapper, called as the renderer calls it, so the season it hands is the page's choice too.
+      const wrapper = (await pageBody(AdminSpielEditPage, PROPS)) as ReactElement<Parameters<typeof AdminContextWrapper>[0]>;
+      const provider = (await AdminContextWrapper(wrapper.props)) as ReactElement<{ isActiveSaison: boolean }>;
+
+      assert.equal(provider.props.isActiveSaison, running);
+    });
+  }
 });
