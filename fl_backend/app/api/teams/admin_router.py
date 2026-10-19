@@ -28,8 +28,9 @@ from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.sperrliste.services import withheld_actor
+from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.spiele.schemas import FLSpielListAdapter
-from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
+from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe, void_moved_seats
 from app.api.teams.schemas import (
     KONTAKT_ROLLEN,
     FLKontaktEinladenResponse,
@@ -107,6 +108,7 @@ from app.core.dependencies import (
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
+    SpielbestaetigungenCollection,
     SpieleCollection,
     TeamsCollection,
     get_german_date_str,
@@ -594,6 +596,7 @@ async def patch_saison_team_kontakte(
     kontakte_data: Annotated[FLPatchSaisonTeamKontaktePayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenCollection,
     sperrliste: SperrlisteLookup,
     adressanker_collection: AdressankerCollection,
     db: DBClient,
@@ -614,11 +617,12 @@ async def patch_saison_team_kontakte(
 
     **Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the
     caller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person
-    keeps their link, and a seat emptied or handed on loses the one it held, so the person who left it holds nothing
-    live. A save newly seating an address the ban list holds is refused `REQ-KONTAKT-003`, as the re-send to one is. On
-    a row of a `past` season, or of a team that has left it, the link is how its person learns of the entry, and it
-    takes their Widerspruch alone. A save minting a link, or voiding one its person could still answer, is refused
-    `REQ-AUTH-009` as the clearing is; a save doing neither is not.
+    keeps their link, and a seat emptied or handed on loses the one it held and its links on the team's open match
+    confirmations, so the person who left it holds nothing live. A save newly seating an address the ban list holds is
+    refused `REQ-KONTAKT-003`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the
+    link is how its person learns of the entry, and it takes their Widerspruch alone. A save minting a link, emptying
+    or handing on a seat, or voiding a link its person could still answer, is refused `REQ-AUTH-009` as the clearing
+    is; a save doing none of these is not.
 
     **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
     or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
@@ -698,6 +702,7 @@ async def patch_saison_team_kontakte(
         # handed out or taken away is a step-up write (`docs/backend/spec.md :: I566`).
         voids = voids_a_live_link(
             stored_kontakte=stored.get("kontakte"),
+            kontakte=kontakte,
             stored_bestaetigungen=stored.get("bestaetigungen"),
             bestaetigungen=bestaetigungen,
             today=today,
@@ -714,6 +719,12 @@ async def patch_saison_team_kontakte(
             update={"$set": {"kontakte": kontakte, "bestaetigungen": bestaetigungen}},
             session=session,
             return_document=ReturnDocument.AFTER,
+        )
+        # Judged on the block read in this transaction (`docs/backend/spec.md :: I758`).
+        await void_moved_seats(
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            voids=[seat_void_of(saison_id=saison_id, team_id=team_id, stored_kontakte=stored.get("kontakte"), kontakte=kontakte)],
+            session=session,
         )
         # The addresses entering here, which an erasure of one running now never read (`docs/backend/spec.md :: I719`): the
         # newly seated alone, a kept seat's being on this row, which that erasure writes already.
@@ -758,6 +769,7 @@ async def replace_saison_team(
     saison_spieler_collection: SaisonSpielerCollection,
     bewerbungen_collection: BewerbungenCollection,
     aktionen_collection: AktionenCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -858,6 +870,12 @@ async def replace_saison_team(
             update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "bestaetigungen": None}},
             session=session,
             return_document=ReturnDocument.AFTER,
+        )
+        # The outgoing club's people, read in this transaction, leave their match links behind (`docs/backend/spec.md :: I758`).
+        await void_moved_seats(
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            voids=[seat_void_of(saison_id=saison_id, team_id=team_id, stored_kontakte=outgoing_raw.get("kontakte"), kontakte=None)],
+            session=session,
         )
 
         # Owed at once by the row's page (`app/shared/einwilligung.py :: _BESTAETIGUNGSSEITE_SAISON`). The

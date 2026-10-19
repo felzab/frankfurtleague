@@ -675,6 +675,24 @@ REFERENCES: tuple[Reference, ...] = (
             "and never deleted, so the reference stays resolvable."
         ),
     ),
+    Reference(
+        source=Collection.SPIELBESTAETIGUNGEN,
+        fields=("partei.schiedsrichter_id",),
+        target=Collection.SCHIEDSRICHTER,
+        on_reference_created=Action.NO_ACTION,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.CASCADE,
+        note=(
+            "Copied off the fixture's booking by the sweep, which mints no row for the ghost. Nothing is embedded, and a "
+            "retirement deletes nothing. The erasure is the one removal, run for a person's own request and for an "
+            "administrator answering one alike, and it CASCADES ahead of the referee's own step "
+            "(`app/api/spielbestaetigungen/crud.py :: erase_referee_confirmations_in_session`): every row naming the referee "
+            "is removed in the same transaction with its log images, and an image of a row removed earlier, an undraw's, "
+            "names the ghost in their place and loses their reason. Removed rather than repointed as the fixtures are: the "
+            "fixture is the league's record, the row the referee's own answer about their booking, and a row the ghost holds "
+            "is a state the sweep never writes."
+        ),
+    ),
 )
 
 

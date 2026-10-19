@@ -14,8 +14,17 @@ from app.api.kontakte.services import (
     departing_slots,
     seat_image_edits,
 )
+from app.api.spielbestaetigungen.services import (
+    TeamSeats,
+    build_contact_reason_images_filter,
+    build_contact_reasons_filter,
+    contact_reason_image_edits,
+    kontakte_ohne,
+    seat_void_of,
+)
+from app.api.teams.crud import void_moved_seats
 from app.core.collections import Collection
-from app.core.crud import patch_one_in_db
+from app.core.crud import aggregate_many_from_db, patch_many_in_db, patch_one_in_db
 from app.core.recording import RedactionTarget, build_redaction_filter
 from app.shared.folding import sign_in_identifier
 
@@ -51,6 +60,38 @@ async def clear_seats(
     return cleared
 
 
+async def _strip_their_reasons(
+    *,
+    spielbestaetigungen_collection: AsyncCollection,
+    aktionen_collection: AsyncCollection,
+    seats: Sequence[TeamSeats],
+    stamp: str,
+    session: AsyncClientSession,
+) -> None:
+    """The reason each of these seats gave on its team's confirmations, out of the rows and their log images (`docs/backend/spec.md :: I759`).
+
+    The answer, its day and its role stay: they are the club's.
+    """
+
+    db_filter = build_contact_reasons_filter(seats)
+    # No write for none: a fan-out matching nothing still files a log row.
+    if await aggregate_many_from_db(
+        collection=spielbestaetigungen_collection, pipeline=[{"$match": db_filter}, {"$limit": 1}, {"$project": {"_id": 1}}], session=session
+    ):
+        await patch_many_in_db(
+            collection=spielbestaetigungen_collection, db_filter=db_filter, update={"$set": {"antwort.begruendung": None}}, session=session
+        )
+
+    # Every image of those rows the log keeps, an undraw's removal among them, which no row standing now reaches.
+    await redact_images_in_session(
+        aktionen_collection=aktionen_collection,
+        db_filter=build_contact_reason_images_filter(seats),
+        judge=lambda image: contact_reason_image_edits(image, seats),
+        stamp=stamp,
+        session=session,
+    )
+
+
 class SeatsCleared(NamedTuple):
     kontakt_slots: int
     redacted_aktionen: int
@@ -61,6 +102,7 @@ async def erase_kontaktperson_in_session(
     saison_teams_collection: AsyncCollection,
     bewerbungen_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
+    spielbestaetigungen_collection: AsyncCollection,
     identifier: str,
     # The rows naming the address in a seat, of every status, each carrying its seats' addresses and its
     # `bestaetigungen`, read unbounded in the caller's transaction BEFORE any clearing: a cleared row stops matching.
@@ -80,6 +122,31 @@ async def erase_kontaktperson_in_session(
 
     cleared_slots = await clear_seats(saison_teams_collection, saison_team_rows, {identifier}, session)
     cleared_slots += await clear_seats(bewerbungen_collection, bewerbung_rows, {identifier}, session)
+
+    # Off the rows read in this transaction, as `clear_seats` judged them, each once for the whole erasure: the void and
+    # the reasons then cost it the same however many rows the person sat in (`docs/backend/spec.md :: I758`).
+    held = [(row, slots) for row in saison_team_rows if (slots := departing_slots(row, {identifier}))]
+    if held:
+        await void_moved_seats(
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            voids=[
+                seat_void_of(
+                    saison_id=row["saison_id"],
+                    team_id=row["team_id"],
+                    stored_kontakte=row.get("kontakte"),
+                    kontakte=kontakte_ohne(row.get("kontakte"), slots),
+                )
+                for row, slots in held
+            ],
+            session=session,
+        )
+        await _strip_their_reasons(
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            aktionen_collection=aktionen_collection,
+            seats=[TeamSeats(saison_id=row["saison_id"], team_id=row["team_id"], seats=slots) for row, slots in held],
+            stamp=stamp,
+            session=session,
+        )
 
     # LAST, so both passes reach the pre-images the clearing just filed. The rows reached by document
     # first, by address and by name; then by address alone, which also finds a swap's orphan.

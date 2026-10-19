@@ -1,4 +1,4 @@
-import type { FLSonderereignis } from "./schemas";
+import type { FLSonderereignis, FLSpielStatus } from "./schemas";
 
 /**
  * The note's bound, mirroring the backend's `SPIEL_NOTIZ_MAX_LENGTH`
@@ -36,6 +36,19 @@ export const SONDEREREIGNIS_LABELS: Record<FLSonderereignis, string> = {
   nichtantreten_team2: "Nichtantreten Team 2",
   abgebrochen: "Abgebrochen",
   annulliert: "Annulliert",
+};
+
+/**
+ * The one German spelling of each derived status, read by the status chip and the status filter alike:
+ * two spellings of one state read as two. Not the schema value, which would couple the visible German
+ * to the API contract.
+ */
+export const SPIEL_STATUS_LABELS: Record<FLSpielStatus, string> = {
+  ausstehend: "Ausstehend",
+  heute: "Heute",
+  vergangen: "Vergangen",
+  abgesagt: "Abgesagt",
+  unbekannt: "Ohne Datum",
 };
 
 /**

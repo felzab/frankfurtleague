@@ -21,6 +21,7 @@ from app.core.crud import (
     build_query,
     build_sort,
     delete_many_from_db,
+    erase_many_from_db,
     literal_pattern,
     patch_one_in_db,
     post_many_to_db,
@@ -327,6 +328,18 @@ class TestDeleteManyFromDb:
         stub = _SetCollection(documents)
 
         asyncio.run(delete_many_from_db(collection=as_collection(stub), db_filter=FILTER, session=TRANSACTION))
+
+        assert len(stub.recorded) == rows
+
+
+class TestEraseManyFromDb:
+    @pytest.mark.parametrize(("documents", "rows"), [pytest.param([], 0, id="nothing removed"), pytest.param([STORED], 1, id="one removed")])
+    def test_a_removal_records_a_row_exactly_where_it_took_something(self, documents: list[Mapping[str, Any]], rows: int):
+        """`delete_many_from_db`'s rule, by the driver's count: this removal reads nothing first, keeping no image."""
+
+        stub = _SetCollection(documents)
+
+        asyncio.run(erase_many_from_db(collection=as_collection(stub), db_filter=FILTER, session=TRANSACTION))
 
         assert len(stub.recorded) == rows
 

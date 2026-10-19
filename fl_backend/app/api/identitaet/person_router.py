@@ -33,6 +33,7 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SperrlisteCollection,
+    SpielbestaetigungenCollection,
     SpieleCollection,
     SpielerCollection,
     get_germany_now,
@@ -70,6 +71,7 @@ async def erase_selbst(
     bewerbungen_collection: BewerbungenCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenCollection,
     registrierungen_collection: RegistrierungenCollection,
     drosselung_collection: Annotated[AsyncCollection, Depends(get_drosselung_collection)],
     aktionen_collection: AktionenCollection,
@@ -95,7 +97,8 @@ async def erase_selbst(
     to be played included. Nothing is counted against the person's day.
 
     Removed: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every
-    fixture it was booked on moving to the one row that holds no person and keeping its own fee; every registration at the
+    fixture it was booked on moving to the one row that holds no person and keeping its own fee, and every confirmation it
+    was asked for, answered or not; every registration at the
     address, pending or declined; another referee's or pupil's pending address change naming this address, that row itself
     standing; every grant the address holds, an `owner` grant and the last two among them, every administrator being told it
     ended; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an
@@ -133,6 +136,7 @@ async def erase_selbst(
             bewerbungen_collection=bewerbungen_collection,
             schiedsrichter_collection=schiedsrichter_collection,
             spiele_collection=spiele_collection,
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
             registrierungen_collection=registrierungen_collection,
             drosselung_collection=drosselung_collection,
             aktionen_collection=aktionen_collection,
@@ -186,7 +190,8 @@ async def get_erasure_ansicht(
     removes or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address
     and no birthdate is answered. A pending address change on another address's referee or pupil row is counted and not
     named, that row not being this address's until the change is confirmed. Reached and not named: the fixtures booking
-    their referee record, which move onto the ghost, and their name in each of those fixtures' log images, which goes;
+    their referee record, which move onto the ghost, and their name in each of those fixtures' log images, which goes; the
+    confirmations their referee record was asked for, which go, and its id and reason in a removed season's log images;
     what the person made or decided for others, which names a marker in their place; their day counts; their rows in the
     log; every log image of a record the erasure removes, emptied whole whether or not it holds the address, and every
     other log image holding the address; each grant's announced row, and an announced row holding the address under

@@ -2,7 +2,7 @@ import hashlib
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from http import HTTPStatus
-from typing import Any, Final, cast
+from typing import Any, Final, NamedTuple, cast
 
 from app.api.bewerbungen.services import days_after, seat_named
 from app.api.identitaet.services import holds_a_name, namen_aus
@@ -23,7 +23,8 @@ from app.api.spiele.schemas import (
     FLSpielTeamFieldPayload,
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLKontaktRolle
-from app.api.teams.services import has_taken_place
+from app.api.teams.services import has_taken_place, seats_changing_holder
+from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.bounds import (
@@ -684,3 +685,173 @@ def compose_seats_update(*, hashes: Mapping[str, str]) -> dict[str, Any]:
 
 def compose_closing_update(*, grund: FLSpielbestaetigungGrund, today: str) -> dict[str, Any]:
     return {"$set": {"geschlossen": {"am": today, "grund": grund}}}
+
+
+# --- A seat write's void: the open rows' entries of every seat whose holder the write moves.
+
+
+class SeatVoid(NamedTuple):
+    """The seats one season row's write empties or hands on, keyed as its team's rows name it."""
+
+    saison_id: Any
+    team_id: Any
+    seats: tuple[FLKontaktRolle, ...]
+
+
+def kontakte_ohne(stored_kontakte: Any, seats: Sequence[str]) -> Any:
+    """The block a write emptying these seats leaves: what a Widerspruch or an erasure hands `seat_void_of`."""
+
+    if not isinstance(stored_kontakte, Mapping):
+        return stored_kontakte
+
+    return {**stored_kontakte, **dict.fromkeys(seats)}
+
+
+def seat_void_of(*, saison_id: Any, team_id: Any, stored_kontakte: Any, kontakte: Any) -> SeatVoid | None:
+    """What one season row's write voids, read off the block it replaced and the block it leaves; `None` where it moves no holder."""
+
+    moved = set(seats_changing_holder(stored=stored_kontakte, kontakte=kontakte))
+    if not moved:
+        return None
+
+    # Every seat the write leaves empty too, whose entry is null already wherever no write slipped past the void: so
+    # every whole-block clear nulls one seat set, and a call clearing many rows writes once.
+    block = kontakte if isinstance(kontakte, Mapping) else {}
+    seats: tuple[FLKontaktRolle, ...] = tuple(seat for seat in KONTAKT_ROLLEN if seat in moved or not isinstance(block.get(seat), Mapping))
+
+    return SeatVoid(saison_id=saison_id, team_id=team_id, seats=seats)
+
+
+def _team_rows(saison_id: Any, team_id: Any) -> dict[str, Any]:
+    return {"saison_id": saison_id, "partei.team_id": team_id}
+
+
+def build_open_team_rows_filter(pairs: Sequence[tuple[Any, Any]]) -> dict[str, Any]:
+    """These teams' rows in these seasons that are still answerable, so an answered row keeps its answer and its links."""
+
+    return {"partei.art": "team", **build_answerable_filter(), "$or": [_team_rows(saison_id, team_id) for saison_id, team_id in pairs]}
+
+
+def build_open_seat_rows_pipeline(voids: Sequence[SeatVoid]) -> list[Mapping[str, Any]]:
+    """Per team and season, which seats hold an entry on any open row: one document per row written, so one batch answers it."""
+
+    return [
+        {"$match": build_open_team_rows_filter([(void.saison_id, void.team_id) for void in voids])},
+        {
+            "$group": {
+                "_id": {"saison_id": "$saison_id", "team_id": "$partei.team_id"},
+                # An object sorts above null, so only a standing entry counts.
+                **{seat: {"$max": {"$gt": [f"$kontakte.{seat}", None]}} for seat in KONTAKT_ROLLEN},
+            }
+        },
+    ]
+
+
+def group_seat_voids(
+    *, voids: Sequence[SeatVoid], held: Sequence[Mapping[str, Any]]
+) -> list[tuple[tuple[FLKontaktRolle, ...], list[tuple[Any, Any]]]]:
+    """The teams whose open rows hold an entry of a seat their write moved, grouped by the seats to null.
+
+    One write per group rather than per row, so a call costs the same however many rows it voids.
+    """
+
+    seats_of: dict[tuple[Any, Any], set[str]] = {}
+    for void in voids:
+        seats_of.setdefault((void.saison_id, void.team_id), set()).update(void.seats)
+
+    groups: dict[tuple[FLKontaktRolle, ...], list[tuple[Any, Any]]] = {}
+    for team in held:
+        pair = (team["_id"]["saison_id"], team["_id"]["team_id"])
+        seats = seats_of.get(pair, set())
+        # A team whose rows hold none of them is not written: the update would change nothing and still file a log row.
+        if any(team.get(seat) is True for seat in seats):
+            groups.setdefault(tuple(seat for seat in KONTAKT_ROLLEN if seat in seats), []).append(pair)
+
+    return list(groups.items())
+
+
+# --- A CONTACT PERSON'S ERASURE: the reason a seat they hold gave on their team's confirmations.
+
+
+class TeamSeats(NamedTuple):
+    """The seats one person held on one team's season row, keyed as that team's confirmations name it."""
+
+    saison_id: Any
+    team_id: Any
+    seats: Sequence[str]
+
+
+def build_contact_reasons_filter(held: Sequence[TeamSeats]) -> dict[str, Any]:
+    """Every row of these teams answered from one of these seats with a reason, closed since or not."""
+
+    return {
+        "partei.art": "team",
+        "antwort.von.art": "kontakt",
+        "antwort.begruendung": {"$ne": None},
+        "$or": [{**_team_rows(team.saison_id, team.team_id), "antwort.von.rolle": {"$in": list(team.seats)}} for team in held],
+    }
+
+
+def build_contact_reason_images_filter(held: Sequence[TeamSeats]) -> dict[str, Any]:
+    """Log rows whose image may hold such a reason; `contact_reason_image_edits` decides, an image at a time."""
+
+    return {
+        "collection": str(Collection.SPIELBESTAETIGUNGEN),
+        "before.antwort.von.art": "kontakt",
+        "$or": [{"before.saison_id": team.saison_id, "before.partei.team_id": team.team_id} for team in held],
+    }
+
+
+def contact_reason_image_edits(image: Mapping[str, Any], held: Sequence[TeamSeats]) -> dict[str, Any]:
+    """One image's reason nulled where one of these seats gave it for its team; its answer, day and role stay."""
+
+    partei, antwort = image.get("partei"), image.get("antwort")
+    if not isinstance(partei, Mapping) or not isinstance(antwort, Mapping) or antwort.get("begruendung") is None:
+        return {}
+
+    von = antwort.get("von")
+    given = (image.get("saison_id"), partei.get("team_id"), von.get("rolle") if isinstance(von, Mapping) else None)
+    if (
+        isinstance(von, Mapping)
+        and von.get("art") == "kontakt"
+        and any(given == (t.saison_id, t.team_id, seat) for t in held for seat in t.seats)
+    ):
+        return {"antwort.begruendung": None}
+
+    return {}
+
+
+# --- The REFEREE'S ERASURE: which rows and log images name the person, and what each image becomes.
+
+
+def build_referee_rows_filter(schiedsrichter_ids: Sequence[Any]) -> Mapping[str, Any]:
+    """Every row whose party is one of these referees, open, answered or closed."""
+
+    return {"partei.art": "schiedsrichter", "partei.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}
+
+
+def build_referee_images_filter(schiedsrichter_ids: Sequence[Any]) -> Mapping[str, Any]:
+    """Every `spielbestaetigungen` log row whose image names one of these referees as its party.
+
+    Selected inside the image, as `app/api/schiedsrichter/services.py :: build_booked_image_filter` selects: an undraw's
+    `delete_many` row holds images of rows long gone, which no id standing now reaches.
+    """
+
+    return {"collection": str(Collection.SPIELBESTAETIGUNGEN), "before.partei.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}
+
+
+def referee_image_edits(image: Mapping[str, Any], schiedsrichter_ids: Sequence[Any]) -> dict[str, Any]:
+    """One image naming one of these referees, its party repointed at the ghost and their reason nulled.
+
+    The Ansetzung, the deadline and which way the answer went stay: they name nobody once the party is the ghost.
+    """
+
+    partei = image.get("partei")
+    if not isinstance(partei, Mapping) or partei.get("art") != "schiedsrichter" or partei.get("schiedsrichter_id") not in schiedsrichter_ids:
+        return {}
+
+    edits: dict[str, Any] = {"partei.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}
+    if isinstance(image.get("antwort"), Mapping):
+        edits["antwort.begruendung"] = None
+
+    return edits

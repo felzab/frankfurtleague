@@ -552,22 +552,22 @@ class TestAnUndrawReachesNoOtherSeason:
         assert neighbours.undrawn.spiele > 0
 
 
-def a_confirmation(saison_id: str, oid: ObjectId) -> dict[str, Any]:
+def a_confirmation(saison_id: str) -> dict[str, Any]:
     """An open team row of one season's fixture, as the sweep mints it; the fixture itself need not exist for the removal's filter."""
 
-    return {
-        "_id": oid,
-        "saison_id": saison_id,
-        "spiel_id": oid,
-        "partei": {"art": "team", "team_id": oid},
-        "ansetzung": {"datum": "2026-05-01", "uhrzeit": "18:00:00", "spielort_id": None, "team1_id": oid, "team2_id": oid, "stand": "d" * 64},
-        "frist": "2026-04-24",
-        "angefragt_am": None,
-        "erinnert_am": [],
-        "kontakte": {"trainer": None, "ansprechperson": None, "stellvertretung": None},
-        "antwort": None,
-        "geschlossen": None,
-    }
+    home = ObjectId()
+    fixture = documents.spiel_document(
+        spiel_id=ObjectId(),
+        saison_id=saison_id,
+        spiel_nr=1,
+        spieltag_id=ObjectId(),
+        team1={"team_id": home, "name": "Alpha", "shorthand": "AL", "tore": None},
+        team2={"team_id": ObjectId(), "name": "Beta", "shorthand": "BE", "tore": None},
+        datum="2026-05-01",
+        uhrzeit="18:00:00",
+    )
+
+    return documents.spielbestaetigung_document(fixture, partei={"art": "team", "team_id": home})
 
 
 class TestAnUndrawTakesTheSeasonsConfirmations:
@@ -576,9 +576,7 @@ class TestAnUndrawTakesTheSeasonsConfirmations:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
             await call_draw(database, client)
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
-                [a_confirmation(SAISON_ID, ObjectId()), a_confirmation(NEIGHBOUR_SAISON_ID, ObjectId())]
-            )
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many([a_confirmation(SAISON_ID), a_confirmation(NEIGHBOUR_SAISON_ID)])
             await call_undraw(database, client)
 
             confirmations = database[Collection.SPIELBESTAETIGUNGEN]

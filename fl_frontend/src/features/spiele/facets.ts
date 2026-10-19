@@ -1,20 +1,17 @@
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { bookedSchiedsrichterName } from "@/features/schiedsrichter/constants";
 
-import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_OPTIONS } from "./constants";
+import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_OPTIONS, SPIEL_STATUS_LABELS } from "./constants";
 import { computeSpielStatus } from "./utils";
 
 import type { Facet, FacetOption } from "@/shared/utils/facets";
 import type { FLSpiel } from "./schemas";
 
 /** The five derived statuses, in the order a fixture passes through them. */
-const STATUS_OPTIONS: readonly FacetOption[] = [
-  { value: "ausstehend", label: "Ausstehend" },
-  { value: "heute", label: "Heute" },
-  { value: "vergangen", label: "Vergangen" },
-  { value: "abgesagt", label: "Abgesagt" },
-  { value: "unbekannt", label: "Ohne Datum" },
-];
+const STATUS_OPTIONS: readonly FacetOption[] = (["ausstehend", "heute", "vergangen", "abgesagt", "unbekannt"] as const).map((status) => ({
+  value: status,
+  label: SPIEL_STATUS_LABELS[status],
+}));
 
 /** No entry for an ordinary fixture: `null` is the absence of an event, not a sixth one to filter on. */
 const SONDEREREIGNIS_FACET_OPTIONS: readonly FacetOption[] = SONDEREREIGNIS_OPTIONS.map((event) => ({
