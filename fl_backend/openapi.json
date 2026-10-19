@@ -8919,6 +8919,158 @@
         "x-fl-tier": "system"
       }
     },
+    "/api/v0/spielbestaetigungen/sweep": {
+      "get": {
+        "summary": "Every season the confirmation pass visits",
+        "description": "Answer every `active` season's id, oldest first, and the day a confirmation pass last ran over any of them.\n\n`active` alone: a confirmation serves no purpose once its season is over, and a season that ended with a fixture nobody\nentered a result for would otherwise be asked about a day long gone. System tier because this is the timer's own\nbookkeeping, asked by the process running the pass and by no page. Null means no pass has run over these seasons. Reading\nit writes nothing.",
+        "operationId": "get_spiel_sweep_saisons_api_v0_spielbestaetigungen_sweep_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungSweepSaisonsResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/spielbestaetigungen/sweep/{saison_id}": {
+      "post": {
+        "summary": "Run one season's fixture confirmation pass",
+        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none. A team row closed for\na move whose first request went out is answered in `neue_ansetzungen`, a referee's in `schiedsrichter_neue_ansetzungen`.\n\nThe mint asks, for an `active` season alone, about every fixture dated strictly after today and at most the answer window\nahead that has its time and ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one\nrow per side and one for its booked referee, unless a row about that party and that Ansetzung is still unclosed. A fixture\nbooked onto the erased referee's ghost gets no referee row, the ghost holding no address. The deadline is seven days\nbefore the fixture, or today where that has passed. Each seat holding an address gets one link, a person holding two\nseats one link naming both, and the raw tokens are answered in `anfragen` UNSTAMPED: the caller stamps what it mailed\nthrough `/angefragt`, so a request that never went out shows as never asked. An open row's occupied seat holding no link\n-- its holder replaced, newly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows\nare answered in `einteilungen`, with the referee's address and no token.\n\nThe reminder mints a fresh link per seat on each row whose deadline is three or one days away, appended beside the links\nalready mailed so every one of them still answers, and stamps the day BEFORE answering: a failed send costs one reminder,\nnever a daily repeat. A row whose first request was never stamped as sent is answered in `anfragen` instead, its fresh\nlinks a request rather than a reminder of one that may never have arrived, and is stamped through `/angefragt` like any.\n\nA seat whose address the ban list holds is minted nothing and has nothing written, so it stays due and a later pass mints\nit once the ban is lifted; each pass logs how many seats it withheld, never which.\n\nEach step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has\ncommitted something owed a message, a later step's failure is logged and the call answers what committed. A row whose\nwrite or answer fails is passed over alone, logged by id and counted in `fehlgeschlagen`. The pass's day is stamped on\nthis season. 404 where no season has the id.",
+        "operationId": "sweep_spielbestaetigungen_api_v0_spielbestaetigungen_sweep__saison_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungSweepResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/spielbestaetigungen/sweep/{saison_id}/angefragt": {
+      "post": {
+        "summary": "Stamp the confirmations whose first message went out",
+        "description": "Record that the first message about the rows named went out, team and referee rows alike.\n\nEvery named row of this season not yet stamped is stamped today, answered or closed since or not: the stamp says the\nrequest was mailed, which a row closed for a move needs before its parties are told the date changed. A row already\nstamped keeps the day it has, and an id of another season is skipped. A row whose stamp fails is passed over alone,\nlogged by id, left unstamped and counted in `fehlgeschlagen`. 404 where no season has the id. An empty list answers zero.",
+        "operationId": "angefragt_spielbestaetigungen_api_v0_spielbestaetigungen_sweep__saison_id__angefragt_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielbestaetigungSweepAngefragtPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungSweepAngefragtResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "system"
+      }
+    },
     "/api/v0/spieler/kader/{team_id}/{saison_id}": {
       "get": {
         "summary": "Read a team's squad as its seat holder",
@@ -24256,6 +24408,390 @@
         ],
         "title": "FLSpielbestaetigungAntwortResponse",
         "description": "What the answer recorded, in the view's own fields; no receipt is mailed, so nothing here composes one."
+      },
+      "FLSpielbestaetigungSweepAnfrage": {
+        "properties": {
+          "spielbestaetigung_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spielbestaetigung Id"
+          },
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "seite": {
+            "type": "string",
+            "enum": [
+              "team1",
+              "team2"
+            ],
+            "title": "Seite"
+          },
+          "ansetzung": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungAnsichtAnsetzung"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigungSweepLink"
+            },
+            "type": "array",
+            "title": "Links"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielbestaetigung_id",
+          "spiel_id",
+          "seite",
+          "ansetzung",
+          "frist",
+          "links"
+        ],
+        "title": "FLSpielbestaetigungSweepAnfrage",
+        "description": "One team row's request or reminder: the fixture, the stored deadline, and every link due a message."
+      },
+      "FLSpielbestaetigungSweepAngefragtPayload": {
+        "properties": {
+          "spielbestaetigung_ids": {
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            },
+            "type": "array",
+            "maxItems": 84,
+            "title": "Spielbestaetigung Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "spielbestaetigung_ids"
+        ],
+        "title": "FLSpielbestaetigungSweepAngefragtPayload",
+        "description": "Which rows' first messages went. Stamped whether or not answered or closed since: the stamp records the send."
+      },
+      "FLSpielbestaetigungSweepAngefragtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "angefragt": {
+            "type": "integer",
+            "title": "Angefragt"
+          },
+          "fehlgeschlagen": {
+            "type": "integer",
+            "title": "Fehlgeschlagen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "angefragt",
+          "fehlgeschlagen"
+        ],
+        "title": "FLSpielbestaetigungSweepAngefragtResponse"
+      },
+      "FLSpielbestaetigungSweepEinteilung": {
+        "properties": {
+          "spielbestaetigung_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spielbestaetigung Id"
+          },
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "ansetzung": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungAnsichtAnsetzung"
+          },
+          "address": {
+            "type": "string",
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielbestaetigung_id",
+          "spiel_id",
+          "ansetzung",
+          "address"
+        ],
+        "title": "FLSpielbestaetigungSweepEinteilung",
+        "description": "A referee row just minted: the referee is told to the panel, with no token."
+      },
+      "FLSpielbestaetigungSweepEmpfaenger": {
+        "properties": {
+          "address": {
+            "type": "string",
+            "title": "Address"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "address",
+          "rollen"
+        ],
+        "title": "FLSpielbestaetigungSweepEmpfaenger",
+        "description": "A mailbox told something without a link."
+      },
+      "FLSpielbestaetigungSweepLink": {
+        "properties": {
+          "address": {
+            "type": "string",
+            "title": "Address"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "address",
+          "rollen",
+          "token"
+        ],
+        "title": "FLSpielbestaetigungSweepLink",
+        "description": "One LINK and its mailbox; the RAW token exists here and in the mail alone.\n\nPer link: one person on two seats gets one button naming both roles, two people on one inbox two."
+      },
+      "FLSpielbestaetigungSweepNeueAnsetzung": {
+        "properties": {
+          "spielbestaetigung_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spielbestaetigung Id"
+          },
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "team1_name": {
+            "type": "string",
+            "title": "Team1 Name"
+          },
+          "team2_name": {
+            "type": "string",
+            "title": "Team2 Name"
+          },
+          "alt": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungTermin"
+          },
+          "empfaenger": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigungSweepEmpfaenger"
+            },
+            "type": "array",
+            "title": "Empfaenger"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielbestaetigung_id",
+          "spiel_id",
+          "team1_name",
+          "team2_name",
+          "alt",
+          "empfaenger"
+        ],
+        "title": "FLSpielbestaetigungSweepNeueAnsetzung",
+        "description": "A team row a move closed, so a link in its mailboxes is known void before the fresh request arrives."
+      },
+      "FLSpielbestaetigungSweepResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "anfragen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigungSweepAnfrage"
+            },
+            "type": "array",
+            "title": "Anfragen"
+          },
+          "erinnerungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigungSweepAnfrage"
+            },
+            "type": "array",
+            "title": "Erinnerungen"
+          },
+          "einteilungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigungSweepEinteilung"
+            },
+            "type": "array",
+            "title": "Einteilungen"
+          },
+          "neue_ansetzungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigungSweepNeueAnsetzung"
+            },
+            "type": "array",
+            "title": "Neue Ansetzungen"
+          },
+          "schiedsrichter_neue_ansetzungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung"
+            },
+            "type": "array",
+            "title": "Schiedsrichter Neue Ansetzungen"
+          },
+          "geschlossen": {
+            "type": "integer",
+            "title": "Geschlossen"
+          },
+          "fehlgeschlagen": {
+            "type": "integer",
+            "title": "Fehlgeschlagen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "anfragen",
+          "erinnerungen",
+          "einteilungen",
+          "neue_ansetzungen",
+          "schiedsrichter_neue_ansetzungen",
+          "geschlossen",
+          "fehlgeschlagen"
+        ],
+        "title": "FLSpielbestaetigungSweepResponse",
+        "description": "One season's pass: the requests still to stamp, the reminders already stamped, and the void notices."
+      },
+      "FLSpielbestaetigungSweepSaisonsResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Saison Ids"
+          },
+          "spiel_sweep_gelaufen_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spiel Sweep Gelaufen Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_ids",
+          "spiel_sweep_gelaufen_am"
+        ],
+        "title": "FLSpielbestaetigungSweepSaisonsResponse",
+        "description": "The `active` seasons a pass visits, and the day a pass last ran over any of them."
+      },
+      "FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung": {
+        "properties": {
+          "spielbestaetigung_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spielbestaetigung Id"
+          },
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "team1_name": {
+            "type": "string",
+            "title": "Team1 Name"
+          },
+          "team2_name": {
+            "type": "string",
+            "title": "Team2 Name"
+          },
+          "alt": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungTermin"
+          },
+          "address": {
+            "type": "string",
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielbestaetigung_id",
+          "spiel_id",
+          "team1_name",
+          "team2_name",
+          "alt",
+          "address"
+        ],
+        "title": "FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung",
+        "description": "The same for a referee row: one address, no seat, the delivery lane recording no seat."
       },
       "FLSpielbestaetigungTermin": {
         "properties": {
