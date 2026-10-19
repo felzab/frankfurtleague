@@ -25,6 +25,7 @@ doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING }, specifiers: 
 
 const { POST } = await import("./route.ts");
 const { APINetworkError } = await import("@/core/errors.ts");
+const { markOutcomeUnknown } = await import("@/core/requestScope.ts");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 const { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
@@ -251,6 +252,31 @@ describe("the referee's confirmation handler", () => {
       success: false,
       fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt." },
     });
+  });
+
+  /* The write was refused, so nothing stands to be unsure of: a floor read the request's deadline cut names no age,
+     never an unknown outcome, and drops no cache for a write that did not land. */
+  it("puts the age refusal on the date naming no age where the deadline cut the floor's read", async () => {
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-SCHIEDSRICHTER-005");
+    leseAntwort = () => {
+      markOutcomeUnknown();
+      return new APINetworkError({
+        message: "Request failed.",
+        url: "http://localhost/schiedsrichter/bestaetigung/ansicht",
+        method: "POST",
+        readOnly: true,
+        traceId: "0",
+        isTimeout: true,
+      });
+    };
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, {
+      success: false,
+      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt." },
+    });
+    assert.deepEqual(tags, []);
   });
 
   it("refuses a body no schema admits without reaching the endpoint", async () => {

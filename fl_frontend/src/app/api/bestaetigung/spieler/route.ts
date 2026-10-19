@@ -1,3 +1,4 @@
+import { runAnsweringOwnCut } from "@/core/requestScope";
 import { postSpielerBestaetigung } from "@/features/registrierungen/mutations";
 import { getSpielerBestaetigungAnsicht } from "@/features/registrierungen/queries";
 import { FLRegistrierungBestaetigungPayloadSchema } from "@/features/registrierungen/schemas";
@@ -15,7 +16,8 @@ import type { NextRequest } from "next/server";
  * none rather than guessing a floor.
  */
 async function ansichtFuerToken(token: string): Promise<{ mindestalter: number; medien_mindestalter: number } | null> {
-  return getSpielerBestaetigungAnsicht(token).then(
+  // Under its own cut: the write was refused, so a deadline cutting this read is no unknown outcome.
+  return runAnsweringOwnCut(() => getSpielerBestaetigungAnsicht(token)).then(
     (gelesen) => (gelesen.zustand === "gueltig" ? gelesen.ansicht : null),
     () => null,
   );
