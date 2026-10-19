@@ -105,24 +105,17 @@ const REFUSAL_BANNER_IDS: ReadonlySet<SpielBannerId> = new Set<SpielBannerId>(Ob
 export const isSpielRefusalBannerId = (id: SpielBannerId): boolean => REFUSAL_BANNER_IDS.has(id);
 
 /**
- * A fixture's Ansetzung as the confirmations read it, `YYYY-MM-DD` and `HH:MM:SS` or `null`: the five inputs of
- * `fl_backend/app/api/spielbestaetigungen/services.py :: ansetzung_stand_of`, so a sixth there is a sixth here.
+ * `fl_backend/app/api/spielbestaetigungen/services.py :: ANSETZUNG_QUELLEN`, the inputs of a fixture's stand, each in
+ * this module's spelling: `fl_backend/tests/shared/test_frontend_mirrors.py` fails a sixth on one side alone.
  */
-export type SpielBannerAnsetzung = {
-  datum: string | null;
-  uhrzeit: string | null;
-  spielortId: string | null;
-  team1Id: string | null;
-  team2Id: string | null;
-};
+const ANSETZUNG_QUELLEN = ["datum", "uhrzeit", "spielortId", "team1Id", "team2Id"] as const;
+
+/** A fixture's Ansetzung as the confirmations read it, `YYYY-MM-DD` and `HH:MM:SS` or `null`. */
+export type SpielBannerAnsetzung = Record<(typeof ANSETZUNG_QUELLEN)[number], string | null>;
 
 /** Whether a save moves the stand the sweep closes a fixture's open rows on, and so mints afresh. */
 export const ansetzungGeaendert = (draft: SpielBannerAnsetzung, stored: SpielBannerAnsetzung): boolean =>
-  draft.datum !== stored.datum ||
-  draft.uhrzeit !== stored.uhrzeit ||
-  draft.spielortId !== stored.spielortId ||
-  draft.team1Id !== stored.team1Id ||
-  draft.team2Id !== stored.team2Id;
+  ANSETZUNG_QUELLEN.some((quelle) => draft[quelle] !== stored[quelle]);
 
 const MS_PER_DAY = 86_400_000;
 

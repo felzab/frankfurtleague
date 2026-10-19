@@ -19,7 +19,7 @@ from app.api.bewerbungen.services import days_after
 from app.api.identitaet.schemas import ADRESSE_UNTER_INVALID, ANLASS_HOLDS_AN_ADDRESS, ErasureAdresse, FLErasurePayload
 from app.api.identitaet.services import grants_a_panel
 from app.api.saisons.schemas import FLSaisonStatus, TeamsPerGroup
-from app.api.spielbestaetigungen.services import anfrage_is_due
+from app.api.spielbestaetigungen.services import ANSETZUNG_QUELLEN, anfrage_is_due
 from app.api.spiele.schemas import MAX_QUALIFIERS
 from app.api.spiele.services import CLASH_BUFFER_MINUTES
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
@@ -646,10 +646,11 @@ QUALIFIER_CEILING: Final = ("features/saisons/schemas.ts", "MAX_QUALIFIERS", "2 
 STRING_MEMBER: Final = re.compile(r'"([^"]+)"')
 
 
-def _declared_members(module: str, name: str) -> tuple[str, ...]:
+def _declared_members(module: str, name: str, *, exported: bool = True) -> tuple[str, ...]:
     """One frontend list literal's members. A member this reader cannot see fails a case below rather than dropping quietly out of it."""
 
-    found = re.search(rf"^export const {name} = (?:z\.enum\()?\[(?P<members>[^\]]*)\]", _source(module), re.MULTILINE)
+    prefix = "export " if exported else ""
+    found = re.search(rf"^{prefix}const {name} = (?:z\.enum\()?\[(?P<members>[^\]]*)\]", _source(module), re.MULTILINE)
 
     assert found is not None, f"{module} no longer opens {name} as one list literal on one line"
 
@@ -1758,6 +1759,20 @@ def _anfrage_case(anders: dict[str, Any]) -> tuple[dict[str, Any], dict[Any, str
                 raise ValueError(f"the table moves {key}, which this tier does not read")
 
     return spiel, austritte
+
+
+# The inputs of the stand as the near-date warning compares them, so a save moving an input the warning never reads
+# re-asks the clubs unannounced.
+ANSETZUNG_QUELLEN_SET: Final = ("features/spiele/components/forms/AdminEditSpielDataForm/banners.ts", "ANSETZUNG_QUELLEN")
+
+
+def test_the_near_date_warning_compares_every_input_of_the_stand():
+    """The table below moves a fixture's fields, never its stand: an input on one side alone fails here instead."""
+
+    compared = _declared_members(*ANSETZUNG_QUELLEN_SET, exported=False)
+
+    assert compared, f"{ANSETZUNG_QUELLEN_SET[1]} names no input, so the comparison below rests on nothing"
+    assert sorted(compared) == sorted(re.sub(r"_(\w)", lambda found: found[1].upper(), quelle) for quelle in ANSETZUNG_QUELLEN)
 
 
 @pytest.mark.parametrize("row", json.loads(ANFRAGE_IS_DUE.read_bytes().decode("utf-8")), ids=lambda row: row["fall"])
