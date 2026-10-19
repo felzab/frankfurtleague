@@ -64,11 +64,11 @@ if [[ -n "$VERIFY_TEST_SHARD" ]]; then
 fi
 
 # Windows alone, where no signal reaches the gate past its launching shell: the gate joins the job
-# `scripts/gate/gate_watch.py` ends with the gate or its launcher. Unwatched, the run still reaches
-# its verdict, and says which guarantee it lacks.
+# `scripts/gate/gate_watch.py` ends with the gate or anything that started it. Unwatched, the run
+# still reaches its verdict, and says which guarantee it lacks.
 UNWATCHED=""
 join_the_job() {
-  local python said="" fd
+  local python said="" fd ancestor="$PPID"
   local -a watched
   if [[ "$OSTYPE" != msys && "$OSTYPE" != cygwin ]]; then return 0; fi
   python="$(any_python || true)"
@@ -77,9 +77,12 @@ join_the_job() {
     return 0
   fi
   watched=(--gate "$(< "/proc/$$/winpid")")
-  # MSYS's parent wherever it is still there to read: Windows records the gate's parent as the
-  # forked shell that has already exited.
-  if (( PPID != 1 )) && [[ -r "/proc/${PPID}/winpid" ]]; then watched+=(--launcher "$(< "/proc/${PPID}/winpid")"); fi
+  # Every MSYS ancestor, from MSYS's own records: Windows records each one's parent as a forked
+  # shell already gone, so a stop ending the outermost reaches none below it.
+  while (( ancestor > 1 )) && [[ -r "/proc/${ancestor}/winpid" ]]; do
+    watched+=(--launcher "$(< "/proc/${ancestor}/winpid")")
+    ancestor="$(< "/proc/${ancestor}/ppid")"
+  done
   # `exec`, so no bash of the substitution's own carries the ERR trap a crashed watcher would fire.
   exec {fd}< <(exec "$python" scripts/gate/gate_watch.py "${watched[@]}")
   read -r -u "$fd" said || true

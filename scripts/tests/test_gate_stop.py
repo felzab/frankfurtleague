@@ -56,20 +56,27 @@ STILL_S: Final = 1.0
 STARTED_BOUND_S: Final = 60
 STOPPED_BOUND_S: Final = 30
 
-# A Git Bash shell as a harness runs a command, `:` keeping bash from replacing itself with the gate;
-# and a native process, which leaves MSYS no parent to name.
-LAUNCHERS: Final = {
-    "a shell": ("-c", '"$0" "$@"; :'),
-    "a native process": ("-c", "import subprocess, sys; raise SystemExit(subprocess.call(sys.argv[1:]))"),
-}
+# A shell as a harness runs a command, `:` keeping bash from replacing itself with the gate; a shell
+# running the gate through a script of its own, which outlives the shell a stop ends; and a native
+# process, which leaves MSYS no parent to name.
+LAUNCHERS: Final = ("a shell", "a shell through a script", "a native process")
+WRAPPER: Final = """#!/usr/bin/env bash
+"$@"
+:
+"""
+NATIVE: Final = "import subprocess, sys; raise SystemExit(subprocess.call(sys.argv[1:]))"
 
 
-def _launch(kind: str, verify: Path, env: dict[str, str]) -> subprocess.Popen[bytes]:
+def _launch(kind: str, verify: Path, env: dict[str, str], wrapper: Path) -> subprocess.Popen[bytes]:
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     gate = (verify.as_posix(), *FLAGS)
-    command = (BASH, *LAUNCHERS[kind], *gate) if kind == "a shell" else (sys.executable, *LAUNCHERS[kind], BASH, *gate)
+    commands = {
+        "a shell": (BASH, "-c", '"$0" "$@"; :', *gate),
+        "a shell through a script": (BASH, "-c", '"$BASH" "$0" "$@"; :', wrapper.as_posix(), *gate),
+        "a native process": (sys.executable, "-c", NATIVE, BASH, *gate),
+    }
     return subprocess.Popen(
-        command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env, start_new_session=True
+        commands[kind], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env, start_new_session=True
     )
 
 
@@ -122,12 +129,13 @@ def _tree(pnpm: str, python3: str) -> tuple[Path, dict[str, str], Path]:
 
 @pytest.mark.parametrize("kind", list(LAUNCHERS))
 def test_stopping_the_gate_ends_every_tool_it_started(kind: str) -> None:
-    """Started by a shell, as a harness or a terminal starts it, and by a native process.
+    """Started by a shell, as a harness or a terminal starts it, through a wrapper script, and by a native process.
 
-    The two reach the watcher by different routes, MSYS's parent and Windows' own.
+    Three routes to the watcher: MSYS's parent, an MSYS ancestor beyond a parent left running, and
+    Windows' own parent.
     """
     root, env, started = _tree(STUB_PNPM, STUB_PYTHON.format(interpreter=Path(sys.executable).as_posix()))
-    launcher = _launch(kind, root / "scripts" / "gate" / "verify.sh", env)
+    launcher = _launch(kind, root / "scripts" / "gate" / "verify.sh", env, write_shell(started.parent / "wrapper.sh", WRAPPER))
     output: list[bytes] = []
     reader = threading.Thread(target=lambda: output.append(launcher.stdout.read() if launcher.stdout else b""), daemon=True)
     reader.start()

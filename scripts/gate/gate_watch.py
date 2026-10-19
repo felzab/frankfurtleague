@@ -4,7 +4,7 @@ A stop reaches a POSIX gate as a signal to its process group, while on Windows a
 from its root reaches no further than the launching shell, Git Bash starting a script from a forked
 copy of itself that exits once the script runs. A job object holds every process a member starts,
 whoever its parent, so the gate joins one before it starts anything and this watcher ends the job
-once the gate or its launcher is gone. Never `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`: a crashed watcher
+once the gate, or anything that started it, is gone. Never `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`: a crashed watcher
 would then end the gate without a word.
 """
 
@@ -114,24 +114,38 @@ def _windows_parent(pid: int) -> int | None:
         kernel32.CloseHandle(snapshot)
 
 
-def launcher_of(named: int | None, gate_pid: int, gate: int) -> int | None:
-    """A handle on what started the gate, or None where that has already ended.
+def _watched(pid: int, gate: int) -> int | None:
+    """A handle on `pid` where it is still the process that was running before the gate, else None.
 
-    Named where MSYS knows the gate's parent; a native launcher leaves MSYS's parent at 1, and is
-    then the gate's Windows parent.
+    A pid names whoever holds it now: one created after the gate did not start it, and a signalled
+    one has ended, its object kept by some other handle.
     """
-    pid = named if named is not None else _windows_parent(gate_pid)
-    if pid is None:
-        return None
     handle = kernel32.OpenProcess(LAUNCHER_ACCESS, False, pid)
     if not handle:
         return None
-    # A pid names whoever holds it now: one created after the gate did not start it, and a
-    # signalled one has ended, its object kept by some other handle.
     if _created(handle) > _created(gate) or kernel32.WaitForSingleObject(handle, 0) == WAIT_OBJECT_0:
         kernel32.CloseHandle(handle)
         return None
     return handle
+
+
+def launchers_of(ancestors: list[int], gate_pid: int, gate: int) -> dict[int, int] | None:
+    """Handles on everything that started the gate, keyed to their pids, or None where one has ended.
+
+    Every MSYS ancestor the gate named, a stop ending the outermost shell while a wrapper script in
+    between outlives it; and above the topmost, its Windows parent, a native launcher.
+    """
+    handles: dict[int, int] = {}
+    for pid in ancestors:
+        handle = _watched(pid, gate)
+        if handle is None:
+            return None
+        handles[handle] = pid
+    above = _windows_parent(ancestors[-1] if ancestors else gate_pid)
+    handle = None if above is None else _watched(above, gate)
+    if handle is not None and above is not None:
+        handles[handle] = above
+    return handles or None
 
 
 def first_to_end(*processes: int) -> int:
@@ -146,7 +160,7 @@ def first_to_end(*processes: int) -> int:
 
 def stopped(launcher: int | None, *, before_running: bool) -> str:
     """The line a gate this watcher ended leaves on its stderr."""
-    who = "the process that started this gate" + ("" if launcher is None else f" (Windows pid {launcher})")
+    who = "a process that started this gate" + ("" if launcher is None else f" (Windows pid {launcher})")
     if before_running:
         return f"  !!  {who} had already ended, so the gate was stopped before it ran anything."
     return f"  !!  {who} has ended, so the gate and every process it started were stopped with it."
@@ -155,7 +169,7 @@ def stopped(launcher: int | None, *, before_running: bool) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description="End the gate's processes with the gate, or with whatever started it (Windows).")
     parser.add_argument("--gate", type=int, required=True, help="the gate's own Windows pid")
-    parser.add_argument("--launcher", type=int, help="the Windows pid of what started the gate; omitted, its Windows parent")
+    parser.add_argument("--launcher", type=int, action="append", default=[], help="an MSYS ancestor's Windows pid, nearest first")
     given = parser.parse_args()
 
     # Ctrl-C is the gate's to answer (`scripts/lib/_lib.sh :: on_interrupt`): ending here on it would
@@ -169,9 +183,9 @@ def main() -> int:
     _checked(gate, f"OpenProcess on the gate (Windows pid {given.gate})")
     _checked(kernel32.AssignProcessToJobObject(job, gate), "AssignProcessToJobObject")
 
-    launcher = launcher_of(given.launcher, given.gate, gate)
-    if launcher is None:
-        print(stopped(given.launcher, before_running=True), file=sys.stderr, flush=True)
+    launchers = launchers_of(given.launcher, given.gate, gate)
+    if launchers is None:
+        print(stopped(None, before_running=True), file=sys.stderr, flush=True)
         _checked(kernel32.TerminateJobObject(job, EXIT_INTERRUPTED), "TerminateJobObject")
         return EXIT_OK
     # Bytes: a Windows text stream ends the line in a carriage return, which bash's `read` keeps.
@@ -180,8 +194,9 @@ def main() -> int:
 
     # Ended either way, the gate leaves nothing behind: an interrupt ends it before the builds its
     # units were waiting on.
-    if first_to_end(gate, launcher) == launcher:
-        print(stopped(given.launcher, before_running=False), file=sys.stderr, flush=True)
+    ended = first_to_end(gate, *launchers)
+    if ended != gate:
+        print(stopped(launchers[ended], before_running=False), file=sys.stderr, flush=True)
     _checked(kernel32.TerminateJobObject(job, EXIT_INTERRUPTED), "TerminateJobObject")
     return EXIT_OK
 
