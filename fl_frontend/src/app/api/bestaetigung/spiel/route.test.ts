@@ -176,7 +176,6 @@ describe("a club's answer to a fixture confirmation link", () => {
     ["REQ-ANSETZUNG-003", "abgelaufen"],
     ["REQ-ANSETZUNG-004", "ungueltig"],
     ["REQ-ANSETZUNG-005", "abgelaufen"],
-    ["REQ-ANSETZUNG-009", "ungueltig"],
     ["REQ-ANSETZUNG-011", "gesperrt"],
   ] as const) {
     it(`answers ${code} as the ${zustand} panel, without waiting on a second read`, async () => {
@@ -199,6 +198,20 @@ describe("a club's answer to a fixture confirmation link", () => {
     assert.deepEqual(answer.body, { success: false, zustand: "zugesagt", beantwortet_von: { art: "kontakt", rolle: "trainer" } });
     assert.equal(gelesen, 1);
   });
+
+  /* One code covers every closing reason, and the view names it: a press on a row the pass closed shows
+     the panel a reload of the link would, a move's as void and a day gone by as lapsed. */
+  for (const zustand of ["abgelaufen", "ungueltig"] as const) {
+    it(`answers a row closed since the open with the ${zustand} panel its read names`, async () => {
+      schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-ANSETZUNG-009");
+      leseAntwort = () => ({ ...BEANTWORTET, zustand, beantwortet_von: null });
+
+      const answer = await bodyOf(aRequest(vorschlagKoerper));
+
+      assert.deepEqual(answer.body, { success: false, zustand });
+      assert.equal(gelesen, 1);
+    });
+  }
 
   /* The write's refusal and the read disagreeing claims nothing about the row. */
   it("answers an already answered row whose read finds it open with the dead-link panel", async () => {

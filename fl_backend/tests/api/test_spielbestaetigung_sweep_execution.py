@@ -11,7 +11,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import ExecutionTimeout, OperationFailure
 
-from app.api.bewerbungen.services import days_after, hash_token
+from app.api.bewerbungen.services import SWEEP_PAGE, days_after, hash_token
 from app.api.spielbestaetigungen.router import post_spielbestaetigung
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAntwortPayload,
@@ -645,6 +645,60 @@ class TestAReplacedClubsRowsClose:
             (closed["_id"], "Gamma", "Beta")
         ]
         assert [(notice.team1_name, notice.address) for notice in second.schiedsrichter_neue_ansetzungen] == [("Gamma", REFEREE_EMAIL)]
+
+
+class TestARowClosesOnceItsDayHasPassed:
+    """`docs/backend/spec.md :: I777`: a fixture nobody entered a result for keeps no row open past its day."""
+
+    def test_the_day_after_closes_every_row_answered_or_not_and_the_day_itself_none(self, mongo_replica_set_url: str):
+        day_after = days_after(day=NEXT_WEEK, days=1)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            first = await sweep(database, client)
+            await angefragt(database, client, [row["_id"] for row in await rows(database)])
+            await antworten(database, client, next(anfrage.links[0].token for anfrage in first.anfragen if anfrage.seite == "team1"))
+            answered = row_of(await rows(database), team_id=ALPHA)
+
+            return (
+                answered,
+                await sweep(database, client, today=NEXT_WEEK),
+                await sweep(database, client, today=day_after),
+                await rows(database),
+            )
+
+        answered, on_the_day, after, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        assert on_the_day.geschlossen == 0
+        assert after.geschlossen == 3
+        assert [(row["geschlossen"]["am"], row["geschlossen"]["grund"]) for row in stored] == [(day_after, "spiel_vergangen")] * 3
+        assert row_of(stored, team_id=ALPHA)["antwort"] == answered["antwort"]
+        # A day gone by is no new Ansetzung: nobody is told it moved, nor asked again.
+        assert (after.neue_ansetzungen, after.schiedsrichter_neue_ansetzungen, after.anfragen, after.einteilungen) == ([], [], [], [])
+
+
+class TestAPageOfPastRowsStallsNoPass:
+    """More unclosed rows of past days than the close's page reads: none closable, every pass would refuse at the page and mint nothing."""
+
+    def test_the_close_takes_its_share_and_the_mint_still_asks(self, mongo_replica_set_url: str):
+        # Two rows a fixture, the referee left off: one row past the page.
+        past = numbered_fixtures(SWEEP_PAGE // 2 + 1, YESTERDAY)
+        open_rows = [
+            compose_spielbestaetigung(
+                row_id=ObjectId(), saison_id=SAISON_ID, spiel=spiel, partei=partei, hashes={}, today=days_after(day=YESTERDAY, days=-10)
+            )
+            for spiel in past
+            for partei in parteien_of(spiel)
+        ]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(open_rows)
+            return await sweep(database, client)
+
+        answer = on_a_league(mongo_replica_set_url, body, spiele=[*past, fixture(SPIEL, 1, NEXT_WEEK)])
+
+        assert len(open_rows) > SWEEP_PAGE
+        assert answer.geschlossen == CLOSES_PER_PASS
+        assert (len(answer.anfragen), len(answer.einteilungen)) == (2, 1)
 
 
 class _ThenTheRival:
