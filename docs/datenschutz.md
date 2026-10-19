@@ -639,7 +639,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   on a season row, find every reason they typed from any seat they held and null it with the digest,
   on the rows and in the log's images, another holder's staying (`docs/backend/spec.md :: I759`);
   ruled 2026-10-19. Their seats' links and the delivery records of the messages that carried them go too, on answered
-  and closed rows as on open ones, as a seat's own confirmation bookkeeping goes with its person
+  and closed rows as on open ones and in the log's images of those rows
+  (`fl_backend/app/api/spielbestaetigungen/crud.py :: redact_seat_entries_in_images`), as a seat's
+  own confirmation bookkeeping goes with its person
   (`fl_backend/app/api/kontakte/services.py :: build_clearing_update`). Which way the club answered,
   its day, the role and a proposed date stay: they are the club's, and name nobody once the digest
   is gone. A referee's erasure removes every row naming them as its party rather than repointing it
