@@ -11,11 +11,6 @@ allowBuilds:
   # Its script only finds the binding the lockfile already pins; refused, a missing binding fails
   # loudly instead of being fetched with no integrity check.
   unrs-resolver: false
-overrides:
-  # Each pins past an advisory in the version next would otherwise pull. Only sharp is
-  # runtime-reachable, via libvips on /_next/image.
-  sharp: "^0.35.4"
-  postcss: "^8.5.26"
 # A version published with weaker trust evidence than its package's earlier ones (a trusted CI
 # publisher replaced by a bare token) fails resolution: the shape of a hijacked maintainer account.
 trustPolicy: no-downgrade
@@ -27,9 +22,9 @@ trustPolicyExclude:
 # Not the default `install`, under which a `pnpm run` over a drifted manifest rewrites pnpm-lock.yaml,
 # so a check writes the tree and races the gate's lockfile step. `pnpm install` is the one writer.
 verifyDepsBeforeRun: error
-# A peer outside its range fails the install rather than warning: an app dependency that is also
-# HeroUI's peer is HeroUI's one copy, and a HeroUI upgrade raising its range would otherwise
-# install past the app's range unseen.
+# An out-of-range peer fails a resolving `pnpm install`: HeroUI uses the app's copy of its peers,
+# which a HeroUI upgrade raising a range would outgrow unseen. `pnpm add` and `pnpm update` only
+# warn; `scripts/gate/verify.sh :: do_peers` refuses theirs.
 strictPeerDependencies: true
 # A release younger than a day is refused, the day `.github/dependabot.yml`'s cooldown waits. Strict
 # because pnpm 11's own default of the same age installs a younger release asked for by hand and
