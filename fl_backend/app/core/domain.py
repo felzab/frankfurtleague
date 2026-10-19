@@ -1875,7 +1875,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-DATE-001",
         status=HTTPStatus.CONFLICT,
-        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen · POST /spielbestaetigungen",
         aggregate="Saison-Spielplan",
         summary="a fixture's date must fall inside the span of the matchday it belongs to",
         implemented_by="app.api.spiele.services.find_fixture_date_refusal",
@@ -1896,7 +1896,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-CLASH-001",
         status=HTTPStatus.CONFLICT,
-        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen · POST /spielbestaetigungen",
         aggregate="Saison-Spielplan",
         summary="a venue OR a referee needs four hours between two fixtures it serves; either alone refuses the write",
         implemented_by="app.api.spiele.services.find_clash_refusal",
@@ -1960,7 +1960,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-ELIGIBILITY-001",
         status=HTTPStatus.CONFLICT,
-        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen · POST /spielbestaetigungen",
         aggregate="Saison-Spielplan",
         summary=(
             "a team that left the season may not be fielded on or after its exit -- judged whenever the side, the date "
@@ -2846,6 +2846,93 @@ RULES: tuple[Rule, ...] = (
         ),
         implemented_by="app.api.konto.services.find_erteilung_refusal",
         tested_by="tests/api/test_konto_einwilligung.py::TestARecordNotHeld",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-001",
+        status=HTTPStatus.NOT_FOUND,
+        operation="POST /spielbestaetigungen/ansicht · POST /spielbestaetigungen",
+        aggregate="Spielbestaetigung",
+        summary="a token no seat of any confirmation row holds opens nothing, whether a guess or a link voided when its seat changed hands",
+        implemented_by="app.api.spielbestaetigungen.services.find_unknown_link_refusal",
+        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestATokenNoSeatHolds",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-011",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /spielbestaetigungen",
+        aggregate="Spielbestaetigung",
+        summary="a link mailed to an address the ban list now holds answers nothing, whenever it was minted, ahead of every state of its row",
+        implemented_by="app.api.spielbestaetigungen.services.find_gesperrt_link_refusal",
+        tested_by="tests/api/test_spielbestaetigung_execution.py::TestALinkToAnAddressBarredAfterTheMint",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-002",
+        status=HTTPStatus.GONE,
+        operation="POST /spielbestaetigungen",
+        aggregate="Spielbestaetigung",
+        summary="a row already answered, by any of the club's seats, takes no second answer, closed since or not",
+        implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
+        tested_by="tests/api/test_spielbestaetigung_execution.py::TestTheSeatTheAnswerRecords",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-009",
+        status=HTTPStatus.GONE,
+        operation="POST /spielbestaetigungen",
+        aggregate="Spielbestaetigung",
+        summary="a row closed before anybody answered takes no answer",
+        implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
+        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestASpentLinkMeetsTheCodeThatNamesWhy",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-003",
+        status=HTTPStatus.GONE,
+        operation="POST /spielbestaetigungen",
+        aggregate="Spielbestaetigung",
+        summary="a row takes no answer after its deadline's day",
+        implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
+        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestASpentLinkMeetsTheCodeThatNamesWhy",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-004",
+        status=HTTPStatus.GONE,
+        operation="POST /spielbestaetigungen",
+        aggregate="Spielbestaetigung",
+        summary="a row takes no answer once the fixture's date, time, ground or sides differ from the Ansetzung it asks about",
+        implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
+        tested_by="tests/api/test_spielbestaetigung_execution.py::TestAFixtureMovedMidAnswerIsJudgedAgain",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-005",
+        status=HTTPStatus.GONE,
+        operation="POST /spielbestaetigungen",
+        aggregate="Spielbestaetigung",
+        summary=(
+            "a row takes no answer once its fixture carries a result or a `sonderereignis`, or either club left the season on or"
+            " before the fixture's day"
+        ),
+        implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
+        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestASpentLinkMeetsTheCodeThatNamesWhy",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-007",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="POST /spielbestaetigungen",
+        aggregate="Spielbestaetigung",
+        summary="a declining club's proposed date is today or later",
+        implemented_by="app.api.spielbestaetigungen.services.find_vorschlag_vergangen_refusal",
+        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestAProposalBeforeToday",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-012",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="POST /spielbestaetigungen",
+        aggregate="Spielbestaetigung",
+        summary=(
+            "a declining club's reason holds no name of either club's three seats on their season rows or of the booked referee,"
+            " matched as an erasure's request is"
+        ),
+        implemented_by="app.api.spielbestaetigungen.services.find_name_in_begruendung_refusal",
+        tested_by="tests/api/test_spielbestaetigung_execution.py::TestANameInTheReasonLeavesTheRowUnwritten",
     ),
 )
 

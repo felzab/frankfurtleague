@@ -375,6 +375,10 @@ PUBLIC_WRITES = [
     # `X-FL-Actor`, and the row this write stores is recorded under the public actor.
     ("/api/v0/registrierungen/einladung/ansicht", "POST"),
     ("/api/v0/registrierungen", "POST"),
+    # A club seat answering its fixture confirmation link holds no session either, and its answer is
+    # recorded under the public actor.
+    ("/api/v0/spielbestaetigungen/ansicht", "POST"),
+    ("/api/v0/spielbestaetigungen", "POST"),
 ]
 
 # The writes the application makes to itself on the system key -- the retention sweep's, and the two
