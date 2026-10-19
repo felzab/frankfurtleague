@@ -111,7 +111,11 @@ describe("what a spent link's page carries", () => {
   }
 
   it("opens a token the backend matches to no row on the dead link", async () => {
-    assert.deepEqual(await startFor(() => refusedOn("POST /spielbestaetigungen/ansicht", "REQ-ANSETZUNG-001")), { zustand: "ungueltig" });
+    const start = await startFor(() => {
+      throw refusedOn("POST /spielbestaetigungen/ansicht", "REQ-ANSETZUNG-001");
+    });
+
+    assert.deepEqual(start, { zustand: "ungueltig" });
   });
 
   /* The dead-link panel here would call a live link void on a day the backend was merely unreachable. */

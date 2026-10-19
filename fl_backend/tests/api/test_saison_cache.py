@@ -508,7 +508,7 @@ SEASON_WRITE_HANDLERS = {_handler_key(endpoint): endpoint for endpoint in SEASON
 # Floored rather than non-empty: an endpoint the recogniser stopped seeing drops out of the parameter
 # set instead of failing (`docs/_standard/standard.md` PRE-4), so a rename costing no behaviour can
 # shrink the sweep and still report success.
-SEASON_WRITE_HANDLER_FLOOR = 18
+SEASON_WRITE_HANDLER_FLOOR = 19
 
 # Ahead of `pyproject.toml :: empty_parameter_set_mark`, which refuses an empty parametrize without
 # naming what to look at when the recognition stops matching.

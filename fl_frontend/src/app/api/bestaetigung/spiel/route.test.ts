@@ -28,6 +28,7 @@ const { publishedRefusals, refusedOn } = await import("@/shared/testing/publishe
 const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { mapAnsetzungRefusal } = await import("@/features/spielbestaetigungen/utils.ts");
+const { markOutcomeUnknown } = await import("@/core/requestScope.ts");
 
 const TOKEN = "abc123";
 
@@ -69,6 +70,17 @@ function aRequest(body: unknown, headers: Record<string, string> = {}) {
     },
   } as unknown as Parameters<typeof POST>[0];
 }
+
+/** A read of the link that never answered. */
+const aLostRead = () =>
+  new APINetworkError({
+    message: "Request failed.",
+    url: "http://localhost/spielbestaetigungen/ansicht",
+    method: "POST",
+    readOnly: true,
+    traceId: "0",
+    isTimeout: true,
+  });
 
 let schreibAntwort: () => unknown = () => GESCHRIEBEN;
 
@@ -197,6 +209,29 @@ describe("a club's answer to a fixture confirmation link", () => {
 
     assert.deepEqual(answer.body, { success: false, zustand: "ungueltig" });
   });
+
+  /* The backend refused the write, so nothing stands to be unsure of or to drop: a read failing after it, or cut by the
+     request's deadline, leaves the panel claiming nothing about the row. */
+  for (const [wie, lesen] of [
+    ["fails", () => aLostRead()],
+    [
+      "is cut by the deadline",
+      () => {
+        markOutcomeUnknown();
+        return aLostRead();
+      },
+    ],
+  ] as const) {
+    it(`answers an already answered row whose read ${wie} with the dead-link panel, dropping nothing`, async () => {
+      schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-ANSETZUNG-002");
+      leseAntwort = lesen;
+
+      const answer = await bodyOf(aRequest(vorschlagKoerper));
+
+      assert.deepEqual(answer.body, { success: false, zustand: "ungueltig" });
+      assert.deepEqual(tags, []);
+    });
+  }
 
   /* The proposal's refusals spend nothing and land on the box that caused them. */
   for (const [code, feld] of [

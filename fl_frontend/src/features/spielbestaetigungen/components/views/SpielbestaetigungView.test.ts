@@ -133,11 +133,14 @@ describe("the fixture confirmation page", () => {
     assert.ok(screen.getByRole("button", { name: ANDEREN_TERMIN_VORSCHLAGEN }));
   });
 
-  it("states that the league sets the date after the deadline, and gives its contact, on a dead link", () => {
+  /* The way out is the button alone, as on the other link pages' dead-link panels: no address beside it in the text. */
+  it("states that the league sets the date after the deadline, and offers a question by mail, on a dead link", () => {
     for (const zustand of ["abgelaufen", "ungueltig"] as const) {
-      const shown = words(markup({ zustand }));
+      const html = markup({ zustand });
+      const shown = words(html);
       assert.ok(shown.includes("Ist die Frist vorbei, legt die Liga den Termin fest."), `the ${zustand} panel says nothing of the deadline`);
-      assert.ok(shown.includes(KONTAKT_EMAIL), `the ${zustand} panel gives no contact`);
+      assert.ok(html.includes(`href="mailto:${KONTAKT_EMAIL}"`) && shown.includes("Frage stellen"), `the ${zustand} panel offers no question`);
+      assert.ok(!shown.includes(KONTAKT_EMAIL), `the ${zustand} panel writes the address out beside its button`);
     }
   });
 
@@ -203,7 +206,8 @@ describe("what the press sends", () => {
       { token: TOKEN, antwort: "abgelehnt", vorschlag: { datum: "2026-11-14", uhrzeit: "16:00:00" }, begruendung: "Klassenfahrt" },
     ]);
     assert.ok(await screen.findByRole("heading", { name: "Vorschlag gesendet" }));
-    assert.ok((document.body.textContent ?? "").includes("14.11.2026"), "the receipt does not read the proposal back");
+    assertOwnPanel(document.body.innerHTML, "Dein Vorschlag für Lessing-Kolleg ist bei der Liga.", "abgelehnt-neu");
+    assert.ok(resultPanels(document.body.innerHTML)[0]?.includes("14.11.2026"), "the receipt does not read the proposal back");
   });
 
   it("sends an empty reason as none", async () => {

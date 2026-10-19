@@ -34,6 +34,8 @@ const route = await import("./route.ts");
 const { buildBewerbungWiderspruchEmail } = await import("@/core/bewerbungEmail.ts");
 const { rollenText, rolleText } = await import("@/features/bewerbungen/notifications.ts");
 const { formatSpielDatum } = await import("@/shared/utils/format.ts");
+const { APINetworkError } = await import("@/core/errors.ts");
+const { markOutcomeUnknown } = await import("@/core/requestScope.ts");
 
 const WRITE = "/bewerbungen/einwilligung";
 
@@ -93,6 +95,17 @@ const gueltigerKoerper = {
 function aRequest(body: unknown) {
   return { headers: new Headers(), json: async () => body } as unknown as Parameters<typeof POST>[0];
 }
+
+/** A read of the link that never answered. */
+const aLostRead = () =>
+  new APINetworkError({
+    message: "Request failed.",
+    url: `http://localhost${ANSICHT_ENDPOINT}`,
+    method: "POST",
+    readOnly: true,
+    traceId: "0",
+    isTimeout: true,
+  });
 
 /** What each endpoint answers in this case; the write's answer is what a case chooses. */
 let schreibAntwort: () => unknown = () => GESCHRIEBEN;
@@ -218,6 +231,44 @@ describe("the contact seat's confirmation handler", () => {
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
     assert.deepEqual(answer.body, { success: false, zustand: "abgelehnt" });
+  });
+
+  /* The backend refused the write, so nothing stands to be unsure of: a read failing after it, or cut by the request's
+     deadline, leaves the panel naming nobody. */
+  for (const [wie, lesen] of [
+    ["fails", () => aLostRead()],
+    [
+      "is cut by the deadline",
+      () => {
+        markOutcomeUnknown();
+        return aLostRead();
+      },
+    ],
+  ] as const) {
+    it(`answers a seat already answered whose read ${wie} with the dead-link panel`, async () => {
+      schreibAntwort = () => aRefusal("REQ-BEWERBUNG-011");
+      ansichtAntwort = lesen;
+
+      const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+      assert.deepEqual(answer.body, { success: false, zustand: "ungueltig" });
+    });
+  }
+
+  /* The floor's read is as dispensable after a refusal that spends nothing: cut, it names no age, never an unknown outcome. */
+  it("puts the age refusal on the date naming no age where the deadline cut the link's view", async () => {
+    schreibAntwort = () => aRefusal("REQ-BEWERBUNG-012");
+    ansichtAntwort = () => {
+      markOutcomeUnknown();
+      return aLostRead();
+    };
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, {
+      success: false,
+      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du für Deine Bestätigung zu jung oder zu alt." },
+    });
   });
 
   it("files the answer under the label this server renders, echoing what was stored", async () => {

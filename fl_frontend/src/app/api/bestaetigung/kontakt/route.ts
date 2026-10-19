@@ -1,6 +1,8 @@
 import { buildBewerbungVollstaendigEmail, buildBewerbungWiderspruchEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
+import { nullUnlessContractBreak } from "@/core/errors";
 import { logger } from "@/core/logging";
+import { runAnsweringOwnCut } from "@/core/requestScope";
 import { postEinwilligung } from "@/features/bewerbungen/mutations";
 import { rollenText, rolleText, sendBewerbungMail } from "@/features/bewerbungen/notifications";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
@@ -15,13 +17,15 @@ import type { FLBewerbungEinwilligungAntwortResponse } from "@/features/bewerbun
 import type { LinkZustand } from "@/features/bewerbungen/types";
 import type { NextRequest } from "next/server";
 
-/** Which way a seat answered in another window went; a failed read throws rather than guessing one. */
+/** Which way a seat answered in another window went, read after the backend refused the write. */
 async function beantworteterZustand(token: string): Promise<LinkZustand> {
-  const { zustand } = await getEinwilligungAnsicht(token);
+  // Its own cut, and its failure answered here: the write was refused, so no doubt about it may reach the spine,
+  // which would call the outcome unknown.
+  const gelesen = await runAnsweringOwnCut(() => getEinwilligungAnsicht(token)).catch(nullUnlessContractBreak);
 
-  // An open link is the write's refusal and this read disagreeing, and the panel naming nobody is the
-  // one answer that claims nothing about a record.
-  return zustand === "gueltig" || zustand === "saison_vorbei" ? "ungueltig" : zustand;
+  // An open link is the write's refusal and this read disagreeing, and an unread one says nothing either way: the
+  // panel naming nobody is the one answer that claims nothing about a record.
+  return gelesen === null || gelesen.zustand === "gueltig" || gelesen.zustand === "saison_vorbei" ? "ungueltig" : gelesen.zustand;
 }
 
 /**
@@ -88,9 +92,10 @@ export async function POST(request: NextRequest) {
       try {
         antwort = await postEinwilligung(parsed.data);
       } catch (error) {
-        // Read on this path alone: the age refusals spend nothing, so the link still answers the
-        // floors its own seats ask (`fl_frontend/src/features/bewerbungen/utils.ts :: mapEinwilligungRefusal`).
-        const ansicht = await getEinwilligungAnsicht(parsed.data.token).then(
+        // Read on this path alone, under its own cut: the age refusals spend nothing, so the link still answers the
+        // floors its own seats ask (`fl_frontend/src/features/bewerbungen/utils.ts :: mapEinwilligungRefusal`), and
+        // an unread floor names no age rather than an unknown outcome.
+        const ansicht = await runAnsweringOwnCut(() => getEinwilligungAnsicht(parsed.data.token)).then(
           (gelesen) => (gelesen.zustand === "gueltig" ? gelesen.ansicht : null),
           () => null,
         );

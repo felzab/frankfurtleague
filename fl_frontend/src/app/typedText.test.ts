@@ -91,6 +91,9 @@ registerDoubles({
   },
 });
 
+/* `await import`, never a static import beside the doubles, which register as this module evaluates. */
+const { LINK_UNLESBAR_TITEL } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
+
 /** Open for applications and for registrations, so the public forms render rather than their closed panels. */
 const FENSTER = { offen: true, von: "2026-01-01", bis: "2026-12-31" };
 
@@ -330,6 +333,9 @@ const NAVIGATIONS: ReadonlySet<Way> = new Set(["router.push", "router.replace", 
 
 /** What one action on the page did: typing into a field by its accessible name, or a press, and each trace it left. */
 type Reached = { name: string; typed: boolean; traces: Trace[] };
+
+/** What a page showed before the sweep touched it: its headings, and how many forms and buttons a reader could answer with. */
+type FirstView = { headings: string[]; controls: number };
 
 const ROLES = ["textbox", "searchbox", "combobox"] as const;
 
@@ -581,7 +587,11 @@ const MOST_PRESSED = 150;
  * Types a marker into every field the page shows and submits each form holding one, then opens every closed control,
  * picking each option, and presses every other button: what each action reached that it never may.
  */
-async function typeIntoEvery(tree: ReactNode, pathname: string, params: Record<string, string | string[]>): Promise<Reached[]> {
+async function typeIntoEvery(
+  tree: ReactNode,
+  pathname: string,
+  params: Record<string, string | string[]>,
+): Promise<{ firstView: FirstView; reached: Reached[] }> {
   const prefetched: string[] = [];
   const { router, seen } = recordingRouter({ prefetch: (href: string) => void prefetched.push(href) });
   const watched = watching(window.document);
@@ -596,6 +606,10 @@ async function typeIntoEvery(tree: ReactNode, pathname: string, params: Record<s
   try {
     const { container } = render(underNext(tree, { router, pathname, params }));
     await act(async () => undefined);
+    const firstView: FirstView = {
+      headings: [...container.querySelectorAll("h1, h2, h3, h4, h5, h6")].map((heading) => (heading.textContent ?? "").trim()),
+      controls: container.querySelectorAll('form, button, [role="button"]').length,
+    };
     // Every write a submit or a press sends from here is refused: the one answer each action shares, where a success is
     // shaped as its own action answers it, and a handler handed another's shape takes the page down.
     answerWith(() => Promise.resolve(REFUSED));
@@ -700,7 +714,7 @@ async function typeIntoEvery(tree: ReactNode, pathname: string, params: Record<s
       // A press opening a dialog, a confirmation among them, closes it again before the next.
       if (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) await press("Escape", escape);
     }
-    return reached;
+    return { firstView, reached };
   } finally {
     cleanup();
     consoleError.mock.restore();
@@ -709,7 +723,7 @@ async function typeIntoEvery(tree: ReactNode, pathname: string, params: Record<s
 }
 
 /** What one page did: threw on the way to its tree, or rendered and reached these. */
-type Visit = { thrown: unknown } | { reached: Reached[] };
+type Visit = { thrown: unknown } | { firstView: FirstView; reached: Reached[] };
 
 async function visit(page: string): Promise<Visit> {
   const { default: Page } = (await import(pathToFileURL(page).href)) as { default: (props: unknown) => unknown };
@@ -725,7 +739,7 @@ async function visit(page: string): Promise<Visit> {
   } catch (error) {
     return { thrown: error };
   }
-  return { reached: await typeIntoEvery(tree, pathname, params) };
+  return typeIntoEvery(tree, pathname, params);
 }
 
 const NOT_MATCHED = "the area's 404, answered for an address no other route takes";
@@ -1048,7 +1062,7 @@ describe("what a visitor types into a page", () => {
   /* The control: a sweep blind to one of these passes a page taking it. */
   for (const { way, trace, tree } of WAYS_OUT) {
     it(`is caught leaving by ${way}`, async () => {
-      const reached = await typeIntoEvery(tree, "/kontrolle", {});
+      const { reached } = await typeIntoEvery(tree, "/kontrolle", {});
 
       assert.ok(
         reached.some((each) => each.typed),
@@ -1075,6 +1089,13 @@ describe("what a visitor types into a page", () => {
         return;
       }
       assert.equal(excuse, undefined, "the page renders: drop its excuse, so the sweep types into it");
+      // A link whose read the sweep cannot answer opens on a panel holding links alone, nothing to type into or press.
+      if (LINKED.has(label(page))) {
+        assert.ok(
+          !visited.firstView.headings.includes(LINK_UNLESBAR_TITEL) && visited.firstView.controls > 0,
+          `the link opened on no form and no button, so the sweep proved nothing about it; answer its read in \`LISTED\`: ${visited.firstView.headings.join(" | ")}`,
+        );
+      }
 
       const byDesign = URL_BY_DESIGN[label(page)] ?? {};
       const leaked = visited.reached.flatMap(({ name, typed, traces }) => {

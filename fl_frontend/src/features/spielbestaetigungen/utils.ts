@@ -62,8 +62,9 @@ export function mapAnsetzungRefusal(error: unknown): SpielbestaetigungRefusal | 
     case "REQ-VAL-002":
     case "REQ-VAL-001":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
-    // A token nothing stores, a voided seat's included, and a fixture moved since the link: one panel,
-    // which tells a guessed link nothing about a row.
+    // A token nothing stores, a voided seat's included, a fixture moved since the link, and a row closed
+    // unanswered for whatever reason, which one code covers: one panel, which tells a guessed link
+    // nothing about a row.
     case "REQ-ANSETZUNG-001":
     case "REQ-ANSETZUNG-004":
     case "REQ-ANSETZUNG-009":

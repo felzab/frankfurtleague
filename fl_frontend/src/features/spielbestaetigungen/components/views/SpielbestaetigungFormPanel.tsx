@@ -41,7 +41,7 @@ import type { SpielbestaetigungLinkZustand } from "@/features/spielbestaetigunge
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { CalendarDate, Time } from "@internationalized/date";
 
-/** The disclosure's trigger, which the page's own sentence about a proposal names. */
+/** The disclosure's trigger, which the view's sheet presses by these words. */
 export const ANDEREN_TERMIN_VORSCHLAGEN = "Anderen Termin vorschlagen";
 
 /** What one press ends in, handed up to the page that swaps the form for the panel. */

@@ -2,13 +2,14 @@ import hashlib
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from http import HTTPStatus
-from typing import Any, Final
+from typing import Any, Final, cast
 
-from app.api.bewerbungen.services import seat_named
+from app.api.bewerbungen.services import days_after, seat_named
 from app.api.identitaet.services import holds_a_name, namen_aus
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnsichtAnsetzung,
     FLSpielbestaetigungAntwortArt,
+    FLSpielbestaetigungGrund,
     FLSpielbestaetigungSeite,
     FLSpielbestaetigungTermin,
     FLSpielbestaetigungZustand,
@@ -24,6 +25,13 @@ from app.api.spiele.schemas import (
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLKontaktRolle
 from app.api.teams.services import has_taken_place
 from app.core.exceptions import WriteRefusal
+from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.shared.schemas.bounds import (
+    SPIEL_ANFRAGE_VORLAUF_TAGE,
+    SPIEL_BESTAETIGUNG_FRIST_TAGE,
+    SPIEL_ERINNERUNG_TAGE_ERSTE,
+    SPIEL_ERINNERUNG_TAGE_ZWEITE,
+)
 
 # Each stored `ansetzung` key and its fixture path: the ONE list the digest, the snapshot and the public
 # verdict's `$lookup` read, a key one lacks giving two answers to which Ansetzung a row is about.
@@ -147,6 +155,25 @@ LINK_FIELDS: Mapping[str, int] = {
 }
 
 
+def entscheidung_of(*, spiel: Mapping[str, Any], austritte: Iterable[str], tag: Any) -> FLSpielbestaetigungGrund | None:
+    """Why a fixture takes no confirmation whatever its Ansetzung: decided, called off, or a club out by `tag`.
+
+    One rule for the link's refusal and the pass's close, so no link answers what the next pass shuts.
+    """
+
+    if has_taken_place(spiel):
+        return "spiel_entschieden"
+
+    # Every other event leaves no record: a called-off fixture is asked afresh once reinstated.
+    if spiel.get("sonderereignis") is not None:
+        return "abgesagt"
+
+    if tag is not None and any(austritt <= tag for austritt in austritte):
+        return "austritt"
+
+    return None
+
+
 @dataclass(frozen=True)
 class AnsetzungLage:
     """What a link is judged against and does not write: the fixture as it stands, and both clubs' season rows."""
@@ -174,18 +201,11 @@ def _stand_moved(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLag
 
 
 def _decided(*, lage: AnsetzungLage) -> bool:
-    """A result, any `sonderereignis`, or a club out of the season on or before the fixture's day: the sweep's three closes.
+    """`entscheidung_of` over the fixture as it stands and both clubs' season rows, the rule the pass's close shuts a row by."""
 
-    Any `sonderereignis`, not only those `has_taken_place` counts: a called-off fixture is asked afresh once reinstated.
-    """
+    austritte = [str(datum) for row in lage.vereine if (datum := (row.get("austritt") or {}).get("datum")) is not None]
 
-    if has_taken_place(lage.spiel) or lage.spiel.get("sonderereignis") is not None:
-        return True
-
-    datum = lage.spiel.get("datum")
-    austritte = [(row.get("austritt") or {}).get("datum") for row in lage.vereine]
-
-    return datum is not None and any(austritt is not None and austritt <= datum for austritt in austritte)
+    return entscheidung_of(spiel=lage.spiel, austritte=austritte, tag=lage.spiel.get("datum")) is not None
 
 
 def _past_frist(*, spielbestaetigung_raw: Mapping[str, Any], today: str) -> bool:
@@ -444,3 +464,223 @@ def compose_antwort_update(
             }
         }
     }
+
+
+# --- The pass: what its mint and its reminder write.
+
+
+def compose_seat_entry(*, token_hash: str) -> dict[str, Any]:
+    """One seat's entry as every mint writes it, on a fresh row and on a seat minted afresh on an open one.
+
+    No delivery state: no report has yet named the message this link goes out in.
+    """
+
+    return {"token_hashes": [token_hash], "zustellung": None}
+
+
+def frist_of(*, datum: str, today: str) -> str:
+    """The deadline a row minted today is given: a fixture already inside the notice period is due today."""
+
+    return max(today, days_after(day=datum, days=-SPIEL_BESTAETIGUNG_FRIST_TAGE))
+
+
+def letzter_anfrage_tag(*, today: str) -> str:
+    """The latest fixture day a pass run today asks about: the request goes out once its deadline is the answer window away."""
+
+    return days_after(day=today, days=SPIEL_BESTAETIGUNG_FRIST_TAGE + SPIEL_ANFRAGE_VORLAUF_TAGE)
+
+
+def build_anfrage_filter(*, saison_id: str, today: str) -> dict[str, Any]:
+    """The season's fixtures the mint may ask about; `anfrage_is_due` decides, this narrows the read."""
+
+    return {
+        "saison_id": saison_id,
+        "datum": {"$gt": today, "$lte": letzter_anfrage_tag(today=today)},
+        "uhrzeit": {"$ne": None},
+        "ort": {"$ne": None},
+        "team1": {"$ne": None},
+        "team2": {"$ne": None},
+        "ergebnis": None,
+        "sonderereignis": None,
+    }
+
+
+def _side_id(spiel: Mapping[str, Any], side: str) -> Any:
+    block = spiel.get(side)
+
+    return block.get("team_id") if isinstance(block, Mapping) else None
+
+
+def _referee_id(spiel: Mapping[str, Any]) -> Any:
+    block = spiel.get("schiedsrichter")
+
+    return block.get("schiedsrichter_id") if isinstance(block, Mapping) else None
+
+
+def grund_to_close(*, row: Mapping[str, Any], spiel: Mapping[str, Any], austritte: Mapping[Any, str]) -> FLSpielbestaetigungGrund | None:
+    """Why this unclosed row stops applying to its fixture as it stands, or `None`; `austritte` maps clubs to exit days.
+
+    The mint asks it of every row it would write, so the close shuts nothing the mint asked.
+    """
+
+    ansetzung = row["ansetzung"]
+    clubs = (ansetzung["team1_id"], ansetzung["team2_id"])
+    # First, ahead of a move, neither leaving a new Ansetzung to announce; on the fixture's day as it
+    # stands, or the row's where the fixture lost its date.
+    entschieden = entscheidung_of(
+        spiel=spiel, austritte=[austritte[team_id] for team_id in clubs if team_id in austritte], tag=spiel.get("datum") or ansetzung["datum"]
+    )
+    if entschieden is not None:
+        return entschieden
+
+    partei = row["partei"]
+    # Ahead of the move: a referee taken off the fixture is owed no notice that it moved.
+    if partei["art"] == "schiedsrichter" and _referee_id(spiel) != partei.get("schiedsrichter_id"):
+        return "schiedsrichter_gewechselt"
+
+    if ansetzung_stand_of(spiel) != ansetzung["stand"]:
+        return "ansetzung_geaendert"
+
+    return None
+
+
+def anfrage_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], today: str) -> bool:
+    """Whether the mint asks about this fixture today: dated strictly after today, inside the answer window, fully set, undecided.
+
+    The floor is a date because `has_taken_place` reads a record, so an unplayed fixture of the past reads as open.
+    """
+
+    datum = spiel.get("datum")
+    asked = (
+        isinstance(datum, str)
+        and today < datum <= letzter_anfrage_tag(today=today)
+        and spiel.get("uhrzeit") is not None
+        and isinstance(spiel.get("ort"), Mapping)
+        and _side_id(spiel, "team1") is not None
+        and _side_id(spiel, "team2") is not None
+        and spiel.get("ergebnis") is None
+        and spiel.get("sonderereignis") is None
+    )
+
+    # Never a row the close would shut: a club gone by the fixture's day, or a lone goal count or
+    # shoot-out, would otherwise be minted, closed and minted again, a fresh request every pass.
+    return (
+        asked
+        and grund_to_close(row={"partei": {"art": "team"}, "ansetzung": compose_ansetzung(spiel)}, spiel=spiel, austritte=austritte) is None
+    )
+
+
+def parteien_of(spiel: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Every party a fixture's Ansetzung asks: both sides, and its referee unless that is the ghost.
+
+    The ghost holds no address, so a row for it would be minted and never mailed nor answered.
+    """
+
+    parteien: list[dict[str, Any]] = [{"art": "team", "team_id": _side_id(spiel, side)} for side in ("team1", "team2")]
+    schiedsrichter_id = _referee_id(spiel)
+    if schiedsrichter_id is not None and schiedsrichter_id != GHOST_SCHIEDSRICHTER_ID:
+        parteien.append({"art": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id})
+
+    return parteien
+
+
+def partei_key(partei: Mapping[str, Any]) -> tuple[str, Any]:
+    """One party as the unique index tells parties apart."""
+
+    return partei["art"], partei.get("team_id") if partei["art"] == "team" else partei.get("schiedsrichter_id")
+
+
+def compose_spielbestaetigung(
+    *,
+    row_id: Any,
+    saison_id: str,
+    spiel: Mapping[str, Any],
+    partei: Mapping[str, Any],
+    hashes: Mapping[str, str],
+    today: str,
+) -> dict[str, Any]:
+    """A row as the mint writes it, about the fixture's Ansetzung as it stands. A seat `hashes` leaves out holds no link."""
+
+    return {
+        "_id": row_id,
+        "saison_id": saison_id,
+        "spiel_id": spiel["_id"],
+        "partei": dict(partei),
+        "ansetzung": compose_ansetzung(spiel),
+        "frist": frist_of(datum=spiel["datum"], today=today),
+        "angefragt_am": None,
+        "erinnert_am": [],
+        # A referee answers signed in rather than by a link.
+        "kontakte": (
+            None
+            if partei["art"] == "schiedsrichter"
+            else {seat: compose_seat_entry(token_hash=hashes[seat]) if seat in hashes else None for seat in KONTAKT_ROLLEN}
+        ),
+        "antwort": None,
+        "geschlossen": None,
+    }
+
+
+def kontakt_adresse(*, kontakte: Any, seat: str) -> str | None:
+    """The address a seat's holder is reached at, or `None` where the seat is empty."""
+
+    slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
+    email = str(slot.get("email") or "").strip() if isinstance(slot, Mapping) else ""
+
+    return email or None
+
+
+def link_groups(*, kontakte: Any, seats: Sequence[str]) -> list[list[FLKontaktRolle]]:
+    """The seats as links: one per seat, a mirrored Trainer sharing the link of the seat it holds too where both are among `seats`.
+
+    Two seats one press answers are one thing to do (`fl_frontend/src/features/bewerbungen/notifications.ts :: seatsByMailbox`).
+    """
+
+    zugleich = kontakte.get("trainer_ist_zugleich") if isinstance(kontakte, Mapping) else None
+    groups: dict[str, list[FLKontaktRolle]] = {}
+    for seat in seats:
+        anchor = str(zugleich) if seat == "trainer" and zugleich in seats else seat
+        groups.setdefault(anchor, []).append(cast(FLKontaktRolle, seat))
+
+    return list(groups.values())
+
+
+def erinnerung_tage(*, today: str) -> list[str]:
+    """The deadlines a row is reminded of today, each reminder falling its count of days before the deadline."""
+
+    return [days_after(day=today, days=tage) for tage in (SPIEL_ERINNERUNG_TAGE_ERSTE, SPIEL_ERINNERUNG_TAGE_ZWEITE)]
+
+
+def build_erinnerung_filter(*, saison_id: str, today: str) -> dict[str, Any]:
+    """The season's open team rows a reminder falls due on today and none has gone out for."""
+
+    return {
+        "saison_id": saison_id,
+        "partei.art": "team",
+        **build_answerable_filter(),
+        "frist": {"$in": erinnerung_tage(today=today)},
+        "erinnert_am": {"$ne": today},
+    }
+
+
+def compose_erinnerung_update(*, hashes: Mapping[str, str], today: str) -> dict[str, Any]:
+    """The reminder's one update: each seat's fresh hash appended beside the ones already mailed, and the day.
+
+    Appended, never replacing: every link a seat was mailed answers until the deadline.
+    """
+
+    pushed: dict[str, Any] = {
+        f"kontakte.{seat}.token_hashes": {"$each": [token_hash], "$slice": -TOKEN_HASHES_PER_SEAT} for seat, token_hash in hashes.items()
+    }
+
+    return {"$push": {**pushed, "erinnert_am": today}}
+
+
+def compose_seats_update(*, hashes: Mapping[str, str]) -> dict[str, Any]:
+    """Each seat minted afresh on an open row: a seat a write voided, a seat newly occupied, a seat a ban kept until its lift."""
+
+    return {"$set": {f"kontakte.{seat}": compose_seat_entry(token_hash=token_hash) for seat, token_hash in hashes.items()}}
+
+
+def compose_closing_update(*, grund: FLSpielbestaetigungGrund, today: str) -> dict[str, Any]:
+    return {"$set": {"geschlossen": {"am": today, "grund": grund}}}
