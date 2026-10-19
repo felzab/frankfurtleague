@@ -11,7 +11,7 @@ const { setSession, setRefusal } = doubleActionRequest({ session: ADMIN });
 /** How many times the spine asked Next to refresh the page since the case began. */
 const refreshes = (): number => cacheCalls.filter(({ name }) => name === "refresh").length;
 
-const { ADMIN_FORBIDDEN, invalidatesOnWrite, runAdminMutation } = await import("./adminMutation.ts");
+const { invalidatesOnWrite, runAdminMutation } = await import("./adminMutation.ts");
 const { boundCall, recordWriteSent, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 const { getAdminSession } = await import("@/core/auth");
 const { APIBadStatusError, APINetworkError, ApiUnsentError, RolledBackError } = await import("@/core/errors");
@@ -37,7 +37,8 @@ describe("the session guard every admin write runs behind", () => {
       return Promise.resolve({ success: true });
     });
 
-    assert.deepEqual(answer, { success: false, error: ADMIN_FORBIDDEN });
+    // Typed out, the account page's words for the same lapsed sign-in: the shared constant compared with itself holds no wording.
+    assert.deepEqual(answer, { success: false, error: "Deine Anmeldung ist abgelaufen. Melde Dich neu an." });
     assert.equal(ran, 0, "the body ran for a caller nobody authorized");
     assert.equal(refreshes(), 0, "a refused caller's page was refreshed");
   });
