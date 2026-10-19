@@ -1,13 +1,15 @@
-from collections.abc import Mapping
-from typing import Any
+from collections.abc import Mapping, Sequence
+from typing import Any, NamedTuple
 
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.spielbestaetigungen.services import build_open_seat_rows_pipeline, compose_seat_void, group_seat_voids, seat_void_of
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import find_entry_refusal
-from app.core.crud import anchor_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 
 
 async def refuse_a_full_gruppe(
@@ -75,3 +77,54 @@ async def pull_a_club_to_enter(
     )
 
     return club
+
+
+class SeatWrite(NamedTuple):
+    """One season row's seat write: the row, and the update setting its block or whole seats."""
+
+    db_filter: Mapping[str, Any]
+    update: Mapping[str, Any]
+
+
+async def write_saison_team_kontakte(
+    *,
+    saison_teams_collection: AsyncCollection,
+    spielbestaetigungen_collection: AsyncCollection,
+    writes: Sequence[SeatWrite],
+    return_document: bool,
+    # REQUIRED: the void commits with the seat write or neither does, so the old holder's link dies at the write.
+    session: AsyncClientSession,
+) -> list[Mapping[str, Any]]:
+    """Every write of an existing season row's seats, each row's image answered in order (`docs/backend/spec.md :: I758`).
+
+    Several rows in one call, so a pass clearing many pays the void once rather than per row.
+    """
+
+    befores: list[Mapping[str, Any]] = []
+    for write in writes:
+        # A patch per row, never one `patch_many_in_db`, which logs no pre-image: a redaction finds a row's people
+        # by its own images. `BEFORE`, so the holder change is judged on what this write replaced.
+        befores.append(
+            await patch_one_in_db(
+                collection=saison_teams_collection,
+                db_filter=write.db_filter,
+                update=write.update,
+                session=session,
+                return_document=ReturnDocument.BEFORE,
+            )
+        )
+
+    voids = [void for before, write in zip(befores, writes, strict=True) if (void := seat_void_of(before=before, update=write.update))]
+    # No read for none, and no write for a group the read left empty: a fan-out matching nothing still files a log row.
+    if voids:
+        open_rows = await aggregate_many_from_db(
+            collection=spielbestaetigungen_collection, pipeline=build_open_seat_rows_pipeline(voids), session=session
+        )
+        for seats, ids in group_seat_voids(voids=voids, open_rows=open_rows):
+            db_filter, update = compose_seat_void(seats=seats, ids=ids)
+            await patch_many_in_db(collection=spielbestaetigungen_collection, db_filter=db_filter, update=update, session=session)
+
+    if return_document is ReturnDocument.BEFORE:
+        return befores
+
+    return [await pull_one_from_db(collection=saison_teams_collection, db_filter={"_id": before["_id"]}, session=session) for before in befores]

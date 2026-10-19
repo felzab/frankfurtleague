@@ -38,6 +38,7 @@ from app.api.schiedsrichter.crud import discard_adresswechsel_in_session
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
 from app.api.spieler.crud import discard_spieler_adresswechsel_in_session
 from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD
+from app.api.teams.crud import SeatWrite, write_saison_team_kontakte
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 
@@ -300,13 +301,21 @@ async def _plan_widerspruch(
         return Plan("already done" if settled else "left for review")
 
     async def rewrite_widerspruch(session: AsyncClientSession) -> Any:
-        await patch_one_in_db(
-            collection=collection,
-            db_filter={"_id": row["_id"]},
-            update=_WIDERSPRUCH_UPDATE[home](seats=offen, today=declined_on),
-            session=session,
-            return_document=ReturnDocument.BEFORE,
-        )
+        update = _WIDERSPRUCH_UPDATE[home](seats=offen, today=declined_on)
+        if home == Collection.SAISON_TEAMS:
+            # Through the seat helper, as the link's answer writes it: a restored match confirmation row still holds the
+            # declining person's links, and the replay is the one write that can void them.
+            await write_saison_team_kontakte(
+                saison_teams_collection=collection,
+                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                writes=[SeatWrite(db_filter={"_id": row["_id"]}, update=update)],
+                return_document=ReturnDocument.BEFORE,
+                session=session,
+            )
+        else:
+            await patch_one_in_db(
+                collection=collection, db_filter={"_id": row["_id"]}, update=update, session=session, return_document=ReturnDocument.BEFORE
+            )
         # After the patch, as the link's answer redacts, so it reaches the pre-image the patch filed; the redaction
         # happens now, so its stamp is the replay's, where the day the person declined on is theirs.
         await redact_the_decliner(

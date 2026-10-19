@@ -52,6 +52,7 @@ from app.api.bewerbungen.services import (
 from app.api.einwilligung.services import find_fassung_refusal, find_selbst_medien_refusal
 from app.api.kontakte.crud import redact_the_decliner
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.api.teams.crud import SeatWrite, write_saison_team_kontakte
 from app.api.teams.services import kontakt_zeile_of
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -62,6 +63,7 @@ from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
     SaisonTeamsCollection,
+    SpielbestaetigungenCollection,
     TeamsCollection,
     get_german_date_str,
     get_germany_now,
@@ -235,6 +237,7 @@ async def post_einwilligung(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     aktionen_collection: AktionenCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -262,7 +265,8 @@ async def post_einwilligung(
     A link on a team's season row (`quelle: saison`) is answered the same way on that row, refused in the same order but
     for `REQ-BEWERBUNG-010`, nothing deciding a season row, and its answer carries nothing to compose a message from. Its
     own deadline passed is `REQ-KONTAKT-004`, and a consent once its season has ended or its team has left it is
-    `REQ-KONTAKT-006`, a Widerspruch being taken all the same.
+    `REQ-KONTAKT-006`, a Widerspruch being taken all the same. A Widerspruch there also voids the seat's links on the
+    team's open match confirmations.
     """
 
     token_hash = hash_token(antwort_data.token)
@@ -345,12 +349,12 @@ async def post_einwilligung(
                 ergebnis="bestaetigt", geburtsdatum=geburtsdatum, whatsapp=antwort_data.whatsapp, medien=antwort_data.medien
             )
 
-        await patch_one_in_db(
-            collection=saison_teams_collection,
-            db_filter={"_id": row["_id"]},
-            update=compose_saison_decline_update(seats=seats, today=today),
-            session=session,
+        await write_saison_team_kontakte(
+            saison_teams_collection=saison_teams_collection,
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            writes=[SeatWrite(db_filter={"_id": row["_id"]}, update=compose_saison_decline_update(seats=seats, today=today))],
             return_document=ReturnDocument.BEFORE,
+            session=session,
         )
 
         # LAST, for the application's reason: it reaches the pre-image the clearing patch just filed,

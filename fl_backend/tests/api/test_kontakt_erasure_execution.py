@@ -724,6 +724,7 @@ def test_a_spelling_handed_in_unfolded_still_clears_and_redacts(mongo_replica_se
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
                 aktionen_collection=database[Collection.AKTIONEN],
+                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 identifier=VARIANT_REQUEST_EMAIL,
                 saison_team_rows=reached[Collection.SAISON_TEAMS],
                 bewerbung_rows=reached[Collection.BEWERBUNGEN],
