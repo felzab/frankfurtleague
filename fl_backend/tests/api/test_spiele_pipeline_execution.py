@@ -112,23 +112,34 @@ VERDICT_HOME = ObjectId("6890a1b2c3d4e5f607250011")
 VERDICT_AWAY = ObjectId("6890a1b2c3d4e5f607250012")
 VERDICT_SPIELORT_ID = ObjectId("6890a1b2c3d4e5f607250021")
 
-DATUM = "2026-05-02"
-MOVED_DATUM = "2026-05-09"
+HOME_SIDE = {"team_id": VERDICT_HOME, "name": "Alpha", "shorthand": "AL", "tore": None}
+AWAY_SIDE = {"team_id": VERDICT_AWAY, "name": "Beta", "shorthand": "BE", "tore": None}
+GROUND = {"spielort_id": VERDICT_SPIELORT_ID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80}
+OTHER_GROUND = {**GROUND, "spielort_id": ObjectId("6890a1b2c3d4e5f607250022")}
+
+# One per Ansetzung value, the sides moving together since a fixture never holds one club twice.
+MOVES: Mapping[str, Mapping[str, Any]] = {
+    "the date": {"datum": "2026-05-09"},
+    "the time": {"uhrzeit": "19:30:00"},
+    "the ground": {"ort": OTHER_GROUND},
+    "the ground removed": {"ort": None},
+    "the sides swapped": {"team1": AWAY_SIDE, "team2": HOME_SIDE},
+}
+
+REFEREE = {"art": "schiedsrichter", "schiedsrichter_id": ObjectId("6890a1b2c3d4e5f607250031")}
 
 
 def a_fixture(*, with_ground: bool = True) -> dict[str, Any]:
-    ort = {"spielort_id": VERDICT_SPIELORT_ID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80}
-
     return spiel_document(
         spiel_id=VERDICT_SPIEL_ID,
         saison_id=SAISON,
         spiel_nr=1,
         spieltag_id=ObjectId("6890a1b2c3d4e5f6072500a1"),
-        team1={"team_id": VERDICT_HOME, "name": "Alpha", "shorthand": "AL", "tore": None},
-        team2={"team_id": VERDICT_AWAY, "name": "Beta", "shorthand": "BE", "tore": None},
-        datum=DATUM,
+        team1=HOME_SIDE,
+        team2=AWAY_SIDE,
+        datum="2026-05-02",
         uhrzeit="18:00:00",
-        ort=ort if with_ground else None,
+        ort=GROUND if with_ground else None,
     )
 
 
@@ -196,19 +207,51 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
 
         assert on_a_fixture(mongo_url, fixture, rows, verdict) is False
 
-    def test_a_moved_fixture_reads_as_never_asked_in_the_very_next_read(self, mongo_url: str):
-        """No sweep runs, so both agreements stay open: only the join's comparison keeps a date nobody agreed to off the card as confirmed."""
+    @pytest.mark.parametrize("move", list(MOVES.values()), ids=list(MOVES))
+    def test_a_moved_fixture_reads_as_provisional_in_the_very_next_read(self, mongo_url: str, move: Mapping[str, Any]):
+        """No sweep runs, so both agreements stay open: a comparison missing a key reads its move as settled.
+
+        And a join reading only the current Ansetzung's rows reads every move as never asked.
+        """
 
         fixture = a_fixture()
         rows = [a_row(fixture, VERDICT_HOME, antwort=zugesagt()), a_row(fixture, VERDICT_AWAY, antwort=zugesagt())]
 
         async def body(database: AsyncDatabase) -> tuple[bool | None, bool | None]:
             before = await verdict(database)
-            await database[Collection.SPIELE].update_one({"_id": VERDICT_SPIEL_ID}, {"$set": {"datum": MOVED_DATUM}})
+            await database[Collection.SPIELE].update_one({"_id": VERDICT_SPIEL_ID}, {"$set": move})
 
             return before, await verdict(database)
 
-        assert on_a_fixture(mongo_url, fixture, rows, body) == (True, None)
+        assert on_a_fixture(mongo_url, fixture, rows, body) == (True, False)
+
+    def test_a_referees_open_row_never_holds_the_clubs_agreement_back(self, mongo_url: str):
+        fixture = a_fixture()
+        rows = [
+            a_row(fixture, VERDICT_HOME, antwort=zugesagt()),
+            a_row(fixture, VERDICT_AWAY, antwort=zugesagt()),
+            spielbestaetigung_document(fixture, partei=REFEREE),
+        ]
+
+        assert on_a_fixture(mongo_url, fixture, rows, verdict) is True
+
+    def test_two_agreements_of_one_club_leave_it_provisional(self, mongo_url: str):
+        """Nothing in the database stops a second open row once a club has answered: counting rows would confirm without the other club."""
+
+        fixture = a_fixture()
+        rows = [a_row(fixture, VERDICT_HOME, antwort=zugesagt()), a_row(fixture, VERDICT_HOME, antwort=zugesagt())]
+
+        assert on_a_fixture(mongo_url, fixture, rows, verdict) is False
+
+    @pytest.mark.parametrize(
+        "parteien",
+        [pytest.param([], id="no row at all"), pytest.param([REFEREE], id="a referee's row alone")],
+    )
+    def test_no_clubs_open_row_reads_as_never_asked(self, mongo_url: str, parteien: list[Mapping[str, Any]]):
+        fixture = a_fixture()
+        rows = [spielbestaetigung_document(fixture, partei=partei) for partei in parteien]
+
+        assert on_a_fixture(mongo_url, fixture, rows, verdict) is None
 
 
 def test_the_confirmation_lookup_plans_an_index_scan(mongo_url: str):
