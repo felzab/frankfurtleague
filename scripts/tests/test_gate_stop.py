@@ -206,8 +206,9 @@ def _said(reader: threading.Thread, output: list[bytes]) -> str:
 
 
 # A terminal's Ctrl-C on Windows: the gate started in a console of its own, typed into, and the
-# console's interrupt sent from inside it once the tools run. Its exit status is the gate's.
-CONSOLE: Final = 0x0000_0010
+# console's interrupt sent from inside it once the tools run. Its exit status is the gate's. The
+# console has no window (`CREATE_NO_WINDOW`), so no run flashes one at whoever sits at the machine.
+CONSOLE: Final = 0x0800_0000
 CONSOLE_INTERRUPT: Final = """import ctypes, signal, subprocess, sys, time
 from pathlib import Path
 kernel32 = ctypes.WinDLL("kernel32")
