@@ -736,7 +736,7 @@ def test_every_season_but_the_active_one_is_outside_the_rule(mongo_url: str):
 def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):
     """An answered row, a closed one and the other club's open one stand beside a party's open row on one stand.
 
-    A dropped filter or a lost party key refuses one, and with it a reinstated fixture's fresh request.
+    A dropped filter or a lost team key refuses one, and with it a reinstated fixture's fresh request.
     """
 
     antwort = {"art": "zugesagt", "am": "2026-03-01", "von": {"art": "kontakt", "rolle": "trainer"}, "vorschlag": None, "begruendung": None}
@@ -1617,3 +1617,28 @@ def test_the_erasure_marks_a_persons_log_rows_through_an_index(mongo_url: str):
     assert sum("actor.pseudonym" in db_filter for db_filter, _ in planned) == 2, planned
     for db_filter, stages in planned:
         assert "COLLSCAN" not in stages, f"marking {db_filter} scans the whole log: {stages}"
+
+
+OTHER_SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607200010")
+
+
+class TestTwoRefereesOpenRowsOnOneStand:
+    def test_each_referee_holds_an_open_row_of_their_own(self, mongo_url: str):
+        """A referee changed while the close's share leaves the old one's row open: the mint inserts the new one's beside it.
+
+        Without the referee key the insert collides, and the fixture is passed over every pass until the close reaches the old row.
+        """
+
+        async def body(database: AsyncDatabase) -> int:
+            for row_id, schiedsrichter_id in ((SPIELBESTAETIGUNG_OID, SCHIEDSRICHTER_OID), (SPIELER_OID, OTHER_SCHIEDSRICHTER_OID)):
+                await database.spielbestaetigungen.insert_one(
+                    valid_document(
+                        "spielbestaetigungen",
+                        _id=row_id,
+                        partei={"art": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id},
+                        kontakte=None,
+                    )
+                )
+            return await database.spielbestaetigungen.count_documents({"antwort": None, "geschlossen": None})
+
+        assert on_the_shipped_schema(mongo_url, body) == 2
