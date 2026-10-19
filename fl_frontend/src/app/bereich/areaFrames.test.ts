@@ -1,11 +1,14 @@
 import "@/shared/testing/pageHarness.ts";
 
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
+import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { prerenderShell } from "@/shared/testing/pageHarness.ts";
@@ -25,6 +28,7 @@ const { default: AdminLayout } = await import("@/app/bereich/admin/layout.tsx");
 const { default: DashboardLayout } = await import("@/app/dashboard/layout.tsx");
 const { KONTO_HREF } = await import("@/core/kontoHref.ts");
 
+const APP_DIR = path.resolve(import.meta.dirname, "..");
 const TEAM = { team_id: SITZ.team_id, saison_id: "2526" };
 const TEAM_HREF = `/bereich/team/${TEAM.team_id}/${TEAM.saison_id}`;
 
@@ -123,4 +127,26 @@ describe("each area's frame in the build's static shell (`docs/frontend/spec.md 
         assert.ok(!hrefsIn(markup).includes(href), `${frame.name}'s shell links ${href} before the request`);
     });
   }
+});
+
+describe("the loading boundaries above the areas (`docs/frontend/spec.md :: I736`)", () => {
+  /* Next mounts a `loading.tsx` new wherever a navigation enters its segment, and React shows a new
+     boundary's fallback at once: one above an area's layout replaces that area's bar for the whole wait. */
+  it("stand nowhere above an area's own layout", () => {
+    const nested = filesUnder(APP_DIR, (name) => name === "layout.tsx", 6).filter((file) => path.dirname(file) !== APP_DIR);
+    // The outermost on each branch: one nested in an area sits below the area's own `loading.tsx` by design.
+    const layouts = nested.filter((file) => !nested.some((other) => other !== file && file.startsWith(path.dirname(other) + path.sep)));
+    // The control: an empty walk passes the absence below unread.
+    assert.ok(layouts.length >= 5, `the walk found ${String(layouts.length)} area layouts`);
+
+    for (const layout of layouts) {
+      for (let dir = path.dirname(path.dirname(layout)); dir.startsWith(APP_DIR); dir = path.dirname(dir)) {
+        assert.ok(
+          !existsSync(path.join(dir, "loading.tsx")),
+          `${path.relative(APP_DIR, path.join(dir, "loading.tsx"))} stands above ${path.relative(APP_DIR, layout)}`,
+        );
+        if (dir === APP_DIR) break;
+      }
+    }
+  });
 });
