@@ -101,6 +101,8 @@ export function SpielbestaetigungFormPanel({
   onAbschluss: (abschluss: SpielbestaetigungAbschluss) => void;
 }) {
   const [isPending, startSending] = useTransition();
+  // Both presses wait on the one write, but only the one pressed reads as sending, as the other link pages' second press does.
+  const [gedrueckt, setGedrueckt] = useState<"zusage" | "vorschlag">("zusage");
   const [entwurf, setEntwurf] = useState<Entwurf>(LEERER_ENTWURF);
 
   // The payload the write is judged by, judging the draft too: a second schema here would be the page
@@ -160,6 +162,7 @@ export function SpielbestaetigungFormPanel({
   const sendeZusage = () => {
     const payload = zusagePayload(token);
     guardSubmit({ antwort: payload }, () => {
+      setGedrueckt("zusage");
       startSending(async () => {
         await sende(payload);
       });
@@ -170,6 +173,7 @@ export function SpielbestaetigungFormPanel({
   const sendeVorschlag = () => {
     const payload = vorschlagPayload(token, entwurf);
     guardSubmit({ antwort: payload }, () => {
+      setGedrueckt("vorschlag");
       startSending(async () => {
         await sende(payload);
       });
@@ -193,7 +197,7 @@ export function SpielbestaetigungFormPanel({
               className="size-4.5"
               aria-hidden="true"
             />
-            {isPending ? "Sendet..." : "Zusagen"}
+            {isPending && gedrueckt === "zusage" ? "Sendet..." : "Zusagen"}
           </Button>
         </div>
 
@@ -255,7 +259,7 @@ export function SpielbestaetigungFormPanel({
                   type="submit"
                   isPending={isPending}
                   className={formButton({ intent: "submit", stacks: true })}>
-                  {isPending ? "Sendet..." : "Vorschlag senden"}
+                  {isPending && gedrueckt === "vorschlag" ? "Sendet..." : "Vorschlag senden"}
                 </Button>
               </div>
             </Disclosure.Body>
