@@ -894,14 +894,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   2026-09-02.
 - **A season's fixture confirmations keep the clubs' answers as the season's record, and lose at
   that same clearing everything that tells the people apart.** Each of the season's
-  `spielbestaetigungen` rows loses its reason, its holder digest, its seats' link hashes and their
+  `spielbestaetigungen` team rows loses its reason, its holder digest, its seats' link hashes and their
   delivery records with the contact block, on the rows and in the log's images
   (`fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison`). Which way each club answered,
   its day, the answering role and a proposed date stay, naming nobody, and the rows have no clock of
   their own, a season's fixtures being kept as the league's record. A person's erasure or
   Widerspruch takes their part sooner ([section 5](#5-erasure-reaches-everyone-who-asks)). A
-  referee's rows hold the referee's id and no seat, and stand while the referee's row does, their
-  erasure removing them (`docs/backend/spec.md :: I761`). The published notice tabulates it
+  referee's rows hold the referee's id, no seat and no reason, and stand while the referee's row
+  does, their erasure removing them (`docs/backend/spec.md :: I761`). The published notice tabulates it
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19.
 - **Timers in the frontend process are what turn those clocks from an intention into a mechanism**
   (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, calling
