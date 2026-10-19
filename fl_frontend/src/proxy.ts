@@ -13,13 +13,14 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
   // visitor holding none meets sign-in, never an area's frame. Every verdict past it is a guard's
   // (`docs/frontend/spec.md :: I122`).
   if (sessionCookieOf(req.headers) === null) {
+    // No return destination carried across: honouring one needs it checked against an allowlist first.
     return inBereich(req.nextUrl.pathname) ? turnAway(req, "/signin") : NextResponse.next();
   }
 
   try {
     // Only here can a person who only reads slide their cookie with their row (`docs/frontend/spec.md :: I495`).
-    // Its answer decides nothing: the library expires a cookie naming no session, and the page's guard
-    // turns it away.
+    // Its answer decides nothing: the library expires a cookie whose row is gone or expired, and the
+    // page's guard refuses the rest.
     await slideSession(req.headers);
   } catch {
     // A store that did not answer signs nobody out: the page's own guard reads it again and fails
@@ -63,16 +64,19 @@ export const config = {
     {
       source: "/bereich/:path*",
       missing: [
-        // No `value`, so it matches every prefetch Next's router sends, a partial one's `2` and `3` among them.
+        // No `value`, so it matches the header whatever it carries, a partial prefetch's `2` and `3` among them. A full
+        // prefetch sends no header and runs the proxy, which `fl_frontend/eslint.config.mjs :: FULL_PREFETCH` refuses.
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },
       ],
     },
-    // Save a prefetch carrying no session cookie, of any prefix: the cookie check turns it away before any
-    // read, so a visitor holding none is sent to sign-in rather than shown the prefetched frame.
+    // Save a prefetch carrying no session cookie: the cookie check turns it away before any read, so a visitor
+    // holding none is sent to sign-in rather than shown the prefetched frame.
     {
       source: "/bereich/:path*",
       has: [{ type: "header", key: "next-router-prefetch" }],
+      // A matcher holds literals, so the name is matched on its suffix, of any prefix: a foreign cookie bearing it
+      // skips the proxy, and its prefetched frame paints until the page's guard sends it on.
       missing: [{ type: "header", key: "cookie", value: ".*\\.session_token=.*" }],
     },
     {

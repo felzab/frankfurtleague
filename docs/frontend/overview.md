@@ -99,7 +99,8 @@ rather than an area's frame ([`spec.md`](spec.md) I243). Past the cookie it judg
 and Better Auth's guidance has a proxy check: it slides the session a person only reads
 ([`spec.md`](spec.md) I495), and the slide's answer turns nobody away. So a cookie whose session
 ended, or that no passkey made, is painted the area's empty frame before the page's own guard,
-which reads the session it serves, sends it on. The session, its factor and the grant are judged where the data
+which reads the session it serves, sends it on; a soft navigation, rerunning no layout, paints the
+destination page's static chrome instead. The session, its factor and the grant are judged where the data
 is read: every admin-tier read checks the administrator verdict through
 `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`, sending a session it refuses to the
 sign-in landing and a grant the backend left unread to the admin boundary's retry, since Next renders

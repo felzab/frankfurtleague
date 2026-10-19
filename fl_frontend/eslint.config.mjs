@@ -538,6 +538,22 @@ const PASSKEY_DELETION = {
 };
 
 /**
+ * Every way to ask Next for a full prefetch: a link's `prefetch` other than false, null or "auto", its
+ * `unstable_dynamicOnHover`, and a router prefetch naming a kind. A spread hands one over unread.
+ */
+const FULL_PREFETCH = {
+  selector: [
+    // A regex for the two literals: esquery reads a bare attribute's missing value as the text "null".
+    'JSXAttribute[name.name="prefetch"]:not([value.expression.raw=/^(?:false|null)$/], [value.value="auto"], [value.expression.value="auto"])',
+    'JSXAttribute[name.name="unstable_dynamicOnHover"]',
+    'CallExpression[callee.property.name="prefetch"] > ObjectExpression.arguments > Property[key.name="kind"]',
+    'Identifier[name="PrefetchKind"]',
+  ].join(", "),
+  message:
+    "A full prefetch sends no `next-router-prefetch` header, so the proxy slides a session on a page nobody opened, and it renders what waits on `connection()`: leave the prefetch partial (docs/frontend/spec.md :: I495).",
+};
+
+/**
  * React's `useActionState`, and react-dom's `useFormState` it renamed, hand an action's rejection to the nearest
  * error boundary, which reads nothing of it, the edge's own 429 included. The hook the codebase takes it through
  * answers that one.
@@ -1049,6 +1065,7 @@ const SOURCE_BANS = [
   },
   // `src/core/auth.test.ts` calls the plugin's deletion to hold it closed, so tests stay outside.
   PASSKEY_DELETION,
+  FULL_PREFETCH,
   ACTION_STATE_BAN,
   ...DYNAMIC_LOADS.map((ban) => ({ ...ban, tests: true })),
   {
@@ -1330,6 +1347,13 @@ const SOURCE_BANS = [
       ':function:has(CallExpression[callee.name="runPersonRead"], Property[key.name="authType"][value.value="admin"]) > BlockStatement > ExpressionStatement[directive=/^use cache/]',
     message:
       "A function reading for its caller directly, through runPersonRead or with the admin key, is never cached: `\"use cache\"` keys on the arguments, not the caller, so a person's or an administrator's read would become a slot every caller shares (docs/frontend/spec.md §1.2).",
+  },
+  {
+    // Anywhere, since a selector follows no call: a wrapper over a caller's read is caught by no ban above, and
+    // the private directive alone lets that read run, its `headers()` included.
+    selector: "ExpressionStatement[directive=/^use cache:\\s*private/]",
+    message:
+      'No `"use cache: private"`: it caches a read made for its caller, which this app never caches, and its stale time keeps the page in the client router, so an editor reopens on what another administrator has since changed (docs/frontend/spec.md §1.2).',
   },
   {
     // `error` is `unknown`, so the type checker passes an empty one, which reads an edge's 429 as an unclear save.
