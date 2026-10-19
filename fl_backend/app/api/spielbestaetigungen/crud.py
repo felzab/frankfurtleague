@@ -22,7 +22,7 @@ from app.shared.schemas.custom import CustomObjectId
 # --- The LINK's view and answer.
 
 # What the VIEW reads off the fixture: the Ansetzung's inputs, what the page states of it, and what
-# `entscheidung_of` decides on. Never the referee, the rent or the note (`docs/backend/spec.md :: I185`).
+# `grund_to_close` decides on. Never the referee, the rent or the note (`docs/backend/spec.md :: I185`).
 ANSICHT_SPIEL_FIELDS: Mapping[str, int] = {
     "_id": 0,
     **dict.fromkeys(ANSETZUNG_QUELLEN.values(), 1),

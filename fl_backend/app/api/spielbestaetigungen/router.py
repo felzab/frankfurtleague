@@ -146,9 +146,10 @@ async def post_spielbestaetigung(
 
     Refuses, in this order: a token no seat holds (`REQ-ANSETZUNG-001`); a link whose seat's address the ban list holds
     now, whenever it was minted (`REQ-ANSETZUNG-011`); a row already answered, closed since or not (`REQ-ANSETZUNG-002`);
-    one closed unanswered (`REQ-ANSETZUNG-009`); an answer after the deadline's day (`REQ-ANSETZUNG-003`); a fixture
-    whose date, time, ground or sides moved since the link (`REQ-ANSETZUNG-004`), asked again outside the transaction
-    just before answering; a fixture decided, called off or left by a club (`REQ-ANSETZUNG-005`); a proposal dated
+    one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club (`REQ-ANSETZUNG-005`),
+    then one whose date, time, ground or sides moved since the link (`REQ-ANSETZUNG-004`), each as the confirmation
+    pass's close judges the row and asked again outside the transaction just before answering; an answer after the
+    deadline's day (`REQ-ANSETZUNG-003`); a proposal dated
     before today (`REQ-ANSETZUNG-007`); a reason holding a name of either club's three seats or of the booked referee
     (`REQ-ANSETZUNG-012`); and a proposal the administrator's own save of that date would be refused, judged on what it
     newly claims: outside the matchday (`REQ-DATE-001`), on or after a club's exit (`REQ-ELIGIBILITY-001`), or within

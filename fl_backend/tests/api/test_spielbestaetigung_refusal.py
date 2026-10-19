@@ -23,6 +23,7 @@ from app.api.spielbestaetigungen.services import (
     find_spent_link_refusal,
     find_unknown_link_refusal,
     find_vorschlag_vergangen_refusal,
+    grund_to_close,
     proposal_payload,
     seat_adresse,
     zustand_of,
@@ -141,15 +142,12 @@ class TestASpentLinkMeetsTheCodeThatNamesWhy:
                 ANSETZUNG_GESCHLOSSEN,
                 id="closed-ahead-of-late-and-moved",
             ),
+            # What the close would shut the row for, ahead of the deadline, as the view ranks them.
+            pytest.param({}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, "2027-05-08", ANSETZUNG_GEAENDERT, id="moved-ahead-of-late"),
+            pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, "2027-05-08", ANSETZUNG_ENTSCHIEDEN, id="decided-ahead-of-late"),
+            # The close's own order: a decided fixture is owed no notice that it moved.
             pytest.param(
-                {},
-                {"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}},
-                "2027-05-08",
-                ANSETZUNG_FRIST_VORBEI,
-                id="late-ahead-of-moved",
-            ),
-            pytest.param(
-                {}, {"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}}, TODAY, ANSETZUNG_GEAENDERT, id="moved-ahead-of-decided"
+                {}, {"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}}, TODAY, ANSETZUNG_ENTSCHIEDEN, id="decided-ahead-of-moved"
             ),
         ],
     )
@@ -187,6 +185,10 @@ class TestWhatAReopenedLinkShows:
             ),
             pytest.param({"antwort": {**ANSWERED, "art": "abgelehnt"}}, {}, TODAY, False, None, "abgelehnt", id="declined"),
             pytest.param({}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, "2027-05-08", False, None, "ungueltig", id="moved-ahead-of-late"),
+            pytest.param(
+                {}, {"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}}, TODAY, False, None, "abgelaufen", id="decided-and-moved"
+            ),
+            pytest.param({}, {"austritt": DATUM}, TODAY, False, None, "abgelaufen", id="a-club-left-by-the-day"),
             pytest.param(
                 {"geschlossen": {"am": TODAY, "grund": "schiedsrichter_gewechselt"}}, {}, TODAY, False, None, "ungueltig", id="referee-changed"
             ),
@@ -277,6 +279,48 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
         assert {"austritt.datum", "kontakte.stellvertretung.nachname", "kontakte.trainer.email"} <= vereine_seen
         projection = verein_fields(team_id=TEAM1, seat="trainer", namen=True)
         assert [path for path in sorted(vereine_seen) if not loaded_by(projection, path)] == []
+
+
+# Open rows in every situation a link meets, each keyed by what the close would shut it for.
+SITUATIONS = [
+    pytest.param({}, TODAY, id="open"),
+    pytest.param({}, "2027-05-08", id="late"),
+    pytest.param({"spiel_overrides": {"uhrzeit": "19:00:00"}}, TODAY, id="moved"),
+    pytest.param({"spiel_overrides": {"team2": None}}, TODAY, id="a-side-gone"),
+    pytest.param({"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, id="a-result"),
+    pytest.param({"spiel_overrides": {"elfmeterschiessen": {"team1": 4, "team2": 3}}}, TODAY, id="a-lone-shoot-out"),
+    pytest.param({"spiel_overrides": {"sonderereignis": "ausgefallen"}}, TODAY, id="called-off"),
+    pytest.param({"austritt": DATUM}, TODAY, id="a-club-left-by-the-day"),
+    pytest.param({"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}}, "2027-05-08", id="moved-decided-and-late"),
+]
+
+# The page a refused answer's code sends the reader to (`fl_frontend/src/features/spielbestaetigungen/utils.ts`).
+STATE_OF_CODE = {None: "gueltig", ANSETZUNG_GEAENDERT: "ungueltig", ANSETZUNG_ENTSCHIEDEN: "abgelaufen", ANSETZUNG_FRIST_VORBEI: "abgelaufen"}
+
+
+class TestTheLinkAndTheCloseReadOneVerdict:
+    """The view, the answer and the pass's close judge an open row alike: a link shows and refuses only what the close would record."""
+
+    @pytest.mark.parametrize(("situation", "today"), SITUATIONS)
+    def test_the_view_shows_the_state_the_answer_refuses_with(self, situation: dict[str, Any], today: str):
+        refusal = find_spent_link_refusal(spielbestaetigung_raw=zeile(), lage=lage(**situation), today=today)
+        shown = zustand_of(spielbestaetigung_raw=zeile(), lage=lage(**situation), today=today, gesperrt=False, vorschlag_offen=None)
+
+        assert shown == STATE_OF_CODE[None if refusal is None else refusal.error_code]
+
+    @pytest.mark.parametrize(("situation", "today"), SITUATIONS)
+    def test_a_row_shows_the_same_state_before_the_close_and_after_it(self, situation: dict[str, Any], today: str):
+        """Closed for the reason `grund_to_close` gives, the row reads as it did open: the next pass changes no page under its reader."""
+
+        situated = lage(**situation)
+        austritte = {} if "austritt" not in situation else {TEAM1: situation["austritt"]}
+        grund = grund_to_close(row=zeile(), spiel=situated.spiel, austritte=austritte)
+        closed = zeile(geschlossen=None if grund is None else {"am": today, "grund": grund})
+
+        before = zustand_of(spielbestaetigung_raw=zeile(), lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
+        after = zustand_of(spielbestaetigung_raw=closed, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
+
+        assert before == after
 
 
 class TestWhatTheViewStatesOfTheFixture:

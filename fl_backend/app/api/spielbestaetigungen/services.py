@@ -140,8 +140,8 @@ ANSETZUNG_GESCHLOSSEN = "REQ-ANSETZUNG-009"
 ANSETZUNG_GESPERRT = "REQ-ANSETZUNG-011"
 ANSETZUNG_NAME_IN_BEGRUENDUNG = "REQ-ANSETZUNG-012"
 
-# A row closed for one of these is about an Ansetzung the fixture has left, which the page tells apart
-# from a deadline that ran out.
+# A row closed, or due to close, for one of these is about an Ansetzung the fixture has left, which the
+# page tells apart from a deadline that ran out.
 GRUENDE_UNGUELTIG: Final = frozenset({"ansetzung_geaendert", "schiedsrichter_gewechselt"})
 
 # An INCLUSION: of a row's links the hashes alone, which resolve the seat and never leave the handler.
@@ -196,16 +196,12 @@ def seat_adresse(*, lage: AnsetzungLage, spielbestaetigung_raw: Mapping[str, Any
     return kontakt_adresse(kontakte=(verein or {}).get("kontakte"), seat=seat)
 
 
-def _stand_moved(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage) -> bool:
-    return ansetzung_stand_of(lage.spiel) != spielbestaetigung_raw["ansetzung"]["stand"]
+def _grund_now(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage) -> FLSpielbestaetigungGrund | None:
+    """Why the pass's next close would shut this row, read off its own judge: a link never shows or refuses otherwise than it records."""
 
+    austritte = {row.get("team_id"): str(datum) for row in lage.vereine if (datum := (row.get("austritt") or {}).get("datum")) is not None}
 
-def _decided(*, lage: AnsetzungLage) -> bool:
-    """`entscheidung_of` over the fixture as it stands and both clubs' season rows, the rule the pass's close shuts a row by."""
-
-    austritte = [str(datum) for row in lage.vereine if (datum := (row.get("austritt") or {}).get("datum")) is not None]
-
-    return entscheidung_of(spiel=lage.spiel, austritte=austritte, tag=lage.spiel.get("datum")) is not None
+    return grund_to_close(row=spielbestaetigung_raw, spiel=lage.spiel, austritte=austritte)
 
 
 def _past_frist(*, spielbestaetigung_raw: Mapping[str, Any], today: str) -> bool:
@@ -231,12 +227,13 @@ def zustand_of(
     if isinstance(antwort, Mapping):
         return "zugesagt" if antwort["art"] == "zugesagt" else "abgelehnt"
 
-    if (isinstance(geschlossen, Mapping) and geschlossen["grund"] in GRUENDE_UNGUELTIG) or _stand_moved(
-        spielbestaetigung_raw=spielbestaetigung_raw, lage=lage
-    ):
+    # Closed, by the reason stored; open, by the one the close would store.
+    grund = geschlossen["grund"] if isinstance(geschlossen, Mapping) else _grund_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage)
+
+    if grund in GRUENDE_UNGUELTIG:
         return "ungueltig"
 
-    if geschlossen is not None or _decided(lage=lage) or _past_frist(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
+    if grund is not None or _past_frist(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
         return "abgelaufen"
 
     return "gueltig" if vorschlag_offen is None else "vorschlag"
@@ -279,9 +276,9 @@ def first_press_refusal() -> WriteRefusal:
 
 
 def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage, today: str) -> WriteRefusal | None:
-    """Why this row takes no answer now, or `None`, in the order a spent token meets its code.
+    """Why this row takes no answer now, or `None`, in the order `zustand_of` ranks the same states.
 
-    An answered row first, closed since or not, then one closed unanswered, then the deadline, the Ansetzung and the fixture.
+    Answered, closed unanswered, what the close would shut it for, then the deadline.
     """
 
     if spielbestaetigung_raw.get("antwort") is not None:
@@ -294,25 +291,27 @@ def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: A
             message="this confirmation was closed before anybody answered; a fresh request is a new link",
         )
 
-    if _past_frist(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
-        return WriteRefusal(
-            error_code=ANSETZUNG_FRIST_VORBEI,
-            status=HTTPStatus.GONE,
-            message=f"this confirmation's deadline {spielbestaetigung_raw['frist']} has passed, and the date is the administrator's now",
-        )
+    grund = _grund_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage)
 
-    if _stand_moved(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage):
+    if grund in GRUENDE_UNGUELTIG:
         return WriteRefusal(
             error_code=ANSETZUNG_GEAENDERT,
             status=HTTPStatus.GONE,
             message="the fixture's date, time, ground or sides changed since this link was sent; the new Ansetzung is asked afresh",
         )
 
-    if _decided(lage=lage):
+    if grund is not None:
         return WriteRefusal(
             error_code=ANSETZUNG_ENTSCHIEDEN,
             status=HTTPStatus.GONE,
             message="this fixture has been decided, called off or lost a club since this link was sent",
+        )
+
+    if _past_frist(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
+        return WriteRefusal(
+            error_code=ANSETZUNG_FRIST_VORBEI,
+            status=HTTPStatus.GONE,
+            message=f"this confirmation's deadline {spielbestaetigung_raw['frist']} has passed, and the date is the administrator's now",
         )
 
     return None
