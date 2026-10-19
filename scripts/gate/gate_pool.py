@@ -49,9 +49,13 @@ CALLER_POLL_S: Final = 1.0
 # reaches it. A notice and never a verdict: a slow unit costs a line.
 STALL_S: Final = 600.0
 STALL_POLL_S: Final = 5.0
-# Enough of the capture to carry a pytest worker's faulthandler dump whole
-# (`scripts/gate/verify.sh :: FAULTHANDLER_S`), whose stalled frames come first.
+# The end of a capture a notice shows.
 STALL_TAIL_LINES: Final = 100
+# A faulthandler dump (`scripts/gate/verify.sh :: FAULTHANDLER_S`) lists threads newest first and each
+# thread's frames innermost first, so the stalled frame opens the dump's last block, which a tail
+# cuts first once that block runs long: the notice shows that block from its header too.
+DUMP_RE: Final = re.compile(r"^Timeout \([0-9]+:[0-9]{2}:[0-9]{2}(\.[0-9]+)?\)!$")
+THREAD_RE: Final = re.compile(r"^(Current thread|Thread) 0x[0-9a-fA-F]+ \(most recent call first\):$")
 
 # Where a pool nested in a unit sends its notices, the one pool whose stderr reaches the reader
 # relaying them: a nested pool's own stderr is a capture nobody reads until the run ends.
@@ -223,13 +227,30 @@ def spelled(seconds: float) -> str:
     return f"{whole // 60}m {whole % 60:02d}s"
 
 
+def shown(lines: list[str]) -> list[str]:
+    """The lines of a capture a notice carries: its tail, and the last dump's stalled thread where the tail starts below it."""
+    tail = max(0, len(lines) - STALL_TAIL_LINES)
+    dumps = [index for index, line in enumerate(lines) if DUMP_RE.match(line)]
+    if not dumps or dumps[-1] >= tail:
+        return lines[tail:]
+    headers = [index for index in range(dumps[-1], len(lines)) if THREAD_RE.match(lines[index])]
+    if not headers:
+        return lines[tail:]
+    block = headers[-1]
+    # A frame line is indented; the block ends at the first that is not.
+    end = next((index for index in range(block + 1, len(lines)) if not lines[index].startswith("  ")), len(lines))
+    if block >= tail:
+        return [lines[dumps[-1]], *lines[tail:]]
+    return [lines[dumps[-1]], *lines[block:end], *lines[max(end, tail) :]]
+
+
 def stall_notice(pool: Pool, name: str, quiet: float) -> bytes:
     """What the reader is told of a unit silent past `STALL_S`: which, for how long, and the end of what it wrote."""
     lines = [f"  !!  the {name} unit has written nothing for {spelled(quiet)} and is still running. Its output so far ends:"]
     for capture in captures(pool, name):
         text = capture.read_bytes().decode("utf-8", errors="replace") if capture.is_file() else ""
         lines.append(f"      ({capture})")
-        lines += [f"      {line}" for line in text.splitlines()[-STALL_TAIL_LINES:]]
+        lines += [f"      {line}" for line in shown(text.splitlines())]
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 

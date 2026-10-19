@@ -16,6 +16,7 @@ import threading
 from pathlib import Path
 from typing import Final
 
+import pytest
 from conftest import BASH, WINDOWS, base_env, copy_scripts, declared, lift_function, new_root, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
@@ -492,11 +493,41 @@ RELEASING: Final[tuple[str, ...]] = (
 )
 
 
-def test_a_stalled_pytest_case_s_stack_reaches_the_notice_through_its_worker(tmp_path: Path) -> None:
-    """The notice names the step; the stack is pytest's faulthandler dump, written by an xdist worker whose stderr must reach the capture."""
+# The stalled frame under a stack past faulthandler's hundred frames a thread, so its thread's block
+# alone outruns a notice's tail.
+DEEP_STALLED_CASE: Final = """import time
+from pathlib import Path
+
+
+def waits_for_release() -> None:
+    deadline = time.monotonic() + 60
+    while not Path({release!r}).exists() and time.monotonic() < deadline:
+        time.sleep(0.1)
+
+
+def descends(depth: int) -> None:
+    if depth:
+        descends(depth - 1)
+    else:
+        waits_for_release()
+
+
+def test_a_deep_case_that_stalls() -> None:
+    descends(150)
+"""
+
+
+@pytest.mark.parametrize(
+    ("source", "stalled"), [(STALLED_CASE, "test_a_case_that_stalls"), (DEEP_STALLED_CASE, "in waits_for_release")], ids=["shallow", "deep"]
+)
+def test_a_stalled_pytest_case_s_stack_reaches_the_notice_through_its_worker(source: str, stalled: str, tmp_path: Path) -> None:
+    """The notice names the step; the stack is pytest's faulthandler dump, written by an xdist worker whose stderr must reach the capture.
+
+    The deep case's stalled frame opens the dump's last block, which a tail of the capture cuts first.
+    """
     case = tmp_path / "suite" / "test_stalled.py"
     case.parent.mkdir()
-    case.write_bytes(STALLED_CASE.format(release=str(tmp_path / "release")).encode("utf-8"))
+    case.write_bytes(source.format(release=str(tmp_path / "release")).encode("utf-8"))
     # Its own root and conftest boundary: pytest otherwise walks the system temporary directory,
     # whose entries other cases create and remove under it.
     (case.parent / "pytest.ini").write_bytes(b"[pytest]\n")
@@ -508,7 +539,7 @@ def test_a_stalled_pytest_case_s_stack_reaches_the_notice_through_its_worker(tmp
     said = (tmp_path / "pytest.out").read_bytes().decode("utf-8", "replace")
     assert (tmp_path / "release").exists(), f"no notice carried the stalled case's stack; it wrote:\n{said}\n{_rows(tmp_path)}"
     carried = next(notice for notice in result.stderr.split(_notice("pytest")) if "Timeout (" in notice)
-    assert "test_a_case_that_stalls" in carried, result.stderr
+    assert stalled in carried, result.stderr
 
 
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
