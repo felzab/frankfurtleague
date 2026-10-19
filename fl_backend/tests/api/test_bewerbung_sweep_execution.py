@@ -43,7 +43,6 @@ from app.api.bewerbungen.sweep_router import (
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
 from app.api.saisons.admin_router import activate_saison
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
-from app.api.spielbestaetigungen.services import compose_ansetzung
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -1851,20 +1850,24 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
 def open_confirmation(team_id: ObjectId) -> dict[str, Any]:
     """One team's open row about a fixture, every seat holding the link it was mailed."""
 
-    fixture = {"datum": "2026-04-18", "uhrzeit": "14:00:00", "ort": None, "team1": {"team_id": team_id}, "team2": {"team_id": CLUB_OID}}
+    fixture = documents.spiel_document(
+        spiel_id=ObjectId(),
+        saison_id=SAISON_ID,
+        spiel_nr=1,
+        spieltag_id=None,
+        datum="2026-04-18",
+        uhrzeit="14:00:00",
+        team1={"team_id": team_id},
+        team2={"team_id": CLUB_OID},
+    )
 
-    return {
-        "saison_id": SAISON_ID,
-        "spiel_id": ObjectId(),
-        "partei": {"art": "team", "team_id": team_id},
-        "ansetzung": compose_ansetzung(fixture),
-        "frist": "2026-04-11",
-        "angefragt_am": TODAY,
-        "erinnert_am": [],
-        "kontakte": {seat: {"token_hashes": ["b" * 64], "zustellung": None} for seat in KONTAKT_ROLLEN},
-        "antwort": None,
-        "geschlossen": None,
-    }
+    return documents.spielbestaetigung_document(
+        fixture,
+        partei={"art": "team", "team_id": team_id},
+        frist="2026-04-11",
+        angefragt_am=TODAY,
+        kontakte={seat: {"token_hashes": ["b" * 64], "zustellung": None} for seat in KONTAKT_ROLLEN},
+    )
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
