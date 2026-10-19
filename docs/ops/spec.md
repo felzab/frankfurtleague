@@ -1191,9 +1191,9 @@ from the stamped main runs alone, most of which restored the cache, and a re-sta
 figure that rose on an unchanged stamp or on one dated before the stamp it replaces, any stamp dated
 after today, a new stamp counting fewer runs than the figures beside it need or naming a pull-request
 run for a job whose cache is keyed on the tree, a total floor that rose beside references not all
-re-stamped from one population, a matrix job's instances on unequal budgets, or a
-budget dropped to `-`; lowering is free, and so is deleting the row of a job the gate no longer
-runs. Every mode reads the table through `--reference`, so a copy is judged before it is committed
+re-stamped from one population, a matrix job's instances on unequal budgets, a
+budget dropped to `-`, or a reference or floor the report compared dropped to `-`, which silences
+that comparison; lowering is free, and so is deleting the row of a job the gate does not run. Every mode reads the table through `--reference`, so a copy is judged before it is committed
 and the checker's suite needs no repository of its own. What the ceiling cannot see is a slowdown that stays under it — a check costing seconds on a
 job with a minute of headroom — which the median report names after the fact and the `gate` clause
 in [`.claude/rules/ops.md`](../../.claude/rules/ops.md) forbids before it; the ceiling, the report
