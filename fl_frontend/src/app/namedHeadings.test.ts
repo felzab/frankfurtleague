@@ -425,12 +425,22 @@ const keyOf = (property: ts.ObjectLiteralElementLike): string | null =>
 const HREF = new Set(["href"]);
 const LINK_LABELS = new Set(["label", "linkLabel"]);
 
-/** The page an `href` names, as far as it is typed: its path before any query or fragment, `null` where a value computes it. */
+/**
+ * The page an `href` names, as far as it is typed: its path before any query or fragment, `null` where a value computes
+ * it. A hole opening the address with a path typed after it is an origin, as a message's builder writes one.
+ */
 function zielOf(value: ts.Node | undefined): string | null {
   if (value === undefined) return null;
   if (ts.isJsxExpression(value)) return zielOf(value.expression);
+  const nachOrigin = ts.isTemplateExpression(value) && value.head.text === "" ? (value.templateSpans[0]?.literal.text ?? "") : "";
   const typed =
-    ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value) ? value.text : ts.isTemplateExpression(value) ? value.head.text : "";
+    ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)
+      ? value.text
+      : ts.isTemplateExpression(value)
+        ? nachOrigin.startsWith("/")
+          ? nachOrigin
+          : value.head.text
+        : "";
 
   return typed.replace(/[?#].*$/su, "") || null;
 }
@@ -580,6 +590,9 @@ describe("a heading, a control or a value's word a sentence names", () => {
       'const f = <TextField label="Kontakt" />;',
       "const g = { href: x, label: KONTAKT_TITEL };",
       'const h = <Link href={"/dashboard/teams#top"}>Alle Teams</Link>;',
+      // A message's link, its origin a hole ahead of the path.
+      'const i = { href: `${site}/bereich?ziel=${z}`, label: "Dein Bereich" };',
+      "const j = { href: `${site}${pfad}`, label: `Weiter` };",
     ].join("\n");
 
     assert.deepEqual(
@@ -591,6 +604,8 @@ describe("a heading, a control or a value's word a sentence names", () => {
         ["Weiter", null],
         [`Zum ${HOLE}`, "/bereich/admin/teams"],
         ["Alle Teams", "/dashboard/teams"],
+        ["Dein Bereich", "/bereich"],
+        ["Weiter", null],
       ],
     );
   });
