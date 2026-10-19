@@ -17,10 +17,10 @@ export function kontakteMayMoveLinks(stored: FLSaisonTeamKontakte | null, sent: 
   return SITZE.some((rolle) => {
     const neu = sent[rolle];
     const alt = stored?.[rolle] ?? null;
-    // Filling a seat mints. Emptying one voids a link only where its person has not answered, a
-    // confirmed seat's link being spent (`fl_backend/app/api/teams/services.py :: voids_a_live_link`).
+    // Filling a seat mints, and emptying one voids its links on the team's open match confirmations,
+    // a confirmed seat's included (`fl_backend/app/api/teams/services.py :: voids_a_live_link`).
     if (alt === null) return neu !== null;
-    if (neu === null) return alt.einwilligung.bestaetigt_am === null;
+    if (neu === null) return true;
 
     // The person is the seat's identity, and the telephone is not part of it.
     return neu.email !== alt.email || neu.vorname !== alt.vorname || neu.nachname !== alt.nachname;

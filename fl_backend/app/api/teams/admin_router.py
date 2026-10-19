@@ -619,8 +619,9 @@ async def patch_saison_team_kontakte(
     keeps their link, and a seat emptied or handed on loses the one it held and its links on the team's open match
     confirmations, so the person who left it holds nothing live. A save newly seating an address the ban list holds is
     refused `REQ-KONTAKT-003`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the
-    link is how its person learns of the entry, and it takes their Widerspruch alone. A save minting a link, or voiding
-    one its person could still answer, is refused `REQ-AUTH-009` as the clearing is; a save doing neither is not.
+    link is how its person learns of the entry, and it takes their Widerspruch alone. A save minting a link, emptying
+    or handing on a seat, or voiding a link its person could still answer, is refused `REQ-AUTH-009` as the clearing
+    is; a save doing none of these is not.
 
     **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
     or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
@@ -700,6 +701,7 @@ async def patch_saison_team_kontakte(
         # handed out or taken away is a step-up write (`docs/backend/spec.md :: I566`).
         voids = voids_a_live_link(
             stored_kontakte=stored.get("kontakte"),
+            kontakte=kontakte,
             stored_bestaetigungen=stored.get("bestaetigungen"),
             bestaetigungen=bestaetigungen,
             today=today,

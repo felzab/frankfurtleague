@@ -1174,7 +1174,10 @@ def _live_link(*, kontakte: Mapping[str, Any], bestaetigungen: Mapping[str, Any]
 
 
 def seats_changing_holder(*, stored: Any, kontakte: Any) -> tuple[FLKontaktRolle, ...]:
-    """The seats a write empties or hands to another person, on `_seat_held_by`'s identity, so a re-typed case moves nobody."""
+    """The seats a write empties or hands to another person, on `_seat_held_by`'s identity, so a re-typed case moves nobody.
+
+    The void and the step-up both read it: two answers would let a link die unasked.
+    """
 
     stored_block = stored if isinstance(stored, Mapping) else {}
     block = kontakte if isinstance(kontakte, Mapping) else {}
@@ -1187,8 +1190,14 @@ def seats_changing_holder(*, stored: Any, kontakte: Any) -> tuple[FLKontaktRolle
     )
 
 
-def voids_a_live_link(*, stored_kontakte: Any, stored_bestaetigungen: Any, bestaetigungen: Any, today: str) -> bool:
-    """Whether the link block a save leaves drops a link somebody can still answer: a bearer credential voided, as a mint is one handed out."""
+def voids_a_live_link(*, stored_kontakte: Any, kontakte: Any, stored_bestaetigungen: Any, bestaetigungen: Any, today: str) -> bool:
+    """Whether a save drops a link somebody can still answer: a bearer credential voided, as a mint is one handed out.
+
+    Any seat emptied or handed on counts, a confirmed one too: its Spielbestätigung links die with it, unread here.
+    """
+
+    if seats_changing_holder(stored=stored_kontakte, kontakte=kontakte):
+        return True
 
     stored_slots = stored_kontakte if isinstance(stored_kontakte, Mapping) else {}
     stored_links = stored_bestaetigungen if isinstance(stored_bestaetigungen, Mapping) else {}
@@ -1197,6 +1206,7 @@ def voids_a_live_link(*, stored_kontakte: Any, stored_bestaetigungen: Any, besta
     for slot in KONTAKT_ROLLEN:
         live = _live_link(kontakte=stored_slots, bestaetigungen=stored_links, slot=slot, today=today)
         kept = left.get(slot)
+        # Still reached: a kept person's seat re-minted beside a newly seated pair ends the link it held.
         if live is not None and (not isinstance(kept, Mapping) or kept.get("token_hash") != live):
             return True
 
