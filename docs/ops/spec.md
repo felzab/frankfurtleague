@@ -1230,7 +1230,9 @@ than prose** are `scripts/checks/docs_gate/platform.py` and
 clauses. PLAT-1: a Python read of the platform is a module-level UPPER_CASE `Final`, or an
 allowlist row. PLAT-2: no test under
 `scripts/checks/docs_gate/platform.py :: TEST_SCOPES` skips, returns early or exits on the platform. PLAT-3:
-every admitted constant is bound to both values somewhere in that same test corpus. PLAT-4: a
+every admitted constant, and every allowlisted read whatever its row's anchor, is bound to both values
+somewhere in that same test corpus, save a row whose reason opens with
+`scripts/checks/docs_gate/platform.py :: PLAT3_EXEMPT_LEAD` and says why no binding reaches its arms. PLAT-4: a
 platform word in the _code_ of a shell script under `scripts/checks/docs_gate/platform.py :: SHELL_SCOPES`
 or `.githooks/` is an allowlist row, where the same word in a comment is not one. The allowlist is
 `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`, keyed by a COR-6 anchor with the reason beside
