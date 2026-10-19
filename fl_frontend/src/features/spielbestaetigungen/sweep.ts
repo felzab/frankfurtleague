@@ -7,8 +7,8 @@ import { sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
 import { revalidateOverLoopback } from "@/core/revalidation";
 import { buildSpielAnfrageEmail, buildSpielEinteilungEmail, buildSpielErinnerungEmail, buildSpielNeueAnsetzungEmail } from "@/core/spielEmail";
+import { SPIELLEITUNG_HINWEIS, SPIELLEITUNG_TAG } from "@/core/spielleitungTag";
 import { versandAusfallOf } from "@/core/versandAusfall";
-import { SPIELLEITUNG_HINWEIS, SPIELLEITUNG_TAG } from "@/features/bewerbungen/zustellung";
 import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum, formatUhrzeit, NICHT_HINTERLEGT } from "@/shared/utils/format";
@@ -251,7 +251,7 @@ async function mailEinteilung(einteilung: FLSpielbestaetigungSweepEinteilung): P
   return istAngefragt(versand);
 }
 
-/** One message to a referee, on the lane no record holds (`fl_frontend/src/features/bewerbungen/zustellung.ts :: SPIELLEITUNG_TAG`). */
+/** One message to a referee, on the lane no record holds (`fl_frontend/src/core/spielleitungTag.ts :: SPIELLEITUNG_TAG`). */
 async function mailSpielleitung(address: string, scope: readonly string[], bauen: () => SpielEmail): Promise<"gesendet" | VersandAusfall> {
   try {
     await sendMail({

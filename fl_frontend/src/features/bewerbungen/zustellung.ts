@@ -3,6 +3,7 @@ import z from "zod";
 import { ANMELDUNG_CODE, ANMELDUNG_TAG } from "@/core/anmeldeTag";
 import { BERECHTIGUNG_HINWEIS, BERECHTIGUNG_TAG } from "@/core/berechtigungTag";
 import { SAISONENDE_NOTIZ, SAISONENDE_TAG } from "@/core/saisonendeTag";
+import { SPIELLEITUNG_HINWEIS, SPIELLEITUNG_TAG } from "@/core/spielleitungTag";
 import { FLZustellungEreignisPayloadSchema, FLZustellungZielSchema, zielHatSitze } from "@/features/zustellung/schemas";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
@@ -130,16 +131,6 @@ type ZustellGemeinsam = {
 
 /** Why a tagged event reached no record. A closed set, because it reaches a log line rather than a reader. */
 type ZustellUnplatzierbarGrund = "ziel_unbekannt" | "ziel_id_unlesbar" | "rollen_unlesbar";
-
-/**
- * What a referee's word about a fixture they officiate rides under, the booking and the notice that the
- * fixture moved alike: one recipient, one lane. Beside the reader rather than in `core`, the one sender
- * being a feature module.
- */
-export const SPIELLEITUNG_TAG = "spielleitung";
-
-/** One value for both messages: either missing tells the operator the same thing, a referee not told about their fixture. */
-export const SPIELLEITUNG_HINWEIS = "hinweis";
 
 /** The lanes no store holds, where a message that did not arrive leaves a line and nothing else. */
 const OHNE_EINTRAG = [
