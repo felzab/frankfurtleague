@@ -172,7 +172,9 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
 
             await body(database, client)
 
-            return await links_answering(database), await answers(database)
+            logged = await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.SPIELBESTAETIGUNGEN)})
+
+            return await links_answering(database), await answers(database), logged
 
     return on_the_seed_loop(_run())
 
@@ -358,7 +360,7 @@ class TestEverySeatWriteVoidsItsLinks:
     ):
         """The answered row and the other team's row are the controls: a void reaching past the open rows of this team fails here."""
 
-        links, stored_answers = on_a_league(mongo_replica_set_url, write, saison_status=saison_status)
+        links, stored_answers, _ = on_a_league(mongo_replica_set_url, write, saison_status=saison_status)
 
         assert links == {**KEPT, "open": ALL - voided}
         assert stored_answers == [row["antwort"] for row in ROWS.values()]
@@ -369,9 +371,9 @@ class TestEverySeatWriteVoidsItsLinks:
         async def retype(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await save(database, client, {**SENT, "trainer": person("Ida", email="Ida@Example.com")})
 
-        links, _ = on_a_league(mongo_replica_set_url, retype)
+        links, _, logged = on_a_league(mongo_replica_set_url, retype)
 
-        assert links == KEPT
+        assert (links, logged) == (KEPT, 0)
 
     def test_a_new_person_at_the_same_mailbox_voids_the_seat(self, mongo_replica_set_url: str):
         """Two people sharing one inbox are two holders: the link went to the one who left the seat."""
@@ -379,6 +381,18 @@ class TestEverySeatWriteVoidsItsLinks:
         async def hand_on_in_place(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await save(database, client, {**SENT, "trainer": person("Lea", email="ida@example.com")})
 
-        links, _ = on_a_league(mongo_replica_set_url, hand_on_in_place)
+        links, _, _ = on_a_league(mongo_replica_set_url, hand_on_in_place)
 
         assert links == {**KEPT, "open": ALL - {"trainer"}}
+
+    def test_a_seat_holding_no_entry_on_any_open_row_is_written_nowhere(self, mongo_replica_set_url: str):
+        """A void matching nothing still files a log row, which names a write that changed nothing; the open row's Trainer entry is null."""
+
+        async def hand_on_an_unasked_seat(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELBESTAETIGUNGEN].update_many({"partei.team_id": TEAM_OID}, {"$set": {"kontakte.trainer": None}})
+            return await hand_the_trainer_on(database, client)
+
+        _, _, logged = on_a_league(mongo_replica_set_url, hand_on_an_unasked_seat)
+        _, _, logged_with_an_entry = on_a_league(mongo_replica_set_url, hand_the_trainer_on)
+
+        assert (logged, logged_with_an_entry) == (0, 1)

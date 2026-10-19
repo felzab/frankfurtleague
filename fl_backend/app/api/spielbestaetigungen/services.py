@@ -135,30 +135,47 @@ def seat_void_of(*, before: Mapping[str, Any], update: Mapping[str, Any]) -> Sea
     """What one season row's write voids, or `None` where it moves no holder."""
 
     kontakte = _kontakte_after(before=before.get("kontakte"), update=update)
-    seats = seats_changing_holder(stored=before.get("kontakte"), kontakte=kontakte)
+    moved = set(seats_changing_holder(stored=before.get("kontakte"), kontakte=kontakte))
+    if not moved:
+        return None
 
-    return SeatVoid(saison_id=before["saison_id"], team_id=before["team_id"], seats=seats) if seats else None
+    # Every seat the write leaves empty too, whose entry is null already wherever no write slipped past this helper: so
+    # every whole-block clear nulls one seat set, and a call clearing many rows writes once.
+    block = kontakte if isinstance(kontakte, Mapping) else {}
+    seats = tuple(seat for seat in KONTAKT_ROLLEN if seat in moved or not isinstance(block.get(seat), Mapping))
+
+    return SeatVoid(saison_id=before["saison_id"], team_id=before["team_id"], seats=seats)
+
+
+def _team_rows(saison_id: Any, team_id: Any) -> dict[str, Any]:
+    return {"saison_id": saison_id, "partei.team_id": team_id}
+
+
+def _open_team_rows(pairs: Sequence[tuple[Any, Any]]) -> dict[str, Any]:
+    """These teams' rows in these seasons that are still answerable, so an answered row keeps its answer and its links."""
+
+    return {"partei.art": "team", **build_answerable_filter(), "$or": [_team_rows(saison_id, team_id) for saison_id, team_id in pairs]}
 
 
 def build_open_seat_rows_pipeline(voids: Sequence[SeatVoid]) -> list[Mapping[str, Any]]:
-    """Every open row of these teams in these seasons. The answerable reach, so an answered row keeps its answer and its links."""
+    """Per team and season, which seats hold an entry on any open row: one document per row written, so one batch answers it."""
 
     return [
+        {"$match": _open_team_rows([(void.saison_id, void.team_id) for void in voids])},
         {
-            "$match": {
-                "partei.art": "team",
-                **build_answerable_filter(),
-                "$or": [{"saison_id": void.saison_id, "partei.team_id": void.team_id} for void in voids],
+            "$group": {
+                "_id": {"saison_id": "$saison_id", "team_id": "$partei.team_id"},
+                # An object sorts above null, so only a standing entry counts.
+                **{seat: {"$max": {"$gt": [f"$kontakte.{seat}", None]}} for seat in KONTAKT_ROLLEN},
             }
         },
-        {"$project": {"saison_id": 1, "partei.team_id": 1, "kontakte": 1}},
     ]
 
 
 def group_seat_voids(
-    *, voids: Sequence[SeatVoid], open_rows: Sequence[Mapping[str, Any]]
-) -> list[tuple[tuple[FLKontaktRolle, ...], list[Any]]]:
-    """The open rows holding an entry of a seat their team's write moved, grouped by the seats to null.
+    *, voids: Sequence[SeatVoid], held: Sequence[Mapping[str, Any]]
+) -> list[tuple[tuple[FLKontaktRolle, ...], list[tuple[Any, Any]]]]:
+    """The teams whose open rows hold an entry of a seat their write moved, grouped by the seats to null.
 
     One write per group rather than per row, so a call costs the same however many rows it voids.
     """
@@ -167,20 +184,18 @@ def group_seat_voids(
     for void in voids:
         seats_of.setdefault((void.saison_id, void.team_id), set()).update(void.seats)
 
-    groups: dict[tuple[FLKontaktRolle, ...], list[Any]] = {}
-    for row in open_rows:
-        partei = row.get("partei")
-        seats = seats_of.get((row.get("saison_id"), partei.get("team_id") if isinstance(partei, Mapping) else None), set())
-        entries = row.get("kontakte")
-        held = entries if isinstance(entries, Mapping) else {}
-        # A row holding none of them is not written: the update would change nothing and still file a log row.
-        if any(isinstance(held.get(seat), Mapping) for seat in seats):
-            groups.setdefault(tuple(seat for seat in KONTAKT_ROLLEN if seat in seats), []).append(row["_id"])
+    groups: dict[tuple[FLKontaktRolle, ...], list[tuple[Any, Any]]] = {}
+    for team in held:
+        pair = (team["_id"]["saison_id"], team["_id"]["team_id"])
+        seats = seats_of.get(pair, set())
+        # A team whose rows hold none of them is not written: the update would change nothing and still file a log row.
+        if any(team.get(seat) is True for seat in seats):
+            groups.setdefault(tuple(seat for seat in KONTAKT_ROLLEN if seat in seats), []).append(pair)
 
     return list(groups.items())
 
 
-def compose_seat_void(*, seats: Sequence[str], ids: Sequence[Any]) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
-    """The filter and update nulling these seats' entries, their hashes and delivery state with them, on these open rows."""
+def compose_seat_void(*, seats: Sequence[str], pairs: Sequence[tuple[Any, Any]]) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+    """The filter and update nulling these seats' entries, their hashes and delivery state with them, on these teams' open rows."""
 
-    return {"_id": {"$in": list(ids)}, **build_answerable_filter()}, {"$set": {f"kontakte.{seat}": None for seat in seats}}
+    return _open_team_rows(pairs), {"$set": {f"kontakte.{seat}": None for seat in seats}}

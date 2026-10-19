@@ -117,11 +117,11 @@ async def write_saison_team_kontakte(
     voids = [void for before, write in zip(befores, writes, strict=True) if (void := seat_void_of(before=before, update=write.update))]
     # No read for none, and no write for a group the read left empty: a fan-out matching nothing still files a log row.
     if voids:
-        open_rows = await aggregate_many_from_db(
+        held = await aggregate_many_from_db(
             collection=spielbestaetigungen_collection, pipeline=build_open_seat_rows_pipeline(voids), session=session
         )
-        for seats, ids in group_seat_voids(voids=voids, open_rows=open_rows):
-            db_filter, update = compose_seat_void(seats=seats, ids=ids)
+        for seats, pairs in group_seat_voids(voids=voids, held=held):
+            db_filter, update = compose_seat_void(seats=seats, pairs=pairs)
             await patch_many_in_db(collection=spielbestaetigungen_collection, db_filter=db_filter, update=update, session=session)
 
     if return_document is ReturnDocument.BEFORE:
