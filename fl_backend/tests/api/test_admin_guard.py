@@ -106,6 +106,9 @@ PUBLIC_WRITES = [
     # and the first is a POST because the link value travels in the body.
     ("/api/v0/registrierungen/einladung/ansicht", "post"),
     ("/api/v0/registrierungen", "post"),
+    # A club's fixture confirmation link: its holder has no session, the token being the credential.
+    ("/api/v0/spielbestaetigungen/ansicht", "post"),
+    ("/api/v0/spielbestaetigungen", "post"),
 ]
 
 # The retention sweep's writes, made by the application to itself on the SYSTEM key: no session

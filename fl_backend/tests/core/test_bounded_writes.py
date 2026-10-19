@@ -196,12 +196,22 @@ JUDGED_BESIDE_THE_ANCHOR: dict[str, frozenset[str]] = {
     "find_replacement_refusal": frozenset({"app/api/teams/admin_router.py :: hand_the_row_over"}),
     # Beside the save's anchors, which it takes once the whole payload is judged, off the one set `judge` hands back.
     "find_booking_refusal": frozenset({"app/api/spiele/admin_router.py :: judge"}),
-    "find_clash_refusal": frozenset({"app/api/spiele/admin_router.py :: judge"}),
+    # The fixture confirmation's answer judges a proposal and books nothing, so it has nothing to anchor: no
+    # rival's write set takes a fixture this write never touches.
+    "find_clash_refusal": frozenset(
+        {"app/api/spiele/admin_router.py :: judge", "app/api/spielbestaetigungen/router.py :: answer_for_the_seat"}
+    ),
     "find_references_to_anchor": frozenset({"app/api/spiele/admin_router.py :: judge"}),
     "find_new_bookings": frozenset(
         {"app/api/spiele/services.py :: find_booking_refusal", "app/api/spiele/services.py :: find_references_to_anchor"}
     ),
-    "find_claims_made": frozenset({"app/api/spiele/admin_router.py :: judge", "app/api/spiele/services.py :: find_references_to_anchor"}),
+    "find_claims_made": frozenset(
+        {
+            "app/api/spiele/admin_router.py :: judge",
+            "app/api/spiele/services.py :: find_references_to_anchor",
+            "app/api/spielbestaetigungen/router.py :: answer_for_the_seat",
+        }
+    ),
     "find_slot_claims": frozenset(
         {
             "app/api/spiele/services.py :: find_claims_made",
@@ -500,6 +510,8 @@ ASKING_AND_ANCHORING_NOTHING: dict[str, str] = {
     "app/api/spieler/admin_router.py :: judge_and_remint_the_change": "re-mints the stored pending address",
     "app/api/spieler/adresswechsel_router.py :: answer_for_the_mailbox": "consumes the pending change the erasure removes",
     "app/api/spieler/adresswechsel_router.py :: get_adresswechsel_ansicht": A_READ,
+    "app/api/spielbestaetigungen/router.py :: answer_for_the_seat": STORED_ADDRESS,
+    "app/api/spielbestaetigungen/router.py :: get_spielbestaetigung_ansicht": A_READ,
     "app/api/teams/admin_router.py :: get_einladung": A_READ,
     "app/api/teams/admin_router.py :: judge_and_mint": STORED_ADDRESS,
     "app/core/security.py :: grant_since": THE_ACTORS_JUDGE,

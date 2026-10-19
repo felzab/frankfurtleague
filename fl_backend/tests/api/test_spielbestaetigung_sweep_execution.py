@@ -9,8 +9,15 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import ExecutionTimeout
 
 from app.api.bewerbungen.services import days_after, hash_token
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungSweepAngefragtPayload, FLSpielbestaetigungSweepResponse
+from app.api.spielbestaetigungen.router import post_spielbestaetigung
+from app.api.spielbestaetigungen.schemas import (
+    FLSpielbestaetigungAntwortPayload,
+    FLSpielbestaetigungSweepAngefragtPayload,
+    FLSpielbestaetigungSweepResponse,
+)
 from app.api.spielbestaetigungen.services import (
+    ANSETZUNG_BEANTWORTET,
+    ANSETZUNG_GESCHLOSSEN,
     build_token_filter,
     compose_spielbestaetigung,
     seat_holding,
@@ -26,6 +33,7 @@ from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
+from app.core.exceptions import WriteRefusalException
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from tests import documents
 from tests.api import test_spielbestaetigung_sweep_refusal as budget
@@ -228,6 +236,32 @@ async def move(database: AsyncDatabase, client: AsyncMongoClient, spiel_id: Obje
     )
 
 
+async def antworten(database: AsyncDatabase, client: AsyncMongoClient, token: str) -> Any:
+    """A club's Zusage through the link's own endpoint."""
+
+    return await post_spielbestaetigung(
+        antwort_data=FLSpielbestaetigungAntwortPayload(token=token, antwort="zugesagt", vorschlag=None, begruendung=None),
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        spiele_collection=database[Collection.SPIELE],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        spieltage_collection=database[Collection.SPIELTAGE],
+        sperrliste=ban_list(database),
+        db=client,
+        today=TODAY,
+    )
+
+
+async def refusal_of(database: AsyncDatabase, client: AsyncMongoClient, token: str) -> str | None:
+    """The code a press of this link meets now, or `None` where it is taken."""
+
+    try:
+        await antworten(database, client, token)
+    except WriteRefusalException as refusal:
+        return refusal.error_code
+
+    return None
+
+
 async def rows(database: AsyncDatabase, **db_filter: Any) -> list[Mapping[str, Any]]:
     return await database[Collection.SPIELBESTAETIGUNGEN].find(db_filter).sort("_id", 1).to_list(length=None)
 
@@ -243,10 +277,6 @@ def row_of(stored: list[Mapping[str, Any]], *, team_id: Any = None, schiedsricht
     ]
     assert len(found) == 1, found
     return found[0]
-
-
-# Seeded as S1-ANSWER's endpoint will write it; `POST /spielbestaetigungen` replaces this once it lands.
-ZUSAGE = {"art": "zugesagt", "am": TODAY, "von": {"art": "kontakt", "rolle": "trainer"}, "vorschlag": None, "begruendung": None}
 
 
 class TestTheSweepAsksAboutNothingItCannotHelp:
@@ -387,21 +417,26 @@ class TestAMovedFixtureAsksAgain:
             await angefragt(
                 database, client, [anfrage.spielbestaetigung_id for anfrage in first.anfragen] + [first.einteilungen[0].spielbestaetigung_id]
             )
+            tokens = {anfrage.seite: anfrage.links[0].token for anfrage in first.anfragen}
+            await antworten(database, client, tokens["team1"])
             answered = row_of(await rows(database), team_id=ALPHA)
-            await database[Collection.SPIELBESTAETIGUNGEN].update_one({"_id": answered["_id"]}, {"$set": {"antwort": ZUSAGE}})
             await move(database, client, SPIEL, uhrzeit="19:00:00")
             second = await sweep(database, client)
+            refusals = [await refusal_of(database, client, tokens[seite]) for seite in ("team1", "team2")]
 
-            return answered["_id"], second, await rows(database)
+            return answered, second, await rows(database), refusals
 
-        answered_id, second, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+        answered, second, stored, refusals = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
 
+        answered_id = answered["_id"]
         closed = [row for row in stored if row["geschlossen"] is not None]
         standing = [row for row in stored if row["geschlossen"] is None]
         assert answered_id in {row["_id"] for row in closed}
         assert [row["geschlossen"]["grund"] for row in closed] == ["ansetzung_geaendert"] * 3
-        assert next(row for row in closed if row["_id"] == answered_id)["antwort"] == ZUSAGE
+        assert (answered["antwort"]["art"], answered["antwort"]["von"]) == ("zugesagt", {"art": "kontakt", "rolle": "trainer"})
+        assert next(row for row in closed if row["_id"] == answered_id)["antwort"] == answered["antwort"]
         assert [row["antwort"] for row in closed if row["_id"] != answered_id] == [None, None]
+        assert refusals == [ANSETZUNG_BEANTWORTET, ANSETZUNG_GESCHLOSSEN]
         assert {row["ansetzung"]["uhrzeit"] for row in standing} == {"19:00:00"}
         assert len(standing) == 3
         assert second.geschlossen == 3
@@ -627,9 +662,9 @@ class TestTheRequestStamp:
 
     def test_a_row_answered_before_its_stamp_is_stamped_and_its_move_announced(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await sweep(database, client)
+            first = await sweep(database, client)
             alpha = row_of(await rows(database), team_id=ALPHA)
-            await database[Collection.SPIELBESTAETIGUNGEN].update_one({"_id": alpha["_id"]}, {"$set": {"antwort": ZUSAGE}})
+            await antworten(database, client, next(anfrage.links[0].token for anfrage in first.anfragen if anfrage.seite == "team1"))
             stamped = await angefragt(database, client, [alpha["_id"]])
             await move(database, client, SPIEL, uhrzeit="19:00:00")
             return alpha["_id"], stamped, await sweep(database, client)

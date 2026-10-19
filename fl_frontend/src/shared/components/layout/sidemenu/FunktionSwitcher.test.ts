@@ -42,7 +42,6 @@ function switcherAt(
           onMobileClose: () => void (closes += 1),
           linkPrefix: "/bereich",
           keepsSaisonQuery: false,
-          iconDictionary: {},
         },
         children: h(FunktionSwitcher, { orte: orte, ohneOrt: "Dein Bereich", mitBereich: mitBereich }),
       }),

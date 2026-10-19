@@ -763,6 +763,20 @@ const FORMS: Record<string, FormCase> = {
       "star Was darf von Deinem Namen auf der Website stehen? drawn",
     ],
   },
+  "the fixture confirmation": {
+    module: "features/spielbestaetigungen/components/views/SpielbestaetigungFormPanel.tsx",
+    marks: async () => {
+      const { SpielbestaetigungFormPanel } = await import("@/features/spielbestaetigungen/components/views/SpielbestaetigungFormPanel.tsx");
+      return marksOf(h(SpielbestaetigungFormPanel, { token: "abc123", onAbschluss: () => undefined }), async (into) => {
+        // The proposal's boxes stand behind the disclosure, which is what offers them.
+        await userEvent.setup().click(screen.getByRole("button", { name: "Anderen Termin vorschlagen" }));
+        await settle();
+        marksOn(into);
+      });
+    },
+    // The reason is optional, so it carries no mark.
+    expected: ["aria spinbutton:Neuer Anpfiff", "aria spinbutton:Neues Datum", "star Neuer Anpfiff drawn", "star Neues Datum drawn"],
+  },
   "the referee's confirmation": {
     module: "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
     marks: async () => {

@@ -44,6 +44,7 @@ const SPIEL: FLSpielAdmin = {
   saison_phase: "gruppenphase",
   saison_id: "2026",
   notiz: null,
+  ansetzung_bestaetigt: null,
 };
 
 describe("the match editor's undo whose dispatch never answered", () => {

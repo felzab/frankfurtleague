@@ -15,7 +15,7 @@ import type { SidemenuStructure } from "@/shared/types/types";
 interface SidemenuNavLinksProps<TIcon extends string> {
   structure: SidemenuStructure<TIcon>;
   linkPrefix: string;
-  iconDictionary: Readonly<Record<string, React.ElementType>>;
+  iconDictionary: Readonly<Record<TIcon, React.ElementType>>;
   isDesktopCollapsed: boolean;
   /** `null` where the address is not yet read, which marks no entry current. */
   pathname: string | null;
@@ -76,7 +76,7 @@ function SidemenuNavLinks<TIcon extends string>({
                   label={sub_option.label}
                   isActive={checkIsActive(sub_option.id)}
                   isDesktopCollapsed={isDesktopCollapsed}
-                  icon={iconDictionary[sub_option.iconName] ?? null}
+                  icon={iconDictionary[sub_option.iconName]}
                   onMobileNavigate={onMobileClose}
                 />
               );
@@ -113,8 +113,18 @@ function SidemenuNavLinksWithSaisonQuery<TIcon extends string>(props: SidemenuNa
  * The rail's entries, built by a layout as plain data where the session says which show. `usePathname()` hangs in a
  * prerender wherever a segment is unknown, so the list waits in a boundary of its own, marking nothing current.
  */
-export function SidemenuEntries<TIcon extends string>({ structure }: { structure: SidemenuStructure<TIcon> }) {
-  const { linkPrefix, iconDictionary, isDesktopCollapsed, onMobileClose } = useSidemenuState();
+export function SidemenuEntries<TIcon extends string>({
+  structure,
+  iconDictionary,
+}: {
+  structure: SidemenuStructure<TIcon>;
+  /**
+   * A prop typed with the structure, so an entry whose glyph its area lacks fails to compile. Each area's client
+   * wrapper binds it, as a server layout can hand no component to the client.
+   */
+  iconDictionary: Readonly<Record<TIcon, React.ElementType>>;
+}) {
+  const { linkPrefix, isDesktopCollapsed, onMobileClose } = useSidemenuState();
 
   return (
     <Suspense
@@ -132,7 +142,10 @@ export function SidemenuEntries<TIcon extends string>({ structure }: { structure
           />
         ) : null
       }>
-      <SidemenuEntriesAtAddress structure={structure} />
+      <SidemenuEntriesAtAddress
+        structure={structure}
+        iconDictionary={iconDictionary}
+      />
     </Suspense>
   );
 }
@@ -162,12 +175,18 @@ export function SidemenuEntriesSkeleton({ rows }: { rows: number }) {
   );
 }
 
-function SidemenuEntriesAtAddress<TIcon extends string>({ structure }: { structure: SidemenuStructure<TIcon> }) {
+function SidemenuEntriesAtAddress<TIcon extends string>({
+  structure,
+  iconDictionary,
+}: {
+  structure: SidemenuStructure<TIcon>;
+  iconDictionary: Readonly<Record<TIcon, React.ElementType>>;
+}) {
   const state = useSidemenuState();
   const props = {
     structure: structure,
     linkPrefix: useLinkPrefix(state.linkPrefix),
-    iconDictionary: state.iconDictionary,
+    iconDictionary: iconDictionary,
     isDesktopCollapsed: state.isDesktopCollapsed,
     pathname: usePathname(),
     onMobileClose: state.onMobileClose,

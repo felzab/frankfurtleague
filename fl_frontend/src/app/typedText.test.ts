@@ -176,6 +176,15 @@ const LISTED: Readonly<Record<string, Record<string, unknown>>> = {
     ],
   },
   [`/spieler/kader/${OBJECT_ID}/2026`]: { team_id: OBJECT_ID, saison_id: "2026", erlaubte_stufen: ["Q1"], kader: [KADER_ZEILE] },
+  // The fixture a club's link opens, open for an answer: its dates take no empty value, so `OPEN` alone answers none.
+  "/spielbestaetigungen/ansicht": {
+    zustand: "gueltig",
+    seite: "team1",
+    ansetzung: { team1_name: CLUB.name, team2_name: "FC Beta", datum: "2026-11-07", uhrzeit: "14:30:00", spielort: null },
+    frist: "2026-10-31",
+    vorschlag: null,
+    beantwortet_von: null,
+  },
 };
 
 /** What a read answers wherever its schema takes it: a link still valid, a window running. */
@@ -229,6 +238,7 @@ const LINKED: ReadonlySet<string> = new Set([
   "(public)/bestaetigung/schiedsrichter/page.tsx",
   "(public)/bestaetigung/schiedsrichter/adresse/page.tsx",
   "(public)/bestaetigung/spieler/page.tsx",
+  "(public)/bestaetigung/spiel/page.tsx",
 ]);
 
 /** Every URL the page's own script sent, by each of the browser's ways to send one that the app could reach for. */

@@ -27,8 +27,10 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungTermin,
 )
 from app.api.spielbestaetigungen.services import (
+    AnsetzungLage,
     anfrage_is_due,
     ansetzung_stand_of,
+    ansicht_ansetzung_of,
     build_anfrage_filter,
     build_answerable_filter,
     build_closable_filter,
@@ -38,13 +40,12 @@ from app.api.spielbestaetigungen.services import (
     compose_seats_update,
     compose_spielbestaetigung,
     grund_to_close,
+    kontakt_adresse,
     link_groups,
     partei_key,
     parteien_of,
-    seat_adresse,
     seite_of,
 )
-from app.api.spiele.schemas import FLSpielOrtFieldPublic
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_many_to_db, pull_many_from_db, pull_one_from_db
@@ -157,22 +158,18 @@ async def _gesperrt(
         adresse
         for junction in junctions.values()
         for seat in KONTAKT_ROLLEN
-        if (adresse := seat_adresse(kontakte=junction.get("kontakte"), seat=seat))
+        if (adresse := kontakt_adresse(kontakte=junction.get("kontakte"), seat=seat))
     ]
 
     return await adressen_gesperrt(sperrliste, adressen, massgebliche_saison_id=massgebliche_saison_id, session=session)
 
 
-def _ansetzung_now(spiel: Mapping[str, Any]) -> FLSpielbestaetigungAnsichtAnsetzung:
-    ort = spiel.get("ort")
+def _ansetzung_now(
+    *, row: Mapping[str, Any], spiel: Mapping[str, Any], junctions: Mapping[Any, Mapping[str, Any]]
+) -> FLSpielbestaetigungAnsichtAnsetzung:
+    """What a message states of the fixture, composed as the link's own page states it."""
 
-    return FLSpielbestaetigungAnsichtAnsetzung(
-        team1_name=spiel["team1"]["name"],
-        team2_name=spiel["team2"]["name"],
-        datum=spiel["datum"],
-        uhrzeit=spiel["uhrzeit"],
-        spielort=FLSpielOrtFieldPublic.model_validate(ort) if isinstance(ort, Mapping) else None,
-    )
+    return ansicht_ansetzung_of(spielbestaetigung_raw=row, lage=AnsetzungLage(spiel=spiel, vereine=list(junctions.values())))
 
 
 @dataclass
@@ -187,14 +184,14 @@ class _Links:
 def _mint_links(*, kontakte: Any, seats: Iterable[str], gesperrt: set[str]) -> _Links:
     """One fresh token per LINK over the occupied `seats` no ban holds; a barred seat is counted and written nothing, so it stays due."""
 
-    occupied = [seat for seat in seats if seat_adresse(kontakte=kontakte, seat=seat) is not None]
-    reachable = [seat for seat in occupied if seat_adresse(kontakte=kontakte, seat=seat) not in gesperrt]
+    occupied = [seat for seat in seats if kontakt_adresse(kontakte=kontakte, seat=seat) is not None]
+    reachable = [seat for seat in occupied if kontakt_adresse(kontakte=kontakte, seat=seat) not in gesperrt]
     minted = _Links(withheld=len(occupied) - len(reachable))
     for gruppe in link_groups(kontakte=kontakte, seats=reachable):
         raw, token_hash = mint_token()
         minted.hashes.update(dict.fromkeys(gruppe, token_hash))
         minted.links.append(
-            FLSpielbestaetigungSweepLink(address=str(seat_adresse(kontakte=kontakte, seat=gruppe[0])), rollen=gruppe, token=raw)
+            FLSpielbestaetigungSweepLink(address=str(kontakt_adresse(kontakte=kontakte, seat=gruppe[0])), rollen=gruppe, token=raw)
         )
 
     return minted
@@ -469,13 +466,16 @@ async def sweep_spielbestaetigungen(
                         address = referees[partei["schiedsrichter_id"]]
                         if address is None:
                             raise ValueError(f"referee {partei['schiedsrichter_id']} holds no address to tell of the booking")
-                        row_id = ObjectId()
-                        plan.inserts.append(
-                            compose_spielbestaetigung(row_id=row_id, saison_id=saison_id, spiel=spiel, partei=partei, hashes={}, today=today)
+                        row = compose_spielbestaetigung(
+                            row_id=ObjectId(), saison_id=saison_id, spiel=spiel, partei=partei, hashes={}, today=today
                         )
+                        plan.inserts.append(row)
                         plan.einteilungen.append(
                             FLSpielbestaetigungSweepEinteilung(
-                                spielbestaetigung_id=row_id, spiel_id=spiel["_id"], ansetzung=_ansetzung_now(spiel), address=address
+                                spielbestaetigung_id=row["_id"],
+                                spiel_id=spiel["_id"],
+                                ansetzung=_ansetzung_now(row=row, spiel=spiel, junctions=junctions),
+                                address=address,
                             )
                         )
                     continue
@@ -492,23 +492,23 @@ async def sweep_spielbestaetigungen(
 
                 minted = _mint_links(kontakte=kontakte, seats=seats, gesperrt=gesperrt)
                 plan.withheld += minted.withheld
-                row_id = ObjectId() if existing is None else existing["_id"]
                 if existing is None:
-                    plan.inserts.append(
-                        compose_spielbestaetigung(
-                            row_id=row_id, saison_id=saison_id, spiel=spiel, partei=partei, hashes=minted.hashes, today=today
-                        )
+                    row: Mapping[str, Any] = compose_spielbestaetigung(
+                        row_id=ObjectId(), saison_id=saison_id, spiel=spiel, partei=partei, hashes=minted.hashes, today=today
                     )
-                elif minted.hashes:
-                    plan.updates.append((row_id, compose_seats_update(hashes=minted.hashes)))
+                    plan.inserts.append(dict(row))
+                else:
+                    row = existing
+                    if minted.hashes:
+                        plan.updates.append((row["_id"], compose_seats_update(hashes=minted.hashes)))
                 if minted.links:
                     plan.anfragen.append(
                         FLSpielbestaetigungSweepAnfrage(
-                            spielbestaetigung_id=row_id,
+                            spielbestaetigung_id=row["_id"],
                             spiel_id=spiel["_id"],
-                            seite=seite_of(spiel=spiel, team_id=partei["team_id"]),
-                            ansetzung=_ansetzung_now(spiel),
-                            frist=existing["frist"] if existing is not None else plan.inserts[-1]["frist"],
+                            seite=seite_of(row),
+                            ansetzung=_ansetzung_now(row=row, spiel=spiel, junctions=junctions),
+                            frist=row["frist"],
                             links=minted.links,
                         )
                     )
@@ -594,8 +594,8 @@ async def sweep_spielbestaetigungen(
             anfrage = FLSpielbestaetigungSweepAnfrage(
                 spielbestaetigung_id=row["_id"],
                 spiel_id=row["spiel_id"],
-                seite=seite_of(spiel=spiel, team_id=row["partei"]["team_id"]),
-                ansetzung=_ansetzung_now(spiel),
+                seite=seite_of(row),
+                ansetzung=_ansetzung_now(row=row, spiel=spiel, junctions=junctions),
                 frist=row["frist"],
                 links=minted.links,
             )

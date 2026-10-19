@@ -49,6 +49,7 @@ const { SpielerAdresswechselView } = await import("@/features/spieler/components
 const { CodeStep } = await import("@/features/auth/components/forms/CodeStep.tsx");
 const { RegistrierungFormPanel } = await import("@/features/registrierungen/components/views/RegistrierungFormPanel.tsx");
 const { SpielerBestaetigungView } = await import("@/features/registrierungen/components/views/SpielerBestaetigungView.tsx");
+const { SpielbestaetigungFormPanel } = await import("@/features/spielbestaetigungen/components/views/SpielbestaetigungFormPanel.tsx");
 const { BEWERBUNG_SEATS } = await import("@/features/bewerbungen/constants.ts");
 const { TRIKOT_FARBE_OPTIONS } = await import("@/features/teams/constants.ts");
 
@@ -439,6 +440,14 @@ const FORMS: Record<string, PublicForm> = {
       await user.click(tag ?? assert.fail("the page renders no date to type"));
       await user.keyboard(typedBirthdate(17));
       await user.click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
+    },
+  },
+  "the fixture confirmation page": {
+    module: "features/spielbestaetigungen/components/views/SpielbestaetigungFormPanel.tsx",
+    route: "/api/bestaetigung/spiel",
+    render: () => h(SpielbestaetigungFormPanel, { token: "kein-echtes-token", onAbschluss: () => undefined }),
+    submit: async (user) => {
+      await user.click(screen.getByRole("button", { name: /Zusagen/ }));
     },
   },
 };

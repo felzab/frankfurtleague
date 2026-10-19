@@ -139,6 +139,7 @@ def filled_bracket_slot(spiel: PayloadFactory) -> list[FLSpielJoinedInternal]:
                 team1=_joined_side(ADLER, "Adler", disqualified_from=EXIT_BEFORE_THE_FIXTURE, tore=2),
                 team2=_joined_side(BIEBER, "Bieber", tore=1),
                 ergebnis="2:1",
+                ansetzung_bestaetigt=None,
             ),
             spiel(
                 _id=MATCH_ID.format(SLOT_NR),
@@ -151,6 +152,7 @@ def filled_bracket_slot(spiel: PayloadFactory) -> list[FLSpielJoinedInternal]:
                 # and blur which slot it names.
                 team2=None,
                 ergebnis=None,
+                ansetzung_bestaetigt=None,
             ),
         ]
     )

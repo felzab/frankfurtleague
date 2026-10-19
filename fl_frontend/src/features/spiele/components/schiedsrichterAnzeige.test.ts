@@ -50,6 +50,7 @@ const A_FIXTURE: FLSpiel = {
   saison_phase: "gruppenphase",
   saison_id: "2026",
   notiz: null,
+  ansetzung_bestaetigt: null,
 };
 
 /** The fixture as the draft preview reads it: the admin shape, so the fee is present. */

@@ -74,6 +74,9 @@ DISARMED: Mapping[tuple[str, str], Disarmed] = {
         "the preview reads whether the press would refuse, and refuses nothing itself", None
     ),
     **{(code, DRAW): DRAW_TWIN for code in ("REQ-RULES-008", "REQ-RULES-010", "REQ-DATE-005")},
+    ("REQ-ELIGIBILITY-002", "POST /spielbestaetigungen"): Disarmed(
+        "a club's proposal keeps the fixture's sides, so it fields no club without a row", ("payload", "proposal_payload(stored, vorschlag)")
+    ),
 }
 
 # A named operation raising the code through a second function: `implemented_by` holds one, so the

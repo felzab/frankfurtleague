@@ -3,6 +3,7 @@
 import { KONTO_HREF } from "@/core/kontoHref";
 import { signOutAction } from "@/features/auth/actions";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
+import { SidemenuEntries } from "@/shared/components/layout/sidemenu/SidemenuNavLinks";
 
 import { PERSON_SHELL_FALLBACK, PERSON_SIDEMENU_ICONS } from "../../constants";
 
@@ -47,5 +48,15 @@ export function PersonShell({
       onSignOut={signOutAction}>
       {children}
     </AppShell>
+  );
+}
+
+/** The person area's entries, which a layout builds from the person's Funktionen: only this area's icons draw them. */
+export function PersonSidemenuEntries({ structure }: { structure: SidemenuStructure<PersonIconName> }) {
+  return (
+    <SidemenuEntries
+      structure={structure}
+      iconDictionary={PERSON_SIDEMENU_ICONS}
+    />
   );
 }

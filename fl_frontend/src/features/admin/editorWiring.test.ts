@@ -465,6 +465,7 @@ const EDITORS: Record<string, Editor> = {
         saison_phase: "gruppenphase" as const,
         saison_id: "2026",
         notiz: null,
+        ansetzung_bestaetigt: null,
       };
 
       return renderEditor(

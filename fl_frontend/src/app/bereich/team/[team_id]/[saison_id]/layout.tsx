@@ -7,12 +7,12 @@ import { TeamAreaBoundary } from "@/features/funktionen/components/providers/Tea
 import { PersonLaneFunktionSwitcher } from "@/features/funktionen/components/ui/PersonLaneFunktionSwitcher";
 import { SaisonChipSlot } from "@/features/funktionen/components/ui/SaisonChipSlot";
 import { TeamForbiddenPanel } from "@/features/funktionen/components/ui/TeamForbiddenPanel";
-import { TeamShell, TeamShellHeading } from "@/features/funktionen/components/ui/TeamShell";
+import { TeamShell, TeamShellHeading, TeamSidemenuEntries } from "@/features/funktionen/components/ui/TeamShell";
 import { TEAM_SHELL_FALLBACK, TEAM_SIDEMENU_ENTRIES, teamStructureFor } from "@/features/funktionen/constants";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { seatsAt } from "@/features/funktionen/teamSeats";
 import { logPageVerweigert } from "@/features/funktionen/verweigert";
-import { SidemenuEntries, SidemenuEntriesSkeleton } from "@/shared/components/layout/sidemenu/SidemenuNavLinks";
+import { SidemenuEntriesSkeleton } from "@/shared/components/layout/sidemenu/SidemenuNavLinks";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
 type TeamParams = Promise<{ team_id: string; saison_id: string }>;
@@ -78,7 +78,7 @@ async function TeamHeading({ params }: { params: TeamParams }) {
 async function TeamEntries({ params }: { params: TeamParams }) {
   const { seats } = await seatsHere(params);
 
-  return <SidemenuEntries structure={teamStructureFor(seats)} />;
+  return <TeamSidemenuEntries structure={teamStructureFor(seats)} />;
 }
 
 /** No chip over an address the person holds nothing on: its segment is whatever was typed there. */

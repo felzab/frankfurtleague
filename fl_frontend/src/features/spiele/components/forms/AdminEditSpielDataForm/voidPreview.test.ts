@@ -58,6 +58,7 @@ const spiel = (id: string, spiel_nr: number, team1: ReturnType<typeof side>, tea
   saison_phase: "gruppenphase",
   saison_id: "2026",
   notiz: null,
+  ansetzung_bestaetigt: null,
 });
 
 const EDITED = spiel(

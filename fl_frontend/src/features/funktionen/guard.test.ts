@@ -98,7 +98,7 @@ describe("the guard over the person area", () => {
     assert.deepEqual([...new Set(redirects)], ["/signin"]);
   });
 
-  /* The guard alone, which both lanes' layouts mount above their chrome. */
+  /* The guard alone, which both lanes' layouts mount around the page slot, beside a frame that paints without it. */
   it("turns a missing session away before anything under it renders", async () => {
     setSubject(null);
 
