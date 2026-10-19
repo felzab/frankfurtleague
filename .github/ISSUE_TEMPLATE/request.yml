@@ -9,10 +9,10 @@ body:
       value: |
         If the idea needs analysis before anyone can decide on it, it belongs in
         [docs/_roadmap/items.md](https://github.com/felzab/frankfurtleague/blob/main/docs/_roadmap/items.md)
-        rather than here — that is where undecided questions keep their reasoning. Use this form for
-        something concrete enough to act on.
+        rather than here, since that is where undecided questions keep their reasoning. Use this form
+        for something concrete enough to act on.
 
-        Keep the title in the shape `Area: what should be possible` — for example
+        Keep the title in the shape `Area: what should be possible`, for example
         `Spielplan: filter the fixture list by team`.
 
   - type: textarea
@@ -21,7 +21,7 @@ body:
       label: The problem
       description: >
         What are you trying to do, and what makes it hard today? Describe the problem rather than a
-        solution — the problem often has a cheaper answer than the one that prompted the request.
+        solution: the problem often has a cheaper answer than the one that prompted the request.
     validations:
       required: true
 
