@@ -10,7 +10,7 @@ requires-python = ">=3.14"
 dependencies = [
     "anyio>=4.15.1",
     "email-validator>=2.3.0",
-    "fastapi>=0.138.0",
+    "fastapi>=0.145.0",
     "pydantic>=2.13.4",
     "pydantic-core>=2.46.4",
     "pydantic-settings>=2.14.2",
