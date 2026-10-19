@@ -1485,6 +1485,8 @@ class TestAnEmptiedEntryFilledBesideAHandoverIsMintedForTheNewHolder:
     def test_the_new_trainer_is_asked_and_the_old_one_holds_no_link(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
+            # Recorded as sent, as the timer records a pass's mail, so the second pass owes the emptied seat alone.
+            await angefragt(database, client, [row["_id"] for row in await rows(database)])
             # Emptied as a ban or an earlier void leaves an entry, for the mint to fill.
             await database[Collection.SPIELBESTAETIGUNGEN].update_one({"partei.team_id": ALPHA}, {"$set": {"kontakte.trainer": None}})
 
@@ -1580,6 +1582,8 @@ class TestEachPassCountsTheSeatsABanKeptFromALink:
                     db=client,
                     today=TODAY,
                 )
+                # Recorded as sent, as the timer records a pass's mail, so the second pass owes nothing but the barred seat.
+                await angefragt(database, client, [row["_id"] for row in await rows(database)])
                 await sweep(database, client)
 
             return interleaved, await rows(database)
