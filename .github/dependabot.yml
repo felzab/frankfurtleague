@@ -144,7 +144,7 @@ updates:
       # runs final releases only. A Bundler-syntax range, as this ecosystem reads one: move it to the
       # next minor's candidates once this one ships.
       - dependency-name: python
-        versions: [">= 3.15.0.a, < 3.15.0"]
+        versions: [">= 3.16.0.a, < 3.16.0"]
 
   # --- Stack images ---------------------------------------------------------------------------
 
