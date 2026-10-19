@@ -334,8 +334,13 @@ def _held_at(literal: _Literal, key: str) -> Values:
     return _distinct(value for keys, held in literal.entries if key in keys for value in held) or (UNRESOLVED,)
 
 
-def _joined(node: ast.JoinedStr, scope: Mapping[str, Values], module: ModuleType) -> str | _Prefix | _SubPath:
-    """An f-string, its holes filled where each holds one plain `str`, read only up to the first that does not.
+# How many spellings an f-string's holes may branch into before it is read up to the hole instead.
+# That reading is sound, so the ceiling costs precision and never hides a reach.
+JOINED_SPELLINGS_CEILING = 64
+
+
+def _joined(node: ast.JoinedStr, scope: Mapping[str, Values], module: ModuleType) -> Values:
+    """An f-string, one spelling per plain `str` each hole may hold, each read only up to the first hole holding anything else.
 
     A dot written after that hole still says the path runs two segments or more.
     """
@@ -345,10 +350,10 @@ def _joined(node: ast.JoinedStr, scope: Mapping[str, Values], module: ModuleType
         dotted = any(isinstance(part, ast.Constant) and isinstance(part.value, str) and "." in part.value for part in rest)
         return _SubPath(lead) if dotted else _Prefix(lead)
 
-    leading = ""
+    spellings = [""]
     for index, part in enumerate(node.values):
         if isinstance(part, ast.Constant) and isinstance(part.value, str):
-            leading += part.value
+            spellings = [spelling + part.value for spelling in spellings]
             continue
         plain = isinstance(part, ast.FormattedValue) and part.conversion == -1 and part.format_spec is None
         held = _values(part.value, scope, module) if isinstance(part, ast.FormattedValue) and plain else ()
@@ -356,13 +361,13 @@ def _joined(node: ast.JoinedStr, scope: Mapping[str, Values], module: ModuleType
         texts = [value if type(value) is str else value.text if isinstance(value, _Prefix) else None for value in held]
         known = [text for text in texts if isinstance(text, str)]
         if not known or len(known) != len(texts):
-            return unknown_past(index, leading)
-        if len(held) == 1 and type(held[0]) is str:
-            leading += known[0]
+            return _distinct(unknown_past(index, spelling) for spelling in spellings)
+        if all(type(value) is str for value in held) and len(spellings) * len(known) <= JOINED_SPELLINGS_CEILING:
+            spellings = [spelling + text for spelling in spellings for text in known]
             continue
-        return unknown_past(index, leading + os.path.commonprefix(known))
+        return _distinct(unknown_past(index, spelling + os.path.commonprefix(known)) for spelling in spellings)
 
-    return leading
+    return _distinct(iter(spellings))
 
 
 def _included(call: ast.Call, scope: Mapping[str, Values], module: ModuleType) -> frozenset[str] | None:
@@ -517,20 +522,15 @@ def _values(node: ast.expr, scope: Mapping[str, Values], module: ModuleType) -> 
         )
 
     if isinstance(node, ast.ListComp | ast.GeneratorExp):
-        inner = dict(scope) | {
-            target.id: (UNRESOLVED,) for generator in node.generators for target in ast.walk(generator.target) if isinstance(target, ast.Name)
-        }
+        inner = _comprehension_scope(node.generators, scope, module)
         return (_Sequence(_values(node.elt, inner, module)),)
 
     if isinstance(node, ast.DictComp):
-        # Each loop variable stands for any value, so a key is read up to its first hole naming one.
-        inner = dict(scope) | {
-            target.id: (UNRESOLVED,) for generator in node.generators for target in ast.walk(generator.target) if isinstance(target, ast.Name)
-        }
+        inner = _comprehension_scope(node.generators, scope, module)
         return (_Literal(((_values(node.key, inner, module), _values(node.value, inner, module)),)),)
 
     if isinstance(node, ast.JoinedStr):
-        return (_joined(node, scope, module),)
+        return _joined(node, scope, module)
 
     if isinstance(node, ast.IfExp):
         return _distinct(iter((*_values(node.body, scope, module), *_values(node.orelse, scope, module))))
@@ -556,6 +556,65 @@ def _values(node: ast.expr, scope: Mapping[str, Values], module: ModuleType) -> 
     return (UNRESOLVED,)
 
 
+def _iterated(node: ast.expr, scope: Mapping[str, Values], module: ModuleType) -> Values:
+    """What one pass of a loop over `node` may bind: a list's or a constant collection's members, or a dict's `items()` pairs.
+
+    `UNRESOLVED` wherever any of those cannot be read whole, an empty one included: a loop the trace
+    reads as running over nothing would write nothing at all.
+    """
+
+    found: list[Any] = []
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "items"
+        and not node.args
+        and not node.keywords
+    ):
+        for held in _values(node.func.value, scope, module):
+            entries = _entries(held)
+            if entries is None or any(key is SPREAD for keys, _ in entries for key in keys):
+                return (UNRESOLVED,)
+            found += [(key, value) for keys, values in entries for key in keys for value in values]
+    else:
+        for held in _values(node, scope, module):
+            if isinstance(held, _Sequence):
+                found += held.elements
+            elif isinstance(held, list | tuple | set | frozenset):
+                found += held
+            else:
+                return (UNRESOLVED,)
+
+    return _distinct(iter(found)) or (UNRESOLVED,)
+
+
+def _bound_targets(target: ast.expr, held: Values) -> dict[str, Values]:
+    """Each name a loop target binds; a name inside a tuple target takes its position of each pair, anything else any value."""
+
+    if isinstance(target, ast.Name):
+        return {target.id: held}
+    if isinstance(target, ast.Tuple | ast.List) and not any(isinstance(element, ast.Starred) for element in target.elts):
+        bound: dict[str, Values] = {}
+        for position, element in enumerate(target.elts):
+            at = _distinct(value[position] if type(value) is tuple and len(value) == len(target.elts) else UNRESOLVED for value in held)
+            bound |= _bound_targets(element, at)
+        return bound
+    return {name.id: (UNRESOLVED,) for name in ast.walk(target) if isinstance(name, ast.Name)}
+
+
+def _comprehension_scope(generators: list[ast.comprehension], scope: Mapping[str, Values], module: ModuleType) -> dict[str, Values]:
+    """`scope` with each loop variable bound to what its iterable yields, its `if` clauses read as admitting everything.
+
+    `app/api/zustellung/router.py :: _apply` names its carriers through two comprehensions, and a
+    variable read as any value there leaves a path a partial filter's document field could be under.
+    """
+
+    inner = dict(scope)
+    for generator in generators:
+        inner |= _bound_targets(generator.target, _iterated(generator.iter, inner, module))
+    return inner
+
+
 def _read_only(node: ast.AST, parents: Mapping[int, ast.AST]) -> bool:
     """Whether a held dict, or anything read out of it, keeps the keys the trace read.
 
@@ -575,6 +634,8 @@ def _read_only(node: ast.AST, parents: Mapping[int, ast.AST]) -> bool:
     if isinstance(parent, ast.IfExp | ast.BoolOp):
         return _read_only(parent, parents)
     if isinstance(parent, ast.Compare | ast.UnaryOp | ast.FormattedValue | ast.Return):
+        return True
+    if isinstance(parent, ast.comprehension | ast.For) and node is parent.iter:
         return True
     if isinstance(parent, ast.keyword) and parent.arg in WRITTEN_ARGUMENTS:
         call = parents.get(id(parent))
@@ -1388,6 +1449,32 @@ def _update_reaches(source: str, collection: Collection, scope: Mapping[str, Val
             Collection.SCHIEDSRICHTER,
             {"zustellung_pfad": (zustellung_pfad,)},
             False,
+        ),
+        # A loop variable holds what its iterable yields, and a hole holding several names spells each.
+        (
+            '{"$set": {f"{carrier}.zustellung": entry for carrier in carriers}}',
+            Collection.SPIELBESTAETIGUNGEN,
+            {"carriers": (_Sequence(("kontakte.trainer", "kontakte.stellvertretung")),)},
+            False,
+        ),
+        (
+            '{"$set": {f"{carrier}.zustellung": entry for carrier in carriers}}',
+            Collection.SPIELBESTAETIGUNGEN,
+            {"carriers": (_Sequence(("kontakte.trainer", "antwort")),)},
+            True,
+        ),
+        (
+            '{"$set": {f"{carrier}.zustellung": entry for carrier, entry in held.items()}}',
+            Collection.SPIELBESTAETIGUNGEN,
+            {"held": (_Literal(((("kontakte.trainer",), (UNRESOLVED,)),)),)},
+            False,
+        ),
+        # An iterable the trace cannot read whole binds any value, a path under `antwort` among them.
+        (
+            '{"$set": {f"{carrier}.zustellung": entry for carrier in carriers}}',
+            Collection.SPIELBESTAETIGUNGEN,
+            {"carriers": (UNRESOLVED,)},
+            True,
         ),
         # A path the trace cannot name reaches only a key its validator lets hold what is written there.
         ('{"$set": {side: None}}', Collection.SPIELE, {"side": (UNRESOLVED,)}, False),
