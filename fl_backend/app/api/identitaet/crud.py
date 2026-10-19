@@ -688,6 +688,7 @@ async def erase_everything(
                 spielbestaetigungen_collection=spielbestaetigungen_collection,
                 aktionen_collection=aktionen_collection,
                 identifier=identifier,
+                schluessel=schluessel,
                 saison_team_rows=subject.saison_teams,
                 bewerbung_rows=subject.bewerbungen,
                 stamp=stamp,

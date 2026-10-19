@@ -50,6 +50,7 @@ from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.api import test_spielbestaetigung_sweep_refusal as budget
 from tests.bans import ban_list
+from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, kontaktperson_document
 from tests.isolation import InterleavedCollection
@@ -480,6 +481,7 @@ class TestADiscardedDeclineIsNotAskedAgain:
                         antwort="abgelehnt",
                         seat="trainer",
                         adresse=None,
+                        schluessel=build_test_config().sperrliste_schluessel,
                         vorschlag=FLSpielbestaetigungTermin(datum=days_after(day=NEXT_WEEK, days=1), uhrzeit="18:00:00"),
                         begruendung="Klassenfahrt",
                         today=TODAY,

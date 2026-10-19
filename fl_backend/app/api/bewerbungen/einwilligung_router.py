@@ -377,6 +377,7 @@ async def post_einwilligung(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             aktionen_collection=aktionen_collection,
             adressen=seat_adressen(kontakte=kontakte, seats=seats),
+            schluessel=config.sperrliste_schluessel,
             stamp=am,
             session=session,
         )

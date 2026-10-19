@@ -1619,6 +1619,13 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         )
         for seat in _KONTAKTE_REQUIRED[:3]
     ),
+    # A collection with no retention bound, read inside every contact erasure's and Widerspruch's transaction.
+    SupportIndex(
+        Collection.SPIELBESTAETIGUNGEN,
+        "spielbestaetigungen_antwort_von_halter",
+        (("antwort.von.halter", ASCENDING),),
+        "the reasons a leaving contact typed, from whichever seat",
+    ),
 )
 
 

@@ -161,7 +161,7 @@ def kontakt_antwort_document(rolle: str, adresse: str, *, begruendung: str | Non
     return {
         "art": "abgelehnt",
         "am": am,
-        "von": {"art": "kontakt", "rolle": rolle, "halter": halter_of(adresse)},
+        "von": {"art": "kontakt", "rolle": rolle, "halter": halter_of(adresse, schluessel=build_test_config().sperrliste_schluessel)},
         "vorschlag": {"datum": "2026-04-25", "uhrzeit": "14:00:00"},
         "begruendung": begruendung,
         **fields,

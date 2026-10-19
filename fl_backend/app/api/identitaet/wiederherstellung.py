@@ -329,6 +329,7 @@ async def _plan_widerspruch(
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 aktionen_collection=database[Collection.AKTIONEN],
                 adressen=seat_adressen(kontakte=row.get("kontakte"), seats=offen),
+                schluessel=schluessel,
                 stamp=log_stamp(now),
                 session=session,
             )

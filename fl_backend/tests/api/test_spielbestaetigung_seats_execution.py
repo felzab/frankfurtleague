@@ -291,6 +291,7 @@ async def erase_the_trainer(database: AsyncDatabase, client: AsyncMongoClient) -
             aktionen_collection=database[Collection.AKTIONEN],
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
             identifier=identifier,
+            schluessel=CONFIG.sperrliste_schluessel,
             saison_team_rows=rows,
             bewerbung_rows=[],
             stamp=AM,

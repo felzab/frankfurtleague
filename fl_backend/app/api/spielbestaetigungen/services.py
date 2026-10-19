@@ -1,8 +1,11 @@
 import hashlib
+import hmac
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Any, Final, NamedTuple, cast
+
+from pydantic import SecretStr
 
 from app.api.bewerbungen.services import days_after, seat_named
 from app.api.identitaet.services import holds_a_name, namen_aus
@@ -34,6 +37,7 @@ from app.shared.schemas.bounds import (
     SPIEL_ERINNERUNG_TAGE_ERSTE,
     SPIEL_ERINNERUNG_TAGE_ZWEITE,
 )
+from app.shared.sub_keys import derive_sub_key
 
 # Each stored `ansetzung` key and its fixture path: the ONE list the digest, the snapshot and the public
 # verdict's `$lookup` read, a key one lacks giving two answers to which Ansetzung a row is about.
@@ -481,13 +485,18 @@ def ansicht_snapshot_of(
     )
 
 
-def halter_of(address: str) -> str:
+# Its own label under the `sperrliste_schluessel` master, beside the ban list's, the log's, the journal's and the anchors'
+# (`app/core/adressanker.py :: ADRESSANKER_VERSION`): under theirs a holder would equal one of their digests.
+HALTER_VERSION: Final = "halter-v1"
+
+
+def halter_of(address: str, *, schluessel: SecretStr) -> str:
     """The answering seat's holder, as the person's erasure finds the reasons they typed from any seat.
 
-    A digest, so the row keeps no address, over the fold `app/api/teams/services.py :: seats_changing_holder` tells holders apart by.
+    KEYED, an address being a dictionary word; over the fold `app/api/teams/services.py :: seats_changing_holder` tells holders apart by.
     """
 
-    return hashlib.sha256(sign_in_identifier(address).encode("utf-8")).hexdigest()
+    return hmac.new(derive_sub_key(schluessel, HALTER_VERSION), sign_in_identifier(address).encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def compose_antwort_update(
@@ -495,6 +504,7 @@ def compose_antwort_update(
     antwort: FLSpielbestaetigungAntwortArt,
     seat: FLKontaktRolle,
     adresse: str | None,
+    schluessel: SecretStr,
     vorschlag: FLSpielbestaetigungTermin | None,
     begruendung: str | None,
     today: str,
@@ -505,7 +515,7 @@ def compose_antwort_update(
                 "art": antwort,
                 "am": today,
                 # Never served (`tests/core/test_constraints.py :: STORED_BUT_NOT_SERVED`).
-                "von": {"art": "kontakt", "rolle": seat, "halter": None if adresse is None else halter_of(adresse)},
+                "von": {"art": "kontakt", "rolle": seat, "halter": None if adresse is None else halter_of(adresse, schluessel=schluessel)},
                 "vorschlag": None if vorschlag is None else {"datum": vorschlag.datum, "uhrzeit": vorschlag.uhrzeit},
                 "begruendung": begruendung,
             }

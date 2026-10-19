@@ -260,6 +260,7 @@ async def post_spielbestaetigung(
                     antwort=antwort_data.antwort,
                     seat=seat,
                     adresse=adresse,
+                    schluessel=sperrliste.schluessel,
                     vorschlag=vorschlag,
                     begruendung=antwort_data.begruendung,
                     today=today,

@@ -1,6 +1,7 @@
 from collections.abc import Iterable, Mapping, Sequence, Set
 from typing import Any, NamedTuple
 
+from pydantic import SecretStr
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -65,6 +66,7 @@ async def remove_their_reasons(
     spielbestaetigungen_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     adressen: Iterable[str],
+    schluessel: SecretStr,
     stamp: str,
     session: AsyncClientSession,
 ) -> None:
@@ -73,18 +75,40 @@ async def remove_their_reasons(
     Matched on the holder the answer stored, never the seat, whose earlier or later holder's reason stays (`docs/backend/spec.md :: I759`).
     """
 
-    halter = sorted({halter_of(adresse) for adresse in adressen})
-    if not halter:
+    await remove_the_holders_reasons(
+        spielbestaetigungen_collection=spielbestaetigungen_collection,
+        aktionen_collection=aktionen_collection,
+        halter={halter_of(adresse, schluessel=schluessel) for adresse in adressen},
+        stamp=stamp,
+        session=session,
+    )
+
+
+async def remove_the_holders_reasons(
+    *,
+    spielbestaetigungen_collection: AsyncCollection,
+    aktionen_collection: AsyncCollection,
+    # Digests `app/api/spielbestaetigungen/services.py :: halter_of` made: a restore's replay holds no address.
+    halter: Iterable[str],
+    stamp: str,
+    session: AsyncClientSession,
+) -> None:
+    """`remove_their_reasons` by the digests the answers stored."""
+
+    digests = sorted(set(halter))
+    if not digests:
         return
 
-    db_filter = build_contact_reasons_filter(halter)
-    # No write for none: a fan-out matching nothing still files a log row.
-    if await aggregate_many_from_db(
-        collection=spielbestaetigungen_collection, pipeline=[{"$match": db_filter}, {"$limit": 1}, {"$project": {"_id": 1}}], session=session
-    ):
+    rows = await aggregate_many_from_db(
+        collection=spielbestaetigungen_collection,
+        pipeline=[{"$match": build_contact_reasons_filter(digests)}, {"$project": {"saison_id": 1}}],
+        session=session,
+    )
+    if rows:
         await patch_many_in_db(
             collection=spielbestaetigungen_collection,
-            db_filter=db_filter,
+            # Ids and their seasons alone, never the digest: the log keeps a fan-out's filter as text (`docs/backend/spec.md :: I48`).
+            db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in rows})}, "_id": {"$in": [row["_id"] for row in rows]}},
             update={"$set": {"antwort.begruendung": None, "antwort.von.halter": None}},
             session=session,
         )
@@ -92,8 +116,8 @@ async def remove_their_reasons(
     # Every image of such a row the log keeps, an undraw's removal among them, which no row standing now reaches.
     await redact_images_in_session(
         aktionen_collection=aktionen_collection,
-        db_filter=build_contact_reason_images_filter(halter),
-        judge=lambda image: contact_reason_image_edits(image, halter),
+        db_filter=build_contact_reason_images_filter(digests),
+        judge=lambda image: contact_reason_image_edits(image, digests),
         stamp=stamp,
         session=session,
     )
@@ -111,6 +135,7 @@ async def erase_kontaktperson_in_session(
     aktionen_collection: AsyncCollection,
     spielbestaetigungen_collection: AsyncCollection,
     identifier: str,
+    schluessel: SecretStr,
     # The rows naming the address in a seat, of every status, each carrying its seats' addresses and its
     # `bestaetigungen`, read unbounded in the caller's transaction BEFORE any clearing: a cleared row stops matching.
     saison_team_rows: Sequence[Mapping[str, Any]],
@@ -152,6 +177,7 @@ async def erase_kontaktperson_in_session(
         spielbestaetigungen_collection=spielbestaetigungen_collection,
         aktionen_collection=aktionen_collection,
         adressen=[identifier],
+        schluessel=schluessel,
         stamp=stamp,
         session=session,
     )

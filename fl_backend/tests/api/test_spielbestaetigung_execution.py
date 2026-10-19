@@ -7,6 +7,7 @@ fixture.
 """
 
 import hashlib
+import hmac
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -39,6 +40,7 @@ from app.api.teams.schemas import KONTAKT_ROLLEN, FLReplaceSaisonTeamPayload
 from app.core.collections import Collection
 from tests import documents
 from tests.bans import ban_list
+from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.plans import plans_of_sent_reads
@@ -75,8 +77,10 @@ PEOPLE = {
 NAMES = {TEAM1: ("Adler", "AD"), TEAM2: ("Biber", "BI")}
 REFEREE = "Otto Gruber"
 
-# Spelled out rather than through the code under test: the stellvertretung's address on the sign-in fold, hashed.
-KLARA = hashlib.sha256(b"klara@example.com").hexdigest()
+# Spelled out rather than through the code under test: the stellvertretung's address on the sign-in fold, keyed under the
+# suite's master by the holder's own label, so an unkeyed digest or another purpose's label fails here.
+_HALTER_KEY = hmac.new(build_test_config().sperrliste_schluessel.get_secret_value().encode("utf-8"), b"halter-v1", hashlib.sha256).digest()
+KLARA = hmac.new(_HALTER_KEY, b"klara@example.com", hashlib.sha256).hexdigest()
 
 
 def token(team_id: ObjectId, seat: str, nth: int = 0) -> str:
