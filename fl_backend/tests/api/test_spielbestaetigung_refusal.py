@@ -17,6 +17,7 @@ from app.api.spielbestaetigungen.services import (
     ANSETZUNG_VORSCHLAG_VERGANGEN,
     AnsetzungLage,
     ansicht_ansetzung_of,
+    ansicht_snapshot_of,
     beteiligte_namen,
     compose_ansetzung,
     find_name_in_begruendung_refusal,
@@ -325,19 +326,17 @@ class TestTheLinkAndTheCloseReadOneVerdict:
 
 
 class TestWhatTheViewStatesOfTheFixture:
-    def test_a_fixture_that_lost_its_day_and_a_side_is_stated_as_the_row_asked_about_it(self):
-        """Only a spent link meets such a fixture; the required fields still fill rather than answering 500."""
+    def test_a_fixture_that_lost_its_day_is_stated_as_the_row_asked_about_it_and_never_half_of_each(self):
+        """The new hour beside the old day would describe an Ansetzung that never stood; the side gone is named off its season row."""
 
-        moved = lage(spiel_overrides={"datum": None, "uhrzeit": None, "team2": None, "ort": None})
-        ansetzung = ansicht_ansetzung_of(spielbestaetigung_raw=zeile(), lage=moved)
+        moved = lage(spiel_overrides={"datum": None, "uhrzeit": "20:00:00", "team2": None})
+        ansetzung = ansicht_snapshot_of(spielbestaetigung_raw=zeile(), lage=moved, spielort=None)
 
-        assert (ansetzung.team1_name, ansetzung.team2_name, ansetzung.datum, ansetzung.uhrzeit, ansetzung.spielort) == (
-            "Adler",
-            "Biber",
-            DATUM,
-            "18:30:00",
-            None,
-        )
+        assert (ansetzung.team1_name, ansetzung.team2_name, ansetzung.datum, ansetzung.uhrzeit) == ("Adler", "Biber", DATUM, "18:30:00")
+
+    def test_the_fixtures_own_statement_refuses_a_moved_one_rather_than_mixing_it(self):
+        with pytest.raises(ValueError, match="has left"):
+            ansicht_ansetzung_of(spielbestaetigung_raw=zeile(), lage=lage(spiel_overrides={"uhrzeit": "20:00:00"}))
 
 
 class TestAProposalBeforeToday:

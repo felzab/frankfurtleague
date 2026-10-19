@@ -18,6 +18,7 @@ from app.api.spielbestaetigungen.schemas import (
 from app.api.spielbestaetigungen.services import (
     LINK_FIELDS,
     ansicht_ansetzung_of,
+    ansicht_snapshot_of,
     ansicht_vorschlag_of,
     beteiligte_namen,
     build_answerable_filter,
@@ -33,10 +34,11 @@ from app.api.spielbestaetigungen.services import (
     seat_adresse,
     seat_holding,
     seite_of,
+    stand_moved,
     zustand_of,
 )
-from app.api.spiele.crud import pull_booked_slots, pull_saison_membership, pull_spieltag_span
-from app.api.spiele.schemas import FLSpiel
+from app.api.spiele.crud import pull_booked_slots, pull_booked_venue, pull_saison_membership, pull_spieltag_span
+from app.api.spiele.schemas import FLSpiel, FLSpielOrtFieldPublic
 from app.api.spiele.services import find_claims_made, find_clash_refusal, find_eligibility_refusal, find_fixture_date_refusal
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
@@ -45,6 +47,7 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
+    SpielorteCollection,
     SpieltageCollection,
     get_german_date_str,
 )
@@ -72,6 +75,7 @@ async def get_spielbestaetigung_ansicht(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spiele_collection: SpieleCollection,
     saison_teams_collection: SaisonTeamsCollection,
+    spielorte_collection: SpielorteCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielbestaetigungAnsichtResponse:
@@ -113,10 +117,21 @@ async def get_spielbestaetigung_ansicht(
     zustand = zustand_of(spielbestaetigung_raw=row, lage=lage, today=today, gesperrt=gesperrt, vorschlag_offen=vorschlag_offen)
     antwort = row.get("antwort")
 
+    if stand_moved(spielbestaetigung_raw=row, lage=lage):
+        venue = await pull_booked_venue(spielorte_collection, row["ansetzung"]["spielort_id"])
+        spielort = (
+            None
+            if venue is None
+            else FLSpielOrtFieldPublic(spielort_id=row["ansetzung"]["spielort_id"], name=venue.name, maps_link=venue.maps_link)
+        )
+        ansetzung = ansicht_snapshot_of(spielbestaetigung_raw=row, lage=lage, spielort=spielort)
+    else:
+        ansetzung = ansicht_ansetzung_of(spielbestaetigung_raw=row, lage=lage)
+
     return FLSpielbestaetigungAnsichtResponse(
         zustand=zustand,
         seite=seite_of(row),
-        ansetzung=ansicht_ansetzung_of(spielbestaetigung_raw=row, lage=lage),
+        ansetzung=ansetzung,
         frist=str(row["frist"]),
         vorschlag=ansicht_vorschlag_of(spielbestaetigung_raw=row, zustand=zustand, vorschlag_offen=vorschlag_offen),
         beantwortet_von=antwort["von"] if zustand in ("zugesagt", "abgelehnt") and antwort is not None else None,

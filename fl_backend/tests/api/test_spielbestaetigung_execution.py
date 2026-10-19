@@ -188,6 +188,7 @@ async def ansicht(
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
         spiele_collection=either(database, Collection.SPIELE, spiele),
         saison_teams_collection=either(database, Collection.SAISON_TEAMS, saison_teams),
+        spielorte_collection=database[Collection.SPIELORTE],
         sperrliste=ban_list(database),
         today=today,
     )
@@ -275,6 +276,38 @@ class TestWhatALinkOpens:
         assert own.zustand == "abgelehnt"
         assert own.vorschlag is not None and (own.vorschlag.datum, own.vorschlag.uhrzeit) == ("2027-05-15", "17:00:00")
         assert own.beantwortet_von is not None and own.beantwortet_von.model_dump() == {"art": "kontakt", "rolle": "trainer"}
+
+    def test_a_link_whose_fixture_moved_states_the_ansetzung_it_asked_about_whole(self, mongo_replica_set_url: str):
+        """Moved to another ground and an open day: the old ground and the old day and hour, never the new ground beside the old day."""
+
+        elsewhere = ObjectId("6890a1b2c3d4e5f607d50032")
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELORTE].insert_one(
+                {
+                    "_id": elsewhere,
+                    "name": "Halle West",
+                    "address": dict(documents.ADDRESS),
+                    "maps_link": "Halle West, Frankfurt",
+                    "default_mietpreis": 30,
+                    "inactive_since": None,
+                }
+            )
+            ort = {"spielort_id": elsewhere, "name": "Halle West", "maps_link": "Halle West, Frankfurt", "mietpreis": 30}
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"ort": ort, "datum": None}})
+
+            return await ansicht(database, token(TEAM1, "trainer"))
+
+        view = on_a_fixture(mongo_replica_set_url, body)
+
+        assert view.zustand == "ungueltig"
+        assert view.ansetzung.model_dump(mode="json") == {
+            "team1_name": "Adler",
+            "team2_name": "Biber",
+            "datum": DATUM,
+            "uhrzeit": UHRZEIT,
+            "spielort": {"spielort_id": str(SPIELORT), "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt"},
+        }
 
     def test_a_spent_link_is_shown_its_state_and_an_unknown_one_is_refused(self, mongo_replica_set_url: str):
         """Only a token no row holds is refused, by the view and the answer alike; a closed row's link opens its page."""
