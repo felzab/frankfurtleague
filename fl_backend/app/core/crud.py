@@ -381,6 +381,10 @@ async def erase_many_from_db(
     # person, their squad rows and the log, and any one of the three alone leaves it defeated.
     result = await collection.delete_many(filter=db_filter, session=session)
 
+    # A removal that took nothing records nothing, as `delete_many_from_db` (`docs/backend/spec.md :: I744`).
+    if not result.deleted_count:
+        return result
+
     await record_write(
         collection=collection,
         operation="erase_many",
