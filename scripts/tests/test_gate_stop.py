@@ -63,12 +63,12 @@ STARTED_BOUND_S: Final = 60
 STOPPED_BOUND_S: Final = 60
 WATCH: Final = VERIFY.parent / "gate_watch.py"
 
-# A shell as a harness runs a command, `:` keeping bash from replacing itself with the gate; one
-# running it through a script, which outlives the shell a stop ends; a native process, leaving
-# MSYS no parent to name; and one running Git's own launcher, which waits on the gate's shell when
-# only what ran it is ended, as a harness starts Git Bash.
-LAUNCHERS: Final = ("a shell", "a shell through a script", "a native process") + (
-    ("a native process through Git's launcher",) if WINDOWS else ()
+# A shell as a harness runs a command, `:` keeping bash from replacing itself with the gate; then,
+# on Windows, each route a stop takes to the watcher: a script outliving the shell a stop ends, a
+# native process leaving MSYS no parent to name, and Git's own launcher, left waiting when only what
+# ran it is ended. A POSIX stop signals the whole group whatever started it, so there the first is all.
+LAUNCHERS: Final = (
+    ("a shell", "a shell through a script", "a native process", "a native process through Git's launcher") if WINDOWS else ("a shell",)
 )
 WRAPPER: Final = """#!/usr/bin/env bash
 "$@"
@@ -167,11 +167,7 @@ def _tree(pnpm: str, python3: str) -> tuple[Path, dict[str, str], Path, Path]:
 
 @pytest.mark.parametrize("kind", list(LAUNCHERS))
 def test_stopping_the_gate_ends_every_tool_it_started(kind: str) -> None:
-    """Started by a shell, as a harness or a terminal starts it, through a wrapper script, and by a native process.
-
-    Three routes to the watcher: MSYS's parent, an MSYS ancestor beyond a parent left running, and
-    Windows' own parent.
-    """
+    """One case per route a stop takes to the watcher, as `LAUNCHERS` names them: missing any one leaves a gate running past the stop."""
     assert float(declared(WATCH, "GRACE_S")) < STOPPED_BOUND_S, "a stop the watcher forced would read as a gate still running"
     root, env, started, scratch = _tree(STUB_PNPM, STUB_PYTHON.format(interpreter=Path(sys.executable).as_posix()))
     launcher = _launch(kind, root / "scripts" / "gate" / "verify.sh", env, write_shell(started.parent / "wrapper.sh", WRAPPER))
