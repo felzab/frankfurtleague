@@ -90,6 +90,8 @@ const EIN_EINTRAG_JE_ART = {
 /** The lines every reveal ends on, whatever the read found. */
 const IMMER = [
   "Das Konto der Adresse mit Passkeys und Anmeldungen, falls eines besteht",
+  // The person's own page names it too: both views name the same things erased.
+  "Die Begründungen zu Spielterminen, die unter dieser Adresse über einen Bestätigungslink abgegeben wurden",
   "Die Adresse im Änderungsprotokoll und als Urheberin von Sperren, Einladungen, Entscheidungen und Zugängen",
 ];
 
@@ -476,9 +478,9 @@ describe("the reveal the arming read answers", () => {
     assert.match(screen.getByRole("alert").textContent, /Spiele ohne Ergebnis, .* brauchen danach eine neue Einteilung\./);
   });
 
-  /* The log and the address's authorship are cleaned whatever the read found, so an operator answering the person
+  /* The reasons, the log and the address's authorship are cleaned whatever the read found, so an operator answering the person
      must not read that nothing is held. */
-  it("says an address holding no record holds no record, and still names the account, the log and the authorship", async () => {
+  it("says an address holding no record holds no record, and still names the account, the reasons, the log and the authorship", async () => {
     const { user } = await renderPage();
     await typeRequest(user);
     await arm(user);
