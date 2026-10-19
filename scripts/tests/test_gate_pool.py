@@ -1,4 +1,4 @@
-"""SCRIPTS · the pool's net: a unit's exit status on its way back to the gate, and how a run ends.
+"""SCRIPTS · the pool's net: a unit's exit status on its way back to the gate, how a run ends, and how a silent unit is named.
 
 `scripts/gate/gate_pool.py` is the only channel a unit's status travels, so a loss, a rename or a
 reordering here is a gate that closes green over a check that failed. The wiring that ends a run
@@ -8,12 +8,13 @@ drives the module as a subprocess, for `scripts/tests/conftest.py :: withdraw`'s
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Final
 
-from conftest import declared
+from conftest import declared, lift_function
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 POOL: Final = SCRIPTS / "gate" / "gate_pool.py"
@@ -378,3 +379,133 @@ def test_an_interrupt_ends_the_units_before_the_run_waits_on_them(tmp_path: Path
     except subprocess.TimeoutExpired:
         raise AssertionError("the run waited on the unit it had been told to stop") from None
     assert result.returncode == 0, result.stderr
+
+
+# The stall notice, driven at a bound of a second rather than the gate's own. A pool reads where its
+# notices go from the environment, so each case starts with none of the gate's run state.
+STALLING: Final[tuple[str, ...]] = (
+    "for key in [key for key in os.environ if key.startswith(('FL_GATE_', 'PYTEST_'))]:",
+    "    del os.environ[key]",
+    "gate_pool.STALL_S = 1.0",
+    "gate_pool.STALL_POLL_S = 0.1",
+    "def run_pool(*units):",
+    "    listing = Path(DIRECTORY) / 'units.tsv'",
+    "    listing.write_bytes(''.join(name + chr(9) + chr(9).join(command) + chr(10) for name, command in units).encode('utf-8'))",
+    "    sys.argv = ['gate_pool', '--dir', str(Path(DIRECTORY)), '--units', str(listing), '--merge']",
+    "    raise SystemExit(gate_pool.main())",
+)
+HUSHED: Final = "import sys, time; sys.stdout.write('started' + chr(10)); sys.stdout.flush(); time.sleep(2.5)"
+MOVING: Final = "import sys, time\nfor beat in range(12):\n    sys.stdout.write('beat' + chr(10)); sys.stdout.flush(); time.sleep(0.2)"
+
+
+def _notice(name: str) -> str:
+    return f"the {name} unit has written nothing for"
+
+
+def test_a_unit_writing_nothing_past_the_bound_is_named_with_what_it_last_wrote(tmp_path: Path) -> None:
+    """The hang the gate reported nothing of for half an hour: a notice, and the run still ending on the unit's own status."""
+    result = _drive((*STALLING, f"run_pool(('hushed', (sys.executable, '-c', {HUSHED!r})))"), tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert _notice("hushed") in result.stderr, result.stderr
+    assert "started" in result.stderr.split(_notice("hushed"), 1)[1], result.stderr
+    assert [(row[0], row[1]) for row in _rows(tmp_path)] == [("hushed", "0")]
+
+
+def test_a_unit_still_writing_is_never_named_however_long_it_runs(tmp_path: Path) -> None:
+    """Silence and not age: an age bound names every slow build and teaches the reader to skip the line."""
+    script = tmp_path / "moving.py"
+    script.write_bytes(MOVING.encode("utf-8"))
+    result = _drive((*STALLING, f"run_pool(('moving', (sys.executable, {str(script)!r})))"), tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert "has written nothing" not in result.stderr, result.stderr
+
+
+# A pool started by a unit, as a scope's worker starts its checks: its own stderr is a capture the
+# outer pool replays only once the run ends.
+INNER_POOL: Final = """import os, sys
+from pathlib import Path
+sys.path.insert(0, {gate!r})
+import gate_pool
+gate_pool.STALL_S = 1.0
+gate_pool.STALL_POLL_S = 0.1
+directory = Path({directory!r})
+directory.mkdir()
+listing = directory / "units.tsv"
+listing.write_bytes(("deep" + chr(9) + sys.executable + chr(9) + "-c" + chr(9) + {hushed!r} + chr(10)).encode("utf-8"))
+sys.argv = ["gate_pool", "--dir", str(directory), "--units", str(listing)]
+raise SystemExit(gate_pool.main())
+"""
+
+
+def test_a_nested_pool_s_notice_reaches_the_outermost_pool_s_reader(tmp_path: Path) -> None:
+    """Left on the nested pool's own stderr, the notice would sit in a capture until the hang it names ends, which is never."""
+    inner = tmp_path / "inner.py"
+    inner.write_bytes(INNER_POOL.format(gate=str(SCRIPTS / "gate"), directory=str(tmp_path / "inner"), hushed=HUSHED).encode("utf-8"))
+    result = _drive((*STALLING, f"run_pool(('worker', (sys.executable, {str(inner)!r})))"), tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert _notice("deep") in result.stderr, result.stderr
+    assert _notice("deep") not in (tmp_path / "worker.out").read_text(encoding="utf-8")
+
+
+# A case past pytest's own bound under a worker of its own, as every gate pytest step runs. It waits
+# for the notice carrying its stack, not a span a loaded machine outlasts before the worker starts.
+STALLED_CASE: Final = """import time
+from pathlib import Path
+
+
+def test_a_case_that_stalls() -> None:
+    deadline = time.monotonic() + 60
+    while not Path({release!r}).exists() and time.monotonic() < deadline:
+        time.sleep(0.1)
+"""
+
+# The sink every notice passes through, releasing the case once one carries its stack.
+RELEASING: Final[tuple[str, ...]] = (
+    "routed = gate_pool.notice_route",
+    "def releasing_route(running):",
+    "    sink, relay = routed(running)",
+    "    def releasing(notice):",
+    "        sink(notice)",
+    "        if b'Timeout (' in notice:",
+    "            (Path(DIRECTORY) / 'release').touch()",
+    "    return releasing, relay",
+    "gate_pool.notice_route = releasing_route",
+)
+
+
+def test_a_stalled_pytest_case_s_stack_reaches_the_notice_through_its_worker(tmp_path: Path) -> None:
+    """The notice names the step; the stack is pytest's faulthandler dump, written by an xdist worker whose stderr must reach the capture."""
+    case = tmp_path / "suite" / "test_stalled.py"
+    case.parent.mkdir()
+    case.write_bytes(STALLED_CASE.format(release=str(tmp_path / "release")).encode("utf-8"))
+    # Its own root and conftest boundary: pytest otherwise walks the system temporary directory,
+    # whose entries other cases create and remove under it.
+    (case.parent / "pytest.ini").write_bytes(b"[pytest]\n")
+    pytest = ("sys.executable", "'-m'", "'pytest'", repr(str(case)), "'-n'", "'1'", "'-p'", "'no:cacheprovider'")
+    options = ("'-o'", "'faulthandler_timeout=1'")
+    run = f"run_pool(('pytest', ({', '.join(pytest + options)})))"
+    result = _drive((*STALLING, *RELEASING, run), tmp_path)
+    assert result.returncode == 0, result.stderr
+    said = (tmp_path / "pytest.out").read_bytes().decode("utf-8", "replace")
+    assert (tmp_path / "release").exists(), f"no notice carried the stalled case's stack; it wrote:\n{said}\n{_rows(tmp_path)}"
+    carried = next(notice for notice in result.stderr.split(_notice("pytest")) if "Timeout (" in notice)
+    assert "test_a_case_that_stalls" in carried, result.stderr
+
+
+VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
+# A `do_<check>` body's opening, whichever shape `scripts/tests/conftest.py :: lift_function` reads.
+BODY_RE: Final = re.compile(r"^(do_\w+)\(\) +\{", re.MULTILINE)
+
+
+def test_every_gate_pytest_dumps_a_stalled_case_s_stack_before_the_pool_names_its_step() -> None:
+    """Two bounds in order: a dump later than the notice leaves the notice carrying no stack, and a step without one carries none ever."""
+    text = VERIFY.read_text(encoding="utf-8")
+    assigned = re.search(r"^FAULTHANDLER_S=([0-9]+)$", text, re.MULTILINE)
+    assert assigned is not None, "scripts/gate/verify.sh no longer assigns FAULTHANDLER_S a whole number of seconds"
+    faulthandler = int(assigned.group(1))
+    assert faulthandler < float(declared(POOL, "STALL_S")), "the stack would be dumped after the notice that should carry it"
+    bodies = [lift_function(VERIFY, name) for name in BODY_RE.findall(text)]
+    running = [body for body in bodies if "-m pytest" in body]
+    assert len(running) >= 3, "the scripts, backend and db pytest bodies are no longer found, so nothing below is checked"
+    bare = [body.splitlines()[0] for body in running if '-o "faulthandler_timeout=${FAULTHANDLER_S}"' not in body]
+    assert not bare, f"a gate pytest dumps no stack when a case stalls: {bare}"

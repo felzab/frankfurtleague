@@ -250,6 +250,11 @@ GATE_WIDTH_DB_PYTEST=6
 # 17.5-17.8s at 8, 20.3-21.5s at 4, 29.5-30.1s at 2 and 46.0-46.6s serial.
 GATE_WIDTH_BACKEND_PYTEST=6
 
+# Past this a pytest case has every thread's stack dumped into its step's capture, for
+# `scripts/gate/gate_pool.py :: STALL_S`'s notice to carry: below that bound, above the widest
+# measured span holding one case, the db tier's 113 s on a runner.
+FAULTHANDLER_S=120
+
 # --- what a unit runs --------------------------------------------------------------------------------
 
 # Every check that runs beside its neighbours is a `do_<check>` function, called by name: the pool
@@ -274,7 +279,7 @@ do_pyright() { ( cd "${REPO_ROOT}/scripts" && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "
 # copytree and its `git init` once per worker that draws a case from the module.
 do_pytest() {
   "$PY" -m pytest scripts/tests -n auto --dist loadfile \
-    --maxprocesses "$GATE_WIDTH_SCRIPTS_PYTEST"
+    --maxprocesses "$GATE_WIDTH_SCRIPTS_PYTEST" -o "faulthandler_timeout=${FAULTHANDLER_S}"
 }
 
 # Only `check_docs.py` writes `.git/index` (`scripts/checks/docs_gate/branch.py :: _added_by_file`), so
@@ -306,7 +311,7 @@ do_backend_pyright() { ( cd fl_backend && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY"
 # Distributed by file as the db tier is: serial, this tier alone takes the backend job past its
 # budget on a runner. No worker starts a server (`fl_backend/tests/conftest.py ::
 # pytest_configure_node`).
-do_backend_pytest()  { ( cd fl_backend && "$PY" -m pytest -n auto --dist loadfile --maxprocesses "$GATE_WIDTH_BACKEND_PYTEST" ); }
+do_backend_pytest()  { ( cd fl_backend && "$PY" -m pytest -n auto --dist loadfile --maxprocesses "$GATE_WIDTH_BACKEND_PYTEST" -o "faulthandler_timeout=${FAULTHANDLER_S}" ); }
 # What ruff, pyright and pytest between them cannot answer: pytest runs what it collected, and says
 # nothing about a guarantee that stopped being collected.
 do_backend_estate()  { "$PY" scripts/checks/check_test_estate.py; }
@@ -314,7 +319,7 @@ do_backend_estate()  { "$PY" scripts/checks/check_test_estate.py; }
 # need every first-party module it imports off `sys.path` named to deptry by hand.
 do_backend_deps()    { ( cd fl_backend && "$PY" -m deptry . ); }
 do_backend_db() {
-  ( cd fl_backend && "$PY" -m pytest -m db -n auto --dist loadfile --maxprocesses "$GATE_WIDTH_DB_PYTEST" )
+  ( cd fl_backend && "$PY" -m pytest -m db -n auto --dist loadfile --maxprocesses "$GATE_WIDTH_DB_PYTEST" -o "faulthandler_timeout=${FAULTHANDLER_S}" )
 }
 do_frontend_db()     { ( cd fl_frontend && pnpm run test:db ); }
 

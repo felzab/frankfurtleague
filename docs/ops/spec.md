@@ -870,7 +870,10 @@ argument at the line it guards.
 **A failure is reported once the pool is done, never while it runs**, so a scope whose first check
 fails still costs its longest unit before saying so; what that buys is one mechanism for both
 levels, the alternative being a second per-unit join living beside the pool, and a green run — the
-common one — costs the same either way. **The pool ends its units rather than outliving them**
+common one — costs the same either way. **A unit silent past `scripts/gate/gate_pool.py :: STALL_S`
+is named while it runs and never ended or failed**: the outermost pool prints which unit, how long,
+and the end of its capture, nested pools' notices relayed through it, and a pytest step's capture
+carries the stalled case's stack (`scripts/gate/verify.sh :: FAULTHANDLER_S`). **The pool ends its units rather than outliving them**
 (`scripts/gate/gate_pool.py :: terminate`), down to the build a unit was waiting on. **On Windows,
 where no signal reaches a gate past its launching shell, the job object `scripts/gate/gate_watch.py`
 holds does the same**: every process the gate started ends once the gate ends, an interrupt
