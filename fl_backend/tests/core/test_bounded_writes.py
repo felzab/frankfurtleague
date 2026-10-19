@@ -202,9 +202,7 @@ JUDGED_BESIDE_THE_ANCHOR: dict[str, frozenset[str]] = {
     "find_booking_refusal": frozenset({"app/api/spiele/admin_router.py :: judge"}),
     # The fixture confirmation's answer judges a proposal and books nothing, so it has nothing to anchor: no
     # rival's write set takes a fixture this write never touches.
-    "find_clash_refusal": frozenset(
-        {"app/api/spiele/admin_router.py :: judge", "app/api/spielbestaetigungen/router.py :: judge"}
-    ),
+    "find_clash_refusal": frozenset({"app/api/spiele/admin_router.py :: judge", "app/api/spielbestaetigungen/router.py :: judge"}),
     "find_references_to_anchor": frozenset({"app/api/spiele/admin_router.py :: judge"}),
     "find_new_bookings": frozenset(
         {"app/api/spiele/services.py :: find_booking_refusal", "app/api/spiele/services.py :: find_references_to_anchor"}
