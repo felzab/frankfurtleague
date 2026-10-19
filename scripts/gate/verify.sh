@@ -68,7 +68,7 @@ fi
 # still reaches its verdict, and says which guarantee it lacks.
 UNWATCHED=""
 join_the_job() {
-  local python said="" fd ancestor="$PPID"
+  local python said="" registry="" fd ancestor="$PPID"
   local -a watched
   if [[ "$OSTYPE" != msys && "$OSTYPE" != cygwin ]]; then return 0; fi
   python="$(any_python || true)"
@@ -85,9 +85,11 @@ join_the_job() {
   done
   # `exec`, so no bash of the substitution's own carries the ERR trap a crashed watcher would fire.
   exec {fd}< <(exec "$python" scripts/gate/gate_watch.py "${watched[@]}")
-  read -r -u "$fd" said || true
+  IFS=$'\t' read -r -u "$fd" said registry || true
   exec {fd}<&-
-  if [[ "$said" != armed ]]; then UNWATCHED="scripts/gate/gate_watch.py did not arm, its own words above"; fi
+  if [[ "$said" != armed ]]; then UNWATCHED="scripts/gate/gate_watch.py did not arm, its own words above"; return 0; fi
+  # Inherited by every pool this run starts, at any depth (`scripts/gate/gate_pool.py :: POOLS`).
+  export FL_GATE_POOLS="$registry"
 }
 # Before anything starts a process, which would start outside the job; at the top level alone, whose
 # workers and steps are inside it.

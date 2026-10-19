@@ -57,6 +57,10 @@ STALL_TAIL_LINES: Final = 100
 # relaying them: a nested pool's own stderr is a capture nobody reads until the run ends.
 NOTICES: Final = "FL_GATE_NOTICES"
 
+# The file a watched Windows gate's pools append their pids to, which its stop spares until their
+# units have ended (`scripts/gate/gate_watch.py :: wind_down`); unset everywhere else.
+POOLS: Final = "FL_GATE_POOLS"
+
 ASSIGNMENT: Final = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
 
@@ -287,6 +291,17 @@ def notice_route(pool: Pool) -> tuple[Callable[[bytes], None], Path | None]:
     return emit, relay
 
 
+def announce() -> None:
+    """Name this pool where a stop reads it, before any unit starts.
+
+    Bytes, one whole line per append (`.claude/CLAUDE.md` §6).
+    """
+    registry = os.environ.get(POOLS)
+    if registry:
+        with Path(registry).open("ab") as pools:
+            pools.write(f"{os.getpid()}\n".encode("ascii"))
+
+
 def stop_on_signal(number: int, frame: FrameType | None) -> None:
     """Turn a SIGTERM into an unwind in the main thread, which is where the units are stopped.
 
@@ -365,6 +380,7 @@ def main() -> int:
         started=time.monotonic(),
     )
 
+    announce()
     watched = threading.Event()
     arm(pool, watched)
     sink, relay = notice_route(pool)

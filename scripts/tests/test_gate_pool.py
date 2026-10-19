@@ -411,6 +411,23 @@ def test_a_unit_writing_nothing_past_the_bound_is_named_with_what_it_last_wrote(
     assert [(row[0], row[1]) for row in _rows(tmp_path)] == [("hushed", "0")]
 
 
+# Exits 0 only where its pool had named itself before starting it.
+ANNOUNCED: Final = "import os, sys; from pathlib import Path; sys.exit(0 if Path(os.environ['FL_GATE_POOLS']).read_bytes() else 9)"
+
+
+def test_a_pool_names_itself_where_a_stop_reads_it_before_any_unit_starts(tmp_path: Path) -> None:
+    """A Windows stop spares the pools named there, so a unit started first could see its pool ended under it."""
+    registry = tmp_path / "pools"
+    registry.write_bytes(b"")
+    named = f"os.environ[gate_pool.POOLS] = {str(registry)!r}"
+    result = _drive(
+        (*STALLING, named, "print(os.getpid(), flush=True)", f"run_pool(('unit', (sys.executable, '-c', {ANNOUNCED!r})))"), tmp_path
+    )
+    assert result.returncode == 0, result.stderr
+    assert [(row[0], row[1]) for row in _rows(tmp_path)] == [("unit", "0")], "the unit started before its pool named itself"
+    assert registry.read_bytes() == result.stdout.strip().encode("ascii") + b"\n"
+
+
 def test_a_unit_still_writing_is_never_named_however_long_it_runs(tmp_path: Path) -> None:
     """Silence and not age: an age bound names every slow build and teaches the reader to skip the line."""
     script = tmp_path / "moving.py"

@@ -877,8 +877,11 @@ carries the stalled case's stack (`scripts/gate/verify.sh :: FAULTHANDLER_S`). *
 (`scripts/gate/gate_pool.py :: terminate`), down to the build a unit was waiting on. **On Windows,
 where no signal reaches a gate past its launching shell, the job object `scripts/gate/gate_watch.py`
 holds does the same**: every process the gate started ends once the gate ends, an interrupt
-included, or once whatever started the gate does
-(`scripts/tests/test_gate_stop.py :: test_stopping_the_gate_ends_every_tool_it_started`).
+included, or once whatever started the gate does. That stop is a POSIX group's: each shell takes
+SIGTERM and runs its trap, each pool outlives its units, and only what is still running after
+`scripts/gate/gate_watch.py :: GRACE_S` is ended outright, the gate saying so
+(`scripts/tests/test_gate_stop.py :: test_stopping_the_gate_ends_every_tool_it_started`, which also
+finds nothing the traps reclaim left behind).
 
 **`next typegen` goes first and alone** because it writes the route types under
 `fl_frontend/.next/types/` and `fl_frontend/next-env.d.ts` that `tsc` reads: without them a
