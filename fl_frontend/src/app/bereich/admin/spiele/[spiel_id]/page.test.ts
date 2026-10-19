@@ -82,9 +82,10 @@ describe("the match editor's freshness across a prefetch", () => {
     assert.ok(shell.includes('role="status"'), "the prefetched render holds no loader where the editor will stand");
   });
 
-  it("opens on the fixture as stored at the opening, after an earlier opening and a prefetch", async () => {
+  /* Each opening is a render of its own here, so this holds what the server serves a second opening; what the client
+     router keeps of a first one is the case below. */
+  it("opens on the fixture as stored at each opening, keyed to that state", async () => {
     const before = await opened();
-    await prefetched();
     stored = MOVED;
 
     const after = await opened();
