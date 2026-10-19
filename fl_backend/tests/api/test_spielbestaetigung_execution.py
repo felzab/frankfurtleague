@@ -30,6 +30,7 @@ from app.api.spielbestaetigungen.services import (
     ANSETZUNG_GESPERRT,
     ANSETZUNG_NAME_IN_BEGRUENDUNG,
     ANSETZUNG_TOKEN_UNKNOWN,
+    ANSETZUNG_VORSCHLAG_VERGANGEN,
 )
 from app.api.spiele.services import ELIGIBILITY_DISQUALIFIED, FIXTURE_DOUBLE_BOOKED, FIXTURE_OUTSIDE_SPIELTAG
 from app.api.teams.schemas import KONTAKT_ROLLEN
@@ -847,3 +848,45 @@ class TestTwoSeatsPressingAtOnce:
         # The premise: the write conflicted and the press was judged afresh. Whether the judgement or the write's filter
         # then refuses it, both answer the same code.
         assert judged == 2
+
+
+class TestAProposalOfAPastDayIsRefusedThroughTheRoute:
+    def test_yesterday_inside_the_matchday_writes_nothing(self, mongo_replica_set_url: str):
+        """A deadline of today, as a fixture inside the notice period is minted with.
+
+        The matchday's span admits yesterday, so this rule alone refuses it.
+        """
+
+        today = "2027-05-12"
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            outcome = await outcome_of(ablehnen(database, client, token(TEAM1, "trainer"), ("2027-05-11", "18:00:00"), today=today))
+
+            return outcome, await row_now(database, ROW1)
+
+        outcome, row = on_a_fixture(
+            mongo_replica_set_url, body, rows=[{**confirmation(ROW1, TEAM1), "frist": today}, confirmation(ROW2, TEAM2)]
+        )
+
+        assert outcome == ANSETZUNG_VORSCHLAG_VERGANGEN
+        assert row["antwort"] is None
+
+
+class TestADiscardedDeclineIsNoProposalInFrontOfTheOtherClub:
+    def test_the_other_link_opens_as_asked_once_the_decline_is_closed(self, mongo_replica_set_url: str):
+        """Closed `verworfen`, which keeps the decline's proposal stored: a read blind to the close serves a discarded date."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ablehnen(database, client, token(TEAM1, "trainer"), ("2027-05-15", "17:00:00"))
+            standing = await ansicht(database, token(TEAM2, "trainer"))
+            await database[Collection.SPIELBESTAETIGUNGEN].update_one(
+                {"_id": ROW1}, {"$set": {"geschlossen": {"am": TODAY, "grund": "verworfen"}}}
+            )
+
+            return standing, await ansicht(database, token(TEAM2, "trainer"))
+
+        standing, discarded = on_a_fixture(mongo_replica_set_url, body)
+
+        # The premise: while the decline stood, the other club's link opened on its proposal.
+        assert (standing.zustand, standing.vorschlag is not None) == ("vorschlag", True)
+        assert (discarded.zustand, discarded.vorschlag) == ("gueltig", None)
