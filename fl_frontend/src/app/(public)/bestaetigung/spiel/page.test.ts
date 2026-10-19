@@ -34,6 +34,7 @@ const TOKEN = "kein-echtes-token";
 
 /** The view as the backend serves it, every field filled whatever the state: the page is what narrows it. */
 const ANSICHT = {
+  acknowledged: 1,
   zustand: "gueltig",
   seite: "team1",
   ansetzung: {

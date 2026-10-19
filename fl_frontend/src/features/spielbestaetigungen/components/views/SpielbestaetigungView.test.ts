@@ -32,6 +32,7 @@ const TOKEN = "abc123";
 
 /** The fixture as the view serves it: the reader's club is the guest. */
 const ANSICHT = {
+  acknowledged: 1,
   zustand: "gueltig",
   seite: "team2",
   ansetzung: {

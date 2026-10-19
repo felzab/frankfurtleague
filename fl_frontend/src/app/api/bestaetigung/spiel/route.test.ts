@@ -36,6 +36,7 @@ const WRITE_OPERATION = "POST /spielbestaetigungen";
 
 /** The view of a link the other seat of the club already answered. */
 const BEANTWORTET = {
+  acknowledged: 1,
   zustand: "zugesagt",
   seite: "team1",
   ansetzung: { team1_name: "FC Alpha", team2_name: "Lessing-Kolleg", datum: "2026-11-07", uhrzeit: "14:30:00", spielort: null },
@@ -46,6 +47,7 @@ const BEANTWORTET = {
 
 /** What the write answers: everything the view would, the seat that pressed among it. */
 const GESCHRIEBEN = {
+  acknowledged: 1,
   zustand: "abgelehnt",
   beantwortet_von: { art: "kontakt", rolle: "ansprechperson" },
   vorschlag: { datum: "2026-11-14", uhrzeit: "16:00:00" },

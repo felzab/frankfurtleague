@@ -41,9 +41,6 @@ import type { SpielbestaetigungLinkZustand } from "@/features/spielbestaetigunge
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { CalendarDate, Time } from "@internationalized/date";
 
-/** The route this form posts to, and the one `fl_frontend/src/shared/utils/publicSubmit.test.ts :: FORMS` names it by. */
-export const SPIELBESTAETIGUNG_ROUTE = "/api/bestaetigung/spiel";
-
 /** The disclosure's trigger, which the page's own sentence about a proposal names. */
 export const ANDEREN_TERMIN_VORSCHLAGEN = "Anderen Termin vorschlagen";
 
@@ -118,7 +115,7 @@ export function SpielbestaetigungFormPanel({
   const verlassen = (paths: readonly string[]) => validatePaths("antwort", vorschlagPayload(token, entwurf), paths);
 
   const sende = async (payload: FLSpielbestaetigungAntwortPayload): Promise<void> => {
-    const gesendet = await postPublicForm<SpielbestaetigungAntwort>(SPIELBESTAETIGUNG_ROUTE, payload);
+    const gesendet = await postPublicForm<SpielbestaetigungAntwort>("/api/bestaetigung/spiel", payload);
 
     if (!gesendet.answered) {
       // No one title is true across both, the edge refusing the REQUEST ruling the write out where an
