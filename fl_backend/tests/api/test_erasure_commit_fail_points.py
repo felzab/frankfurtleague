@@ -44,6 +44,9 @@ from .test_schiedsrichter_sweep_execution import MINTED_TO_LAPSE_YESTERDAY, a_re
 from .test_schiedsrichter_sweep_execution import numbered as referee_numbered
 from .test_schiedsrichter_sweep_execution import on_a_league as on_the_referees_league
 from .test_schiedsrichter_sweep_execution import sweep as an_address_change_call
+from .test_spielbestaetigung_sweep_execution import NEXT_WEEK, SPIEL, angefragt, fixture, rows
+from .test_spielbestaetigung_sweep_execution import on_a_league as on_the_confirmations_league
+from .test_spielbestaetigung_sweep_execution import sweep as a_confirmation_pass
 
 # The client a configuration hits, chosen by its name: the commits of every other client, each seed's own among them,
 # run as they would.
@@ -386,5 +389,53 @@ class TestTheSweepsNameACommitTheyCannotRead:
                 UNKNOWN_OUTCOME,
                 f"Database deadline passed at the lapsed address change of referee {referee_numbered(1)}, its removal unanswered: "
                 "the call stops, and the rest stay due",
+            )
+        ]
+
+
+@pytest.mark.db
+class TestTheConfirmationPassNamesAMintItCannotRead:
+    """The driver's own lost answer, a `WTimeoutError` whose label the driver adds and the server's reply never carries.
+
+    The sweep sheet's stand-in carries it in the reply, so a judge reading the reply rather than `has_error_label` passes there alone.
+    """
+
+    def test_the_mints_rows_stand_unmailed_and_the_line_names_them(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """The close's notices committed first, so the pass answers them rather than raising (`docs/backend/spec.md :: I753`)."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_confirmation_pass(database, client)
+            await angefragt(database, client, [row["_id"] for row in await rows(database)])
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
+            commits = _Commits()
+            losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
+            # The close's commit passes; the mint's, the next one this client sends, lands and loses its answer.
+            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"skip": 1}, data=UNANSWERED)
+            try:
+                answer = await a_confirmation_pass(losing[database.name], losing)
+            finally:
+                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
+                await losing.close()
+
+            return commits.answered, answer, await rows(database, geschlossen=None)
+
+        with caplog.at_level(logging.WARNING):
+            commits, answer, standing = on_the_confirmations_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        # The premise first: the close committed, and the mint's commit landed with its answer lost.
+        assert commits == [None, MAX_TIME_EXPIRED]
+        assert (len(answer.neue_ansetzungen), len(answer.schiedsrichter_neue_ansetzungen)) == (2, 1)
+        assert (answer.anfragen, answer.einteilungen) == ([], [])
+        # Each side's fresh row and the referee's, about the moved Ansetzung, none recorded as sent.
+        assert sorted((row["partei"]["art"], row["ansetzung"]["uhrzeit"], row["angefragt_am"]) for row in standing) == [
+            ("schiedsrichter", "19:00:00", None),
+            ("team", "19:00:00", None),
+            ("team", "19:00:00", None),
+        ]
+        assert _stopping_lines(caplog) == [
+            (
+                UNKNOWN_OUTCOME,
+                f"The mint clock's commit went unanswered after the call committed messages it owes: the rows minted for fixture(s) {SPIEL} "
+                "may have been written with nobody told, the call answers what else committed, and the rest stay due",
             )
         ]
