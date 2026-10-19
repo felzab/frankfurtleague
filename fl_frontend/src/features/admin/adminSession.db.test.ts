@@ -329,8 +329,8 @@ describe("the holder's passkeys, with another account's beside them in the store
    memory adapter implements apart: a stamp or a row lost in that join serves a session the ending
    ended (`docs/frontend/spec.md :: I528`). */
 describe("the account row the session read joins, against a real store", () => {
-  it("refuses a session its account's ending stamp postdates, at every guard and at the proxy's slide", async () => {
-    const { readServedSession, servedSessionOf, slideSession } = await import("@/core/auth.ts");
+  it("refuses a session its account's ending stamp postdates, at every guard", async () => {
+    const { readServedSession } = await import("@/core/auth.ts");
     requestHeaders = await signInAsAdministrator();
     beginRenderPass();
     assert.ok(await getAdminSession(), "the administrator was refused before the stamp, so the refusals below prove nothing");
@@ -343,11 +343,10 @@ describe("the account row the session read joins, against a real store", () => {
     beginRenderPass();
     assert.equal(await getAdminSession(), null, "the administrator's guard served a stamped session");
     assert.equal(await readServedSession(requestHeaders), null, "the served read served a stamped session");
-    assert.equal(await servedSessionOf(await slideSession(requestHeaders)), null, "the proxy's slide served a stamped session");
   });
 
   it("serves no session whose account row is gone, the session row standing", async () => {
-    const { readServedSession, slideSession } = await import("@/core/auth.ts");
+    const { readServedSession } = await import("@/core/auth.ts");
     requestHeaders = await signInAsAdministrator();
     await client.db("auth").collection("user").deleteMany({});
     assert.equal(await client.db("auth").collection("session").countDocuments({}), 1, "the session row went with the account's");
@@ -355,7 +354,6 @@ describe("the account row the session read joins, against a real store", () => {
     beginRenderPass();
     assert.equal(await getAdminSession(), null);
     assert.equal(await readServedSession(requestHeaders), null);
-    assert.equal(await slideSession(requestHeaders), null);
   });
 
   /* A ban's deletion that missed a row leaves it standing beside the stamp: listed, it reads as

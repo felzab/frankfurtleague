@@ -242,7 +242,6 @@ const {
   readAdmittedSession,
   readServedSession,
   requestAccountDeletion,
-  slideSession,
 } = await import("./auth.ts");
 const { buildCodeEmail, CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
 const { holdsOwnersTier } = await import("./verwaltung.ts");
@@ -463,13 +462,12 @@ describe("what the mounted HTTP surface answers", () => {
   it("still gives the guards in process the account, the stamps they compare and the row's id, and nothing else", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
 
-    for (const body of [await readServedSession(new Headers({ ...ORIGIN, cookie })), await slideSession(new Headers({ ...ORIGIN, cookie }))]) {
-      assert.ok(body);
-      assert.deepEqual(Object.keys(body).sort(), ["session", "user"]);
-      assert.deepEqual(Object.keys(body.user).sort(), ["email", "id", "sessionsEndedAt"]);
-      assert.deepEqual(Object.keys(body.session).sort(), ["adminLapsed", "authFactor", "createdAt", "id", "passkeyCredentialId", "updatedAt"]);
-      assert.ok(!JSON.stringify(body).includes(row.token), "the served session carries the cookie's own value");
-    }
+    const body = await readServedSession(new Headers({ ...ORIGIN, cookie }));
+    assert.ok(body);
+    assert.deepEqual(Object.keys(body).sort(), ["session", "user"]);
+    assert.deepEqual(Object.keys(body.user).sort(), ["email", "id", "sessionsEndedAt"]);
+    assert.deepEqual(Object.keys(body.session).sort(), ["adminLapsed", "authFactor", "createdAt", "id", "passkeyCredentialId", "updatedAt"]);
+    assert.ok(!JSON.stringify(body).includes(row.token), "the served session carries the cookie's own value");
   });
 
   /* The hole the allowlist exists for: a holder of the mailbox alone reaches a code-borne session,
@@ -581,38 +579,6 @@ describe("what the narrowed session still gives the guards", () => {
     arriveAs(cookie);
 
     assert.equal((await getAdminSession())?.user.email, ADMIN_EMAIL);
-  });
-
-  it("keeps the session token out of the copy the proxy inspects, which the read widens rather than filters", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    madeByPasskey(store, row);
-
-    const inspected = await slideSession(new Headers({ ...ORIGIN, cookie }));
-    assert.ok(inspected, "the proxy's read served no session, so the case proves nothing");
-    assert.ok(!JSON.stringify(inspected).includes(row.token), "the cookie's value reaches the object the proxy inspects");
-  });
-
-  it("gives the proxy the same verdict the page guard reaches", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    madeByPasskey(store, row);
-    arriveAs(cookie);
-
-    const answer = await proxy(new NextRequest("http://localhost:3000/bereich/admin/spiele", { headers: { cookie } }));
-
-    assert.equal(answer.headers.get("location"), null, "the proxy turned away a session `getAdminSession` admits");
-    assert.ok(await getAdminSession());
-  });
-
-  it("turns the proxy away on the same session the page guard refuses", async () => {
-    const { cookie } = await signIn(ADMIN_EMAIL);
-    arriveAs(cookie);
-
-    const answer = await proxy(new NextRequest("http://localhost:3000/bereich/admin/spiele", { headers: { cookie } }));
-
-    // The landing rather than the public root: it is the one place that decides where a refused
-    // session belongs, and `fl_frontend/src/proxy.test.ts` holds the pair to not bouncing a caller.
-    assert.equal(new URL(answer.headers.get("location") ?? "http://x/none").pathname, "/signin/weiter");
-    assert.equal(await getAdminSession(), null);
   });
 });
 
@@ -1232,7 +1198,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
   });
 
   /* The landing re-spelled the guard's conditions once, so a third one added to the guard would land a
-     granted session on a `/bereich` that sends it on to an `/bereich/admin` the proxy bounces. */
+     granted session on a `/bereich` that sends it on to an `/bereich/admin` whose guard bounces it. */
   it("lands a granted session on `/bereich` exactly where the guard admits it, over the same seeded rows", async (t) => {
     t.after(() => BACKENDS.delete(ADMIN_EMAIL));
     const { cookie, row } = await signIn(ADMIN_EMAIL);
@@ -1266,7 +1232,7 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
 /* A sign-in racing its passkey's removal inserts its session after the removal's sign-out ran, naming a
    credential no passkey holds (`docs/frontend/spec.md :: I313`): the state the race leaves, driven directly. */
 describe("a passkey session whose passkey is gone", () => {
-  it("serves an administrator's no guard and the proxy none, serves it again with its row, and the landing ends it", async () => {
+  it("serves an administrator's no guard, serves it again with its row, and the landing ends it", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     store.passkey.length = 0;
@@ -1275,8 +1241,6 @@ describe("a passkey session whose passkey is gone", () => {
     assert.equal(await getAdminSession(), null);
     assert.equal(await getKontoSession(), null);
     assert.equal(await getPasskeyStep(), null);
-    const turned = await proxy(new NextRequest("http://localhost:3000/bereich/admin/spiele", { headers: { cookie } }));
-    assert.ok(turned.headers.get("location")?.endsWith("/signin"), "the proxy let a session through whose passkey is gone");
 
     // The control: the same session with its passkey's row standing.
     madeByPasskey(store, row);
