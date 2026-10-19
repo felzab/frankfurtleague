@@ -49,10 +49,6 @@ ANSETZUNG_QUELLEN: Final[Mapping[str, str]] = {
     "team2_id": "team2.team_id",
 }
 
-# The request and the two reminders: every link a seat was mailed answers until the deadline, so a
-# reminder appends its hash and the oldest one cannot fall off before the row closes.
-TOKEN_HASHES_PER_SEAT: Final = 3
-
 
 def _read_path(document: Mapping[str, Any], path: str) -> Any:
     value: Any = document
@@ -740,20 +736,24 @@ def erinnerung_tage(*, today: str) -> list[str]:
     return [days_after(day=today, days=tage) for tage in (SPIEL_ERINNERUNG_TAGE_ERSTE, SPIEL_ERINNERUNG_TAGE_ZWEITE)]
 
 
-def build_erinnerung_filter(*, saison_id: str, today: str, minted: Sequence[Any]) -> dict[str, Any]:
-    """The season's open team rows owed a message: a reminder due today, or a request never stamped as sent (`docs/backend/spec.md :: I781`).
+def build_erinnerung_filter(*, saison_id: str, today: str, inserted: Sequence[Any]) -> dict[str, Any]:
+    """The season's open rows owed a message: a team row's reminder due today, or an unstamped request (`docs/backend/spec.md :: I781`).
 
-    Never a row minted by this pass, nor reminded on its request's day (`:: I782`).
+    Never a row this pass inserted, nor reminded on its request's day (`:: I782`); asked again until its deadline.
     """
 
     return {
         "saison_id": saison_id,
-        "partei.art": "team",
         **build_answerable_filter(),
-        "_id": {"$nin": list(minted)},
+        "_id": {"$nin": list(inserted)},
         "$or": [
-            {"angefragt_am": None},
-            {"frist": {"$in": erinnerung_tage(today=today)}, "erinnert_am": {"$ne": today}, "angefragt_am": {"$ne": today}},
+            {"angefragt_am": None, "frist": {"$gte": today}},
+            {
+                "partei.art": "team",
+                "frist": {"$in": erinnerung_tage(today=today)},
+                "erinnert_am": {"$ne": today},
+                "angefragt_am": {"$ne": today},
+            },
         ],
     }
 
@@ -761,12 +761,10 @@ def build_erinnerung_filter(*, saison_id: str, today: str, minted: Sequence[Any]
 def compose_erinnerung_update(*, hashes: Mapping[str, str], today: str, erinnert: bool) -> dict[str, Any]:
     """Each seat's fresh hash appended beside the ones already mailed, and with `erinnert` the day a reminder went.
 
-    Appended, never replacing: every link a seat was mailed answers until the deadline. A request asked again marks no day.
+    Never capped: a request asked again while its stamp is lost mailed a link too (`docs/backend/spec.md :: I752`).
     """
 
-    pushed: dict[str, Any] = {
-        f"kontakte.{seat}.token_hashes": {"$each": [token_hash], "$slice": -TOKEN_HASHES_PER_SEAT} for seat, token_hash in hashes.items()
-    }
+    pushed: dict[str, Any] = {f"kontakte.{seat}.token_hashes": token_hash for seat, token_hash in hashes.items()}
 
     return {"$push": {**pushed, "erinnert_am": today} if erinnert else pushed}
 

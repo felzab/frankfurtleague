@@ -274,7 +274,7 @@ class FLSpielbestaetigungSweepAnfrage(BaseModel):
 
 
 class FLSpielbestaetigungSweepEinteilung(BaseModel):
-    """A referee row just minted: the referee is told to the panel, with no token."""
+    """A referee row just minted, or one no stamp records as told: the referee is told to the panel, with no token."""
 
     spielbestaetigung_id: CustomObjectId
     spiel_id: CustomObjectId
