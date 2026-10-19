@@ -981,6 +981,9 @@ def _may_match(value: Any, condition: Any) -> bool:
             return False
         if isinstance(value, _Typed):
             return issubclass(value.kind, wanted)
+        # A document written there is neither null nor a string, so it moves the row out of the index.
+        if isinstance(value, _Literal):
+            return False
         return isinstance(value, wanted) if plain else True
 
     # An equality, which a missing field meets only where it asks for null.
