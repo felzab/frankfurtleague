@@ -36,6 +36,7 @@ from app.api.spielbestaetigungen.services import (
     build_answerable_filter,
     build_closable_filter,
     build_erinnerung_filter,
+    build_held_filter,
     compose_closing_update,
     compose_erinnerung_update,
     compose_seats_update,
@@ -268,7 +269,8 @@ async def sweep_spielbestaetigungen(
 
     The mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and
     ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for
-    its booked referee, unless a row about that party and that Ansetzung is still unclosed. A fixture booked onto the erased
+    its booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `verworfen`: a
+    decline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased
     referee's ghost gets no referee row, the ghost holding no address. The deadline is seven days before the fixture, or
     today where that has passed. Each seat holding an address gets one link, a person holding two seats one link naming
     both, and the raw tokens are answered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so
@@ -448,17 +450,17 @@ async def sweep_spielbestaetigungen(
         if not spiele:
             return [], [], 0
 
-        unclosed = await pull_many_from_db(
+        holding = await pull_many_from_db(
             collection=spielbestaetigungen_collection,
-            db_filter={"saison_id": saison_id, "spiel_id": {"$in": [spiel["_id"] for spiel in spiele]}, **build_closable_filter()},
+            db_filter=build_held_filter(saison_id=saison_id, spiel_ids=[spiel["_id"] for spiel in spiele]),
             limit=LIST_LIMIT_MAX + 1,
             session=session,
         )
         # A cut read would mint a second row for a party that already answered: raised, so the failure
         # halves the page (`app/core/transactions.py :: isolate`) until each half's rows fit one read.
-        if len(unclosed) > LIST_LIMIT_MAX:
-            raise ValueError(f"season {saison_id}'s window holds more unclosed confirmations than one read answers")
-        held = {(row["spiel_id"], partei_key(row["partei"]), row["ansetzung"]["stand"]): row for row in unclosed}
+        if len(holding) > LIST_LIMIT_MAX:
+            raise ValueError(f"season {saison_id}'s window holds more held confirmations than one read answers")
+        held = {(row["spiel_id"], partei_key(row["partei"]), row["ansetzung"]["stand"]): row for row in holding}
 
         junctions = await _junctions(
             saison_teams_collection=saison_teams_collection,
@@ -504,8 +506,8 @@ async def sweep_spielbestaetigungen(
                 kontakte = junctions[partei["team_id"]].get("kontakte")
                 if existing is None:
                     seats: list[str] = list(KONTAKT_ROLLEN)
-                # An answered row, or one past its deadline, takes no link: its next press is refused.
-                elif existing.get("antwort") is None and today <= existing["frist"]:
+                # An answered or closed row, or one past its deadline, takes no link: its next press is refused.
+                elif existing.get("antwort") is None and existing.get("geschlossen") is None and today <= existing["frist"]:
                     entries = existing.get("kontakte") or {}
                     seats = [seat for seat in KONTAKT_ROLLEN if entries.get(seat) is None]
                 else:

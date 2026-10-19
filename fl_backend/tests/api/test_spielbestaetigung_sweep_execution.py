@@ -17,11 +17,14 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAntwortPayload,
     FLSpielbestaetigungSweepAngefragtPayload,
     FLSpielbestaetigungSweepResponse,
+    FLSpielbestaetigungTermin,
 )
 from app.api.spielbestaetigungen.services import (
     ANSETZUNG_BEANTWORTET,
     ANSETZUNG_GESCHLOSSEN,
     build_token_filter,
+    compose_antwort_update,
+    compose_closing_update,
     compose_spielbestaetigung,
     seat_holding,
 )
@@ -458,6 +461,38 @@ class TestAFixtureCalledOffAndReinstatedIsAskedAgain:
         assert (abgesagt.geschlossen, abgesagt.anfragen) == (3, [])
         assert (len(reinstated.anfragen), len(reinstated.einteilungen)) == (2, 1)
         assert Counter((row["geschlossen"] or {}).get("grund") for row in stored) == {"abgesagt": 3, None: 3}
+
+
+class TestADiscardedDeclineIsNotAskedAgain:
+    """`docs/backend/spec.md :: I768`: a club declines once per Ansetzung, so the decline the administrator discarded is its answer."""
+
+    def test_the_declining_club_is_asked_nothing_until_the_fixture_moves(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            # The discard's write as it closes the declining club's own row, its decline standing.
+            declined = {
+                "$set": {
+                    **compose_antwort_update(
+                        antwort="abgelehnt",
+                        seat="trainer",
+                        vorschlag=FLSpielbestaetigungTermin(datum=days_after(day=NEXT_WEEK, days=1), uhrzeit="18:00:00"),
+                        begruendung="Klassenfahrt",
+                        today=TODAY,
+                    )["$set"],
+                    **compose_closing_update(grund="verworfen", today=TODAY)["$set"],
+                }
+            }
+            await database[Collection.SPIELBESTAETIGUNGEN].update_one({"partei.team_id": BETA}, declined)
+            discarded = await sweep(database, client)
+            await move(database, client, SPIEL, uhrzeit="19:00:00")
+            moved = await sweep(database, client)
+
+            return discarded, moved
+
+        discarded, moved = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        assert (discarded.anfragen, discarded.einteilungen) == ([], [])
+        assert sorted(anfrage.seite for anfrage in moved.anfragen) == ["team1", "team2"]
 
 
 class TestAMovedFixtureAsksAgain:
