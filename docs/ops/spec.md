@@ -886,7 +886,10 @@ SIGTERM and runs its trap, each pool outlives its units, and only what is still 
 (`scripts/tests/test_gate_stop.py :: test_stopping_the_gate_ends_every_tool_it_started`, which also
 finds nothing the traps reclaim left behind). A console's Ctrl-C is the same stop: the watcher takes it,
 a shell with no console of its own never seeing one, and the gate exits as an interrupt
-(`:: test_an_interrupt_ends_every_tool_and_leaves_nothing_behind`). **A run nothing can watch keeps
+(`:: test_an_interrupt_ends_every_tool_and_leaves_nothing_behind`). A launcher that holds its children
+in a job ended with it, as node does a shell it starts directly, ends the gate outright, no trap
+running; started through Git's own `bin\bash.exe`, as a harness starts Git Bash, the shell leaves
+that job and the stop stays a group's. **A run nothing can watch keeps
 none of this**: with no interpreter at the checkers' floor, or a watcher that did not arm, a stop
 leaves what the run started running, and the run says so where it announces its scopes
 (`scripts/gate/verify.sh :: join_the_job`).
