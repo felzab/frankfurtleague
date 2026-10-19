@@ -42,6 +42,7 @@ from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.plans import plans_of_sent_reads
 from tests.worker import worker_database
@@ -934,3 +935,62 @@ class TestADiscardedDeclineIsNoProposalInFrontOfTheOtherClub:
         # The premise: while the decline stood, the other club's link opened on its proposal.
         assert (standing.zustand, standing.vorschlag is not None) == ("vorschlag", True)
         assert (discarded.zustand, discarded.vorschlag) == ("gueltig", None)
+
+
+# The answering Trainer's address, and the clock their erasure stamps its redactions with.
+IDA = "ida@example.com"
+ERASED_AT = datetime(2027, 5, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+
+
+class ConfirmationsRunningARivalBeforeTheFirstFanOut(InterleavedCollection):
+    """The confirmations an erasure writes, a rival run once ahead of its first fan-out, the void of the person's seats."""
+
+    async def update_many(self, *args: Any, **kwargs: Any) -> Any:
+        await self.run_the_rival()
+        return await self._collection.update_many(*args, **kwargs)
+
+
+class TestAnAnswerAndItsWritersErasureCross:
+    """`docs/backend/spec.md :: I783`: the answer writes its row and the erasure voids the writer's entry on it, so one retries.
+
+    Neither anchors the address: a holder digest stored under an erasure's snapshot would stand until the season's end.
+    """
+
+    def test_an_erasure_landing_inside_the_answer_leaves_the_link_dead_and_nothing_stored(self, mongo_replica_set_url: str):
+        """The answer run again finds no seat holding its link: the void took it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def erase_the_trainer() -> None:
+                await erased(database, client, IDA, germany_now=ERASED_AT)
+
+            confirmations = ConfirmationsRunningARivalBeforeTheWrite(database[Collection.SPIELBESTAETIGUNGEN], erase_the_trainer)
+            outcome = await outcome_of(
+                ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON, spielbestaetigungen=confirmations)
+            )
+
+            return outcome, confirmations.passes, await row_now(database, ROW1)
+
+        outcome, passes, row = on_a_fixture(mongo_replica_set_url, body)
+
+        # The premise: the erasure ran once, inside the answer's transaction, ahead of its write.
+        assert passes == 1
+        assert (outcome, row["antwort"], row["kontakte"]["trainer"]) == (ANSETZUNG_TOKEN_UNKNOWN, None, None)
+
+    def test_an_answer_landing_inside_the_erasure_has_its_reason_and_digest_taken(self, mongo_replica_set_url: str):
+        """The erasure run again finds the digest the answer stored, and nulls it with the reason; the way and the role stay."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def answer_as_the_trainer() -> None:
+                await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
+
+            confirmations = ConfirmationsRunningARivalBeforeTheFirstFanOut(database[Collection.SPIELBESTAETIGUNGEN], answer_as_the_trainer)
+            await erased(database, client, IDA, germany_now=ERASED_AT, spielbestaetigungen_collection=confirmations)
+
+            return confirmations, await row_now(database, ROW1)
+
+        confirmations, row = on_a_fixture(mongo_replica_set_url, body)
+
+        # Serially, the erasure's void and its reasons' write: a third arrival is the void run again after the conflict.
+        confirmations.assert_landed_inside(serially=2)
+        assert (row["antwort"]["art"], row["antwort"]["von"]) == ("abgelehnt", {"art": "kontakt", "rolle": "trainer", "halter": None})
+        assert (row["antwort"]["begruendung"], row["kontakte"]["trainer"]) == (None, None)
