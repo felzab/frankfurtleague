@@ -285,7 +285,6 @@ describe("a club's answer to a fixture confirmation link", () => {
     ["REQ-ANSETZUNG-007", "vorschlag.datum"],
     ["REQ-DATE-001", "vorschlag.datum"],
     ["REQ-ELIGIBILITY-001", "vorschlag.datum"],
-    ["REQ-ANSETZUNG-012", "begruendung"],
   ] as const) {
     it(`puts ${code} on ${feld}, keeping the form`, async () => {
       schreibAntwort = () => refusedOn(WRITE_OPERATION, code);

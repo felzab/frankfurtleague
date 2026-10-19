@@ -26,9 +26,11 @@ const fetchMock = doubleFetch();
 const { SpielbestaetigungView } = await import("./SpielbestaetigungView.tsx");
 const { ANDEREN_TERMIN_VORSCHLAGEN } = await import("./SpielbestaetigungFormPanel.tsx");
 const { LinkUnlesbar } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
-const { NAME_IN_BEGRUENDUNG } = await import("@/features/spielbestaetigungen/utils.ts");
 
 const TOKEN = "abc123";
+
+/** The route's words for a proposal before today (`REQ-ANSETZUNG-007`), on the date box. */
+const IN_DER_VERGANGENHEIT = "Dieses Datum liegt in der Vergangenheit.";
 
 /** The fixture as the view serves it: the reader's club is the guest. */
 const ANSICHT = {
@@ -321,8 +323,8 @@ describe("what a refused press does to the page", () => {
   });
 
   /* A refusal of the proposal spends nothing: it lands on the box that caused it, and the typed proposal stays. */
-  it("marks the reason box with the name refusal, keeping the form", async () => {
-    answerEveryFetch({ success: false, fieldErrors: { begruendung: NAME_IN_BEGRUENDUNG } });
+  it("marks the date box with the past-date refusal, keeping the form", async () => {
+    answerEveryFetch({ success: false, fieldErrors: { "vorschlag.datum": IN_DER_VERGANGENHEIT } });
     const user = userEvent.setup();
 
     render(h(SpielbestaetigungView, { start: OFFEN }));
@@ -330,7 +332,7 @@ describe("what a refused press does to the page", () => {
     await user.click(screen.getByRole("button", { name: /Vorschlag senden/ }));
     await act(fetchMock.answered);
 
-    await waitFor(() => assert.ok(screen.getByText(NAME_IN_BEGRUENDUNG), "the reason box shows no refusal"));
+    await waitFor(() => assert.ok(screen.getByText(IN_DER_VERGANGENHEIT), "the date box shows no refusal"));
     assert.ok(screen.getByRole("button", { name: /Vorschlag senden/ }), "the form went with a refusal that spends nothing");
     assert.equal(screen.getByRole<HTMLInputElement>("textbox", { name: /Begründung/ }).value, "Kein Platz", "the typed reason went");
     assert.equal(

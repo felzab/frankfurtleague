@@ -32,9 +32,6 @@ export type SpielbestaetigungRefusal = {
   nachlesen?: true;
 };
 
-/** The name refusal on the reason box, on the erasure reason's pattern: the sentence names no matched person. */
-export const NAME_IN_BEGRUENDUNG = "Die Begründung enthält ein Wort, das dem Namen einer beteiligten Person gleicht.";
-
 /**
  * A refused read as the panel it renders, or `null` where the read failed instead.
  *
@@ -98,8 +95,6 @@ export function mapAnsetzungRefusal(error: unknown): SpielbestaetigungRefusal | 
           repair: `Schlag einen anderen Tag vor, oder eine Uhrzeit mit mindestens ${CLASH_BUFFER_TEXT} Abstand`,
         }),
       };
-    case "REQ-ANSETZUNG-012":
-      return { fieldErrors: { begruendung: NAME_IN_BEGRUENDUNG } };
     default:
       return null;
   }
