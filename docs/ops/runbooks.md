@@ -1617,9 +1617,22 @@ the switch still off. Its deletions are re-derived rather than replayed: it jour
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I691), so the steps below never list them.
 
 **Before restoring, switch `SPIEL_SWEEP` off as well (§9), and on again only once every step below
-is done:** a pass against the restored state asks again about every fixture whose request the
-snapshot predates, mailing teams already asked a fresh link while the links they hold answer
-nothing.
+is done:** the restore brings back every seat holder and referee erased since the snapshot, still
+seated or booked and holding their address, and a pass before their erasure runs again below mails
+them a request or a booking.
+
+**Switched on again, it asks once more about what the window asked**, the restore having taken back
+every confirmation row minted and every answer given since the snapshot:
+
+- **A request mailed inside the window** names a row that is gone, so its link answers nothing; the
+  first pass mints the fixture again and mails a fresh request.
+- **An answer given inside the window** is gone, and the fixture reads unconfirmed again. The link
+  of a first request mailed before the snapshot answers again; a reminder's mailed inside the
+  window does not.
+
+Write to each club mailed inside the window, which the mail provider's list of sent messages names
+by subject, that a link from those days answers nothing and an answer given then is to be given
+again.
 
 **The action log cannot be the list, because the restore rolls it back too; the erasure journal is.**
 Everything written between the snapshot and the restore is gone, the log's own rows about it
