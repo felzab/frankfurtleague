@@ -151,6 +151,7 @@ const REGISTER: readonly Benannt[] = [
       "features/funktionen/components/ui/TeamForbiddenPanel.tsx",
       `${META_VIEWS}/DatenschutzView.tsx`,
       "core/kontaktEmail.ts",
+      "core/spielEmail.ts",
       "features/auth/components/ui/SignedInCard.tsx",
       "app/bereich/(persoenlich)/not-found.tsx",
     ],
@@ -173,6 +174,8 @@ const REGISTER: readonly Benannt[] = [
     FOOTER,
     `${META_PAGES}/organisation/page.tsx`,
     `${META_VIEWS}/MetaOrganisationView.tsx`,
+    `${META_VIEWS}/DatenschutzView.tsx`,
+    "features/meta/constants.ts",
   ]),
   seitenName("KONTAKT_TITEL", KONTAKT_TITEL, "/kontakt", [
     TOP_NAV,
