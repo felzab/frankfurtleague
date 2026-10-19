@@ -572,7 +572,7 @@ def a_confirmation(saison_id: str, oid: ObjectId) -> dict[str, Any]:
 
 class TestAnUndrawTakesTheSeasonsConfirmations:
     def test_the_seasons_rows_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
-        """Drop the undraw's confirmation delete and this fails: a row would name a fixture no season holds any more."""
+        """Drop the undraw's confirmation delete and this fails: a row would name a fixture the undraw removed."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
             await call_draw(database, client)

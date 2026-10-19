@@ -115,9 +115,8 @@ export const FLSpielbestaetigungVorschlagPayloadSchema = FLSpielbestaetigungTerm
 export type FLSpielbestaetigungVorschlagPayload = z.infer<typeof FLSpielbestaetigungVorschlagPayloadSchema>;
 
 /**
- * One club's answer about one Ansetzung. Both optional parts are required keys holding null where unused, as the
- * endpoint requires them: a decline proposes a date, an acceptance carries neither. An empty reason reaches the
- * endpoint as the empty string, which it stores as none.
+ * One club's answer. Proposal and reason are required keys, null where unused, as the endpoint requires: a decline
+ * proposes a date, an acceptance carries neither. An empty reason is sent as is, and stored as none.
  */
 export const FLSpielbestaetigungAntwortPayloadSchema = z
   .object({
