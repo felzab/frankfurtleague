@@ -3,7 +3,7 @@ import inspect
 from collections.abc import Mapping
 from datetime import datetime
 from functools import partial
-from typing import Annotated, Any, Literal, Union, get_args, get_origin
+from typing import Annotated, Any, Literal, Union, cast, get_args, get_origin
 
 import pytest
 from bson import ObjectId
@@ -925,7 +925,8 @@ def stricter_than_the_validator(collection: Collection) -> dict[str, list[Any]]:
                 continue
 
             for _, field in declaring:
-                adapter = TypeAdapter(Annotated[field.annotation, *field.metadata] if field.metadata else field.annotation)
+                # A field's type read at run time, which no type expression spells, so the checker takes it as `Any`.
+                adapter = TypeAdapter(cast(Any, Annotated[field.annotation, *field.metadata] if field.metadata else field.annotation))
                 if bounds(adapter.core_schema):
                     found.setdefault(".".join((*path, key)), []).append(adapter.core_schema)
 
@@ -983,7 +984,8 @@ def nested_models(annotation: Any) -> set[type[BaseModel]]:
 
 
 def _field_schema(field: FieldInfo) -> Any:
-    return TypeAdapter(Annotated[field.annotation, *field.metadata] if field.metadata else field.annotation).core_schema
+    # A field's type read at run time, which no type expression spells, so the checker takes it as `Any`.
+    return TypeAdapter(cast(Any, Annotated[field.annotation, *field.metadata] if field.metadata else field.annotation)).core_schema
 
 
 def _stored(schema: Mapping[str, Any]) -> Any:

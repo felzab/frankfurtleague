@@ -11,23 +11,23 @@ dependencies = [
     "anyio>=4.15.1",
     "email-validator>=2.3.0",
     "fastapi>=0.145.0",
-    "pydantic>=2.13.4",
-    "pydantic-core>=2.46.4",
-    "pydantic-settings>=2.14.2",
+    "pydantic>=2.14.1",
+    "pydantic-core>=2.50.1",
+    "pydantic-settings>=2.16.0",
     # Imported as `jwt`. `[crypto]` because Ed25519 verification is `cryptography`'s: without the
     # extra, a key for `EdDSA` raises `MissingCryptographyError` on the first actor token.
-    "pyjwt[crypto]>=2.15.0",
+    "pyjwt[crypto]>=2.15.1",
     # The driver, through `AsyncMongoClient`. Also the home of `bson`, which app/ imports under
     # that name.
-    "pymongo>=4.17.0",
+    "pymongo>=4.19.0",
     # Imported as `dotenv`, for the parser pydantic-settings reads `.env` with: a refusal numbers an
     # undeclared name's line by it rather than printing the name the file spells.
     "python-dotenv>=1.2.4",
-    "starlette>=1.3.1",
+    "starlette>=1.8.0",
     # `ZoneInfo("Europe/Berlin")` in app/core/dependencies.py reads the operating system's time-zone
     # database. Windows has none at all and a slim image promises none, so this package is where the
     # zone comes from; without it that call raises `ZoneInfoNotFoundError`.
-    "tzdata>=2026.2",
+    "tzdata>=2026.5",
     # The container's entrypoint -- fl_backend/Dockerfile's CMD runs uvicorn itself, so no module
     # imports it and nothing else would declare it.
     #
@@ -38,7 +38,7 @@ dependencies = [
     # also carries packages this application does not use, watchfiles and websockets among them --
     # the alternative is hand-copying uvicorn's own platform markers for uvloop, which does not
     # build on Windows, and owning that copy forever.
-    "uvicorn[standard]>=0.52.1",
+    "uvicorn[standard]>=0.54.0",
 ]
 
 [dependency-groups]
@@ -49,14 +49,14 @@ dev = [
     # environment's backend entry point. A developer command, never the container's: the
     # Dockerfile's `uv sync --no-dev` leaves this group -- and the typer/rich console stack under
     # it -- out of the image.
-    "fastapi-cli>=0.0.27",
+    "fastapi-cli>=0.0.32",
     # `starlette.testclient` imports `httpx2` and reaches `httpx` only under
     # `StarletteDeprecationWarning`. The API tests import both that client and this package's own
     # `ASGITransport`, so they fail at collection without it. No module in app/ touches it.
-    "httpx2>=2.12.0",
+    "httpx2>=2.13.1",
     # `[nodejs]`: the wrapper takes nodejs-wheel's Node ahead of a PATH node or a nodeenv download,
     # so the lockfile pins the Node pyright runs on. Why the gate runs pyright at all: `[tool.pyright]`.
-    "pyright[nodejs]>=1.1.406",
+    "pyright[nodejs]>=1.1.414",
     # Starts a real mongod for the `db`-marked tests. Only those tests import it, and
     # they are deselected by default, so a normal `pytest` run never loads it or touches Docker.
     "testcontainers[mongodb]>=4.15.0",
@@ -66,7 +66,7 @@ dev = [
     "pytest-xdist>=3.8.0",
     # Lints the workflows for what actionlint leaves alone; a Rust binary shipped as a wheel, so it
     # comes through the lockfile like every other checker.
-    "zizmor>=1.30.0",
+    "zizmor>=1.31.1",
     # The documentation gate's Markdown reader (`scripts/checks/docs_gate/kernel.py`): CommonMark
     # decides which blocks and spans a page shows as code, rather than patterns kept by hand.
     # Run by the docs and scripts scopes: the `docs` and `scripts` jobs of
