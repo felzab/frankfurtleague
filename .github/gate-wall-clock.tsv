@@ -962,6 +962,20 @@
 # bounds, the runner's own registry round trips unmeasured. The row carries `-` for its reference, so
 # the check moves no figure and answers to the budget alone; the budget does not move.
 #
+# `frontend` is re-cut from the 16 first attempts of pushes to main since its unit tests became the
+# `frontend-units` jobs, 2026-09-24 to 2026-10-19: median 108 s, widest 176 s, so 220 s by the rule
+# above, the reference staying `-` under twenty-four runs. The budget is the cold job's, as `format`'s
+# is. Each of the seven runs whose lockfile differed from the run before it restored no Next cache
+# and no pnpm verdict, and spanned 83-176 s; the five since the 145 s budget spanned 132-176 s, four
+# of them past it. Its Next cache is keyed on the lockfile as Next's own CI guide keys it, and main
+# reads no cache a pull request wrote, so the first push after a dependency change builds and
+# verifies cold: `next build`, after the pool, 24-36 s against 3.7-6.1 s from an exact key, and the
+# toolchain 18-40 s against 13-19 s. tsc's cold 22-48 s runs inside the pool beside eslint, which a
+# runner never caches (`docs/ops/spec.md` §1.6) and which took 25-86 s across the population. The
+# first run of a pull request with warm caches, 39308852735 on 2026-10-19, spanned 156 s: a slow-class
+# runner (knip 5.6 s, the fast class reading 3.0-3.9 s) and a source change large enough that tsc
+# re-checked for 51 s and the build took 27 s from a prefix restore.
+#
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
 # reference was re-stamped from the one population it reads, and `--base` refuses a total floor that
@@ -975,7 +989,7 @@ backend	78	21	105	24@2026-10-07/37627541547
 db	113	7	160	24@2026-10-07/37627541547
 docs	42	8	60	24@2026-10-07/37627541547
 format	-	-	70	3@2026-09-26
-frontend	-	-	145	3@2026-09-26
+frontend	-	-	220	16@2026-10-19
 frontend-units (1)	156	5	205	24@2026-10-07/37627541547
 frontend-units (2)	132	4	205	24@2026-10-07/37627541547
 frontend-units (3)	139	11	205	24@2026-10-07/37627541547
