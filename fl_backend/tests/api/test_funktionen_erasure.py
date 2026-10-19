@@ -67,6 +67,7 @@ from tests.documents import (
     saison_team_document,
     schiedsrichter_document,
     spiel_document,
+    spielbestaetigung_document,
     spieler_document,
     team_document,
 )
@@ -264,28 +265,20 @@ async def the_one(database: AsyncDatabase, collection: Collection, db_filter: Ma
 
 
 def a_confirmation(row_id: ObjectId, partei: dict[str, Any], *, spiel_id: ObjectId, saison_id: str = SAISON_ID) -> dict[str, Any]:
-    """An open, unanswered row, as the sweep mints one."""
+    """An open, unanswered row, as the sweep mints one; a referee's holds no seats."""
 
-    return {
-        "_id": row_id,
-        "saison_id": saison_id,
-        "spiel_id": spiel_id,
-        "partei": partei,
-        "ansetzung": {
-            "datum": "2026-03-15",
-            "uhrzeit": "14:00:00",
-            "spielort_id": None,
-            "team1_id": HOME_TEAM_OID,
-            "team2_id": OTHER_TEAM_OID,
-            "stand": "d" * 64,
-        },
-        "frist": "2026-03-08",
-        "angefragt_am": "2026-03-01",
-        "erinnert_am": [],
-        "kontakte": None,
-        "antwort": None,
-        "geschlossen": None,
-    }
+    spiel = spiel_document(
+        spiel_id=spiel_id,
+        saison_id=saison_id,
+        spiel_nr=1,
+        spieltag_id=SPIELTAG_OID,
+        datum="2026-03-15",
+        uhrzeit="14:00:00",
+        team1={"team_id": HOME_TEAM_OID},
+        team2={"team_id": OTHER_TEAM_OID},
+    )
+
+    return spielbestaetigung_document(spiel, partei=partei, _id=row_id, frist="2026-03-08", angefragt_am="2026-03-01", kontakte=None)
 
 
 def a_referee(schiedsrichter_id: ObjectId) -> dict[str, Any]:

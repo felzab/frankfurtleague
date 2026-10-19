@@ -20,7 +20,7 @@ from bson import ObjectId
 from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
-from app.api.spielbestaetigungen.services import compose_ansetzung
+from app.api.spielbestaetigungen.services import compose_ansetzung, halter_of
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from tests.config import build_test_config
@@ -151,6 +151,19 @@ def spielbestaetigung_document(spiel: Mapping[str, Any], *, partei: Mapping[str,
         "kontakte": dict.fromkeys(KONTAKT_ROLLEN),
         "antwort": None,
         "geschlossen": None,
+        **fields,
+    }
+
+
+def kontakt_antwort_document(rolle: str, adresse: str, *, begruendung: str | None, am: str = "2026-04-01", **fields: Any) -> dict[str, Any]:
+    """A seat's decline as its link stores it, proposing another date; its holder the digest of `adresse`, the answer's own fold."""
+
+    return {
+        "art": "abgelehnt",
+        "am": am,
+        "von": {"art": "kontakt", "rolle": rolle, "halter": halter_of(adresse)},
+        "vorschlag": {"datum": "2026-04-25", "uhrzeit": "14:00:00"},
+        "begruendung": begruendung,
         **fields,
     }
 

@@ -25,10 +25,9 @@ from app.api.kontakte.services import (
     same_address,
     seat_image_edits,
 )
-from app.api.spielbestaetigungen.services import compose_ansetzung
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLSaisonTeamKontakte
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, patch_one_in_db
+from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_one_in_db
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import CustomEmail
@@ -1419,23 +1418,33 @@ def an_extra_row(position: int) -> ObjectId:
     return ObjectId(f"6890a1b2c3d4e5f6079{position:05d}")
 
 
+def a_fixture_of(team_id: ObjectId, *, saison_id: str = LATER_SAISON, spiel_nr: int = 1) -> dict[str, Any]:
+    """A fixture of this team's, never stored: a confirmation row is composed from it as the mint composes one."""
+
+    side = {"team_id": team_id, "name": "Adler", "shorthand": "AD", "tore": None}
+
+    return documents.spiel_document(
+        spiel_id=ObjectId(),
+        saison_id=saison_id,
+        spiel_nr=spiel_nr,
+        spieltag_id=None,
+        datum="2026-04-18",
+        uhrzeit="14:00:00",
+        team1=side,
+        team2=side,
+    )
+
+
 def an_open_confirmation(team_id: ObjectId) -> dict[str, Any]:
     """The row's team asked about a fixture and not yet answered, each seat holding the link it was mailed."""
 
-    fixture = {"datum": "2026-04-18", "uhrzeit": "14:00:00", "ort": None, "team1": {"team_id": team_id}, "team2": {"team_id": team_id}}
-
-    return {
-        "saison_id": LATER_SAISON,
-        "spiel_id": ObjectId(),
-        "partei": {"art": "team", "team_id": team_id},
-        "ansetzung": compose_ansetzung(fixture),
-        "frist": "2026-04-11",
-        "angefragt_am": "2026-04-01",
-        "erinnert_am": [],
-        "kontakte": {seat: {"token_hashes": [hash_token(f"{team_id}-{seat}")], "zustellung": None} for seat in KONTAKT_ROLLEN},
-        "antwort": None,
-        "geschlossen": None,
-    }
+    return documents.spielbestaetigung_document(
+        a_fixture_of(team_id),
+        partei={"art": "team", "team_id": team_id},
+        frist="2026-04-11",
+        angefragt_am="2026-04-01",
+        kontakte={seat: {"token_hashes": [hash_token(f"{team_id}-{seat}")], "zustellung": None} for seat in KONTAKT_ROLLEN},
+    )
 
 
 @pytest.mark.db
@@ -1461,3 +1470,67 @@ def test_each_row_the_erasure_clears_costs_the_commands_counted_for_it(mongo_rep
     few, more = counted(EXTRA_ROWS), counted(2 * EXTRA_ROWS)
 
     assert (more - few) / EXTRA_ROWS == COMMANDS_A_CLEARED_ROW
+
+
+def a_reason_of_theirs(saison_id: str = LATER_SAISON) -> dict[str, Any]:
+    """A row the erased person declined with a reason, closed since; no seat they hold now need be the one it was typed from."""
+
+    return documents.spielbestaetigung_document(
+        a_fixture_of(TEAM_A_OID, saison_id=saison_id),
+        partei={"art": "team", "team_id": TEAM_A_OID},
+        antwort=documents.kontakt_antwort_document("trainer", ERASED_EMAIL, begruendung="Wir sind auf Klassenfahrt"),
+        geschlossen={"am": "2026-04-02", "grund": "ansetzung_geaendert"},
+    )
+
+
+def a_bystanders_row(saison_id: str) -> dict[str, Any]:
+    return documents.spielbestaetigung_document(a_fixture_of(TEAM_B_OID, saison_id=saison_id), partei={"art": "team", "team_id": TEAM_B_OID})
+
+
+# The images of the person's reasons the driver answers in its first batch: a read past it costs a `getMore`.
+IMAGES_A_FIRST_BATCH = 101
+
+
+@pytest.mark.db
+def test_the_images_of_their_reasons_cost_one_read_more_past_the_first_batch_and_no_write_more(mongo_replica_set_url: str):
+    """The reason step's fixed cost grows with the person's history here alone; a write per row or per image would show as more."""
+
+    def counted(images: int) -> int:
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> int:
+            rows = [a_reason_of_theirs() for _ in range(images)]
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(rows)
+            # A write after each answer files the row's image, the reason and its holder in it.
+            for row in rows:
+                await patch_one_in_db(
+                    collection=database[Collection.SPIELBESTAETIGUNGEN],
+                    db_filter={"_id": row["_id"]},
+                    update={"$set": {"erinnert_am": ["2026-04-03"]}},
+                    return_document=ReturnDocument.BEFORE,
+                )
+
+            return await commands_sent(mongo_replica_set_url, DATABASE_NAME, call_erasure)
+
+        return on_a_league(mongo_replica_set_url, body)
+
+    assert counted(2 * IMAGES_A_FIRST_BATCH) - counted(IMAGES_A_FIRST_BATCH - 1) == 1
+
+
+@pytest.mark.db
+def test_each_distinct_place_of_theirs_in_an_undraws_image_costs_one_write(mongo_replica_set_url: str):
+    """An undraw's removal holds its rows as an array, and an image edit's path names the element, so one write per distinct path set."""
+
+    def counted(places: list[int]) -> int:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
+            collection = database[Collection.SPIELBESTAETIGUNGEN]
+            for undraw, place in enumerate(places):
+                saison_id = f"27{undraw:02d}"
+                # Inserted in order, so theirs is the removal's element at `place`.
+                await collection.insert_many([*(a_bystanders_row(saison_id) for _ in range(place)), a_reason_of_theirs(saison_id)])
+                async with client.start_session() as session:
+                    await delete_many_from_db(collection=collection, db_filter={"saison_id": saison_id}, session=session)
+
+            return await commands_sent(mongo_replica_set_url, DATABASE_NAME, call_erasure)
+
+        return on_a_league(mongo_replica_set_url, body)
+
+    assert counted([0, 1, 2]) - counted([0, 0, 0]) == 2
