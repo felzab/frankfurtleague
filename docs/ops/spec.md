@@ -153,6 +153,18 @@ judging each pupil again in a transaction of their own
 ([`docs/backend/spec.md`](../backend/spec.md) I691). Its per-pass line is its record
 ([`runbooks.md`](runbooks.md) §9).
 
+**And the fixture confirmations, on a timer of their own under `SPIEL_SWEEP`.**
+`fl_frontend/src/instrumentation-node.ts :: registerOnNode` arms
+`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: armSpielSweep` under a production build
+with `SPIEL_SWEEP` on, off by default, on the same schedule, whatever any other switch reads
+([`docs/frontend/spec.md`](../frontend/spec.md) I740). Off is deliberate: the first armed passes
+mail every fixture of the running season inside the answer window, so a deploy never starts the
+league's fixture mail, and the switch alone stops it for every season at once. A pass mails before
+it stamps a first request and drops the fixtures cache after its last call
+([`docs/frontend/spec.md`](../frontend/spec.md) I741, I742). `GET /spielbestaetigungen/sweep`
+answers the day the last pass ran, and its per-pass line is its record
+([`runbooks.md`](runbooks.md) §9).
+
 **Note:** `API_VERSION` is a constant of the code rather than a setting
 ([`docs/backend/spec.md`](../backend/spec.md) §1.5), so bumping it is a code change — and the
 version is spelled again outside the code, at sites a commit does not all reach. §4 names the sites

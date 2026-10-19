@@ -110,7 +110,7 @@ class Internal:
 # Recorded rather than read off a refusing location alone: a refusal is a decision about one handler, and a
 # location that went on to forward it would otherwise read as the metered route the walk takes it for.
 INTERNAL: Final[tuple[Internal, ...]] = (
-    Internal("/api/revalidate", "the reference caches' invalidation, called over loopback by the hourly pass and an operator"),
+    Internal("/api/revalidate", "the reference caches' invalidation, called over loopback by the two hourly passes and an operator"),
 )
 
 
