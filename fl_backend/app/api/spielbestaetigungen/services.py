@@ -284,7 +284,7 @@ def first_press_refusal() -> WriteRefusal:
 def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage, today: str) -> WriteRefusal | None:
     """Why this row takes no answer now, or `None`: answered, closed unanswered, what the close would shut it for, then the deadline.
 
-    An answered row whose Ansetzung moved is `-002` here and `ungueltig` in `zustand_of`: the page re-reads the view on `-002`.
+    An answered row whose Ansetzung moved answers `-002` and reads `ungueltig`: the page re-reads the view on `-002`.
     """
 
     if spielbestaetigung_raw.get("antwort") is not None:

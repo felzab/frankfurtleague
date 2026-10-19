@@ -354,7 +354,7 @@ class TestTheLinkAndTheCloseReadOneVerdict:
     ):
         """Closed for the reason `grund_to_close` gives, the row reads as it did open: the next pass changes no page under its reader.
 
-        The close reaches an answered row too, so a move outranks its answer before the close as after it.
+        Answered rows too: the close reaches them.
         """
 
         situated = lage(**situation)
