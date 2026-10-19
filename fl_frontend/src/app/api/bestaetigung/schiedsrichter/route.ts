@@ -1,23 +1,21 @@
-import { nullUnlessContractBreak } from "@/core/errors";
-import { runAnsweringOwnCut } from "@/core/requestScope";
 import { postSchiedsrichterBestaetigung } from "@/features/schiedsrichter/mutations";
 import { getSchiedsrichterBestaetigungAnsicht, mapSchiedsrichterBestaetigungRefusal } from "@/features/schiedsrichter/queries";
 import { FLSchiedsrichterBestaetigungPayloadSchema } from "@/features/schiedsrichter/schemas";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { invalidatesOnWrite } from "@/shared/utils/adminMutation";
-import { handlePublicRequest } from "@/shared/utils/publicRoute";
+import { handlePublicRequest, readAfterRefusal } from "@/shared/utils/publicRoute";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type { GelesenerSchiedsrichterLink } from "@/features/schiedsrichter/queries";
 import type { NextRequest } from "next/server";
 
+const ROUTE_NAME = "postSchiedsrichterBestaetigung";
+
 // Never resolved in front of the mapper: a caller reading the view first spends a second backend read on
 // every refusal naming one state alone.
 /** This link's own view, for the refusals that name a floor or a state the view tells apart. A failed read is `null`. */
 async function ansichtFuerToken(token: string): Promise<GelesenerSchiedsrichterLink | null> {
-  // Under its own cut: the write was refused, so a deadline cutting this read is no unknown outcome. A contract break is
-  // no failed read, and reaches the spine's log.
-  return runAnsweringOwnCut(() => getSchiedsrichterBestaetigungAnsicht(token)).catch(nullUnlessContractBreak);
+  return readAfterRefusal(ROUTE_NAME, () => getSchiedsrichterBestaetigungAnsicht(token));
 }
 
 // A route handler and not a server action, for the reason `docs/frontend/spec.md` §1.3 gives.
@@ -28,7 +26,7 @@ async function ansichtFuerToken(token: string): Promise<GelesenerSchiedsrichterL
  */
 export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {
-    routeName: "postSchiedsrichterBestaetigung",
+    routeName: ROUTE_NAME,
     run: async () => {
       // Ahead of the fixture read joining this record, which will serve the referee's name by its scope:
       // the cached fixture list is dropped wherever the answer may stand, and nowhere a write was not sent.

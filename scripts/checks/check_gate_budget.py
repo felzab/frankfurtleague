@@ -310,18 +310,28 @@ def check_matrix_budgets(head: dict[str, Row]) -> list[Finding]:
 
 
 def check_raise(base: dict[str, Row] | None, head: dict[str, Row], today: date) -> list[Finding]:
-    """The file against its base: a rise carries a fresh stamp of enough runs, and a ceiling never vanishes.
+    """The file against its base: a rise carries a fresh stamp of enough runs, and no ceiling or comparison vanishes.
 
-    Lowering and deleting a row are free; a higher reference, floor or budget, or a dropped budget,
-    costs a measurement.
+    Lowering a figure and deleting a row are free; `-` in place of a figure is neither.
     """
     findings: list[Finding] = []
     findings += check_matrix_budgets(head)
     for job, row in head.items():
+        before = None if base is None else base.get(job)
+        # Not lowered but removed: `report_window` compares a row only as a reference beside a floor,
+        # so a `-` in either ends the comparison with nothing saying so.
+        if before is not None and before.seconds is not None and before.floor is not None and (row.seconds is None or row.floor is None):
+            findings.append(
+                Finding(
+                    "fail",
+                    f"`{job}`'s reference and floor ({before.seconds} s, {before.floor}%) became "
+                    f"({NONE if row.seconds is None else f'{row.seconds} s'}, {NONE if row.floor is None else f'{row.floor}%'}), "
+                    "which silences the report's comparison of it; no stamp justifies it",
+                )
+            )
         if job == TOTAL:
             findings += check_total_floor(base, head)
             continue
-        before = None if base is None else base.get(job)
         stamp_date = row.stamp_date
         if stamp_date is not None and stamp_date > today:
             findings.append(
@@ -577,9 +587,9 @@ SEED: Final = "gate-wall-clock"
 # a push to main only what earlier trees left unchanged, so only first attempts of pushes time them.
 TREE_KEYED: Final[frozenset[str]] = frozenset({"format", "frontend", "images"})
 
-# The header's `format` paragraph: that budget is the cold job's, and a population that happened
-# to restore the cache never lowers it.
-COLD_BUDGET: Final[frozenset[str]] = frozenset({"format"})
+# The header's `format` and `frontend` paragraphs: each budget is the cold job's, and a population
+# that happened to restore the cache never lowers it.
+COLD_BUDGET: Final[frozenset[str]] = frozenset({"format", "frontend"})
 
 # A matrix job's instance, as its `name:` template spells it in `.github/workflows/verify.yml`.
 INSTANCE: Final = re.compile(r"^(.+) \(([^()]+)\)$")
@@ -861,11 +871,23 @@ def stamp(
     summed = sum(row.seconds for job, row in proposed.items() if job != TOTAL and row.seconds is not None)
     total_floor = None
     named = {population_of(proposed[job]) for job in referenced}
+    before = rows.get(TOTAL)
+    base_referenced = sorted(job for job, row in rows.items() if job != TOTAL and row.seconds is not None and row.floor is not None)
     # The condition `check_total_floor` holds a committed total floor to, so a proposal never carries one it refuses.
     if referenced and all(job in draws for job in referenced) and len(named) == 1:
         # The report sums the referenced rows' window medians, so the total's floor is the same draws summed.
         total_floor = floor_of([sum(moves) for moves in zip(*(draws[job] for job in referenced), strict=True)], summed)
         lines.append(f"{TOTAL}: {summed} s, floor {total_floor}% over {', '.join(referenced)}")
+    elif (
+        before is not None
+        and before.seconds == summed
+        and referenced == base_referenced
+        and all(proposed[job] == rows[job] for job in referenced)
+    ):
+        # Seeded per row, the draws of rows left as they were are the draws the base's floor was cut
+        # from, so recomputing would give it back; `-` here would silence the whole-gate line.
+        total_floor = before.floor
+        lines.append(f"{TOTAL}: {summed} s, floor {NONE if total_floor is None else f'{total_floor}%'} kept -- no reference beside it moved")
     else:
         others = [job for job in referenced if job not in draws]
         why = (
@@ -876,7 +898,6 @@ def stamp(
             else ""
         )
         lines.append(f"{TOTAL}: {summed} s, floor {NONE}{why}")
-    before = rows.get(TOTAL)
     proposed[TOTAL] = Row(TOTAL, summed, total_floor, None if before is None else before.budget, None if before is None else before.measured)
     return proposed, lines, missed
 

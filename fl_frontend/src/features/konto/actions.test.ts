@@ -47,7 +47,7 @@ const store = memoryStore(STORE);
 
 // Imported here rather than at the top: a static import resolves before the hooks above are registered.
 const { endAndereAnmeldungenAction, endAnmeldungAction, sendeBestaetigungscodeAction } = await import("./actions.ts");
-const { KONTO_FORBIDDEN } = await import("@/shared/utils/kontoMutation.ts");
+const { ANMELDUNG_ABGELAUFEN } = await import("@/shared/utils/actionError.ts");
 const { readSicherheit } = await import("./sicherheit.ts");
 const { auth, getKontoSession } = await import("@/core/auth");
 const { PERSON_LIFETIME } = await import("@/core/sessionLifetimes");
@@ -396,7 +396,7 @@ describe("the step-up's code", () => {
     requestHeaders = new Headers(ORIGIN);
     const before = sent.length;
 
-    assert.deepEqual(await sendeBestaetigungscodeAction(), { success: false, error: KONTO_FORBIDDEN });
+    assert.deepEqual(await sendeBestaetigungscodeAction(), { success: false, error: ANMELDUNG_ABGELAUFEN });
     assert.equal(sent.length, before);
   });
 });

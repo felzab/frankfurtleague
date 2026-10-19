@@ -25,7 +25,7 @@ const { calls, answered, answerWith } = doubleActions({
 const { raised } = doubleToasts();
 const fetchMock = doubleFetch();
 
-const { KONTO_FORBIDDEN } = await import("@/shared/utils/kontoMutation.ts");
+const { ANMELDUNG_ABGELAUFEN } = await import("@/shared/utils/actionError.ts");
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { CodeConfirmation } = await import("./CodeConfirmation.tsx");
@@ -121,7 +121,7 @@ describe("the step-up's send", () => {
         mock.timers.tick(30_000);
       });
 
-      answerWith(() => Promise.resolve({ success: false, error: KONTO_FORBIDDEN }));
+      answerWith(() => Promise.resolve({ success: false, error: ANMELDUNG_ABGELAUFEN }));
       await act(async () => {
         fireEvent.click(screen.getByRole("button", { name: "Code erneut senden" }));
       });
@@ -133,7 +133,7 @@ describe("the step-up's send", () => {
     assert.ok(screen.queryByLabelText("Code aus der E-Mail"), "the refused resend took the code step down");
     assert.deepEqual(
       raised.map(({ title, description }) => ({ title, description })),
-      [{ title: "Code nicht gesendet", description: KONTO_FORBIDDEN }],
+      [{ title: "Code nicht gesendet", description: ANMELDUNG_ABGELAUFEN }],
     );
   });
 });

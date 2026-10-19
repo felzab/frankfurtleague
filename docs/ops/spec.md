@@ -863,8 +863,9 @@ answer for it.
 
 **Most scopes carry that shape one level down, through the same pool**, so a scope costs its
 slowest check rather than the sum; the format, frontend-units and ops scopes run theirs
-in place, and so does the database scope wherever other scopes run beside it, the frontend's
-db-tier files asserting the sign-in store's 3 s bounds. **A pool's own wiring is refused at 3 before anything runs**, each refusal carrying its
+in place, and the database scope runs its two as units one after the other wherever other scopes
+run beside it, the frontend's db-tier files asserting the sign-in store's 3 s bounds, so a stalled
+case's stack still reaches a notice. **A pool's own wiring is refused at 3 before anything runs**, each refusal carrying its
 argument at the line it guards.
 
 **A failure is reported once the pool is done, never while it runs**, so a scope whose first check
@@ -873,12 +874,25 @@ levels, the alternative being a second per-unit join living beside the pool, and
 common one — costs the same either way. **A unit silent past `scripts/gate/gate_pool.py :: STALL_S`
 is named while it runs and never ended or failed**: the outermost pool prints which unit, how long,
 and the end of its capture, nested pools' notices relayed through it, and a pytest step's capture
-carries the stalled case's stack (`scripts/gate/verify.sh :: FAULTHANDLER_S`). **The pool ends its units rather than outliving them**
+carries every thread's stack (`scripts/gate/verify.sh :: FAULTHANDLER_S`), the stalled thread's whole
+(`scripts/gate/gate_pool.py :: shown`). That names a synchronous case's stalled frame; an async
+case's suspended coroutine is on no thread, so its dump shows only the event loop. **The pool ends its units rather than outliving them**
 (`scripts/gate/gate_pool.py :: terminate`), down to the build a unit was waiting on. **On Windows,
 where no signal reaches a gate past its launching shell, the job object `scripts/gate/gate_watch.py`
 holds does the same**: every process the gate started ends once the gate ends, an interrupt
-included, or once whatever started the gate does
-(`scripts/tests/test_gate_stop.py :: test_stopping_the_gate_ends_every_tool_it_started`).
+included, or once whatever started the gate does. That stop is a POSIX group's: each shell takes
+SIGTERM and runs its trap, each pool outlives its units, and only what is still running after
+`scripts/gate/gate_watch.py :: GRACE_S` is ended outright, the gate saying so
+(`scripts/tests/test_gate_stop.py :: test_stopping_the_gate_ends_every_tool_it_started`, which also
+finds nothing the traps reclaim left behind). A console's Ctrl-C is the same stop: the watcher takes it,
+a shell with no console of its own never seeing one, and the gate exits as an interrupt
+(`:: test_an_interrupt_ends_every_tool_and_leaves_nothing_behind`). A launcher that holds its children
+in a job ended with it, as node does a shell it starts directly, ends the gate outright, no trap
+running; started through Git's own `bin\bash.exe`, as a harness starts Git Bash, the shell leaves
+that job and the stop stays a group's. **A run nothing can watch keeps
+none of this**: with no interpreter at the checkers' floor, or a watcher that did not arm, a stop
+leaves what the run started running, and the run says so where it announces its scopes
+(`scripts/gate/verify.sh :: join_the_job`).
 
 **`next typegen` goes first and alone** because it writes the route types under
 `fl_frontend/.next/types/` and `fl_frontend/next-env.d.ts` that `tsc` reads: without them a
@@ -1181,17 +1195,19 @@ being the layer cache's before it is the tree's — the table's header records t
 stamped runs show and declines to say which of them ran warm, and the Dockerfile change most worth
 catching is the one that empties that cache —
 so the median report is its only
-guard. `format`'s budget is the cold job's — a runner starts without prettier's cache wherever the
-lockfile or a stylesheet moves — so it is cut from the widest cold run on record rather than from
-the stamped main runs alone, most of which restored the cache.
+guard. `format`'s and `frontend`'s budgets are the cold job's — a runner starts without prettier's
+cache wherever the lockfile or a stylesheet moves, and without the Next cache and pnpm's lockfile
+verdict wherever the lockfile does — so each is cut from the widest cold run on record rather than
+from the stamped main runs alone, most of which restored the cache, and a re-stamp never lowers it
+(`scripts/checks/check_gate_budget.py :: COLD_BUDGET`).
 **Raising a budget, a reference or a floor costs a measurement.** In a pull request's `docs` job,
 `scripts/checks/check_gate_budget.py` under `--base` holds the file against the pull request's base and refuses a
 figure that rose on an unchanged stamp or on one dated before the stamp it replaces, any stamp dated
 after today, a new stamp counting fewer runs than the figures beside it need or naming a pull-request
 run for a job whose cache is keyed on the tree, a total floor that rose beside references not all
-re-stamped from one population, a matrix job's instances on unequal budgets, or a
-budget dropped to `-`; lowering is free, and so is deleting the row of a job the gate no longer
-runs. Every mode reads the table through `--reference`, so a copy is judged before it is committed
+re-stamped from one population, a matrix job's instances on unequal budgets, a
+budget dropped to `-`, or a reference or floor the report compared dropped to `-`, which silences
+that comparison; lowering is free, and so is deleting the row of a job the gate does not run. Every mode reads the table through `--reference`, so a copy is judged before it is committed
 and the checker's suite needs no repository of its own. What the ceiling cannot see is a slowdown that stays under it — a check costing seconds on a
 job with a minute of headroom — which the median report names after the fact and the `gate` clause
 in [`.claude/rules/ops.md`](../../.claude/rules/ops.md) forbids before it; the ceiling, the report
@@ -1217,7 +1233,9 @@ than prose** are `scripts/checks/docs_gate/platform.py` and
 clauses. PLAT-1: a Python read of the platform is a module-level UPPER_CASE `Final`, or an
 allowlist row. PLAT-2: no test under
 `scripts/checks/docs_gate/platform.py :: TEST_SCOPES` skips, returns early or exits on the platform. PLAT-3:
-every admitted constant is bound to both values somewhere in that same test corpus. PLAT-4: a
+every admitted constant, and every allowlisted read whatever its row's anchor, is bound to both values
+somewhere in that same test corpus, save a row whose reason opens with
+`scripts/checks/docs_gate/platform.py :: PLAT3_EXEMPT_LEAD` and says why no binding reaches its arms. PLAT-4: a
 platform word in the _code_ of a shell script under `scripts/checks/docs_gate/platform.py :: SHELL_SCOPES`
 or `.githooks/` is an allowlist row, where the same word in a comment is not one. The allowlist is
 `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`, keyed by a COR-6 anchor with the reason beside

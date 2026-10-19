@@ -653,12 +653,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`registrierungen.entscheidung.grund`) and a club's description (`teams.description`) are typed
   about others and keyed on no address, so no step reaches them: only a name could find them, and a
   name search would take a namesake's text with it. A club's reason for declining a fixture's date
-  (`spielbestaetigungen.antwort.begruendung`) goes with its own writer's erasure (above) and refuses
-  every name both clubs' contact seats and the booked referee hold
-  (`fl_backend/app/api/spielbestaetigungen/services.py :: beteiligte_namen`), and nobody else's: a
-  squad pupil named in it, the likeliest person a reason names, stays there past that pupil's
-  erasure until the season's contacts are cleared ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)).
-  Ruled 2026-10-19. The request an administrator's erasure answers
+  (`spielbestaetigungen.antwort.begruendung`) may name anyone, no name in it being checked; it goes
+  with its own writer's erasure (above), so a person it names, a squad pupil most likely, stays in it
+  past their own erasure until it is deleted with the season's contact data
+  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)); the reason box's hint asks for
+  no names, and nothing enforces it. Ruled 2026-10-19, the unchecked text 2026-10-20. The request an
+  administrator's erasure answers
   (`aktionen.anlass`) stands on every log row that erasure files, for the log's twelve months
   (`docs/backend/spec.md :: I683`, `:: I119`). It is refused where it holds an address
   (`fl_backend/app/api/identitaet/schemas.py :: refuse_an_address_in_the_anlass`) or a name of the

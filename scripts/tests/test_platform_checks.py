@@ -308,6 +308,18 @@ def test_a_constant_or_predicate_bound_to_one_value_alone_is_plat_3() -> None:
         assert (code, found) == (GREEN, []), found
 
 
+def test_a_row_anchored_on_its_line_owes_plat_3_unless_its_reason_says_no_binding_reaches() -> None:
+    """A module-level guard has no enclosing symbol, so a row on its line slipped PLAT-3 with nothing saying so."""
+    guard = ("", 'if sys.platform != "win32":', "    raise SystemExit(2)")
+    anchor = TOOL + ' :: if sys.platform != "win32":'
+    with _appended(TOOL, *guard):
+        code, found = _run(rows={anchor: "refuses to load off Windows"})
+        assert code == RED
+        assert _shape(found) == [(PLATFORM, TOOL, "PLAT-3"), (PLATFORM, TOOL, "PLAT-3")], found
+        code, found = _run(rows={anchor: "no test can bind both values: the other arm is the refusal itself"})
+        assert (code, found) == (GREEN, []), found
+
+
 def test_a_shell_token_in_code_is_plat_4_wherever_the_shell_is_read() -> None:
     """Every shell surface the clause reads, and each anchor a row may name: function, assigned name, step or message label, whole line."""
     with _appended(RUN_SH, "host() {", '  case "$(uname -s)" in', "    Linux) printf linux ;;", "  esac", "}"):

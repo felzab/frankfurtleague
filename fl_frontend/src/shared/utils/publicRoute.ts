@@ -1,9 +1,9 @@
 import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } from "@/core/errors";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, isContractBreak } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { requestWriteSent, requestWriteTags } from "@/core/requestScope";
+import { requestWriteSent, requestWriteTags, runAnsweringOwnCut } from "@/core/requestScope";
 
 import { isRuleRefusal, outcomeUnknown, refusedFailure } from "./actionError";
 import { UNHANDLED_FIELD_REFUSAL, UNKNOWN_REFUSAL } from "./refusal";
@@ -25,6 +25,29 @@ const FREMDE_HERKUNFT = `Diese Anfrage kam nicht von dieser Seite. ${UNKNOWN_REF
  * reader's sentence is the administrator's, about an entry they can open, and a public form has none.
  */
 export const SCHON_VORLIEGEND = "Diese Angaben liegen uns bereits vor.";
+
+/** A route's error line, carrying the codes a thrown API error holds. */
+function logRouteError(message: string, error: unknown): void {
+  const typed = error instanceof APIBadStatusError || error instanceof APINetworkError || error instanceof APIMalformedDataError;
+  logger.error(message, error, {
+    error_code: typed || error instanceof ApiUnsentError ? error.code : "FE-ACT-001",
+    server_error_code: error instanceof APIBadStatusError ? error.serverErrorCode : undefined,
+    status: error instanceof APIBadStatusError || error instanceof APIMalformedDataError ? error.statusCode : undefined,
+  });
+}
+
+/**
+ * A read after the backend REFUSED the write, `null` where it fails: the refusal settled the outcome, so neither a
+ * deadline cut nor a contract break may reach the spine as an unknown one. A break is logged here.
+ */
+export async function readAfterRefusal<T>(routeName: string, read: () => Promise<T>): Promise<T | null> {
+  try {
+    return await runAnsweringOwnCut(read);
+  } catch (error) {
+    if (isContractBreak(error)) logRouteError(`Public route read broke its contract after a refusal: ${routeName}`, error);
+    return null;
+  }
+}
 
 /**
  * The spine every UNAUTHENTICATED route handler shares. **Nothing here authorizes anything**: the
@@ -55,12 +78,7 @@ export async function handlePublicRequest<T extends { success: boolean }>(
     try {
       answer = await run();
     } catch (error) {
-      const typed = error instanceof APIBadStatusError || error instanceof APINetworkError || error instanceof APIMalformedDataError;
-      logger.error(`Public route failed: ${routeName}`, error, {
-        error_code: typed || error instanceof ApiUnsentError ? error.code : "FE-ACT-001",
-        server_error_code: error instanceof APIBadStatusError ? error.serverErrorCode : undefined,
-        status: error instanceof APIBadStatusError || error instanceof APIMalformedDataError ? error.statusCode : undefined,
-      });
+      logRouteError(`Public route failed: ${routeName}`, error);
 
       if (isRuleRefusal(error)) {
         // Any other code is a rule no mapper here words. Never the shared reader's reload: it discards the

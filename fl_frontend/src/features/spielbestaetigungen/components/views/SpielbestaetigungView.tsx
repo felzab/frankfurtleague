@@ -54,6 +54,7 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   zugesagt: "Schon erledigt",
   abgelehnt: "Schon erledigt",
   abgelaufen: "Link ungültig",
+  "termin-vorbei": "Link ungültig",
   ungueltig: "Link ungültig",
   unlesbar: LINK_UNLESBAR_TITEL,
 };
@@ -193,7 +194,7 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
       )}
 
       {/* One wording for both: a replaced link, a moved fixture and a passed deadline cannot be told apart
-          after the fact, and telling them apart would tell a guessed link that a row once existed. */}
+          after the fact. A day gone by can, and has the panel below. */}
       {(stand.zustand === "abgelaufen" || stand.zustand === "ungueltig") && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
@@ -202,6 +203,15 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
             Dieser Link ist ungültig oder abgelaufen. Wurde das Spiel verlegt, kommt eine neue E-Mail mit dem neuen Termin. Ist die Frist
             vorbei, legt die Verwaltung der Liga den Termin fest.
           </p>
+          <FrageStellen />
+        </BestaetigungErgebnis>
+      )}
+
+      {stand.zustand === "termin-vorbei" && (
+        <BestaetigungErgebnis
+          panelRef={ergebnisRef}
+          tone="hinweis">
+          <p className={ABSATZ_CLASSES}>Dieser Link ist abgelaufen: Der Spieltermin ist vorbei.</p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}

@@ -26,9 +26,11 @@ const fetchMock = doubleFetch();
 const { SpielbestaetigungView } = await import("./SpielbestaetigungView.tsx");
 const { ANDEREN_TERMIN_VORSCHLAGEN } = await import("./SpielbestaetigungFormPanel.tsx");
 const { LinkUnlesbar } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
-const { NAME_IN_BEGRUENDUNG } = await import("@/features/spielbestaetigungen/utils.ts");
 
 const TOKEN = "abc123";
+
+/** The route's words for a proposal before today (`REQ-ANSETZUNG-007`), on the date box. */
+const IN_DER_VERGANGENHEIT = "Dieses Datum liegt in der Vergangenheit.";
 
 /** The fixture as the view serves it: the reader's club is the guest. */
 const ANSICHT = {
@@ -61,6 +63,8 @@ const ZUGESAGT_VON_ANSPRECHPERSON: SpielbestaetigungStart = {
 };
 
 const DEAD = "Dieser Link ist ungültig oder abgelaufen.";
+
+const TERMIN_VORBEI = "Dieser Link ist abgelaufen: Der Spieltermin ist vorbei.";
 
 /**
  * The words on screen. Read across element boundaries so a marked name does not fuse with its
@@ -156,6 +160,16 @@ describe("the fixture confirmation page", () => {
     }
   });
 
+  /* A match already due has no date left for the league to set: the panel says the day went by, and nothing of the
+     deadline. */
+  it("says the fixture's day went by, and offers a question by mail, on a link to a match already due", () => {
+    const html = markup({ zustand: "termin-vorbei" });
+
+    assert.deepEqual(resultPanels(html), [`${TERMIN_VORBEI}Frage stellen`]);
+    assert.ok(html.includes(`href="mailto:${KONTAKT_EMAIL}"`), "the panel's button asks no question by mail");
+    assert.match(words(html), /^Link ungültig/);
+  });
+
   /* A seat names a role and never a person, and it is what tells the club's other two seats who answered. */
   it("names the seat that answered an answered link, and nothing of the fixture", () => {
     const shown = words(markup(ZUGESAGT_VON_ANSPRECHPERSON));
@@ -183,6 +197,7 @@ describe("the fixture confirmation page", () => {
         "Für dieses Spiel hat Dein Team den Termin schon abgesagt.",
       ],
       [{ zustand: "abgelaufen" }, DEAD],
+      [{ zustand: "termin-vorbei" }, TERMIN_VORBEI],
       [{ zustand: "ungueltig" }, DEAD],
       [{ zustand: "gesperrt" }, LINK_ADRESSE_GESPERRT],
       [{ zustand: "unlesbar" }, unlesbar],
@@ -279,6 +294,7 @@ describe("what a refused press does to the page", () => {
   for (const [zustand, ueberschrift, eigenes] of [
     ["ungueltig", "Link ungültig", DEAD],
     ["abgelaufen", "Link ungültig", DEAD],
+    ["termin-vorbei", "Link ungültig", TERMIN_VORBEI],
   ] as const) {
     it(`swaps the form for the ${zustand} panel`, async () => {
       answerEveryFetch({ success: false, zustand: zustand });
@@ -307,8 +323,8 @@ describe("what a refused press does to the page", () => {
   });
 
   /* A refusal of the proposal spends nothing: it lands on the box that caused it, and the typed proposal stays. */
-  it("marks the reason box with the name refusal, keeping the form", async () => {
-    answerEveryFetch({ success: false, fieldErrors: { begruendung: NAME_IN_BEGRUENDUNG } });
+  it("marks the date box with the past-date refusal, keeping the form", async () => {
+    answerEveryFetch({ success: false, fieldErrors: { "vorschlag.datum": IN_DER_VERGANGENHEIT } });
     const user = userEvent.setup();
 
     render(h(SpielbestaetigungView, { start: OFFEN }));
@@ -316,7 +332,7 @@ describe("what a refused press does to the page", () => {
     await user.click(screen.getByRole("button", { name: /Vorschlag senden/ }));
     await act(fetchMock.answered);
 
-    await waitFor(() => assert.ok(screen.getByText(NAME_IN_BEGRUENDUNG), "the reason box shows no refusal"));
+    await waitFor(() => assert.ok(screen.getByText(IN_DER_VERGANGENHEIT), "the date box shows no refusal"));
     assert.ok(screen.getByRole("button", { name: /Vorschlag senden/ }), "the form went with a refusal that spends nothing");
     assert.equal(screen.getByRole<HTMLInputElement>("textbox", { name: /Begründung/ }).value, "Kein Platz", "the typed reason went");
     assert.equal(

@@ -77,12 +77,20 @@ PLATFORM_ALLOW: Final[dict[str, str]] = {
     "scripts/gate/verify.sh :: POOL_BASH": "`cygpath -w` so a Windows python can launch the parent's own bash",
     "scripts/gate/verify.sh :: ops · nginx accepts prod.conf": "MSYS rewrites the container-side path of the nginx config mount",
     "scripts/gate/verify.sh :: join_the_job": "no signal reaches a Windows gate past its launching shell, so there the gate joins a job",
-    'scripts/gate/gate_watch.py :: if sys.platform != "win32":': "Windows' job API, read where pyright narrows its calls",
+    'scripts/gate/gate_watch.py :: if sys.platform != "win32":': (
+        "no test can bind both values: Windows' job API, read where pyright narrows its calls, and off Windows the module "
+        "refuses to load, which `scripts/tests/test_gate_stop.py :: "
+        "test_the_watcher_tells_an_ended_launcher_from_one_it_cannot_see_or_one_a_reused_pid_names` drives"
+    ),
     "scripts/ops/local.sh :: take_dump": "MSYS rewrites the container-side `/dump` mount",
     "scripts/ops/local.sh :: restore_dump": "MSYS rewrites `/dump` on the way into the container",
     "scripts/ops/local.sh :: dump_collections_seen": "MSYS rewrites `/dump` in the container-side find",
     ".githooks/pre-commit :: windows_path": "`cygpath -w`: neither `git hash-object` nor node can open an MSYS path",
 }
+
+# How a `PLATFORM_ALLOW` row whose arms no binding reaches says so, owing PLAT-3 nothing: on the row,
+# so the exemption is read where the read is excused and goes with it.
+PLAT3_EXEMPT_LEAD: Final = "no test can bind both values: "
 
 # Keyed like `PLATFORM_ALLOW`; the value is why the stream may translate.
 TEXT_WRITE_ALLOW: Final[dict[str, str]] = {}
@@ -251,7 +259,11 @@ def _site(rel: str, line: int, symbol: str, detail: str, source: Sequence[str]) 
 
 
 def _scan_module(rel: str, tree: ast.Module, source: Sequence[str], scan: _Scan, allow: Mapping[str, str]) -> None:
-    """PLAT-1 over one module: a predicate read outside the admitted shapes is a site."""
+    """PLAT-1 over one module: a predicate read outside the admitted shapes is a site.
+
+    A site any row shields owes PLAT-3 both values, whatever anchor the row uses, unless the row's
+    reason opens with `PLAT3_EXEMPT_LEAD`.
+    """
 
     def visit(node: ast.AST, scope: str) -> None:
         for child in ast.iter_child_nodes(node):
@@ -269,8 +281,10 @@ def _scan_module(rel: str, tree: ast.Module, source: Sequence[str], scan: _Scan,
             # a branch.
             if predicate is not None and not (isinstance(child, ast.Attribute) and isinstance(child.ctx, ast.Store)):
                 detail = f"PLAT-1: `{predicate}` read in `{symbol or rel}` -- bind the platform once as an UPPER_CASE Final, or allowlist it"
-                scan.sites.append(_site(rel, _line(child), symbol, detail, source))
-                if f"{rel} :: {symbol}" in allow:
+                site = _site(rel, _line(child), symbol, detail, source)
+                scan.sites.append(site)
+                row = _row_for(site, allow)
+                if row is not None and not allow[row].startswith(PLAT3_EXEMPT_LEAD):
                     scan.predicates.append((rel, predicate.removesuffix("()"), _line(child)))
             visit(child, symbol)
 

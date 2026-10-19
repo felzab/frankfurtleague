@@ -70,7 +70,7 @@ const sent = mail.sent;
 const { auth, getAdminSession } = await import("@/core/auth");
 const { readPasskeyStandAction, removePasskeyAction, renamePasskeyAction } = await import("./actions.ts");
 const { ENROLMENT_WINDOW_MS } = await import("@/core/sessionLifetimes");
-const { KONTO_FORBIDDEN } = await import("@/shared/utils/kontoMutation");
+const { ANMELDUNG_ABGELAUFEN } = await import("@/shared/utils/actionError");
 const { PASSKEY_NAME_MAX } = await import("./schemas.ts");
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -130,8 +130,8 @@ describe("the session a passkey action opens on", () => {
     seedPasskey(row.userId, "zwei");
     arriveAs(cookie);
 
-    assert.deepEqual(await removePasskeyAction(held.id), { success: false, error: KONTO_FORBIDDEN });
-    assert.deepEqual(await renamePasskeyAction(held.id, "Mein Schlüssel"), { success: false, error: KONTO_FORBIDDEN });
+    assert.deepEqual(await removePasskeyAction(held.id), { success: false, error: ANMELDUNG_ABGELAUFEN });
+    assert.deepEqual(await renamePasskeyAction(held.id, "Mein Schlüssel"), { success: false, error: ANMELDUNG_ABGELAUFEN });
     assert.equal(store.passkey.length, 2);
     assert.equal(Reflect.get(held, "name"), undefined);
   });

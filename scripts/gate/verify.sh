@@ -67,8 +67,9 @@ fi
 # `scripts/gate/gate_watch.py` ends with the gate or anything that started it. Unwatched, the run
 # still reaches its verdict, and says which guarantee it lacks.
 UNWATCHED=""
+POOLS_REGISTRY=""
 join_the_job() {
-  local python said="" fd ancestor="$PPID"
+  local python said="" registry="" fd ancestor="$PPID"
   local -a watched
   if [[ "$OSTYPE" != msys && "$OSTYPE" != cygwin ]]; then return 0; fi
   python="$(any_python || true)"
@@ -85,9 +86,14 @@ join_the_job() {
   done
   # `exec`, so no bash of the substitution's own carries the ERR trap a crashed watcher would fire.
   exec {fd}< <(exec "$python" scripts/gate/gate_watch.py "${watched[@]}")
-  read -r -u "$fd" said || true
+  IFS=$'\t' read -r -u "$fd" said registry || true
   exec {fd}<&-
-  if [[ "$said" != armed ]]; then UNWATCHED="scripts/gate/gate_watch.py did not arm, its own words above"; fi
+  if [[ "$said" != armed ]]; then UNWATCHED="scripts/gate/gate_watch.py did not arm, its own words above"; return 0; fi
+  # Inherited by every pool this run starts, at any depth (`scripts/gate/gate_pool.py :: POOLS`).
+  export FL_GATE_POOLS="$registry"
+  # Not exported, so only this process reclaims it: the watcher does too, but a closed console ends
+  # the watcher beside the gate's own trap.
+  POOLS_REGISTRY="$registry"
 }
 # Before anything starts a process, which would start outside the job; at the top level alone, whose
 # workers and steps are inside it.
@@ -155,6 +161,7 @@ gate_exit() {
   # skipping the reclaims after it and reporting the trap's own failure over a body that exited 0.
   cleanup || true
   if [[ -n "$DB_RUN_MARKER" ]]; then rm -rf "$DB_RUN_MARKER" || true; fi
+  if [[ -n "${POOLS_REGISTRY:-}" ]]; then rm -f -- "$POOLS_REGISTRY" || true; fi
   if (( ${#POOL_DIRS[@]} )); then
     # A crash keeps them, named: each unit's own output and the status the pool recorded are all
     # that can say which process ended it, and nothing past this exit reads them otherwise.
@@ -253,9 +260,9 @@ GATE_WIDTH_DB_PYTEST=6
 # 17.5-17.8s at 8, 20.3-21.5s at 4, 29.5-30.1s at 2 and 46.0-46.6s serial.
 GATE_WIDTH_BACKEND_PYTEST=6
 
-# Past this a pytest case has every thread's stack dumped into its step's capture, for
-# `scripts/gate/gate_pool.py :: STALL_S`'s notice to carry: below that bound, above the widest
-# measured span holding one case, the db tier's 113 s on a runner.
+# Past this a pytest case's every thread is dumped into its capture for
+# `scripts/gate/gate_pool.py :: STALL_S`'s notice: below that bound, above the db tier's whole 113 s
+# on a runner, which bounds any one case's.
 FAULTHANDLER_S=120
 
 # --- what a unit runs --------------------------------------------------------------------------------
@@ -1446,12 +1453,11 @@ if (( RUN_DB )); then
   # no test collected, and none is a db-tier failure. The width flag is the live route to a 4, an
   # empty one otherwise reading as the tests having failed.
   DB_RC=0
-  if (( DB_TOGETHER )); then
-    unit_join backend_db
-    quietly unit_replay backend_db || DB_RC=$?
-  else
-    quietly do_backend_db || DB_RC=$?
-  fi
+  # Apart, still a pool's unit: run in place, a stalled case's stack would sit in `quietly`'s memory,
+  # where no stall notice reaches it (`scripts/gate/gate_pool.py :: STALL_S`).
+  if (( ! DB_TOGETHER )); then start_steps --db backend_db; fi
+  unit_join backend_db
+  quietly unit_replay backend_db || DB_RC=$?
   case "$DB_RC" in
     0) ;;
     1) die "fl_backend db-tier tests failed.
@@ -1468,12 +1474,9 @@ Re-run without \`-n auto --dist loadfile --maxprocesses ${GATE_WIDTH_DB_PYTEST}\
   # The runner's own codes, as the unit tests read them: 1 is a failing test, anything else a run
   # that reached no verdict.
   FRONTEND_DB_RC=0
-  if (( DB_TOGETHER )); then
-    unit_join frontend_db
-    quietly unit_replay frontend_db || FRONTEND_DB_RC=$?
-  else
-    quietly do_frontend_db || FRONTEND_DB_RC=$?
-  fi
+  if (( ! DB_TOGETHER )); then start_steps --db frontend_db; fi
+  unit_join frontend_db
+  quietly unit_replay frontend_db || FRONTEND_DB_RC=$?
   case "$FRONTEND_DB_RC" in
     0) ;;
     1) die "fl_frontend db-tier tests failed.

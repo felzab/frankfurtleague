@@ -94,7 +94,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
 // Imported here rather than at the top: a static import resolves before the hooks above are registered.
 const { fordereKontoLoeschungAnAction } = await import("./actions.ts");
 const { loescheKontoAction } = await import("./personActions.ts");
-const { KONTO_FORBIDDEN } = await import("@/shared/utils/kontoMutation.ts");
+const { ANMELDUNG_ABGELAUFEN } = await import("@/shared/utils/actionError.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 const { readGrantHolderStepUp } = await import("./loeschungStepUp.ts");
 const { LETZTE_INHABERIN, mapLoeschungRefusal } = await import("./refusals.ts");
@@ -245,7 +245,7 @@ describe("a person's own account deletion, from the account page's press to the 
       const { row, token } = await mitLink(email);
       judged();
 
-      assert.deepEqual(await loescheKontoAction(token), { success: false, error: KONTO_FORBIDDEN });
+      assert.deepEqual(await loescheKontoAction(token), { success: false, error: ANMELDUNG_ABGELAUFEN });
       assert.deepEqual(erasures, []);
       assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
     });

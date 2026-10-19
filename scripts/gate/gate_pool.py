@@ -49,13 +49,21 @@ CALLER_POLL_S: Final = 1.0
 # reaches it. A notice and never a verdict: a slow unit costs a line.
 STALL_S: Final = 600.0
 STALL_POLL_S: Final = 5.0
-# Enough of the capture to carry a pytest worker's faulthandler dump whole
-# (`scripts/gate/verify.sh :: FAULTHANDLER_S`), whose stalled frames come first.
+# The end of a capture a notice shows.
 STALL_TAIL_LINES: Final = 100
+# A faulthandler dump lists threads newest first, each innermost frame first, so the stalled frame
+# opens its last block, which a tail cuts first: `shown` keeps that block from its header.
+DUMP_RE: Final = re.compile(r"^Timeout \([0-9]+:[0-9]{2}:[0-9]{2}(\.[0-9]+)?\)!$")
+# The header names its thread in brackets where the platform can (`[python]` on Linux, none on Windows).
+THREAD_RE: Final = re.compile(r"^(Current thread|Thread) 0x[0-9a-fA-F]+( \[.*\])? \(most recent call first\):$")
 
 # Where a pool nested in a unit sends its notices, the one pool whose stderr reaches the reader
 # relaying them: a nested pool's own stderr is a capture nobody reads until the run ends.
 NOTICES: Final = "FL_GATE_NOTICES"
+
+# The file a watched Windows gate's pools append their pids to, which its stop spares until their
+# units have ended (`scripts/gate/gate_watch.py :: wind_down`); unset everywhere else.
+POOLS: Final = "FL_GATE_POOLS"
 
 ASSIGNMENT: Final = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
@@ -187,10 +195,12 @@ def terminate(pool: Pool) -> None:
     for child in children:
         # Gone between the snapshot and here is the ordinary case, not a fault.
         with contextlib.suppress(OSError):
-            if sys.platform == "win32":
-                child.terminate()
-            else:
+            if sys.platform != "win32":
                 os.killpg(child.pid, signal.SIGTERM)
+            # A watched Windows gate's own stop signals each unit and waits on its trap
+            # (`scripts/gate/gate_watch.py :: wind_down`), where this would end the unit beneath it.
+            elif not os.environ.get(POOLS):
+                child.terminate()
 
 
 def watch_caller(pool: Pool, caller: int, stop: threading.Event) -> None:
@@ -217,13 +227,30 @@ def spelled(seconds: float) -> str:
     return f"{whole // 60}m {whole % 60:02d}s"
 
 
+def shown(lines: list[str]) -> list[str]:
+    """The lines of a capture a notice carries: its tail, and the last dump's stalled thread where the tail starts below it."""
+    tail = max(0, len(lines) - STALL_TAIL_LINES)
+    dumps = [index for index, line in enumerate(lines) if DUMP_RE.match(line)]
+    if not dumps or dumps[-1] >= tail:
+        return lines[tail:]
+    headers = [index for index in range(dumps[-1], len(lines)) if THREAD_RE.match(lines[index])]
+    if not headers:
+        return lines[tail:]
+    block = headers[-1]
+    # A frame line is indented; the block ends at the first that is not.
+    end = next((index for index in range(block + 1, len(lines)) if not lines[index].startswith("  ")), len(lines))
+    if block >= tail:
+        return [lines[dumps[-1]], *lines[tail:]]
+    return [lines[dumps[-1]], *lines[block:end], *lines[max(end, tail) :]]
+
+
 def stall_notice(pool: Pool, name: str, quiet: float) -> bytes:
     """What the reader is told of a unit silent past `STALL_S`: which, for how long, and the end of what it wrote."""
     lines = [f"  !!  the {name} unit has written nothing for {spelled(quiet)} and is still running. Its output so far ends:"]
     for capture in captures(pool, name):
         text = capture.read_bytes().decode("utf-8", errors="replace") if capture.is_file() else ""
         lines.append(f"      ({capture})")
-        lines += [f"      {line}" for line in text.splitlines()[-STALL_TAIL_LINES:]]
+        lines += [f"      {line}" for line in shown(text.splitlines())]
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 
@@ -285,6 +312,17 @@ def notice_route(pool: Pool) -> tuple[Callable[[bytes], None], Path | None]:
         sys.stderr.flush()
 
     return emit, relay
+
+
+def announce() -> None:
+    """Name this pool where a stop reads it, before any unit starts.
+
+    Bytes, one whole line per append (`.claude/CLAUDE.md` §6).
+    """
+    registry = os.environ.get(POOLS)
+    if registry:
+        with Path(registry).open("ab") as pools:
+            pools.write(f"{os.getpid()}\n".encode("ascii"))
 
 
 def stop_on_signal(number: int, frame: FrameType | None) -> None:
@@ -365,6 +403,7 @@ def main() -> int:
         started=time.monotonic(),
     )
 
+    announce()
     watched = threading.Event()
     arm(pool, watched)
     sink, relay = notice_route(pool)
