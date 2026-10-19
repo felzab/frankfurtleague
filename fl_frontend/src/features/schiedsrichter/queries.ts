@@ -84,17 +84,33 @@ export type SchiedsrichterBestaetigungRefusal = {
 /** `alterAusserhalb` where the link's view serves no floor to name: both bounds, never a number of its own. */
 const ALTER_AUSSERHALB_UNGELESEN = "Mit diesem Geburtsdatum bist Du zu jung oder zu alt.";
 
-// A thunk, never the floors: they are read for the two age arms alone, and a caller resolving them first
-// answers every arm naming the link's state out of a second read, which finds nothing to read.
+/** The link's own view, read again after a refused press: its floors where it is open, its state where not. */
+export type GelesenerSchiedsrichterLink =
+  | { readonly zustand: "gueltig"; readonly ansicht: { readonly mindestalter: number; readonly medien_mindestalter: number } }
+  | { readonly zustand: SchiedsrichterLinkZustand };
+
+// A thunk, never a resolved read: the codes naming one state alone answer without it, and a caller resolving it
+// first spends a second backend read on each of them.
 /**
  * `null` where the code is none of these. The floors come from the token's own read: a number of
- * this mapper's own would be a second copy of one the endpoint alone decides.
+ * this mapper's own would be a second copy of one the endpoint alone decides. `gelesen` answers `null`
+ * where the read failed.
  */
 export async function mapSchiedsrichterBestaetigungRefusal(
   error: unknown,
-  ansicht: () => Promise<{ readonly mindestalter: number; readonly medien_mindestalter: number } | null>,
+  gelesen: () => Promise<GelesenerSchiedsrichterLink | null>,
 ): Promise<SchiedsrichterBestaetigungRefusal | null> {
   if (!isRefusal(error)) return null;
+
+  const ansicht = async () => {
+    const link = await gelesen();
+    return link?.zustand === "gueltig" ? link.ansicht : null;
+  };
+  // The panel a reload opens on, which the press's own panel stands in for where the read finds the link open or reads nothing.
+  const stand = async (sonst: SchiedsrichterLinkZustand): Promise<SchiedsrichterLinkZustand> => {
+    const link = await gelesen();
+    return link === null || link.zustand === "gueltig" ? sonst : link.zustand;
+  };
 
   switch (error.serverErrorCode) {
     // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
@@ -112,10 +128,11 @@ export async function mapSchiedsrichterBestaetigungRefusal(
       return { error: FASSUNG_NEU_OEFFNEN };
     case "REQ-SCHIEDSRICHTER-002":
       return { zustand: "ungueltig" };
+    // Judged ahead of the ban, which the view ranks first: an address barred since reads as a reload shows it.
     case "REQ-SCHIEDSRICHTER-003":
-      return { zustand: "abgelaufen" };
+      return { zustand: await stand("abgelaufen") };
     case "REQ-SCHIEDSRICHTER-004":
-      return { zustand: "bestaetigt" };
+      return { zustand: await stand("bestaetigt") };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
     case "REQ-SCHIEDSRICHTER-009":
       return { zustand: "gesperrt" };

@@ -33,33 +33,46 @@ const ANSICHT_OPERATION = "POST /schiedsrichter/bestaetigung/ansicht";
 /** A media floor no link is served today, so a sentence naming it took the floor the read answered. */
 const MEDIEN_MINDESTALTER = 21;
 
-const floor = () => Promise.resolve({ mindestalter: MINDESTALTER, medien_mindestalter: MEDIEN_MINDESTALTER });
+const floor = () =>
+  Promise.resolve({ zustand: "gueltig" as const, ansicht: { mindestalter: MINDESTALTER, medien_mindestalter: MEDIEN_MINDESTALTER } });
 const noFloor = () => Promise.resolve(null);
 
 describe("what one refused confirmation asks the referee's page to show", () => {
   /* Each state the link can die in between the open and the press, driven by its own code: the
      administrator re-sending while the page stands open is the ordinary race, not an edge case. */
-  for (const [code, zustand] of [
-    ["REQ-SCHIEDSRICHTER-002", "ungueltig"],
-    ["REQ-SCHIEDSRICHTER-003", "abgelaufen"],
-    ["REQ-SCHIEDSRICHTER-004", "bestaetigt"],
+  for (const [code, zustand, liest] of [
+    ["REQ-SCHIEDSRICHTER-002", "ungueltig", false],
+    ["REQ-SCHIEDSRICHTER-003", "abgelaufen", true],
+    ["REQ-SCHIEDSRICHTER-004", "bestaetigt", true],
   ] as const) {
-    it(`answers ${code} as the ${zustand} panel`, async () => {
+    it(`answers ${code} as the ${zustand} panel where the link's view reads open`, async () => {
       assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, code), floor), { zustand: zustand });
+      assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, code), noFloor), { zustand: zustand });
     });
 
-    it(`answers ${code} without ever reading the floor`, async () => {
-      // The link is spent or dead by now, so a read in front of the mapper answers nothing and the
-      // panel is lost: the thunk is what keeps these three arms reachable.
+    it(`answers ${code} ${liest ? "reading the link's view once" : "without reading the link's view"}`, async () => {
       let gelesen = 0;
       await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, code), () => {
         gelesen += 1;
         return floor();
       });
 
-      assert.equal(gelesen, 0);
+      assert.equal(gelesen, liest ? 1 : 0);
     });
   }
+
+  /* The press judges a confirmation and a passed deadline ahead of the ban, which the view ranks first: an address
+     barred since reads as a reload shows it. */
+  it("answers a confirmed or a lapsed link the view reads as barred with the barred panel", async () => {
+    for (const code of ["REQ-SCHIEDSRICHTER-003", "REQ-SCHIEDSRICHTER-004"]) {
+      const gesperrt = () => Promise.resolve({ zustand: "gesperrt" as const });
+      assert.deepEqual(
+        await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, code), gesperrt),
+        { zustand: "gesperrt" },
+        code,
+      );
+    }
+  });
 
   /* The one refusal that spends nothing, so it lands on the field and the typed date survives it. */
   it("puts the age refusal on the date, at the floor the link answered", async () => {

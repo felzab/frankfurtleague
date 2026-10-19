@@ -143,19 +143,34 @@ const ALTER_AUSSERHALB_UNGELESEN = "Mit diesem Geburtsdatum bist Du zu jung oder
 /** What one refused confirmation asks its caller to do. */
 export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: SpielerLinkZustand };
 
-// A THUNK and never resolved floors: every code below but the two age refusals is a link state, and a
-// caller reading the view in front of the switch spends a second backend read on each of them.
+/** The link's own view, read again after a refused press: its floors where it is open, its state where not. */
+export type GelesenerLink =
+  | { readonly zustand: "gueltig"; readonly ansicht: { readonly mindestalter: number; readonly medien_mindestalter: number } }
+  | { readonly zustand: SpielerLinkZustand };
+
+// A THUNK and never a resolved read: the codes naming one state alone answer without it, and a caller
+// reading the view in front of the switch spends a second backend read on each of them.
 /**
  * A confirmation refusal as what the page should show, or `null` where the code is none of these.
  *
  * The floors are the token's own view's: a number of this mapper's own would state one the
- * endpoint is not using.
+ * endpoint is not using. `gelesen` answers `null` where the read failed.
  */
 export async function mapBestaetigungRefusal(
   error: unknown,
-  ansicht: () => Promise<{ readonly mindestalter: number; readonly medien_mindestalter: number } | null>,
+  gelesen: () => Promise<GelesenerLink | null>,
 ): Promise<BestaetigungRefusal | null> {
   if (!isRefusal(error)) return null;
+
+  const ansicht = async () => {
+    const link = await gelesen();
+    return link?.zustand === "gueltig" ? link.ansicht : null;
+  };
+  // The panel a reload opens on, which the press's own panel stands in for where the read finds the link open or reads nothing.
+  const stand = async (sonst: SpielerLinkZustand): Promise<SpielerLinkZustand> => {
+    const link = await gelesen();
+    return link === null || link.zustand === "gueltig" ? sonst : link.zustand;
+  };
 
   switch (error.serverErrorCode) {
     // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
@@ -177,10 +192,13 @@ export async function mapBestaetigungRefusal(
       return { error: FASSUNG_NEU_OEFFNEN };
     case "REQ-REGISTRIERUNG-004":
       return { zustand: "ungueltig" };
+    // Judged ahead of a confirmation and of the ban, which the view ranks first: a link confirmed in another window,
+    // or an address barred since, reads as a reload shows it.
     case "REQ-REGISTRIERUNG-005":
-      return { zustand: "abgelaufen" };
+      return { zustand: await stand("abgelaufen") };
+    // Judged ahead of the ban, which the view ranks first.
     case "REQ-REGISTRIERUNG-006":
-      return { zustand: "bestaetigt" };
+      return { zustand: await stand("bestaetigt") };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
     case "REQ-REGISTRIERUNG-012":
       return { zustand: "gesperrt" };

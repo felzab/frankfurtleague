@@ -233,6 +233,26 @@ describe("the contact seat's confirmation handler", () => {
     assert.deepEqual(answer.body, { success: false, zustand: "abgelehnt" });
   });
 
+  /* The press judges a decided application, a passed deadline and an ended season ahead of the seat and the ban, which
+     the view ranks first: each answers the panel a reload would open, and its own where that reads open. */
+  for (const [code, gelesen, zustand] of [
+    ["REQ-BEWERBUNG-010", "bestaetigt", "bestaetigt"],
+    ["REQ-BEWERBUNG-017", "abgelehnt", "abgelehnt"],
+    ["REQ-KONTAKT-004", "gesperrt", "gesperrt"],
+    ["REQ-KONTAKT-006", "gesperrt", "gesperrt"],
+    ["REQ-BEWERBUNG-010", "gueltig", "abgelaufen"],
+    ["REQ-KONTAKT-006", "gueltig", "saison_vorbei"],
+  ] as const) {
+    it(`answers ${code} with the ${zustand} panel where the link's view reads ${gelesen}`, async () => {
+      schreibAntwort = () => aRefusal(code);
+      ansichtAntwort = () => ({ ...ANSICHT, zustand: gelesen, text_version: null });
+
+      const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+      assert.deepEqual(answer.body, { success: false, zustand: zustand });
+    });
+  }
+
   /* The backend refused the write, so nothing stands to be unsure of: a read failing after it, or cut by the request's
      deadline, leaves the panel naming nobody. */
   for (const [wie, lesen] of [

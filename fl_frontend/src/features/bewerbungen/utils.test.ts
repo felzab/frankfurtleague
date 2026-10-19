@@ -644,7 +644,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
   it("asks its caller to read the already-answered link rather than naming a state", () => {
     const mappedRefusal = mapEinwilligungRefusal(publishedOn(CONFIRM_OPERATION, "REQ-BEWERBUNG-011"), VERTRETUNG_MIN_ALTER, null);
 
-    assert.equal(mappedRefusal?.nachlesen, true, "the already-answered refusal no longer asks for the read");
+    assert.equal(mappedRefusal?.nachlesen, "ungueltig", "the already-answered refusal no longer asks for the read");
     assert.equal(mappedRefusal?.zustand, undefined, "one code picked a panel it has no way to tell from the other");
     assert.equal(mappedRefusal?.fieldErrors, undefined, "a refusal that spends the token landed on the form's one field");
   });
