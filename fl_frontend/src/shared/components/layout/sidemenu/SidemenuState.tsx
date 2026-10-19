@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from "react";
 
-import type { ElementType, ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { LinkPrefix } from "../shell/linkPrefix";
 
 type SidemenuState = {
@@ -10,12 +10,11 @@ type SidemenuState = {
   onMobileClose: () => void;
   linkPrefix: LinkPrefix;
   keepsSaisonQuery: boolean;
-  iconDictionary: Readonly<Record<string, ElementType>>;
 };
 
 /**
  * **A context rather than props**: a slot the shell is handed, `AppShell`'s `funktionSwitcher` or `entries`,
- * arrives built by a layout that knows neither the rail's width, the drawer nor the area's icons, and may
+ * arrives built by a layout that knows neither the rail's width, the drawer nor the area's prefix, and may
  * stream in under a session read.
  */
 const SidemenuStateContext = createContext<SidemenuState | undefined>(undefined);

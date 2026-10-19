@@ -4,12 +4,15 @@ import { KONTO_HREF } from "@/core/kontoHref";
 import { signOutAction } from "@/features/auth/actions";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
 import { ShellHeading } from "@/shared/components/layout/shell/ShellHeading";
+import { SidemenuEntries } from "@/shared/components/layout/sidemenu/SidemenuNavLinks";
 
 import { TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL, TEAM_SIDEMENU_ICONS, TEAM_SIDEMENU_STRUCTURE } from "../../constants";
 import { teamHref } from "../../teamSeats";
 
 import type { AddressParams } from "@/shared/components/layout/shell/linkPrefix";
+import type { SidemenuStructure } from "@/shared/types/types";
 import type React from "react";
+import type { TeamIconName } from "../../constants";
 
 /** Each team and season is a root of its own, read off the address its pages stand at. */
 const teamPrefixOf = ({ team_id, saison_id }: AddressParams): string => teamHref(String(team_id), String(saison_id));
@@ -64,6 +67,16 @@ export function TeamShellHeading({ isRefused }: { isRefused: boolean }) {
       linkPrefix={teamPrefixOf}
       fallback={isRefused ? TEAM_SHELL_REFUSAL : TEAM_SHELL_FALLBACK}
       kontoHref={KONTO_HREF}
+    />
+  );
+}
+
+/** The team area's entries, which a layout builds from the seats at the address: only this area's icons draw them. */
+export function TeamSidemenuEntries({ structure }: { structure: SidemenuStructure<TeamIconName> }) {
+  return (
+    <SidemenuEntries
+      structure={structure}
+      iconDictionary={TEAM_SIDEMENU_ICONS}
     />
   );
 }
