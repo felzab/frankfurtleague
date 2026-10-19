@@ -872,9 +872,6 @@ async function eraseBeforeTheAccount(user: { id: string; email: string }): Promi
   await deleteSignInRowsOf(adapter, secret, user.email, user.id);
 }
 
-// Called by `build`, never at import: `next build` imports this module in every page-data worker
-// holding no environment, where neither the URL nor the client can be built
-// (`docs/frontend/spec.md :: I45`). `origin` gives both halves of the WebAuthn binding.
 /**
  * Host-bound over https (`docs/frontend/spec.md :: I401`). Through the prefix and never a cookie name: the
  * library puts `__Secure-` ahead of any name while `useSecureCookies` is on, and a `__Secure-__Host-` cookie
@@ -891,6 +888,9 @@ export function sessionCookieOf(requestHeaders: Headers): string | null {
   return getSessionCookie(requestHeaders, { cookiePrefix: cookieNaming(new URL(frontend_config.AUTH_URL)).cookiePrefix });
 }
 
+// Called by `build`, never at import: `next build` imports this module in every page-data worker
+// holding no environment, where neither the URL nor the client can be built
+// (`docs/frontend/spec.md :: I45`). `origin` gives both halves of the WebAuthn binding.
 const authOptions = (origin: URL, client: MongoClient) =>
   ({
     // The `Db` off the one client this process opens, never a second connection
