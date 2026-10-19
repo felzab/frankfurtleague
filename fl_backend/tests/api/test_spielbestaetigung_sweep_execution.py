@@ -250,7 +250,7 @@ ZUSAGE = {"art": "zugesagt", "am": TODAY, "von": {"art": "kontakt", "rolle": "tr
 
 
 class TestTheSweepAsksAboutNothingItCannotHelp:
-    """P174's two halves, each driven: `has_taken_place` reads a record and never a date, and the copied listing reads every season."""
+    """Both halves driven: `has_taken_place` reads a record and never a date, and the copied listing reads every season."""
 
     def test_a_pass_asks_about_the_coming_fixture_alone(self, mongo_replica_set_url: str):
         """Today's fixture is the floor's edge; the past season's is dated inside the window, so only the season keeps it out."""
@@ -261,18 +261,20 @@ class TestTheSweepAsksAboutNothingItCannotHelp:
             fixture(TODAYS_SPIEL, 3, TODAY),
             fixture(PAST_SPIEL, 1, NEXT_WEEK, saison_id=PAST_SAISON_ID),
         ]
+        # The past season's clubs seated too, so nothing but its status can keep its fixture unasked.
+        junctions = [junction(team_id, saison_id=saison_id) for saison_id in (SAISON_ID, PAST_SAISON_ID) for team_id in (ALPHA, BETA)]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             listing = await get_spiel_sweep_saisons(saisons_collection=database[Collection.SAISONS])
             # As the timer runs it, and the past season asked directly as a mistyped call would.
-            for saison_id in [*listing.saison_ids, PAST_SAISON_ID]:
-                await sweep(database, client, saison_id=saison_id)
+            answers = [await sweep(database, client, saison_id=saison_id) for saison_id in [*listing.saison_ids, PAST_SAISON_ID]]
 
-            return listing.saison_ids, sorted({(row["saison_id"], str(row["spiel_id"])) for row in await rows(database)})
+            return listing.saison_ids, answers, sorted({(row["saison_id"], str(row["spiel_id"])) for row in await rows(database)})
 
-        listed, asked = on_a_league(mongo_replica_set_url, body, spiele=spiele)
+        listed, answers, asked = on_a_league(mongo_replica_set_url, body, spiele=spiele, junctions=junctions)
 
         assert listed == [SAISON_ID]
+        assert [answer.fehlgeschlagen for answer in answers] == [0, 0]
         assert asked == [(SAISON_ID, str(SPIEL))]
 
     def test_the_same_pass_twice_mints_once(self, mongo_replica_set_url: str):
@@ -290,7 +292,7 @@ class TestTheSweepAsksAboutNothingItCannotHelp:
 
 
 class TestTheWindow:
-    """R555: a link lives at most its answer window, so a fixture is asked once its deadline is that window away and not before."""
+    """A link lives at most its answer window, so a fixture is asked once its deadline is that window away and not before."""
 
     def test_a_fixture_twenty_one_days_out_is_asked_and_twenty_two_is_not(self, mongo_replica_set_url: str):
         spiele = [fixture(SPIEL, 1, days_after(day=TODAY, days=21)), fixture(OTHER_SPIEL, 2, days_after(day=TODAY, days=22))]
