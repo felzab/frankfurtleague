@@ -209,12 +209,12 @@ const VEREINE: FLTeam[] = [
 ];
 
 /** The editor over one fixture of a running season, with no Spieltag neighbour to ask the dry run about. */
-function renderEditor(spielData: FLSpielAdmin): void {
+function renderEditor(spielData: FLSpielAdmin, teams: FLTeam[] = VEREINE): void {
   render(
     underNext(
       h(AdminEditSpielDataForm, {
         spielData: spielData,
-        teams: VEREINE,
+        teams: teams,
         spielorte: [ANDERER_ORT],
         schiedsrichter: [],
         saisonSpiele: [spielData],
@@ -308,4 +308,19 @@ describe("the match editor's warning that a near date leaves the teams no notice
       assert.ok(screen.queryAllByText(SOFORT).length > 0, `moving ${was} inside the window raised nothing`);
     });
   }
+
+  /* The pass asks nothing about a fixture a club has left by its day, and only the season's team list says so. */
+  it("raises nothing once the ground moves on a fixture whose second club left before its day", async () => {
+    const user = userEvent.setup();
+    const austritt = { type: "rueckzug" as const, grund: "Kein Team mehr", datum: tagNach(1) };
+    renderEditor(
+      angesetzt(tagNach(3)),
+      VEREINE.map((verein) => (verein.name === "SG Beta" ? { ...verein, austritt: austritt } : verein)),
+    );
+
+    await user.click(pickerTrigger("Spielort"));
+    await user.click(await screen.findByRole("option", { name: ANDERER_ORT.name }));
+
+    assert.equal(screen.queryAllByText(SOFORT).length, 0, "a fixture the pass never asks about warned of a request");
+  });
 });

@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
+
+import { z } from "zod";
 
 import { resolveBlockingBanners, resolveRailBanners } from "@/shared/components/ui/railBanner.ts";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import { SONDEREREIGNIS_LABELS, SPIEL_BESTAETIGUNG_FRIST_TAGE } from "../../../constants.ts";
+import { FLSonderereignisSchema } from "../../../schemas.ts";
 import { buildSpielBanners, isSpielRefusalBannerId, isSpielRefusalCode } from "./banners.ts";
 
 import type { SpielBanner, SpielBannerAnsetzung, SpielBannerSide } from "./banners.ts";
@@ -61,11 +66,37 @@ const build = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]> = {})
     ansetzung: KEINE_ANSETZUNG,
     storedAnsetzung: KEINE_ANSETZUNG,
     isActiveSaison: true,
+    austrittTage: [],
     today: HEUTE,
     ...overrides,
   });
 
 const ids = (banners: readonly SpielBanner[]): string[] => banners.map((banner) => banner.id);
+
+const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..", "..", "..", "..");
+
+/**
+ * The rows both tiers run, each moving one thing of a fixture set in full three days out. Strict, so a row moving
+ * something this tier does not read fails rather than passing on the unmoved fixture.
+ */
+const ANFRAGE_IS_DUE = z
+  .array(
+    z.strictObject({
+      fall: z.string(),
+      anders: z.strictObject({
+        tage: z.int().nullable().optional(),
+        uhrzeit: z.null().optional(),
+        spielort: z.null().optional(),
+        team1: z.null().optional(),
+        team2: z.null().optional(),
+        tore: z.int().optional(),
+        sonderereignis: FLSonderereignisSchema.optional(),
+        austritt_tage: z.int().optional(),
+      }),
+      gefragt: z.boolean(),
+    }),
+  )
+  .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "anfrage_is_due.json"), "utf8")));
 
 /** Whether the confirmation's lost-notice banner is raised. */
 const sofort = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]>): boolean =>
@@ -494,22 +525,35 @@ describe("buildSpielBanners", () => {
     }
   });
 
-  /* A warning beside a fixture no pass asks about, called off or decided, is the standing hint the window rule refuses. */
-  it("raises nothing for a re-dated fixture the sweep would not ask about", () => {
-    const nah = { ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(30)) };
-    for (const [was, overrides] of [
-      ["a called-off fixture", { sonderereignis: "ausgefallen" }],
-      ["a no-show", { sonderereignis: "nichtantreten_team1" }],
-      ["a fixture carrying a goal", { hasAnyTore: true }],
-      ["a fixture of a season not yet running", { isActiveSaison: false }],
-      ["a fixture with no kick-off", { ansetzung: { ...nah.ansetzung, uhrzeit: null } }],
-      ["a fixture with no ground", { ansetzung: { ...nah.ansetzung, spielortId: null } }],
-      ["a fixture with no first side", { ansetzung: { ...nah.ansetzung, team1Id: null } }],
-      ["a fixture with no second side", { ansetzung: { ...nah.ansetzung, team2Id: null } }],
-    ] as const) {
-      assert.ok(!sofort({ ...nah, ...overrides }), `raised for ${was}`);
-    }
+  /* The pass visits the running season alone, which the shared table below cannot say: it holds a fixture's own fields. */
+  it("raises nothing for a re-dated fixture of a season not yet running", () => {
+    assert.ok(!sofort({ ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(30)), isActiveSaison: false }));
   });
+
+  /* Read rather than retyped: the backend's predicate answers the same rows in its own suite, so a condition one tier
+     gains alone fails at the other. Each row moves a draft re-dated from a month out. */
+  for (const { fall, anders, gefragt } of ANFRAGE_IS_DUE) {
+    it(`raises it for a re-dated fixture, ${fall}, exactly where the pass asks`, () => {
+      const ansetzung = {
+        ...angesetzt(anders.tage === undefined ? tagNach(3) : anders.tage === null ? null : tagNach(anders.tage)),
+        ...(anders.uhrzeit === undefined ? {} : { uhrzeit: anders.uhrzeit }),
+        ...(anders.spielort === undefined ? {} : { spielortId: anders.spielort }),
+        ...(anders.team1 === undefined ? {} : { team1Id: anders.team1 }),
+        ...(anders.team2 === undefined ? {} : { team2Id: anders.team2 }),
+      };
+
+      assert.equal(
+        sofort({
+          ansetzung,
+          storedAnsetzung: angesetzt(tagNach(30)),
+          hasAnyTore: anders.tore !== undefined,
+          sonderereignis: anders.sonderereignis ?? null,
+          austrittTage: anders.austritt_tage === undefined ? [] : [tagNach(anders.austritt_tage)],
+        }),
+        gefragt,
+      );
+    });
+  }
 
   it("sorts danger over warning over info on the rail", () => {
     const built = resolveRailBanners(build({ sonderereignis: "ausgefallen", releasedSpielNummern: [31], voidedSpielNummern: [29] }));

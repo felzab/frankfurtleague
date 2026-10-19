@@ -15,9 +15,11 @@ from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
 
 from app.api.aktionen.schemas import HERKUNFT_JE_KIND
 from app.api.bewerbungen import schemas as bewerbungen_schemas
+from app.api.bewerbungen.services import days_after
 from app.api.identitaet.schemas import ADRESSE_UNTER_INVALID, ANLASS_HOLDS_AN_ADDRESS, ErasureAdresse, FLErasurePayload
 from app.api.identitaet.services import grants_a_panel
 from app.api.saisons.schemas import FLSaisonStatus, TeamsPerGroup
+from app.api.spielbestaetigungen.services import anfrage_is_due
 from app.api.spiele.schemas import MAX_QUALIFIERS
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.spielorte.admin_router import _maps_link
@@ -1681,6 +1683,55 @@ def test_the_panel_table_names_every_season_status_once():
 @pytest.mark.parametrize(("saison_status", "grants"), _panel_grants(), ids=lambda value: str(value))
 def test_a_seat_s_season_grants_the_panel_the_shared_table_says(saison_status: FLSaisonStatus, grants: bool):
     assert grants_a_panel(saison_status) is grants
+
+
+# Which fixtures the confirmation pass asks about is spelled again by the match editor's near-date warning, and both
+# run this one table, so a condition one tier gains alone fails at the other.
+ANFRAGE_IS_DUE: Final = Path(__file__).resolve().parent / "anfrage_is_due.json"
+ANFRAGE_TODAY: Final = "2026-04-01"
+ANFRAGE_SIDES: Final = (ObjectId("6890a1b2c3d4e5f607760001"), ObjectId("6890a1b2c3d4e5f607760002"))
+
+
+def _anfrage_case(anders: dict[str, Any]) -> tuple[dict[str, Any], dict[Any, str]]:
+    """The fixture and the club exits one row names, moved from a fixture set in full three days out.
+
+    A key this tier does not read fails the row, so the table never states a condition one tier cannot test.
+    """
+
+    spiel: dict[str, Any] = {
+        "datum": days_after(day=ANFRAGE_TODAY, days=3),
+        "uhrzeit": "18:00:00",
+        "ort": {"spielort_id": ObjectId("6890a1b2c3d4e5f6077600b1"), "name": "Sportpark", "maps_link": "Sportpark", "mietpreis": 80},
+        "team1": {"team_id": ANFRAGE_SIDES[0], "name": "Alpha", "shorthand": "AL", "tore": None},
+        "team2": {"team_id": ANFRAGE_SIDES[1], "name": "Beta", "shorthand": "BE", "tore": None},
+        "ergebnis": None,
+        "elfmeterschiessen": None,
+        "sonderereignis": None,
+    }
+    austritte: dict[Any, str] = {}
+    for key, value in anders.items():
+        match key:
+            case "tage":
+                spiel["datum"] = None if value is None else days_after(day=ANFRAGE_TODAY, days=value)
+            case "uhrzeit" | "sonderereignis" | "team1" | "team2":
+                spiel[key] = value
+            case "spielort":
+                spiel["ort"] = value
+            case "tore":
+                spiel["team1"] = {**spiel["team1"], "tore": value}
+            case "austritt_tage":
+                austritte[ANFRAGE_SIDES[1]] = days_after(day=ANFRAGE_TODAY, days=value)
+            case _:
+                raise ValueError(f"the table moves {key}, which this tier does not read")
+
+    return spiel, austritte
+
+
+@pytest.mark.parametrize("row", json.loads(ANFRAGE_IS_DUE.read_bytes().decode("utf-8")), ids=lambda row: row["fall"])
+def test_the_pass_asks_about_a_fixture_as_the_shared_table_says(row: dict[str, Any]):
+    spiel, austritte = _anfrage_case(row["anders"])
+
+    assert anfrage_is_due(spiel=spiel, austritte=austritte, today=ANFRAGE_TODAY) is row["gefragt"]
 
 
 # The erasure's two refusals of a typed value are spelled once per tier, and the API's sentence reaches its log
