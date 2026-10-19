@@ -104,6 +104,10 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/teams/constants.ts", "EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH", "EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH"),
     Mirror("features/spiele/constants.ts", "NOTIZ_MAX_LENGTH", "SPIEL_NOTIZ_MAX_LENGTH"),
     Mirror("features/spiele/constants.ts", "PAARUNGEN_MAX", "LIST_LIMIT_DEFAULT"),
+    # The editor's rail banner says a fixture dated inside it is due at once; the deadline itself is the
+    # one each row stores.
+    Mirror("features/spiele/constants.ts", "SPIEL_BESTAETIGUNG_FRIST_TAGE", "SPIEL_BESTAETIGUNG_FRIST_TAGE"),
+    Mirror("features/spiele/constants.ts", "SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH", "SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH"),
     Mirror("features/berechtigungen/constants.ts", "ANKUENDIGUNGEN_MAX", "LIST_LIMIT_DEFAULT"),
     # The account sweep's batch: a larger one is refused whole, every pass alike, and nothing is deleted.
     Mirror("features/funktionen/constants.ts", "REFERENZEN_ADRESSEN_MAX", "REFERENZEN_ADRESSEN_MAX"),
@@ -147,6 +151,10 @@ UNMIRRORED_BOUNDS: Final[dict[str, str]] = {
     "DROSSELUNG_SPIELER_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
     "DROSSELUNG_SCHIEDSRICHTER_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
     "DROSSELUNG_KONTAKT_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
+    # The cadence is the fixture-confirmation pass's alone: no page or mail counts a link's window or a reminder's day.
+    "SPIEL_ANFRAGE_VORLAUF_TAGE": "how long before the deadline the pass asks, which no frontend page or mail states",
+    "SPIEL_ERINNERUNG_TAGE_ERSTE": "the day the pass reminds a team, which no frontend page or mail states",
+    "SPIEL_ERINNERUNG_TAGE_ZWEITE": "the day the pass reminds a team, which no frontend page or mail states",
 }
 
 MIRRORED_MODULES: Final = tuple(dict.fromkeys(mirror.module for mirror in MIRRORED_BOUNDS))
