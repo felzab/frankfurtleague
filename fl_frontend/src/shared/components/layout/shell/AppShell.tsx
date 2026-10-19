@@ -38,7 +38,10 @@ export function AppShell<TIcon extends string>({
 }: {
   /** Every entry the area can list: what the bar's title resolves against, and the rail's list where no `entries` stands. */
   structure: SidemenuStructure<TIcon>;
-  /** The rail's list where which entries show is the session's to say, streamed in its own boundary. */
+  /**
+   * The rail's list where which entries show is the session's to say, streamed in its own boundary: the area's
+   * own entries component, which binds its icons to its structure's type.
+   */
   entries?: React.ReactNode;
   /** The bar's heading where the session can change it, standing in for the one `structure` resolves once it renders. */
   heading?: React.ReactNode;
@@ -147,10 +150,16 @@ export function AppShell<TIcon extends string>({
 
         <div className="flex min-h-0 w-full flex-1 flex-row">
           <Sidemenu
-            entries={entries ?? <SidemenuEntries structure={structure} />}
+            entries={
+              entries ?? (
+                <SidemenuEntries
+                  structure={structure}
+                  iconDictionary={iconDictionary}
+                />
+              )
+            }
             linkPrefix={linkPrefix}
             keepsSaisonQuery={keepsSaisonQuery}
-            iconDictionary={iconDictionary}
             saisonMetadataDisplay={saisonMetadataDisplay}
             funktionSwitcher={funktionSwitcher}
             onSignOut={onSignOut}

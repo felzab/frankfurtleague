@@ -39,12 +39,11 @@ function rail(isDesktopCollapsed: boolean, keepsSaisonQuery = true): string {
   return renderTree(
     underNext(
       h(Sidemenu, {
-        entries: h(SidemenuEntries, { structure: STRUCTURE }),
+        entries: h(SidemenuEntries, { structure: STRUCTURE, iconDictionary: ICONS }),
         linkPrefix: "/dashboard",
         keepsSaisonQuery,
         saisonMetadataDisplay: null,
         funktionSwitcher: null,
-        iconDictionary: ICONS,
         isMobileOpen: false,
         onMobileClose: () => undefined,
         isDesktopCollapsed,
@@ -221,12 +220,11 @@ describe("which entry the rail marks current where the area has a landing", () =
     const markup = renderTree(
       underNext(
         h(Sidemenu, {
-          entries: h(SidemenuEntries, { structure: LANDING }),
+          entries: h(SidemenuEntries, { structure: LANDING, iconDictionary: ICONS }),
           linkPrefix: PREFIX,
           keepsSaisonQuery: false,
           saisonMetadataDisplay: null,
           funktionSwitcher: null,
-          iconDictionary: ICONS,
           isMobileOpen: false,
           onMobileClose: () => undefined,
           isDesktopCollapsed: false,

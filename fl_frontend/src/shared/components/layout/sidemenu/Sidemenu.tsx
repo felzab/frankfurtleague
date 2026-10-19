@@ -12,14 +12,13 @@ import { SidemenuStateProvider } from "./SidemenuState";
 import type { SignOutResult } from "@/shared/types/types";
 import type { LinkPrefix } from "../shell/linkPrefix";
 
-/** The navigation rail, fully controlled by `AppShell`, which pairs the structure with the icon dictionary. */
+/** The navigation rail, fully controlled by `AppShell`. */
 export function Sidemenu({
   entries,
   linkPrefix,
   keepsSaisonQuery,
   saisonMetadataDisplay,
   funktionSwitcher,
-  iconDictionary,
   onSignOut,
   kontoHref,
   isMobileOpen,
@@ -33,7 +32,6 @@ export function Sidemenu({
   keepsSaisonQuery: boolean;
   saisonMetadataDisplay: React.ReactNode;
   funktionSwitcher: React.ReactNode;
-  iconDictionary: Readonly<Record<string, React.ElementType>>;
   /** Forwarded to the footer's options menu; the bar carries the same control. */
   onSignOut?: () => Promise<SignOutResult>;
   /** Forwarded to that same menu, which is where a phone reaches the account page the bar links from `lg`. */
@@ -69,7 +67,6 @@ export function Sidemenu({
             onMobileClose: onMobileClose,
             linkPrefix: linkPrefix,
             keepsSaisonQuery: keepsSaisonQuery,
-            iconDictionary: iconDictionary,
           }}>
           {/* First, above the season, and kept while collapsed where the season slot is not: which Funktion the
               person is acting in frames everything below it. */}

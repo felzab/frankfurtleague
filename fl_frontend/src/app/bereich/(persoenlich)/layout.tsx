@@ -5,11 +5,10 @@ import { funktionenOf } from "@/core/funktionen";
 import { FunktionenGuard } from "@/features/funktionen/components/providers/FunktionenGuard";
 import { PersonAreaBoundary } from "@/features/funktionen/components/providers/PersonAreaBoundary";
 import { PersonLaneFunktionSwitcher } from "@/features/funktionen/components/ui/PersonLaneFunktionSwitcher";
-import { PersonShell } from "@/features/funktionen/components/ui/PersonShell";
+import { PersonShell, PersonSidemenuEntries } from "@/features/funktionen/components/ui/PersonShell";
 import { PERSON_SIDEMENU_ENTRIES, PERSON_SIDEMENU_STRUCTURE, personStructureFor } from "@/features/funktionen/constants";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { personEintraegeOf } from "@/features/funktionen/utils";
-import { SidemenuEntries } from "@/shared/components/layout/sidemenu/SidemenuNavLinks";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
 /**
@@ -25,7 +24,7 @@ export default function PersoenlichLayout({ children }: { children: React.ReactN
         entries={
           // The landing alone in its stead, which every person holds: a listed page the person may not open is
           // a link the page turns away.
-          <Suspense fallback={<SidemenuEntries structure={personStructureFor(new Set(["landing"]))} />}>
+          <Suspense fallback={<PersonSidemenuEntries structure={personStructureFor(new Set(["landing"]))} />}>
             <PersonEntries />
           </Suspense>
         }
@@ -57,5 +56,5 @@ async function PersonEntries() {
   // The guard's own read, memoised per render (`fl_frontend/src/core/subject.ts :: getSubjectSession`).
   const { funktionen } = funktionenOf(await requireSubjectSession());
 
-  return <SidemenuEntries structure={personStructureFor(personEintraegeOf(funktionen))} />;
+  return <PersonSidemenuEntries structure={personStructureFor(personEintraegeOf(funktionen))} />;
 }
