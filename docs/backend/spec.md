@@ -79,7 +79,7 @@ carries no `before`, so the row records that a submission arrived rather than an
 | POST   | `/spieler/adresswechsel/ansicht`        | Stores nothing (`READ-PUPIL-005`); refuses only `REQ-SPIELER-001`; a barred new address reads `gesperrt`, a barred old one, a taken new one or none held `nicht_bestaetigbar`                                  |
 | POST   | `/spieler/adresswechsel`                | Confirmed, the change's address becomes the pupil's, folded (I701, I702); declined, the change and its logged address go (I704) (`REQ-SPIELER-001`, `-002`, `-004` to `-006`, `-008`)                          |
 | POST   | `/spielbestaetigungen/ansicht`          | Stores nothing (`READ-ANSETZUNG-001`): the token travels in a body; refuses only `REQ-ANSETZUNG-001`; a barred seat reads `gesperrt` (I515)                                                                    |
-| POST   | `/spielbestaetigungen`                  | One club's answer about one Ansetzung, the first seat to press binding (I755); writes no fixture (I754) (`REQ-ANSETZUNG-001` to `-005`, `-007`, `-009`, `-011`, `-012`)                                        |
+| POST   | `/spielbestaetigungen`                  | One club's answer about one Ansetzung, the first seat to press binding (I755); writes no fixture (I754) (`REQ-ANSETZUNG-001` to `-005`, `-007`, `-009`, `-011`)                                                |
 
 **`GET /bewerbungen` stays the admin list on `router.py`; only the POST at that path is public.** What
 keeps this table closed is `fl_backend/tests/api/test_admin_guard.py :: PUBLIC_WRITES` (I7).
@@ -1554,12 +1554,10 @@ rather than by the handler remembering to conceal one.
   the window costs an account only where both answers fall inside one move.
 - **A club's answer can bind to an Ansetzung that moves as it commits.** The answer judges again
   outside its transaction just before answering (I118), and writes nothing a fixture save, a rival
-  booking, a matchday's dates, a club's exit or a seat's rename writes, so one of those committing
-  between that
+  booking, a matchday's dates or a club's exit writes, so one of those committing between that
   second judgement and the answer's own commit stands beside it. A move then leaves the row answered
   about the Ansetzung the fixture left: the next pass closes it `ansetzung_geaendert`
   (`fl_backend/app/api/spielbestaetigungen/services.py :: grund_to_close`) and asks the club again
   where the fixture's new date is inside the answer window, one request more. Any other leaves a
   proposal stored that its judges would now refuse, which the administrator's save of that date
-  judges again (I754), or a reason holding a name given in that instant: a proposal is advice, and
-  the reason goes with the season's contacts (`docs/datenschutz.md` §6).
+  judges again (I754): a proposal is advice.

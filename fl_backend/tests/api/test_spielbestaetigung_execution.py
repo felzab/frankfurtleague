@@ -31,7 +31,6 @@ from app.api.spielbestaetigungen.services import (
     ANSETZUNG_BEANTWORTET,
     ANSETZUNG_GEAENDERT,
     ANSETZUNG_GESPERRT,
-    ANSETZUNG_NAME_IN_BEGRUENDUNG,
     ANSETZUNG_TOKEN_UNKNOWN,
     ANSETZUNG_VORSCHLAG_VERGANGEN,
 )
@@ -410,10 +409,7 @@ VIEW_FIXTURE_RESOLVES = frozenset(
     | {f"{slot}.{part}" for slot in ("team1", "team2") for part in ("team_id", "name", "tore")}
 )
 VIEW_CLUBS_RESOLVE = frozenset({"team_id", "name", "austritt.datum", "kontakte.stellvertretung.email", "kontakte.stellvertretung"})
-ANSWER_CLUBS_RESOLVE = frozenset(
-    {"team_id", "austritt.datum", "kontakte.trainer.email"}
-    | {f"kontakte.{seat}.{part}" for seat in KONTAKT_ROLLEN for part in ("vorname", "nachname")}
-)
+ANSWER_CLUBS_RESOLVE = frozenset({"team_id", "name", "austritt.datum", "kontakte.trainer.email", "kontakte.trainer"})
 
 
 def addresses_loaded(loaded: list[Mapping[str, Any]]) -> set[tuple[Any, str]]:
@@ -440,7 +436,7 @@ class TestWhatAnAnonymousReadLoads:
         # The seat's own, which the ban list is asked about; never the other club's same seat.
         assert addresses_loaded(clubs) == {(TEAM1, "kontakte.stellvertretung.email")}
 
-    def test_the_answer_holds_the_names_it_judges_and_only_its_own_seats_address(self, mongo_replica_set_url: str):
+    def test_the_answer_loads_no_seat_holders_name_and_only_its_own_seats_address(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             saison_teams = ReadsRecorded(database[Collection.SAISON_TEAMS])
             await antworten(database, client, token(TEAM1, "trainer"), saison_teams=saison_teams)
@@ -687,34 +683,18 @@ class TestTheLinkLookupWalksAnIndex:
             assert {f"IXSCAN {{ kontakte.{seat}.token_hashes: 1 }}" for seat in KONTAKT_ROLLEN} <= set(plan.split(", ")), plan
 
 
-class TestANameInTheReasonLeavesTheRowUnwritten:
-    """The two reads the names come from, through the route: the other club's row, a surname, and the fixture's referee."""
+class TestAReasonIsStoredAsTyped:
+    def test_a_reason_naming_the_fixtures_people_is_stored(self, mongo_replica_set_url: str):
+        """The other club's Trainer, a surname of the club's own seat and the booked referee: a reason takes any text."""
 
-    @pytest.mark.parametrize(
-        "name",
-        [
-            pytest.param("Cordes", id="own-club-stellvertretung-surname"),
-            pytest.param("Lea", id="other-club-trainer-first-name"),
-            pytest.param("Gruber", id="the-booked-referee"),
-        ],
-    )
-    def test_a_name_of_the_fixtures_people_is_refused(self, mongo_replica_set_url: str, name: str):
+        reason = "Leider haben Lea, Cordes und Gruber keine Zeit"
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            outcome = await outcome_of(
-                ablehnen(database, client, token(TEAM1, "trainer"), ("2027-05-15", "18:00:00"), begruendung=f"Leider hat {name} keine Zeit")
-            )
-
-            return outcome, (await row_now(database, ROW1))["antwort"]
-
-        assert on_a_fixture(mongo_replica_set_url, body) == (ANSETZUNG_NAME_IN_BEGRUENDUNG, None)
-
-    def test_a_reason_naming_nobody_is_stored(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await ablehnen(database, client, token(TEAM1, "trainer"), ("2027-05-15", "18:00:00"), begruendung="Die Halle ist belegt")
+            await ablehnen(database, client, token(TEAM1, "trainer"), ("2027-05-15", "18:00:00"), begruendung=reason)
 
             return (await row_now(database, ROW1))["antwort"]["begruendung"]
 
-        assert on_a_fixture(mongo_replica_set_url, body) == "Die Halle ist belegt"
+        assert on_a_fixture(mongo_replica_set_url, body) == reason
 
 
 class ConfirmationsRunningARivalBeforeTheWrite(InterleavedCollection):
@@ -751,7 +731,7 @@ class TestAFixtureMovedMidAnswerIsJudgedAgain:
 
 
 # A decline every rival below turns into a refusal: inside the matchday, clear of the referee's other bookings, on a day
-# both clubs still play, its reason naming nobody.
+# both clubs still play.
 PROPOSAL = ("2027-05-15", "18:00:00")
 REASON = "Leider hat Zora an dem Tag Prüfungen"
 
@@ -771,14 +751,6 @@ async def let_a_club_leave_before_the_proposal(database: AsyncDatabase) -> None:
     await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM2}, {"$set": {"austritt": exit_record}})
 
 
-async def rename_a_seat_to_the_name_in_the_reason(database: AsyncDatabase) -> None:
-    await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM2}, {"$set": {"kontakte.trainer.vorname": "Zora"}})
-
-
-async def rename_the_referee_to_the_name_in_the_reason(database: AsyncDatabase) -> None:
-    await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"schiedsrichter.name": "Zora Gruber"}})
-
-
 class TestWhatTheProposalIsJudgedOnMovingMidAnswerIsJudgedAgain:
     """Each a write the answer's transaction reads and never writes, so none conflicts: the re-judgement outside it is all that sees them."""
 
@@ -796,8 +768,6 @@ class TestWhatTheProposalIsJudgedOnMovingMidAnswerIsJudgedAgain:
             pytest.param(narrow_the_matchday, FIXTURE_OUTSIDE_SPIELTAG, id="the-matchday-narrowed"),
             pytest.param(book_the_referee_beside_it, FIXTURE_DOUBLE_BOOKED, id="a-rival-booking-of-the-referee"),
             pytest.param(let_a_club_leave_before_the_proposal, ELIGIBILITY_DISQUALIFIED, id="a-club-leaving-before-the-new-day"),
-            pytest.param(rename_a_seat_to_the_name_in_the_reason, ANSETZUNG_NAME_IN_BEGRUENDUNG, id="a-seat-renamed"),
-            pytest.param(rename_the_referee_to_the_name_in_the_reason, ANSETZUNG_NAME_IN_BEGRUENDUNG, id="the-referee-renamed"),
         ],
     )
     def test_the_answer_is_refused_on_what_moved_and_writes_nothing(
@@ -922,23 +892,6 @@ class TestWhatALinksOwnRowReadLoads:
         assert outcome == ANSETZUNG_BEANTWORTET
         assert leaf_paths(viewed) <= LINK_ROW_RESOLVES and "antwort.art" in leaf_paths(viewed)
         assert leaf_paths(pressed) <= LINK_ROW_RESOLVES and "antwort.art" in leaf_paths(pressed)
-
-
-class TestTheNameRefusalComesLast:
-    def test_a_proposal_refused_for_its_date_says_nothing_of_the_name_in_its_reason(self, mongo_replica_set_url: str):
-        """Judged first, the name would answer `-012` over a refused date, so presses could test guesses without spending the link."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            named = "Leider hat Cordes keine Zeit"
-            outside, inside = ("2027-05-20", "18:00:00"), ("2027-05-15", "18:00:00")
-            return (
-                await outcome_of(ablehnen(database, client, token(TEAM1, "trainer"), outside, begruendung=named)),
-                await outcome_of(ablehnen(database, client, token(TEAM1, "trainer"), inside, begruendung=named)),
-                (await row_now(database, ROW1))["antwort"],
-            )
-
-        # The premise: the same reason on a date the matchday holds is the name refusal, and neither press wrote.
-        assert on_a_fixture(mongo_replica_set_url, body) == (FIXTURE_OUTSIDE_SPIELTAG, ANSETZUNG_NAME_IN_BEGRUENDUNG, None)
 
 
 class TestAProposalOfAPastDayIsRefusedThroughTheRoute:

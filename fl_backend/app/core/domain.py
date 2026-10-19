@@ -2940,18 +2940,6 @@ RULES: tuple[Rule, ...] = (
         implemented_by="app.api.spielbestaetigungen.services.find_vorschlag_vergangen_refusal",
         tested_by="tests/api/test_spielbestaetigung_refusal.py::TestAProposalBeforeToday",
     ),
-    Rule(
-        code="REQ-ANSETZUNG-012",
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        operation="POST /spielbestaetigungen",
-        aggregate="Spielbestaetigung",
-        summary=(
-            "a declining club's reason holds no name of either club's three seats on their season rows or of the booked referee,"
-            " matched as an erasure's request is"
-        ),
-        implemented_by="app.api.spielbestaetigungen.services.find_name_in_begruendung_refusal",
-        tested_by="tests/api/test_spielbestaetigung_execution.py::TestANameInTheReasonLeavesTheRowUnwritten",
-    ),
 )
 
 

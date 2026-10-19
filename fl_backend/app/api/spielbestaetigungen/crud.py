@@ -39,14 +39,14 @@ ANSICHT_SPIEL_FIELDS: Mapping[str, int] = {
 }
 
 
-def verein_fields(*, team_id: Any, seat: str, namen: bool) -> dict[str, Any]:
-    """`namen` for the answer, which judges a reason against every seat holder of both clubs; the view states the clubs' names."""
+def verein_fields(*, team_id: Any, seat: str) -> dict[str, Any]:
+    """The clubs' season rows as a link reads them: the exit the close judges, the name the view states, no seat holder's name."""
 
     return {
         "_id": 0,
         "team_id": 1,
         "austritt.datum": 1,
-        **({f"kontakte.{slot}.{part}": 1 for slot in KONTAKT_ROLLEN for part in ("vorname", "nachname")} if namen else {"name": 1}),
+        "name": 1,
         # The other club's row and every other seat load no address.
         f"kontakte.{seat}.email": {"$cond": [{"$eq": ["$team_id", team_id]}, f"$kontakte.{seat}.email", "$$REMOVE"]},
     }

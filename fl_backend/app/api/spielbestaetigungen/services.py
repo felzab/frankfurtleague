@@ -8,7 +8,6 @@ from typing import Any, Final, NamedTuple, cast
 from pydantic import SecretStr
 
 from app.api.bewerbungen.services import days_after, seat_named
-from app.api.identitaet.services import holds_a_name, namen_aus
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnsichtAnsetzung,
     FLSpielbestaetigungAntwortArt,
@@ -138,7 +137,6 @@ ANSETZUNG_ENTSCHIEDEN = "REQ-ANSETZUNG-005"
 ANSETZUNG_VORSCHLAG_VERGANGEN = "REQ-ANSETZUNG-007"
 ANSETZUNG_GESCHLOSSEN = "REQ-ANSETZUNG-009"
 ANSETZUNG_GESPERRT = "REQ-ANSETZUNG-011"
-ANSETZUNG_NAME_IN_BEGRUENDUNG = "REQ-ANSETZUNG-012"
 
 # A row closed, or due to close, for one of these is about an Ansetzung the fixture has left, which the
 # page tells apart from a deadline that ran out.
@@ -339,44 +337,6 @@ def find_vorschlag_vergangen_refusal(*, vorschlag: FLSpielbestaetigungTermin, to
         message=f"the proposed date {vorschlag.datum} lies before today",
         # The date box the form holds the proposal in, so it is marked where the reader typed the day.
         fields=(("vorschlag", "datum"),),
-    )
-
-
-def beteiligte_namen(*, lage: AnsetzungLage) -> frozenset[str]:
-    """Every name the people of this Ansetzung hold: both clubs' three seats on their season rows, and the booked referee.
-
-    Never a squad pupil's, by decision (`docs/datenschutz.md :: "Free text that may name a person outlives their erasure"`).
-    """
-
-    fields = [
-        *(
-            ((row.get("kontakte") or {}).get(seat) or {}).get(part)
-            for row in lage.vereine
-            for seat in KONTAKT_ROLLEN
-            for part in ("vorname", "nachname")
-        ),
-        # Off the fixture's copy, which a rename rewrites in its own transaction; the ghost's is null.
-        (lage.spiel.get("schiedsrichter") or {}).get("name"),
-    ]
-
-    return namen_aus(fields)
-
-
-def find_name_in_begruendung_refusal(*, begruendung: str, names: Iterable[str]) -> WriteRefusal | None:
-    """`REQ-ANSETZUNG-012`: no name of the Ansetzung's people stands in a reason the row keeps until its season's contacts are cleared.
-
-    By `holds_a_name`: a common word equal to a name is refused with it, and the club rephrases.
-    """
-
-    if not holds_a_name(begruendung, names):
-        return None
-
-    # Naming none of them: the message reaches the refusal's log line.
-    return WriteRefusal(
-        error_code=ANSETZUNG_NAME_IN_BEGRUENDUNG,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        message="the reason names a person of this fixture's clubs or its referee, and the confirmation keeps it with the season's contacts",
-        fields=(("begruendung",),),
     )
 
 

@@ -20,13 +20,11 @@ from app.api.spielbestaetigungen.services import (
     AnsetzungLage,
     ansicht_ansetzung_of,
     ansicht_snapshot_of,
-    beteiligte_namen,
     build_answerable_filter,
     build_token_filter,
     clubs_without_a_season_row,
     compose_antwort_update,
     find_gesperrt_link_refusal,
-    find_name_in_begruendung_refusal,
     find_spent_link_refusal,
     find_unknown_link_refusal,
     find_vorschlag_vergangen_refusal,
@@ -109,7 +107,7 @@ async def get_spielbestaetigung_ansicht(
         saison_teams_collection=saison_teams_collection,
         spielbestaetigung_raw=row,
         spiel_projection=ANSICHT_SPIEL_FIELDS,
-        verein_projection=verein_fields(team_id=row["partei"]["team_id"], seat=seat, namen=False),
+        verein_projection=verein_fields(team_id=row["partei"]["team_id"], seat=seat),
     )
     # The row read outside any transaction: an undraw or a replace committing since took the fixture and the row together.
     refuse(find_unknown_link_refusal(seat=None if lage is None else seat))
@@ -172,13 +170,12 @@ async def post_spielbestaetigung(
     (`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club
     (`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the link (`REQ-ANSETZUNG-004`), each
     as the confirmation pass's close judges the row; an answer after the deadline's day (`REQ-ANSETZUNG-003`); a
-    proposal dated before today (`REQ-ANSETZUNG-007`); a proposal the administrator's own save of that date would be
-    refused, judged on what it newly claims: outside the matchday (`REQ-DATE-001`), on or after a club's exit
-    (`REQ-ELIGIBILITY-001`), or within four hours of the ground's or the referee's other fixture (`REQ-CLASH-001`); and
-    last a reason holding a name of either club's three seats or of the booked referee (`REQ-ANSETZUNG-012`), so an
-    answer refused for anything else says nothing about a name. Every refusal after the ban's is asked again outside the
-    transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather than
-    letting it stand.
+    proposal dated before today (`REQ-ANSETZUNG-007`); and a proposal the administrator's own save of that date would be
+    refused, judged on what it newly claims and in that save's order: on or after a club's exit
+    (`REQ-ELIGIBILITY-001`), outside the matchday (`REQ-DATE-001`), or within four hours of the ground's or the referee's
+    other fixture (`REQ-CLASH-001`). The reason is stored as typed. Every refusal after the ban's is asked again outside
+    the transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather
+    than letting it stand.
     """
 
     token_hash = hash_token(antwort_data.token)
@@ -203,7 +200,7 @@ async def post_spielbestaetigung(
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
             spiel_projection=None,
-            verein_projection=verein_fields(team_id=row["partei"]["team_id"], seat=seat, namen=True),
+            verein_projection=verein_fields(team_id=row["partei"]["team_id"], seat=seat),
             session=session,
         )
         # One snapshot with the row, and the fixture is removed with its rows in one transaction.
@@ -245,11 +242,6 @@ async def post_spielbestaetigung(
                 )
                 refuse(find_clash_refusal(datum=proposed.datum, uhrzeit=proposed.uhrzeit, booked=booked))
 
-            # LAST, behind every judge that writes nothing either: a reason naming nobody is then stored and the link spent,
-            # so a stranger probing guessed names learns one answer per link rather than one per press.
-            if antwort_data.begruendung is not None:
-                refuse(find_name_in_begruendung_refusal(begruendung=antwort_data.begruendung, names=beteiligte_namen(lage=gegen)))
-
         await judge(lage, session)
 
         try:
@@ -280,7 +272,7 @@ async def post_spielbestaetigung(
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
             spiel_projection=None,
-            verein_projection=verein_fields(team_id=row["partei"]["team_id"], seat=seat, namen=True),
+            verein_projection=verein_fields(team_id=row["partei"]["team_id"], seat=seat),
             session=None,
         )
         # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.

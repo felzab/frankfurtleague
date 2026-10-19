@@ -12,16 +12,13 @@ from app.api.spielbestaetigungen.services import (
     ANSETZUNG_FRIST_VORBEI,
     ANSETZUNG_GEAENDERT,
     ANSETZUNG_GESCHLOSSEN,
-    ANSETZUNG_NAME_IN_BEGRUENDUNG,
     ANSETZUNG_TOKEN_UNKNOWN,
     ANSETZUNG_VORSCHLAG_VERGANGEN,
     AnsetzungLage,
     ansicht_ansetzung_of,
     ansicht_snapshot_of,
-    beteiligte_namen,
     clubs_without_a_season_row,
     compose_ansetzung,
-    find_name_in_begruendung_refusal,
     find_spent_link_refusal,
     find_unknown_link_refusal,
     find_vorschlag_vergangen_refusal,
@@ -31,7 +28,6 @@ from app.api.spielbestaetigungen.services import (
     zustand_of,
 )
 from app.api.spiele.schemas import FLSpiel
-from app.api.teams.schemas import KONTAKT_ROLLEN
 
 TEAM1 = ObjectId("650000000000000000000101")
 TEAM2 = ObjectId("650000000000000000000102")
@@ -298,7 +294,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
         # The premise: `entscheidung_of` read the fixture to its last test.
         assert {"ergebnis", "elfmeterschiessen", "sonderereignis", "team2.tore", "austritt.datum"} <= spiel_seen | vereine_seen
         assert [path for path in sorted(spiel_seen) if not loaded_by(ANSICHT_SPIEL_FIELDS, path)] == []
-        projection = verein_fields(team_id=TEAM1, seat="trainer", namen=False)
+        projection = verein_fields(team_id=TEAM1, seat="trainer")
         assert [path for path in sorted(vereine_seen) if not loaded_by(projection, path)] == []
 
     def test_the_answer_reads_nothing_of_the_clubs_its_projection_leaves_out(self):
@@ -310,11 +306,10 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
         )
 
         assert find_spent_link_refusal(spielbestaetigung_raw=zeile(), lage=situation, today=TODAY) is None
-        beteiligte_namen(lage=situation)
         seat_adresse(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
 
-        assert {"austritt.datum", "kontakte.stellvertretung.nachname", "kontakte.trainer.email"} <= vereine_seen
-        projection = verein_fields(team_id=TEAM1, seat="trainer", namen=True)
+        assert {"austritt.datum", "kontakte.trainer.email"} <= vereine_seen
+        projection = verein_fields(team_id=TEAM1, seat="trainer")
         assert [path for path in sorted(vereine_seen) if not loaded_by(projection, path)] == []
 
 
@@ -414,45 +409,3 @@ class TestTheProposalIsTheFixtureOnItsNewDate:
         # Against the stored sides, spelled out: the exit judge weighs exactly the clubs the fixture already fields.
         sides = [None if side is None else (side.team_id, side.tore) for side in (proposed.team1, proposed.team2)]
         assert (sides, proposed.sonderereignis) == ([(TEAM1, None), (TEAM2, None)], None)
-
-
-class TestANameInTheBegruendung:
-    """Every name of the Ansetzung's people refused, each seat of each club and the referee; a word naming nobody passes."""
-
-    @pytest.mark.parametrize(
-        "name",
-        [
-            *(
-                pytest.param(name, id=f"{team}-{seat}-{part}")
-                for team, seats in (("team1", SEATS[TEAM1]), ("team2", SEATS[TEAM2]))
-                for seat, pair in seats.items()
-                for part, name in zip(("vorname", "nachname"), pair, strict=True)
-            ),
-            pytest.param("Otto", id="referee-first-word"),
-            pytest.param("Gruber", id="referee-last-word"),
-        ],
-    )
-    def test_a_name_of_anybody_on_the_fixture_is_refused(self, name: str):
-        refusal = find_name_in_begruendung_refusal(begruendung=f"Leider hat {name} an dem Tag Prüfungen", names=beteiligte_namen(lage=lage()))
-
-        assert refusal is not None and refusal.error_code == ANSETZUNG_NAME_IN_BEGRUENDUNG
-        assert refusal.fields == (("begruendung",),)
-
-    def test_a_reason_naming_nobody_is_taken(self):
-        assert find_name_in_begruendung_refusal(begruendung="Die Halle ist an dem Abend belegt", names=beteiligte_namen(lage=lage())) is None
-
-    def test_the_ghost_referee_names_nobody(self):
-        """An erased referee's fixture keeps a null name, which must refuse no reason at all."""
-
-        names = beteiligte_namen(
-            lage=lage(spiel_overrides={"schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": None, "payment": 0}})
-        )
-
-        assert "" not in names and "Gruber" not in names
-
-    def test_every_seat_of_both_clubs_is_read(self):
-        """The seat set is `KONTAKT_ROLLEN` whole, so a seat added there is a seat whose holder is refused too."""
-
-        names = beteiligte_namen(lage=lage())
-
-        assert {SEATS[team][seat][0] for team in (TEAM1, TEAM2) for seat in KONTAKT_ROLLEN} <= names
