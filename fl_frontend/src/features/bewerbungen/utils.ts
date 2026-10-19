@@ -249,9 +249,8 @@ export function mapEinwilligungRefusal(
       return { error: FASSUNG_NEU_OEFFNEN };
     case "REQ-BEWERBUNG-009":
       return { zustand: "ungueltig" };
-    // A decided application, or a deadline passed that only a re-sent link restarts, and a season row's seat past its
-    // own: the press judges these ahead of the seat and the ban, which the view ranks first, so a seat answered in
-    // another window, or a barred address, reads as the view says and the spent-link panel stands for the rest.
+    // Judged ahead of the seat and the ban, which the view ranks first: an answer given in another window, or a ban
+    // entered since, reads as the view says, and the spent link's panel stands for the rest.
     case "REQ-BEWERBUNG-010":
     case "REQ-BEWERBUNG-017":
     case "REQ-KONTAKT-004":

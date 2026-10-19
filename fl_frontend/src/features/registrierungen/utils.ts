@@ -143,7 +143,7 @@ const ALTER_AUSSERHALB_UNGELESEN = "Mit diesem Geburtsdatum bist Du zu jung oder
 /** What one refused confirmation asks its caller to do. */
 export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: SpielerLinkZustand };
 
-/** The link's own view, read again after a refused press: its floors where it is open, its state where not. */
+/** The link's own view, read again after a refused press: its floors where it is open, its state where not. A failed read is `null` beside it. */
 export type GelesenerLink =
   | { readonly zustand: "gueltig"; readonly ansicht: { readonly mindestalter: number; readonly medien_mindestalter: number } }
   | { readonly zustand: SpielerLinkZustand };
@@ -154,7 +154,7 @@ export type GelesenerLink =
  * A confirmation refusal as what the page should show, or `null` where the code is none of these.
  *
  * The floors are the token's own view's: a number of this mapper's own would state one the
- * endpoint is not using. `gelesen` answers `null` where the read failed.
+ * endpoint is not using.
  */
 export async function mapBestaetigungRefusal(
   error: unknown,

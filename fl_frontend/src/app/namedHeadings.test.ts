@@ -429,8 +429,8 @@ const HREF = new Set(["href"]);
 const LINK_LABELS = new Set(["label", "linkLabel"]);
 
 /**
- * The page an `href` names, as far as it is typed: its path before any query or fragment, `null` where a value computes
- * it. A hole opening the address with a path typed after it is an origin, as a message's builder writes one.
+ * The page an `href` names as typed: its path before any query or fragment, `null` where a value computes it. A leading
+ * hole before a typed path is a message's origin.
  */
 function zielOf(value: ts.Node | undefined): string | null {
   if (value === undefined) return null;

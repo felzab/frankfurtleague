@@ -242,9 +242,8 @@ describe("what one refused confirmation shows", () => {
     assert.equal(alter.gelesen(), 1, "the age refusal reached the reader no number of its own could answer");
   });
 
-  /* The press judges a passed deadline ahead of a confirmation, and both ahead of the ban, which the view ranks first:
-     a link confirmed in another window, or barred since, reads as a reload shows it, and the press's own panel where
-     the read finds it open or fails. */
+  /* Judged ahead of the ban, which the view ranks first, the deadline ahead of a confirmation too: the view's state
+     stands, and the press's own panel where the read finds the link open or fails. */
   it("answers a lapsed or a spent link with the panel the link's view reads", async () => {
     for (const [code, link, zustand] of [
       ["REQ-REGISTRIERUNG-005", { zustand: "bestaetigt" }, "bestaetigt"],
