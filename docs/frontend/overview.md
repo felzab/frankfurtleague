@@ -97,8 +97,9 @@ where it slides the session a person only reads ([`spec.md`](spec.md) I495), and
 `/bereich/admin/:path*` it turns away a request with no session or one no passkey made, reading
 nothing but the session, as Next's own guidance has a proxy check. Under the rest of `/bereich` it
 turns away a request carrying no session cookie before any read, a prefetch among them, and one whose
-session the slide finds gone, so a signed-out visitor meets sign-in rather than the area's frame; a
-page's own guard still reads the session it serves. The grant is judged where the data
+session the slide finds gone, so a visitor holding no session cookie meets sign-in rather than the
+area's frame. A prefetch carrying one skips the proxy, so a lapsed or foreign cookie is painted that
+empty frame before the page's own guard, which still reads the session it serves, sends it to sign-in. The grant is judged where the data
 is read: every admin-tier read checks the administrator verdict through
 `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`, sending a session it refuses to the
 sign-in landing and a grant the backend left unread to the admin boundary's retry, since Next renders
