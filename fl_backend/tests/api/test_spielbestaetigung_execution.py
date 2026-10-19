@@ -30,6 +30,7 @@ from app.api.spielbestaetigungen.services import (
     ANSETZUNG_GESPERRT,
     ANSETZUNG_NAME_IN_BEGRUENDUNG,
     ANSETZUNG_TOKEN_UNKNOWN,
+    ANSETZUNG_VORSCHLAG_VERGANGEN,
 )
 from app.api.spiele.services import ELIGIBILITY_DISQUALIFIED, FIXTURE_DOUBLE_BOOKED, FIXTURE_OUTSIDE_SPIELTAG
 from app.api.teams.schemas import KONTAKT_ROLLEN
@@ -847,3 +848,25 @@ class TestTwoSeatsPressingAtOnce:
         # The premise: the write conflicted and the press was judged afresh. Whether the judgement or the write's filter
         # then refuses it, both answer the same code.
         assert judged == 2
+
+
+class TestAProposalOfAPastDayIsRefusedThroughTheRoute:
+    def test_yesterday_inside_the_matchday_writes_nothing(self, mongo_replica_set_url: str):
+        """A deadline of today, as a fixture inside the notice period is minted with.
+
+        The matchday's span admits yesterday, so this rule alone refuses it.
+        """
+
+        today = "2027-05-12"
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            outcome = await outcome_of(ablehnen(database, client, token(TEAM1, "trainer"), ("2027-05-11", "18:00:00"), today=today))
+
+            return outcome, await row_now(database, ROW1)
+
+        outcome, row = on_a_fixture(
+            mongo_replica_set_url, body, rows=[{**confirmation(ROW1, TEAM1), "frist": today}, confirmation(ROW2, TEAM2)]
+        )
+
+        assert outcome == ANSETZUNG_VORSCHLAG_VERGANGEN
+        assert row["antwort"] is None
