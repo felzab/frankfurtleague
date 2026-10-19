@@ -668,11 +668,16 @@ def _is_binding(node: ast.Name, parents: Mapping[int, ast.AST]) -> bool:
 
 
 @functools.cache
-def _changes(declaration: Declaration) -> tuple[frozenset[str], Mapping[str, tuple[_Fill, ...]]]:
-    """Every name `declaration` may change a held dict through unreadably, and each other's readable stores into it."""
+def _changes(declaration: Declaration) -> tuple[frozenset[str], Mapping[str, tuple[_Fill, ...]], frozenset[str]]:
+    """Every name `declaration` may change a held dict through unreadably, each other's readable stores into it, and more.
+
+    The third: each dict whose held VALUES a loop variable may change, its keys still read.
+    """
 
     parents = {id(child): node for node in ast.walk(declaration) for child in ast.iter_child_nodes(node)}
     changed: set[str] = set()
+    # Names a load may change through, a store into them included: what a loop variable's own uses are judged by.
+    changing: set[str] = set()
     fills: dict[str, list[_Fill]] = {}
     for node in ast.walk(declaration):
         if not isinstance(node, ast.Name):
@@ -680,6 +685,7 @@ def _changes(declaration: Declaration) -> tuple[frozenset[str], Mapping[str, tup
         if isinstance(node.ctx, ast.Load):
             if _read_only(node, parents):
                 continue
+            changing.add(node.id)
             if (fill := _fill(node, parents)) is not None:
                 fills.setdefault(node.id, []).append(fill)
             else:
@@ -688,13 +694,56 @@ def _changes(declaration: Declaration) -> tuple[frozenset[str], Mapping[str, tup
         elif not (isinstance(node.ctx, ast.Store) and _is_binding(node, parents)):
             changed.add(node.id)
 
-    return frozenset(changed), {name: tuple(found) for name, found in fills.items() if name not in changed}
+    through_their_values = _changed_through_their_loops(declaration, changing) - changed
+
+    return frozenset(changed), {name: tuple(found) for name, found in fills.items() if name not in changed}, frozenset(through_their_values)
+
+
+def _changed_through_their_loops(declaration: Declaration, changing: set[str]) -> set[str]:
+    """Each held dict a loop over `.items()` or `.values()` iterates whose bound value a load may change: an alias, as `x = held.get(k)` is.
+
+    A loop over the dict itself or its `.keys()` binds strings, which alias nothing.
+    """
+
+    loops = [
+        (held, {name.id for name in ast.walk(target) if isinstance(name, ast.Name)})
+        for node in ast.walk(declaration)
+        if isinstance(node, ast.For | ast.comprehension)
+        for held, target in [_values_bound(node.iter, node.target)]
+        if held is not None
+    ]
+    reached = set(changing)
+    # Until settled: a loop variable may itself be the dict an inner loop iterates.
+    while True:
+        more = {iterated for iterated, bound in loops if bound & reached} - reached
+        if not more:
+            return {iterated for iterated, bound in loops if bound & reached}
+        reached |= more
+
+
+def _values_bound(iterated: ast.expr, target: ast.expr) -> tuple[str | None, ast.expr]:
+    """The dict whose held values a loop over `name.items()` or `name.values()` binds, and the part of `target` binding them.
+
+    `.items()` unpacked to a pair binds its key to the first, a string, which aliases nothing.
+    """
+
+    if not (
+        isinstance(iterated, ast.Call)
+        and not iterated.args
+        and isinstance(iterated.func, ast.Attribute)
+        and iterated.func.attr in {"items", "values"}
+        and isinstance(iterated.func.value, ast.Name)
+    ):
+        return None, target
+    if iterated.func.attr == "items" and isinstance(target, ast.Tuple) and len(target.elts) == 2:
+        return iterated.func.value.id, target.elts[1]
+    return iterated.func.value.id, target
 
 
 def _filled(scope: Mapping[str, Values], declaration: Declaration, module: ModuleType) -> dict[str, Values]:
     """`scope` with each held dict's stores added to it, and a dict changed past reading unresolved."""
 
-    changed, fills = _changes(declaration)
+    changed, fills, through_their_values = _changes(declaration)
     result: dict[str, Values] = {}
     for name, values in scope.items():
         added: list[tuple[Values, Values]] | None = []
@@ -713,7 +762,13 @@ def _filled(scope: Mapping[str, Values], declaration: Declaration, module: Modul
             if not isinstance(value, _Literal | _Dump)
             else UNRESOLVED
             if name in changed or added is None
-            else _Literal((*(_entries(value) or ()), *added))
+            else _Literal(
+                tuple(
+                    # A value changed through a loop variable may now hold any field; the key it sits under is unchanged.
+                    (keys, (UNRESOLVED,) if name in through_their_values else held)
+                    for keys, held in (*(_entries(value) or ()), *added)
+                )
+            )
             for value in values
         )
 
@@ -1584,6 +1639,11 @@ def test_a_document_written_where_the_trace_cannot_name_the_path_may_set_a_filte
         "inner = changes['$set']\n    inner['email'] = None",
         "add_address(changes)",
         "changes |= {'email': None}",
+        # A loop variable bound to a value the dict holds is an alias of it, as `inner` above is.
+        "for _, inner in changes.items():\n        inner['email'] = None",
+        "for inner in changes.values():\n        inner.update(email=None)",
+        "[inner.update(email=None) for inner in changes.values()]",
+        "for inner in changes.values():\n        for deeper in inner.values():\n            deeper['email'] = None",
     ],
 )
 def test_a_literal_the_function_may_change_after_binding_counts_as_writing_every_field(change: str):
@@ -1599,6 +1659,24 @@ def test_a_literal_the_function_may_change_after_binding_counts_as_writing_every
     [unchanged] = ast.parse(source.replace(f"    {change}\n", "    assert changes['$set'].get('vorname') is not None\n")).body
     assert isinstance(unchanged, ast.FunctionDef)
     read = _updated_fields(_return_values(unchanged, {"name": (UNRESOLVED,)}, module))
+    assert read is not None and [path for path, _ in read] == ["vorname"]
+
+
+def test_a_loop_reading_the_dicts_values_keeps_its_keys():
+    """The other half of the loop arms above: a variable the loop binds and only reads aliases nothing."""
+
+    source = (
+        "def compose(name):\n"
+        "    changes = {'$set': {'vorname': name}}\n"
+        "    for key, inner in changes.items():\n"
+        "        assert inner.get(key) is None\n"
+        "    return changes\n"
+    )
+    [declaration] = ast.parse(source).body
+    assert isinstance(declaration, ast.FunctionDef)
+
+    read = _updated_fields(_return_values(declaration, {"name": (UNRESOLVED,)}, importlib.import_module(COMPOSERS)))
+
     assert read is not None and [path for path, _ in read] == ["vorname"]
 
 
