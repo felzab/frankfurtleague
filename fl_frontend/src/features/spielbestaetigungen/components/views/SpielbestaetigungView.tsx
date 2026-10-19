@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 
-import { KONTAKT_EMAIL } from "@/core/brand";
 import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
@@ -203,7 +202,6 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
             Dieser Link ist ungültig oder abgelaufen. Wurde das Spiel verlegt, kommt eine neue E-Mail mit dem neuen Termin. Ist die Frist
             vorbei, legt die Liga den Termin fest.
           </p>
-          <p className={ABSATZ_CLASSES}>Fragen zum Termin per E-Mail an {KONTAKT_EMAIL}.</p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}

@@ -1,3 +1,5 @@
+import { nullUnlessContractBreak } from "@/core/errors";
+import { runAnsweringOwnCut } from "@/core/requestScope";
 import { postSpielbestaetigung } from "@/features/spielbestaetigungen/mutations";
 import { getSpielbestaetigungAnsicht } from "@/features/spielbestaetigungen/queries";
 import { FLSpielbestaetigungAntwortPayloadSchema } from "@/features/spielbestaetigungen/schemas";
@@ -10,13 +12,15 @@ import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import type { SpielbestaetigungAnsicht } from "@/features/spielbestaetigungen/utils";
 import type { NextRequest } from "next/server";
 
-/** Which way a link answered in another window went, and from which seat; a failed read throws rather than guessing one. */
+/** Which way a link answered in another window went, and from which seat, read after the backend refused the write. */
 async function beantworteterStand(token: string): Promise<Exclude<SpielbestaetigungAnsicht, { zustand: "gueltig" | "vorschlag" }>> {
-  const gelesen = await getSpielbestaetigungAnsicht(token);
+  // Its own cut, and its failure answered here: the write was refused, so no doubt about it may reach the spine,
+  // which would call the outcome unknown and drop the fixture list for a write that never stood.
+  const gelesen = await runAnsweringOwnCut(() => getSpielbestaetigungAnsicht(token)).catch(nullUnlessContractBreak);
 
-  // An open link is the write's refusal and this read disagreeing, and the panel naming nothing is the
-  // one answer that claims nothing about a row.
-  return gelesen.zustand === "gueltig" || gelesen.zustand === "vorschlag" ? { zustand: "ungueltig" } : gelesen;
+  // An open link is the write's refusal and this read disagreeing, and an unread one says nothing either way: the
+  // panel naming nothing is the one answer that claims nothing about a row.
+  return gelesen === null || gelesen.zustand === "gueltig" || gelesen.zustand === "vorschlag" ? { zustand: "ungueltig" } : gelesen;
 }
 
 // A route handler and not a server action, for the reason `docs/frontend/spec.md` §1.3 gives.
