@@ -9,6 +9,8 @@ import { Chip } from "@heroui/react/chip";
 
 import { PILL_RADIUS_CLASSES, PILL_TINT_CLASSES } from "@/shared/components/ui/badges";
 
+import { SPIEL_STATUS_LABELS } from "../../constants";
+
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLSpielStatus } from "../../schemas";
 
@@ -69,17 +71,8 @@ const STATUS_ICONS: Record<SpielChipStatus, React.ReactElement> = {
   ),
 };
 
-// One word per status, shared with `fl_frontend/src/features/spiele/facets.ts :: buildSpielFacets`:
-// two spellings of one state read as two. Not the schema value either, which would couple the
-// visible German to the API contract.
-const STATUS_LABELS: Record<SpielChipStatus, string> = {
-  vergangen: "Vergangen",
-  heute: "Heute",
-  ausstehend: "Ausstehend",
-  vorlaeufig: "Vorläufig",
-  unbekannt: "Ohne Datum",
-  abgesagt: "Abgesagt",
-};
+// The status filter's words, so a state never reads under two spellings; „Vorläufig“ alone is the chip's.
+const STATUS_LABELS: Record<SpielChipStatus, string> = { ...SPIEL_STATUS_LABELS, vorlaeufig: "Vorläufig" };
 
 /**
  * `ansetzungBestaetigt` is required so that every mount decides what it passes: `null` where nobody was asked,
