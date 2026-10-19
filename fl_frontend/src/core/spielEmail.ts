@@ -234,7 +234,7 @@ export function buildSpielEinteilungEmail({ origin, ansetzung }: SpielEinteilung
   const site = mailOrigin(origin);
   const fakten = gefaltet(ansetzung);
   const panel = `${site}${SCHIEDSRICHTER_PANEL_PATH}`;
-  const label = "Zu Deinen Spielen";
+  const label = "Zu Deinen Einsätzen";
 
   const eingeteilt = (markup: boolean): string =>
     `Hallo, die Verwaltung der ${BRAND_NAME} hat Dich als Schiedsrichterin oder Schiedsrichter für das Spiel ${paarung(fakten.team1, fakten.team2, markup)} eingeteilt.`;
@@ -271,7 +271,10 @@ export function buildSpielEinteilungEmail({ origin, ansetzung }: SpielEinteilung
 
 /** What became of the earlier word, and what follows it, per reader: a team was asked, a referee booked. */
 const NEU_SAETZE: Record<SpielEmpfaenger, readonly string[]> = {
-  team: ["Die Anfrage zum bisherigen Termin und ihr Link gelten nicht mehr.", "Zum neuen Termin bekommst Du eine neue Anfrage."],
+  team: [
+    "Die Anfrage zum bisherigen Termin und ihr Link gelten nicht mehr.",
+    "Bleibt Dein Team in diesem Spiel, bekommst Du für einen neuen Termin nach dem heutigen Tag eine neue Anfrage.",
+  ],
   schiedsrichter: [
     "Deine Einteilung zum bisherigen Termin gilt nicht mehr.",
     "Bleibst Du für das Spiel eingeteilt, bekommst Du zum neuen Termin eine neue Einteilung.",
