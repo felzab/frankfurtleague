@@ -44,7 +44,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
-    "ruff>=0.16.0",
+    "ruff>=0.17.1",
     # `fastapi dev app/asgi.py`, the source-with-reload run `docs/ops/spec.md` records as the dev
     # environment's backend entry point. A developer command, never the container's: the
     # Dockerfile's `uv sync --no-dev` leaves this group -- and the typer/rich console stack under
