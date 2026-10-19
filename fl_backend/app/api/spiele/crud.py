@@ -1,5 +1,5 @@
 from collections.abc import Mapping, Sequence, Set
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -28,6 +28,7 @@ from app.api.spiele.schemas import (
 from app.api.spiele.services import (
     BookedReferee,
     BookedReferences,
+    BookedSlot,
     BookedVenue,
     BracketResolution,
     SaisonMembership,
@@ -45,6 +46,7 @@ from app.api.spiele.services import (
     find_slot_claims,
     reopens,
     resolve_bracket,
+    slots_booked_against,
     stored_in_slice,
 )
 from app.api.teams.schemas import FLGruppenNames, FLTeamListAdapter, FLTeamsFilterParams
@@ -222,6 +224,24 @@ async def pull_slot_holders(
     return FLSpielSlotHolderListAdapter.validate_python(holders)
 
 
+async def pull_booked_slots(
+    *,
+    spiele_collection: AsyncCollection,
+    spiel_id: CustomObjectId,
+    claims: Sequence[SlotClaim],
+    session: AsyncClientSession | None = None,
+) -> list[BookedSlot]:
+    """Every other fixture's booking one of `claims` meets, as `REQ-CLASH-001` compares them.
+
+    `claims` is the caller's choice, and a save judges `find_claims_made`'s rather than every claim
+    its fixture makes (`docs/backend/spec.md :: I258`).
+    """
+
+    holders = await pull_slot_holders(spiele_collection=spiele_collection, claims=claims, session=session)
+
+    return [slot for claim in claims for slot in slots_booked_against(claim, holders, spiel_id=spiel_id)]
+
+
 async def pull_saison_membership(
     saison_teams_collection: AsyncCollection,
     saison_id: str,
@@ -249,6 +269,31 @@ async def pull_saison_membership(
         )
         for row in rows
     }
+
+
+class SpieltagSpan(NamedTuple):
+    beginn: str | None
+    ende: str | None
+
+
+async def pull_spieltag_span(
+    *,
+    spieltage_collection: AsyncCollection,
+    spieltag_id: CustomObjectId,
+    session: AsyncClientSession | None = None,
+) -> SpieltagSpan | None:
+    """The dates a fixture on this matchday must fall between, or `None` where the id names no matchday.
+
+    `find_one` rather than `pull_one_from_db`'s 404: the date rule leaves a missing matchday alone.
+    """
+
+    row = await spieltage_collection.find_one({"_id": spieltag_id}, {"beginn": 1, "ende": 1}, session=session)
+    if row is None:
+        return None
+
+    # RAW, never through `str()`: a drawn matchday stores a null span, and "None" sorts above every
+    # date, so a stringified one would refuse every fixture the season drew.
+    return SpieltagSpan(beginn=row["beginn"], ende=row["ende"])
 
 
 async def pull_booked_venue(
