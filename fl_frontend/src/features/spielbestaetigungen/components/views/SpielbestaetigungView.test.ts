@@ -203,7 +203,8 @@ describe("what the press sends", () => {
       { token: TOKEN, antwort: "abgelehnt", vorschlag: { datum: "2026-11-14", uhrzeit: "16:00:00" }, begruendung: "Klassenfahrt" },
     ]);
     assert.ok(await screen.findByRole("heading", { name: "Vorschlag gesendet" }));
-    assert.ok((document.body.textContent ?? "").includes("14.11.2026"), "the receipt does not read the proposal back");
+    assertOwnPanel(document.body.innerHTML, "Dein Vorschlag für Lessing-Kolleg ist bei der Liga.", "abgelehnt-neu");
+    assert.ok(resultPanels(document.body.innerHTML)[0]?.includes("14.11.2026"), "the receipt does not read the proposal back");
   });
 
   it("sends an empty reason as none", async () => {
