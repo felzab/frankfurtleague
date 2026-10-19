@@ -1,120 +1,119 @@
 <div align="center">
 
-<img src="fl_frontend/public/icons/manifest/icon-512.png" alt="Frankfurt League" width="104" height="104">
+<img src="fl_frontend/public/icons/manifest/icon-512.png" alt="Frankfurt League logo" width="104" height="104">
 
-# Frankfurt League
+# Frankfurtleague
 
-**Die Oberstufenliga der Frankfurter Schulen** — fixtures, results, tables and playoffs for a school
-football league, at [frankfurtleague.de](https://frankfurtleague.de).
+The software behind [frankfurtleague.de](https://frankfurtleague.de), the website of the Frankfurt
+League, _die Oberstufenliga der Frankfurter Schulen_.
 
 [![verify](https://github.com/felzab/frankfurtleague/actions/workflows/verify.yml/badge.svg)](https://github.com/felzab/frankfurtleague/actions/workflows/verify.yml)
-![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js&logoColor=white)
-![React](https://img.shields.io/badge/React-19-149eca?logo=react&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)
-![MongoDB](https://img.shields.io/badge/MongoDB-pymongo-47A248?logo=mongodb&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)
-
-</div>
-
----
-
-## About
-
-A public site for a Frankfurt schools' football league. Visitors browse the season plan, results, the
-group tables and the playoff bracket; a small number of admins enter results and manage venues and
-referees. It is a real, deployed application rather than a demo or a template — one server, one
-maintainer, a live audience each season.
-
-## Features
-
-**Public**
-
-- **Season plan** and **match history**, filtered to the selected season
-- **Group tables** for every group the season runs, ordered by points then goal difference
-- **Playoff bracket**, rendered as a horizontally scrolling round-by-round tree
-- **Team pages** with each team's record, and **squad lists** per team
-- **Fuzzy match search** across teams, venues, dates and referees, German date spellings included
-- German throughout, with the domain vocabulary preserved rather than translated
-
-**Admin**
-
-- Passkey sign-in with a mailed code as the fallback, and admin access held as a stored grant
-- **Result entry** that moves the league table, which is computed from the matches rather than stored
-- **Venue and referee management**, with renames fanned out into every match that embeds them
-- An **action-required view** grouping matches that are missing data or a result
-
-## Stack
-
-| Layer        | What                                                                                         |
-| ------------ | -------------------------------------------------------------------------------------------- |
-| **Frontend** | Next.js (App Router, React Server Components), HeroUI v3, Tailwind v4                        |
-| **Backend**  | FastAPI, Pydantic v2, PyMongo (async MongoDB)                                                |
-| **Auth**     | Better Auth — passkey or mailed-code sign-in, admin by stored grant on passkey sign-in alone |
-| **Deploy**   | Docker Compose behind nginx, on a single host                                                |
-
-The app never calls FastAPI from the browser: every application read is a server-side fetch from the
-Next.js container, and the backend gates every request that touches application data on a shared key.
-That one fact explains most of the architecture — why all caching lives in the frontend, and why the
-backend has no user sessions.
-
-## Repository layout
-
-```
-fl_frontend/     Next.js app — feature slices under src/features/
-fl_backend/      FastAPI app — one package per entity under app/api/
-nginx/           reverse proxy config, local and prod
-scripts/         verify, deploy, and their self-checks
-docs/            the documentation set
-```
-
-## Documentation
-
-**[`docs/`](docs/) is the entry point**, and it is thorough — start with
-[`docs/README.md`](docs/README.md), which carries a reading path.
-
-|                                        |                                                                                                                                         |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| [Glossary](docs/glossary.md)           | The domain vocabulary is **German** and load-bearing — `Spiel`, `Spieltag`, `Saison`, `Schiedsrichter`. Read this first                 |
-| [Domain](docs/domain.md)               | The league's own rules — how a bracket seeds, how a tiebreak runs, what a forfeit counts for                                            |
-| [Git](docs/_git/)                      | Branching, commits, PRs, the verification gate, and the repository settings that enforce them                                           |
-| Per surface                            | [frontend](docs/frontend/overview.md) · [backend](docs/backend/overview.md) · [ops](docs/ops/overview.md) — an overview and a spec each |
-| [`docs/ops/spec.md`](docs/ops/spec.md) | Every script, every gate scope, and what each one proves                                                                                |
-
-Several things here look like mistakes and are deliberate, each a ratified decision.
-**Check [`.claude/CLAUDE.md`](.claude/CLAUDE.md) §7 and the files it indexes under
-[`.claude/rules/`](.claude/rules/) before "fixing" something that looks wrong.**
-
-## Contributing
-
-Short-lived topic branches off `main`, one PR each, merged with a merge commit. Commit messages carry
-real weight here — they explain _why_ and record what was verified, and they are kept rather than
-squashed; [`docs/_git/spec.md`](docs/_git/spec.md) is the convention.
-
-Run `./scripts/gate/verify.sh` with no flags before calling a pull request ready to merge: it runs
-every scope, and
-[`docs/ops/spec.md`](docs/ops/spec.md) tables them. CI runs it too.
-
-## Status
-
-Actively maintained by one person. There is no public issue triage process and no support commitment.
-
-## Security
-
-Do not open a public issue for a suspected vulnerability — [`SECURITY.md`](SECURITY.md) has the scope
-and the private channel.
-
-## License
-
-**[Elastic License 2.0](LICENSE)** (`Elastic-2.0`) — source-available, not open source. You may use,
-copy, modify and redistribute the code, including commercially. You may **not** offer it to third
-parties as a hosted or managed service, and you must keep the copyright notices intact and mark any
-modifications.
-
-**The name, the logo and the league's data are not covered by that licence** and are not licensed at
-all — see [`NOTICE`](NOTICE). Use of the trademarks is subject to applicable law. To ask for anything
-beyond that, get in touch via [frankfurtleague.de/kontakt](https://frankfurtleague.de/kontakt).
-
-## Links
+[![License: Elastic-2.0](https://img.shields.io/badge/license-Elastic--2.0-blue)](LICENSE)
 
 [Website](https://frankfurtleague.de) · [About](https://frankfurtleague.de/about) ·
 [Organisation](https://frankfurtleague.de/organisation) · [Contact](https://frankfurtleague.de/kontakt)
+
+</div>
+
+## About
+
+The Frankfurt League is a football league for Frankfurt's schools. Each team is one school's
+graduating year group (_Abi-Jahrgang_), and every match raises money for both teams' graduation
+celebrations (_Abibälle_): its takings from tickets and sales on site are split between them after
+the match, usually half each. The league is run by Frankfurt League e. V., an association of pupils
+and volunteers.
+
+This repository is the league's website: the public pages, and the tools the season is organised
+with. The site is in German; the code and its documentation are in English.
+
+## What it does
+
+Anyone can follow the season: the fixtures and results (_Spielplan_), each group's table
+(_Saisontabelle_), computed from the results, the knockout bracket (_Finalrunden_), every team and
+its squad, and a search over the season's matches (_Spielsuche_).
+
+The site also supports the season's organisation:
+
+| Who                    | What the site lets them do                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------- |
+| **Schools**            | Apply to play a season (_Bewerbung_), each contact person confirming by email               |
+| **Contact people**     | Keep their team's squad list (_Kader_), and accept or decline the pupils who registered     |
+| **Pupils**             | Register through their team's link (_Einladung_), and choose what is published about them   |
+| **Referees**           | Confirm the details the league entered for them                                             |
+| **Everyone signed in** | Manage passkeys, sign-ins and consents on one account page (_Konto_), or delete the account |
+| **Administrators**     | Run the season, its draw and results, clubs, referees, venues, applications and access      |
+
+Sign-ups open with the coming season.
+
+A pupil's name appears on the public squad list only with their consent, and the surname only as an
+initial. Unconfirmed applications and registrations expire, and a pupil's data is deleted once no
+season the league keeps needs it. [`docs/datenschutz.md`](docs/datenschutz.md) has each decision and
+the code behind it.
+
+## How it is built
+
+| Layer        | What                                                                                           |
+| ------------ | ---------------------------------------------------------------------------------------------- |
+| **Frontend** | Next.js (App Router, React Server Components), TypeScript, HeroUI, Tailwind CSS, Zod           |
+| **Backend**  | FastAPI, Pydantic, PyMongo's async client                                                      |
+| **Data**     | MongoDB: the league's database behind FastAPI, and a separate sign-in database                 |
+| **Sign-in**  | Better Auth, with passkeys or emailed codes; administrators need a passkey                     |
+| **Hosting**  | Docker Compose behind nginx on a single server; CI builds the images and the server pulls them |
+
+Browsers never call the FastAPI backend: Next.js makes every read of league data on the server,
+which is why caching lives in the frontend and the backend keeps no user sessions.
+[`docs/frontend/overview.md`](docs/frontend/overview.md) explains how the two fit together.
+
+## How changes land
+
+Every change reaches `main` through a pull request. `./scripts/gate/verify.sh` runs every check,
+from formatting to the database tests and both Docker images, and CI runs the same checks on every
+pull request and every push to `main`;
+[`docs/ops/spec.md`](docs/ops/spec.md#16-the-verification-gate) lists them.
+
+## Documentation
+
+Start with [`docs/README.md`](docs/README.md). The domain vocabulary is German (`Spiel`, `Spieltag`,
+`Saison`, `Kader`), and [the glossary](docs/glossary.md) explains each term. Some choices that look
+like mistakes are deliberate: each is listed in section 7 of [`.claude/CLAUDE.md`](.claude/CLAUDE.md)
+or under [`.claude/rules/`](.claude/rules/), the instructions my coding agents work under.
+
+```
+fl_frontend/     Next.js app: routes under src/app/, feature slices under src/features/
+fl_backend/      FastAPI app: one package per slice under app/api/
+nginx/           reverse proxy configuration, local and production
+scripts/         the checks, and the deploy and operations scripts
+docs/            the documentation
+.github/         CI workflows and the issue forms
+.claude/         instructions and rules for the AI coding agents
+```
+
+## Who builds it
+
+Frankfurtleague, the software in this repository, is designed, developed and maintained by one
+person: me, [@felzab](https://github.com/felzab). I'm also a member of Frankfurt League e. V. I
+work with AI coding agents, using Anthropic's [Claude Code](https://claude.com/product/claude-code):
+they write and audit much of the code under my direction, and I decide what gets built, review the
+work and merge every change.
+
+## Feedback
+
+Found a bug, or have an idea for the site? I'd be glad to hear about it through the
+[issue forms](https://github.com/felzab/frankfurtleague/issues/new/choose). I work on this alongside
+other things, so a reply can take a few days. I'm not looking for pull requests for now. Questions
+about the league itself are best sent through [the contact page](https://frankfurtleague.de/kontakt).
+
+## Security
+
+Please don't report a suspected vulnerability in a public issue. [`SECURITY.md`](SECURITY.md) explains
+how to report it privately and what is in scope.
+
+## License
+
+I hold the copyright in the code and publish it under the Elastic License 2.0 (`Elastic-2.0`). That
+makes it source-available, not open source: you may use, copy, change and share it, but not offer it
+to others as a hosted or managed service. [`LICENSE`](LICENSE) has the full terms.
+
+The league's name and logo belong to Frankfurt League e. V. and, like the league's data, are not
+licensed at all ([`NOTICE`](NOTICE) lists them). To ask about using any of it, get in touch through
+[frankfurtleague.de/kontakt](https://frankfurtleague.de/kontakt).

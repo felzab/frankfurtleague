@@ -13,8 +13,6 @@ const TEAM_MEMBERS: TeamMember[] = [
   { id: 5, name: "Nick", role: "Spielbetrieb", desc: "Orga & Verwaltung", tag: "orga" },
   { id: 6, name: "Vincent", role: "Spielbetrieb", desc: "Orga & Verwaltung", tag: "orga" },
   { id: 7, name: "Felix", role: "Entwicklung", desc: "Website & Infrastruktur", tag: "web" },
-  { id: 8, name: "Nikolas", role: "Design", desc: "Design & Kommunikation", tag: "web" },
-  { id: 9, name: "Cornelia", role: "Design", desc: "Layout & Design", tag: "web" },
   { id: 10, name: "Jonathan", role: "Kommunikation", desc: "Kommunikation & Orga", tag: "web" },
 ];
 
@@ -22,7 +20,7 @@ const TEAM_MEMBERS: TeamMember[] = [
 export const TAG_TITLES: Record<TeamMember["tag"], string> = {
   vorstand: "Vorstand",
   orga: "Spielbetrieb",
-  web: "Web, Design & Kommunikation",
+  web: "Web & Kommunikation",
 };
 
 /** The eyebrow over each section's heading, keyed by the union like `TAG_TITLES` and for the same reason. */

@@ -1,4 +1,4 @@
-Frankfurt League
+Frankfurtleague
 Copyright (c) 2026 Felix Zabudkin
 
 The source code in this repository is licensed under the Elastic License 2.0.
@@ -9,10 +9,10 @@ NOT COVERED BY THAT LICENSE
 --------------------------------------------------------------------------------
 
 The Elastic License 2.0 grants rights over "the Software". The following are
-published in this repository for transparency and for the operation of this
-project only. They are NOT part of "the Software" for licensing purposes, and no
-right to use, copy, adapt or redistribute them is granted by that license or by
-this notice.
+published in this repository for transparency and for the operation of the
+league's website only. They are NOT part of "the Software" for licensing
+purposes, and no right to use, copy, adapt or redistribute them is granted by
+that license or by this notice.
 
 The names in section 1 and the mark and assets in section 2 belong to Frankfurt
 League e. V., the association that runs the league. The copyright in the
@@ -34,13 +34,18 @@ Software stays with the holder named above.
      fl_frontend/src/app/icon.svg
      fl_frontend/src/app/favicon.ico
      fl_frontend/src/app/apple-icon.png
-     fl_frontend/public/icons/
+     fl_frontend/public/icons/manifest/
+     fl_frontend/public/icons/opengraph/
      fl_frontend/src/shared/components/ui/FLLogo.tsx
+
+   The GitHub, Instagram and Threads logos in fl_frontend/public/icons/footer/
+   are the marks of their owners, not of the association, and they are not part
+   of "the Software" either.
 
 3. LEAGUE DATA AND WRITTEN CONTENT
 
    Fixtures, results, tables, team and player records, and the league's written
-   copy — including the page text in fl_frontend/src/features/meta/constants.ts.
+   copy, including the page text in fl_frontend/src/features/meta/constants.ts.
 
    Most of this data lives in the database rather than this repository and is
    therefore outside the Software regardless. This clause covers what does
@@ -50,7 +55,7 @@ Software stays with the holder named above.
 
 If you want to use any of the above, ask: https://frankfurtleague.de/kontakt
 
-Contributions to this repository are accepted on the basis that you grant the
-copyright holder a perpetual, worldwide, non-exclusive, irrevocable, royalty-free
-licence to use, modify, sublicense and distribute your contribution as part of
-this project, and that the contribution is your own work.
+Any contribution to this repository is accepted only on the basis that you grant
+the copyright holder a perpetual, worldwide, non-exclusive, irrevocable,
+royalty-free licence to use, modify, sublicense and distribute your contribution
+as part of this software, and that the contribution is your own work.

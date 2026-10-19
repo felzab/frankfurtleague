@@ -15,7 +15,7 @@ Useful to include, most helpful first:
 - the affected URL, endpoint or file
 - whether it is already public anywhere
 
-You will get a reply. This project is maintained by one person alongside other work, so please allow
+You will get a reply. This software is maintained by one person alongside other work, so please allow
 a few days before following up.
 
 ## What is in scope
@@ -40,13 +40,13 @@ Particularly welcome:
 - **Anything requiring physical access** to the server, or a compromised admin device.
 - **`'unsafe-inline'` on the Content-Security-Policy's `script-src`.** A deliberate trade-off: a
   per-request nonce cannot cover build-time prerendered HTML, so the `react/no-danger` ESLint rule is
-  the compensating control — see [security headers](docs/ops/spec.md#14-security-headers). A
+  the compensating control (see [security headers](docs/ops/spec.md#14-security-headers)). A
   demonstrated injection that the policy fails to stop is very much in scope; the directive by itself
   is not.
 
 ## Please do not
 
-Test against **frankfurtleague.de** — it carries real league data that people rely on during a
+Test against **frankfurtleague.de**: it carries real league data that people rely on during a
 season. Run it locally instead: `./scripts/ops/local.sh` builds and serves the production image on your
 own machine, behind the same nginx configuration, which demonstrates almost anything.
 
