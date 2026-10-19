@@ -5,9 +5,8 @@ from typing import Any, Final
 from app.api.bewerbungen.services import seat_named
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLKontaktRolle
 
-# A stored `ansetzung` key and the fixture path it is read from. The ONE list the digest, the stored
-# snapshot and the public verdict's `$lookup` all read: a key one of them lacks gives two answers to
-# whether a row is about the fixture's current Ansetzung.
+# Each stored `ansetzung` key and its fixture path: the ONE list the digest, the snapshot and the public
+# verdict's `$lookup` read, a key one lacks giving two answers to which Ansetzung a row is about.
 ANSETZUNG_QUELLEN: Final[Mapping[str, str]] = {
     "datum": "datum",
     "uhrzeit": "uhrzeit",
@@ -41,10 +40,9 @@ def _digest(values: Mapping[str, Any]) -> str:
 
 
 def ansetzung_stand_of(spiel: Mapping[str, Any]) -> str:
-    """The digest naming one Ansetzung of a raw fixture: `datum`, `uhrzeit`, `ort.spielort_id`, `team1.team_id`, `team2.team_id`.
+    """The digest of a raw fixture's Ansetzung: `datum`, `uhrzeit`, `ort.spielort_id`, `team1.team_id`, `team2.team_id`.
 
-    The ground is in it on purpose: a confirmation binds the date, the hour AND the ground, so a change
-    to any of them reopens it. A sixth input changes the meaning of every stored row.
+    The ground on purpose: a confirmation binds it too. A sixth input changes every stored row's meaning.
     """
 
     return _digest(_ansetzung_values(spiel))

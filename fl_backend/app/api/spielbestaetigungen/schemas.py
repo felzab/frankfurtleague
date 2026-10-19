@@ -140,8 +140,8 @@ class FLSpielbestaetigungGeschlossen(BaseModel):
 class FLSpielbestaetigung(BaseModel):
     """One party's confirmation of one Ansetzung, as stored and as an administrator reads it.
 
-    Open while both `antwort` and `geschlossen` are null; the pass's close reaches an answered row as
-    well, so an agreement a move overtook carries why it stopped applying.
+    The close reaches an answered row too, so an agreement a move overtook records why it stopped
+    applying (`app/api/spielbestaetigungen/services.py :: build_closable_filter`).
     """
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -247,10 +247,9 @@ class FLSpielbestaetigungSweepSaisonsResponse(BaseAPIResponse):
 
 
 class FLSpielbestaetigungSweepLink(BaseModel):
-    """One LINK and the mailbox it goes to: the RAW token, which exists here and in the mail alone.
+    """One LINK and its mailbox; the RAW token exists here and in the mail alone.
 
-    Keyed by link, so a person holding two seats gets one button naming both roles, and two people on
-    one inbox get two.
+    Per link: one person on two seats gets one button naming both roles, two people on one inbox two.
     """
 
     address: str

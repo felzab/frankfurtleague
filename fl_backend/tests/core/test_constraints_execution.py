@@ -736,10 +736,9 @@ def test_every_season_but_the_active_one_is_outside_the_rule(mongo_url: str):
 
 
 def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):
-    """An answered and a closed row stand beside the open one for the same party and stand, and the other club's open row beside both.
+    """An answered row, a closed one and the other club's open one stand beside a party's open row on one stand.
 
-    The pass mints afresh after a fixture called off and reinstated at the same slot, and keeps the
-    agreement a move overtook: a filter dropped, or a party key lost, refuses one of these.
+    A dropped filter or a lost party key refuses one, and with it a reinstated fixture's fresh request.
     """
 
     antwort = {"art": "zugesagt", "am": "2026-03-01", "von": {"art": "kontakt", "rolle": "trainer"}, "vorschlag": None, "begruendung": None}
