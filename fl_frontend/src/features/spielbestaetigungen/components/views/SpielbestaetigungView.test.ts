@@ -143,7 +143,7 @@ describe("the fixture confirmation page", () => {
         resultPanels(html),
         // The panel's text as one run, the paragraph's and the button's meeting with no space between them.
         [
-          `${DEAD} Wurde das Spiel verlegt, kommt eine neue E-Mail mit dem neuen Termin. Ist die Frist vorbei, legt die Liga den Termin fest.Frage stellen`,
+          `${DEAD} Wurde das Spiel verlegt, kommt eine neue E-Mail mit dem neuen Termin. Ist die Frist vorbei, legt die Verwaltung der Liga den Termin fest.Frage stellen`,
         ],
         `the ${zustand} panel holds more or less than its sentence and its button`,
       );

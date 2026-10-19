@@ -25,7 +25,7 @@ const { raised: toasts } = doubleToasts();
 const fetchMock = doubleFetch();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { default: SpielbestaetigungPage } = await import("./page.tsx");
+const { default: SpielbestaetigungPage, metadata } = await import("./page.tsx");
 const { AdresseGesperrt } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
@@ -92,6 +92,18 @@ describe("what the fixture confirmation page reads", () => {
 
   it("hands an open link the whole view and the token a press spends", async () => {
     assert.deepEqual(await startFor(() => ANSICHT), { zustand: "gueltig", ansicht: ANSICHT, token: TOKEN });
+  });
+});
+
+/* The request's heading and button name the act „Spieltermin bestätigen“, so the tab and the heading the button
+   opens on name it alike, as the other link flows name theirs (`fl_frontend/src/core/spielEmail.test.ts`). */
+describe("what the fixture confirmation page is titled", () => {
+  it("names the tab and an open link's heading „Spieltermin bestätigen“", async () => {
+    viewAnswers(() => ANSICHT);
+    render(await pageBody(SpielbestaetigungPage, PROPS));
+
+    assert.equal(metadata.title, "Spieltermin bestätigen");
+    assert.ok(screen.getByRole("heading", { level: 1, name: "Spieltermin bestätigen" }));
   });
 });
 
