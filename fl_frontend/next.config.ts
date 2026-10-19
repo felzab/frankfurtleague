@@ -2,8 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // These run *ahead of* src/proxy.ts -- observed, not assumed: GET /bereich/admin redirects without
-  // the proxy running. A redirect added here lands under `/bereich/admin`, which the proxy judges, or
-  // on a page guarding itself; elsewhere its destination goes unchecked.
+  // the proxy running. A redirect added here must land on a page guarding itself, as each under
+  // `/bereich` does (`docs/frontend/spec.md :: I122`, `:: I377`).
   async redirects() {
     return [
       {

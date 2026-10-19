@@ -70,7 +70,7 @@ describe("where „Später“ on the passkey offer leads", () => {
     assert.equal(later, "/bereich");
 
     // That landing, over the same session: straight to the person's own page, never back to the
-    // sign-in landing that offers the passkey, nor to the admin subtree whose proxy sends it there.
+    // sign-in landing that offers the passkey, nor to the admin subtree whose guards send it there.
     assert.deepEqual(await redirectsOf(PersoenlichStartPage), [`/bereich/team/${TEAM_ID}/2526`]);
   });
 });
