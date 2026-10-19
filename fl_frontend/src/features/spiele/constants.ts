@@ -14,6 +14,19 @@ export const NOTIZ_MAX_LENGTH = 4096;
 export const PAARUNGEN_MAX = 1024;
 
 /**
+ * The days before its fixture a team's answer is due, mirroring the backend's
+ * `SPIEL_BESTAETIGUNG_FRIST_TAGE` (`fl_backend/app/shared/schemas/bounds.py`). A row's own deadline
+ * is the one it stores; this number only says whether a date is inside the notice period.
+ */
+export const SPIEL_BESTAETIGUNG_FRIST_TAGE = 7;
+
+/**
+ * The reason box's bound on a fixture confirmation, mirroring the backend's
+ * `SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH` (`fl_backend/app/shared/schemas/bounds.py`).
+ */
+export const SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH = 500;
+
+/**
  * The one German spelling of each Sonderereignis. **A label table and never a predicate**: what a
  * member means differs per consumer, and each of those sets is written at its own call site.
  */

@@ -3,78 +3,67 @@
 import { KONTO_HREF } from "@/core/kontoHref";
 import { signOutAction } from "@/features/auth/actions";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
-import { FunktionSwitcher } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
+import { ShellHeading } from "@/shared/components/layout/shell/ShellHeading";
 
-import { TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL, TEAM_SIDEMENU_ICONS } from "../../constants";
+import { TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL, TEAM_SIDEMENU_ICONS, TEAM_SIDEMENU_STRUCTURE } from "../../constants";
 import { teamHref } from "../../teamSeats";
-import { SaisonChipSlot } from "./SaisonChipSlot";
 
-import type { FunktionOrt } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
-import type { SidemenuStructure } from "@/shared/types/types";
+import type { AddressParams } from "@/shared/components/layout/shell/linkPrefix";
 import type React from "react";
-import type { TeamIconName } from "../../constants";
+
+/** Each team and season is a root of its own, read off the address its pages stand at. */
+const teamPrefixOf = ({ team_id, saison_id }: AddressParams): string => teamHref(String(team_id), String(saison_id));
 
 /**
  * A client wrapper for `AdminShell`'s reason: the icons and the sign-out action cross no server
- * boundary as props. The structure and the season arrive as plain data, selected per request.
+ * boundary as props. What the seats decide arrives as slots, each streamed on its own.
  */
 export function TeamShell({
-  teamId,
-  saisonId,
-  structure,
-  saison,
-  isRefused,
-  orte,
+  heading,
+  entries,
+  saisonMetadataDisplay,
+  funktionSwitcher,
   children,
 }: {
-  teamId: string;
-  saisonId: string;
-  structure: SidemenuStructure<TeamIconName>;
-  /**
-   * The season as a seat there reports it; `null` where the address is all there is: the person holds
-   * no seat there, or the area's crash panel stands where the read of the seats failed.
-   */
-  saison: { isLaufend: boolean } | null;
-  /**
-   * Whether the page is the forbidden panel, said rather than read off `saison`: the area's crash
-   * panel holds no season either, and its bar must not tell a seat holder they hold no seat.
-   */
-  isRefused: boolean;
-  /** The places the person's Funktionen lead to (`fl_frontend/src/features/funktionen/utils.ts :: funktionOrteOf`). */
-  orte: readonly FunktionOrt[];
+  /** The bar's heading once the seats are read, a `TeamShellHeading`. */
+  heading?: React.ReactNode;
+  /** The entries the seats at the address reach; every entry where none stands, which no seat narrows. */
+  entries?: React.ReactNode;
+  saisonMetadataDisplay: React.ReactNode;
+  funktionSwitcher: React.ReactNode;
   children: React.ReactNode;
 }) {
-  // The fallback heads every address the structure claims no entry for, the forbidden panel's among them.
-  const fallback = isRefused ? TEAM_SHELL_REFUSAL : TEAM_SHELL_FALLBACK;
-
   return (
     <AppShell
-      structure={structure}
-      linkPrefix={teamHref(teamId, saisonId)}
+      structure={TEAM_SIDEMENU_STRUCTURE}
+      entries={entries}
+      heading={heading}
+      linkPrefix={teamPrefixOf}
       // The season is the address's own segment, so no link carries it a second time as a query.
       keepsSaisonQuery={false}
       iconDictionary={TEAM_SIDEMENU_ICONS}
-      // No chip over an address the person holds nothing on: its segment is whatever was typed there.
-      saisonMetadataDisplay={
-        saison === null ? null : (
-          <SaisonChipSlot
-            saisonId={saisonId}
-            isLaufend={saison.isLaufend}
-          />
-        )
-      }
-      funktionSwitcher={
-        <FunktionSwitcher
-          orte={orte}
-          ohneOrt={TEAM_SHELL_FALLBACK.label}
-          mitBereich
-        />
-      }
-      fallbackTitle={fallback.label}
-      fallbackHint={fallback.hint}
+      saisonMetadataDisplay={saisonMetadataDisplay}
+      funktionSwitcher={funktionSwitcher}
+      fallbackTitle={TEAM_SHELL_FALLBACK.label}
+      fallbackHint={TEAM_SHELL_FALLBACK.hint}
       kontoHref={KONTO_HREF}
       onSignOut={signOutAction}>
       {children}
     </AppShell>
+  );
+}
+
+/**
+ * The bar over an address the person holds no seat on heads the forbidden panel by the refusal, at any
+ * page there: the hint says why the page is refused rather than missing.
+ */
+export function TeamShellHeading({ isRefused }: { isRefused: boolean }) {
+  return (
+    <ShellHeading
+      structure={isRefused ? [] : TEAM_SIDEMENU_STRUCTURE}
+      linkPrefix={teamPrefixOf}
+      fallback={isRefused ? TEAM_SHELL_REFUSAL : TEAM_SHELL_FALLBACK}
+      kontoHref={KONTO_HREF}
+    />
   );
 }

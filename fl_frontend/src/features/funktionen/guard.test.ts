@@ -91,8 +91,11 @@ describe("the guard over the person area", () => {
      redirect would pass this case with the layout's gone. */
   it("sends a request with no person's session to sign in", async () => {
     setSubject(null);
+    const redirects = await redirectsOf(() => h(PersoenlichLayout, { children: h("p", null, "Seite") }));
 
-    assert.deepEqual(await redirectsOf(() => h(PersoenlichLayout, { children: h("p", null, "Seite") })), ["/signin"]);
+    // Every part reading the session turns the request away alike, each slot of the frame and the guard.
+    assert.ok(redirects.length > 0, "the layout turns nobody away");
+    assert.deepEqual([...new Set(redirects)], ["/signin"]);
   });
 
   /* The guard alone, which both lanes' layouts mount above their chrome. */
