@@ -408,24 +408,30 @@ def stand_moved(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage
 
 
 def ansicht_ansetzung_of(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage) -> FLSpielbestaetigungAnsichtAnsetzung:
-    """The row's Ansetzung as the fixture states it, which only a fixture still standing on the row's stand can.
+    """The fixture as it stands now; where it lost its day, hour or a side, the row's own value for it.
 
-    Refused for a moved one rather than mixed with the row's snapshot: `ansicht_snapshot_of` states that whole.
+    The pass names a moved row's clubs by it, a club replaced since holding no season row. A value it fills in from
+    the row describes no Ansetzung that stood, so the link's page states a moved row by `ansicht_snapshot_of` instead.
     """
 
-    if stand_moved(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage):
-        raise ValueError(f"spielbestaetigung {spielbestaetigung_raw.get('_id')} is about an Ansetzung its fixture has left")
+    snapshot = spielbestaetigung_raw["ansetzung"]
+    namen = {row.get("team_id"): row.get("name") for row in lage.vereine}
 
-    spiel = lage.spiel
+    def side_name(slot: str, snapshot_key: str) -> str:
+        side = lage.spiel.get(slot)
+        return str(side["name"]) if isinstance(side, Mapping) else str(namen.get(snapshot[snapshot_key]) or "")
+
     # Absent rather than null where a projection met a fixture without a ground.
-    ort = spiel.get("ort")
+    ort = lage.spiel.get("ort")
 
     return FLSpielbestaetigungAnsichtAnsetzung(
-        team1_name=str(spiel["team1"]["name"]),
-        team2_name=str(spiel["team2"]["name"]),
-        datum=spiel["datum"],
-        uhrzeit=spiel["uhrzeit"],
-        spielort=None if ort is None else FLSpielOrtFieldPublic(spielort_id=ort["spielort_id"], name=ort["name"], maps_link=ort["maps_link"]),
+        team1_name=side_name("team1", "team1_id"),
+        team2_name=side_name("team2", "team2_id"),
+        datum=lage.spiel.get("datum") or snapshot["datum"],
+        uhrzeit=lage.spiel.get("uhrzeit") or snapshot["uhrzeit"],
+        spielort=None
+        if not isinstance(ort, Mapping)
+        else FLSpielOrtFieldPublic(spielort_id=ort["spielort_id"], name=ort["name"], maps_link=ort["maps_link"]),
     )
 
 
@@ -435,11 +441,12 @@ def ansicht_snapshot_of(
     """The Ansetzung a row whose stand moved was about, whole: its clubs by their season names and `spielort`, its ground read now."""
 
     snapshot = spielbestaetigung_raw["ansetzung"]
-    namen = {row["team_id"]: str(row["name"]) for row in lage.vereine}
+    # Empty for a club replaced since: its season row went to the incoming club, and its `teams` document may not exist.
+    namen = {row.get("team_id"): str(row.get("name") or "") for row in lage.vereine}
 
     return FLSpielbestaetigungAnsichtAnsetzung(
-        team1_name=namen[snapshot["team1_id"]],
-        team2_name=namen[snapshot["team2_id"]],
+        team1_name=namen.get(snapshot["team1_id"], ""),
+        team2_name=namen.get(snapshot["team2_id"], ""),
         datum=snapshot["datum"],
         uhrzeit=snapshot["uhrzeit"],
         spielort=spielort,

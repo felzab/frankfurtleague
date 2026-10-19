@@ -334,9 +334,15 @@ class TestWhatTheViewStatesOfTheFixture:
 
         assert (ansetzung.team1_name, ansetzung.team2_name, ansetzung.datum, ansetzung.uhrzeit) == ("Adler", "Biber", DATUM, "18:30:00")
 
-    def test_the_fixtures_own_statement_refuses_a_moved_one_rather_than_mixing_it(self):
-        with pytest.raises(ValueError, match="has left"):
-            ansicht_ansetzung_of(spielbestaetigung_raw=zeile(), lage=lage(spiel_overrides={"uhrzeit": "20:00:00"}))
+    def test_a_club_replaced_since_is_stated_nameless_rather_than_answering_500(self):
+        """Its season row went to the incoming club, which a replacement also seats in the fixture: no read names the club that left."""
+
+        replaced = AnsetzungLage(
+            spiel=spiel(team2={"team_id": ObjectId(), "name": "Dachs", "shorthand": "DA", "tore": None}), vereine=[verein(TEAM1)]
+        )
+        ansetzung = ansicht_snapshot_of(spielbestaetigung_raw=zeile(), lage=replaced, spielort=None)
+
+        assert (ansetzung.team1_name, ansetzung.team2_name) == ("Adler", "")
 
 
 class TestAProposalBeforeToday:
