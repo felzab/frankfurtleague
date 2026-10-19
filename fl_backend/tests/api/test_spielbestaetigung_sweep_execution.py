@@ -503,7 +503,7 @@ class TestADiscardedDeclineIsNotAskedAgain:
 
 
 class TestAMovedFixtureAsksAgain:
-    """Acceptance (a): the close reaches an ANSWERED row, so a kept agreement records why it stopped applying."""
+    """The close reaches an ANSWERED row, so a kept agreement records why it stopped applying."""
 
     def test_the_answered_row_closes_with_its_answer_and_the_new_stand_is_asked(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -827,7 +827,7 @@ SECOND_REMINDER = days_after(day=FRIST, days=-1)
 
 
 class TestEveryMailedLinkLivesToTheDeadline:
-    """Acceptance (h): each seat's request link and both reminders' still name the seat after the second reminder went."""
+    """Each seat's request link and both reminders' still name the seat after the second reminder went."""
 
     def test_three_links_a_seat_each_find_the_row_and_the_seat(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -905,7 +905,7 @@ class TestAPassListsNoMoreThanOneStampTakes:
 
 
 class TestABarredSeatIsMintedNothingAndStaysDue:
-    """Acceptance (k): nothing of a ban is stored, so the lift is what mints the seat."""
+    """Nothing of a ban is stored, so the lift is what mints the seat."""
 
     def test_the_seat_is_minted_once_the_ban_is_lifted(self, mongo_replica_set_url: str):
         barred = address(ALPHA, "stellvertretung")

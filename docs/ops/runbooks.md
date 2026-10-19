@@ -614,8 +614,8 @@ One person can hold several — a referee is a pupil, and a contact person can b
 | Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Pupil          | `/bereich/admin/spieler/{spieler_id}`, and the squad rows under each season; `/bereich/admin/registrierungen` for a registration still awaiting its team                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.entscheidung.von`), which no page renders and a read-only Playground query on that field finds                                                                                                                                                                                                                                                    |
+| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.partei.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds                                                                                                                                                                                                                                                                          |
+| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.entscheidung.von`), which no page renders and a read-only Playground query on that field finds; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                       |
 | Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address as the actor of every log row they wrote (`aktionen.actor.email`, `/bereich/admin/aktionen`) and as the author of every ban, invite and application decision they made (`sperrliste.erstellt_von`, `einladungen.erstellt_von`, `bewerbungen.entscheidung.von`), and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `erteilt_von` on every grant they made, and each queued notice naming them in `berechtigungen_postausgang` |
 | Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
@@ -634,6 +634,22 @@ their request is what deletes it then. Read the store for an access request: the
 address as the sign-in box folds it, in lower case
 (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`), and the `session`, `account` and
 `passkey` rows whose `userId` is that row's `_id`.
+
+**A contact person's fixture confirmations are found from their address only through its digest.**
+A seat's answer stores neither the address nor a name: the reason its holder typed
+(`antwort.begruendung`) sits beside a keyed digest of the holder's address (`antwort.von.halter`),
+so compute that address's digest under `secrets/sperrliste_schluessel` — the same derivation
+`fl_backend/app/api/spielbestaetigungen/services.py :: halter_of` performs, label and fold included
+— and look it up against `spielbestaetigungen.antwort.von.halter`, which finds every answer they
+gave from any seat. The paste belongs in the operator's own checklist, as the ban's does (below).
+Their seats' links and the delivery records of the messages that carried them sit under
+`kontakte.<seat>` on their club's rows of each season they held a seat (`saison_id`,
+`partei.team_id`), read beside that season's contact block, which says whose seat it was. Send the
+fixture, the answer, its day and the reason, and never the digest, the value that identifies them.
+**Once the season's contact block is cleared, its rows keep the answers alone**: the reasons, the
+digests, the links and the delivery records go with the block
+([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)), so an
+answer for that season names nobody to send.
 
 `/bereich/admin/aktionen` answers what was written about them and by whom, and is the only place that
 question is answered at all. **Two populations sit in that collection and only one has an expiry**:
@@ -970,8 +986,10 @@ sign being a second ban of an address already on the list admitted rather than r
 action log's pseudonyms of signed-in people too, so a replacement leaves one person's rows under two
 pseudonyms and the older can never be recomputed; the erasure journal's hashes, so every line
 written before a replacement matches no address a restore holds and its erasure cannot be run again
-after the restore (§13); and the addresses' anchors, which a replacement merely strands until their
-next expiry pass ([`../backend/spec.md`](../backend/spec.md#15-environment)). Treat it as
+after the restore (§13); the digests naming who answered a fixture confirmation, so an erasure
+after a replacement finds none of the reasons its person typed before it; and the addresses'
+anchors, which a replacement merely strands until their next expiry pass
+([`../backend/spec.md`](../backend/spec.md#15-environment)). Treat it as
 the one backend secret with no recovery: back it up where the database's own access details are
 backed up, and where it is genuinely gone, clear the list and enter the bans again from whatever
 record names the addresses.

@@ -20,6 +20,7 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -43,6 +44,18 @@ POSIX: Final = sys.platform != "win32"
 
 # A second's grace is nothing beside a build running to its end for a reader who has gone.
 CALLER_POLL_S: Final = 1.0
+
+# Above the widest green whole local run on record, 8m 00s cold on 2026-10-03, so no unit's own silence
+# reaches it. A notice and never a verdict: a slow unit costs a line.
+STALL_S: Final = 600.0
+STALL_POLL_S: Final = 5.0
+# Enough of the capture to carry a pytest worker's faulthandler dump whole
+# (`scripts/gate/verify.sh :: FAULTHANDLER_S`), whose stalled frames come first.
+STALL_TAIL_LINES: Final = 100
+
+# Where a pool nested in a unit sends its notices, the one pool whose stderr reaches the reader
+# relaying them: a nested pool's own stderr is a capture nobody reads until the run ends.
+NOTICES: Final = "FL_GATE_NOTICES"
 
 ASSIGNMENT: Final = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
@@ -192,6 +205,88 @@ def watch_caller(pool: Pool, caller: int, stop: threading.Event) -> None:
             return
 
 
+def captures(pool: Pool, name: str) -> list[Path]:
+    """The files a unit's streams are written to, as `spawn` opens them."""
+    out = pool.directory / (name + ".out")
+    return [out] if pool.merge else [out, pool.directory / (name + ".err")]
+
+
+def spelled(seconds: float) -> str:
+    """A span the way `scripts/lib/_lib.sh :: fmt_ms` spells one past two minutes."""
+    whole = int(seconds)
+    return f"{whole // 60}m {whole % 60:02d}s"
+
+
+def stall_notice(pool: Pool, name: str, quiet: float) -> bytes:
+    """What the reader is told of a unit silent past `STALL_S`: which, for how long, and the end of what it wrote."""
+    lines = [f"  !!  the {name} unit has written nothing for {spelled(quiet)} and is still running. Its output so far ends:"]
+    for capture in captures(pool, name):
+        text = capture.read_bytes().decode("utf-8", errors="replace") if capture.is_file() else ""
+        lines.append(f"      ({capture})")
+        lines += [f"      {line}" for line in text.splitlines()[-STALL_TAIL_LINES:]]
+    return ("\n".join(lines) + "\n").encode("utf-8")
+
+
+def watch_stalls(pool: Pool, stop: threading.Event, sink: Callable[[bytes], None], relay: Path | None) -> None:
+    """Name each unit silent past `STALL_S`, and pass on nested pools' notices.
+
+    Silence, not age: a unit printing progress is moving however long it runs, and a tsc printing
+    nothing until done meets the bound a hung one does.
+    """
+    # Per unit: the size its captures last grew to, when, and when it was last named.
+    heard: dict[str, tuple[int, float, float]] = {}
+    relayed = 0
+    while not stop.wait(STALL_POLL_S):
+        now = time.monotonic()
+        with pool.live_lock:
+            names = list(pool.live)
+        for name in names:
+            size = sum(capture.stat().st_size for capture in captures(pool, name) if capture.is_file())
+            last = heard.get(name)
+            if last is None or last[0] != size:
+                heard[name] = (size, now, now)
+            elif now - last[2] >= STALL_S:
+                sink(stall_notice(pool, name, now - last[1]))
+                heard[name] = (size, last[1], now)
+        if relay is not None:
+            relayed = relay_notices(relay, relayed, sink)
+
+
+def relay_notices(relay: Path, offset: int, sink: Callable[[bytes], None]) -> int:
+    """Pass on every whole line nested pools have appended since `offset`, and answer the new offset."""
+    with relay.open("rb") as notices:
+        notices.seek(offset)
+        written = notices.read()
+    # Whole lines only: a nested pool may be mid-append.
+    complete = written[: written.rfind(b"\n") + 1]
+    if complete:
+        sink(complete)
+    return offset + len(complete)
+
+
+def notice_route(pool: Pool) -> tuple[Callable[[bytes], None], Path | None]:
+    """Where this pool's notices go, and the file it relays nested pools' from where it is the outermost."""
+    inherited = os.environ.get(NOTICES)
+    if inherited:
+        target = Path(inherited)
+
+        def append(notice: bytes) -> None:
+            with target.open("ab") as notices:
+                notices.write(notice)
+
+        return append, None
+    relay = pool.directory / "notices"
+    relay.write_bytes(b"")
+    # Before any unit starts: each inherits it, and so does every pool a unit starts.
+    os.environ[NOTICES] = str(relay)
+
+    def emit(notice: bytes) -> None:
+        sys.stderr.buffer.write(notice)
+        sys.stderr.flush()
+
+    return emit, relay
+
+
 def stop_on_signal(number: int, frame: FrameType | None) -> None:
     """Turn a SIGTERM into an unwind in the main thread, which is where the units are stopped.
 
@@ -204,8 +299,8 @@ def stop_on_signal(number: int, frame: FrameType | None) -> None:
 def arm(pool: Pool, stop: threading.Event) -> None:
     """Install both ways a run can be ended before its units are done.
 
-    Off POSIX neither can be, so neither is installed and the run is only ever waited out --
-    the reason is on `POSIX`.
+    Off POSIX neither can be, for the reason on `POSIX`, and on Windows the job
+    `scripts/gate/gate_watch.py` holds ends the run instead.
     """
     if not POSIX:
         return
@@ -272,6 +367,8 @@ def main() -> int:
 
     watched = threading.Event()
     arm(pool, watched)
+    sink, relay = notice_route(pool)
+    threading.Thread(target=watch_stalls, args=(pool, watched, sink, relay), daemon=True).start()
     try:
         return drive(pool, units)
     finally:

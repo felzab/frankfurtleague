@@ -132,7 +132,7 @@ def seat_holding(*, spielbestaetigung_raw: Mapping[str, Any], token_hash: str) -
     return None
 
 
-# --- The LINK's view and answer. What each code refuses is `docs/backend/spec.md` §1.4.
+# --- The LINK's view and answer. What each code refuses is `fl_backend/app/core/domain.py :: RULES`.
 
 ANSETZUNG_TOKEN_UNKNOWN = "REQ-ANSETZUNG-001"
 ANSETZUNG_BEANTWORTET = "REQ-ANSETZUNG-002"
@@ -349,7 +349,7 @@ def find_vorschlag_vergangen_refusal(*, vorschlag: FLSpielbestaetigungTermin, to
 def beteiligte_namen(*, lage: AnsetzungLage) -> frozenset[str]:
     """Every name the people of this Ansetzung hold: both clubs' three seats on their season rows, and the booked referee.
 
-    The referee off the fixture's copy, which a rename rewrites in its own transaction; the ghost's is null.
+    Never a squad pupil's, by decision (`docs/datenschutz.md :: "Free text that may name a person outlives their erasure"`).
     """
 
     fields = [
@@ -359,6 +359,7 @@ def beteiligte_namen(*, lage: AnsetzungLage) -> frozenset[str]:
             for seat in KONTAKT_ROLLEN
             for part in ("vorname", "nachname")
         ),
+        # Off the fixture's copy, which a rename rewrites in its own transaction; the ghost's is null.
         (lage.spiel.get("schiedsrichter") or {}).get("name"),
     ]
 

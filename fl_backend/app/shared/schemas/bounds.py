@@ -144,8 +144,9 @@ SPIELER_ADRESSWECHSEL_FRIST_TAGE: Final = 14
 # A row stores the deadline it was given, so raising this moves no request already sent; a fixture
 # dated inside it is due the day it is asked.
 SPIEL_BESTAETIGUNG_FRIST_TAGE: Final = 7
-# Also the longest a confirmation link lives, the other adult links' fourteen days:
-# `docs/logging/spec.md` accepts a link's token in the edge's error log because it dies by such a deadline.
+# Also the longest a confirmation link answers, as long as `BEWERBUNG_BESTAETIGUNG_FRIST_TAGE` and
+# `SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE` let the other adult links: `docs/logging/spec.md` accepts a
+# link's token in the edge's error log because it answers nothing past such a deadline.
 SPIEL_ANFRAGE_VORLAUF_TAGE: Final = 14
 # Two integers rather than a list: a tuple is no `int`, so neither register of
 # `fl_backend/tests/shared/test_frontend_mirrors.py` would see it.
