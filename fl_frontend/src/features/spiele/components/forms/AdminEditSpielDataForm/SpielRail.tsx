@@ -20,11 +20,13 @@ import type { SpielBanner } from "./banners";
  */
 export function SpielRail({
   previewSpiel,
+  ansetzungBestaetigt,
   today,
   isFinishedSaison,
   banners,
 }: {
   previewSpiel: FLSpielWithDraftFields;
+  ansetzungBestaetigt: boolean | null;
   today: string;
   isFinishedSaison: boolean;
   banners: readonly SpielBanner[];
@@ -63,6 +65,7 @@ export function SpielRail({
         badge={status.isDirty ? <span className={trackLabelBadge("warning")}>Nicht gespeichert</span> : undefined}>
         <SpielDraftPreview
           previewSpiel={previewSpiel}
+          ansetzungBestaetigt={ansetzungBestaetigt}
           today={today}
           isDirty={status.isDirty}
           isFinishedSaison={isFinishedSaison}

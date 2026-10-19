@@ -72,12 +72,17 @@ describe("which mounts pass the verdict to the chip", () => {
     assert.match(text, /Vorläufig/);
   });
 
-  // The verdict is about the STORED Ansetzung, and the draft the preview renders may already be another one.
-  it("never puts it on the editor's draft preview", () => {
+  // The verdict is about the STORED Ansetzung, so the preview reads what the editor hands it rather than the draft's
+  // copy of the served field, which a moved draft still carries (`AdminEditSpielDataForm/voidPreview.test.ts`).
+  it("puts it on the editor's draft preview as handed, never off the draft", () => {
     const draft: FLSpielWithDraftFields = { ...PROVISIONAL, ort: null, schiedsrichter: null };
-    const text = textOf(renderMarkup(SpielDraftPreview, { previewSpiel: draft, today: TODAY, isDirty: false, isFinishedSaison: false }));
+    const preview = (ansetzungBestaetigt: boolean | null) =>
+      textOf(
+        renderMarkup(SpielDraftPreview, { previewSpiel: draft, ansetzungBestaetigt, today: TODAY, isDirty: false, isFinishedSaison: false }),
+      );
 
-    assert.match(text, /Ausstehend/);
-    assert.doesNotMatch(text, /Vorläufig/);
+    assert.match(preview(false), /Vorläufig/);
+    assert.match(preview(null), /Ausstehend/);
+    assert.doesNotMatch(preview(null), /Vorläufig/);
   });
 });

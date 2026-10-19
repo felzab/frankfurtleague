@@ -47,8 +47,8 @@ type Stand =
 
 /** One heading per state, in the other link pages' words where the state is theirs. A barred link's page has none. */
 const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
-  gueltig: "Spiel bestätigen",
-  vorschlag: "Spiel bestätigen",
+  gueltig: "Spieltermin bestätigen",
+  vorschlag: "Spieltermin bestätigen",
   "zugesagt-neu": "Termin bestätigt",
   "abgelehnt-neu": "Vorschlag gesendet",
   zugesagt: "Schon erledigt",
@@ -117,7 +117,7 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
             <Ansetzung ansicht={stand.ansicht} />
             <p className={ABSATZ_CLASSES}>
               Du antwortest für <Wert>{vereine(stand.ansicht).eigenes}</Wert>. Antworte bis zum {formatSpielDatum(stand.ansicht.frist)}. Danach
-              legt die Liga den Termin fest.
+              legt die Verwaltung der Liga den Termin fest.
             </p>
           </>
         )}
@@ -200,7 +200,7 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
           tone="hinweis">
           <p className={ABSATZ_CLASSES}>
             Dieser Link ist ungültig oder abgelaufen. Wurde das Spiel verlegt, kommt eine neue E-Mail mit dem neuen Termin. Ist die Frist
-            vorbei, legt die Liga den Termin fest.
+            vorbei, legt die Verwaltung der Liga den Termin fest.
           </p>
           <FrageStellen />
         </BestaetigungErgebnis>

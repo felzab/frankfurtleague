@@ -183,25 +183,27 @@ describe("the referee's confirmation handler", () => {
 
   /* The link died between the open and the press, so the page swaps the form for a panel; a field
      error would leave a dead link looking like a mistyped one. */
-  for (const [code, zustand, zurueckgelesen] of [
+  for (const [code, zustand, zurueckgelesen, lesungen] of [
     // The administrator re-sent while the page stood open, so the token matches no stored hash.
-    ["REQ-SCHIEDSRICHTER-002", "ungueltig", () => refusedOn(VIEW_OPERATION, "REQ-SCHIEDSRICHTER-002")],
-    ["REQ-SCHIEDSRICHTER-003", "abgelaufen", () => ({ ...ANSICHT, zustand: "abgelaufen" })],
-    ["REQ-SCHIEDSRICHTER-004", "bestaetigt", () => ({ ...ANSICHT, zustand: "bestaetigt" })],
+    ["REQ-SCHIEDSRICHTER-002", "ungueltig", () => refusedOn(VIEW_OPERATION, "REQ-SCHIEDSRICHTER-002"), 0],
+    // Judged ahead of the ban, which the view ranks first, so the view says which panel a reload opens.
+    ["REQ-SCHIEDSRICHTER-003", "abgelaufen", () => ({ ...ANSICHT, zustand: "abgelaufen" }), 1],
+    ["REQ-SCHIEDSRICHTER-004", "bestaetigt", () => ({ ...ANSICHT, zustand: "bestaetigt" }), 1],
+    ["REQ-SCHIEDSRICHTER-004", "gesperrt", () => ({ ...ANSICHT, zustand: "gesperrt" }), 1],
   ] as const) {
-    it(`answers ${code} as the ${zustand} panel, without waiting on a second read`, async () => {
+    it(`answers ${code} as the ${zustand} panel, reading the link ${String(lesungen)} times`, async () => {
       schreibAntwort = () => refusedOn(WRITE_OPERATION, code);
       leseAntwort = zurueckgelesen;
 
       const answer = await bodyOf(aRequest(gueltigerKoerper));
 
       assert.deepEqual(answer.body, { success: false, zustand: zustand }, `${code} does not reach the page as a panel`);
-      assert.equal(gelesen, 0, `${code} paid for a read of a link the write had already judged`);
+      assert.equal(gelesen, lesungen, `${code} read the link otherwise than its panel needs`);
     });
   }
 
   /* The one refusal that spends nothing, so the typed date survives it and the form stays live —
-     and the ONLY one that pays for a second read, the sentence naming a number. */
+     reading the floor its sentence names. */
   it("puts the age refusal on the date the person typed, reading the floor once", async () => {
     schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-SCHIEDSRICHTER-005");
 

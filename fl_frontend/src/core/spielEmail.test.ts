@@ -48,6 +48,20 @@ const NACHRICHTEN = {
   "Neue Ansetzung an die Schiedsrichterin oder den Schiedsrichter": buildSpielNeueAnsetzungEmail({ ...neu, empfaenger: "schiedsrichter" }),
 } as const;
 
+/* The request's heading, its button and the page the button opens name one act in one phrase, as the other link
+   flows do: a reader pressing „Termin bestätigen“ who lands on another title wonders where they are. */
+describe("the request's button", () => {
+  it("reads „Spieltermin bestätigen“, as the heading over it and the page it opens do", () => {
+    const { html } = NACHRICHTEN.Anfrage;
+    const beschriftungen = [...html.matchAll(/<a href="([^"]*)"[^>]*>([^<]*)<\/a>/g)]
+      .filter(([, href]) => href === LINK)
+      .map(([, , label]) => label);
+
+    assert.ok(beschriftungen.includes("Spieltermin bestätigen"), `the link's button reads ${JSON.stringify(beschriftungen)}`);
+    assert.ok(readable(html).includes("Spieltermin bestätigen Hallo"), "the heading over the greeting names the act otherwise");
+  });
+});
+
 /* A mail client renders one part or the other, so a fact only one part carried would reach only half the
    readers: the fixture, the slot and, where the message asks something, the deadline and the link. */
 describe("each message states the same facts in both parts", () => {
@@ -59,7 +73,7 @@ describe("each message states the same facts in both parts", () => {
       "Bitte bestätige den Termin für Goethe-Gymnasium oder schlag einen anderen vor.",
       `Bitte antworte bis zum ${FRIST}.`,
       "Es gilt die erste Antwort aus Deinem Team, danach funktioniert der Link nicht mehr.",
-      "Kommt bis dahin keine Antwort, legt die Verwaltung den Termin fest.",
+      "Kommt bis dahin keine Antwort, legt die Verwaltung der Liga den Termin fest.",
       LINK,
       KONTAKT_EMAIL,
     ],
@@ -86,7 +100,7 @@ describe("each message states the same facts in both parts", () => {
     "Neue Ansetzung an die Schiedsrichterin oder den Schiedsrichter": [
       "Ernst-Reuter-Schule gegen Goethe-Gymnasium, bisher am 20.11.2026 um 14:30 Uhr, ist neu angesetzt.",
       "Deine Einteilung zum bisherigen Termin gilt nicht mehr.",
-      "Bleibst Du für das Spiel eingeteilt, bekommst Du zum neuen Termin eine neue Einteilung.",
+      "Bleibst Du für das Spiel eingeteilt, bekommst Du für einen neuen Termin nach dem heutigen Tag eine neue Einteilung.",
     ],
   };
 

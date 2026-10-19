@@ -17,15 +17,15 @@ import type { FLBewerbungEinwilligungAntwortResponse } from "@/features/bewerbun
 import type { LinkZustand } from "@/features/bewerbungen/types";
 import type { NextRequest } from "next/server";
 
-/** Which way a seat answered in another window went, read after the backend refused the write. */
-async function beantworteterZustand(token: string): Promise<LinkZustand> {
+/** The panel a reload of the link opens on, read after the backend refused the write: `sonst` where it reads open or nothing. */
+async function gelesenerZustand(token: string, sonst: LinkZustand | "saison_vorbei"): Promise<LinkZustand | "saison_vorbei"> {
   // Its own cut, and its failure answered here: the write was refused, so no doubt about it may reach the spine,
   // which would call the outcome unknown.
   const gelesen = await runAnsweringOwnCut(() => getEinwilligungAnsicht(token)).catch(nullUnlessContractBreak);
 
   // An open link is the write's refusal and this read disagreeing, and an unread one says nothing either way: the
-  // panel naming nobody is the one answer that claims nothing about a record.
-  return gelesen === null || gelesen.zustand === "gueltig" || gelesen.zustand === "saison_vorbei" ? "ungueltig" : gelesen.zustand;
+  // refusal's own panel, which claims no more than the refusal did.
+  return gelesen === null || gelesen.zustand === "gueltig" ? sonst : gelesen.zustand;
 }
 
 /**
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
         // page has no arm for it.
         const { nachlesen, ...panel } = refusal;
 
-        if (nachlesen === true) return { success: false as const, zustand: await beantworteterZustand(parsed.data.token) };
+        if (nachlesen !== undefined) return { success: false as const, zustand: await gelesenerZustand(parsed.data.token, nachlesen) };
 
         return { success: false as const, ...panel };
       }

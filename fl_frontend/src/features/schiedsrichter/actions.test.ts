@@ -109,7 +109,7 @@ describe("the referee's writes against the codes their endpoints publish", () =>
   it("words every refusal the referee's own link publishes", async () => {
     for (const code of publishedRefusals(BESTAETIGUNG_OPERATION)) {
       const own = await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, code), () =>
-        Promise.resolve({ mindestalter: 16, medien_mindestalter: 18 }),
+        Promise.resolve({ zustand: "gueltig" as const, ansicht: { mindestalter: 16, medien_mindestalter: 18 } }),
       );
       assert.notEqual(
         own ?? answerShown(BESTAETIGUNG_OPERATION, code, () => null),

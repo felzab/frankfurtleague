@@ -4,6 +4,8 @@ import { austrittZustand } from "@/features/teams/constants";
 import { formatSpielDatum, formatUhrzeit, nichtHinterlegt, PLACEHOLDER } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
+import { CLASH_BUFFER_TEXT } from "./constants";
+
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import type { FLAustrittType, FLGruppenNames } from "@/features/teams/schemas";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
@@ -531,7 +533,7 @@ export const formatBracketFault = (fault: FLBracketFault): string => {
         : `Spiel ${fault.spiel_nr} ist noch zu spielen, doch ${bookedRow(fault)} ist seit dem ${formatSpielDatum(fault.inactive_since)} stillgelegt`;
     // Both fixtures carry an entry naming the other, so which one to move stays the admin's choice.
     case "double_booked":
-      return `In Spiel ${fault.spiel_nr} ist ${bookedRow(fault)} auch für ${otherSpiel(fault)} am ${formatSpielDatum(fault.other_datum)} um ${formatUhrzeit(fault.other_uhrzeit)} eingeteilt, weniger als vier Stunden entfernt`;
+      return `In Spiel ${fault.spiel_nr} ist ${bookedRow(fault)} auch für ${otherSpiel(fault)} am ${formatSpielDatum(fault.other_datum)} um ${formatUhrzeit(fault.other_uhrzeit)} eingeteilt, weniger als ${CLASH_BUFFER_TEXT} entfernt`;
   }
 };
 
@@ -608,7 +610,7 @@ export const describeBracketFaultOnCard = (fault: FLBracketFault): string => {
         ? "Noch zu spielen, doch die Daten des zugeteilten Schiedsrichters wurden gelöscht."
         : `Noch zu spielen, doch ${bookedRow(fault)} ist seit dem ${formatSpielDatum(fault.inactive_since)} stillgelegt.`;
     case "double_booked":
-      return `${bookedRowAtStart(fault)} ist auch für ${otherSpiel(fault)} am ${formatSpielDatum(fault.other_datum)} um ${formatUhrzeit(fault.other_uhrzeit)} eingeteilt, weniger als vier Stunden entfernt.`;
+      return `${bookedRowAtStart(fault)} ist auch für ${otherSpiel(fault)} am ${formatSpielDatum(fault.other_datum)} um ${formatUhrzeit(fault.other_uhrzeit)} eingeteilt, weniger als ${CLASH_BUFFER_TEXT} entfernt.`;
   }
 };
 

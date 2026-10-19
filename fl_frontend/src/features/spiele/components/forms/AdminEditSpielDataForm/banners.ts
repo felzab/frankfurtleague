@@ -105,24 +105,17 @@ const REFUSAL_BANNER_IDS: ReadonlySet<SpielBannerId> = new Set<SpielBannerId>(Ob
 export const isSpielRefusalBannerId = (id: SpielBannerId): boolean => REFUSAL_BANNER_IDS.has(id);
 
 /**
- * A fixture's Ansetzung as the confirmations read it, `YYYY-MM-DD` and `HH:MM:SS` or `null`: the five inputs of
- * `fl_backend/app/api/spielbestaetigungen/services.py :: ansetzung_stand_of`, so a sixth there is a sixth here.
+ * `fl_backend/app/api/spielbestaetigungen/services.py :: ANSETZUNG_QUELLEN`, the inputs of a fixture's stand, each in
+ * this module's spelling: `fl_backend/tests/shared/test_frontend_mirrors.py` fails a sixth on one side alone.
  */
-export type SpielBannerAnsetzung = {
-  datum: string | null;
-  uhrzeit: string | null;
-  spielortId: string | null;
-  team1Id: string | null;
-  team2Id: string | null;
-};
+const ANSETZUNG_QUELLEN = ["datum", "uhrzeit", "spielortId", "team1Id", "team2Id"] as const;
+
+/** A fixture's Ansetzung as the confirmations read it, `YYYY-MM-DD` and `HH:MM:SS` or `null`. */
+export type SpielBannerAnsetzung = Record<(typeof ANSETZUNG_QUELLEN)[number], string | null>;
 
 /** Whether a save moves the stand the sweep closes a fixture's open rows on, and so mints afresh. */
-const ansetzungGeaendert = (draft: SpielBannerAnsetzung, stored: SpielBannerAnsetzung): boolean =>
-  draft.datum !== stored.datum ||
-  draft.uhrzeit !== stored.uhrzeit ||
-  draft.spielortId !== stored.spielortId ||
-  draft.team1Id !== stored.team1Id ||
-  draft.team2Id !== stored.team2Id;
+export const ansetzungGeaendert = (draft: SpielBannerAnsetzung, stored: SpielBannerAnsetzung): boolean =>
+  ANSETZUNG_QUELLEN.some((quelle) => draft[quelle] !== stored[quelle]);
 
 const MS_PER_DAY = 86_400_000;
 
@@ -147,11 +140,19 @@ function wirdAngefragt(
     isActiveSaison,
     sonderereignis,
     hasAnyTore,
+    hasShootOut,
     austrittTage,
     today,
-  }: { isActiveSaison: boolean; sonderereignis: FLSonderereignis | null; hasAnyTore: boolean; austrittTage: readonly string[]; today: string },
+  }: {
+    isActiveSaison: boolean;
+    sonderereignis: FLSonderereignis | null;
+    hasAnyTore: boolean;
+    hasShootOut: boolean;
+    austrittTage: readonly string[];
+    today: string;
+  },
 ): boolean {
-  if (!isActiveSaison || sonderereignis !== null || hasAnyTore) return false;
+  if (!isActiveSaison || sonderereignis !== null || hasAnyTore || hasShootOut) return false;
   if (ansetzung.uhrzeit === null || ansetzung.spielortId === null || ansetzung.team1Id === null || ansetzung.team2Id === null) return false;
   // On the fixture's day itself, as the pass closes it: a club gone by then is asked nothing.
   const { datum } = ansetzung;
@@ -173,6 +174,7 @@ export function buildSpielBanners({
   sonderereignis,
   dependentSpielNummern,
   hasAnyTore,
+  hasShootOut,
   hasDecidedErgebnis,
   dropsShootOut,
   voidedSpielNummern,
@@ -182,6 +184,7 @@ export function buildSpielBanners({
   ansetzung,
   storedAnsetzung,
   isActiveSaison,
+  isSpielSweepOn,
   austrittTage,
   today,
 }: {
@@ -204,6 +207,8 @@ export function buildSpielBanners({
   dependentSpielNummern: readonly number[];
   /** Any goal count typed at all — `REQ-STATE-002`'s subject, which is not the decided-result one. */
   hasAnyTore: boolean;
+  /** A shoot-out the save stores, which the pass reads as a played fixture however it got there. */
+  hasShootOut: boolean;
   hasDecidedErgebnis: boolean;
   /** An entered shoot-out this save discards. Work of the admin's, so it is named rather than dropped. */
   dropsShootOut: boolean;
@@ -221,6 +226,8 @@ export function buildSpielBanners({
   storedAnsetzung: SpielBannerAnsetzung;
   /** The fixture's season is the running one, the only kind the sweep visits. */
   isActiveSaison: boolean;
+  /** The confirmations' pass is switched on: off, it sends no request, whatever the fixture. */
+  isSpielSweepOn: boolean;
   /** The day each club the draft fields left this season on, where it has. */
   austrittTage: readonly string[];
   /** The German today the page was rendered on. */
@@ -412,8 +419,9 @@ export function buildSpielBanners({
   // The notice the deadline promises cannot be given: the next pass asks at once, and the link answers that day alone.
   // Raised only by a save that asks, never as a standing hint on every near fixture.
   if (
+    isSpielSweepOn &&
     ansetzungGeaendert(ansetzung, storedAnsetzung) &&
-    wirdAngefragt(ansetzung, { isActiveSaison, sonderereignis, hasAnyTore, austrittTage, today })
+    wirdAngefragt(ansetzung, { isActiveSaison, sonderereignis, hasAnyTore, hasShootOut, austrittTage, today })
   ) {
     banners.push({
       id: "spiel.bestaetigung-sofort",

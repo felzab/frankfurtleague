@@ -43,6 +43,7 @@ from app.api.teams.schemas import KONTAKT_ROLLEN, FLPatchSaisonTeamKontaktePaylo
 from app.core.collections import Collection
 from app.core.exception_handlers import DATABASE_FAILED, UNKNOWN_OUTCOME
 from app.core.exceptions import WriteRefusalException
+from app.core.logging import FL_LOGGER_NAME
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -1459,3 +1460,163 @@ class TestEverySeasonSizedReadSendsOneGetMore:
         # The premise first: the close's share taken, and every row due a reminder about an Ansetzung its fixture left.
         assert (answer.geschlossen, answer.erinnerungen) == (CLOSES_PER_PASS, [])
         assert names["getMore"] == budget.SWEEP_GET_MORES, names
+
+
+class HandedOnAfterTheSecondRead(HandedOnAfterTheMintRead):
+    """The rival at the pass's second in-session read of the season rows: wherever a row stands open the close reads them first."""
+
+    def __init__(self, collection: Any, rival: Callable[[], Awaitable[None]]) -> None:
+        super().__init__(collection, rival)
+        self.reads = 0
+
+    def find(self, *args: Any, **kwargs: Any) -> Any:
+        if kwargs.get("session") is not None:
+            self.reads += 1
+            if self.reads >= 2:
+                return super().find(*args, **kwargs)
+
+        return self._collection.find(*args, **kwargs)
+
+
+class TestAnEmptiedEntryFilledBesideAHandoverIsMintedForTheNewHolder:
+    """`docs/backend/spec.md :: I770`'s second shape: the handover's void finds the open row's entry already empty and writes nothing.
+
+    So only the anchor parts the two, on a club the mint writes no new row for.
+    """
+
+    def test_the_new_trainer_is_asked_and_the_old_one_holds_no_link(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            # Recorded as sent, as the timer records a pass's mail, so the second pass owes the emptied seat alone.
+            await angefragt(database, client, [row["_id"] for row in await rows(database)])
+            # Emptied as a ban or an earlier void leaves an entry, for the mint to fill.
+            await database[Collection.SPIELBESTAETIGUNGEN].update_one({"partei.team_id": ALPHA}, {"$set": {"kontakte.trainer": None}})
+
+            async def hand_the_trainer_on() -> None:
+                stored = await database[Collection.SAISON_TEAMS].find_one({"saison_id": SAISON_ID, "team_id": ALPHA})
+                assert stored is not None
+                kept = {
+                    seat: a_payload_person(vorname, f"{vorname}-Mustermann", f"+491701000000{position}")
+                    for position, (seat, vorname) in enumerate(SEATS[ALPHA].items())
+                }
+                await patch_saison_team_kontakte(
+                    team_id=ALPHA,
+                    saison_id=SAISON_ID,
+                    kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate(
+                        {
+                            "kontakte": {
+                                **kept,
+                                "trainer": a_payload_person("Lea", "Musterfrau", "+4917010000009"),
+                                "trainer_ist_zugleich": None,
+                            },
+                            "kontakte_stand": kontakte_stand_of(stored["kontakte"]),
+                        }
+                    ),
+                    saison_teams_collection=database[Collection.SAISON_TEAMS],
+                    saisons_collection=database[Collection.SAISONS],
+                    spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                    sperrliste=ban_list(database),
+                    adressanker_collection=database[Collection.ADRESSANKER],
+                    db=client,
+                    refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+                    today=TODAY,
+                )
+
+            interleaved = HandedOnAfterTheSecondRead(database[Collection.SAISON_TEAMS], hand_the_trainer_on)
+            answer = await sweep_spielbestaetigungen(
+                saison_id=SAISON_ID,
+                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                spiele_collection=database[Collection.SPIELE],
+                saison_teams_collection=cast(Any, interleaved),
+                saisons_collection=database[Collection.SAISONS],
+                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                sperrliste=ban_list(database),
+                db=client,
+                today=TODAY,
+            )
+
+            return interleaved, answer, row_of(await rows(database), team_id=ALPHA)
+
+        interleaved, answer, alpha = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        links = [link for anfrage in answer.anfragen if anfrage.seite == "team1" for link in anfrage.links]
+        assert [(link.address, link.rollen) for link in links] == [("lea@example.com", ["trainer"])]
+        assert alpha["kontakte"]["trainer"]["token_hashes"] == [hash_token(links[0].token)]
+        interleaved.assert_landed_inside(serially=1)
+
+
+def withheld_lines(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()]
+
+
+def no_line_names(caplog: pytest.LogCaptureFixture, *names: Any) -> bool:
+    return not any(str(name) in record.getMessage() for record in caplog.records for name in names)
+
+
+class TestEachPassCountsTheSeatsABanKeptFromALink:
+    """A count and never an id, one line a pass, each pass having asked the ban afresh: a line naming the row ties its club to the ban."""
+
+    def test_the_mint_counts_a_barred_seat_once_through_a_retried_attempt(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """The first pass's mint runs twice, a seat handed on inside it: a count kept across attempts says two."""
+
+        barred = address(BETA, "stellvertretung")
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPERRLISTE].insert_one(ban_document(barred, bis=SAISON_ID))
+
+            async def hand_the_trainer_on() -> None:
+                handed = await database[Collection.SAISON_TEAMS].update_one(
+                    {"saison_id": SAISON_ID, "team_id": ALPHA}, {"$set": {"kontakte.trainer": kontaktperson_document("Lea")}}
+                )
+                assert handed.modified_count == 1
+
+            interleaved = HandedOnAfterTheMintRead(database[Collection.SAISON_TEAMS], hand_the_trainer_on)
+            # Inside both passes: the level outside is whatever an earlier case on this worker left.
+            with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
+                await sweep_spielbestaetigungen(
+                    saison_id=SAISON_ID,
+                    spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                    spiele_collection=database[Collection.SPIELE],
+                    saison_teams_collection=cast(Any, interleaved),
+                    saisons_collection=database[Collection.SAISONS],
+                    schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                    sperrliste=ban_list(database),
+                    db=client,
+                    today=TODAY,
+                )
+                # Recorded as sent, as the timer records a pass's mail, so the second pass owes nothing but the barred seat.
+                await angefragt(database, client, [row["_id"] for row in await rows(database)])
+                await sweep(database, client)
+
+            return interleaved, await rows(database)
+
+        interleaved, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        interleaved.assert_landed_inside(serially=1)
+        assert (
+            withheld_lines(caplog)
+            == [f"Links withheld from barred addresses in season {SAISON_ID}: 1 seat(s) unminted, 0 seat(s) unreminded"] * 2
+        )
+        assert no_line_names(caplog, barred, BETA, *[row["_id"] for row in stored])
+
+    def test_the_reminder_counts_a_seat_barred_since_its_link_went(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        barred = address(BETA, "stellvertretung")
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            await angefragt(database, client, [row["_id"] for row in await rows(database)])
+            await database[Collection.SPERRLISTE].insert_one(ban_document(barred, bis=SAISON_ID))
+            with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
+                reminded = [await sweep(database, client, today=day) for day in (FIRST_REMINDER, SECOND_REMINDER)]
+
+            return reminded, await rows(database)
+
+        reminded, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, FORTNIGHT, schiedsrichter=None)])
+
+        # The premise: each pass reminded the barred seat's row, its other seats.
+        assert [sorted(anfrage.seite for anfrage in answer.erinnerungen) for answer in reminded] == [["team1", "team2"]] * 2
+        assert (
+            withheld_lines(caplog)
+            == [f"Links withheld from barred addresses in season {SAISON_ID}: 0 seat(s) unminted, 1 seat(s) unreminded"] * 2
+        )
+        assert no_line_names(caplog, barred, BETA, *[row["_id"] for row in stored])

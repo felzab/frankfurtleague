@@ -57,6 +57,7 @@ const build = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]> = {})
     sonderereignis: null,
     dependentSpielNummern: [],
     hasAnyTore: false,
+    hasShootOut: false,
     hasDecidedErgebnis: false,
     dropsShootOut: false,
     voidedSpielNummern: [],
@@ -66,6 +67,7 @@ const build = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]> = {})
     ansetzung: KEINE_ANSETZUNG,
     storedAnsetzung: KEINE_ANSETZUNG,
     isActiveSaison: true,
+    isSpielSweepOn: true,
     austrittTage: [],
     today: HEUTE,
     ...overrides,
@@ -90,6 +92,7 @@ const ANFRAGE_IS_DUE = z
         team1: z.null().optional(),
         team2: z.null().optional(),
         tore: z.int().optional(),
+        elfmeterschiessen: z.strictObject({ team1: z.int(), team2: z.int() }).optional(),
         sonderereignis: FLSonderereignisSchema.optional(),
         austritt_tage: z.int().optional(),
       }),
@@ -467,7 +470,7 @@ describe("buildSpielBanners", () => {
     assert.ok(!isSpielRefusalCode(undefined));
   });
 
-  /* Acceptance (d). A date inside the deadline's days leaves the teams no notice: the next pass asks at once, and the
+  /* A date inside the deadline's days leaves the teams no notice: the next pass asks at once, and the
      link answers only that day. Whose doing it is decides whether the save confirms. */
   it("raises the confirmation's lost notice as this save's doing where the stored date was outside the window", () => {
     const banner = build({ ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(30)) }).find(
@@ -525,6 +528,11 @@ describe("buildSpielBanners", () => {
     }
   });
 
+  /* Off, as it ships, the pass runs at all nowhere, which no fixture's fields can say. */
+  it("raises nothing for a re-dated fixture while the confirmations' pass is switched off", () => {
+    assert.ok(!sofort({ ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(30)), isSpielSweepOn: false }));
+  });
+
   /* The pass visits the running season alone, which the shared table below cannot say: it holds a fixture's own fields. */
   it("raises nothing for a re-dated fixture of a season not yet running", () => {
     assert.ok(!sofort({ ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(30)), isActiveSaison: false }));
@@ -547,6 +555,7 @@ describe("buildSpielBanners", () => {
           ansetzung,
           storedAnsetzung: angesetzt(tagNach(30)),
           hasAnyTore: anders.tore !== undefined,
+          hasShootOut: anders.elfmeterschiessen !== undefined,
           sonderereignis: anders.sonderereignis ?? null,
           austrittTage: anders.austritt_tage === undefined ? [] : [tagNach(anders.austritt_tage)],
         }),

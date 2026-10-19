@@ -212,13 +212,16 @@ export const medienNochNicht = (medienMindestalter: number | null): string =>
 /** The contact page's age refusal where the link's view serves no floor to name: both bounds, as `alterAusserhalb` names them. */
 const GEBURTSDATUM_AUSSERHALB = "Mit diesem Geburtsdatum bist Du für Deine Bestätigung zu jung oder zu alt.";
 
-/** What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper. */
+/**
+ * What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper: the
+ * panel to show where that read finds the link open or reads nothing.
+ */
 export type EinwilligungRefusal = {
   error?: string;
   fieldErrors?: FieldErrors;
   unplacedError?: string;
   zustand?: LinkZustand | "saison_vorbei";
-  nachlesen?: true;
+  nachlesen?: LinkZustand | "saison_vorbei";
 };
 
 /**
@@ -246,22 +249,20 @@ export function mapEinwilligungRefusal(
       return { error: FASSUNG_NEU_OEFFNEN };
     case "REQ-BEWERBUNG-009":
       return { zustand: "ungueltig" };
-    // A decided application, or a deadline passed that only a re-sent link restarts: one panel names
-    // both, the link being spent either way for this person.
+    // Judged ahead of the seat and the ban, which the view ranks first: an answer given in another window, or a ban
+    // entered since, reads as the view says, and the spent link's panel stands for the rest.
     case "REQ-BEWERBUNG-010":
     case "REQ-BEWERBUNG-017":
-    // A season row's seat past its own deadline, spent for good: only a fresh link from the
-    // administration opens the seat again, so the same panel serves it.
     case "REQ-KONTAKT-004":
-      return { zustand: "abgelaufen" };
-    // A season row's link whose season ended or whose team left, which still takes a Widerspruch: the
-    // page its view answers on a reload, offering that alone.
+      return { nachlesen: "abgelaufen" };
+    // A season row's link whose season ended or whose team left, which still takes a Widerspruch, unless the ban the
+    // press judges after it bars the address: the view's page either way.
     case "REQ-KONTAKT-006":
-      return { zustand: "saison_vorbei" };
+      return { nachlesen: "saison_vorbei" };
     // One code covers both answers, so „bestätigt“ here would tell a seat declined in another window
     // that it confirmed. Which way it went is the read's to say.
     case "REQ-BEWERBUNG-011":
-      return { nachlesen: true };
+      return { nachlesen: "ungueltig" };
     // The one refusal that spends no token, so it lands on the field and the typed date survives it;
     // a `zustand` here would swap a live form for a dead-link panel. A view that went unread names no floor.
     case "REQ-BEWERBUNG-012":
