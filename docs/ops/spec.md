@@ -1181,9 +1181,11 @@ being the layer cache's before it is the tree's — the table's header records t
 stamped runs show and declines to say which of them ran warm, and the Dockerfile change most worth
 catching is the one that empties that cache —
 so the median report is its only
-guard. `format`'s budget is the cold job's — a runner starts without prettier's cache wherever the
-lockfile or a stylesheet moves — so it is cut from the widest cold run on record rather than from
-the stamped main runs alone, most of which restored the cache.
+guard. `format`'s and `frontend`'s budgets are the cold job's — a runner starts without prettier's
+cache wherever the lockfile or a stylesheet moves, and without the Next cache and pnpm's lockfile
+verdict wherever the lockfile does — so each is cut from the widest cold run on record rather than
+from the stamped main runs alone, most of which restored the cache, and a re-stamp never lowers it
+(`scripts/checks/check_gate_budget.py :: COLD_BUDGET`).
 **Raising a budget, a reference or a floor costs a measurement.** In a pull request's `docs` job,
 `scripts/checks/check_gate_budget.py` under `--base` holds the file against the pull request's base and refuses a
 figure that rose on an unchanged stamp or on one dated before the stamp it replaces, any stamp dated

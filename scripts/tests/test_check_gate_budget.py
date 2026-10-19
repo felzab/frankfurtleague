@@ -844,15 +844,20 @@ def test_a_job_whose_cache_is_keyed_on_the_tree_counts_first_attempts_of_pushes_
 
 
 def test_an_unbudgeted_row_stays_unbudgeted_and_the_cold_budget_never_falls():
-    """`images`' budget is `-` by the header's decision, and `format`'s is the cold job's, which warm runs cannot lower."""
+    """`images`' budget is `-` by the header's decision, and `format`'s and `frontend`'s are the cold job's, which warm runs cannot lower."""
     rows = budget.parse_reference(
-        table(row("format", "-", "-", "70", STAMP), row("images", "-", "-", "-", STAMP), row("total", "0", "-", "-", "-"))
+        table(
+            row("format", "-", "-", "70", STAMP),
+            row("frontend", "-", "-", "220", STAMP),
+            row("images", "-", "-", "-", STAMP),
+            row("total", "0", "-", "-", "-"),
+        )
     )
-    attempts = [attempt(n, 1, {"format": 30, "images": 90}) for n in range(1, 11)]
+    attempts = [attempt(n, 1, {"format": 30, "frontend": 108, "images": 90}) for n in range(1, 11)]
 
     proposed, _, _ = budget.stamp(rows, attempts, None, None)
 
-    assert (proposed["format"].budget, proposed["images"].budget) == (70, None)
+    assert (proposed["format"].budget, proposed["frontend"].budget, proposed["images"].budget) == (70, 220, None)
     assert budget.stamp(rows, [attempt(n, 1, {"format": 80}) for n in range(1, 11)], None, ["format"])[0]["format"].budget == 100
 
 

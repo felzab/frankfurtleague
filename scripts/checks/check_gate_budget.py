@@ -577,9 +577,9 @@ SEED: Final = "gate-wall-clock"
 # a push to main only what earlier trees left unchanged, so only first attempts of pushes time them.
 TREE_KEYED: Final[frozenset[str]] = frozenset({"format", "frontend", "images"})
 
-# The header's `format` paragraph: that budget is the cold job's, and a population that happened
-# to restore the cache never lowers it.
-COLD_BUDGET: Final[frozenset[str]] = frozenset({"format"})
+# The header's `format` and `frontend` paragraphs: each budget is the cold job's, and a population
+# that happened to restore the cache never lowers it.
+COLD_BUDGET: Final[frozenset[str]] = frozenset({"format", "frontend"})
 
 # A matrix job's instance, as its `name:` template spells it in `.github/workflows/verify.yml`.
 INSTANCE: Final = re.compile(r"^(.+) \(([^()]+)\)$")
