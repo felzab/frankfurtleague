@@ -147,7 +147,7 @@ async def erase_registrierungen_in_session(
 ) -> int:
     """Remove these registrations whole, then empty every log image of them, answering how many went: the document is the person's own."""
 
-    # No write for none: a removal matching nothing still files a log row.
+    # No command for none: the removal and the redaction below would each still reach the server.
     if not registrierungen:
         return 0
 

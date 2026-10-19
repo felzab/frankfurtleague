@@ -105,7 +105,9 @@ async def get_erasure_ansicht_auf_anfrage(
     and a referee row every season holding a fixture still to be played that it is booked on, as `REQ-RETIRE-004` judges
     one. Reached and not named: the fixtures booking a referee row, which move onto the ghost, and the referee's name in
     each of those fixtures' log images, which goes; the confirmations a referee row was asked for, which go, and its id
-    and reason in a removed season's log images; the grants, bans, invitations and decisions the address made for
+    and reason in a removed season's log images; the links its contact seats were mailed on their teams' open match
+    confirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,
+    which goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for
     others, which name a marker in its place; its day counts; its rows in the log; every log image of a record the
     erasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;
     a dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the

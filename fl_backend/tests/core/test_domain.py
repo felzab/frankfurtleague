@@ -622,7 +622,7 @@ def test_in_every_scope_a_cascade_onto_a_persons_references_runs_before_the_pers
 
 
 def test_the_registry_runs_every_step_by_name_in_its_declared_order():
-    """`ERASURE_STEPS` is the population every case here reads: a step called but undeclared, or declared but never called, misleads them all.
+    """`ERASURE_STEPS` is the population every case here reads: a step declared but never called, or out of order, misleads them all.
 
     By name, never through the tuple: the transaction sweeps follow a session handed on by a bare name alone.
     """

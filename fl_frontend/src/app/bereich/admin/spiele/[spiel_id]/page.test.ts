@@ -34,6 +34,7 @@ const { FLSpielAdminSchema } = await import("@/features/spiele/schemas.ts");
 const { spielStateKey } = await import("@/features/spiele/utils.ts");
 const { AdminContextWrapper } = await import("@/features/admin/components/providers/AdminContextWrapper.tsx");
 const { FLSaisonSchema } = await import("@/features/saisons/schemas.ts");
+const { default: nextConfig } = await import("../../../../../../next.config.ts");
 
 const ENDPOINT = `/spiele/${OBJECT_ID}/admin`;
 const PROPS: NextPageProps<{ spiel_id: string }> = { params: Promise.resolve({ spiel_id: OBJECT_ID }), searchParams: Promise.resolve({}) };
@@ -69,9 +70,9 @@ beforeEach(() => {
   clearSteps();
 });
 
-/* With partial prefetching a link prefetches the route's App Shell, rendered statically or, with the
-   session, at request time; both renders stop short of `connection()`, which settles only for a
-   navigation. `prerenderShell` holds it unsettled the same way. */
+/* With partial prefetching a link prefetches the route's App Shell, statically or, with the session, at
+   request time; both renders stop short of `connection()`, which settles only in a render somebody opened.
+   `prerenderShell` holds it unsettled the same way. */
 describe("the match editor's freshness across a prefetch", () => {
   it("reads nothing of the fixture in the render a prefetch carries", async () => {
     const shell = await prefetched();
@@ -90,6 +91,12 @@ describe("the match editor's freshness across a prefetch", () => {
     assert.deepEqual(after.spielData, MOVED, "the editor seeds its fields from the fixture as it stood before the move");
     assert.equal(after.key, spielStateKey(MOVED), "the editor is keyed by a state other than the one it seeds from");
     assert.notEqual(after.key, before.key, "a still-mounted editor would keep the moved fixture's earlier values");
+  });
+
+  /* The cases above hold what the server renders; the client router reuses a dynamic page's payload for
+     `staleTimes.dynamic`, a reopening inside it seeding from the fixture as the first opening read it. */
+  it("keeps no opened editor in the client router", () => {
+    assert.equal(nextConfig.experimental?.staleTimes?.dynamic ?? 0, 0, "the client router serves a reopened editor its earlier payload");
   });
 });
 

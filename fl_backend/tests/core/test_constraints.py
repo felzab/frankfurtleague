@@ -662,6 +662,8 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     (Collection.SAISON_TEAMS, ("bestaetigungen", "stellvertretung")): frozenset({"token_hash"}),
     # Every link a seat of a confirmation row was mailed, for the application's reason.
     **{(Collection.SPIELBESTAETIGUNGEN, ("kontakte", seat)): frozenset({"token_hashes"}) for seat in KONTAKT_ROLLEN},
+    # Who answered, kept for the person's erasure alone: served, an address's digest confirms anyone's guess of it.
+    (Collection.SPIELBESTAETIGUNGEN, ("antwort", "von")): frozenset({"halter"}),
     # The registration's pair after its admission, read by the submission's replay lookup alone.
     (Collection.SAISON_SPIELER, ()): frozenset({"idempotenz_schluessel", "idempotenz_fingerabdruck"}),
 }

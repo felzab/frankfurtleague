@@ -882,7 +882,7 @@ const cookieNaming = (origin: URL): { useSecureCookies?: false; cookiePrefix?: s
 
 /**
  * The session cookie the request carries, read as the library names it and never validated: the proxy's
- * optimistic check, which reads no store and slides nothing (`docs/frontend/spec.md :: I495`).
+ * optimistic check, which reads no store and slides nothing (`docs/frontend/spec.md :: I243`).
  */
 export function sessionCookieOf(requestHeaders: Headers): string | null {
   return getSessionCookie(requestHeaders, { cookiePrefix: cookieNaming(new URL(frontend_config.AUTH_URL)).cookiePrefix });

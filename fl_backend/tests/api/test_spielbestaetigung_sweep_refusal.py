@@ -196,15 +196,22 @@ ROUND_TRIPS_A_ROW = 3
 
 # Each worst call's commands beside its rows, counted on the wire by
 # `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
-SWEEP_OTHER_COMMANDS = 23
+SWEEP_OTHER_COMMANDS = 24
 ANGEFRAGT_OTHER_COMMANDS = 3
+
+# A `getMore` apiece for the reads taking a season's rows rather than a share's, once those outrun the driver's first
+# batch, pinned on the wire by
+# `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py :: TestEverySeasonSizedReadSendsOneGetMore`.
+SWEEP_GET_MORES = 13
 
 
 # `tests/api/test_bewerbung_sweep_refusal.py`'s per-command cost, timed locally 2026-09-23.
 @pytest.mark.parametrize(
     ("rows", "other_commands", "per_command_s", "round_trip_s"),
     [
-        pytest.param(CLOSES_PER_PASS + MINTS_PER_PASS + REMINDERS_PER_PASS, SWEEP_OTHER_COMMANDS, 0.00135, 0.036, id="the sweep"),
+        pytest.param(
+            CLOSES_PER_PASS + MINTS_PER_PASS + REMINDERS_PER_PASS, SWEEP_OTHER_COMMANDS + SWEEP_GET_MORES, 0.00135, 0.036, id="the sweep"
+        ),
         pytest.param(ANFRAGEN_LISTED_PER_PASS, ANGEFRAGT_OTHER_COMMANDS, 0.00101, 0.038, id="/angefragt"),
     ],
 )
