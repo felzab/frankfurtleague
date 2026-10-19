@@ -4,8 +4,12 @@ from typing import Any
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 
-# Which reads a case asks the plan of, by the collection a find or aggregate names and its command.
+# Which commands a case asks the plan of, by the collection one names and the command itself.
 Wanted = Callable[[str, Mapping[str, Any]], bool]
+
+# The commands planned here: the reads, and the one write whose own filter a stranger's request drives. `explain`
+# at `queryPlanner` plans a `findAndModify` without running it.
+PLANNED = ("find", "aggregate", "findAndModify")
 
 # What the driver wraps around a read rather than what plans it: the server refuses a second `$db`
 # beside the explain's own, and the session, transaction and read concern belong to a finished read.
@@ -13,14 +17,14 @@ ENVELOPE = frozenset({"$db", "$clusterTime", "$readPreference", "lsid", "txnNumb
 
 
 class SentReads(monitoring.CommandListener):
-    """Every find and aggregate this client sends that `wanted` picks, with its collection, stripped to what plans it."""
+    """Every `PLANNED` command this client sends that `wanted` picks, with its collection, stripped to what plans it."""
 
     def __init__(self, wanted: Wanted) -> None:
         self._wanted = wanted
         self.sent: list[tuple[str, dict[str, Any]]] = []
 
     def started(self, event: monitoring.CommandStartedEvent) -> None:
-        if event.command_name not in ("find", "aggregate"):
+        if event.command_name not in PLANNED:
             return
         command = event.command
         collection = str(command[event.command_name])

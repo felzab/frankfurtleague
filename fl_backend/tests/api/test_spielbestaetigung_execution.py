@@ -648,9 +648,9 @@ class TestALinkToAnAddressBarredAfterTheMint:
 
 
 class TestTheLinkLookupWalksAnIndex:
-    """Strangers drive both lookups, so neither may scan the collection, on every clause of the seat `$or`."""
+    """Strangers drive both lookups and the answer's write, so none may scan the collection, on every clause of the seat `$or`."""
 
-    def test_the_view_and_the_answer_each_plan_an_index_scan_on_every_seat(self, mongo_replica_set_url: str):
+    def test_the_view_the_answer_and_its_write_each_plan_an_index_scan_on_every_seat(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _client: AsyncMongoClient) -> Any:
             plans = []
             for call in (
@@ -661,17 +661,19 @@ class TestTheLinkLookupWalksAnIndex:
                     mongo_replica_set_url,
                     database,
                     call,
-                    lambda collection, command: collection == Collection.SPIELBESTAETIGUNGEN and "$or" in (command.get("filter") or {}),
+                    # A find's `filter`, the write's `query`.
+                    lambda collection, command: (
+                        collection == Collection.SPIELBESTAETIGUNGEN and "$or" in (command.get("filter") or command.get("query") or {})
+                    ),
                 )
                 plans.append(sent)
 
             return plans
 
-        view, answer = on_a_fixture(mongo_replica_set_url, body)
+        [view], [answer, write] = on_a_fixture(mongo_replica_set_url, body)
 
-        for sent in (view, answer):
-            # The premise: one lookup each, or the scans below would pass vacuously.
-            [(_, plan)] = sent
+        # The premise: the view's lookup, the answer's, and its write, or the scans below would pass vacuously.
+        for _, plan in (view, answer, write):
             assert "COLLSCAN" not in plan, plan
             assert {f"IXSCAN {{ kontakte.{seat}.token_hashes: 1 }}" for seat in KONTAKT_ROLLEN} <= set(plan.split(", ")), plan
 
