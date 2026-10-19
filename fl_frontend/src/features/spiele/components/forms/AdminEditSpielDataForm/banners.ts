@@ -117,7 +117,7 @@ export type SpielBannerAnsetzung = {
 };
 
 /** Whether a save moves the stand the sweep closes a fixture's open rows on, and so mints afresh. */
-const ansetzungGeaendert = (draft: SpielBannerAnsetzung, stored: SpielBannerAnsetzung): boolean =>
+export const ansetzungGeaendert = (draft: SpielBannerAnsetzung, stored: SpielBannerAnsetzung): boolean =>
   draft.datum !== stored.datum ||
   draft.uhrzeit !== stored.uhrzeit ||
   draft.spielortId !== stored.spielortId ||

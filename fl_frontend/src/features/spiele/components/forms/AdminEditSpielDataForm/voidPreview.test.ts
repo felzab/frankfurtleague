@@ -271,6 +271,24 @@ describe("the match editor's warning that a near date leaves the teams no notice
     assert.deepEqual(calls, [], "the save was sent before it was confirmed");
   });
 
+  /* The served verdict is about the stored Ansetzung: the preview keeps it through an edit leaving the five values
+     alone, and drops it once one moves, the draft's copy of the field still reading as served. */
+  it("keeps „Vorläufig“ on the preview until the draft moves the Ansetzung", async () => {
+    const user = userEvent.setup();
+    renderEditor({ ...angesetzt(tagNach(3)), ansetzung_bestaetigt: false });
+    // Folded where the rail is no column of its own, which is every width a page without a viewport has.
+    await user.click(screen.getByRole("button", { name: "Vorschau" }));
+    assert.ok(screen.queryAllByText("Vorläufig").length > 0, "the preview of an unchanged fixture drops its verdict");
+
+    await user.type(screen.getByRole("textbox", { name: "Notiz zum Spiel" }), "Halle");
+    assert.ok(screen.queryAllByText("Vorläufig").length > 0, "an edit leaving the Ansetzung alone drops the verdict");
+
+    const tag = screen.getAllByRole("spinbutton", { name: /^Tag/ }).at(-1) ?? assert.fail("the editor renders no day to step");
+    await act(async () => tag.focus());
+    await user.keyboard("{ArrowUp}");
+    assert.equal(screen.queryAllByText("Vorläufig").length, 0, "a moved Ansetzung keeps the verdict about the stored one");
+  });
+
   /* The pass is switched off as shipped, so it asks nobody: a warning and a confirmation over a save would announce a
      request that never comes. */
   it("raises nothing, and saves unasked, where the confirmations' pass is switched off", async () => {
