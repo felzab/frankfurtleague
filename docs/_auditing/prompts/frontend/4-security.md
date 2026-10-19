@@ -85,8 +85,7 @@ calling a header missing — header ownership is split between Next and nginx), 
 single enforced CSP rather than a re-argument of it.
 
 S10. **Dependency and build surface.** `pnpm audit --prod` (it is gate-enforced — verify), any
-resolution overrides against the ranges their dependents declare (the `sharp` override
-deliberately floats — re-check against the current framework version), Dockerfile and
+resolution overrides against the ranges their dependents declare, Dockerfile and
 dockerignore secret hygiene by rule inspection only.
 
 FIX PRESCRIPTIONS: verify any fix touching auth config, CSP, cookies or container runtime against a

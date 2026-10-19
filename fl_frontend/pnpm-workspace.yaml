@@ -11,11 +11,6 @@ allowBuilds:
   # Its script only finds the binding the lockfile already pins; refused, a missing binding fails
   # loudly instead of being fetched with no integrity check.
   unrs-resolver: false
-overrides:
-  # Each pins past an advisory in the version next would otherwise pull. Only sharp is
-  # runtime-reachable, via libvips on /_next/image.
-  sharp: "^0.35.4"
-  postcss: "^8.5.26"
 # A version published with weaker trust evidence than its package's earlier ones (a trusted CI
 # publisher replaced by a bare token) fails resolution: the shape of a hijacked maintainer account.
 trustPolicy: no-downgrade
