@@ -1546,3 +1546,14 @@ rather than by the handler remembering to conceal one.
   by neither and its address answered unreferenced. The account sweep deletes only on a second
   answer asked alone just before (frontend I699), by which the move has committed and is read, so
   the window costs an account only where both answers fall inside one move.
+- **A club's answer can bind to an Ansetzung that moves as it commits.** The answer judges again
+  outside its transaction just before answering (I118), and writes nothing a fixture save, a rival
+  booking, a matchday's dates, a club's exit or a seat's rename writes, so one of those committing
+  between that
+  second judgement and the answer's own commit stands beside it. A move then leaves the row answered
+  about the Ansetzung the fixture left: the next pass closes it `ansetzung_geaendert`
+  (`fl_backend/app/api/spielbestaetigungen/services.py :: grund_to_close`) and asks the club again
+  where the fixture's new date is inside the answer window, one request more. Any other leaves a
+  proposal stored that its judges would now refuse, which the administrator's save of that date
+  judges again (I754), or a reason holding a name given in that instant: a proposal is advice, and
+  the reason goes with the season's contacts (`docs/datenschutz.md` §6).
