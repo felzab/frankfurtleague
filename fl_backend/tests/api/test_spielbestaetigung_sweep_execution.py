@@ -1,6 +1,8 @@
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
+from datetime import datetime
 from typing import Any, cast
+from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
@@ -31,7 +33,8 @@ from app.api.spielbestaetigungen.sweep_router import (
 )
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.schemas import FLPatchSpielDataPayload
-from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.api.teams.admin_router import replace_saison_team
+from app.api.teams.schemas import KONTAKT_ROLLEN, FLReplaceSaisonTeamPayload
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -52,6 +55,7 @@ DATABASE_NAME = worker_database("fl_spielbestaetigung_sweep_test")
 SAISON_ID = "2026"
 PAST_SAISON_ID = "2025"
 TODAY = "2026-04-01"
+NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 YESTERDAY = "2026-03-31"
 NEXT_WEEK = "2026-04-08"
 
@@ -474,6 +478,43 @@ class TestARefereeChangeClosesTheirRowAlone:
         assert old["geschlossen"]["grund"] == "schiedsrichter_gewechselt"
         assert [einteilung.address for einteilung in second.einteilungen] == [OTHER_REFEREE_EMAIL]
         assert (second.schiedsrichter_neue_ansetzungen, second.anfragen, second.geschlossen) == ([], [], 1)
+
+
+class TestAReplacedClubsRowsClose:
+    """The club leaving takes its season row along, so a notice naming it off that row would hold every mailed row open for good."""
+
+    def test_the_opponent_and_the_referee_are_told_and_every_row_closes(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            await angefragt(database, client, [row["_id"] for row in await rows(database)])
+            await replace_saison_team(
+                team_id=ALPHA,
+                saison_id=SAISON_ID,
+                replacement_data=FLReplaceSaisonTeamPayload(incoming_team_id=GAMMA),
+                teams_collection=database[Collection.TEAMS],
+                saison_teams_collection=database[Collection.SAISON_TEAMS],
+                saisons_collection=database[Collection.SAISONS],
+                spiele_collection=database[Collection.SPIELE],
+                saison_spieler_collection=database[Collection.SAISON_SPIELER],
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                aktionen_collection=database[Collection.AKTIONEN],
+                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                db=client,
+                today=TODAY,
+                germany_now=NOW,
+            )
+            return await sweep(database, client), await rows(database)
+
+        second, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        closed = row_of([row for row in stored if row["geschlossen"] is not None], team_id=BETA)
+        assert (second.fehlgeschlagen, second.geschlossen) == (0, 3)
+        assert Counter(row["geschlossen"]["grund"] for row in stored if row["geschlossen"] is not None) == {"ansetzung_geaendert": 3}
+        # The leaving club's people left with its row, so its own row closes telling nobody.
+        assert [(notice.spielbestaetigung_id, notice.team1_name, notice.team2_name) for notice in second.neue_ansetzungen] == [
+            (closed["_id"], "Gamma", "Beta")
+        ]
+        assert [(notice.team1_name, notice.address) for notice in second.schiedsrichter_neue_ansetzungen] == [("Gamma", REFEREE_EMAIL)]
 
 
 class TestTheGhostIsAskedNothing:

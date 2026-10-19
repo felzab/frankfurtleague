@@ -359,7 +359,9 @@ async def sweep_spielbestaetigungen(
                 return None
 
             ansetzung, partei = row["ansetzung"], row["partei"]
-            namen = {"team1_name": junctions[ansetzung["team1_id"]]["name"], "team2_name": junctions[ansetzung["team2_id"]]["name"]}
+            # Named as the requests are, off the fixture as it stands: a club replaced since holds no season row to name it by.
+            jetzt = _ansetzung_now(row=row, spiel=spiele[row["spiel_id"]], junctions=junctions)
+            namen = {"team1_name": jetzt.team1_name, "team2_name": jetzt.team2_name}
             alt = FLSpielbestaetigungTermin(datum=ansetzung["datum"], uhrzeit=ansetzung["uhrzeit"])
             if partei["art"] == "schiedsrichter":
                 address = adressen.get(partei["schiedsrichter_id"])
@@ -371,10 +373,13 @@ async def sweep_spielbestaetigungen(
                     )
                 )
 
-            # Read off the season row's seats as they stand now, a mailbox per message with no name in it.
+            # Read off the season row's seats as they stand now, a mailbox per message with no name in it. A replaced
+            # club's people left with its row, their links voided by the replacement, so nobody is told.
             empfaenger = [
                 FLSpielbestaetigungSweepEmpfaenger(address=address, rollen=rollen)
-                for address, rollen in group_seats_by_mailbox(kontakte=junctions[partei["team_id"]].get("kontakte"), seats=KONTAKT_ROLLEN)
+                for address, rollen in group_seats_by_mailbox(
+                    kontakte=(junctions.get(partei["team_id"]) or {}).get("kontakte"), seats=KONTAKT_ROLLEN
+                )
             ]
             return (
                 FLSpielbestaetigungSweepNeueAnsetzung(
