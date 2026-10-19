@@ -49,7 +49,7 @@ from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.crud import strip_the_seasons_team_rows
 from app.api.spielbestaetigungen.services import seat_void_of
-from app.api.teams.crud import void_moved_seats
+from app.api.teams.crud import pull_team_names, void_moved_seats
 from app.api.teams.schemas import FLKontaktRolle
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -87,22 +87,6 @@ REMINDERS_PER_PASS: Final = 39
 # A season at its rules' capacity takes more passes. Below the reminders': the season's end strip writes once per set
 # of fields its images hold and once per list image, and 26 would make 270, 10.08 s.
 BLOCKS_CLEARED_PER_PASS: Final = 25
-
-
-async def _club_names(
-    *, teams_collection: TeamsCollection, rows: Sequence[Mapping[str, Any]], session: AsyncClientSession | None
-) -> dict[Any, str]:
-    """The picked clubs' names, one read for the pass: a mail names the school and the row holds only its id."""
-
-    team_ids = [row["team_id"] for row in rows if row.get("team_id") is not None]
-    if not team_ids:
-        return {}
-
-    clubs = await pull_many_from_db(
-        collection=teams_collection, db_filter={"_id": {"$in": team_ids}}, projection=["name"], limit=LIST_LIMIT_MAX, session=session
-    )
-
-    return {club["_id"]: str(club.get("name") or "") for club in clubs}
 
 
 async def _redact(
@@ -360,7 +344,8 @@ async def sweep_saison(
         batch.withheld = sum(1 for _, mailboxes in per_row for email, _ in mailboxes if email in gesperrt)
         reachable = {row["_id"]: [(email, gruppen) for email, gruppen in mailboxes if email not in gesperrt] for row, mailboxes in per_row}
         chased = [row for row, _ in per_row if reachable[row["_id"]]]
-        club_names = await _club_names(teams_collection=teams_collection, rows=chased, session=session)
+        # One read for the page: a mail names the school, and the row holds only its id.
+        club_names = await pull_team_names(teams_collection=teams_collection, team_ids=[row.get("team_id") for row in chased], session=session)
 
         def reminder_of(row: Mapping[str, Any]) -> tuple[list[FLBewerbungSweepErinnerung], dict[str, str]]:
             per_mailbox = reachable[row["_id"]]
@@ -627,7 +612,7 @@ async def sweep_saison(
     refuse_a_stalled_page(read=len(candidates), moved=len(due), page=SWEEP_PAGE, clock="deletion", saison_id=saison_id)
     # No session, as the candidates' read has none: this list writes nothing, and `/angekuendigt` and
     # `/loeschen` re-judge every id it names in their own transactions.
-    club_names = await _club_names(teams_collection=teams_collection, rows=due, session=None) if due else {}
+    club_names = await pull_team_names(teams_collection=teams_collection, team_ids=[row.get("team_id") for row in due])
     loeschungen: list[FLBewerbungSweepLoeschung] = []
     for row in due:
         # The mailbox and every seat it holds, from the helper the confirm router addresses its own

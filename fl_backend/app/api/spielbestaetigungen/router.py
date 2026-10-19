@@ -6,7 +6,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import hash_token
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
-from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, pull_ansetzung_lage, pull_vereinsnamen, pull_vorschlag_offen, verein_fields
+from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, pull_ansetzung_lage, pull_vorschlag_offen, verein_fields
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnsichtPayload,
     FLSpielbestaetigungAnsichtResponse,
@@ -39,6 +39,7 @@ from app.api.spielbestaetigungen.services import (
 from app.api.spiele.crud import pull_booked_slots, pull_booked_venue, pull_saison_membership, pull_spieltag_span
 from app.api.spiele.schemas import FLSpiel, FLSpielOrtFieldPublic
 from app.api.spiele.services import find_claims_made, find_clash_refusal, find_eligibility_refusal, find_fixture_date_refusal
+from app.api.teams.crud import pull_team_names
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
@@ -126,7 +127,7 @@ async def get_spielbestaetigung_ansicht(
             if venue is None
             else FLSpielOrtFieldPublic(spielort_id=row["ansetzung"]["spielort_id"], name=venue.name, maps_link=venue.maps_link)
         )
-        vereinsnamen = await pull_vereinsnamen(
+        vereinsnamen = await pull_team_names(
             teams_collection=teams_collection, team_ids=clubs_without_a_season_row(spielbestaetigung_raw=row, lage=lage)
         )
         ansetzung = ansicht_snapshot_of(spielbestaetigung_raw=row, lage=lage, vereinsnamen=vereinsnamen, spielort=spielort)

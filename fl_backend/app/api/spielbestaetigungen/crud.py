@@ -103,17 +103,6 @@ async def pull_vorschlag_offen(
     return FLSpielbestaetigungTermin.model_validate(vorschlag) if isinstance(vorschlag, Mapping) else None
 
 
-async def pull_vereinsnamen(*, teams_collection: AsyncCollection, team_ids: Sequence[Any]) -> dict[Any, str]:
-    """These clubs' names off their `teams` documents; no command for none."""
-
-    if not team_ids:
-        return {}
-
-    teams = await teams_collection.find({"_id": {"$in": list(team_ids)}}, {"name": 1}).to_list(length=None)
-
-    return {team["_id"]: str(team.get("name") or "") for team in teams}
-
-
 # --- A LEAVING CONTACT'S seats in the log: an erasure's, a Widerspruch's, and the season's end.
 
 

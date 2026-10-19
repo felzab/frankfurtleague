@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -9,6 +9,7 @@ from app.api.spielbestaetigungen.services import SeatVoid, build_team_rows_filte
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import find_entry_refusal
 from app.core.crud import anchor_in_db, patch_many_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.shared.schemas.bounds import LIST_LIMIT_MAX
 
 
 async def refuse_a_full_gruppe(
@@ -76,6 +77,22 @@ async def pull_a_club_to_enter(
     )
 
     return club
+
+
+async def pull_team_names(
+    *, teams_collection: AsyncCollection, team_ids: Iterable[Any], session: AsyncClientSession | None = None
+) -> dict[Any, str]:
+    """These clubs' names off their `teams` documents, one read and no command for none; a club no document holds is absent."""
+
+    wanted = list({team_id for team_id in team_ids if team_id is not None})
+    if not wanted:
+        return {}
+
+    teams = await pull_many_from_db(
+        collection=teams_collection, db_filter={"_id": {"$in": wanted}}, projection=["name"], limit=LIST_LIMIT_MAX, session=session
+    )
+
+    return {team["_id"]: str(team.get("name") or "") for team in teams}
 
 
 async def void_moved_seats(
