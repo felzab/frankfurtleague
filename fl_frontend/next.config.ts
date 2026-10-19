@@ -69,14 +69,10 @@ const nextConfig: NextConfig = {
   // the lint globs and every sweep over handlers and pages never read.
   pageExtensions: ["tsx", "ts"],
   cacheComponents: true,
-  // Off, although Next's ISR guide presents it as `cacheComponents`' partner: enabling it was measured
-  // to change nothing this app needed. Written out because Next warns wherever it is left unset.
-  // https://nextjs.org/docs/app/guides/incremental-static-regeneration-cache-components
-
-  // What it does change is how aggressively a route's payload is prefetched and retained on the
-  // client — the subsystem behind an admin opening the match editor on stale values. Turn it on
-  // only with a measurement, and re-check the editor's freshness.
-  partialPrefetching: false,
+  // On: Next's documented pairing with `cacheComponents`, unset meaning off. A prefetch never carries
+  // what waits on `connection()`, which is what keeps the match editor's fixture fresh
+  // (`fl_frontend/src/app/bereich/admin/spiele/[spiel_id]/page.test.ts`).
+  partialPrefetching: true,
   // No `reactCompiler`: measured at +40 KB gzipped per page load for memoization this app needs in
   // two admin views, both hand-written.
 
