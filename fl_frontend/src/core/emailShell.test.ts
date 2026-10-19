@@ -66,6 +66,8 @@ const {
 const { buildSchiedsrichterAdresswechselEmail, buildSchiedsrichterAdresswechselHinweisEmail, buildSchiedsrichterBestaetigungEmail } =
   await import("./schiedsrichterEmail.ts");
 const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
+const { buildSpielAnfrageEmail, buildSpielEinteilungEmail, buildSpielErinnerungEmail, buildSpielNeueAnsetzungEmail } =
+  await import("./spielEmail.ts");
 const { buildSpielerAdresswechselEmail, buildSpielerAdresswechselHinweisEmail } = await import("./spielerEmail.ts");
 const { art21Satz, escapeHtml, FALLBACK_SATZ, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
 const { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
@@ -114,6 +116,15 @@ const BUILT_MESSAGES = (await Promise.all(MAIL_MODULES.map(async (file) => Objec
   .flat()
   .filter((name) => name.startsWith("build"))
   .sort();
+
+/** One fixture as the four fixture messages state it. */
+const SPIEL_ANSETZUNG = {
+  team1: "Ernst-Reuter-Schule",
+  team2: "Goethe-Gymnasium",
+  datumText: "20.11.2026",
+  uhrzeitText: "14:30",
+  ortText: "Sportpark Rebstock",
+};
 
 /** One fixture per builder, keyed by the name the walk finds, carrying the least its signature needs. */
 const FIXTURES: Record<string, (origin: string) => { html: string; text: string }> = {
@@ -244,6 +255,32 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
   buildSpielerAdresswechselEmail: (origin) =>
     buildSpielerAdresswechselEmail({ origin: origin, token: "beispiel-sieben", fristText: "05.10.2026" }),
   buildSpielerAdresswechselHinweisEmail: (origin) => buildSpielerAdresswechselHinweisEmail({ origin: origin, vorname: "Lena" }),
+  buildSpielAnfrageEmail: (origin) =>
+    buildSpielAnfrageEmail({
+      origin: origin,
+      link: `${ORIGIN}/bestaetigung/spiel?token=beispiel-acht`,
+      team: "Goethe-Gymnasium",
+      ansetzung: SPIEL_ANSETZUNG,
+      fristText: "13.11.2026",
+    }),
+  buildSpielErinnerungEmail: (origin) =>
+    buildSpielErinnerungEmail({
+      origin: origin,
+      link: `${ORIGIN}/bestaetigung/spiel?token=beispiel-neun`,
+      team: "Goethe-Gymnasium",
+      ansetzung: SPIEL_ANSETZUNG,
+      fristText: "13.11.2026",
+    }),
+  buildSpielEinteilungEmail: (origin) => buildSpielEinteilungEmail({ origin: origin, ansetzung: SPIEL_ANSETZUNG }),
+  buildSpielNeueAnsetzungEmail: (origin) =>
+    buildSpielNeueAnsetzungEmail({
+      origin: origin,
+      team1: "Ernst-Reuter-Schule",
+      team2: "Goethe-Gymnasium",
+      altDatumText: "20.11.2026",
+      altUhrzeitText: "14:30",
+      empfaenger: "team",
+    }),
   buildBerechtigungEmail: (origin) =>
     buildBerechtigungEmail(
       { art: "erteilt", adresse: "neu@schule.de", inhaber: false },
@@ -594,6 +631,8 @@ describe("the shared email shell", () => {
       "buildSchiedsrichterAdresswechselEmail",
       "buildSchiedsrichterBestaetigungEmail",
       "buildSpielerAdresswechselEmail",
+      "buildSpielAnfrageEmail",
+      "buildSpielErinnerungEmail",
     ]) {
       assert.ok(gedruckt.has(name), `${name} carries no token link on a control, so this case no longer reads it`);
     }
