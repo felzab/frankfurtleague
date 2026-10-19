@@ -34,7 +34,7 @@ const route = await import("./route.ts");
 const { buildBewerbungWiderspruchEmail } = await import("@/core/bewerbungEmail.ts");
 const { rollenText, rolleText } = await import("@/features/bewerbungen/notifications.ts");
 const { formatSpielDatum } = await import("@/shared/utils/format.ts");
-const { APINetworkError } = await import("@/core/errors.ts");
+const { APIMalformedDataError, APINetworkError } = await import("@/core/errors.ts");
 const { markOutcomeUnknown } = await import("@/core/requestScope.ts");
 
 const WRITE = "/bewerbungen/einwilligung";
@@ -105,6 +105,18 @@ const aLostRead = () =>
     readOnly: true,
     traceId: "0",
     isTimeout: true,
+  });
+
+/** A read of the link answered off its schema, which only a deploy repairs. */
+const anOffSchemaRead = () =>
+  new APIMalformedDataError({
+    message: "Response failed schema.",
+    url: `http://localhost${ANSICHT_ENDPOINT}`,
+    statusCode: 200,
+    endpoint: ANSICHT_ENDPOINT,
+    method: "POST",
+    readOnly: true,
+    traceId: "0",
   });
 
 /** What each endpoint answers in this case; the write's answer is what a case chooses. */
@@ -291,6 +303,20 @@ describe("the contact seat's confirmation handler", () => {
     });
   });
 
+  /* An answer off the view's schema is the deploy's fault, never a failed read: a sentence naming no age would hide it
+     from everyone who could repair it. */
+  it("logs a view answered off its schema rather than naming no age", async () => {
+    schreibAntwort = () => aRefusal("REQ-BEWERBUNG-012");
+    ansichtAntwort = anOffSchemaRead;
+
+    await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.ok(
+      logs.some((logged) => logged.includes("Public route failed") && logged.includes("FE-API-002")),
+      "the contract break left no line",
+    );
+  });
+
   it("files the answer under the label this server renders, echoing what was stored", async () => {
     const answer = await bodyOf(aRequest(gueltigerKoerper));
     const geschrieben = calls.find((call) => call.endpoint === WRITE);
@@ -437,24 +463,27 @@ describe("a seat an administrator typed onto a team's season row", () => {
 });
 
 describe("what the confirmation handler answers the browser", () => {
-  /* `nachlesen` is this handler's own instruction to read the link again, and the page has no arm for
-     it: carried out, the page renders nothing it knows. */
-  it("hands no refusal's instruction to the browser", async () => {
-    const refusals = [
-      aRefusal("REQ-BEWERBUNG-009"),
-      aRefusal("REQ-BEWERBUNG-010"),
-      aRefusal("REQ-BEWERBUNG-011"),
-      aRefusal("REQ-BEWERBUNG-017"),
-      aRefusal("REQ-BEWERBUNG-012"),
-      refusedPayload([bodyField(["geburtsdatum"], "date_from_datetime_parsing")], WRITE),
-    ];
-
-    for (const refusal of refusals) {
+  /* Each read after a refusal is a backend round trip under its own cut: a refusal answering from the view reads it
+     once for its floor and its panel alike, and one naming its own panel or sentence reads nothing. */
+  it("reads the link's view once for a refusal the view answers, and never for one that answers itself", async () => {
+    for (const [refusal, gelesen] of [
+      [aRefusal("REQ-BEWERBUNG-011"), 1],
+      [aRefusal("REQ-KONTAKT-006"), 1],
+      [aRefusal("REQ-BEWERBUNG-012"), 1],
+      [aRefusal("REQ-BEWERBUNG-009"), 0],
+      [aRefusal("REQ-BEWERBUNG-020"), 0],
+      [refusedPayload([bodyField(["geburtsdatum"], "date_from_datetime_parsing")], WRITE), 0],
+    ] as const) {
+      calls.length = 0;
       schreibAntwort = () => refusal;
-      const answer = (await bodyOf(aRequest(gueltigerKoerper))).body as Record<string, unknown>;
 
-      assert.equal(answer.success, false, `${String(refusal.serverErrorCode)} was answered as a success`);
-      assert.ok(!("nachlesen" in answer), `${String(refusal.serverErrorCode)} carries the handler's instruction out`);
+      await bodyOf(aRequest(gueltigerKoerper));
+
+      assert.equal(
+        calls.filter((call) => call.endpoint === ANSICHT_ENDPOINT).length,
+        gelesen,
+        `${String(refusal.serverErrorCode)} read the link's view otherwise than it needs`,
+      );
     }
   });
 

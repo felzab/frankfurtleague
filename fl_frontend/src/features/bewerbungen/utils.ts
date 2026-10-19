@@ -20,6 +20,7 @@ import type {
   BewerbungKontakteDraft,
   BewerbungKontaktpersonDraft,
   BewerbungSchuleDraft,
+  EinwilligungAnsicht,
   FensterZustand,
   KuerzelVerdikt,
   LinkZustand,
@@ -212,30 +213,37 @@ export const medienNochNicht = (medienMindestalter: number | null): string =>
 /** The contact page's age refusal where the link's view serves no floor to name: both bounds, as `alterAusserhalb` names them. */
 const GEBURTSDATUM_AUSSERHALB = "Mit diesem Geburtsdatum bist Du für Deine Bestätigung zu jung oder zu alt.";
 
-/**
- * What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper: the
- * panel to show where that read finds the link open or reads nothing.
- */
+/** What one refused confirmation shows: a sentence, a field's message, or the panel the link opens on. */
 export type EinwilligungRefusal = {
   error?: string;
   fieldErrors?: FieldErrors;
   unplacedError?: string;
   zustand?: LinkZustand | "saison_vorbei";
-  nachlesen?: LinkZustand | "saison_vorbei";
 };
 
+// A THUNK and never a resolved read: the codes naming one state alone answer without it, and a caller
+// reading the view in front of the switch spends a backend read on each of them.
 /**
  * A confirmation refusal as what the page should show, or `null` where the code is none of these.
  *
- * `mindestalter` comes from the token's own view: a number of this mapper's own would be wrong for
- * two of the three seats.
+ * The floors are the token's own view's, which `gelesen` answers `null` where the read failed: a number
+ * of this mapper's own would be wrong for two of the three seats.
  */
-export function mapEinwilligungRefusal(
+export async function mapEinwilligungRefusal(
   error: unknown,
-  mindestalter: number | null,
-  medienMindestalter: number | null,
-): EinwilligungRefusal | null {
+  gelesen: () => Promise<EinwilligungAnsicht | null>,
+): Promise<EinwilligungRefusal | null> {
   if (!isRefusal(error)) return null;
+
+  const ansicht = async () => {
+    const link = await gelesen();
+    return link?.zustand === "gueltig" ? link.ansicht : null;
+  };
+  // The panel a reload opens on, which the press's own panel stands in for where the read finds the link open or reads nothing.
+  const stand = async (sonst: LinkZustand | "saison_vorbei"): Promise<EinwilligungRefusal> => {
+    const link = await gelesen();
+    return { zustand: link === null || link.zustand === "gueltig" ? sonst : link.zustand };
+  };
 
   switch (error.serverErrorCode) {
     // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
@@ -254,23 +262,25 @@ export function mapEinwilligungRefusal(
     case "REQ-BEWERBUNG-010":
     case "REQ-BEWERBUNG-017":
     case "REQ-KONTAKT-004":
-      return { nachlesen: "abgelaufen" };
+      return stand("abgelaufen");
     // A season row's link whose season ended or whose team left, which still takes a Widerspruch, unless the ban the
     // press judges after it bars the address: the view's page either way.
     case "REQ-KONTAKT-006":
-      return { nachlesen: "saison_vorbei" };
+      return stand("saison_vorbei");
     // One code covers both answers, so „bestätigt“ here would tell a seat declined in another window
     // that it confirmed. Which way it went is the read's to say.
     case "REQ-BEWERBUNG-011":
-      return { nachlesen: "ungueltig" };
+      return stand("ungueltig");
     // The one refusal that spends no token, so it lands on the field and the typed date survives it;
     // a `zustand` here would swap a live form for a dead-link panel. A view that went unread names no floor.
-    case "REQ-BEWERBUNG-012":
-      return { fieldErrors: { geburtsdatum: mindestalter === null ? GEBURTSDATUM_AUSSERHALB : alterAusserhalb(mindestalter) } };
+    case "REQ-BEWERBUNG-012": {
+      const floor = (await ansicht())?.mindestalter ?? null;
+      return { fieldErrors: { geburtsdatum: floor === null ? GEBURTSDATUM_AUSSERHALB : alterAusserhalb(floor) } };
+    }
     // Spends nothing either, and the typed date survives it; a toast, the switch rendering no error of its own.
-    // The floor is the view's as `mindestalter` is, so a view that went unread names none.
+    // The floor is the view's as the age refusal's is, so a view that went unread names none.
     case "REQ-EINWILLIGUNG-002":
-      return { error: medienNochNicht(medienMindestalter) };
+      return { error: medienNochNicht((await ansicht())?.medien_mindestalter ?? null) };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
     // form either: the page offers no Widerspruch to a barred address (`docs/frontend/spec.md :: I516`).
     case "REQ-BEWERBUNG-020":
