@@ -12,8 +12,11 @@ from app.api.spielbestaetigungen.services import (
     SeatVoid,
     build_referee_images_filter,
     build_referee_rows_filter,
+    build_season_images_filter,
+    build_season_reasons_filter,
     build_seat_entry_images_filter,
     referee_image_edits,
+    season_end_image_edits,
     seat_entry_image_edits,
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN
@@ -134,6 +137,43 @@ async def redact_seat_entries_in_images(
         aktionen_collection=aktionen_collection,
         db_filter=build_seat_entry_images_filter(voided),
         judge=lambda image: seat_entry_image_edits(image, voided, reasons=reasons),
+        stamp=stamp,
+        session=session,
+    )
+
+
+async def strip_the_seasons_team_rows(
+    *,
+    spielbestaetigungen_collection: AsyncCollection,
+    aktionen_collection: AsyncCollection,
+    saison_id: str,
+    stamp: str,
+    # REQUIRED: the strip commits with the season's contact blocks, or neither does.
+    session: AsyncClientSession,
+) -> int:
+    """At the season's end, every link entry, reason and holder digest its contacts left on the season's team rows and their images.
+
+    Season-wide, a replaced club's rows among them; each answer's way and role stay as the record.
+    """
+
+    # Every seat, whoever held it: what a block's void left standing, a hand edit's or a restore's, goes too.
+    await patch_many_in_db(
+        collection=spielbestaetigungen_collection,
+        db_filter={"saison_id": saison_id, "partei.art": "team"},
+        update={"$set": {f"kontakte.{seat}": None for seat in KONTAKT_ROLLEN}},
+        session=session,
+    )
+    await patch_many_in_db(
+        collection=spielbestaetigungen_collection,
+        db_filter=build_season_reasons_filter(saison_id),
+        update={"$set": {"antwort.begruendung": None, "antwort.von.halter": None}},
+        session=session,
+    )
+
+    return await redact_images_in_session(
+        aktionen_collection=aktionen_collection,
+        db_filter=build_season_images_filter(saison_id),
+        judge=lambda image: season_end_image_edits(image, saison_id),
         stamp=stamp,
         session=session,
     )

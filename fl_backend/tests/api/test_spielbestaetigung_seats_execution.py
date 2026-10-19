@@ -379,25 +379,26 @@ class TestEverySeatWriteVoidsItsLinks:
     """Every route and step writing an existing season row's seats, each voiding what it moves and nothing else."""
 
     @pytest.mark.parametrize(
-        ("write", "voided", "saison_status"),
+        ("write", "voided", "saison_status", "other"),
         [
-            pytest.param(hand_the_trainer_on, {"trainer"}, "active", id="the contacts save handing a seat on"),
-            pytest.param(empty_the_trainer, {"trainer"}, "active", id="the contacts save emptying a seat"),
-            pytest.param(replace_the_club, ALL, "active", id="the club's replacement"),
-            pytest.param(erase_the_trainer, {"trainer"}, "active", id="the person erasure's seat member"),
-            pytest.param(clear_the_blocks, ALL, "past", id="the sweep clearing a past season's blocks"),
-            pytest.param(contradict, {"trainer"}, "active", id="the Widerspruch on the season row"),
-            pytest.param(replay_the_widerspruch, {"trainer"}, "active", id="the replay of that Widerspruch"),
+            pytest.param(hand_the_trainer_on, {"trainer"}, "active", ALL, id="the contacts save handing a seat on"),
+            pytest.param(empty_the_trainer, {"trainer"}, "active", ALL, id="the contacts save emptying a seat"),
+            pytest.param(replace_the_club, ALL, "active", ALL, id="the club's replacement"),
+            pytest.param(erase_the_trainer, {"trainer"}, "active", ALL, id="the person erasure's seat member"),
+            # The season's end strips every team row of the season, a club whose block was empty already included.
+            pytest.param(clear_the_blocks, ALL, "past", set(), id="the sweep clearing a past season's blocks"),
+            pytest.param(contradict, {"trainer"}, "active", ALL, id="the Widerspruch on the season row"),
+            pytest.param(replay_the_widerspruch, {"trainer"}, "active", ALL, id="the replay of that Widerspruch"),
         ],
     )
     def test_the_moved_seat_s_link_stops_answering_and_nothing_else_does(
-        self, mongo_replica_set_url: str, write: Write, voided: set[str], saison_status: str
+        self, mongo_replica_set_url: str, write: Write, voided: set[str], saison_status: str, other: set[str]
     ):
         """The other team's row is the control; this team's answered row loses the seat's links too and keeps its answer."""
 
         links, stored_answers, _ = on_a_league(mongo_replica_set_url, write, saison_status=saison_status)
 
-        assert links == {**KEPT, "open": ALL - voided, "answered": ALL - voided}
+        assert links == {"open": ALL - voided, "answered": ALL - voided, "other": other}
         assert stored_answers == [row["antwort"] for row in ROWS.values()]
 
     def test_a_retyped_case_moves_nobody_and_voids_nothing(self, mongo_replica_set_url: str):

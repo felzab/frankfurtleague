@@ -1,6 +1,6 @@
 import hashlib
 import hmac
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Any, Final, NamedTuple, cast
@@ -856,12 +856,29 @@ def seat_entry_image_edits(image: Mapping[str, Any], voids: Sequence[SeatVoid], 
     """
 
     partei = image.get("partei")
-    if not isinstance(partei, Mapping) or partei.get("art") != "team":
-        return {}
-    seats = {seat for void in voids if (void.saison_id, void.team_id) == (image.get("saison_id"), partei.get("team_id")) for seat in void.seats}
-    if not seats:
+    team_id = partei.get("team_id") if isinstance(partei, Mapping) and partei.get("art") == "team" else None
+    seats = {seat for void in voids if (void.saison_id, void.team_id) == (image.get("saison_id"), team_id) for seat in void.seats}
+
+    return _left_by_contacts(image, seats, reasons=reasons) if team_id is not None and seats else {}
+
+
+def build_season_images_filter(saison_id: str) -> dict[str, Any]:
+    """Every log row whose image may be one of this season's team rows; the judge decides."""
+
+    return {"collection": str(Collection.SPIELBESTAETIGUNGEN), "before.saison_id": saison_id, "before.partei.art": "team"}
+
+
+def season_end_image_edits(image: Mapping[str, Any], saison_id: str) -> dict[str, None]:
+    """One image of this season's team rows stripped as its season's end strips the row: every seat's link entry, the reason, the holder."""
+
+    partei = image.get("partei")
+    if image.get("saison_id") != saison_id or not isinstance(partei, Mapping) or partei.get("art") != "team":
         return {}
 
+    return _left_by_contacts(image, set(KONTAKT_ROLLEN), reasons=True)
+
+
+def _left_by_contacts(image: Mapping[str, Any], seats: Set[str], *, reasons: bool) -> dict[str, None]:
     kontakte, antwort = image.get("kontakte"), image.get("antwort")
     held = [seat for seat in KONTAKT_ROLLEN if seat in seats and isinstance(kontakte, Mapping) and kontakte.get(seat) is not None]
     edits: dict[str, None] = {f"kontakte.{seat}": None for seat in held}
@@ -871,6 +888,17 @@ def seat_entry_image_edits(image: Mapping[str, Any], voids: Sequence[SeatVoid], 
         edits.update({"antwort.begruendung": None, "antwort.von.halter": None})
 
     return edits
+
+
+def build_season_reasons_filter(saison_id: str) -> dict[str, Any]:
+    """This season's team rows a contact answered holding a reason or a holder: the season's end takes both, answer and role kept."""
+
+    return {
+        "saison_id": saison_id,
+        "partei.art": "team",
+        "antwort.von.art": "kontakt",
+        "$or": [{"antwort.begruendung": {"$ne": None}}, {"antwort.von.halter": {"$ne": None}}],
+    }
 
 
 # --- A CONTACT PERSON'S ERASURE OR WIDERSPRUCH: the reasons they typed, from whichever seat they held then.
