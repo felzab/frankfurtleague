@@ -643,9 +643,11 @@ so compute that address's digest under `secrets/sperrliste_schluessel` — the s
 — and look it up against `spielbestaetigungen.antwort.von.halter`, which finds every answer they
 gave from any seat. The paste belongs in the operator's own checklist, as the ban's does (below).
 Their seats' links and the delivery records of the messages that carried them sit under
-`kontakte.<seat>` on their club's rows of each season they held a seat (`saison_id`,
-`partei.team_id`), read beside that season's contact block, which says whose seat it was. Send the
-fixture, the answer, its day and the reason, and never the digest, the value that identifies them.
+`kontakte.<seat>` on their club's rows of each season in which they hold a seat now (`saison_id`,
+`partei.team_id`), read beside that season's contact block, which says whose seat it is: a seat they
+have left took its entries off every row of that team and season, answered and closed ones too
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I758). Send the fixture, the answer, its day and the
+reason, and never the digest, the value that identifies them.
 **Once the season's contact block is cleared, its rows keep the answers alone**: the reasons, the
 digests, the links and the delivery records go with the block
 ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)), so an
@@ -1663,9 +1665,9 @@ Everything written between the snapshot and the restore is gone, the log's own r
 included. Every erasure a person or an administrator asked for left one line in the backend's
 stream, and so did every consent a person withdrew, every Widerspruch made through a seat's link and
 every address change declined through its link, each naming its person by a keyed hash and never
-by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by, whether
-its commit landed or lost its answer ([`../backend/spec.md`](../backend/spec.md#2-invariants) I666,
-I706). §7's day files keep those lines outside the database for thirty days. **Once the restore has
+by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by and by
+the digest their fixture answers carry, whether its commit landed or lost its answer
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706). §7's day files keep those lines outside the database for thirty days. **Once the restore has
 completed, run the export once more**, which reads every journal line the backend's stream and the
 deploy copies of those thirty days still hold into the day files:
 
@@ -1710,10 +1712,11 @@ the export wrote no file for. Each line is listed by its act and its record, nev
   "held nowhere". Every stored spelling is matched, folded as the sign-in folds it: a registration
   or a contact seat keeps its address as typed. The `auth` database is not read, an account whose
   address no league record holds going with the account sweep within the hour (§5). Held nowhere,
-  the address leaves its pseudonym: where that still marks log rows or day counts, which a restore
-  brings back with the snapshot, the listing says how many, with the rows' ids, and reads `to replay`
-  ([`../backend/spec.md`](../backend/spec.md#2-invariants) I731); a line naming no pseudonym reads
-  `nothing to run`.
+  the address leaves its pseudonym and its holder digest: where the pseudonym still marks log rows or
+  day counts, or the digest still finds a confirmation or a log image holding a reason of theirs,
+  which a restore brings back with the snapshot, the listing says how many, with the log rows' ids,
+  and reads `to replay` ([`../backend/spec.md`](../backend/spec.md#2-invariants) I731); a line naming
+  neither a pseudonym nor a holder digest reads `nothing to run`.
 - **A choice** reads `to replay`; `already done` where the restored record already stands as the
   choice left it, or the restored site set it since: the choice granted again by evidence later than
   the line, the seat sent a link or the address a change on a day after the snapshot's; `left for
@@ -1733,8 +1736,9 @@ unreadable, naming files and never a value, or a validator not this build's; and
 again in a transaction of its own. A choice is written as its person's own press wrote it, the same
 update and the same log redaction, its evidence stamped with the instant on its line, the moment the
 person acted and never the replay's ([`../backend/spec.md`](../backend/spec.md#2-invariants) I710).
-An erasure held nowhere has its pseudonym's log rows marked and its day counts erased, as the erasure
-did, the log keeping one row for them under „Pseudonyme“ (I731). The action log records each under
+An erasure held nowhere has its pseudonym's log rows marked, its day counts erased and every reason
+its holder digest finds nulled with the digest, on the rows and in the log's images, as the erasure
+did (I731); the log keeps one row under „Pseudonyme“ for the marks and the counts. The action log records each under
 the system, its call reading `REPLAY` and the line's act, record and journalling instant, never its
 person nor the journal's token, and a second run writes nothing. **A record left for review is
 written by nothing**: read it beside the person's mail thread and settle it by hand, the listing
