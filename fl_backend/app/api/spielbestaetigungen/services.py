@@ -1,9 +1,11 @@
 import hashlib
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any, Final
 
 from app.api.bewerbungen.services import seat_named
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLKontaktRolle
+from app.core.collections import Collection
+from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 
 # Each stored `ansetzung` key and its fixture path: the ONE list the digest, the snapshot and the public
 # verdict's `$lookup` read, a key one lacks giving two answers to which Ansetzung a row is about.
@@ -96,3 +98,39 @@ def seat_holding(*, spielbestaetigung_raw: Mapping[str, Any], token_hash: str) -
             return seat_named(seat)
 
     return None
+
+
+# --- The REFEREE'S ERASURE: which rows and log images name the person, and what each image becomes.
+
+
+def build_referee_rows_filter(schiedsrichter_ids: Sequence[Any]) -> Mapping[str, Any]:
+    """Every row whose party is one of these referees, open, answered or closed."""
+
+    return {"partei.art": "schiedsrichter", "partei.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}
+
+
+def build_referee_images_filter(schiedsrichter_ids: Sequence[Any]) -> Mapping[str, Any]:
+    """Every `spielbestaetigungen` log row whose image names one of these referees as its party.
+
+    Selected inside the image, as `app/api/schiedsrichter/services.py :: build_booked_image_filter` selects: an undraw's
+    `delete_many` row holds images of rows long gone, which no id standing now reaches.
+    """
+
+    return {"collection": str(Collection.SPIELBESTAETIGUNGEN), "before.partei.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}
+
+
+def referee_image_edits(image: Mapping[str, Any], schiedsrichter_ids: Sequence[Any]) -> dict[str, Any]:
+    """One image naming one of these referees, its party repointed at the ghost and their reason nulled.
+
+    The Ansetzung, the deadline and which way the answer went stay: they name nobody once the party is the ghost.
+    """
+
+    partei = image.get("partei")
+    if not isinstance(partei, Mapping) or partei.get("art") != "schiedsrichter" or partei.get("schiedsrichter_id") not in schiedsrichter_ids:
+        return {}
+
+    edits: dict[str, Any] = {"partei.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}
+    if isinstance(image.get("antwort"), Mapping):
+        edits["antwort.begruendung"] = None
+
+    return edits

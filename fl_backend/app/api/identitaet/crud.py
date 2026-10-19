@@ -67,6 +67,7 @@ from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session, remove_pending_addresses_in_session
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
 from app.api.sperrliste.lookup import BanList
+from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_session
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session, remove_pending_pupil_addresses_in_session
 from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_spieler_filter
 from app.core.adressanker import anchor_the_addresses
@@ -562,6 +563,11 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ErasureStep(reaches=frozenset({Collection.SCHIEDSRICHTER}), personengruppe=None, run=remove_pending_addresses_in_session),
     ErasureStep(reaches=frozenset({Collection.SPIELER}), personengruppe=None, run=remove_pending_pupil_addresses_in_session),
     ErasureStep(
+        reaches=frozenset({Collection.SPIELBESTAETIGUNGEN, Collection.AKTIONEN}),
+        personengruppe="schiedsrichter",
+        run=erase_referee_confirmations_in_session,
+    ),
+    ErasureStep(
         reaches=frozenset({Collection.SCHIEDSRICHTER, Collection.SPIELE, Collection.AKTIONEN}),
         personengruppe="schiedsrichter",
         run=erase_referee_in_session,
@@ -622,6 +628,7 @@ async def erase_everything(
     bewerbungen_collection: AsyncCollection,
     schiedsrichter_collection: AsyncCollection,
     spiele_collection: AsyncCollection,
+    spielbestaetigungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
     drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
@@ -697,6 +704,15 @@ async def erase_everything(
     if _runs(remove_pending_pupil_addresses_in_session, scope):
         adresswechsel += await remove_pending_pupil_addresses_in_session(
             spieler_collection=spieler_collection, spieler_ids=[row["_id"] for row in subject.spieler_adresswechsel], session=session
+        )
+
+    if _runs(erase_referee_confirmations_in_session, scope):
+        await erase_referee_confirmations_in_session(
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            aktionen_collection=aktionen_collection,
+            schiedsrichter_ids=[row["_id"] for row in subject.schiedsrichter],
+            stamp=stamp,
+            session=session,
         )
 
     spiele = 0
@@ -946,6 +962,7 @@ async def erase_if_still_due(
     bewerbungen_collection: AsyncCollection,
     schiedsrichter_collection: AsyncCollection,
     spiele_collection: AsyncCollection,
+    spielbestaetigungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
     drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
@@ -1011,6 +1028,7 @@ async def erase_if_still_due(
         bewerbungen_collection=bewerbungen_collection,
         schiedsrichter_collection=schiedsrichter_collection,
         spiele_collection=spiele_collection,
+        spielbestaetigungen_collection=spielbestaetigungen_collection,
         registrierungen_collection=registrierungen_collection,
         drosselung_collection=drosselung_collection,
         aktionen_collection=aktionen_collection,

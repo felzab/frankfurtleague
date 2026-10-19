@@ -2,7 +2,7 @@
 API · a person's erasure through the registry, held against the whole database rather than against the steps
 
 One address holds a pupil row in a live squad, a seat on a season row and on an application beside
-two bystanders, a referee row booked on a played fixture, a pending and a declined registration,
+two bystanders, a referee row booked on a played fixture and asked to confirm it, a pending and a declined registration,
 another referee's and another pupil's pending address change, a pupil row corrected away from the
 address, a day's counts, records they made as an administrator, though they hold no grant, and as a
 seat holder, and log rows written as a person and as an administrator. Another mailbox at their local
@@ -38,7 +38,7 @@ from app.api.spieler.crud import erase_person_in_session
 from app.api.spieler.services import build_ghost_spieler, compose_spieler_adresswechsel
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db
+from app.core.crud import delete_many_from_db, patch_one_in_db
 from app.core.db import NO_OWNER
 from app.core.exceptions import DocumentNotFoundException
 from app.core.journal import JOURNAL_TOKEN
@@ -107,6 +107,8 @@ PSEUDONYM = akteur_pseudonym(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel
 # The submission digests of two applications the person holds a seat on, the second predating the confirmation block.
 THEIR_DIGEST = "digest-7f3a1c-mit-block"
 THEIR_BLOCKLESS_DIGEST = "digest-7f3a1c-ohne-block"
+# Why they declined to officiate, in their own words.
+THEIR_REASON = "Knieverletzung beim Hallenturnier"
 
 # Distinctive, so a hit in a whole-database scan is never coincidence: every value the person holds.
 THEIR_VALUES = (
@@ -120,6 +122,7 @@ THEIR_VALUES = (
     PSEUDONYM,
     THEIR_DIGEST,
     THEIR_BLOCKLESS_DIGEST,
+    THEIR_REASON,
 )
 
 # The people beside them, each asserted still present: a step taking anybody else's record with theirs fails.
@@ -166,9 +169,15 @@ ELSEWHERE_GRANT_OID = ObjectId("6890a1b2c3d4e5f607b00093")
 REFEREE_MOVING_ELSEWHERE_OID = ObjectId("6890a1b2c3d4e5f607b00094")
 PUPIL_MOVING_ELSEWHERE_OID = ObjectId("6890a1b2c3d4e5f607b00095")
 ELSEWHERE_SEAT_ROW_OID = ObjectId("6890a1b2c3d4e5f607b00096")
+# Their referee row's confirmations: one standing, one an undraw of an earlier season took; and another referee's.
+THEIR_CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607b000a1")
+THEIR_UNDRAWN_CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607b000a2")
+OTHER_CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607b000a3")
+UNDRAWN_SAISON_ID = "2025"
+OTHER_REASON = "Dienstreise nach Hamburg"
 # Every record of their own the erasure removes, each id looked for in the whole database afterwards: a reference left
 # naming one names nobody.
-THEIR_RECORDS = (PUPIL_OID, THEIR_SQUAD_ROW_OID, REFEREE_OID, PENDING_OID, DECLINED_OID)
+THEIR_RECORDS = (PUPIL_OID, THEIR_SQUAD_ROW_OID, REFEREE_OID, PENDING_OID, DECLINED_OID, THEIR_CONFIRMATION_OID)
 
 REFEREE_NAME = f"{VORNAME} {NACHNAME}"
 PAYMENT = 25
@@ -250,6 +259,61 @@ async def the_one(database: AsyncDatabase, collection: Collection, db_filter: Ma
     found = await database[collection].find_one(db_filter or {})
     assert found is not None, f"{collection} holds no row matching {db_filter}"
     return found
+
+
+def a_referee_confirmation(row_id: ObjectId, schiedsrichter_id: ObjectId, *, spiel_id: ObjectId, saison_id: str = SAISON_ID) -> dict[str, Any]:
+    """An open referee row, as the sweep mints one for a booked fixture."""
+
+    return {
+        "_id": row_id,
+        "saison_id": saison_id,
+        "spiel_id": spiel_id,
+        "partei": {"art": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id},
+        "ansetzung": {
+            "datum": "2026-03-15",
+            "uhrzeit": "14:00:00",
+            "spielort_id": None,
+            "team1_id": HOME_TEAM_OID,
+            "team2_id": OTHER_TEAM_OID,
+            "stand": "d" * 64,
+        },
+        "frist": "2026-03-08",
+        "angefragt_am": "2026-03-01",
+        "erinnert_am": [],
+        "kontakte": None,
+        "antwort": None,
+        "geschlossen": None,
+    }
+
+
+def declined(begruendung: str) -> dict[str, Any]:
+    return {"art": "abgelehnt", "am": "2026-03-03", "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": begruendung}
+
+
+async def their_confirmations(database: AsyncDatabase) -> None:
+    """Each kind of log image holding their id or their reason: two patches' and an undraw's array of the removed season's rows."""
+
+    confirmations = database[Collection.SPIELBESTAETIGUNGEN]
+    await confirmations.insert_many(
+        [
+            a_referee_confirmation(THEIR_CONFIRMATION_OID, REFEREE_OID, spiel_id=THEIR_SPIEL_OID),
+            {**a_referee_confirmation(OTHER_CONFIRMATION_OID, OTHER_REFEREE_OID, spiel_id=OTHER_SPIEL_OID), "antwort": declined(OTHER_REASON)},
+            {
+                **a_referee_confirmation(THEIR_UNDRAWN_CONFIRMATION_OID, REFEREE_OID, spiel_id=ObjectId(), saison_id=UNDRAWN_SAISON_ID),
+                "antwort": declined(THEIR_REASON),
+            },
+        ]
+    )
+    await edited(database, Collection.SPIELBESTAETIGUNGEN, THEIR_CONFIRMATION_OID, {"$set": {"antwort": declined(THEIR_REASON)}})
+    await edited(
+        database,
+        Collection.SPIELBESTAETIGUNGEN,
+        THEIR_CONFIRMATION_OID,
+        {"$set": {"geschlossen": {"am": "2026-03-04", "grund": "schiedsrichter_gewechselt"}}},
+    )
+    await edited(database, Collection.SPIELBESTAETIGUNGEN, OTHER_CONFIRMATION_OID, {"$set": {"erinnert_am": ["2026-03-05"]}})
+    async with database.client.start_session() as session:
+        await delete_many_from_db(collection=confirmations, db_filter={"saison_id": UNDRAWN_SAISON_ID}, session=session)
 
 
 async def a_person_holding_everything(database: AsyncDatabase) -> None:
@@ -389,6 +453,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     await edited(database, Collection.EINLADUNGEN, INVITED_BY_THEM_OID, compose_widerruf_update(today=TODAY))
     await edited(database, Collection.BEWERBUNGEN, DECIDED_BY_THEM_OID, {"$set": {"wunschgegner": "Gast-Schule"}})
     await edited(database, Collection.REGISTRIERUNGEN, DECLINED_BY_THEM_OID, {"$set": {"nummer": "12"}})
+    await their_confirmations(database)
 
     # Written AS the person: their own record as a pupil, and another pupil's squad row as a seat holder.
     await acting(
@@ -767,6 +832,32 @@ class TestWhatStandsBesideThem:
 
         assert bookings[THEIR_SPIEL_OID] == {"schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID, "name": None, "payment": PAYMENT}
         assert bookings[OTHER_SPIEL_OID]["schiedsrichter_id"] == OTHER_REFEREE_OID
+
+    def test_their_confirmations_go_and_an_undraws_image_of_theirs_names_the_ghost(self, mongo_replica_set_url: str):
+        """Catches a member keyed on the party's kind alone, taking another referee's row and reason with theirs.
+
+        An undraw's array holds a row long gone, which no pass over the standing rows' ids reaches.
+        """
+
+        def party_and_reason(image: Mapping[str, Any]) -> tuple[Any, Any]:
+            return image["partei"]["schiedsrichter_id"], (image["antwort"] or {}).get("begruendung", "unanswered")
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await erased_over_http(mongo_replica_set_url)
+
+            rows = await database[Collection.SPIELBESTAETIGUNGEN].find().to_list(length=None)
+            logged = await database[Collection.AKTIONEN].find({"collection": str(Collection.SPIELBESTAETIGUNGEN)}).to_list(length=None)
+            images = [image for row in logged for image in (row["before"] if isinstance(row["before"], list) else [row["before"]]) if image]
+
+            return [row["_id"] for row in rows], sorted((party_and_reason(image) for image in images), key=str)
+
+        standing, images = on_a_league(mongo_replica_set_url, body)
+
+        assert standing == [OTHER_CONFIRMATION_OID]
+        assert images == sorted(
+            [(GHOST_SCHIEDSRICHTER_ID, None), (OTHER_REFEREE_OID, OTHER_REASON)],
+            key=str,
+        )
 
     def test_only_their_day_counts_go(self, mongo_replica_set_url: str):
         """Every day of theirs, the one the TTL monitor may not have reached included, and another person's count of today stands."""

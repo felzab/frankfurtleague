@@ -47,6 +47,7 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SperrlisteCollection,
+    SpielbestaetigungenCollection,
     SpieleCollection,
     SpielerCollection,
     get_germany_now,
@@ -103,7 +104,8 @@ async def get_erasure_ansicht_auf_anfrage(
     change going and the row standing. A squad row and a referee row each carry the day it was retired, null while live,
     and a referee row every season holding a fixture still to be played that it is booked on, as `REQ-RETIRE-004` judges
     one. Reached and not named: the fixtures booking a referee row, which move onto the ghost, and the referee's name in
-    each of those fixtures' log images, which goes; the grants, bans, invitations and decisions the address made for
+    each of those fixtures' log images, which goes; the confirmations a referee row was asked for, which go, and its id
+    and reason in a removed season's log images; the grants, bans, invitations and decisions the address made for
     others, which name a marker in its place; its day counts; its rows in the log; every log image of a record the
     erasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;
     a dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the
@@ -205,6 +207,7 @@ async def erase_auf_anfrage(
     bewerbungen_collection: BewerbungenCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenCollection,
     registrierungen_collection: RegistrierungenCollection,
     drosselung_collection: Annotated[AsyncCollection, Depends(get_drosselung_collection)],
     aktionen_collection: AktionenCollection,
@@ -295,6 +298,7 @@ async def erase_auf_anfrage(
             bewerbungen_collection=bewerbungen_collection,
             schiedsrichter_collection=schiedsrichter_collection,
             spiele_collection=spiele_collection,
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
             registrierungen_collection=registrierungen_collection,
             drosselung_collection=drosselung_collection,
             aktionen_collection=aktionen_collection,
