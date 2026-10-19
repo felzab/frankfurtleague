@@ -140,7 +140,10 @@ export function SpielCard({
       </div>
 
       <div className="flex h-fit w-full flex-row items-center justify-center gap-x-2">
-        <SpielStatusChip spielStatus={spielStatus} />
+        <SpielStatusChip
+          spielStatus={spielStatus}
+          ansetzungBestaetigt={spielData.ansetzung_bestaetigt}
+        />
         <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
       </div>
     </div>

@@ -46,6 +46,7 @@ const SPIEL: FLSpiel = {
   saison_phase: "gruppenphase",
   saison_id: "2526",
   notiz: null,
+  ansetzung_bestaetigt: null,
 };
 
 /** The public route's props: its tier reads the season's clubs and no venue or referee list. */

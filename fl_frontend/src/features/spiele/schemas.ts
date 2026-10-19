@@ -220,6 +220,10 @@ export const FLSpielSchema = z.object({
   // Nullable but never absent: a stored document may lack the key, but the backend fills its
   // default and serializes it on every response.
   notiz: z.string().nullable(),
+
+  // Three values the chip keeps apart: `null` is a fixture nobody was asked about, which reads as
+  // today, and only `false` is provisional (`docs/backend/spec.md :: I763`).
+  ansetzung_bestaetigt: z.boolean().nullable(),
 });
 export type FLSpiel = z.infer<typeof FLSpielSchema>;
 

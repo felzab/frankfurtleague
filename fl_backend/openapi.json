@@ -22943,6 +22943,17 @@
               }
             ],
             "title": "Notiz"
+          },
+          "ansetzung_bestaetigt": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ansetzung Bestaetigt"
           }
         },
         "type": "object",
@@ -22962,7 +22973,8 @@
           "spiel_nr",
           "sonderereignis",
           "saison_phase",
-          "saison_id"
+          "saison_id",
+          "ansetzung_bestaetigt"
         ],
         "title": "FLSpielJoined",
         "description": "One fixture as a BASE-TIER endpoint serves it: stored fields plus each side's joined season state.\n\nA model rather than a default on the stored side, which would make every internal read of a raw\ndocument quietly assert that nobody is disqualified."
@@ -23165,6 +23177,17 @@
               }
             ],
             "title": "Notiz"
+          },
+          "ansetzung_bestaetigt": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ansetzung Bestaetigt"
           }
         },
         "type": "object",
@@ -23184,7 +23207,8 @@
           "spiel_nr",
           "sonderereignis",
           "saison_phase",
-          "saison_id"
+          "saison_id",
+          "ansetzung_bestaetigt"
         ],
         "title": "FLSpielJoinedAdmin",
         "description": "The same fixture, carrying the two figures the base tier withholds (`READ-MONEY-001`).\n\nA second model rather than a projection per caller: a response whose shape follows the\ncredential is one no Zod mirror can express."

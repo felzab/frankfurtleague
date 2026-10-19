@@ -742,6 +742,10 @@ class FLSpielJoined(FLSpielCommon):
     team1: FLSpielTeamFieldJoined | None
     team2: FLSpielTeamFieldJoined | None
 
+    # Here and never on `FLSpielCommon`, whose stored child `FLSpiel` would write it onto the fixture at
+    # the next save. Required: only the join composes it (`docs/backend/spec.md :: I763`).
+    ansetzung_bestaetigt: bool | None
+
 
 class FLSpielJoinedAdmin(FLSpielJoined):
     """The same fixture, carrying the two figures the base tier withholds (`READ-MONEY-001`).

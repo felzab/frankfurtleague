@@ -7,6 +7,7 @@ from http import HTTPStatus
 from typing import Any, Literal
 
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.spielbestaetigungen.services import ANSETZUNG_QUELLEN, build_closable_filter
 from app.api.spiele.schemas import (
     PHASE_RANK,
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
@@ -124,6 +125,82 @@ def _joined_side(side: Literal["team1", "team2"]) -> Mapping[str, Any]:
     }
 
 
+SPIELBESTAETIGUNGEN_AS_NAME = "spielbestaetigungen_rows"
+
+# The served verdict's key, which `FLSpielJoined` declares and no stored shape does.
+ANSETZUNG_BESTAETIGT = "ansetzung_bestaetigt"
+
+
+def _confirmations_lookup() -> Mapping[str, Any]:
+    """Compared on the five stored snapshot values, never on `ansetzung.stand`, which no aggregation recomputes.
+
+    So an answer given before the fixture moved stops counting at the move, not when the hourly close
+    runs (`docs/backend/spec.md :: I763`).
+    """
+
+    return {
+        "$lookup": {
+            "from": Collection.SPIELBESTAETIGUNGEN,
+            "let": {
+                "spiel_saison_id": "$saison_id",
+                "spiel_id": "$_id",
+                # `$ifNull` for the side lookup's reason: an absent ground leaves `$ort.spielort_id`
+                # MISSING, which equals no stored null, and `compose_ansetzung` stores a null there.
+                **{key: {"$ifNull": [f"${path}", None]} for key, path in ANSETZUNG_QUELLEN.items()},
+            },
+            "pipeline": [
+                {
+                    "$match": {
+                        # Answered rows too: `build_answerable_filter` would drop every agreement.
+                        **build_closable_filter(),
+                        "$expr": {
+                            "$and": [
+                                # The two keys `spielbestaetigungen_saison_id_spiel_id` leads with: without
+                                # them every fixture of the most-read endpoint scans the collection.
+                                {"$eq": ["$saison_id", "$$spiel_saison_id"]},
+                                {"$eq": ["$spiel_id", "$$spiel_id"]},
+                                *({"$eq": [f"$ansetzung.{key}", f"$${key}"]} for key in ANSETZUNG_QUELLEN),
+                            ]
+                        },
+                    }
+                },
+                # No seat, no hash, no `begruendung`: the verdict is what leaves the join.
+                {"$project": {"_id": 0, "partei.art": 1, "antwort.art": 1}},
+            ],
+            "as": SPIELBESTAETIGUNGEN_AS_NAME,
+        }
+    }
+
+
+def _ansetzung_bestaetigt() -> Mapping[str, Any]:
+    """`None`, nobody asked about this Ansetzung, never folds into `False`, which marks the card provisional (`docs/backend/spec.md :: I763`).
+
+    A referee's row counts towards asked and never towards confirmed.
+    """
+
+    team_rows = {"$filter": {"input": f"${SPIELBESTAETIGUNGEN_AS_NAME}", "cond": {"$eq": ["$$this.partei.art", "team"]}}}
+
+    return {
+        "$cond": [
+            {"$eq": [{"$size": f"${SPIELBESTAETIGUNGEN_AS_NAME}"}, 0]},
+            None,
+            {
+                "$let": {
+                    "vars": {"team_rows": team_rows},
+                    "in": {
+                        "$and": [
+                            # Exactly two, one per club: a third open team row on one stand is a mint
+                            # gone wrong, and the verdict then errs towards provisional.
+                            {"$eq": [{"$size": "$$team_rows"}, 2]},
+                            {"$allElementsTrue": [{"$map": {"input": "$$team_rows", "in": {"$eq": ["$$this.antwort.art", "zugesagt"]}}}]},
+                        ]
+                    },
+                }
+            },
+        ]
+    }
+
+
 def build_spiele_pipeline(
     db_filter: Mapping[str, Any],
     sort_by: Sequence[tuple[str, int]] | None = None,
@@ -175,11 +252,13 @@ def build_spiele_pipeline(
         }
     )
 
-    pipeline.append({"$set": {"team1": _joined_side("team1"), "team2": _joined_side("team2")}})
+    pipeline.append(_confirmations_lookup())
+
+    pipeline.append({"$set": {"team1": _joined_side("team1"), "team2": _joined_side("team2"), ANSETZUNG_BESTAETIGT: _ansetzung_bestaetigt()}})
 
     # Dropped here rather than at validation: `extra="ignore"` discards these scratch rows in
     # silence, after the driver has carried one array per fixture across every list read.
-    pipeline.append({"$unset": SAISON_TEAMS_AS_NAME})
+    pipeline.append({"$unset": [SAISON_TEAMS_AS_NAME, SPIELBESTAETIGUNGEN_AS_NAME]})
 
     return pipeline
 

@@ -86,6 +86,7 @@ const SPIEL: FLSpiel = FLSpielSchema.parse({
   saison_phase: "gruppenphase",
   saison_id: "2026",
   notiz: null,
+  ansetzung_bestaetigt: null,
 } satisfies FLSpiel);
 
 function makeSpiel(ergebnis: string | null): FLSpiel {
@@ -664,6 +665,7 @@ describe("toPatchPayload", () => {
     saison_phase: "gruppenphase",
     saison_id: "2026",
     notiz: null,
+    ansetzung_bestaetigt: null,
   } satisfies FLSpielAdmin);
 
   const goals = (ergebnis: string | null, side: 0 | 1): number | null => (ergebnis === null ? null : Number(ergebnis.split(":")[side]));
@@ -1361,6 +1363,7 @@ const CARD_SPIEL: FLSpiel = FLSpielSchema.parse({
   elfmeterschiessen: null,
   sonderereignis: null,
   notiz: null,
+  ansetzung_bestaetigt: null,
 } satisfies FLSpiel);
 
 /** `SpielScore` is the one element a card renders with `font-numeric`, whatever the layout around it. */

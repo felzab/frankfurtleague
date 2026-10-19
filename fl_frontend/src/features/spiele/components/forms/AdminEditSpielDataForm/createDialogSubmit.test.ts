@@ -47,6 +47,7 @@ const SPIEL: FLSpielAdmin = {
   saison_phase: "gruppenphase",
   saison_id: "2026",
   notiz: null,
+  ansetzung_bestaetigt: null,
 };
 
 /** One venue the league holds, so the list offers its footer's create rather than the empty state's. */

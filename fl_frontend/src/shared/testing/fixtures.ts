@@ -31,6 +31,7 @@ export interface SpielFields {
   saison_phase: string;
   saison_id: string;
   notiz: string | null;
+  ansetzung_bestaetigt: boolean | null;
 }
 
 /** A club on one side of a fixture, scoring nothing and still in the league unless the caller says otherwise. */
@@ -63,6 +64,7 @@ export function spielFields(overrides: Partial<SpielFields> = {}): SpielFields {
     saison_phase: "gruppenphase",
     saison_id: "2026",
     notiz: null,
+    ansetzung_bestaetigt: null,
     ...overrides,
   };
 }
