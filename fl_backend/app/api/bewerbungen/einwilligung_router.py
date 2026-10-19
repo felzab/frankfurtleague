@@ -50,7 +50,7 @@ from app.api.bewerbungen.services import (
     zustand_of,
 )
 from app.api.einwilligung.services import find_fassung_refusal, find_selbst_medien_refusal
-from app.api.kontakte.crud import redact_the_decliner
+from app.api.kontakte.crud import redact_the_decliner, remove_their_reasons
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.services import kontakte_ohne, seat_void_of
 from app.api.teams.crud import void_moved_seats
@@ -369,6 +369,14 @@ async def post_einwilligung(
                     kontakte=kontakte_ohne(stored_kontakte, seats),
                 )
             ],
+            session=session,
+        )
+        # As an erasure takes them: the person's reasons on every confirmation, from whichever seat they typed them.
+        await remove_their_reasons(
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            aktionen_collection=aktionen_collection,
+            adressen=seat_adressen(kontakte=kontakte, seats=seats),
+            stamp=am,
             session=session,
         )
 

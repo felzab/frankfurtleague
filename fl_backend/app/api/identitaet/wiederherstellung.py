@@ -32,7 +32,7 @@ from pymongo.errors import PyMongoError
 
 from app.api.bewerbungen.services import compose_decline_update, compose_saison_decline_update, seat_adressen, seat_is_answered
 from app.api.identitaet.crud import unattribute_pseudonym_in_session
-from app.api.kontakte.crud import redact_the_decliner
+from app.api.kontakte.crud import redact_the_decliner, remove_their_reasons
 from app.api.konto.services import compose_person_move, compose_sitz_move
 from app.api.schiedsrichter.crud import discard_adresswechsel_in_session
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
@@ -322,6 +322,14 @@ async def _plan_widerspruch(
                         kontakte=kontakte_ohne(row.get("kontakte"), offen),
                     )
                 ],
+                session=session,
+            )
+            # As the link's answer takes them, which the restored rows and images hold again.
+            await remove_their_reasons(
+                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                aktionen_collection=database[Collection.AKTIONEN],
+                adressen=seat_adressen(kontakte=row.get("kontakte"), seats=offen),
+                stamp=log_stamp(now),
                 session=session,
             )
         # After the patch, as the link's answer redacts, so it reaches the pre-image the patch filed; the redaction
