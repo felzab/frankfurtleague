@@ -224,9 +224,6 @@ def zustand_of(
     if gesperrt:
         return "gesperrt"
 
-    if isinstance(antwort, Mapping):
-        return "zugesagt" if antwort["art"] == "zugesagt" else "abgelehnt"
-
     # Closed, by the reason stored; open, by the one the close would store.
     grund = (
         geschlossen["grund"]
@@ -234,8 +231,13 @@ def zustand_of(
         else _grund_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage, today=today)
     )
 
+    # Ahead of the answer: an answer about an Ansetzung the fixture has left settles nothing, and the move's notice
+    # told every seat its link is void, so no seat reopening it may be told nothing is owed.
     if grund in GRUENDE_UNGUELTIG:
         return "ungueltig"
+
+    if isinstance(antwort, Mapping):
+        return "zugesagt" if antwort["art"] == "zugesagt" else "abgelehnt"
 
     if grund is not None or _past_frist(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
         return "abgelaufen"
@@ -280,9 +282,9 @@ def first_press_refusal() -> WriteRefusal:
 
 
 def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage, today: str) -> WriteRefusal | None:
-    """Why this row takes no answer now, or `None`, in the order `zustand_of` ranks the same states.
+    """Why this row takes no answer now, or `None`: answered, closed unanswered, what the close would shut it for, then the deadline.
 
-    Answered, closed unanswered, what the close would shut it for, then the deadline.
+    An answered row whose Ansetzung moved is `-002` here and `ungueltig` in `zustand_of`: the page re-reads the view on `-002`.
     """
 
     if spielbestaetigung_raw.get("antwort") is not None:

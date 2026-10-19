@@ -177,7 +177,7 @@ class TestASpentLinkMeetsTheCodeThatNamesWhy:
 
 
 class TestWhatAReopenedLinkShows:
-    """The view's states in their order: the ban first, then the answer, then a moved stand before a lapse."""
+    """The view's states in their order: the ban first, then a moved stand, then the answer, then a lapse."""
 
     OTHER = FLSpielbestaetigungTermin(datum="2027-05-20", uhrzeit="18:00:00")
 
@@ -185,8 +185,30 @@ class TestWhatAReopenedLinkShows:
         ("row", "situation", "today", "gesperrt", "vorschlag", "zustand"),
         [
             pytest.param({"antwort": ANSWERED}, {}, TODAY, True, None, "gesperrt", id="barred-ahead-of-answered"),
+            # The move's notice called every link of the row void, the answering seat's sibling links included.
             pytest.param(
-                {"antwort": ANSWERED}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, TODAY, False, None, "zugesagt", id="answered-then-moved"
+                {"antwort": ANSWERED}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, TODAY, False, None, "ungueltig", id="answered-then-moved"
+            ),
+            pytest.param(
+                {"antwort": ANSWERED, "geschlossen": {"am": TODAY, "grund": "ansetzung_geaendert"}},
+                {"spiel_overrides": {"uhrzeit": "19:00:00"}},
+                TODAY,
+                False,
+                None,
+                "ungueltig",
+                id="answered-and-closed-for-the-move",
+            ),
+            pytest.param(
+                {"antwort": ANSWERED}, {"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, False, None, "zugesagt", id="answered-then-decided"
+            ),
+            pytest.param(
+                {"antwort": ANSWERED, "geschlossen": {"am": AFTER_THE_DAY, "grund": "spiel_vergangen"}},
+                {},
+                AFTER_THE_DAY,
+                False,
+                None,
+                "zugesagt",
+                id="answered-and-closed-past-its-day",
             ),
             pytest.param({"antwort": {**ANSWERED, "art": "abgelehnt"}}, {}, TODAY, False, None, "abgelehnt", id="declined"),
             pytest.param({}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, "2027-05-08", False, None, "ungueltig", id="moved-ahead-of-late"),
@@ -325,16 +347,22 @@ class TestTheLinkAndTheCloseReadOneVerdict:
 
         assert shown == STATE_OF_CODE[None if refusal is None else refusal.error_code]
 
+    @pytest.mark.parametrize("antwort", [None, ANSWERED], ids=["unanswered", "answered"])
     @pytest.mark.parametrize(("situation", "today"), SITUATIONS)
-    def test_a_row_shows_the_same_state_before_the_close_and_after_it(self, situation: dict[str, Any], today: str):
-        """Closed for the reason `grund_to_close` gives, the row reads as it did open: the next pass changes no page under its reader."""
+    def test_a_row_shows_the_same_state_before_the_close_and_after_it(
+        self, situation: dict[str, Any], today: str, antwort: dict[str, Any] | None
+    ):
+        """Closed for the reason `grund_to_close` gives, the row reads as it did open: the next pass changes no page under its reader.
+
+        The close reaches an answered row too, so a move outranks its answer before the close as after it.
+        """
 
         situated = lage(**situation)
         austritte = {} if "austritt" not in situation else {TEAM1: situation["austritt"]}
-        grund = grund_to_close(row=zeile(), spiel=situated.spiel, austritte=austritte, today=today)
-        closed = zeile(geschlossen=None if grund is None else {"am": today, "grund": grund})
+        grund = grund_to_close(row=zeile(antwort=antwort), spiel=situated.spiel, austritte=austritte, today=today)
+        closed = zeile(antwort=antwort, geschlossen=None if grund is None else {"am": today, "grund": grund})
 
-        before = zustand_of(spielbestaetigung_raw=zeile(), lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
+        before = zustand_of(spielbestaetigung_raw=zeile(antwort=antwort), lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
         after = zustand_of(spielbestaetigung_raw=closed, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
 
         assert before == after
