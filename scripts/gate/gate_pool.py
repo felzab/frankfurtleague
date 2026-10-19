@@ -51,9 +51,8 @@ STALL_S: Final = 600.0
 STALL_POLL_S: Final = 5.0
 # The end of a capture a notice shows.
 STALL_TAIL_LINES: Final = 100
-# A faulthandler dump (`scripts/gate/verify.sh :: FAULTHANDLER_S`) lists threads newest first and each
-# thread's frames innermost first, so the stalled frame opens the dump's last block, which a tail
-# cuts first once that block runs long: the notice shows that block from its header too.
+# A faulthandler dump lists threads newest first, each innermost frame first, so the stalled frame
+# opens its last block, which a tail cuts first: `shown` keeps that block from its header.
 DUMP_RE: Final = re.compile(r"^Timeout \([0-9]+:[0-9]{2}:[0-9]{2}(\.[0-9]+)?\)!$")
 THREAD_RE: Final = re.compile(r"^(Current thread|Thread) 0x[0-9a-fA-F]+ \(most recent call first\):$")
 

@@ -106,9 +106,9 @@ MAX_IMAGE_PATH: Final = 32_768
 # signal from the gate's `kill`, which ends any other process outright.
 MSYS_RUNTIME: Final = "msys-2.0.dll"
 
-# How long a stopped gate's traps may run before the job is ended under them; the wait ends once
-# every signalled shell has. MEASURED 2026-10-19 at 45 percent CPU: a fixture gate stopped mid-run
-# ended in 0.20-0.26 s, and the slowest trap's step, removing the run's two image tags, took 0.28-0.32 s.
+# A ceiling on a stopped gate's traps before the job is ended under them; the wait ends once every
+# signalled shell has. MEASURED 2026-10-19: a fixture gate's stop 0.20-0.26 s, the slowest trap step
+# (two image tags removed) 0.28-0.32 s.
 GRACE_S: Final = 30.0
 GRACE_POLL_S: Final = 0.05
 
@@ -168,12 +168,10 @@ def _job_pids(job: int) -> list[int]:
 
 
 def wind_down(job: int, kill: Path, pools: set[int]) -> int:
-    """Stop the job as a signal to a POSIX process group stops one, and answer how many it signalled outlived `GRACE_S`.
+    """Stop the job as SIGTERM stops a POSIX group; answer how many signalled shells outlived `GRACE_S`.
 
-    Each MSYS process takes SIGTERM, so each bash runs its trap once the child it waits on has gone;
-    each native is ended as SIGTERM ends a process with no handler. A pool is spared, as on POSIX,
-    where it ends its units and waits on them: ended first, it hands the bash above it its ending
-    while those units still write into the directory that bash's trap reclaims.
+    MSYS processes take SIGTERM and natives end; a pool outlives its units as on POSIX, or its shell
+    reclaims the directory they still write.
     """
     parents = _windows_parents()
     members: dict[int, tuple[int, bool]] = {}
@@ -222,11 +220,10 @@ def wind_down(job: int, kill: Path, pools: set[int]) -> int:
 
 
 def _watched(pid: int, child: int) -> int | None:
-    """A handle on `pid` where it is still the process that started `child`, else None.
+    """A handle on `pid` if it is still what started `child`, else None.
 
-    A pid names whoever holds it now: one created after `child` did not start it, and a signalled
-    one has ended. Any other failure to open it raises, the run then saying it is unwatched, where
-    None would read a process this account cannot open as one that has ended.
+    A pid created after `child` is reused; any other failure to open it raises, the run then
+    unwatched rather than calling a launcher it cannot read ended.
     """
     handle = kernel32.OpenProcess(LAUNCHER_ACCESS, False, pid)
     if not handle:
@@ -245,11 +242,10 @@ def _git_launcher(process: int) -> bool:
 
 
 def launchers_of(ancestors: list[int], gate_pid: int, gate: int) -> dict[int, int] | None:
-    """Handles on what started the gate, keyed to their pids, or None where one has ended.
+    """Handles on the gate's launchers by pid, or None where one has ended.
 
-    Every MSYS ancestor, a stop ending the outermost shell while a wrapper script outlives it; and
-    the topmost's Windows parent, a native launcher, read through any Git launcher between them,
-    which a stop ending the process that ran it leaves waiting on the gate.
+    Every MSYS ancestor, then the topmost's Windows parent read past any Git launcher, which waits on
+    the gate when only what ran it is ended.
     """
     handles: dict[int, int] = {}
     child, child_pid = gate, gate_pid
@@ -269,11 +265,10 @@ def launchers_of(ancestors: list[int], gate_pid: int, gate: int) -> dict[int, in
 
 
 def take_interrupts(interrupted: int) -> object:
-    """Set `interrupted` on a Ctrl-C or Ctrl-Break at the console, and answer the routine that does, to be held.
+    """Set `interrupted` on the console's Ctrl-C or Ctrl-Break; answer the routine, to be held.
 
-    A shell whose input is no console ignores the console's interrupt and the natives MSYS starts
-    under it see none, so a gate started that way never stops on one; turned back on here, the
-    interrupt reaches all of them through `wind_down`.
+    A shell whose input is no console ignores it, and the natives MSYS starts under it see none;
+    taken here, it reaches them all through `wind_down`.
     """
 
     def on_console(event: int) -> bool:

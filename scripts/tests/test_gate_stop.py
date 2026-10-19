@@ -63,10 +63,9 @@ STARTED_BOUND_S: Final = 60
 STOPPED_BOUND_S: Final = 60
 WATCH: Final = VERIFY.parent / "gate_watch.py"
 
-# A shell as a harness runs a command, `:` keeping bash from replacing itself with the gate; then,
-# on Windows, each route a stop takes to the watcher: a script outliving the shell a stop ends, a
-# native process leaving MSYS no parent to name, and Git's own launcher, left waiting when only what
-# ran it is ended. A POSIX stop signals the whole group whatever started it, so there the first is all.
+# A shell as a harness runs one (`:` stops bash replacing itself); on Windows, each other route to
+# the watcher: a wrapper script, a native process, Git's launcher. A POSIX stop signals the whole
+# group, so one route there.
 LAUNCHERS: Final = (
     ("a shell", "a shell through a script", "a native process", "a native process through Git's launcher") if WINDOWS else ("a shell",)
 )
@@ -205,9 +204,8 @@ def _said(reader: threading.Thread, output: list[bytes]) -> str:
     return output[0].decode("utf-8", "replace") if output else "(the gate is still running; its output is unread)"
 
 
-# A terminal's Ctrl-C on Windows: the gate started in a console of its own, typed into, and the
-# console's interrupt sent from inside it once the tools run. Its exit status is the gate's. The
-# console has no window (`CREATE_NO_WINDOW`), so no run flashes one at whoever sits at the machine.
+# A terminal's Ctrl-C on Windows: the gate typed into a console of its own, with no window to flash
+# (`CREATE_NO_WINDOW`), interrupted from inside it once the tools run; its exit status is the gate's.
 CONSOLE: Final = 0x0800_0000
 CONSOLE_INTERRUPT: Final = """import ctypes, signal, subprocess, sys, time
 from pathlib import Path
@@ -230,14 +228,15 @@ def _interrupted(gate: tuple[str, ...], env: dict[str, str], started: Path, log:
     """The gate, interrupted as its platform's terminal interrupts a run once every tool has started."""
     if WINDOWS:
         command = (sys.executable, "-c", CONSOLE_INTERRUPT, str(started), str(TOOLS), str(log), *gate)
-        return subprocess.Popen(command, env=env, creationflags=CONSOLE)
-    with log.open("wb") as out:
-        run = subprocess.Popen(gate, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, env=env, start_new_session=True)
-    deadline = time.monotonic() + STARTED_BOUND_S
-    while len(list(started.iterdir())) < TOOLS and run.poll() is None and time.monotonic() < deadline:
-        time.sleep(0.1)
-    # The foreground group a terminal's Ctrl-C reaches, a negative pid naming the group it leads.
-    os.kill(-run.pid, signal.SIGINT)
+        run = subprocess.Popen(command, env=env, creationflags=CONSOLE)
+    else:
+        with log.open("wb") as out:
+            run = subprocess.Popen(gate, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, env=env, start_new_session=True)
+        deadline = time.monotonic() + STARTED_BOUND_S
+        while len(list(started.iterdir())) < TOOLS and run.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.1)
+        # The foreground group a terminal's Ctrl-C reaches, a negative pid naming the group it leads.
+        os.kill(-run.pid, signal.SIGINT)
     return run
 
 
