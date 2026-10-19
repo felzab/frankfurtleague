@@ -13,7 +13,7 @@ function PersonCrashShell({ children }: { children: ReactNode }) {
     // holds is what the failing read would have said, so no address is called missing either.
     <PersonShell
       structure={personStructureFor(new Set(["landing"]))}
-      orte={[]}
+      funktionSwitcher={null}
       fallback={PERSON_SHELL_CRASH}>
       {children}
     </PersonShell>

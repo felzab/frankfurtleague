@@ -6,18 +6,17 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { Component, createElement as h } from "react";
+import { Component, createElement as h, isValidElement } from "react";
 import { notFound, redirect } from "next/navigation";
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { person } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
-import { callPage, clearSteps, pageBody, steps } from "@/shared/testing/pageHarness.ts";
+import { callPage, clearSteps, steps } from "@/shared/testing/pageHarness.ts";
 
 import type { ComponentType, ReactElement, ReactNode } from "react";
 
@@ -226,25 +225,43 @@ describe("a read failing in an area's layout", () => {
   });
 });
 
-describe("the chrome under a person lane's guard", () => {
-  /* The builder stage reaches no sign-in store, and the guard's own `connection()` shields the chrome
-     only while it is mounted over it: the chrome's read failing as the build's does must find the
+type Reader = { type: (props: unknown) => Promise<unknown>; props: Record<string, unknown> };
+
+/** Every async server component a layout's tree holds, in its props too, none of them called. */
+function readersIn(node: unknown, found: Reader[] = []): Reader[] {
+  if (Array.isArray(node)) for (const child of node) readersIn(child, found);
+  if (!isValidElement<Record<string, unknown>>(node)) return found;
+  if (typeof node.type === "function" && node.type.constructor.name === "AsyncFunction") found.push(node as unknown as Reader);
+  for (const value of Object.values(node.props)) readersIn(value, found);
+  return found;
+}
+
+/** The readers each person lane's layout holds, named so a walk finding fewer fails rather than passes. */
+const LANE_READERS: Record<string, string[]> = {
+  "the person area": ["FunktionenGuard", "PersonEntries", "PersonLaneFunktionSwitcher"],
+  "the team area": ["FunktionenGuard", "PersonLaneFunktionSwitcher", "TeamContent", "TeamEntries", "TeamHeading", "TeamSaisonChip"],
+};
+
+describe("each session reader of a person lane's layout", () => {
+  /* The builder stage reaches no sign-in store, and the guard's own `connection()` shields nothing beside
+     it: each part of the frame streams on its own, so its read failing as the build's does must find the
      request already awaited. */
   it("awaits the request before its own session read, whatever is mounted above it", async () => {
     for (const area of AREAS.filter(({ boundary }) => boundary !== AdminAreaBoundary)) {
-      setSubject(person());
-      // What the guard hands on: the chrome's element, called below on its own.
-      const guarded = (await pageBody(area.layout, {})) as ReactElement<{ children: ReactElement<Record<string, unknown>> }>;
-      const chrome = guarded.props.children as ReactElement<Record<string, unknown>> & { type: (props: unknown) => Promise<unknown> };
-      area.failRead();
-      clearSteps();
+      const readers = readersIn(area.layout());
+      assert.deepEqual([...new Set(readers.map(({ type }) => type.name))].sort(), LANE_READERS[area.name], `${area.name} holds other readers`);
 
-      await assert.rejects(chrome.type(chrome.props), OUTAGE, `${area.name}'s chrome reads no session`);
-      assert.deepEqual(
-        steps.map(({ kind }) => kind),
-        ["connection"],
-        `${area.name}'s chrome reads the session before it awaits the request`,
-      );
+      for (const reader of readers) {
+        area.failRead();
+        clearSteps();
+
+        await assert.rejects(reader.type(reader.props), OUTAGE, `${area.name}'s ${reader.type.name} reads no session`);
+        assert.deepEqual(
+          steps.map(({ kind }) => kind),
+          ["connection"],
+          `${area.name}'s ${reader.type.name} reads the session before it awaits the request`,
+        );
+      }
     }
   });
 });

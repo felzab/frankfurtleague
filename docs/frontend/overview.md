@@ -95,7 +95,10 @@ return value has to be checked — [`spec.md`](spec.md) I8 says what happens whe
 **Route protection is layered**: `fl_frontend/src/proxy.ts` runs on every page a session serves,
 where it slides the session a person only reads ([`spec.md`](spec.md) I495), and under
 `/bereich/admin/:path*` it turns away a request with no session or one no passkey made, reading
-nothing but the session, as Next's own guidance has a proxy check. The grant is judged where the data
+nothing but the session, as Next's own guidance has a proxy check. Under the rest of `/bereich` it
+turns away a request carrying no session cookie before any read, a prefetch among them, and one whose
+session the slide finds gone, so a signed-out visitor meets sign-in rather than the area's frame; a
+page's own guard still reads the session it serves. The grant is judged where the data
 is read: every admin-tier read checks the administrator verdict through
 `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`, sending a session it refuses to the
 sign-in landing and a grant the backend left unread to the admin boundary's retry, since Next renders
