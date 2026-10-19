@@ -45,9 +45,9 @@ describe("whether a contacts save may move a seat's link", () => {
     assert.equal(kontakteMayMoveLinks(null, block(null)), false);
   });
 
-  /* A confirmed seat's link is spent, so emptying it voids nothing a stranger could still answer
-     (`fl_backend/app/api/teams/services.py :: voids_a_live_link`): asked, every such edit would prompt. */
-  it("asks nothing where the seat emptied had confirmed", () => {
+  /* A confirmed seat's own link is spent, but its links on the team's open match confirmations die with
+     it, which only a read could rule out (`fl_backend/app/api/teams/services.py :: voids_a_live_link`). */
+  it("asks where the seat emptied had confirmed", () => {
     const anna = gespeichert("Anna", "anna@schule.example");
     const bestaetigt = {
       ...STORED,
@@ -57,6 +57,6 @@ describe("whether a contacts save may move a seat's link", () => {
       },
     };
 
-    assert.equal(kontakteMayMoveLinks(bestaetigt, block(null)), false);
+    assert.equal(kontakteMayMoveLinks(bestaetigt, block(null)), true);
   });
 });

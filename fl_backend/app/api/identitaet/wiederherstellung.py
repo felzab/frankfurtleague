@@ -36,8 +36,10 @@ from app.api.kontakte.crud import redact_the_decliner
 from app.api.konto.services import compose_person_move, compose_sitz_move
 from app.api.schiedsrichter.crud import discard_adresswechsel_in_session
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
+from app.api.spielbestaetigungen.services import kontakte_ohne, seat_void_of
 from app.api.spieler.crud import discard_spieler_adresswechsel_in_session
 from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD
+from app.api.teams.crud import void_moved_seats
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 
@@ -307,6 +309,21 @@ async def _plan_widerspruch(
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
+        if home == Collection.SAISON_TEAMS:
+            # As the link's answer voids them: a restored confirmation row still holds the declining person's links, and
+            # the replay is the one write that can void them (`docs/backend/spec.md :: I758`).
+            await void_moved_seats(
+                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                voids=[
+                    seat_void_of(
+                        saison_id=row["saison_id"],
+                        team_id=row["team_id"],
+                        stored_kontakte=row.get("kontakte"),
+                        kontakte=kontakte_ohne(row.get("kontakte"), offen),
+                    )
+                ],
+                session=session,
+            )
         # After the patch, as the link's answer redacts, so it reaches the pre-image the patch filed; the redaction
         # happens now, so its stamp is the replay's, where the day the person declined on is theirs.
         await redact_the_decliner(

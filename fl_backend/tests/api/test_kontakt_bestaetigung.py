@@ -205,6 +205,7 @@ async def save(
         ),
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
         saisons_collection=database[Collection.SAISONS],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],
         db=database.client,
@@ -240,6 +241,7 @@ async def replace(database: AsyncDatabase) -> Any:
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         aktionen_collection=database[Collection.AKTIONEN],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         db=database.client,
         today=TODAY,
         germany_now=NOW,
@@ -289,6 +291,7 @@ async def answer(
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
         aktionen_collection=database[Collection.AKTIONEN],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         sperrliste=ban_list(database),
         db=database.client,
         config=build_test_config(),
@@ -1036,17 +1039,25 @@ class TestTheStepUp:
         assert code == CONFIRMATION_REQUIRED
         assert after == before
 
-    def test_a_save_emptying_a_seat_whose_link_was_answered_takes_the_old_sign_in(self, mongo_replica_set_url: str):
-        """The control: an answered link opens nothing, so dropping it voids nothing a person holds."""
+    def test_a_save_emptying_a_seat_whose_link_was_answered_from_an_old_sign_in_is_refused(self, mongo_replica_set_url: str):
+        """An answered link opens nothing, but the seat's links on the team's open match confirmations die with it, unread here."""
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             first = await save(database, THREE)
             await answer(database, first.bestaetigungen[0].token)
-            await save(database, {**THREE, "trainer": None}, step_up=STALE_STEP_UP_CHECK)
+            before = await row_now(database)
 
-            return await row_now(database)
+            return (
+                await refused(save(database, {**THREE, "trainer": None}, step_up=STALE_STEP_UP_CHECK)),
+                before,
+                await row_now(database),
+            )
 
-        assert on_a_league(mongo_replica_set_url, body)["kontakte"]["trainer"] is None
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == CONFIRMATION_REQUIRED
+        assert after == before
+        assert after["kontakte"]["trainer"] is not None
 
     def test_a_save_minting_nothing_takes_the_old_sign_in(self, mongo_replica_set_url: str):
         """The control, and what keeps an edit's undo: a telephone number moved seats nobody new."""

@@ -170,6 +170,36 @@ class TestTheClubsContacts:
 
         assert on_a_season(mongo_replica_set_url, body, seed=self.seed_the_block) == (True, (self.NOBODY, None))
 
+    def test_emptying_a_confirmed_seat_from_an_older_sign_in_is_refused_and_empties_nothing(self, mongo_replica_set_url: str):
+        """Its own link is spent, but its links on the team's open match confirmations die with it, which no read here rules out."""
+
+        confirmed = {
+            "vorname": "Ida",
+            "nachname": "Musterfrau",
+            "email": "ida@example.com",
+            "telefon": "+4917010000001",
+            "geburtsdatum": "1984-05-09",
+            "einwilligung": {
+                "umfang": "kontaktdaten",
+                "text_version": LAUFENDE_FASSUNGEN["bewerbung"],
+                "datum": "2026-03-01",
+                "erfasst_von": "person",
+                "bestaetigt_am": "2026-03-02",
+            },
+        }
+        seated = {**self.NOBODY, "trainer": confirmed}
+
+        async def seed(database: AsyncDatabase) -> None:
+            await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM_ID}, {"$set": {"kontakte": seated}})
+
+        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
+            payload = {"kontakte": dict(self.NOBODY), "kontakte_stand": kontakte_stand_of(seated)}
+            response = await http.patch(self.URL, headers=OLDER, json=payload)
+            stored = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_ID})
+            return refused(response), stored and stored["kontakte"]
+
+        assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, seated)
+
 
 class TestTheDraw:
     URL = f"/api/v{API_VERSION}/saisons/{SAISON_ID}/spielplan"

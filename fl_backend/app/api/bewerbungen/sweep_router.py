@@ -47,6 +47,8 @@ from app.api.bewerbungen.services import (
 from app.api.kontakte.services import contact_block_image_edits
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.api.spielbestaetigungen.services import seat_void_of
+from app.api.teams.crud import void_moved_seats
 from app.api.teams.schemas import FLKontaktRolle
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -57,6 +59,7 @@ from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
     SaisonTeamsCollection,
+    SpielbestaetigungenCollection,
     TeamsCollection,
     get_german_date_str,
     get_germany_now,
@@ -75,13 +78,14 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Both shares at three commands a row beside the 32 of the worst call erasing one page per clock
+# Both shares at three commands a row beside the 35 of the worst call erasing one page per clock
 # (`tests/api/test_bewerbung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
 # 266 commands at a 36 ms round trip plus 1.35 ms take 9.94 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 39
 
-# A season at the capacity its rules allow holds more junction rows than this, and takes more passes.
-BLOCKS_CLEARED_PER_PASS: Final = 39
+# A season at the capacity its rules allow holds more junction rows than this, and takes more passes. One below
+# the reminders': voiding the cleared people's match links costs three commands, and 39 would make 269, 10.05 s.
+BLOCKS_CLEARED_PER_PASS: Final = 38
 
 
 async def _club_names(
@@ -203,6 +207,7 @@ async def sweep_saison(
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
     aktionen_collection: AktionenCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -504,8 +509,9 @@ async def sweep_saison(
         # `patch_one_in_db` per row and never `patch_many_in_db`, which records no `document_id`: the
         # redaction below must match the rows it logs (`app/api/kontakte/crud.py :: clear_seats`).
         cleared: list[Any] = []
+        voids = []
         for row in taken:
-            await patch_one_in_db(
+            before = await patch_one_in_db(
                 collection=saison_teams_collection,
                 db_filter={"_id": row["_id"]},
                 # The links go with their people: each holds a token hash and the delivery record of the
@@ -514,7 +520,11 @@ async def sweep_saison(
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
+            voids.append(seat_void_of(saison_id=saison_id, team_id=before["team_id"], stored_kontakte=before.get("kontakte"), kontakte=None))
             cleared.append(row["_id"])
+        # Once for the share, so voiding its people's match links costs the pass the same however many rows it
+        # clears (`docs/backend/spec.md :: I758`).
+        await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
         # The block alone leaves the row's images, as it leaves the row: its exit record and every
         # earlier state are the season's, not the people's.
         redacted = await redact_images_in_session(
