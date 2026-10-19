@@ -1,3 +1,5 @@
+import { SPIEL_BESTAETIGUNG_FRIST_TAGE } from "@/features/spiele/constants";
+
 import type { FLSonderereignis, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
@@ -18,7 +20,8 @@ export type SpielBannerId =
   | "spiel.sonderereignis-standing"
   | "spiel.void-preview"
   | "spiel.void-preview-ungeprueft"
-  | "spiel.release-preview";
+  | "spiel.release-preview"
+  | "spiel.bestaetigung-sofort";
 
 type SpielBannerSpot =
   | "team1-herkunft"
@@ -101,6 +104,19 @@ const REFUSAL_BANNER_IDS: ReadonlySet<SpielBannerId> = new Set<SpielBannerId>(Ob
 /** Whether this banner names a save the endpoint refuses, rather than a consequence a save would cause. */
 export const isSpielRefusalBannerId = (id: SpielBannerId): boolean => REFUSAL_BANNER_IDS.has(id);
 
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * Inside the deadline's days and strictly after `today`, the sweep's own floor: a fixture whose day has come is asked
+ * nothing, so a date typed for one raises nothing. `Date.parse` reads each `YYYY-MM-DD` as a UTC midnight.
+ */
+function ohneVorlauf(datum: string | null, today: string): boolean {
+  if (datum === null) return false;
+  const tage = (Date.parse(datum) - Date.parse(today)) / MS_PER_DAY;
+
+  return tage > 0 && tage <= SPIEL_BESTAETIGUNG_FRIST_TAGE;
+}
+
 /** A list of fixture numbers as German writes it: "29, 30 und 31", with "und" and no serial comma. */
 const joinGerman = (spielNummern: readonly number[]): string =>
   new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(spielNummern.map(String));
@@ -120,6 +136,9 @@ export function buildSpielBanners({
   releasedSpielNummern,
   voidPreviewFailed,
   refusalCode,
+  datum,
+  storedDatum,
+  today,
 }: {
   isKnockout: boolean;
   /**
@@ -153,6 +172,10 @@ export function buildSpielBanners({
    * judged — the caller's staleness rule, so a corrected draft never carries the old remedies.
    */
   refusalCode: SpielRefusalCode | null;
+  /** The draft's day and the stored one, `YYYY-MM-DD` or `null`, and the German today the page was rendered on. */
+  datum: string | null;
+  storedDatum: string | null;
+  today: string;
 }): readonly SpielBanner[] {
   const banners: SpielBanner[] = [];
 
@@ -333,6 +356,19 @@ export function buildSpielBanners({
       raisedBy: "change",
       title:
         releasedSpielNummern.length === 1 ? `Ein Team wird aus Spiel ${nummern} entfernt` : `Teams werden aus den Spielen ${nummern} entfernt`,
+      inline: null,
+    });
+  }
+
+  // The notice the deadline promises cannot be given: the next pass asks at once, and the link answers only that day.
+  // On the rail rather than a standing hint, being a fact about this date and never about the feature.
+  if (ohneVorlauf(datum, today)) {
+    banners.push({
+      id: "spiel.bestaetigung-sofort",
+      severity: "warning",
+      raisedBy: ohneVorlauf(storedDatum, today) ? "state" : "change",
+      // The rule rather than this date: the reader carries it to the next fixture they move.
+      title: `Ein Spiel in den nächsten ${String(SPIEL_BESTAETIGUNG_FRIST_TAGE)} Tagen müssen die Teams noch am Tag der Anfrage bestätigen`,
       inline: null,
     });
   }

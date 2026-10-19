@@ -21,7 +21,7 @@ export const REVALIDATED = 204;
 
 /**
  * Drops `tags` from outside a request, settling rather than throwing: a drop that failed leaves a cached page serving
- * what the caller just deleted, which the line tells the operator to drop by hand (`docs/ops/runbooks.md` §20).
+ * what the caller just changed, which the line tells the operator to drop by hand (`docs/ops/runbooks.md` §20).
  */
 export async function revalidateOverLoopback(tags: readonly RevalidationTag[]): Promise<void> {
   try {

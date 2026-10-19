@@ -233,6 +233,13 @@ where the row carries the stamp the expiry reads (I119).\
 **Trap:** the ground is part of it, so moving only the venue reopens every confirmation of the fixture. The five values are stored beside the digest because no aggregation can recompute a SHA-256: a read joining rows compares the values while the answer compares the digest, and `ANSETZUNG_QUELLEN` is the one list both read, since a key added to one alone gives two answers to whether a row is about the fixture's current Ansetzung. `ansetzung_bestaetigt` has three values, and `null`, nobody asked about this Ansetzung, is never `false`: only `false` puts „Vorläufig“ on a public card. It is neither the `Paarung`, the two sides and what they produced, nor the `Spieltag` a fixture belongs to.\
 **See:** the `Spielbestätigung` entry, and the `Paarung` entry for the sides alone.
 
+### `Einteilung` — the message telling a referee they are booked onto one fixture
+
+**Is:** what a referee booked onto a fixture is told of it: once the confirmation sweep mints the referee's own `Spielbestätigung` row for the fixture's current `Ansetzung`, it mails them the Einteilung, naming the fixture, its slot and its ground and leading to their panel.\
+**In code:** the referee's row is `fl_backend/app/api/spielbestaetigungen/schemas.py :: FLSpielbestaetigungParteiSchiedsrichter`; the pass hands it over as `fl_frontend/src/features/spielbestaetigungen/schemas.ts :: FLSpielbestaetigungSweepEinteilungSchema`, the message is `fl_frontend/src/core/spielEmail.ts :: buildSpielEinteilungEmail`, and `fl_frontend/src/features/spielbestaetigungen/sweep.ts :: mailEinteilung` sends it.\
+**Trap:** the booking itself is the fixture editor's write, never this word's: an Einteilung only reports one, once per referee and Ansetzung, so moving the fixture voids it through the „Neue Ansetzung“ notice and a fresh one follows only while the referee stays booked. It carries no token and leads to `/bereich/schiedsrichter`, which opens signed in, so a referee whose address no link has confirmed holds no Funktion there and is sent on to `/bereich`. Its delivery is recorded on no row, the referee's row holding no seat: a missed one is the log line `FE-MAIL-014` alone, under the tag `fl_frontend/src/features/bewerbungen/zustellung.ts :: SPIELLEITUNG_TAG`, which names both referee messages and so is never `einteilung`.\
+**See:** the `Spielbestätigung` and `Ansetzung` entries, and the `Schiedsrichter` entry for the booking the message reports.
+
 ### `Quelle` — where a side of a fixture comes from
 
 **Is:** `team1_quelle` and `team2_quelle` — a structural reference naming what feeds that side of the bracket, a group placing or a match outcome, never display text.\

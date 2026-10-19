@@ -295,6 +295,9 @@ export function AdminEditSpielDataForm({
     releasedSpielNummern: voidPreview.preview?.released ?? [],
     voidPreviewFailed: voidPreview.failed,
     refusalCode: refusal?.key === refusalKey ? refusal.code : null,
+    datum: datum?.toString() ?? null,
+    storedDatum: spielData.datum,
+    today,
   });
 
   // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
