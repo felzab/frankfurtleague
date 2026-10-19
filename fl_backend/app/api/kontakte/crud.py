@@ -15,6 +15,7 @@ from app.api.kontakte.services import (
     departing_slots,
     seat_image_edits,
 )
+from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import (
     build_contact_reason_images_filter,
     build_contact_reasons_filter,
@@ -159,19 +160,18 @@ async def erase_kontaktperson_in_session(
     # the same however many rows the person sat in (`docs/backend/spec.md :: I758`).
     held = [(row, slots) for row in saison_team_rows if (slots := departing_slots(row, {identifier}))]
     if held:
-        await void_moved_seats(
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
-            voids=[
-                seat_void_of(
-                    saison_id=row["saison_id"],
-                    team_id=row["team_id"],
-                    stored_kontakte=row.get("kontakte"),
-                    kontakte=kontakte_ohne(row.get("kontakte"), slots),
-                )
-                for row, slots in held
-            ],
-            session=session,
-        )
+        voids = [
+            seat_void_of(
+                saison_id=row["saison_id"],
+                team_id=row["team_id"],
+                stored_kontakte=row.get("kontakte"),
+                kontakte=kontakte_ohne(row.get("kontakte"), slots),
+            )
+            for row, slots in held
+        ]
+        await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
+        # Their links' hashes and the delivery records of the mails they went in, as the season row's own clearing takes them.
+        await redact_seat_entries_in_images(aktionen_collection=aktionen_collection, voids=voids, reasons=False, stamp=stamp, session=session)
     # Seated now or not: a seat they have left keeps the reasons they typed from it until this.
     await remove_their_reasons(
         spielbestaetigungen_collection=spielbestaetigungen_collection,

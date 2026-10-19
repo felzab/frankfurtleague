@@ -36,6 +36,7 @@ from app.api.kontakte.crud import redact_the_decliner, remove_the_holders_reason
 from app.api.konto.services import compose_person_move, compose_sitz_move
 from app.api.schiedsrichter.crud import discard_adresswechsel_in_session
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
+from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import build_contact_reason_images_filter, build_contact_reasons_filter, kontakte_ohne, seat_void_of
 from app.api.spieler.crud import discard_spieler_adresswechsel_in_session
 from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD
@@ -312,17 +313,17 @@ async def _plan_widerspruch(
         if home == Collection.SAISON_TEAMS:
             # As the link's answer voids them: a restored confirmation row still holds the declining person's links, and
             # the replay is the one write that can void them (`docs/backend/spec.md :: I758`).
-            await void_moved_seats(
-                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                voids=[
-                    seat_void_of(
-                        saison_id=row["saison_id"],
-                        team_id=row["team_id"],
-                        stored_kontakte=row.get("kontakte"),
-                        kontakte=kontakte_ohne(row.get("kontakte"), offen),
-                    )
-                ],
-                session=session,
+            voids = [
+                seat_void_of(
+                    saison_id=row["saison_id"],
+                    team_id=row["team_id"],
+                    stored_kontakte=row.get("kontakte"),
+                    kontakte=kontakte_ohne(row.get("kontakte"), offen),
+                )
+            ]
+            await void_moved_seats(spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN], voids=voids, session=session)
+            await redact_seat_entries_in_images(
+                aktionen_collection=database[Collection.AKTIONEN], voids=voids, reasons=False, stamp=log_stamp(now), session=session
             )
             # As the link's answer takes them, which the restored rows and images hold again.
             await remove_their_reasons(

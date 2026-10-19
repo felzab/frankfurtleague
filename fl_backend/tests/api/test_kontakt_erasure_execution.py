@@ -1497,9 +1497,9 @@ IMAGES_A_FIRST_BATCH = 101
 
 @pytest.mark.db
 def test_the_images_of_their_reasons_cost_one_read_more_past_the_first_batch_and_no_write_more(mongo_replica_set_url: str):
-    """The reason step's cost grows with the person's history here alone: a write per row or per image would show as more.
+    """Past the first batch, each of the three reads selecting their rows takes one `getMore`, and no write more.
 
-    Past the first batch, its row read and its image read each take one `getMore`.
+    The rows and their images by holder, and the images again as a team's rows their seats leave.
     """
 
     def counted(images: int) -> int:
@@ -1519,7 +1519,7 @@ def test_the_images_of_their_reasons_cost_one_read_more_past_the_first_batch_and
 
         return on_a_league(mongo_replica_set_url, body)
 
-    assert counted(2 * IMAGES_A_FIRST_BATCH) - counted(IMAGES_A_FIRST_BATCH - 1) == 2
+    assert counted(2 * IMAGES_A_FIRST_BATCH) - counted(IMAGES_A_FIRST_BATCH - 1) == 3
 
 
 @pytest.mark.db

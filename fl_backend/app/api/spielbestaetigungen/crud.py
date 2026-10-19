@@ -9,9 +9,12 @@ from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungTermin
 from app.api.spielbestaetigungen.services import (
     ANSETZUNG_QUELLEN,
     AnsetzungLage,
+    SeatVoid,
     build_referee_images_filter,
     build_referee_rows_filter,
+    build_seat_entry_images_filter,
     referee_image_edits,
+    seat_entry_image_edits,
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
@@ -104,6 +107,36 @@ async def pull_vereinsnamen(*, teams_collection: AsyncCollection, team_ids: Sequ
     teams = await teams_collection.find({"_id": {"$in": list(team_ids)}}, {"name": 1}).to_list(length=None)
 
     return {team["_id"]: str(team.get("name") or "") for team in teams}
+
+
+# --- A LEAVING CONTACT'S seats in the log: an erasure's, a Widerspruch's, and the season's end.
+
+
+async def redact_seat_entries_in_images(
+    *,
+    aktionen_collection: AsyncCollection,
+    voids: Sequence[SeatVoid | None],
+    reasons: bool,
+    stamp: str,
+    # REQUIRED for `redact_images_in_session`'s reason.
+    session: AsyncClientSession,
+) -> int:
+    """These seats' link entries out of every log image of their teams' rows, as the void took them off the rows.
+
+    A seat handed on keeps its images: only a person's leaving owes them (`build_clearing_update`'s rule for the season row).
+    """
+
+    voided = [void for void in voids if void is not None]
+    if not voided:
+        return 0
+
+    return await redact_images_in_session(
+        aktionen_collection=aktionen_collection,
+        db_filter=build_seat_entry_images_filter(voided),
+        judge=lambda image: seat_entry_image_edits(image, voided, reasons=reasons),
+        stamp=stamp,
+        session=session,
+    )
 
 
 # --- The REFEREE'S ERASURE, the registry's member for their confirmation rows.

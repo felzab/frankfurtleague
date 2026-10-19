@@ -814,10 +814,13 @@ def _team_rows(saison_id: Any, team_id: Any) -> dict[str, Any]:
     return {"saison_id": saison_id, "partei.team_id": team_id}
 
 
-def build_open_team_rows_filter(pairs: Sequence[tuple[Any, Any]]) -> dict[str, Any]:
-    """These teams' rows in these seasons that are still answerable, so an answered row keeps its answer and its links."""
+def build_team_rows_filter(pairs: Sequence[tuple[Any, Any]]) -> dict[str, Any]:
+    """These teams' rows in these seasons, answered and closed ones too: a link opens nothing once its seat changed holder.
 
-    return {"partei.art": "team", **build_answerable_filter(), "$or": [_team_rows(saison_id, team_id) for saison_id, team_id in pairs]}
+    Left on an answered row, it would show whoever holds the old mail the successor's ban (`docs/backend/spec.md :: I567`).
+    """
+
+    return {"partei.art": "team", "$or": [_team_rows(saison_id, team_id) for saison_id, team_id in pairs]}
 
 
 def group_seat_voids(voids: Sequence[SeatVoid]) -> list[tuple[tuple[FLKontaktRolle, ...], list[tuple[Any, Any]]]]:
@@ -835,6 +838,39 @@ def group_seat_voids(voids: Sequence[SeatVoid]) -> list[tuple[tuple[FLKontaktRol
         groups.setdefault(tuple(seat for seat in KONTAKT_ROLLEN if seat in seats), []).append(pair)
 
     return list(groups.items())
+
+
+def build_seat_entry_images_filter(voids: Sequence[SeatVoid]) -> dict[str, Any]:
+    """Log rows whose image may be one of these teams' rows in these seasons, an undraw's removal among them; the judge decides."""
+
+    return {
+        "collection": str(Collection.SPIELBESTAETIGUNGEN),
+        "$or": [{"before.saison_id": void.saison_id, "before.partei.team_id": void.team_id} for void in voids],
+    }
+
+
+def seat_entry_image_edits(image: Mapping[str, Any], voids: Sequence[SeatVoid], *, reasons: bool) -> dict[str, None]:
+    """One image's entries of the voided seats nulled: a link's hashes and the delivery record of its mail.
+
+    With `reasons`, the contact's typed reason and holder digest too; which way the answer went and the role stay.
+    """
+
+    partei = image.get("partei")
+    if not isinstance(partei, Mapping) or partei.get("art") != "team":
+        return {}
+    seats = {seat for void in voids if (void.saison_id, void.team_id) == (image.get("saison_id"), partei.get("team_id")) for seat in void.seats}
+    if not seats:
+        return {}
+
+    kontakte, antwort = image.get("kontakte"), image.get("antwort")
+    held = [seat for seat in KONTAKT_ROLLEN if seat in seats and isinstance(kontakte, Mapping) and kontakte.get(seat) is not None]
+    edits: dict[str, None] = {f"kontakte.{seat}": None for seat in held}
+    von = antwort.get("von") if isinstance(antwort, Mapping) else None
+    typed = isinstance(antwort, Mapping) and isinstance(von, Mapping) and (antwort.get("begruendung"), von.get("halter")) != (None, None)
+    if reasons and isinstance(von, Mapping) and von.get("art") == "kontakt" and typed:
+        edits.update({"antwort.begruendung": None, "antwort.von.halter": None})
+
+    return edits
 
 
 # --- A CONTACT PERSON'S ERASURE OR WIDERSPRUCH: the reasons they typed, from whichever seat they held then.
