@@ -115,10 +115,10 @@ def _windows_parent(pid: int) -> int | None:
 
 
 def _watched(pid: int, gate: int) -> int | None:
-    """A handle on `pid` where it is still the process that was running before the gate, else None.
+    """A handle on `pid` where it is still the process running before the gate, else None.
 
     A pid names whoever holds it now: one created after the gate did not start it, and a signalled
-    one has ended, its object kept by some other handle.
+    one has ended.
     """
     handle = kernel32.OpenProcess(LAUNCHER_ACCESS, False, pid)
     if not handle:
@@ -130,10 +130,10 @@ def _watched(pid: int, gate: int) -> int | None:
 
 
 def launchers_of(ancestors: list[int], gate_pid: int, gate: int) -> dict[int, int] | None:
-    """Handles on everything that started the gate, keyed to their pids, or None where one has ended.
+    """Handles on what started the gate, keyed to their pids, or None where one has ended.
 
-    Every MSYS ancestor the gate named, a stop ending the outermost shell while a wrapper script in
-    between outlives it; and above the topmost, its Windows parent, a native launcher.
+    Every MSYS ancestor, a stop ending the outermost shell while a wrapper script outlives it; and
+    the topmost's Windows parent, a native launcher.
     """
     handles: dict[int, int] = {}
     for pid in ancestors:

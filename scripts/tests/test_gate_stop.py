@@ -56,9 +56,9 @@ STILL_S: Final = 1.0
 STARTED_BOUND_S: Final = 60
 STOPPED_BOUND_S: Final = 30
 
-# A shell as a harness runs a command, `:` keeping bash from replacing itself with the gate; a shell
-# running the gate through a script of its own, which outlives the shell a stop ends; and a native
-# process, which leaves MSYS no parent to name.
+# A shell as a harness runs a command, `:` keeping bash from replacing itself with the gate; one
+# running it through a script, which outlives the shell a stop ends; and a native process, leaving
+# MSYS no parent to name.
 LAUNCHERS: Final = ("a shell", "a shell through a script", "a native process")
 WRAPPER: Final = """#!/usr/bin/env bash
 "$@"
