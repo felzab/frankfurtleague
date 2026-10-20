@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import ast
 import contextlib
+import functools
 import importlib
 import os
 import re
@@ -203,6 +204,30 @@ def run_shell(
     )
 
 
+_SECOND_DEFINITION_RE: Final = re.compile(r"\b[A-Za-z_][\w-]*\s*\(\)\s*\{")
+
+
+@functools.cache
+def _closed_on_its_line(opening: str) -> bool | None:
+    """bash's own verdict on whether the opening line ends the definition; None where it starts no body one brace closes.
+
+    Asked of bash because a pattern misreads quotes, expansions and every terminator after the brace.
+    """
+
+    def parses(text: str) -> bool:
+        assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+        said = subprocess.run([BASH, "-n"], input=text.encode("utf-8"), capture_output=True, check=False)
+        # A warning, such as a here-document running to the end of the text, is a body bash read past the line.
+        return said.returncode == 0 and not said.stderr
+
+    if parses(opening + "\n"):
+        return True
+    # `:`, as a group holding no command is a syntax error. None is a body one brace cannot close
+    # (`scripts/lib/_lib.sh :: require_file`'s open quote), where the walk would take the next
+    # function's closing line as this one's.
+    return False if parses(opening + "\n:\n}\n") else None
+
+
 def lift_function(script: Path, name: str, indent: str = "") -> str:
     """One shell function's source, dedented to the margin: a one-line one whole, a block by its closing line.
 
@@ -213,17 +238,15 @@ def lift_function(script: Path, name: str, indent: str = "") -> str:
     # inside its script is still found. The run of spaces is the column `scripts/gate/verify.sh`
     # aligns a block of definitions on.
     opens = re.compile(re.escape(indent) + re.escape(name) + r"\(\) +\{")
-    start = next((i for i, line in enumerate(lines) if opens.match(line)), -1)
-    assert start >= 0, f"{_cited(script)} no longer defines {name}"
-    # bash ends a brace group's list before its `}`, so a body on the opening line ends the function:
-    # read off that terminator, never a bare `}` closing a parameter expansion. A comment may follow;
-    # `}#` is one word.
-    if re.search(r";\s*\}(\s+#.*)?$", lines[start].rstrip()):
-        return lines[start].removeprefix(indent)
-    # A body the opening line does not close leaves its braces deeper than the group's own
-    # (`scripts/lib/_lib.sh :: require_file`), and the walk below would take the next function's
-    # closing line as this one's -- a lift that still runs.
-    assert lines[start].count("{") - lines[start].count("}") <= 1, f"{_cited(script)}'s {name} opens a body its own line does not close"
+    start, opener = next(((i, found) for i, line in enumerate(lines) if (found := opens.match(line))), (-1, None))
+    assert opener is not None, f"{_cited(script)} no longer defines {name}"
+    opening = lines[start]
+    # bash's verdict is on the whole line, so a second definition opened there would answer for this one.
+    assert not _SECOND_DEFINITION_RE.search(opening, opener.end()), f"{_cited(script)}'s {name} shares its opening line: {opening}"
+    closed = _closed_on_its_line(opening)
+    assert closed is not None, f"{_cited(script)}'s {name} opens a body its own line does not close: {opening}"
+    if closed:
+        return opening.removeprefix(indent)
     end = next((i for i in range(start + 1, len(lines)) if lines[i] == f"{indent}}}"), -1)
     assert end > start, f"{_cited(script)}'s {name} closes on neither its own opening line nor a line at that indent"
     return "\n".join(line.removeprefix(indent) for line in lines[start : end + 1])

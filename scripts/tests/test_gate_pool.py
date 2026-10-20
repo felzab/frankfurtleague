@@ -3,7 +3,8 @@
 `scripts/gate/gate_pool.py` is the only channel a unit's status travels, so a loss, a rename or a
 reordering here is a gate that closes green over a check that failed. The wiring that ends a run
 early is held here too, because none of it runs on the machine this suite runs on. Every case
-drives the module as a subprocess, for `scripts/tests/conftest.py :: withdraw`'s reason.
+running the module runs it in a process of its own, for `scripts/tests/conftest.py :: withdraw`'s
+reason; the cases reading the gate's own text run nothing.
 """
 
 from __future__ import annotations
@@ -716,35 +717,83 @@ def _pooled_units(text: str) -> dict[str, set[str]]:
     return pooled
 
 
+def _silent() -> float:
+    """The longest a unit's last write precedes its notice, at the gate's own bounds.
+
+    The first poll after the write marks it, and the notice comes at the first poll `STALL_S` past that.
+    """
+    stall, poll = float(declared(POOL, "STALL_S")), float(declared(POOL, "STALL_POLL_S"))
+    return poll + math.ceil(stall / poll) * poll
+
+
+# The watcher on a clock each poll advances by its own wait, a write just before the first poll, at the
+# gate's own bounds: what it names and when, with no machine's scheduling in the figure.
+TICKING: Final[tuple[str, ...]] = (
+    "clock = [0.0]",
+    "gate_pool.time.monotonic = lambda: clock[0]",
+    "class Ticking:",
+    "    def wait(self, timeout):",
+    "        clock[0] += timeout",
+    "        return clock[0] > 2 * BOUND",
+    "named = []",
+    "running = pool()",
+    "running.live['quiet'] = None",
+    "(Path(DIRECTORY) / 'quiet.out').write_bytes(b'last words')",
+    "gate_pool.watch_stalls(running, Ticking(), lambda notice: named.append(clock[0]), None)",
+    "assert named, 'a unit silent for twice the bound was never named'",
+    "assert named[0] <= BOUND, f'named {named[0]:g} s after its last write, past the {BOUND:g} s the timeout case counts'",
+)
+
+
+def test_a_silent_unit_is_named_no_later_than_the_timeout_case_counts(tmp_path: Path) -> None:
+    """The timeout case below models the watcher's timing rather than running it, so a watcher naming a unit later passes it."""
+    result = _drive((f"BOUND = {_silent()!r}", *TICKING), tmp_path)
+    assert result.returncode == 0, result.stderr
+
+
+# The widest wait yet seen from a job's start to its first step, which the budget's span leaves out,
+# over 2,235 verify jobs from 2026-09-26 to 2026-10-02: an observation, not a bound.
+PRE_STEP_S: Final = 108
+
+
 def test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout() -> None:
     """A job its timeout ends names no unit, so a stall starting as late as the job's budget is named inside it.
 
-    A pytest unit is named `FAULTHANDLER_S` later than any other: its dump restarts the silence.
+    GitHub documents neither when that clock starts nor how long a job waits for its first step.
     """
     text = VERIFY.read_text(encoding="utf-8")
     faulthandler = _faulthandler_s(text)
-    stall, poll = float(declared(POOL, "STALL_S")), float(declared(POOL, "STALL_POLL_S"))
-    # The first poll after a unit's last write marks it, and the notice comes at the first poll `STALL_S` past that.
-    silent = poll + math.ceil(stall / poll) * poll
+    silent = _silent()
     pooled = _pooled_units(text)
     started = set().union(*pooled.values())
     dumping = {name.removeprefix("do_") for name in BODY_RE.findall(text) if DUMPS in lift_function(VERIFY, name)}
-    assert dumping, "no gate pytest dumps its stack, so the delay it adds below is never counted"
     assert dumping <= started, f"a gate pytest runs where no notice reaches its stack: {sorted(dumping - started)}"
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    # A shape the two readers skip is a scope or a timeout read as absent, which passes; a step's own
+    # timeout ends the job naming no unit, earlier than the job's.
+    code = [line for line in workflow.splitlines() if not line.lstrip().startswith("#")]
+    runs = [line.strip() for line in code if "verify.sh" in line and not SCOPE_RUN_RE.match(line)]
+    assert not runs, f"the gate runs in a shape this case cannot read, so its scope's timeout goes unchecked: {runs}"
+    timeouts = [line.strip() for line in code if "timeout-minutes" in line and not TIMEOUT_RE.match(line)]
+    assert not timeouts, f"a timeout this case cannot read, which may end a job before its stall is named: {timeouts}"
     rows = committed()
     held: set[str] = set()
     late: list[str] = []
-    for job, body in job_bodies(WORKFLOW.read_text(encoding="utf-8")).items():
+    for job, body in job_bodies(workflow).items():
         for scope in (scope for scope in SCOPE_RUN_RE.findall(body) if scope in pooled):
             timeout = TIMEOUT_RE.search(body)
             assert timeout is not None, f"`{job}` sets no timeout-minutes of its own, so this case cannot read when GitHub ends it"
             assert job in rows, f"`{job}` has no row in .github/gate-wall-clock.tsv to read its budget from"
             # Nothing bounds the green span of a job carrying no budget, so its timeout alone is held.
             budget = rows[job].budget if rows[job].budget is not None else 0
+            # A pytest unit is named this much later than any other: its dump restarts the silence.
             dump = faulthandler if pooled[scope] & dumping else 0
-            named = budget + dump + silent
+            named = PRE_STEP_S + budget + dump + silent
             if named >= int(timeout[1]) * 60:
-                late.append(f"`{job}`: budget {budget} s + dump {dump} s + silence {silent:g} s = {named:g} s, against {timeout[1]} minutes")
+                late.append(
+                    f"`{job}`: wait {PRE_STEP_S} s + budget {budget} s + dump {dump} s + silence {silent:g} s = {named:g} s,"
+                    f" against {timeout[1]} minutes"
+                )
             held.add(scope)
     assert held == set(pooled), f"scopes that pool and that no job runs, so nothing here read their timeout: {sorted(set(pooled) - held)}"
     assert not late, "a stall would be ended by the job's timeout before it is named:\n" + "\n".join(late)
@@ -766,7 +815,7 @@ def test_a_db_case_that_stalls() -> None:
 """
 SHORTENED: Final = (
     ("gate/verify.sh", "FAULTHANDLER_S=180\n", "FAULTHANDLER_S=1\n"),
-    ("gate/gate_pool.py", "STALL_S: Final = 300.0\n", "STALL_S: Final = 1.0\n"),
+    ("gate/gate_pool.py", "STALL_S: Final = 185.0\n", "STALL_S: Final = 1.0\n"),
     ("gate/gate_pool.py", "STALL_POLL_S: Final = 5.0\n", "STALL_POLL_S: Final = 0.1\n"),
 )
 # Above the stalled case's own 60 s, so a notice that never came fails here rather than hanging.
