@@ -4,7 +4,6 @@ import { connection } from "next/server";
 
 import { getLaufendeFassung, getLaufendesLabel } from "@/core/einwilligung";
 import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL } from "@/core/einwilligungSeiten";
-import { nullUnlessContractBreak } from "@/core/errors";
 import { AdminBewerbungView } from "@/features/bewerbungen/components/views/AdminBewerbungView";
 import { getBewerbungById } from "@/features/bewerbungen/queries";
 import { resolveBewerbungId } from "@/features/bewerbungen/resolvers";
@@ -13,6 +12,7 @@ import { getAdminSaisons } from "@/features/saisons/queries";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { buildGruppeOffer } from "@/features/teams/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
+import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { NextPageProps } from "@/shared/types/types";

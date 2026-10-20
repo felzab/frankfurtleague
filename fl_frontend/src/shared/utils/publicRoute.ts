@@ -1,11 +1,12 @@
 import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, isContractBreak } from "@/core/errors";
+import { isContractBreak } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestWriteSent, requestWriteTags, runAnsweringOwnCut } from "@/core/requestScope";
 
-import { isRefusal, isRuleRefusal, outcomeUnknown, refusedFailure } from "./actionError";
+import { isRuleRefusal, outcomeUnknown, refusedFailure } from "./actionError";
+import { explainsItself, logCodedFailure } from "./degradedRead";
 import { UNHANDLED_FIELD_REFUSAL, UNKNOWN_REFUSAL } from "./refusal";
 import { runWithIncomingTrace } from "./traceScope";
 import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
@@ -28,12 +29,7 @@ export const SCHON_VORLIEGEND = "Diese Angaben liegen uns bereits vor.";
 
 /** A route's error line, carrying the codes a thrown API error holds. */
 function logRouteError(message: string, error: unknown): void {
-  const typed = error instanceof APIBadStatusError || error instanceof APINetworkError || error instanceof APIMalformedDataError;
-  logger.error(message, error, {
-    error_code: typed || error instanceof ApiUnsentError ? error.code : "FE-ACT-001",
-    server_error_code: error instanceof APIBadStatusError ? error.serverErrorCode : undefined,
-    status: error instanceof APIBadStatusError || error instanceof APIMalformedDataError ? error.statusCode : undefined,
-  });
+  logCodedFailure(message, error, "FE-ACT-001");
 }
 
 /**
@@ -45,11 +41,7 @@ export async function readAfterAnsweredWrite<T>(routeName: string, read: () => P
     return await runAnsweringOwnCut(read);
   } catch (error) {
     if (isContractBreak(error)) logRouteError(`Public route read broke its contract after its write was answered: ${routeName}`, error);
-    // Only an unanswered read and a refused one explain themselves: anything else, a bug in a read's narrowing
-    // included, would otherwise leave a plausible panel standing with nothing logged.
-    else if (!(error instanceof APINetworkError || error instanceof ApiUnsentError || isRefusal(error))) {
-      logRouteError(`Public route read failed after its write was answered: ${routeName}`, error);
-    }
+    else if (!explainsItself(error)) logRouteError(`Public route read failed after its write was answered: ${routeName}`, error);
     return null;
   }
 }

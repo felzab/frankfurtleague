@@ -216,16 +216,6 @@ export function isContractBreak(error: unknown): boolean {
   return error instanceof ContractBreakError || error instanceof APIMalformedDataError;
 }
 
-/**
- * A degraded read's rejection handler: a failed read settles to the page's `null`, and a contract
- * break reaches the error boundary, which logs it.
- */
-export function nullUnlessContractBreak(error: unknown): null {
-  if (isContractBreak(error)) throw error;
-
-  return null;
-}
-
 export class APINetworkError extends Error {
   readonly code = "FE-NET-001";
   traceId: string;

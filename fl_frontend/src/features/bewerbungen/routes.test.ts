@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { ADMIN_SIDEMENU_STRUCTURE } from "@/features/admin/constants.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
 import {
   answer,
   answerReadsWith,
@@ -292,6 +292,8 @@ describe("what the public application page answers for a season nobody knows", (
 
     assert.equal(props.isUnlesbar, true, "a failed window read is reported as a state the page knows");
     assert.equal(props.fenster, null, "a failed window read hands the view a window it never got");
+    // Untyped, as a bug in the read's narrowing throws: only this line tells it from a read that failed.
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
   });
 });
 
@@ -340,6 +342,7 @@ describe("what the public application page reads while its window runs", () => {
 
     assert.equal(props.isSchulenLesbar, false, "a failed club list read is reported as a list that was read");
     assert.deepEqual(props.schulen, [], "a failed club list read hands the view clubs it never got");
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
   });
 
   /* The season's ASSIGNED colours, never another application's wish: a wish is no claim on a colour,
@@ -357,6 +360,7 @@ describe("what the public application page reads while its window runs", () => {
 
     assert.deepEqual(props.vergebeneFarben, []);
     assert.equal(props.isSchulenLesbar, true, "the colours' failure took the club list with it");
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
   });
 });
 
@@ -380,6 +384,8 @@ describe("the admin application page over a registry it cannot read", () => {
      decision on the application standing. */
   it("hands the view no reseat, and renders, where the registry read failed", async () => {
     assert.equal((await adminBody(new Error("backend unreachable"))).neubesetzung, null, "a failed registry read reached the view as words");
+    // Untyped, as a bug in the read's narrowing throws: only this line tells it from a read that failed.
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
   });
 
   it("hands the view the reseat's label and words where the registry answers", async () => {

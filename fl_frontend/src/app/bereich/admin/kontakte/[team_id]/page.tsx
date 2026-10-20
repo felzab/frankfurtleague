@@ -3,13 +3,13 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { getLaufendesLabel } from "@/core/einwilligung";
-import { nullUnlessContractBreak } from "@/core/errors";
 import { AdminKontakteEditView } from "@/features/kontakte/components/views/AdminKontakteEditView";
 import { resolveTeamSaisonMembership } from "@/features/kontakte/utils";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
+import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { TeamSaisonMembership } from "@/features/teams/types";

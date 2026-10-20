@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
-import { nullAfterLoggingContractBreak } from "@/core/contractBreak";
 import { istFassungBekannt } from "@/core/einwilligung";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { AdminSpielerEditView } from "@/features/spieler/components/views/AdminSpielerEditView";
@@ -12,6 +11,7 @@ import { resolveSpielerId } from "@/features/spieler/resolvers";
 import { collectHeldRollen, countLiveSquadRows, squadIsFull } from "@/features/spieler/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
+import { nullAfterLoggingContractBreak } from "@/shared/utils/degradedRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";

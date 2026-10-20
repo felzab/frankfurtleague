@@ -10,7 +10,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
-import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleLogger, doubleToasts, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { answerReadsWith, pageBody } from "@/shared/testing/pageHarness.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
@@ -22,6 +22,7 @@ import type { ReactElement } from "react";
 
 const { raised: toasts } = doubleToasts();
 const fetchMock = doubleFetch();
+doubleLogger();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SpielerAdresswechselView } = await import("./SpielerAdresswechselView.tsx");
@@ -201,6 +202,16 @@ describe("the pupil's address page over a read that did not answer", () => {
     });
 
     assert.deepEqual(await pageStart(), { zustand: "unlesbar" });
+  });
+
+  /* A bug in the read's narrowing opens the same panel as a read that failed, so only its line tells them apart. */
+  it("logs a read that threw untyped, and opens on the same state", async () => {
+    answerReadsWith(() => {
+      throw new TypeError("Cannot read properties of undefined (reading 'zustand')");
+    });
+
+    assert.deepEqual(await pageStart(), { zustand: "unlesbar" });
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
   });
 
   /* An answer off its schema is a broken contract, never a failed read: the error boundary logs it, and the reload panel would hide it. */

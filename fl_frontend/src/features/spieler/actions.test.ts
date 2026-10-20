@@ -277,9 +277,10 @@ const fullIn = (body: ReactElement) => Object.fromEntries(teamsOf(body).map((tea
 describe("the player editor over a registry it cannot read", () => {
   /* The registry tells a known label from an unknown one, which the consent panel says beside it; its
      failure leaves that unchecked rather than taking the editor down. */
-  it("hands the editor an unchecked label, and renders, where the registry read failed", async () => {
+  it("hands the editor an unchecked label, renders, and logs it, where the registry read failed", async () => {
     answerPages([person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }])]);
     pageAnswers.registerFehlt = true;
+    errorLines.length = 0;
 
     const body = await editorPageBody();
 
@@ -287,6 +288,12 @@ describe("the player editor over a registry it cannot read", () => {
       (body.props as { istFassungBekannt: unknown }).istFassungBekannt,
       null,
       "a failed registry read reached the editor as a verdict",
+    );
+    // Untyped, as a cached read's throw arrives: only this line tells it from a bug.
+    assert.deepEqual(
+      errorLines.map(({ meta }) => (meta as { error_code?: string }).error_code),
+      ["FE-RSC-001"],
+      "the failure went unlogged",
     );
   });
 

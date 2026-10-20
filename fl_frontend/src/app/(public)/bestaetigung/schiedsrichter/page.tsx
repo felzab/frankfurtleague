@@ -3,11 +3,11 @@ import { connection } from "next/server";
 
 import { getLaufendeFassung } from "@/core/einwilligung";
 import { gekeyteFassung, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
-import { nullUnlessContractBreak } from "@/core/errors";
 import { SchiedsrichterBestaetigungView } from "@/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView";
 import { SCHIEDSRICHTER_UMFANG_WERTE } from "@/features/schiedsrichter/constants";
 import { getSchiedsrichterBestaetigungAnsicht } from "@/features/schiedsrichter/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
+import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { openGraphFor } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 

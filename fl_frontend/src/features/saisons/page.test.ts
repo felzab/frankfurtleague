@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
 import { APIBadStatusError, APIMalformedDataError } from "@/core/errors.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, pageBody, saisonFields } from "@/shared/testing/pageHarness.ts";
 
 import { FLSaisonSchema } from "./schemas.ts";
@@ -65,6 +65,14 @@ describe("the count beside the rollover press", () => {
     });
 
     assert.equal((await rollover()).loeschung, "unlesbar");
+  });
+
+  /* A bug in the count's read shows the same unreadable count as a failed read, so only its line tells them apart. */
+  it("logs a count read that threw untyped", async () => {
+    vorschau = new TypeError("Cannot read properties of undefined (reading 'spieler')");
+
+    assert.equal((await rollover()).loeschung, "unlesbar");
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
   });
 
   /* A contract break is a deploy out of step, which the error boundary logs, as every degraded read sends one. */

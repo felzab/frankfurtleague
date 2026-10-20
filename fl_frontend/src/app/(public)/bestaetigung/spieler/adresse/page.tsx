@@ -1,11 +1,11 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { isContractBreak } from "@/core/errors";
 import { startOf } from "@/features/spieler/adresswechselStart";
 import { SpielerAdresswechselView } from "@/features/spieler/components/views/SpielerAdresswechselView";
 import { getSpielerAdresswechselAnsicht } from "@/features/spieler/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
+import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { SpielerAdresswechselStart } from "@/features/spieler/adresswechselStart";
@@ -42,10 +42,7 @@ async function SpielerAdresswechselContent(props: NextPageProps) {
   // no failed read: it reaches the error boundary, which logs it.
   const start: SpielerAdresswechselStart = await getSpielerAdresswechselAnsicht(token).then(
     (gelesen) => startOf(gelesen, token),
-    (error: unknown): SpielerAdresswechselStart => {
-      if (isContractBreak(error)) throw error;
-      return { zustand: "unlesbar" };
-    },
+    (error: unknown): SpielerAdresswechselStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
   );
 
   return <SpielerAdresswechselView start={start} />;
