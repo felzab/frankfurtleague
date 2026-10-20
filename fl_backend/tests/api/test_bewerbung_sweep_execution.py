@@ -2164,3 +2164,49 @@ class TestTheSeasonsEndStripsItsConfirmations:
         stripped = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
         assert stripped["antwort"] == {**settled["antwort"], "begruendung": None}
+
+    def test_a_referee_rows_reason_goes_and_its_answer_stays(self, mongo_replica_set_url: str):
+        """Settled for the referee with a reason, the next season's twin the control; each patched once, so the log holds its image."""
+
+        def referee_row(saison_id: str) -> dict[str, Any]:
+            return {
+                **a_declined_confirmation(CLUB_OID, saison_id),
+                "partei": {"art": "schiedsrichter", "schiedsrichter_id": ObjectId()},
+                "kontakte": None,
+                "antwort": {
+                    "art": "zugesagt",
+                    "am": f"{saison_id}-04-03",
+                    "von": {"art": "admin"},
+                    "vorschlag": None,
+                    "begruendung": "Telefonisch",
+                },
+            }
+
+        rows = {"this season": referee_row(SAISON_ID), "next season": referee_row(NEXT_SAISON_ID)}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            confirmations = database[Collection.SPIELBESTAETIGUNGEN]
+            await confirmations.insert_many([dict(row) for row in rows.values()])
+            for row in rows.values():
+                await patch_one_in_db(
+                    collection=confirmations,
+                    db_filter={"_id": row["_id"]},
+                    update={"$set": {"erinnert_am": []}},
+                    return_document=ReturnDocument.BEFORE,
+                )
+            await sweep(database, client)
+            stored = {name: await confirmations.find_one({"_id": row["_id"]}) for name, row in rows.items()}
+            images = {
+                name: (await database[Collection.AKTIONEN].find_one({"document_id": row["_id"], "before": {"$ne": None}}) or {})["before"]
+                for name, row in rows.items()
+            }
+
+            return stored, images
+
+        stored, images = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+
+        # Never an object of three nulls: a referee row holds no seat to strip.
+        for left in (stored["this season"], images["this season"]):
+            assert (left["antwort"], left["kontakte"]) == ({**rows["this season"]["antwort"], "begruendung": None}, None)
+        for left in (stored["next season"], images["next season"]):
+            assert left["antwort"] == rows["next season"]["antwort"]
