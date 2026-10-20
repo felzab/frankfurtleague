@@ -33,8 +33,7 @@ const SPIELER: FLSpielerWithMemberships = FLSpielerWithMembershipsSchema.parse({
   einwilligung: bestaetigteEinwilligung(),
   // A person the admission has never written an address for, which is every stored row until it has.
   email: null,
-  adresswechsel: null,
-  adresswechsel_abgelaufen: false,
+  adresswechsel_id: null,
   memberships: [MEMBERSHIP],
 } satisfies FLSpielerWithMemberships);
 

@@ -51,12 +51,13 @@ DATENSAETZE: Final[Mapping[JournalArt, frozenset[Collection]]] = {
         {Collection.SPIELER, Collection.SCHIEDSRICHTER, Collection.REGISTRIERUNGEN, Collection.SAISON_TEAMS, Collection.BEWERBUNGEN}
     ),
     "widerspruch": frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN}),
-    "adresswechsel_abgelehnt": frozenset({Collection.SPIELER, Collection.SCHIEDSRICHTER}),
-    "adresswechsel_gestoppt": frozenset({Collection.SPIELER, Collection.SCHIEDSRICHTER}),
-    # Ended by an administrator, by a start replacing it, or by the hourly pass refusing it at the end of its waiting time.
-    "adresswechsel_verworfen": frozenset({Collection.SPIELER, Collection.SCHIEDSRICHTER}),
-    # The row that carried the change: the replay moves every record its restored address holds.
-    "adresswechsel_wirksam": frozenset({Collection.SPIELER, Collection.SCHIEDSRICHTER}),
+    # Each on the change's own record, whose id names one change: a start never reuses one.
+    "adresswechsel_abgelehnt": frozenset({Collection.ADRESSWECHSEL}),
+    "adresswechsel_gestoppt": frozenset({Collection.ADRESSWECHSEL}),
+    # Ended by an administrator, by a start replacing it, by finding nothing to move, or by the hourly pass refusing it.
+    "adresswechsel_verworfen": frozenset({Collection.ADRESSWECHSEL}),
+    # The replay moves everything the restored address on file holds, as the effect did.
+    "adresswechsel_wirksam": frozenset({Collection.ADRESSWECHSEL}),
 }
 
 _HASH: Final = re.compile(r"[0-9a-f]{64}")

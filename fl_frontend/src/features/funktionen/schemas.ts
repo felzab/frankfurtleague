@@ -111,11 +111,8 @@ export const FLErasureAnsichtRegistrierungSchema = FLSelbstErasureRegistrierungS
   status: FLRegistrierungSchema.shape.status,
 });
 
-/** A referee row holding a change to the address still to be confirmed, which names no person to show. */
-export const FLErasureAnsichtAdresswechselSchema = z.object({ schiedsrichter_id: CustomObjectIdStringSchema });
-
-/** A pupil row holding a change to the address still to be confirmed, as the referee's above. */
-export const FLErasureAnsichtSpielerAdresswechselSchema = z.object({ spieler_id: CustomObjectIdStringSchema });
+/** Another address's pending change naming this one as its new address, which names no person to show. */
+export const FLErasureAnsichtAdresswechselSchema = z.object({ adresswechsel_id: CustomObjectIdStringSchema });
 
 /**
  * Mirrors `FLErasureAnsichtResponse`: every record the erasure would reach, by kind, name and id, and never the
@@ -128,7 +125,6 @@ export const FLErasureAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   bewerbungen: z.array(FLErasureAnsichtBewerbungSchema),
   registrierungen: z.array(FLErasureAnsichtRegistrierungSchema),
   adresswechsel: z.array(FLErasureAnsichtAdresswechselSchema),
-  spieler_adresswechsel: z.array(FLErasureAnsichtSpielerAdresswechselSchema),
   verwaltung: FLSubjektResponseSchema.shape.verwaltung,
   gesperrt: z.boolean(),
 });

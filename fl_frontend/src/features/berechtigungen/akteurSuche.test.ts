@@ -59,6 +59,7 @@ describe("the grants list's search, over the actor and the address its cards pri
     erteilt_von: von,
     erteilt_von_gesperrt: vonGesperrt,
     erteilt_am: "2026-09-27T10:00:00Z",
+    adresswechsel: null,
   });
   const ROWS = {
     benannt: "vorstand@schule.de",

@@ -72,7 +72,13 @@ const {
   buildSpielErinnerungEmail,
   buildSpielNeueAnsetzungEmail,
 } = await import("./spielEmail.ts");
-const { buildAdresswechselEmail, buildAdresswechselHinweisEmail, buildAdresswechselWirksamEmail } = await import("./adresswechselEmail.ts");
+const {
+  buildAdresswechselEmail,
+  buildAdresswechselGenehmigungEmail,
+  buildAdresswechselHinweisEmail,
+  buildAdresswechselNichtWirksamEmail,
+  buildAdresswechselWirksamEmail,
+} = await import("./adresswechselEmail.ts");
 const { art21Satz, escapeHtml, FALLBACK_SATZ, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
 const { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
 
@@ -257,12 +263,11 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
     buildSperreEmail({ grund: "Falsches Geburtsdatum bei der Anmeldung", gesperrtBisSaisonId: "2031", origin: origin }),
   // The waiting time's variant, the one carrying every sentence a link mail can.
   buildAdresswechselEmail: (origin) =>
-    buildAdresswechselEmail({ origin: origin, art: "spieler", token: "beispiel-sieben", weg: "wartezeit", gueltigBis: "2026-10-05T10:00:00Z" }),
+    buildAdresswechselEmail({ origin: origin, token: "beispiel-sieben", weg: "wartezeit", gueltigBis: "2026-10-05T10:00:00Z" }),
   // The approval's variant, the one carrying two controls.
   buildAdresswechselHinweisEmail: (origin) =>
     buildAdresswechselHinweisEmail({
       origin: origin,
-      art: "schiedsrichter",
       stoppToken: "beispiel-sechs",
       weg: "freigabe",
       gueltigBis: "2026-10-05T10:00:00Z",
@@ -270,6 +275,8 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
     }),
   buildAdresswechselWirksamEmail: (origin) =>
     buildAdresswechselWirksamEmail({ origin: origin, vorname: "Lena", zeitpunkt: new Date("2026-10-05T10:00:00Z") }),
+  buildAdresswechselNichtWirksamEmail: (origin) => buildAdresswechselNichtWirksamEmail({ origin: origin }),
+  buildAdresswechselGenehmigungEmail: (origin) => buildAdresswechselGenehmigungEmail({ origin: origin }),
   buildSpielAnfrageEmail: (origin) =>
     buildSpielAnfrageEmail({
       origin: origin,

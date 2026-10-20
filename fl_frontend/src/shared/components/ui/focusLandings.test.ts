@@ -65,6 +65,8 @@ const { FormSpielplanSection } = await import("@/features/saisons/components/for
 const { RegistrierungenView } = await import("@/features/registrierungen/components/views/RegistrierungenView.tsx");
 const { SchiedsrichterEinsaetzeSection } = await import("@/features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx");
 const { FormPersonLoeschenSection } = await import("@/features/funktionen/components/forms/AdminLoeschungForm/FormPersonLoeschenSection.tsx");
+const { FormAdresswechselSection } =
+  await import("@/features/adresswechsel/components/forms/AdminAdresswechselForm/FormAdresswechselSection.tsx");
 const { EinwilligungPanel } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungPanel.tsx");
 const { EinwilligungForm } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungForm.tsx");
 const { patchBewerbungEinwilligungAction } = await import("@/features/kontakte/personActions.ts");
@@ -180,8 +182,8 @@ const schiedsrichter = (id: string, name: string, inactive_since: string | null)
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
-  adresswechsel: null,
-  abgelaufen: { bestaetigung: false, adresswechsel: false },
+  adresswechsel_id: null,
+  abgelaufen: { bestaetigung: false },
 });
 const SR_A = "68c1f0a2b3c4d5e6f7a8b921";
 const SR_B = "68c1f0a2b3c4d5e6f7a8b922";
@@ -212,21 +214,8 @@ const SAISON_TEAMS = [{ teamId: TEAM_A, name: "SG Alpha", shorthand: "SGA" }];
 const spielerList = (rows: ReturnType<typeof spieler>[]) =>
   h(AdminSpielerView, { spieler: rows, teams: SAISON_TEAMS, selectedSaisonId: "2026" });
 
-/** A pupil's new address waiting on its mailbox. */
-const SP_ADRESSWECHSEL = {
-  email: "lena@neu.example",
-  weg: "konto" as const,
-  verschickt_am: "2026-09-21",
-  gueltig_bis: "2026-10-05T11:30:00Z",
-  freigegeben_am: null,
-  grund: null,
-  bestaetigt_am: null,
-  wirksam_ab: null,
-  zustellung: null,
-};
-
 /** The player's editor in the season its squad row stands in, retired as the case says. */
-const spielerEditor = (inactiveSince: string | null, inKader = true, adresswechsel: typeof SP_ADRESSWECHSEL | null = null) =>
+const spielerEditor = (inactiveSince: string | null, inKader = true) =>
   h(AdminSpielerEditView, {
     istFassungBekannt: true,
     spieler: {
@@ -236,8 +225,7 @@ const spielerEditor = (inactiveSince: string | null, inKader = true, adresswechs
       inactive_since: inactiveSince,
       geburtsdatum: "2009-05-04",
       email: "lena.meier@schule.example",
-      adresswechsel: adresswechsel,
-      adresswechsel_abgelaufen: false,
+      adresswechsel_id: null,
     },
     einwilligung: bestaetigteEinwilligung(),
     saison: {
@@ -279,7 +267,9 @@ const teamEditor = (inactiveSince: string | null, { gruppe = "A" as "A" | "B" | 
       saisonId: "2026",
       saisonStatus: "future" as const,
       membership:
-        gruppe === null ? null : { gruppe, austritt: null, trikot_farbe: null, kontakte: null, bestaetigungen: null, kontakte_stand: "stand" },
+        gruppe === null
+          ? null
+          : { gruppe, austritt: null, trikot_farbe: null, kontakte: null, bestaetigungen: null, adresswechsel: null, kontakte_stand: "stand" },
     },
     today: "2026-09-14",
     gruppeLocked: locked,
@@ -299,6 +289,31 @@ const teamEditor = (inactiveSince: string | null, { gruppe = "A" as "A" | "B" | 
   });
 
 const SR_RECORD = { ...schiedsrichter(SR_A, "Pia Kraft", null) };
+
+/** What the address tool reads of a pupil's address: one record to move, no change standing. */
+const TOOL_ANSICHT = {
+  adresse: "lena.meier@schule.example",
+  bestand: { spieler: 1, schiedsrichter: 0, sitze: 0, bewerbungssitze: 0, registrierungen: 0, berechtigung: null },
+  moeglich: true,
+  offen: null,
+};
+
+/** A change at that address waiting on its new mailbox, which the tool's re-send and discard name by id. */
+const TOOL_OFFEN = {
+  id: "68c1f0a2b3c4d5e6f7a8b9e0",
+  email: "lena@neu.example",
+  weg: "konto" as const,
+  grund: null,
+  wartet_auf: "neue_adresse" as const,
+  verschickt_am: "2026-09-21",
+  gueltig_bis: "2026-10-05T11:30:00Z",
+  freigegeben_am: null,
+  bestaetigt_am: null,
+  wirksam_ab: null,
+  zustellung: null,
+  abgelaufen: false,
+  genehmigung: null,
+};
 
 /** A pick in one of react-aria's pickers: its trigger, then the option. */
 const pickOption = async (user: UserEvent, box: RegExp, option: RegExp) => {
@@ -500,7 +515,15 @@ const kontakteEditor = (kontakte: Kontakte | null) =>
       saison: {
         saisonId: "2026",
         saisonStatus: "active",
-        membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, bestaetigungen: null, kontakte_stand: "9f2c" },
+        membership: {
+          gruppe: "A",
+          austritt: null,
+          trikot_farbe: null,
+          kontakte,
+          bestaetigungen: null,
+          adresswechsel: null,
+          kontakte_stand: "9f2c",
+        },
       },
     }),
   });
@@ -541,6 +564,7 @@ const zugang = (id: string, adresse: string, verwaltung: "owner" | "administrati
   erteilt_von: "inhaber@example.org",
   erteilt_von_gesperrt: false,
   erteilt_am: "2026-09-01T08:00:00.000Z",
+  adresswechsel: null,
 });
 const zugaenge = (rows: ReturnType<typeof zugang>[]) =>
   h(AdminBerechtigungenView, { berechtigungen: rows, uebersprungen: 0, inhaberAdresse: "inhaber@example.org" });
@@ -1292,53 +1316,32 @@ const LANDINGS: Record<string, Landing> = {
     remount: true,
     lands: () => screen.getByRole("button", { name: "Link erneut senden: Bestätigung" }),
   },
-  /* The discard takes its own panel away, so the focus lands on the contact panel beside it, which stays. */
-  "a referee's waiting address discarded, on the contact panel's heading": {
-    before: () =>
-      h(AdminSchiedsrichterEditView, {
-        istFassungBekannt: true,
-        schiedsrichter: {
-          ...SR_RECORD,
-          adresswechsel: {
-            email: "pia@neu.example",
-            weg: "konto" as const,
-            verschickt_am: "2026-09-21",
-            gueltig_bis: "2026-10-05T11:30:00Z",
-            freigegeben_am: null,
-            grund: null,
-            bestaetigt_am: null,
-            wirksam_ab: null,
-            zustellung: null,
-          },
-        },
-        inactiveSince: null,
-      }),
+  /* The discard takes the change's own panel away, so the focus lands on the tool's heading, which stays. */
+  "a change discarded in the address tool, on the tool's heading": {
+    answers: {
+      verwirfAdresswechselAction: { success: true, message: "Verworfen." },
+      readAdresswechselAnsichtAction: { success: true, ansicht: TOOL_ANSICHT },
+    },
+    before: () => h(FormAdresswechselSection, { anfang: { status: "read", ansicht: { ...TOOL_ANSICHT, offen: TOOL_OFFEN } } }),
     press: (user) => user.click(screen.getByRole("button", { name: "Änderung verwerfen" })),
-    after: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
-    remount: true,
-    lands: () => heading(/^Kontakt/),
+    // The tool reads the address again itself, so the page hands it nothing new.
+    after: () => h(FormAdresswechselSection, { anfang: { status: "read", ansicht: { ...TOOL_ANSICHT, offen: TOOL_OFFEN } } }),
+    lands: () => heading(/^Adresse ändern/),
   },
-  /* The referee's twin: the discard takes its own panel away, and the address panel beside it stays. */
-  "a pupil's waiting address discarded, on the address panel's heading": {
-    before: () => spielerEditor(null, true, SP_ADRESSWECHSEL),
-    press: (user) => user.click(screen.getByRole("button", { name: "Änderung verwerfen" })),
-    after: () => spielerEditor(null),
-    remount: true,
-    lands: () => heading(/^E-Mail-Adresse/),
-  },
-  /* The request closes the box it was pressed in, so the focus returns to the control that opened it. */
-  "a pupil's new address requested, on the control the box opened from": {
-    before: () => spielerEditor(null),
+  /* The start closes the box it was pressed in, so the focus returns to the control that opened it. */
+  "a change started in the address tool, on the control the box opened from": {
+    answers: {
+      beantrageAdresswechselAction: { success: true, message: "Gesendet.", versand: "gesendet", hinweis: "gesendet", adresseBelegt: false },
+      readAdresswechselAnsichtAction: { success: true, ansicht: { ...TOOL_ANSICHT, offen: TOOL_OFFEN } },
+    },
+    before: () => h(FormAdresswechselSection, { anfang: { status: "read", ansicht: TOOL_ANSICHT } }),
     press: async (user) => {
-      await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
-      const box = screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ });
-      await user.clear(box);
-      await user.type(box, "lena@neu.example");
+      await user.click(screen.getByRole("button", { name: "Neue Adresse eintragen" }));
+      await user.type(screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ }), "lena@neu.example");
       await user.click(screen.getByRole("button", { name: "Link an neue Adresse senden" }));
     },
-    after: () => spielerEditor(null, true, SP_ADRESSWECHSEL),
-    remount: true,
-    lands: () => screen.getByRole("button", { name: "Adresse ändern" }),
+    after: () => h(FormAdresswechselSection, { anfang: { status: "read", ansicht: TOOL_ANSICHT } }),
+    lands: () => screen.getByRole("button", { name: "Neue Adresse eintragen" }),
   },
   // In no season, as a retired club stands: no season takes a retired club in (`REQ-ENTER-005`).
   "a club editor's reactivation, on the retirement replacing it": {
@@ -1438,7 +1441,6 @@ const LANDINGS: Record<string, Landing> = {
           bewerbungen: [],
           registrierungen: [],
           adresswechsel: [],
-          spieler_adresswechsel: [],
           verwaltung: null,
         },
       },

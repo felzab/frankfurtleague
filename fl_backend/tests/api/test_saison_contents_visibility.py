@@ -373,7 +373,9 @@ class TestTheAdminTierStillReadsThePlannedSeason:
 
     def test_the_planned_membership_is_listed(self, seeded_league: str):
         async def body(database: AsyncDatabase) -> Any:
-            return await get_team_memberships(teams_collection=database[Collection.TEAMS])
+            return await get_team_memberships(
+                teams_collection=database[Collection.TEAMS], adresswechsel_collection=database[Collection.ADRESSWECHSEL]
+            )
 
         response = on_a_league(seeded_league, body)
 

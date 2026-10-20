@@ -71,6 +71,7 @@ COMPOSED_KEY = "<composed at run time>"
 # `app/api/system/` declares none.
 SERVICE_PACKAGES: frozenset[str] = frozenset(
     {
+        "adresswechsel",
         "aktionen",
         "berechtigungen",
         "bewerbungen",

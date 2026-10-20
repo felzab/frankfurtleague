@@ -25,6 +25,7 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
+from app.api.adresswechsel.crud import end_an_emptied_change_in_session
 from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung, compose_widerruf_update
 from app.api.identitaet.crud import ERASURE_STEPS, JEDE_PERSONENGRUPPE, erase_everything
@@ -173,6 +174,12 @@ ELSEWHERE_GRANT_OID = ObjectId("6890a1b2c3d4e5f607b00093")
 REFEREE_MOVING_ELSEWHERE_OID = ObjectId("6890a1b2c3d4e5f607b00094")
 PUPIL_MOVING_ELSEWHERE_OID = ObjectId("6890a1b2c3d4e5f607b00095")
 ELSEWHERE_SEAT_ROW_OID = ObjectId("6890a1b2c3d4e5f607b00096")
+# The pending changes naming the person's address, or the one sharing its local part, as their new one.
+OTHER_REFEREE_CHANGE_OID = ObjectId("6890a1b2c3d4e5f607b000c1")
+MOVING_PUPIL_CHANGE_OID = ObjectId("6890a1b2c3d4e5f607b000c2")
+REFEREE_MOVING_ELSEWHERE_CHANGE_OID = ObjectId("6890a1b2c3d4e5f607b000c3")
+PUPIL_MOVING_ELSEWHERE_CHANGE_OID = ObjectId("6890a1b2c3d4e5f607b000c4")
+THEIR_CHANGE_OID = ObjectId("6890a1b2c3d4e5f607b000c5")
 # Their referee row's confirmations: one standing, one an undraw of an earlier season took; and another referee's.
 THEIR_CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607b000a1")
 THEIR_UNDRAWN_CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607b000a2")
@@ -420,12 +427,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             referee(
                 REFEREE_OID, email=TYPED, name=REFEREE_NAME, geburtsdatum=REFEREE_GEBURTSDATUM, kontakt={"telefon": TELEFON, "email": TYPED}
             ),
-            referee(
-                OTHER_REFEREE_OID,
-                email="kraus.bernd@example.com",
-                name="Bernd Kraus",
-                adresswechsel=documents.adresswechsel_document(email=TYPED, token_hash=hash_token("their-new-address"), day="2026-03-28"),
-            ),
+            referee(OTHER_REFEREE_OID, email="kraus.bernd@example.com", name="Bernd Kraus"),
         ]
     )
     await database[Collection.SPIELE].insert_many(
@@ -461,14 +463,12 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     )
     await records_they_made_holding_no_grant(database)
     await database[Collection.SPIELER].insert_one(
-        spieler_document(
-            MOVING_PUPIL_OID,
-            "Gwendolyn",
-            "Gwendolyn-Muster",
-            email="gwendolyn@example.com",
-            einwilligung=einwilligung,
-            adresswechsel=documents.adresswechsel_document(email=TYPED, token_hash=hash_token("her-new-address"), day="2026-03-29"),
-        )
+        spieler_document(MOVING_PUPIL_OID, "Gwendolyn", "Gwendolyn-Muster", email="gwendolyn@example.com", einwilligung=einwilligung)
+    )
+    await pending_changes(
+        database,
+        (OTHER_REFEREE_CHANGE_OID, "kraus.bernd@example.com", TYPED, "their-new-address", "2026-03-28"),
+        (MOVING_PUPIL_CHANGE_OID, "gwendolyn@example.com", TYPED, "her-new-address", "2026-03-29"),
     )
     await database[Collection.SPIELER].insert_one(
         spieler_document(READDRESSED_PUPIL_OID, "Hartwig", "Hartwig-Muster", email=TYPED, einwilligung=einwilligung)
@@ -484,8 +484,8 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         await edited(database, Collection.REGISTRIERUNGEN, registrierung_id, {"$set": {"nummer": "11"}})
     # Images of rows the person's steps never reach, each holding the address: two pending changes, and
     # a pupil's address as it stood before its correction.
-    await edited(database, Collection.SCHIEDSRICHTER, OTHER_REFEREE_OID, {"$set": {"schule": "Goethe-Gymnasium"}})
-    await edited(database, Collection.SPIELER, MOVING_PUPIL_OID, {"$set": {"einwilligung.medien": False}})
+    for change_id in (OTHER_REFEREE_CHANGE_OID, MOVING_PUPIL_CHANGE_OID):
+        await edited(database, Collection.ADRESSWECHSEL, change_id, {"$set": {"verschickt_am": "2026-03-30"}})
     await edited(database, Collection.SPIELER, READDRESSED_PUPIL_OID, {"$set": {"email": "hartwig@example.com"}})
     # And of the records they made, each image keeping them as its author: the address pass's alone to reach.
     await edited(database, Collection.BERECHTIGUNGEN, GRANTED_BY_THEM_OID, {"$set": {"erteilt_am": datetime(2026, 1, 2, tzinfo=UTC)}})
@@ -514,6 +514,17 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     await a_mailbox_sharing_their_local_part(database)
 
 
+async def pending_changes(database: AsyncDatabase, *changes: tuple[ObjectId, str, str, str, str]) -> None:
+    """Each `(id, address on file, new address, link, day)` as a start inserts it."""
+
+    await database[Collection.ADRESSWECHSEL].insert_many(
+        [
+            {"_id": change_id, **documents.adresswechsel_document(adresse=adresse, email=email, token_hash=hash_token(link), day=day)}
+            for change_id, adresse, email, link, day in changes
+        ]
+    )
+
+
 async def a_mailbox_sharing_their_local_part(database: AsyncDatabase) -> None:
     await database[Collection.REGISTRIERUNGEN].insert_one(
         registrierung_document(
@@ -531,12 +542,7 @@ async def a_mailbox_sharing_their_local_part(database: AsyncDatabase) -> None:
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
             referee(ELSEWHERE_REFEREE_OID, email=ELSEWHERE, name="Quendolin Anderswo"),
-            referee(
-                REFEREE_MOVING_ELSEWHERE_OID,
-                email="umzug.dritter@example.com",
-                name="Udo Dritter",
-                adresswechsel=documents.adresswechsel_document(email=ELSEWHERE, token_hash=hash_token("to-anderswo"), day="2026-03-28"),
-            ),
+            referee(REFEREE_MOVING_ELSEWHERE_OID, email="umzug.dritter@example.com", name="Udo Dritter"),
         ]
     )
     await database[Collection.SPIELER].insert_one(
@@ -546,8 +552,12 @@ async def a_mailbox_sharing_their_local_part(database: AsyncDatabase) -> None:
             "Ulla-Muster",
             email="ulla@example.com",
             einwilligung=eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-02"),
-            adresswechsel=documents.adresswechsel_document(email=ELSEWHERE, token_hash=hash_token("ulla-to-anderswo"), day="2026-03-29"),
         )
+    )
+    await pending_changes(
+        database,
+        (REFEREE_MOVING_ELSEWHERE_CHANGE_OID, "umzug.dritter@example.com", ELSEWHERE, "to-anderswo", "2026-03-28"),
+        (PUPIL_MOVING_ELSEWHERE_CHANGE_OID, "ulla@example.com", ELSEWHERE, "ulla-to-anderswo", "2026-03-29"),
     )
     await a_grant(database, ELSEWHERE_GRANT_OID, ELSEWHERE, "administration")
     await database[Collection.SAISON_TEAMS].insert_one(
@@ -572,8 +582,7 @@ async def a_mailbox_sharing_their_local_part(database: AsyncDatabase) -> None:
 async def what_elsewhere_holds(database: AsyncDatabase) -> dict[str, int]:
     """Each record counted where it still names `ELSEWHERE`, beside the notices about its grant: one taken as the person's queues one."""
 
-    referee_moving = await database[Collection.SCHIEDSRICHTER].find_one({"_id": REFEREE_MOVING_ELSEWHERE_OID})
-    pupil_moving = await database[Collection.SPIELER].find_one({"_id": PUPIL_MOVING_ELSEWHERE_OID})
+    changes = database[Collection.ADRESSWECHSEL]
 
     return {
         "registration": await database[Collection.REGISTRIERUNGEN].count_documents({"_id": ELSEWHERE_REGISTRATION_OID, "email": ELSEWHERE}),
@@ -588,8 +597,8 @@ async def what_elsewhere_holds(database: AsyncDatabase) -> dict[str, int]:
         "grant": await database[Collection.BERECHTIGUNGEN].count_documents({"_id": ELSEWHERE_GRANT_OID, "adresse": ELSEWHERE}),
         "announced": await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].count_documents({"_id": ELSEWHERE_GRANT_OID, "adresse": ELSEWHERE}),
         "notices": await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].count_documents({"berechtigung_id": ELSEWHERE_GRANT_OID}),
-        "referee_change": int(((referee_moving or {}).get("adresswechsel") or {}).get("email") == ELSEWHERE),
-        "pupil_change": int(((pupil_moving or {}).get("adresswechsel") or {}).get("email") == ELSEWHERE),
+        "referee_change": await changes.count_documents({"_id": REFEREE_MOVING_ELSEWHERE_CHANGE_OID, "email": ELSEWHERE}),
+        "pupil_change": await changes.count_documents({"_id": PUPIL_MOVING_ELSEWHERE_CHANGE_OID, "email": ELSEWHERE}),
         "log_actor": await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.SPIELE), "actor.email": ELSEWHERE}),
     }
 
@@ -725,10 +734,12 @@ async def erased_by_the_handler(database: AsyncDatabase, client: AsyncMongoClien
     return await erased(database, client, identifier, germany_now=NOW, **replaced)
 
 
-async def erased_in_scope(database: AsyncDatabase, client: AsyncMongoClient, scope: frozenset[Any], **replaced: Any) -> Any:
+async def erased_in_scope(
+    database: AsyncDatabase, client: AsyncMongoClient, scope: frozenset[Any], *, identifier: str = IDENTIFIER, **replaced: Any
+) -> Any:
     async def erase(session: Any) -> Any:
         return await erase_everything(
-            IDENTIFIER,
+            identifier,
             scope=scope,
             **erasure_collections(database, **replaced),
             sperrliste=ban_list(database),
@@ -838,30 +849,37 @@ class TestWhatStandsBesideThem:
         assert bewerbung["bestaetigungen"]["ansprechperson"] is not None
         assert "idempotenz_fingerabdruck" not in bewerbung
 
-    def test_another_referees_pending_change_goes_and_their_row_stands(self, mongo_replica_set_url: str):
-        """The row is the old address's person's until the change is confirmed, so the block alone goes."""
+    @pytest.mark.parametrize(
+        ("change_id", "collection", "row_id", "path", "stored"),
+        [
+            pytest.param(
+                OTHER_REFEREE_CHANGE_OID,
+                Collection.SCHIEDSRICHTER,
+                OTHER_REFEREE_OID,
+                "kontakt.email",
+                "kraus.bernd@example.com",
+                id="a referee's",
+            ),
+            pytest.param(MOVING_PUPIL_CHANGE_OID, Collection.SPIELER, MOVING_PUPIL_OID, "email", "gwendolyn@example.com", id="a pupil's"),
+        ],
+    )
+    def test_another_persons_pending_change_to_their_address_ends_and_that_persons_row_stands(
+        self, mongo_replica_set_url: str, change_id: ObjectId, collection: Collection, row_id: ObjectId, path: str, stored: str
+    ):
+        """The row is the address on file's person's until the change takes effect, so the change alone ends."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await erased_over_http(mongo_replica_set_url)
 
-            return await database[Collection.SCHIEDSRICHTER].find_one({"_id": OTHER_REFEREE_OID})
+            return await the_one(database, Collection.ADRESSWECHSEL, {"_id": change_id}), await the_one(database, collection, {"_id": row_id})
 
-        row = on_a_league(mongo_replica_set_url, body)
+        change, row = on_a_league(mongo_replica_set_url, body)
 
-        assert row is not None
-        assert "adresswechsel" not in row
-        assert row["kontakt"]["email"] == "kraus.bernd@example.com"
-
-    def test_another_pupils_pending_change_goes_and_their_row_stands(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await erased_over_http(mongo_replica_set_url)
-
-            return await the_one(database, Collection.SPIELER, {"_id": MOVING_PUPIL_OID})
-
-        row = on_a_league(mongo_replica_set_url, body)
-
-        assert "adresswechsel" not in row
-        assert row["email"] == "gwendolyn@example.com"
+        assert (change["beendet"]["art"], change["email"]) == ("verworfen", None)
+        held: Any = row
+        for key in path.split("."):
+            held = held[key]
+        assert held == stored
 
     def test_their_fixture_names_the_ghost_and_no_name_and_keeps_its_fee(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1069,7 +1087,7 @@ class TestOneTransaction:
                 },
                 (
                     (await the_one(database, Collection.SAISON_TEAMS))["kontakte"]["ansprechperson"]["email"],
-                    (await the_one(database, Collection.SCHIEDSRICHTER, {"_id": OTHER_REFEREE_OID}))["adresswechsel"]["email"],
+                    (await the_one(database, Collection.ADRESSWECHSEL, {"_id": OTHER_REFEREE_CHANGE_OID}))["email"],
                     await database[Collection.AKTIONEN].count_documents({"actor.pseudonym": PSEUDONYM}),
                     await database[Collection.AKTIONEN].count_documents({"redacted_at": {"$ne": None}}),
                     await database[Collection.SPIELE].count_documents({"schiedsrichter.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}),
@@ -1234,10 +1252,10 @@ class TestTheScope:
                 await database[Collection.REGISTRIERUNGEN].count_documents({"_id": {"$in": [PENDING_OID, DECLINED_OID]}}),
                 (await the_one(database, Collection.SAISON_TEAMS))["kontakte"]["ansprechperson"]["email"],
                 await database[Collection.SCHIEDSRICHTER].count_documents({"_id": REFEREE_OID}),
-                "adresswechsel" in await the_one(database, Collection.SCHIEDSRICHTER, {"_id": OTHER_REFEREE_OID}),
+                (await the_one(database, Collection.ADRESSWECHSEL, {"_id": OTHER_REFEREE_CHANGE_OID}))["beendet"] is None,
                 await database[Collection.AKTIONEN].count_documents({"actor.email": IDENTIFIER}),
                 await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": IDENTIFIER}),
-                "adresswechsel" in await the_one(database, Collection.SPIELER, {"_id": MOVING_PUPIL_OID}),
+                (await the_one(database, Collection.ADRESSWECHSEL, {"_id": MOVING_PUPIL_CHANGE_OID}))["beendet"] is None,
                 sorted(
                     [
                         (row["actor"]["funktion"], row["actor"]["pseudonym"])
@@ -1255,6 +1273,7 @@ class TestTheScope:
 
 
 # The registry's steps by the code each runs, so a write can be put down to the step it was made in.
+[EMPTIED] = [step for step in ERASURE_STEPS if step.run is end_an_emptied_change_in_session]
 _STEP_OF_CODE = {step.run.__code__: step.run.__name__ for step in ERASURE_STEPS}
 
 
@@ -1300,12 +1319,43 @@ class TestEachStepWritesWhatItDeclares:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            recorded = {name: WritesRecorded(handle, writes) for name, handle in erasure_collections(database).items()}
+            recorded: dict[str, Any] = {name: WritesRecorded(handle, writes) for name, handle in erasure_collections(database).items()}
             await erased_in_scope(database, client, JEDE_PERSONENGRUPPE, **recorded)
 
         on_a_league(mongo_replica_set_url, body)
 
-        assert writes == {step.run.__name__: {str(collection) for collection in step.reaches} for step in ERASURE_STEPS}
+        # The whole erasure ends every change naming the address first, leaving the emptied change's step nothing: its own case.
+        assert writes == {step.run.__name__: {str(collection) for collection in step.reaches} for step in ERASURE_STEPS if step != EMPTIED}
+
+    def test_a_pupils_erasure_ends_the_change_of_an_address_it_empties_writing_what_that_step_declares(self, mongo_replica_set_url: str):
+        """Gwendolyn holds a pupil row alone, so the season's erasure of it leaves her change nothing to move."""
+
+        writes: dict[str, set[str]] = {}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            recorded: dict[str, Any] = {name: WritesRecorded(handle, writes) for name, handle in erasure_collections(database).items()}
+            await erased_in_scope(database, client, frozenset({"spieler"}), identifier="gwendolyn@example.com", **recorded)
+
+            return await the_one(database, Collection.ADRESSWECHSEL, {"_id": MOVING_PUPIL_CHANGE_OID})
+
+        change = on_a_league(mongo_replica_set_url, body)
+
+        assert writes[EMPTIED.run.__name__] == {str(collection) for collection in EMPTIED.reaches}
+        # Its address on file goes too: no erasure of the address follows a pupil's to take it.
+        assert (change["beendet"]["art"], change["adresse"], change["email"]) == ("verworfen", None, None)
+
+    def test_a_pupils_erasure_leaves_the_change_of_an_address_still_holding_records(self, mongo_replica_set_url: str):
+        """The person is a referee and a seat holder beside the pupil, so their change still has those to move."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await pending_changes(database, (THEIR_CHANGE_OID, IDENTIFIER, "neu.adresse@anderswo.org", "their-own-change", "2026-03-30"))
+            await erased_in_scope(database, client, frozenset({"spieler"}))
+
+            return await the_one(database, Collection.ADRESSWECHSEL, {"_id": THEIR_CHANGE_OID})
+
+        change = on_a_league(mongo_replica_set_url, body)
+
+        assert (change["beendet"], change["adresse"]) == (None, IDENTIFIER)
 
 
 class RegistrationsAdmittedInside(InterleavedCollection):

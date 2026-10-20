@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
 
-import { ADRESSWECHSEL_GUELTIG_STUNDEN } from "@/core/adresswechsel.ts";
+import {
+  ADRESSWECHSEL_GENEHMIGUNG_TAGE,
+  ADRESSWECHSEL_GUELTIG_STUNDEN,
+  ADRESSWECHSEL_NACHLAUF_TAGE,
+  ADRESSWECHSEL_WARTEZEIT_TAGE,
+} from "@/core/adresswechsel.ts";
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { ADMIN_WINDOW_HOURS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes.ts";
 import { CODE_FAILURE_WINDOW_HOURS } from "@/core/signInCode.ts";
@@ -49,7 +54,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "21. Oktober 2026", digest: "7dbe594aacfdbc49e878d23a772235277b32eca12e27222ac36689efdc279088" } as const;
+const FASSUNG = { stand: "21. Oktober 2026", digest: "d969d36fb09832d65e281ccb61f0a7ed550c4e1dd5b058429dd48cad13701c7a" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -64,6 +69,17 @@ const ZAHLWORT: Readonly<Record<number, string>> = { 3: "drei", 5: "fünf", 7: "
 function inWorten(zahl: number): string {
   const wort = ZAHLWORT[zahl];
   assert.ok(wort !== undefined, `the notice writes ${String(zahl)} in a word this case does not hold`);
+
+  return wort;
+}
+
+/* A count of days whole weeks long, which German states in weeks; the case's own table, as `ZAHLWORT` is, so a wrong
+   word in `core/adresswechsel.ts`'s map fails rather than agreeing with itself. */
+const WOCHEN: Readonly<Record<number, string>> = { 7: "eine Woche", 14: "zwei Wochen" };
+
+function inWochen(tage: number): string {
+  const wort = WOCHEN[tage];
+  assert.ok(wort !== undefined, `the notice states ${String(tage)} days in weeks this case does not hold`);
 
   return wort;
 }
@@ -243,34 +259,53 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
-  /* One row for both lanes, a change belonging to an address: the pending address may be a stranger's, so its retention is
-     stated with the clocks that end it, the hourly pass removing a lapsed one within the hour. */
-  it("gives a pending new address its retention, each link's clock and the waiting time", () => {
+  /* One record per address, perhaps a stranger's: its retention is stated with the clocks that end it, the hourly pass
+     ending a lapsed one within the hour, and an ended change's record holds no address. */
+  it("gives a pending new address its retention, each link's clock, the waiting time and the ended change's record", () => {
     assert.equal(
       ANGABEN.get(
-        "Neue E-Mail-Adresse eines Kontos, solange sie nicht gilt, dazu ihr Link und der Stopp-Link an die bisherige Adresse als " +
-          "unlesbare Schlüssel, das Versanddatum, die Frist, gegebenenfalls die Freigabe, der Grund der Verwaltung, die Bestätigung " +
-          "und der Zeitpunkt, ab dem sie gilt",
+        "Änderung der E-Mail-Adresse eines Kontos, ein Eintrag je bisheriger Adresse: die neue Adresse, solange sie nicht gilt, dazu " +
+          "ihr Link und der Stopp-Link an die bisherige Adresse als unlesbare Schlüssel, das Versanddatum, die Frist, gegebenenfalls die " +
+          "Freigabe oder die Genehmigung durch die Verwaltung, der Grund der Verwaltung, die Bestätigung und der Zeitpunkt, ab dem " +
+          "sie gilt",
       ),
-      "Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird oder die Verwaltung " +
-        `sie verwirft. Mit dem Eintrag wird sie gelöscht. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem ` +
-        "Versand, der Stopp-Link bis die Änderung gilt. Ist ein Link abgelaufen, löschen wir die Adresse innerhalb einer Stunde. Hat " +
-        "die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie eine Woche nach ihrer Bestätigung",
+      "Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird, die Verwaltung sie " +
+        "verwirft oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund; es bleibt ein Vermerk ohne " +
+        "Adresse, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach " +
+        `${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem ` +
+        "Versand, der Stopp-Link bis die Änderung gilt. Ist eine Frist abgelaufen, endet die Änderung innerhalb einer Stunde. Hat " +
+        `die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie ${inWochen(ADRESSWECHSEL_WARTEZEIT_TAGE)} nach ihrer Bestätigung; kann sie ` +
+        "dann nicht gelten, schreiben wir der neuen Adresse, dass sie nicht gilt, ohne den Grund zu nennen",
     );
   });
 
-  /* Two addresses are in play, so the sentence names the one the notice goes to rather than a „sie“ fitting both. */
-  it("says the person changes the address on their account page, and the address on file is told and can stop it", () => {
+  /* Two addresses are in play, so the sentence names the one the notice goes to rather than a „sie“ fitting both; and what
+     moves is everything the address holds, an unconfirmed registration among it, never only what was confirmed. */
+  it("says every account changes its address on its account page, the address on file is told, and what moves", () => {
     rendert(
-      "Deine E-Mail-Adresse änderst Du selbst in Deinem Konto. Die neue gilt erst, wenn Du sie über den Link bestätigt hast, den wir " +
-        "an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen Hinweis mit einem Link, über " +
-        "den sie die Änderung stoppen kann. Kannst Du Dich nicht mehr anmelden, ändert die Verwaltung sie auf Deine Bitte: Entweder " +
-        "gibst Du die neue mit der bisherigen Adresse frei, oder sie gilt erst eine Woche nach ihrer Bestätigung. Gilt die neue, gilt " +
-        "sie für jeden bestätigten Eintrag unter der bisherigen, und die bisherige bekommt eine Nachricht darüber.",
+      "Deine E-Mail-Adresse änderst Du selbst in Deinem Konto, gleich als was Du bei uns eingetragen bist. Die neue gilt erst, wenn " +
+        "Du sie über den Link bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige " +
+        "schicken wir einen Hinweis mit einem Link, über den sie die Änderung stoppen kann. Hat Deine Adresse Zugang zur Verwaltung, " +
+        `gilt die neue erst, wenn eine andere Person aus der Verwaltung zustimmt; ohne diese Zustimmung endet die Änderung ${inWochen(ADRESSWECHSEL_GENEHMIGUNG_TAGE)} ` +
+        "nach ihrem Beginn. Auf Deine Bitte trägt auch die Verwaltung die neue Adresse ein: Kannst Du Dich unter der bisherigen noch " +
+        "anmelden, gibst Du die Änderung dort in Deinem Konto frei, bevor wir an die neue schreiben; erreichst Du die bisherige nicht " +
+        `mehr, gilt die neue erst ${inWochen(ADRESSWECHSEL_WARTEZEIT_TAGE)} nach ihrer Bestätigung. Gilt die neue, gilt sie ` +
+        "für alles, was unter der bisherigen steht: Deine Einträge als Spielerin oder Spieler, einen bestätigten Eintrag als " +
+        "Schiedsrichterin oder Schiedsrichter, Deine bestätigten Plätze als Kontaktperson, Deine Registrierungen und einen Zugang zur " +
+        "Verwaltung; die bisherige bekommt eine Nachricht darüber.",
     );
-    rendert(
-      "Hast Du Deinen Eintrag bestätigt, änderst Du Deine E-Mail-Adresse wie eine Spielerin oder ein Spieler selbst in Deinem Konto, " +
-        "und die neue gilt für jeden bestätigten Eintrag unter der bisherigen.",
+    rendert("Hast Du Deinen Eintrag bestätigt, änderst Du Deine E-Mail-Adresse wie eine Spielerin oder ein Spieler selbst in Deinem Konto.");
+  });
+
+  /* The account follows a change its holder asked for or approved, and never one made because the old mailbox is lost:
+     whoever holds that mailbox may have signed in there meanwhile. */
+  it("says which changes carry the sign-in account, ending every session, and which leave it behind", () => {
+    assert.ok(
+      ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.includes(
+        "Gilt eine neue E-Mail-Adresse, die Du selbst eingetragen oder unter der bisherigen freigegeben hast, tragen wir sie in Dein " +
+          "Konto ein, und jede Sitzung endet; hat die Verwaltung sie ohne die bisherige Adresse eingetragen, bleibt das Konto bei der " +
+          "bisherigen, und Du meldest Dich unter der neuen neu an.",
+      ),
     );
   });
 

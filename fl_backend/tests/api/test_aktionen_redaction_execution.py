@@ -14,11 +14,10 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.adresswechsel.services import compose_end_update, compose_genehmigung
 from app.api.aktionen.crud import redact_address_in_images
 from app.api.aktionen.services import IMAGE_ADDRESSES, ImageAddress, address_image_edits
 from app.api.einladungen.services import compose_einladung, compose_widerruf_update
-from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
-from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD
 from app.core.collections import Collection
 from app.core.crud import delete_many_from_db, patch_one_in_db
 from app.core.recording import ERASED_ACTOR_MARKER
@@ -53,9 +52,9 @@ EINLADUNG = ObjectId("6890a1b2c3d4e5f607840011")
 BEWERBUNG = ObjectId("6890a1b2c3d4e5f607840021")
 REGISTRIERUNG = ObjectId("6890a1b2c3d4e5f607840031")
 READDRESSED_REFEREE = ObjectId("6890a1b2c3d4e5f607840041")
-PENDING_REFEREE = ObjectId("6890a1b2c3d4e5f607840042")
 READDRESSED_PUPIL = ObjectId("6890a1b2c3d4e5f607840043")
-PENDING_PUPIL = ObjectId("6890a1b2c3d4e5f607840044")
+TO_THEM = ObjectId("6890a1b2c3d4e5f607840061")
+STARTED_BY_THEM = ObjectId("6890a1b2c3d4e5f607840062")
 TEAM = ObjectId("6890a1b2c3d4e5f607840051")
 
 ENTSCHEIDUNG = {"getroffen_am": "2026-03-01", "von": ERASED, "grund": "Zu spät eingereicht"}
@@ -112,33 +111,35 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
         [
             documents.schiedsrichter_document(
                 READDRESSED_REFEREE, email=ERASED_AS_TYPED, name="Hiltrud Kesselring", default_payment=20, einwilligung=None
-            ),
-            {
-                **documents.schiedsrichter_document(
-                    PENDING_REFEREE, email=REFEREE_STORED, name="Ortrun Fadenbach", default_payment=20, einwilligung=None
-                ),
-                ADRESSWECHSEL_FELD: documents.adresswechsel_document(email=ERASED, token_hash="w" * 64, day="2026-03-01"),
-            },
+            )
         ]
     )
     # An unconfirmed referee's address corrected to another mailbox, which the referee step does not reach.
     await patched(database, Collection.SCHIEDSRICHTER, READDRESSED_REFEREE, {"$set": {"kontakt.email": REFEREE_NOW}})
-    await patched(database, Collection.SCHIEDSRICHTER, PENDING_REFEREE, {"$unset": {ADRESSWECHSEL_FELD: ""}})
-    # The referees' twins among the pupils, whose rows the pupil step does not reach either.
-    await database[Collection.SPIELER].insert_many(
-        [
-            documents.spieler_document(READDRESSED_PUPIL, "Wendelin", "Kesselring", email=ERASED_AS_TYPED),
-            documents.spieler_document(
-                PENDING_PUPIL,
-                "Walburga",
-                "Fadenbach",
-                email=PUPIL_STORED,
-                **{SPIELER_ADRESSWECHSEL_FELD: documents.adresswechsel_document(email=ERASED, token_hash="v" * 64, day="2026-03-01")},
-            ),
-        ]
+    # The referee's twin among the pupils, whose row the pupil step does not reach either.
+    await database[Collection.SPIELER].insert_one(
+        documents.spieler_document(READDRESSED_PUPIL, "Wendelin", "Kesselring", email=ERASED_AS_TYPED)
     )
     await patched(database, Collection.SPIELER, READDRESSED_PUPIL, {"$set": {"email": PUPIL_NOW}})
-    await patched(database, Collection.SPIELER, PENDING_PUPIL, {"$unset": {SPIELER_ADRESSWECHSEL_FELD: ""}})
+    # A change once bound for their mailbox, and one they started as an administrator: each since ended.
+    await database[Collection.ADRESSWECHSEL].insert_many(
+        [
+            {"_id": TO_THEM, **documents.adresswechsel_document(adresse=PUPIL_STORED, email=ERASED, token_hash="v" * 64, day="2026-03-01")},
+            {
+                "_id": STARTED_BY_THEM,
+                **documents.adresswechsel_document(
+                    adresse=REFEREE_STORED,
+                    email="ortrun.neupost@example.org",
+                    token_hash="w" * 64,
+                    day="2026-03-01",
+                    weg="wartezeit",
+                    genehmigung=compose_genehmigung(verwaltung="administration", gestartet_von=ERASED, now=GRANTED_AT),
+                ),
+            },
+        ]
+    )
+    for change in (TO_THEM, STARTED_BY_THEM):
+        await patched(database, Collection.ADRESSWECHSEL, change, compose_end_update(art="verworfen", now=GRANTED_AT))
     async with client.start_session() as session:
         await delete_many_from_db(collection=database[Collection.BERECHTIGUNGEN], db_filter={"_id": THEIR_GRANT}, session=session)
         await delete_many_from_db(collection=database[Collection.SPERRLISTE], db_filter={"_id": ban["_id"]}, session=session)
@@ -190,13 +191,11 @@ class TestTheJudgement:
 
         assert address_image_edits({"kontakt": {"email": ERASED_AS_TYPED}}, identifier=ERASED, addresses=addresses) == {"kontakt.email": None}
 
-    def test_a_block_is_emptied_whole_where_its_address_is_theirs_and_left_where_it_is_not(self):
-        (_, pending) = IMAGE_ADDRESSES[Collection.SCHIEDSRICHTER]
+    def test_a_nested_actor_takes_the_marker_where_it_is_theirs_and_stays_where_it_is_not(self):
+        addresses = IMAGE_ADDRESSES[Collection.ADRESSWECHSEL]
+        image = {"adresse": REFEREE_STORED, "genehmigung": {"gestartet_von": ERASED, "genehmigt_von": OTHER_ADMIN}}
 
-        assert address_image_edits({ADRESSWECHSEL_FELD: {"email": ERASED}}, identifier=ERASED, addresses=(pending,)) == {
-            ADRESSWECHSEL_FELD: None
-        }
-        assert address_image_edits({ADRESSWECHSEL_FELD: {"email": OTHER_ADMIN}}, identifier=ERASED, addresses=(pending,)) == {}
+        assert address_image_edits(image, identifier=ERASED, addresses=addresses) == {"genehmigung.gestartet_von": ERASED_ACTOR_MARKER}
 
     def test_every_field_naming_who_acted_takes_the_marker_and_every_own_address_goes_null(self):
         """The marker keeps a replayed image valid where the validator requires the field; a person's own address is nobody's to keep."""
@@ -211,6 +210,8 @@ class TestTheJudgement:
             (Collection.EINLADUNGEN, "erstellt_von"),
             (Collection.BEWERBUNGEN, "entscheidung.von"),
             (Collection.REGISTRIERUNGEN, "entscheidung.von"),
+            (Collection.ADRESSWECHSEL, "genehmigung.gestartet_von"),
+            (Collection.ADRESSWECHSEL, "genehmigung.genehmigt_von"),
         }
         assert {address.replacement for addresses in IMAGE_ADDRESSES.values() for address in addresses} == {ERASED_ACTOR_MARKER, None}
 
@@ -257,12 +258,12 @@ def test_each_image_keeps_everything_but_the_address(mongo_replica_set_url: str)
         assert image_of(log, collection, document_id)["before"]["entscheidung"] == {**ENTSCHEIDUNG, "von": ERASED_ACTOR_MARKER}
     readdressed = image_of(log, Collection.SCHIEDSRICHTER, READDRESSED_REFEREE)["before"]
     assert (readdressed["kontakt"]["email"], readdressed["name"]) == (None, "Hiltrud Kesselring")
-    pending = image_of(log, Collection.SCHIEDSRICHTER, PENDING_REFEREE)["before"]
-    assert (pending[ADRESSWECHSEL_FELD], pending["kontakt"]["email"]) == (None, REFEREE_STORED)
     readdressed_pupil = image_of(log, Collection.SPIELER, READDRESSED_PUPIL)["before"]
     assert (readdressed_pupil["email"], readdressed_pupil["vorname"]) == (None, "Wendelin")
-    pending_pupil = image_of(log, Collection.SPIELER, PENDING_PUPIL)["before"]
-    assert (pending_pupil[SPIELER_ADRESSWECHSEL_FELD], pending_pupil["email"]) == (None, PUPIL_STORED)
+    to_them = image_of(log, Collection.ADRESSWECHSEL, TO_THEM)["before"]
+    assert (to_them["email"], to_them["adresse"]) == (None, PUPIL_STORED)
+    started = image_of(log, Collection.ADRESSWECHSEL, STARTED_BY_THEM)["before"]
+    assert (started["adresse"], started["genehmigung"]["gestartet_von"]) == (REFEREE_STORED, ERASED_ACTOR_MARKER)
 
 
 @pytest.mark.db

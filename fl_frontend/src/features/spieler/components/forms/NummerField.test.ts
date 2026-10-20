@@ -57,8 +57,7 @@ const renderEditor = () =>
           inactive_since: null,
           geburtsdatum: "2009-05-04",
           email: null,
-          adresswechsel: null,
-          adresswechsel_abgelaufen: false,
+          adresswechsel_id: null,
         },
         einwilligung: bestaetigteEinwilligung(),
         saison: {

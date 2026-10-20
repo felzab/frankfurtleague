@@ -898,6 +898,39 @@ def mit_abgelaufen(teams_raw: Sequence[Mapping[str, Any]], *, today: str) -> lis
     return [{**team, "memberships": [{**row, "bestaetigungen": judged(row)} for row in team.get("memberships", [])]} for team in teams_raw]
 
 
+def _seat_identifier(row: Mapping[str, Any], seat: str) -> str | None:
+    person = (row.get("kontakte") or {}).get(seat)
+    email = person.get("email") if isinstance(person, Mapping) else None
+
+    return sign_in_identifier(email) if isinstance(email, str) else None
+
+
+def seated_identifiers(teams: Sequence[Mapping[str, Any]]) -> list[str]:
+    """Every seat's address on the memberships read, folded as an address change is keyed."""
+
+    return sorted(
+        {
+            identifier
+            for team in teams
+            for row in team.get("memberships", [])
+            for seat in KONTAKT_ROLLEN
+            if (identifier := _seat_identifier(row, seat)) is not None
+        }
+    )
+
+
+def mit_adresswechseln(teams: Sequence[Mapping[str, Any]], *, live: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The memberships read with each seat's live address change by id, `live` keyed by the folded address."""
+
+    def je_sitz(row: Mapping[str, Any]) -> dict[str, Any] | None:
+        if not isinstance(row.get("kontakte"), Mapping):
+            return None
+
+        return {seat: live.get(identifier) if (identifier := _seat_identifier(row, seat)) is not None else None for seat in KONTAKT_ROLLEN}
+
+    return [{**team, "memberships": [{**row, "adresswechsel": je_sitz(row)} for row in team.get("memberships", [])]} for team in teams]
+
+
 def als_unbestaetigt(einwilligung: Mapping[str, Any]) -> dict[str, Any]:
     """A seat's record held unconfirmed, as it stands until its person answers (`docs/backend/spec.md :: I142`).
 

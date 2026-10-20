@@ -264,17 +264,24 @@ Every ruling below is the sign-up flow as it stands for the next season.
   ([section 3](#3-the-current-pupil-records-are-reset-once)); no link is ever minted to a
   placeholder, the mint refusing it as no address
   (`fl_backend/app/api/schiedsrichter/services.py :: find_missing_address_refusal`).
-- **A pupil's or a confirmed referee's address changes only once the new mailbox confirms it, and
-  the address on file can stop the change until it takes effect**, because the address is what the
-  person's sign-in and every record of theirs are keyed on: moved at once, it would hand those
-  records to whoever holds a mistyped or a hijacked address. Ruled 2026-10-04, the process re-ruled
-  2026-10-20. The person starts a change on their account page after confirming themselves by a
-  passkey or a code to the address on file; only for a person who cannot sign in, either asking the address on file to approve it there first or, with a
-  recorded reason, holding its effect a week past its confirmation. The address on file is mailed
-  a link that stops the change at its start and a notice once it took effect, and neither names
-  the new address; until a change takes effect the new address reaches nothing of the person's
-  (`docs/backend/spec.md :: I560`). A referee who has not yet confirmed holds no record an address
-  could reach, so theirs is still replaced by the save and the fresh consent link goes to it.
+- **Every account's address changes only once the new mailbox confirms it, and the address on file
+  can stop the change until it takes effect**, because the address is what the person's sign-in and
+  every record of theirs are keyed on — a pupil's row, a confirmed referee's, contact seats,
+  registrations and a grant of access alike: moved at once, it would hand those records to whoever
+  holds a mistyped or a hijacked address. Ruled 2026-10-04, the process re-ruled 2026-10-20. The
+  person starts a change on their account page after confirming themselves by a passkey or a code to
+  the address on file; an administrator starts one at the person's request, either asking the address
+  on file to approve it on its account page first, for a person who can still sign in there, or, with
+  a recorded reason, for one whose mailbox there is lost, holding its effect a week past its
+  confirmation. A change moving a grant of access also waits on another
+  administrator's approval, an owner's for an owner's grant, and lapses unapproved a week after its
+  start (`fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GENEHMIGUNG_TAGE`). The address
+  on file is mailed a link that stops the change at its start and a notice once it took effect, and
+  neither names the new address; until a change takes effect the new address reaches nothing of the
+  person's (`docs/backend/spec.md :: I560`). The sign-in account moves with a change its person started or the address on file
+  approved, every session of it ended; after one started on a recorded reason, the person signs in
+  anew at the new address. A referee who has not yet confirmed holds no record an address could
+  reach, so theirs is still replaced by the save and the fresh consent link goes to it.
 - **A contact person an administrator enters on a team's season row is mailed a link of their own,
   because that link is how they learn of the entry** (Art. 14 (3)(a)), on the referee's reasoning
   above. Ruled 2026-10-03. The save mints one for each person it newly seats
@@ -430,19 +437,17 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`REQ-RETIRE-004`) has nothing left to refuse. A fixture played or called off keeps its booking
   and its own `payment` under the ghost: that is the league's record of the match, not of the
   person. A person who officiates again is entered as a new referee.
-- **A referee's or a pupil's pending new address goes with that person's erasure, and its own
-  holder's request is answered by removing it.** Until it confirms, that mailbox owns nothing of the
-  row, so its holder is not the person the row's erasure is about: the holder's own erasure removes
-  the block alone and leaves the row standing (`docs/backend/spec.md :: I668`). That erasure, the
-  link's own decline, the stop of the address on file by its link or on its account page, and
-  `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` or
-  `DELETE /spieler/{spieler_id}/adresswechsel` each remove the address and take it out of every image
-  the action log holds of the row, since every write on it while the change stood, a re-send
-  included, filed one carrying it (`docs/backend/spec.md :: I562`, `:: I704`, `:: I670`).
-  The rest of each image stays, the person's own earlier consent states among it, as a contact
-  person's Widerspruch leaves the people beside them theirs (`docs/backend/spec.md :: I42`). A save
-  or a request replacing the pending address with another mailbox's takes it out the same way, the
-  replaced address being one nobody proved either.
+- **A pending address change ends with its person's erasure, and its new mailbox's holder's request
+  is answered by ending it.** Until it takes effect, that mailbox owns nothing of the records, so its
+  holder is not the person those records' erasure is about: the holder's own erasure ends the change
+  alone and leaves the records standing (`docs/backend/spec.md :: I668`). That erasure, the link's
+  own decline, the stop of the address on file by its link or on its account page, a later change of
+  the same address and `DELETE /adresswechsel/{adresswechsel_id}` each end the change and take its
+  new address and its reason out of the change's record and of every image the action log holds of
+  it, since every write on it while it stood, a re-send included, filed one carrying them
+  (`docs/backend/spec.md :: I704`, `:: I670`). The rest of each image stays. A change that took
+  effect keeps its new address in the log, where the person's records hold it and their erasure
+  finds it, and loses the replaced one, which nothing holds any longer for an erasure to find.
 - **An erasure keyed on an email address names what it reaches.** Every record the address holds is
   its one person's (the entry below), and each is listed for confirmation before the write — by kind,
   name and the season it sits in, read through the erasure's own selection rather than inferred on
@@ -821,17 +826,25 @@ Every ruling below is the sign-up flow as it stands for the next season.
   new one replaces the whole block, the delivery state of the message the old link went out in
   included (`fl_backend/app/api/schiedsrichter/services.py :: compose_mint_update`).
 - **A pending address change stands until it takes effect, its new mailbox declines it, the
-  address on file stops it, an administrator replaces or discards it, the person is erased with it
-  or the new mailbox's holder's own erasure removes it alone (`docs/backend/spec.md :: I668`), and
-  it goes within the hour after the step it waits on lapses**
+  address on file stops it, a later change of the address replaces it, an administrator discards it,
+  the person is erased with it or the new mailbox's holder's own erasure ends it alone
+  (`docs/backend/spec.md :: I668`), and it ends within the hour after the step it waits on lapses**
   (`fl_backend/app/core/domain.py :: FIELD_POLICIES`, `docs/backend/spec.md :: I693`): the address
   may be a stranger's, typed in by mistake, who never asked to be stored. Each link lasts a day from its sending
   (`fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN`) and a re-send
   restarts it, the stop link lasting as long as the change stands; a change an administrator
-  started with a reason takes effect a week after its confirmation (`:: ADRESSWECHSEL_WARTEZEIT_TAGE`).
-  The hourly pass removes a lapsed one as a discard does, its address taken out of the record's log
-  images, a retired one's alike; the published notice states the removal
-  (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06, its timing re-ruled 2026-10-15 and 2026-10-20.
+  started with a reason takes effect a week after its confirmation (`:: ADRESSWECHSEL_WARTEZEIT_TAGE`),
+  and one waiting on another administrator's approval lapses a week after its start
+  (`:: ADRESSWECHSEL_GENEHMIGUNG_TAGE`). The hourly pass ends a lapsed one as a discard does, its
+  address taken out of the record and its log images. **An ended change's record holds no address
+  and no reason, only its links' check values, so each link answers how the change ended; the
+  database deletes it thirty days after its end** (`:: ADRESSWECHSEL_NACHLAUF_TAGE`). A confirmed
+  change the pass refuses at its due time — the address on file barred meanwhile, holding nothing
+  left to move, or the new address taken — ends there, and the new address is mailed a short notice
+  naming nobody, saying the change did not take effect and the league can help; the address on file
+  is mailed nothing. The published notice states the ending and the thirty days
+  (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06, its timing re-ruled 2026-10-15 and
+  2026-10-20.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered where the address holds an account; an
   address holding none is mailed nothing** (`docs/frontend/spec.md :: I517`). Ruled 2026-09-27.
@@ -939,7 +952,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, calling
   `fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison` and
   `fl_backend/app/api/registrierungen/sweep_router.py :: sweep_registrierungen` per season, then
-  `fl_backend/app/api/schiedsrichter/sweep_router.py :: sweep_adresswechsel`; and, where
+  `fl_backend/app/api/adresswechsel/sweep_router.py :: sweep_adresswechsel`, `POST /adresswechsel/sweep`; and, where
   `LOESCHUNG_SWEEP` is on, `fl_frontend/src/features/saisons/sweep.ts :: armLoeschungSweep`, calling
   `fl_backend/app/api/identitaet/sweep_router.py :: post_loeschung_lauf`).
   A season's two sweeps record the day they ran, one that reminds nobody and deletes nothing exactly

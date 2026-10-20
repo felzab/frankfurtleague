@@ -252,9 +252,8 @@ CASES=(
   # The pages a mailed link lands on: pins against narrowing the map, which matches the parameter
   # wherever it sits, to a path list.
   "LEAK|${BASE}/bestaetigung/schiedsrichter?token=${TOK}"
-  "LEAK|${BASE}/bestaetigung/schiedsrichter/adresse?token=${TOK}"
   "LEAK|${BASE}/bestaetigung/spieler?token=${TOK}"
-  "LEAK|${BASE}/bestaetigung/spieler/adresse?token=${TOK}"
+  "LEAK|${BASE}/bestaetigung/adresse?token=${TOK}"
   "LEAK|${BASE}/bestaetigung/kontakt?token=${TOK}"
   "LEAK|${BASE}/bestaetigung/spiel?token=${TOK}"
   "LEAK|${BASE}/registrierung?token=${TOK}"
@@ -802,9 +801,8 @@ LINK_MARKER="fl-link"
 LINK_SPENT=(
   "/bestaetigung/kontakt?token=${TOK}"
   "/bestaetigung/schiedsrichter?token=${TOK}"
-  "/bestaetigung/schiedsrichter/adresse?token=${TOK}"
   "/bestaetigung/spieler?token=${TOK}"
-  "/bestaetigung/spieler/adresse?token=${TOK}"
+  "/bestaetigung/adresse?token=${TOK}"
   "/registrierung?token=${TOK}"
   "/registrierung/?token=${TOK}"
   "/loeschung?token=${TOK}"

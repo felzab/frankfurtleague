@@ -63,14 +63,13 @@ const stored = (email: string | null, name: string | null = "Anna Meier") => ({
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
-  adresswechsel: null,
 });
 
 const withRow = (email: string | null, name?: string | null) => () => ({
   acknowledged: 1,
   schiedsrichter: stored(email, name),
   bestaetigung_abgelaufen: false,
-  adresswechsel_abgelaufen: false,
+  adresswechsel_id: null,
 });
 
 /** A link minted for `email`, as each minting write answers it. */
@@ -93,7 +92,6 @@ beforeEach(() => {
     updated_document: stored("korrigiert@example.de"),
     fanned_out_to_spiele: 0,
     bestaetigung: minted("korrigiert@example.de"),
-    adresswechsel: null,
   });
   reactivate = () => ({ acknowledged: 1, updated_document: stored("anna@example.de"), bestaetigung: minted("anna@example.de") });
 });
@@ -354,7 +352,6 @@ describe("what the save hands the editor about the message it sent", () => {
       updated_document: stored("anna@example.de"),
       fanned_out_to_spiele: 0,
       bestaetigung: null,
-      adresswechsel: null,
     });
 
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });

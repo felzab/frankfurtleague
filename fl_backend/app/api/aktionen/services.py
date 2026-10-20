@@ -5,9 +5,7 @@ from typing import Any, Final
 
 from app.api.aktionen.schemas import FLAktorAdapter, FLAktorMitAdresse
 from app.api.kontakte.services import same_address
-from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
 from app.api.sperrliste.services import withheld_actor
-from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD
 from app.core.collections import Collection as DbCollection
 from app.core.crud import build_sort
 from app.core.recording import ERASED_ACTOR_MARKER
@@ -91,15 +89,15 @@ IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = Mappin
         DbCollection.EINLADUNGEN: (ImageAddress("erstellt_von", "erstellt_von", ERASED_ACTOR_MARKER),),
         DbCollection.BEWERBUNGEN: (ImageAddress("entscheidung.von", "entscheidung.von", ERASED_ACTOR_MARKER),),
         DbCollection.REGISTRIERUNGEN: (ImageAddress("entscheidung.von", "entscheidung.von", ERASED_ACTOR_MARKER),),
-        DbCollection.SCHIEDSRICHTER: (
-            # A row since re-addressed: the referee step reaches only the rows naming the person now.
-            ImageAddress("kontakt.email", "kontakt.email", None),
-            ImageAddress(f"{ADRESSWECHSEL_FELD}.email", ADRESSWECHSEL_FELD, None),
-        ),
-        # The referee row's twin: a row since re-addressed, and another pupil's pending change.
-        DbCollection.SPIELER: (
+        # A row since re-addressed: the referee step reaches only the rows naming the person now.
+        DbCollection.SCHIEDSRICHTER: (ImageAddress("kontakt.email", "kontakt.email", None),),
+        DbCollection.SPIELER: (ImageAddress("email", "email", None),),
+        # Either address of a change, and the administrators who started or approved one, whose marker keeps the image valid.
+        DbCollection.ADRESSWECHSEL: (
+            ImageAddress("adresse", "adresse", None),
             ImageAddress("email", "email", None),
-            ImageAddress(f"{SPIELER_ADRESSWECHSEL_FELD}.email", SPIELER_ADRESSWECHSEL_FELD, None),
+            ImageAddress("genehmigung.gestartet_von", "genehmigung.gestartet_von", ERASED_ACTOR_MARKER),
+            ImageAddress("genehmigung.genehmigt_von", "genehmigung.genehmigt_von", ERASED_ACTOR_MARKER),
         ),
     }
 )

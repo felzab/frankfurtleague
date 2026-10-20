@@ -3,11 +3,6 @@ import { apiClient } from "@/core/api";
 import {
   FLPatchSchiedsrichterResponseSchema,
   FLPostSchiedsrichterResponseSchema,
-  FLSchiedsrichterAdresswechselAnsichtResponseSchema,
-  FLSchiedsrichterAdresswechselAntwortResponseSchema,
-  FLSchiedsrichterAdresswechselMintResponseSchema,
-  FLSchiedsrichterAdresswechselStoppResponseSchema,
-  FLSchiedsrichterAdresswechselSweepResponseSchema,
   FLSchiedsrichterBestaetigungAnsichtResponseSchema,
   FLSchiedsrichterBestaetigungResponseSchema,
   FLSchiedsrichterMintResponseSchema,
@@ -21,17 +16,6 @@ import type {
   FLPatchSchiedsrichterResponse,
   FLPostSchiedsrichterPayload,
   FLPostSchiedsrichterResponse,
-  FLSchiedsrichterAdresswechselAnsichtPayload,
-  FLSchiedsrichterAdresswechselAnsichtResponse,
-  FLSchiedsrichterAdresswechselAntwortPayload,
-  FLSchiedsrichterAdresswechselAntwortResponse,
-  FLSchiedsrichterAdresswechselEinladenPayload,
-  FLSchiedsrichterAdresswechselMintResponse,
-  FLSchiedsrichterAdresswechselPayload,
-  FLSchiedsrichterAdresswechselStoppPayload,
-  FLSchiedsrichterAdresswechselStoppResponse,
-  FLSchiedsrichterAdresswechselSweepResponse,
-  FLSchiedsrichterAdresswechselVerwerfenPayload,
   FLSchiedsrichterBestaetigungAnsichtPayload,
   FLSchiedsrichterBestaetigungAnsichtResponse,
   FLSchiedsrichterBestaetigungPayload,
@@ -86,89 +70,6 @@ export async function einladeSchiedsrichter({ id }: FLSchiedsrichterEinladenPayl
     method: "POST",
     authType: "admin",
   });
-}
-
-// Writes the whole pending block, ending every other change at the address, the pupil's twin: the
-// save refuses to move a confirmed referee's address.
-export async function beantrageSchiedsrichterAdresswechsel({
-  id,
-  ...body
-}: FLSchiedsrichterAdresswechselPayload): Promise<FLSchiedsrichterAdresswechselMintResponse> {
-  return apiClient<FLSchiedsrichterAdresswechselMintResponse>(
-    `/schiedsrichter/${id}/adresswechsel`,
-    FLSchiedsrichterAdresswechselMintResponseSchema,
-    { method: "POST", authType: "admin", body: JSON.stringify(body) },
-  );
-}
-
-// A fresh link to the new mailbox, so the previous one stops working at once; the stop link stays.
-export async function einladeAdresswechsel({
-  id,
-}: FLSchiedsrichterAdresswechselEinladenPayload): Promise<FLSchiedsrichterAdresswechselMintResponse> {
-  return apiClient<FLSchiedsrichterAdresswechselMintResponse>(
-    `/schiedsrichter/${id}/adresswechsel/einladen`,
-    FLSchiedsrichterAdresswechselMintResponseSchema,
-    { method: "POST", authType: "admin" },
-  );
-}
-
-/**
- * The hourly pass's, on the system tier: a timer holds no session, and a lapsed change or a due one is the clock's.
- * `nach` is the previous call's answer.
- */
-export async function postSchiedsrichterAdresswechselSweep(nach: string | null): Promise<FLSchiedsrichterAdresswechselSweepResponse> {
-  // Left out on a pass's first call: the server takes `nach` as an id wherever it is present.
-  const params: { nach?: string } = nach === null ? {} : { nach: nach };
-  return apiClient<FLSchiedsrichterAdresswechselSweepResponse>(
-    "/schiedsrichter/sweep/adresswechsel",
-    FLSchiedsrichterAdresswechselSweepResponseSchema,
-    {
-      method: "POST",
-      authType: "system",
-      params: params,
-    },
-  );
-}
-
-// The stored address stays; the pending one and its link go.
-export async function verwirfAdresswechsel({ id }: FLSchiedsrichterAdresswechselVerwerfenPayload): Promise<FLSchiedsrichterWriteResponse> {
-  return apiClient<FLSchiedsrichterWriteResponse>(`/schiedsrichter/${id}/adresswechsel`, FLSchiedsrichterWriteResponseSchema, {
-    method: "DELETE",
-    authType: "admin",
-  });
-}
-
-/** A POST that reads, for `postSchiedsrichterBestaetigungAnsicht`'s reason. */
-export async function postSchiedsrichterAdresswechselAnsicht(
-  payload: FLSchiedsrichterAdresswechselAnsichtPayload,
-): Promise<FLSchiedsrichterAdresswechselAnsichtResponse> {
-  return apiClient<FLSchiedsrichterAdresswechselAnsichtResponse>(
-    "/schiedsrichter/adresswechsel/ansicht",
-    FLSchiedsrichterAdresswechselAnsichtResponseSchema,
-    { method: "POST", readOnly: true, authType: "base", body: JSON.stringify(payload) },
-  );
-}
-
-/** The mailbox's own answer, `base` for `postSchiedsrichterBestaetigung`'s reason. */
-export async function postSchiedsrichterAdresswechsel(
-  payload: FLSchiedsrichterAdresswechselAntwortPayload,
-): Promise<FLSchiedsrichterAdresswechselAntwortResponse> {
-  return apiClient<FLSchiedsrichterAdresswechselAntwortResponse>(
-    "/schiedsrichter/adresswechsel",
-    FLSchiedsrichterAdresswechselAntwortResponseSchema,
-    { method: "POST", authType: "base", body: JSON.stringify(payload) },
-  );
-}
-
-/** The stop of the address on file, `base` for `postSchiedsrichterBestaetigung`'s reason; it hands nothing over. */
-export async function postSchiedsrichterAdresswechselStopp(
-  payload: FLSchiedsrichterAdresswechselStoppPayload,
-): Promise<FLSchiedsrichterAdresswechselStoppResponse> {
-  return apiClient<FLSchiedsrichterAdresswechselStoppResponse>(
-    "/schiedsrichter/adresswechsel/stopp",
-    FLSchiedsrichterAdresswechselStoppResponseSchema,
-    { method: "POST", authType: "base", body: JSON.stringify(payload) },
-  );
 }
 
 /**

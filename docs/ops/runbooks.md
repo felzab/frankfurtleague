@@ -689,22 +689,21 @@ reading before you save: a club rename fans out into the matches of every season
 season's matches, a referee not being season-scoped.
 
 **An email address is not an ordinary rectification: it is who can sign in as the person.** A
-change of a pupil's or a confirmed referee's address moves, in one step, every pupil row, confirmed
-referee row, confirmed contact seat and registration the address holds, so one sign-in stays
-whole; a grant stays where it is (`docs/backend/spec.md :: I793`).
+change of an address moves, in one step, every pupil row, confirmed referee row, confirmed contact
+seat, registration and grant the address holds, so one sign-in stays whole
+(`docs/backend/spec.md :: I793`).
 
 - **The person can still sign in.** Point them to their account page, `/bereich/konto`, „E-Mail-Adresse
   ändern“. They confirm it is them by passkey or by a code to the address on file, type the new
   address, and confirm it from its own mailbox within 24 hours; the address on file is told, with a
   link that stops the change (`docs/backend/spec.md :: I790`, `:: I796`). Never start a change for a
   person who can sign in: a request arriving by mail proves nothing about who sent it.
-- **They say they cannot sign in.** Ask the address on file first: start the change in the pupil or
-  referee editor with „Die bisherige Adresse fragen“ and no reason
-  (`POST /spieler/{spieler_id}/adresswechsel`, `POST /schiedsrichter/{schiedsrichter_id}/adresswechsel`).
-  Nothing goes to the new address until the address on file signs in and approves the change on its
-  account page within 24 hours (`docs/backend/spec.md :: I794`). Where the mailbox in fact still
-  works, its holder approves or stops it, so a request sent in somebody else's name reaches the real
-  person; where nobody approves, the change lapses and the next bullet applies.
+- **They say they cannot sign in.** Ask the address on file first: start the change in the address
+  tool with both addresses and no reason (`POST /adresswechsel`). Nothing goes to the new address
+  until the address on file signs in and approves the change on its account page within 24 hours
+  (`docs/backend/spec.md :: I794`). Where the mailbox in fact still works, its holder approves or
+  stops it, so a request sent in somebody else's name reaches the real person; where nobody
+  approves, the change lapses and the next bullet applies.
 - **The address on file is gone**: the approval lapsed unanswered, or the school or the provider
   says the mailbox was deleted. This is the one route on which the league hands records to a new
   mailbox without the old one's consent, so establish who is asking through a channel the league
@@ -714,48 +713,51 @@ whole; a grant stays where it is (`docs/backend/spec.md :: I793`).
   to the telephone number on their record, or in person at a fixture. Where neither is possible,
   refuse and say why. Record how you checked as the reason, naming nobody and no address: the reason
   stays twelve months in the log, and the backend refuses a name of the person
-  (`REQ-SPIELER-009`, `REQ-SCHIEDSRICHTER-013`). Start the change with it („Die bisherige Adresse
-  ist nicht mehr erreichbar“). The new address confirms by link within 24 hours, and the change takes
-  effect seven days later, judged again then; until then the address on file, should it still be
-  read, stops it by link or on its account page (`docs/backend/spec.md :: I795`). A stopped change
-  means the mailbox is not gone: talk to the person before starting again.
+  (`REQ-ADRESSWECHSEL-008`). Start the change in the address tool with it. The new address confirms
+  by link within 24 hours, and the change takes effect seven days later, judged again then; until
+  then the address on file, should it still be read, stops it by link or on its account page
+  (`docs/backend/spec.md :: I795`). A stopped change means the mailbox is not gone: talk to the
+  person before starting again.
+- **The address holds a grant of access.** The change also waits on another administrator's
+  approval on the administrators page, an owner's for an owner's grant, within a week of its start;
+  neither the changed address nor whoever started the change gives it
+  (`docs/backend/spec.md :: I817`, `:: I818`). The tool starts a grant holder's change for an owner
+  alone (`REQ-PURGE-005`), and a last owner names another owner before changing their own address
+  (`docs/backend/spec.md :: I819`). On the effect the grant moves to the new address under the
+  approver, announced to every administrator as a revoke and a grant (`docs/backend/spec.md :: I820`).
 - **The mailbox has passed to somebody else**, a school account given to a new pupil say. Whoever
   holds the address on file can sign in as the person, stop every change started here and start one
   of their own, and no administrator's route overrides them. The remedy is outside the site: settle
   it with the school or provider that reassigned the mailbox, and with the person through a channel
   the league already holds.
-- **What refuses an administrator's start**: the ban list (`REQ-SPIELER-003`,
-  `REQ-SCHIEDSRICHTER-007`), another pupil signing in on the new address where a pupil row moves
-  (`docs/backend/spec.md :: I702`), and a pupil holding no address, whose address arrives with their
-  registration (`docs/backend/spec.md :: I703`). Where the new address already holds records of its
-  own, the start says so: once the change takes effect, they all belong to one sign-in.
-- **Re-send** a link only while the change waits on the new mailbox, and **discard** a change that
-  turns out to be wrong. A change whose step lapses goes within the hour
+- **What refuses an administrator's start**: the ban list (`REQ-ADRESSWECHSEL-009`), another pupil
+  signing in on the new address where a pupil row moves (`docs/backend/spec.md :: I702`), an address
+  holding nothing a change moves (`REQ-ADRESSWECHSEL-010`), and your own address
+  (`REQ-PURGE-003`), which you change on your own account page. Where the new address already holds
+  records of its own, the start says so: once the change takes effect, they all belong to one
+  sign-in.
+- **Re-send** a link only while the change waits on the new mailbox
+  (`POST /adresswechsel/{adresswechsel_id}/einladen`), and **discard** a change that turns out to be
+  wrong (`DELETE /adresswechsel/{adresswechsel_id}`). A change whose step lapses ends within the hour
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
-- **Once a change takes effect**, the replaced address is told, and the account sweep deletes its
-  sign-in account within the hour, its passkeys with it, once nothing else references the address
-  ([section 9](#9-checking-that-the-hourly-passes-have-run)). A grant still at the replaced address
-  keeps that account alive: change the grant by the procedure of
-  [section 3](#3-granting-or-revoking-admin-access).
+- **Once a change takes effect**, the replaced address is told. Where the person started it or the
+  address on file approved it, their sign-in account moves to the new address and every session of
+  it ends; after a change started on a recorded reason they sign in anew, and the account sweep
+  deletes the replaced address's account within the hour, its passkeys with it, once nothing else
+  references the address ([section 9](#9-checking-that-the-hourly-passes-have-run)).
 - **A referee who has NOT confirmed.** Correct `kontakt.email` in the referee editor. The save
   itself kills the link that went to the old mailbox, mints a fresh one and mails the corrected
-  address, so nothing further is owed and the old link opens nothing. Their editor refuses an
-  address change for them (`REQ-SCHIEDSRICHTER-014`): until they confirm, they hold no record an
-  address change could move.
-- **The holder of a pending new referee address**, a mailbox a change was started for. Until
-  it confirms, that address reaches nothing of the referee's (`docs/backend/spec.md :: I560`), and
-  only the erasure's own read finds the row from it: type it on „Löschung auf Anfrage“, whose list
-  names the pending change and links to that referee's editor, follow the link without pressing,
-  and press „Änderung verwerfen“ there (`DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel`),
-  which removes the address and the log's images of it (`docs/backend/spec.md :: I562`). Where the
-  holder asked for their data to be deleted, the erasure itself removes the change alone and leaves
-  the row standing (`docs/backend/spec.md :: I668`). The link's own „Das ist nicht meine Adresse“
-  does the same as the discard, past its deadline too, and the address on file's stop link
-  does it from the other side.
-- **The holder of a pending new pupil address**, the referee's case above on a pupil's row: the
-  erasure page's list links to that pupil's editor, whose discard
-  (`DELETE /spieler/{spieler_id}/adresswechsel`) removes the address and the log's images of it
-  (`docs/backend/spec.md :: I704`). The link's own decline does the same, past its deadline too.
+  address, so nothing further is owed and the old link opens nothing. An address change moves no
+  unconfirmed referee row: until they confirm, the save is their address's one route.
+- **The holder of a pending new address**, a mailbox a change was started for. Until the change
+  takes effect, that address reaches nothing of the person's (`docs/backend/spec.md :: I560`), and
+  only the erasure's own read finds the change from it: type it on „Löschung auf Anfrage“, whose list
+  names the pending change, then open the change in the address tool by the address on file and
+  discard it there, which takes the address out of the change's record and the log's images of it
+  (`docs/backend/spec.md :: I704`). Where the holder asked for their data to be deleted, the erasure
+  itself ends the change alone and leaves the records standing (`docs/backend/spec.md :: I668`). The
+  link's own „Das ist nicht meine Adresse“ does the same as the discard, past its deadline too, and
+  the address on file's stop link does it from the other side.
 - **A referee who is RETIRED and has not confirmed.** Correct `kontakt.email` in the referee editor.
   The save stores the address, mails nothing and kills the old link, since a retired referee takes
   no booking to consent for; reactivating them later mints a fresh link and mails it to the
@@ -763,14 +765,17 @@ whole; a grant stays where it is (`docs/backend/spec.md :: I793`).
 - **A contact seat.** Correct it through
   `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`, which rewrites the
   address and nothing else of the person. It mints the fresh link, voids the old one and restarts the
-  confirmation deadline, and where one person holds two seats it corrects both. A seat whose person
-  has stepped out takes a different route, below.
+  confirmation deadline, and where one person holds two seats it corrects both. It refuses a seat its
+  person confirmed or answered, and a decided application, and never reaches a season row. A seat
+  whose person has stepped out takes a different route, below.
 
-**A person asking to change their own address is pointed to their account page.** A pupil's and a
-confirmed referee's address changes there, proved by the new mailbox's own link and told to the
-address on file; an administrator starts a change only for a lost mailbox, as above, and every other
-role's address is the administrator's correction. A person holding only contact seats starts none
-(`REQ-FUNKTION-001`), so their seat is corrected as the contact seat bullet says.
+**A person asking to change their own address is pointed to their account page.** Every account's
+address changes there, proved by the new mailbox's own link and told to the address on file; an
+administrator starts a change only for a lost mailbox, as above. A person holding only contact
+seats changes theirs there too. Where they cannot sign in, an administrator may instead seat them
+afresh in the contacts editor under the new address: the seat is then a new entry, its consent,
+media choice and birthdate asked again through the fresh link, and the old entry's records stay at
+the old address.
 
 **Withdrawing a consent is the person's own write on their account page, `/bereich/konto`, and
 never an erasure or an edit by hand** (`docs/backend/spec.md :: I613`, `:: I596`). Point a request
@@ -1334,11 +1339,12 @@ the deadline stops there fails its call with the date left stale, as a failure t
 report.
 
 **The half after the seasons stamps no day, so its own line is the record.** Every pass ends by
-removing the pending address changes whose step lapsed and making the due ones take effect, mailing
-each replaced address its completion notice. It writes
-one line per pass holding its counts and no person, `schiedsrichter.adresswechsel_sweep_pass`, at
+ending the address changes whose step lapsed and making the due ones take effect, mailing each
+replaced address its completion notice and the new address of a change refused at its due time a
+notice naming nobody. It writes
+one line per pass holding its counts and no person, `adresswechsel.sweep_pass`, at
 `INFO` where the pass left no row due, which a `LOG_LEVEL` above `INFO` drops, and as a warning
-where it left rows due; a half that threw files `schiedsrichter.adresswechsel_sweep_failed` under
+where it left rows due; a half that threw files `adresswechsel.sweep_failed` under
 `FE-SWEEP-001` besides.
 
 **The pupils' deletion runs on a timer of its own wherever `LOESCHUNG_SWEEP` reads `on`**, a

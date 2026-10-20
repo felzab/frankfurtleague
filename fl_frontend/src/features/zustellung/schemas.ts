@@ -15,7 +15,7 @@ import { CustomObjectIdStringSchema, einzeiligerName, FLBewerbungZustellstandSch
  * rather than dispatched to nothing.
  */
 export const FLZustellungZielSchema = z.enum(
-  ["schiedsrichter", "einladung", "registrierung", "kontakt", "schiedsrichter_adresswechsel", "spieler_adresswechsel", "spielbestaetigung"],
+  ["schiedsrichter", "einladung", "registrierung", "kontakt", "adresswechsel", "spielbestaetigung"],
   {
     error: "Diesen Empfängertyp gibt es nicht.",
   },

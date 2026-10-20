@@ -1422,6 +1422,7 @@ const SCOPED_BANS = [
   [
     {
       files: [
+        "src/features/adresswechsel/notifications.ts",
         "src/features/auth/actions.ts",
         "src/features/bewerbungen/actions.ts",
         "src/features/bewerbungen/notifications.ts",
@@ -1431,7 +1432,6 @@ const SCOPED_BANS = [
         "src/features/saisons/sweep.ts",
         "src/features/schiedsrichter/notifications.ts",
         "src/features/sperrliste/actions.ts",
-        "src/features/spieler/notifications.ts",
         "src/features/zustellung/notifications.ts",
       ],
       ...LOGGED_ERROR,

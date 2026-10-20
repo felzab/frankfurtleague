@@ -78,6 +78,7 @@ REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f60720000c")
 BERECHTIGUNG_OID = ObjectId("6890a1b2c3d4e5f60720000d")
 SPIELBESTAETIGUNG_OID = ObjectId("6890a1b2c3d4e5f60720000e")
 SPIEL_OID = ObjectId("6890a1b2c3d4e5f60720000f")
+ADRESSWECHSEL_OID = ObjectId("6890a1b2c3d4e5f6072000a1")
 # A submission key as a public form mints it (`app/api/bewerbungen/public_router.py :: post_bewerbung`).
 IDEMPOTENZ_SCHLUESSEL = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
 
@@ -382,6 +383,11 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "bounded_writes": 1,
             "geschrieben_am": datetime(2026, 3, 15, 23, tzinfo=UTC),
         },
+        # A live change as the start stores it: its instants are dates, which every read takes.
+        "adresswechsel": {
+            "_id": ADRESSWECHSEL_OID,
+            **adresswechsel_document(adresse="alt@example.invalid", email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16"),
+        },
     }
 
 
@@ -671,6 +677,11 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_documents()["spielberichte"],
         valid_document("spielberichte", _id=TEAM_OID, bericht=bericht_document(bemerkungen="Zweiter Bericht")),
     ),
+    # Two live changes of one address, to two mailboxes: the index refuses on the address alone, both rows in its filter.
+    "uniq_adresswechsel_adresse": (
+        valid_documents()["adresswechsel"],
+        valid_document("adresswechsel", _id=TEAM_OID, email="zweite@example.invalid", token_hash="b" * 64, stopp_hash="c" * 64),
+    ),
     # Two seasons, each `active`: a second row in any other status would pass while the filter matched nothing.
     "uniq_saison_active": (valid_documents()["saisons"], valid_document("saisons", _id="2027", start_date="2027-01-01", end_date="2027-06-30")),
 }
@@ -696,6 +707,19 @@ def test_each_unique_index_refuses_the_second_document(mongo_url: str, collectio
 
     # 11000 is DuplicateKey, not 121 — an index refuses the write before any validator sees it.
     assert on_the_shipped_schema(mongo_url, body) == "rejected:11000"
+
+
+def test_two_ended_changes_of_one_address_are_both_kept(mongo_url: str):
+    """An ending nulls the address, so a filter on `beendet` alone would hold every tombstone under one null key."""
+
+    ended = {"adresse": None, "email": None, "beendet": {"art": "abgelehnt", "am": datetime(2026, 3, 17, tzinfo=UTC)}}
+
+    async def body(database: AsyncDatabase) -> int:
+        await database.adresswechsel.insert_one(valid_document("adresswechsel", **ended))
+        await database.adresswechsel.insert_one(valid_document("adresswechsel", _id=TEAM_OID, stopp_hash="c" * 64, **ended))
+        return await database.adresswechsel.count_documents({})
+
+    assert on_the_shipped_schema(mongo_url, body) == 2
 
 
 def test_a_second_nameless_referee_is_refused(mongo_url: str):
@@ -1144,10 +1168,6 @@ def counted(reports: Mapping[Collection, constraints.RelationReport]) -> dict[st
     }
 
 
-# A pending address change as the start stores it, its day overridden per case: its instants are dates, which every read takes.
-ADRESSWECHSEL = adresswechsel_document(email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16")
-
-
 def test_the_values_a_list_refuses_report_a_clean_database_as_clean(mongo_url: str):
     """First and apart, for the cross-document rules' reason, over a document in every collection.
 
@@ -1158,7 +1178,7 @@ def test_the_values_a_list_refuses_report_a_clean_database_as_clean(mongo_url: s
         documents = {
             **valid_documents(),
             "registrierungen": valid_document("registrierungen", geburtsdatum=""),
-            "spieler": valid_document("spieler", adresswechsel=dict(ADRESSWECHSEL), inactive_since=""),
+            "spieler": valid_document("spieler", inactive_since=""),
         }
         for collection, document in documents.items():
             await database[collection].insert_one(document)
@@ -1178,19 +1198,15 @@ def test_the_values_a_list_refuses_are_counted_where_the_validators_store_them(m
         bestaetigung = {**valid_documents()["registrierungen"]["bestaetigung"], "frist": "2026-02-31"}
         await database.registrierungen.insert_one(valid_document("registrierungen", vorname="", bestaetigung=bestaetigung))
         # A null forename is `NAMELESS_PERSON_RULE`'s, so this report leaves it.
-        await database.spieler.insert_many(
-            [
-                valid_document("spieler", adresswechsel={**ADRESSWECHSEL, "verschickt_am": "2026-02-31"}),
-                valid_document("spieler", _id=ObjectId(), vorname=None),
-            ]
-        )
+        await database.spieler.insert_many([valid_document("spieler"), valid_document("spieler", _id=ObjectId(), vorname=None)])
+        await database.adresswechsel.insert_one(valid_document("adresswechsel", verschickt_am="2026-02-31"))
         await database.saison_spieler.insert_one(valid_document("saison_spieler", inactive_since="2026-13-01"))
 
         return counted(await report_unservable_values(database))
 
     assert on_the_shipped_schema(mongo_url, body) == {
         "registrierungen": (1, [["vorname", "bestaetigung.frist"]]),
-        "spieler": (1, [["adresswechsel.verschickt_am"]]),
+        "adresswechsel": (1, [["verschickt_am"]]),
         "saison_spieler": (1, [["inactive_since"]]),
     }
 

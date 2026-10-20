@@ -10,40 +10,40 @@ const ORIGIN = "http://localhost:3000";
 
 registerDoubles();
 
-const { adresswechselLink, buildAdresswechselEmail, buildAdresswechselHinweisEmail, buildAdresswechselWirksamEmail } =
-  await import("./adresswechselEmail.ts");
+const {
+  adresswechselLink,
+  buildAdresswechselEmail,
+  buildAdresswechselGenehmigungEmail,
+  buildAdresswechselHinweisEmail,
+  buildAdresswechselNichtWirksamEmail,
+  buildAdresswechselWirksamEmail,
+} = await import("./adresswechselEmail.ts");
 const { ADRESSWECHSEL_STOPPEN } = await import("./adresswechselAntworten.ts");
 const { KONTO_HREF } = await import("./kontoHref.ts");
+const { KONTAKT_EMAIL } = await import("./brand.ts");
 
 /** 13:30 in Berlin, so a page or a mail stating it in UTC would print another hour. */
 const GUELTIG_BIS = "2026-10-21T11:30:00Z";
 const BERLIN = "21. Oktober 2026 um 13:30";
 
-const LINK = { origin: ORIGIN, art: "spieler", token: "neu-token", weg: "konto", gueltigBis: GUELTIG_BIS } as const;
-const HINWEIS = {
-  origin: ORIGIN,
-  art: "schiedsrichter",
-  stoppToken: "stopp-token",
-  weg: "konto",
-  gueltigBis: GUELTIG_BIS,
-  vorname: "Mira",
-} as const;
+const LINK = { origin: ORIGIN, token: "neu-token", weg: "konto", gueltigBis: GUELTIG_BIS } as const;
+const HINWEIS = { origin: ORIGIN, stoppToken: "stopp-token", weg: "konto", gueltigBis: GUELTIG_BIS, vorname: "Mira" } as const;
 
 const beide = (mail: { html: string; text: string }): readonly string[] => [readable(mail.html), flat(mail.text)];
 
 describe("the links an address change spells", () => {
-  it("puts each lane's token on that lane's page, whose collection alone finds it", () => {
-    assert.equal(adresswechselLink(ORIGIN, "spieler", "t"), `${ORIGIN}/bestaetigung/spieler/adresse?token=t`);
-    assert.equal(adresswechselLink(ORIGIN, "schiedsrichter", "t"), `${ORIGIN}/bestaetigung/schiedsrichter/adresse?token=t`);
+  /* One page for every record: the token alone says which change, live or ended, and which side. */
+  it("puts every token on the one address page", () => {
+    assert.equal(adresswechselLink(ORIGIN, "t"), `${ORIGIN}/bestaetigung/adresse?token=t`);
   });
 
   it("names a parameter the edge's own redaction map replaces, the stop link's too", () => {
-    assertRedactedAtTheEdge(adresswechselLink(ORIGIN, "spieler", "neu-token"));
-    assertRedactedAtTheEdge(adresswechselLink(ORIGIN, "schiedsrichter", "stopp-token"));
+    assertRedactedAtTheEdge(adresswechselLink(ORIGIN, "neu-token"));
+    assertRedactedAtTheEdge(adresswechselLink(ORIGIN, "stopp-token"));
   });
 
   it("escapes a token whose characters would otherwise end the query", () => {
-    assert.equal(adresswechselLink(ORIGIN, "spieler", "a b&c=d"), `${ORIGIN}/bestaetigung/spieler/adresse?token=a%20b%26c%3Dd`);
+    assert.equal(adresswechselLink(ORIGIN, "a b&c=d"), `${ORIGIN}/bestaetigung/adresse?token=a%20b%26c%3Dd`);
   });
 });
 
@@ -68,7 +68,7 @@ describe("the link to the new address", () => {
 });
 
 describe("the notice to the address on file", () => {
-  const stopp = adresswechselLink(ORIGIN, "schiedsrichter", "stopp-token");
+  const stopp = adresswechselLink(ORIGIN, "stopp-token");
 
   it("carries the stop link on a control and in both parts, whichever way the change began", () => {
     for (const weg of ["konto", "freigabe", "wartezeit"] as const) {
@@ -84,12 +84,24 @@ describe("the notice to the address on file", () => {
   it("sends an approval to the account page with no token, and states that page's deadline", () => {
     const mail = buildAdresswechselHinweisEmail({ ...HINWEIS, weg: "freigabe" });
 
-    assert.equal(mail.subject, "Gib die neue E-Mail-Adresse frei");
     assert.ok(mail.html.includes(`href="${ORIGIN}${KONTO_HREF}"`), "the approval names no account page");
     for (const words of beide(mail)) assert.ok(words.includes(`bis ${BERLIN}`), "the approval states no deadline");
     assert.ok(
       !buildAdresswechselHinweisEmail(HINWEIS).html.includes(`${KONTO_HREF}"`),
       "a change waiting on no approval sends the reader to approve",
+    );
+  });
+
+  /* The request exists so a real holder can refuse a pretext: its first instruction is never to approve. */
+  it("asks an approval in the words every notice uses, warns before it, and leads with the stop", () => {
+    const freigabe = buildAdresswechselHinweisEmail({ ...HINWEIS, weg: "freigabe" });
+
+    assert.equal(freigabe.subject, buildAdresswechselHinweisEmail(HINWEIS).subject, "the approval's subject tells the reader to approve");
+    assert.doesNotMatch(freigabe.subject, /frei/i);
+    for (const words of beide(freigabe)) assert.match(words, /Gib sie nur frei, wenn Du das selbst bei uns angefragt hast\./);
+    assert.ok(
+      freigabe.html.indexOf(`>${ADRESSWECHSEL_STOPPEN}</a>`) < freigabe.html.indexOf(">Zu Deinem Konto</a>"),
+      "the approval's control leads the stop",
     );
   });
 
@@ -109,10 +121,43 @@ describe("the completion notice to the replaced address", () => {
     }
   });
 
+  /* A seat not yet confirmed stays at the replaced address and still signs in there. */
+  it("never claims the replaced address stops signing in", () => {
+    for (const words of beide(mail)) assert.doesNotMatch(words, /nicht mehr an/);
+  });
+
   /* The change is done: a control would offer an action nothing on the page can take. */
   it("offers no control and no token link", () => {
     assert.ok(!mail.html.includes("token="), "the completion notice carries a link a press could spend");
     assert.doesNotMatch(mail.html, /<td[^>]*class="fl-action/, "the completion notice draws a control");
+  });
+});
+
+describe("the new address's notice of a change that did not take effect", () => {
+  const mail = buildAdresswechselNichtWirksamEmail({ origin: ORIGIN });
+
+  /* A ban on this very address is among the reasons, and its holder may be a stranger: nothing names either. */
+  it("says the change did not take effect and where to ask, naming no person and no reason", () => {
+    for (const words of beide(mail)) {
+      assert.match(words, /Hallo, die Änderung Deiner E-Mail-Adresse ist nicht wirksam geworden\. Wir helfen Dir gern weiter:/);
+      assert.doesNotMatch(words, /Sperr|gesperrt|Spielerin|Grund/);
+    }
+    assert.doesNotMatch(mail.html, /<td[^>]*class="fl-action/, "the notice draws a control");
+  });
+});
+
+describe("the approvers' notice of a change waiting for them", () => {
+  const mail = buildAdresswechselGenehmigungEmail({ origin: ORIGIN });
+
+  /* Whoever reads it signs in to learn the rest: the mail is no place for either address of an administrator. */
+  it("links to the administrators page, carrying no id and naming no address", () => {
+    assert.ok(mail.html.includes(`href="${ORIGIN}/bereich/admin/administratoren"`), "the notice names another page");
+    for (const words of beide(mail)) {
+      // The league's own contact line excepted, which every message closes on.
+      assert.doesNotMatch(words.replaceAll(KONTAKT_EMAIL, ""), /@[a-z]/, "the notice names an address");
+      assert.doesNotMatch(words, /adresswechsel=|token=/, "the notice carries an id or a credential");
+      assert.match(words, /stimme nur zu, wenn Du sicher bist, dass die Person sie selbst angefragt hat/);
+    }
   });
 });
 

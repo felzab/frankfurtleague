@@ -67,12 +67,12 @@ from .test_funktionen_erasure import (
     GRANTED_BY_THEM_OID,
     HOME_TEAM_OID,
     IDENTIFIER,
-    MOVING_PUPIL_OID,
+    MOVING_PUPIL_CHANGE_OID,
     NACHNAME,
     NOW,
     OTHER_OWNER,
     OTHER_OWNER_OID,
-    OTHER_REFEREE_OID,
+    OTHER_REFEREE_CHANGE_OID,
     OTHER_TEAM_OID,
     PAYMENT,
     PENDING_OID,
@@ -326,9 +326,8 @@ EXPECTED_ANSICHT = {
         },
     ],
     "registrierungen": [registration(PENDING_OID, "eingereicht"), registration(DECLINED_OID, "abgelehnt")],
-    "adresswechsel": [{"schiedsrichter_id": str(OTHER_REFEREE_OID)}],
-    # Another pupil moving to the address: the change goes and their row stands.
-    "spieler_adresswechsel": [{"spieler_id": str(MOVING_PUPIL_OID)}],
+    # Another referee's and another pupil's change to the address: each change goes and its person's row stands.
+    "adresswechsel": [{"adresswechsel_id": str(OTHER_REFEREE_CHANGE_OID)}, {"adresswechsel_id": str(MOVING_PUPIL_CHANGE_OID)}],
     "verwaltung": "administration",
     "gesperrt": False,
 }
@@ -613,7 +612,7 @@ class TestTheReveal:
             "schiedsrichter": len(ansicht["schiedsrichter"]),
             "kontakt_sitze": len(ansicht["sitze"]) + len(ansicht["bewerbungen"]),
             "registrierungen": len(ansicht["registrierungen"]),
-            "adresswechsel": len(ansicht["adresswechsel"]) + len(ansicht["spieler_adresswechsel"]),
+            "adresswechsel": len(ansicht["adresswechsel"]),
         }
 
         assert named == {key: erased[key] for key in named}

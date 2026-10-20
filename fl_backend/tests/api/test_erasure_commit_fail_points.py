@@ -31,6 +31,10 @@ from tests.whole_database import where_held
 
 from . import test_spielbestaetigung_sweep_execution as confirmations
 from . import test_spiele_write_execution as fixture_saves
+from .test_adresswechsel_sweep_execution import MINTED_TO_LAPSE_YESTERDAY, a_change, with_history
+from .test_adresswechsel_sweep_execution import numbered as change_numbered
+from .test_adresswechsel_sweep_execution import on_a_league as on_the_changes_league
+from .test_adresswechsel_sweep_execution import sweep as an_address_change_call
 from .test_erasure_auf_anfrage import CONFIG as REQUEST_CONFIG
 from .test_erasure_auf_anfrage import erased_by_the_handler as erased_on_request
 from .test_erasure_auf_anfrage import journal_lines
@@ -43,10 +47,6 @@ from .test_loeschung_sweep import a_due_pupil, seeded
 from .test_loeschung_sweep import numbered as pupil_numbered
 from .test_loeschung_sweep import on_a_league as on_the_pupils_league
 from .test_loeschung_sweep import run as a_deletion_call
-from .test_schiedsrichter_sweep_execution import MINTED_TO_LAPSE_YESTERDAY, a_referee
-from .test_schiedsrichter_sweep_execution import numbered as referee_numbered
-from .test_schiedsrichter_sweep_execution import on_a_league as on_the_referees_league
-from .test_schiedsrichter_sweep_execution import sweep as an_address_change_call
 
 # The client a configuration hits, chosen by its name: the commits of every other client, each seed's own among them,
 # run as they would.
@@ -372,24 +372,22 @@ class TestTheSweepsNameACommitTheyCannotRead:
             )
         ]
 
-    def test_the_address_change_sweep_names_the_referee_whose_removal_went_unanswered(
+    def test_the_address_change_sweep_names_the_change_whose_end_went_unanswered(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
     ):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SCHIEDSRICHTER].insert_many(
-                [a_referee(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in (1, 2)]
-            )
+            await with_history(database, *(a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in (1, 2)))
 
             return await _first_commit_unanswered(mongo_replica_set_url, database, client, an_address_change_call)
 
         with caplog.at_level(logging.WARNING):
-            commits = on_the_referees_league(mongo_replica_set_url, body)
+            commits = on_the_changes_league(mongo_replica_set_url, body)
 
         assert commits == [MAX_TIME_EXPIRED]
         assert _stopping_lines(caplog) == [
             (
                 UNKNOWN_OUTCOME,
-                f"Database deadline passed at the lapsed address change of referee {referee_numbered(1)}, its removal unanswered: "
+                f"Database deadline passed at the lapsed address change {change_numbered(1)}, its end unanswered: "
                 "the call stops, and the rest stay due",
             )
         ]

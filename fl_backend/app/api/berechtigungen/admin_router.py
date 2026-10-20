@@ -1,14 +1,16 @@
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated
 
+from bson import ObjectId
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.results import InsertOneResult
 
-from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen, read_the_announced
+from app.api.adresswechsel.services import build_awaiting_genehmigung_filter, verwehrt_fuer
+from app.api.berechtigungen.crud import grant_in_session, pull_the_list_to_judge, read_berechtigungen, read_the_announced, revoke_in_session
 from app.api.berechtigungen.schemas import (
     FLBerechtigung,
+    FLBerechtigungAdresswechsel,
     FLBerechtigungenListResponse,
     FLBerechtigungWriteResponse,
     FLBerechtigungZeile,
@@ -28,17 +30,18 @@ from app.api.berechtigungen.services import (
     find_nur_inhaber_refusal,
     find_vorhanden_refusal,
     gefunden,
+    holds_an_owners_power,
     lebendige,
-    lebendige_adresse,
     stand_of,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
 from app.api.sperrliste.services import withheld_actor
 from app.core.adressanker import anchor_the_addresses
 from app.core.config import API_VERSION
-from app.core.crud import delete_many_from_db, erase_many_from_db, patch_one_in_db, post_one_to_db, refuse
+from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_one_in_db, post_one_to_db, refuse
 from app.core.dependencies import (
     AdressankerCollection,
+    AdresswechselCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
     BerechtigungenPostausgangCollection,
@@ -72,7 +75,12 @@ ADMINISTRATION = "administration"
 @router.get("", response_model=FLBerechtigungenListResponse, summary="List who may enter the administration")
 async def get_berechtigungen(
     berechtigungen_collection: BerechtigungenCollection,
+    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    adresswechsel_collection: AdresswechselCollection,
     sperrliste: SperrlisteLookup,
+    db: DBClient,
+    operator: str = Depends(get_actor_email),
+    auth_time: int = Depends(get_actor_auth_time),
 ) -> FLBerechtigungenListResponse:
     """
     List every live grant of access to the administration, by address: its tier, who granted it and when.
@@ -81,19 +89,37 @@ async def get_berechtigungen(
     admits nobody and is left out, counted in `uebersprungen`. An address on the ban list is answered as `null` beside `gesperrt`,
     never in plain, and so is a barred `erteilt_von`, beside `erteilt_von_gesperrt`; it is otherwise an administrator's address
     for a grant made here and whatever the database edit wrote for one made there.
+
+    `adresswechsel` names the change of a grant's address waiting on an administrator's approval, its new address whole,
+    and why this administrator may not approve it, where they may not: their own, one they started, or an owner's without
+    an owner's power (`POST /adresswechsel/{adresswechsel_id}/genehmigung`).
     """
 
-    rows = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection)
-    live = lebendige(rows)
-    grants = [FLBerechtigung.model_validate(row) for row in live]
-    barred = await adressen_gesperrt(
-        sperrliste, [grant.adresse for grant in grants] + [sign_in_identifier(grant.erteilt_von) for grant in grants]
-    )
+    akteur = sign_in_identifier(operator)
+    # A snapshot, so the grants, their records and the changes waiting on an approval are read as of one moment.
+    async with db.start_session(snapshot=True) as session:
+        rows = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
+        announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
+        live = lebendige(rows)
+        grants = [FLBerechtigung.model_validate(row) for row in live]
+        barred = await adressen_gesperrt(
+            sperrliste, [grant.adresse for grant in grants] + [sign_in_identifier(grant.erteilt_von) for grant in grants], session=session
+        )
+        wartend = {
+            record["adresse"]: record
+            for record in await aggregate_many_from_db(
+                collection=adresswechsel_collection,
+                pipeline=[{"$match": build_awaiting_genehmigung_filter([grant.adresse for grant in grants if grant.adresse not in barred])}],
+                session=session,
+            )
+        }
+    inhaber = holds_an_owners_power(akteur=akteur, auth_time=auth_time, grants=rows, announced=announced)
 
     served = []
     for grant in grants:
         gesperrt = grant.adresse in barred
         erteilt_von = withheld_actor(grant.erteilt_von, barred)
+        record = None if gesperrt else wartend.get(grant.adresse)
         served.append(
             FLBerechtigungZeile(
                 id=grant.id,
@@ -103,6 +129,15 @@ async def get_berechtigungen(
                 erteilt_von=erteilt_von,
                 erteilt_von_gesperrt=erteilt_von is None,
                 erteilt_am=grant.erteilt_am,
+                adresswechsel=None
+                if record is None
+                else FLBerechtigungAdresswechsel(
+                    id=record["_id"],
+                    email=record["email"],
+                    bestaetigt=record.get("bestaetigt_am") is not None,
+                    bis=record["genehmigung"]["bis"],
+                    verwehrt=verwehrt_fuer(record, akteur=akteur, inhaber=inhaber),
+                ),
             )
         )
 
@@ -143,7 +178,7 @@ async def post_berechtigung(
     # Keyed from the payload's own value, as the ban write keys it (`app/api/identitaet/router.py :: get_subjekt`).
     gehasht = sperrliste.hash_of(str(berechtigung_data.email))
 
-    async def judge_and_grant(session: AsyncClientSession) -> InsertOneResult:
+    async def judge_and_grant(session: AsyncClientSession) -> ObjectId:
         """Anchor and read the list, ask the ban list, then write the grant, its announced row and its outbox row, on one transaction."""
 
         grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
@@ -152,42 +187,26 @@ async def post_berechtigung(
         gesperrt = await hash_gesperrt(sperrliste, gehasht, session=session)
         refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
-        document: dict[str, Any] = {
-            "adresse": adresse,
-            "verwaltung": ADMINISTRATION,
-            # The bound actor rather than a payload field, so the grant and its `aktionen` row name one person.
-            "erteilt_von": erteilt_von,
-            "erteilt_am": now,
-            # Seen as it is written, so a copy of it put back after a revoke reads as an edit rather
-            # than a fresh paste (`docs/backend/spec.md :: I529`).
-            "gesehen_am": now,
-        }
-        created = await post_one_to_db(collection=berechtigungen_collection, document=document, session=session)
+        created_id = await grant_in_session(
+            adresse=adresse,
+            verwaltung=ADMINISTRATION,
+            erteilt_von=erteilt_von,
+            gesperrt=frozenset(),
+            berechtigungen_collection=berechtigungen_collection,
+            berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            now=now,
+            session=session,
+        )
         # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
         await anchor_the_addresses([adresse], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session)
 
-        stand = stand_of(document)
-        # The announced row moves with the grant and the outbox row carries its notice, so the
-        # comparison finds nothing of this write to announce twice (`docs/backend/spec.md :: I451`).
-        await post_one_to_db(
-            collection=berechtigungen_angekuendigt_collection,
-            document=compose_announced(berechtigung_id=created.inserted_id, stand=stand, now=now),
-            session=session,
-        )
-        await post_one_to_db(
-            collection=berechtigungen_postausgang_collection,
-            document=compose_postausgang(
-                berechtigung_id=created.inserted_id, art="erteilt", jetzt=stand, vorher=None, geaendert_von=erteilt_von, now=now, gesperrt=()
-            ),
-            session=session,
-        )
-
-        return created
+        return created_id
 
     async with transaction_session(db) as session:
-        post_operation = await session.with_transaction(judge_and_grant)
+        created_id = await session.with_transaction(judge_and_grant)
 
-    return FLPostBerechtigungResponse(acknowledged=1 if post_operation.acknowledged else 0, created_id=post_operation.inserted_id)
+    return FLPostBerechtigungResponse(acknowledged=1, created_id=created_id)
 
 
 @router.delete(
@@ -241,38 +260,17 @@ async def delete_berechtigung(
         remaining = [row for row in live if row["_id"] != berechtigung_id and row["adresse"] not in barred]
         refuse(find_mindestzahl_refusal(remaining=len(remaining)))
 
-        announced = [record for record in records if record["_id"] == berechtigung_id]
-        # A database edit to this row nobody was told of goes out first, as it happened, or the
-        # revoke's own notice would be the only trace of it (`docs/backend/spec.md :: I451`).
-        pending = compare(grants=[grant], announced=announced)
-        for changed_id, art, jetzt, vorher in pending:
-            await post_one_to_db(
-                collection=berechtigungen_postausgang_collection,
-                document=compose_postausgang(
-                    berechtigung_id=changed_id, art=art, jetzt=jetzt, vorher=vorher, geaendert_von=None, now=now, gesperrt=barred
-                ),
-                session=session,
-            )
-
-        if lebendige_adresse(grant) is not None:
-            await post_one_to_db(
-                collection=berechtigungen_postausgang_collection,
-                document=compose_postausgang(
-                    berechtigung_id=berechtigung_id,
-                    art="entzogen",
-                    jetzt=None,
-                    vorher=stand_of(grant),
-                    geaendert_von=entzogen_von,
-                    now=now,
-                    gesperrt=barred,
-                ),
-                session=session,
-            )
-
-        await delete_many_from_db(collection=berechtigungen_collection, db_filter={"_id": berechtigung_id}, session=session)
-        # The grant keeps its image, the administrator's act; its announced row is bookkeeping and keeps
-        # none (`docs/backend/spec.md :: I465`).
-        await erase_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": berechtigung_id}, session=session)
+        await revoke_in_session(
+            grant=grant,
+            announced=[record for record in records if record["_id"] == berechtigung_id],
+            entzogen_von=entzogen_von,
+            gesperrt=barred,
+            berechtigungen_collection=berechtigungen_collection,
+            berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            now=now,
+            session=session,
+        )
 
     async with transaction_session(db) as session:
         await session.with_transaction(judge_and_revoke)

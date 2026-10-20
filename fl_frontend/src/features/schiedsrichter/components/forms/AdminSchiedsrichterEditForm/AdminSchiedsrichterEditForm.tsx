@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { istAndereAdresse } from "@/features/konto/components/forms/AdresswechselBeantragen";
 import { patchSchiedsrichterAction, undoAdminSchiedsrichterEditAction } from "@/features/schiedsrichter/actions";
 import { saveMayMint } from "@/features/schiedsrichter/linkMint";
 import { FLPatchSchiedsrichterPayloadSchema, hatAdresse } from "@/features/schiedsrichter/schemas";
@@ -23,13 +22,11 @@ import { useStepUp } from "@/shared/hooks/useStepUp";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { fieldStatus } from "@/shared/utils/draftStatus";
-import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { versandWarnt } from "@/shared/utils/linkVersand";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSchiedsrichterBanners } from "./banners";
-import { FormAdresswechselSection } from "./FormAdresswechselSection";
 import { FormBestaetigungSection } from "./FormBestaetigungSection";
 import { FormHonorarSection } from "./FormHonorarSection";
 import { FormKontaktSection } from "./FormKontaktSection";
@@ -37,7 +34,6 @@ import { FormPersonSection } from "./FormPersonSection";
 
 import type {
   FLPatchSchiedsrichterPayload,
-  FLSchiedsrichterAdresswechsel,
   FLSchiedsrichterBestaetigung,
   FLSchiedsrichterPayloadDraft,
 } from "@/features/schiedsrichter/schemas";
@@ -78,9 +74,10 @@ type AdminSchiedsrichterEditFormProps = {
     geburtsdatum: string | null;
     einwilligung: FLEinwilligung | null;
     bestaetigung: FLSchiedsrichterBestaetigung | null;
-    adresswechsel: FLSchiedsrichterAdresswechsel | null;
-    /** Whether each link's deadline has passed, as the read judged it rather than this browser's day. */
-    abgelaufen: { bestaetigung: boolean; adresswechsel: boolean };
+    /** The change pending at the stored address, which the address tool shows and this page links to. */
+    adresswechsel_id: string | null;
+    /** Whether the link's deadline has passed, as the read judged it rather than this browser's day. */
+    abgelaufen: { bestaetigung: boolean };
   };
   /** Whether the registry holds the stored label, which no record of the row says. */
   istFassungBekannt: boolean | null;
@@ -89,22 +86,12 @@ type AdminSchiedsrichterEditFormProps = {
   pageHeader: EditPageHeaderContent;
 };
 
-/**
- * Holds what outlives a save, as the pupil editor's holder does: the start box's typing, which no save
- * writes, and the save's exit waiting over it. The editor below is keyed by the stored record its drafts mirror.
- */
+/** The editor, keyed by the stored record its drafts mirror, so a save's refresh remounts it on the saved values. */
 export function AdminSchiedsrichterEditForm(props: AdminSchiedsrichterEditFormProps) {
-  const [adresseEntwurf, setAdresseEntwurf] = useState<string | null>(null);
-  const [isSaveExitAsked, setSaveExitAsked] = useState(false);
-
   return (
     <SchiedsrichterEditForm
       key={JSON.stringify(props.schiedsrichter)}
       {...props}
-      adresseEntwurf={adresseEntwurf}
-      onAdresseEntwurfChange={setAdresseEntwurf}
-      isSaveExitAsked={isSaveExitAsked}
-      onSaveExitAskedChange={setSaveExitAsked}
     />
   );
 }
@@ -114,22 +101,7 @@ export function AdminSchiedsrichterEditForm(props: AdminSchiedsrichterEditFormPr
  * no junction row, so the patch carries the whole draft and a partial failure is not a state this
  * form can reach.
  */
-function SchiedsrichterEditForm({
-  schiedsrichter,
-  istFassungBekannt,
-  isRetired,
-  pageHeader,
-  adresseEntwurf,
-  onAdresseEntwurfChange,
-  isSaveExitAsked,
-  onSaveExitAskedChange,
-}: AdminSchiedsrichterEditFormProps & {
-  /** The start box's typing, `null` while it is closed: a confirmed referee's address moves by its own start alone. */
-  adresseEntwurf: string | null;
-  onAdresseEntwurfChange: (next: string | null) => void;
-  isSaveExitAsked: boolean;
-  onSaveExitAskedChange: (asked: boolean) => void;
-}) {
+function SchiedsrichterEditForm({ schiedsrichter, istFassungBekannt, isRetired, pageHeader }: AdminSchiedsrichterEditFormProps) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
@@ -180,14 +152,7 @@ function SchiedsrichterEditForm({
   };
 
   const status = deriveSchiedsrichterDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
-  const isDraftDirty = status.isDirty && !hasSaved;
-  const adresseGetippt =
-    bestaetigt &&
-    adresseEntwurf !== null &&
-    schiedsrichter.kontakt.email !== null &&
-    istAndereAdresse(adresseEntwurf, schiedsrichter.kontakt.email);
-  // A typed new address counts as unsaved for leaving the page, never for the save bar, which does not carry it.
-  const isDirty = isDraftDirty || adresseGetippt;
+  const isDirty = status.isDirty && !hasSaved;
 
   // The latch's job ends when the revalidated referee arrives and the two agree; left latched, every
   // later edit on a restored tree read as not-dirty.
@@ -223,17 +188,10 @@ function SchiedsrichterEditForm({
   const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
     fallbackHref: saisonHref("/bereich/admin/schiedsrichter"),
     isDirty,
-    // The box too: it is left, like the draft, on a tree the router keeps.
-    resetDraftToStored: () => {
-      resetDraftToStored();
-      onAdresseEntwurfChange(null);
-    },
+    resetDraftToStored,
   });
 
-  const isDiscardOpen = isConfirmingDiscard || isSaveExitAsked;
-
-  // The draft alone: typing in the start box leaves the save nothing to write.
-  useSaveShortcut(formRef, !isPending && !isDiscardOpen && confirmingBanners === null && isDraftDirty);
+  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
 
   const requestSave = () => {
     // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block
@@ -295,10 +253,7 @@ function SchiedsrichterEditForm({
           // After the undo payload is built: leaving with typed values still in state lets a save-then-undo
           // reopen on values the referee does not hold.
           resetDraftToStored();
-          // Asked rather than left over a typed new address, and held above this editor's key: the refresh this
-          // save ends on remounts the editor, which would close a dialog of its own.
-          if (adresseGetippt) onSaveExitAskedChange(true);
-          else leavePage();
+          leavePage();
         });
       }),
     );
@@ -329,39 +284,16 @@ function SchiedsrichterEditForm({
             onFieldLeft={validateFields}
           />
 
-          {/* One place for the address and its waiting change, laid out as if absent: a discard takes the
-              change's panel away, and the focus lands on the contact panel's heading rather than the page's
-              (`docs/frontend/spec.md :: I536`). */}
-          <div
-            className="contents"
-            {...focusSection("kontakt")}>
-            <FormKontaktSection
-              kontakt={kontakt}
-              bestaetigt={
-                bestaetigt && schiedsrichter.kontakt.email !== null
-                  ? {
-                      schiedsrichterId: schiedsrichter.id,
-                      email: schiedsrichter.kontakt.email,
-                      isDirty: isDraftDirty,
-                      entwurf: adresseEntwurf,
-                      onEntwurfChange: onAdresseEntwurfChange,
-                    }
-                  : null
-              }
-              onChange={setKontakt}
-              onFieldLeft={validateFields}
-            />
-
-            {/* Beside the address it would replace, and only while a change is pending. */}
-            {schiedsrichter.adresswechsel !== null && (
-              <FormAdresswechselSection
-                schiedsrichterId={schiedsrichter.id}
-                adresswechsel={schiedsrichter.adresswechsel}
-                istAbgelaufen={schiedsrichter.abgelaufen.adresswechsel}
-                isDirty={isDirty}
-              />
-            )}
-          </div>
+          <FormKontaktSection
+            kontakt={kontakt}
+            bestaetigt={
+              bestaetigt && schiedsrichter.kontakt.email !== null
+                ? { email: schiedsrichter.kontakt.email, adresswechselId: schiedsrichter.adresswechsel_id }
+                : null
+            }
+            onChange={setKontakt}
+            onFieldLeft={validateFields}
+          />
 
           <FormHonorarSection
             defaultPayment={defaultPayment}
@@ -394,16 +326,10 @@ function SchiedsrichterEditForm({
 
       {!hasLeftViaDiscard && (
         <ConfirmDiscardModal
-          isOpen={isDiscardOpen}
-          onClose={() => {
-            closeDiscard();
-            onSaveExitAskedChange(false);
-          }}
-          onDiscard={() => {
-            onSaveExitAskedChange(false);
-            discardAndLeave();
-          }}
-          changeCount={(isDraftDirty ? status.changed.length : 0) + (adresseGetippt ? 1 : 0)}
+          isOpen={isConfirmingDiscard}
+          onClose={closeDiscard}
+          onDiscard={discardAndLeave}
+          changeCount={status.changed.length}
         />
       )}
 
