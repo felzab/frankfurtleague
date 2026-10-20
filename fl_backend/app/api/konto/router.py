@@ -419,10 +419,10 @@ async def delete_adresswechsel(
     async def stop_the_change(session: AsyncClientSession) -> Bestand:
         bestand = await read_the_bestand(identifier, records=records, session=session)
         zeile = bestand.offen
-        if zeile is None or zeile.block is None:
+        if zeile is None:
             raise DocumentNotFoundException(filter=build_pending_terms(), error_code=DOCUMENT_NOT_FOUND)
 
-        await discard_the_change_in_session(
+        stored = await discard_the_change_in_session(
             collection=zeile.collection,
             spieler_collection=spieler_collection,
             schiedsrichter_collection=schiedsrichter_collection,
@@ -434,7 +434,7 @@ async def delete_adresswechsel(
         journal.note(
             ending_line(
                 art="adresswechsel_gestoppt",
-                neue=str(zeile.block["email"]),
+                neue=str(stored[ADRESSWECHSEL_FELD]["email"]),
                 collection=zeile.collection,
                 record_id=zeile.row["_id"],
                 am=log_stamp(germany_now),

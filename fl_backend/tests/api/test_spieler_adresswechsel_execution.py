@@ -785,6 +785,20 @@ class TestTheConfirmationsRefusals:
         assert code == SPIELER_KEINE_ADRESSE
         assert row == before
 
+    def test_for_a_pupil_a_hand_edit_left_outside_its_address_s_records_it_is_discarded(self, mongo_replica_set_url: str):
+        """An address stored unfolded: no record of the address carries the change, so the press discards it as the hourly pass would."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            token = (await start(database, client, email=NEW_EMAIL)).token
+            await database[Collection.SPIELER].update_one({"_id": SPIELER_OID}, {"$set": {"email": EMAIL.upper()}})
+
+            return await refused_code(answer(database, client, token, "bestaetigt")), await stored(database)
+
+        code, row = on_a_league(mongo_replica_set_url, body)
+
+        assert code == SPIELER_TOKEN_UNKNOWN
+        assert (row["email"], SPIELER_ADRESSWECHSEL_FELD in row) == (EMAIL.upper(), False)
+
 
 class TestTheDecline:
     def test_it_removes_the_change_alone(self, mongo_replica_set_url: str):
