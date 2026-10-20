@@ -269,6 +269,8 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | `= /api/v0/system/is_live`                   | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (I13, §3)                                                                                             |
 | `= /signin`                                  | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
 | `/_next/static/`                             | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`, and the server-action pair, which meters no GET                                                                                                |
+| `/bestaetigung/`                             | `frontend:3000` | Every link page under it, a PREFIX: paired `limit_req` `zone=linkseite burst=60` and `zone=linkseite48 burst=600` on every request, beside `/`'s ceiling and action pair                             |
+| `= /registrierung` and `= /loeschung`        | `frontend:3000` | The two link pages outside that segment, a team's invite and the deletion link: `/bestaetigung/`'s lines, each with its twin                                                                         |
 | `/`                                          | `frontend:3000` | Catch-all — `limit_conn conn 50`, and the server-action pair, which meters nothing else                                                                                                              |
 
 **The edge reaches each upstream by its service name as it serves, never by an address read at
@@ -310,7 +312,7 @@ liveness probe is the one entry of — a block the walk cannot place otherwise o
 answered it, still metering a URL nothing serves. **That recorded path rots both ways** and either
 is a finding: it is named by no exact-match location, or a file in the tree has started answering
 it, so the row records what the accounting already reads. Pages are read for that direction alone,
-`location /` carrying every one of them, and a dynamic segment at the top level excuses nothing: its
+what meters a link page being `nginx/edge_test.sh`'s to drive, and a dynamic segment at the top level excuses nothing: its
 static head is the root, which would cover every exact match there is.
 
 **Next's code-generated metadata conventions are accounted for beside the handlers and taken
@@ -341,8 +343,8 @@ address in `nginx/shared/http.conf`, the `geo` beside `set_real_ip_from`, and th
 
 **A zone keyed on the POST map limits no GET on its path** — an empty key is exempt from
 `limit_req` — so every zone over `$signin_limit_key` or `$signin_limit_key48` reaches POSTs alone.
-**The zones over a GET key on the network maps unconditionally**: the Kürzel check, and the pair
-under `/api/auth`, would otherwise read as limited and be unlimited.
+**The zones over a GET key on the network maps unconditionally**: the Kürzel check, the pair
+under `/api/auth` and the link pages' pair would otherwise read as limited and be unlimited.
 
 **Underneath both, the key is a NETWORK rather than an address, and there are two of them** —
 `nginx/shared/http.conf :: map $remote_addr $client_net` for the /64 and `:: map $remote_addr
@@ -380,11 +382,23 @@ as a connection. **Its one rate zone pair keys on server actions alone**, `actio
 form content type, which is every post Next 16.3.8 runs as an action. Next takes an empty header for
 an action too, which nginx cannot tell from none, so the edge passes the header only where it holds
 a value (`nginx/shared/site.conf :: Next-Action`). Every other request's key is
-empty, so no page load or asset is metered; the pair is rated above any administrator's run of
+empty, so no page load or asset is metered by it; the pair is rated above any administrator's run of
 saves. `/_next/static/` carries it too, where a POST reaches no action (a 405 whose render fails as
 a 500, driven against Next 16.3.6 on 2026-09-27) but costs that render. **That
 makes one directive count differently on the two stacks**: `nginx/local/local.conf` serves HTTP/1.1, so
 the one line in `nginx/shared/site.conf` bounds whole connections locally.
+
+**Every page a mailed or shared link opens, its token in the query, is metered on every request
+and every method**, on `linkseite`/`linkseite48`: each GET renders a page that reads the link's
+view from the backend, so one network reloading a link page spends database operations the whole
+league shares. No page links to one, so a visit is one request rather than a navigation's fan-out,
+which is what a zone at `location /` would refuse. **`/bestaetigung/` is a prefix because every page
+under it is a link page**, so a page added there is metered the day it exists; a link page added
+anywhere else needs an exact match and its twin, as `/registrierung` and `/loeschung` have. Each
+block restates `location /`'s ceiling and action pair and declares no `proxy_set_header`,
+`add_header` or `error_page`, each of which would replace an inherited set. `nginx/edge_test.sh`
+floods one link page past the burst, then fails any link page, twin, double slash, dot segment,
+percent-encoded letter, `HEAD` or JSON post that is not refused with the edge's own `429`.
 
 **A body cap below the server block's `20M` is set at the location it bounds.** The application
 form's `64k` cap alone is measured, 2026-08-30: a 100,049-byte POST is refused `413` at the edge,
@@ -403,8 +417,8 @@ failed answer that is not RSC as the error's message under that exact type alone
 reads that message as a press that wrote nothing
 ([`docs/frontend/spec.md`](../frontend/spec.md) I656). A `charset` makes the header
 `text/plain; charset=utf-8`, after which every refused press reads as an unclear save again. A route
-handler's caller reads the status alone, and a page load past the connection ceiling shows the
-sentence. `nginx/edge_test.sh` grades a refused action's type, its body byte for byte against the
+handler's caller reads the status alone, and a page load past the connection ceiling or a link
+page's pair shows the sentence. `nginx/edge_test.sh` grades a refused action's type, its body byte for byte against the
 file, and its security headers, asked with and without `Accept-Encoding: gzip`: nginx's gzip filter
 compresses a `200`, `403` or `404` alone, so the `429` leaves the origin plain either way.
 
@@ -414,9 +428,8 @@ both sitting below that log's own level. nginx puts the request line there WHOLE
 line carries, `error_log`'s `json` and `error_log_tag` being commercial-only
 ([`docs/logging/spec.md`](../logging/spec.md) §1.2). Both records were driven against
 `nginx:1.31-alpine` and read back, 2026-09-21. Every minted link's live token travels in the
-query of a page — the confirmation and invitation landing pages — so what stands over it
-is `location /`'s connection ceiling rather than any rate zone, the zones metering the writes those
-pages post. **What the pair does not close is every OTHER line about a request, at any level**, an
+query of a link page, where a refusal is routine, so this level is what keeps those tokens out of
+that log; `nginx/edge_test.sh` fails a token found there after a run of refused link pages. **What the pair does not close is every OTHER line about a request, at any level**, an
 upstream failure among them, which repeats the same request line
 ([`docs/logging/spec.md`](../logging/spec.md) §4); and what it costs a reader is the name of the
 zone that refused, the access line carrying `status` alone.
@@ -439,8 +452,7 @@ the clearance a navigation earns protects none of the writes there; the bot chec
 server at the submit does ([`docs/frontend/spec.md`](../frontend/spec.md) I622).
 A Next server action is a `fetch()` POST carrying a `Next-Action` header, and a `fetch()` renders no
 interstitial: the challenge's HTML reaches React where a Flight stream was expected, and the throw
-lands on the error boundary before any application code runs. Every page and every server action
-arrives through `location /`, and the browser posts an action to the address of the page it is on,
+lands on the error boundary before any application code runs. Every page but a link page arrives through `location /`, and the browser posts an action to the address of the page it is on,
 so the sign-in form's own POST lands on `= /signin`. **What that zone bounds is the PATH and never
 the action**: a server action resolves from a process-wide module map with no reference to the
 address it was posted to, so the same action posted to any other page reaches it, metered there only by the server-action
@@ -878,7 +890,8 @@ carries every thread's stack (`scripts/gate/verify.sh :: FAULTHANDLER_S`), the s
 (`scripts/gate/gate_pool.py :: shown`). That names a synchronous case's stalled frame; an async
 case's suspended coroutine is on no thread, so its dump shows only the event loop. In CI the notice
 lands before the job's timeout ends the job, which names no unit, for a stall starting anywhere
-inside the job's budget
+inside the job's budget; a job carrying no budget is held to its timeout alone, so there a stall is
+named only where it starts early enough
 (`scripts/tests/test_gate_pool.py :: test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout`).
 **The pool ends its units rather than outliving them**
 (`scripts/gate/gate_pool.py :: terminate`), down to the build a unit was waiting on. **On Windows,
@@ -1399,6 +1412,10 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
   still meets. **The dashboard is where its token is issued**, and the server holds the issued
   value at `./secrets/tunnel_token` (§1.2). Each hostname's DNS record is the tunnel's own, written
   when the hostname was added, so the zone holds no record naming the origin's address.
+- **Always Use HTTPS answers every plain-HTTP request at Cloudflare** with a `301` to `https://` on
+  the same host (observed 2026-10-20 as `Server: cloudflare` on that answer for both hostnames), so
+  `nginx/prod/prod.conf`'s port-80 block is never reached. A browser ignores HSTS sent over plain
+  HTTP, so this redirect is what moves a first visit typed as `http://` onto TLS.
 - **The AI-bot controls admit an agent and refuse a trainer**: AI training blocked, AI agents
   allowed, AI search allowed, and the managed `robots.txt` on. An agent fetching a page for a
   person is a visitor; a crawler filling a training set is not, and the distinction is the whole
@@ -1516,6 +1533,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | Backend healthcheck fails after an API version bump                                                                                                                                                     | The healthcheck spells the API version itself                                                                                                   | Move the path in `docker-compose.yml`'s backend healthcheck, and in `nginx/shared/site.conf`'s liveness location with it (§4)                                                                                        |
 | The uptime monitor 404s while the backend container reports healthy                                                                                                                                     | The nginx liveness location still spells the old version, so the probe matches `location /` and Next answers it                                 | Move the path in `nginx/shared/site.conf`'s liveness location, then re-point the monitor at the apex host with no trailing slash (§4)                                                                                |
 | Sign-in returns 429                                                                                                                                                                                     | Working as intended — the sign-in POST is rate-limited at the edge                                                                              | Nothing. The limit is `nginx/shared/http.conf`'s `signin` zone, and it applies to POST alone (I4)                                                                                                                    |
+| A page a mailed link opens answers `429` in plain text                                                                                                                                                  | Working as intended — one network opened link pages past the `linkseite` burst (§1.3)                                                           | Nothing. A reload once the zone refills opens the link, its token still in the address bar                                                                                                                           |
 | Uptime monitor shows green during a backend outage                                                                                                                                                      | The error page streams after headers, so the edge status is 200                                                                                 | Monitor `GET https://frankfurtleague.de/api/v0/system/is_live` at the apex host: a trailing slash redirects and reads green, a `HEAD` is answered 405 (`fl_backend/app/api/system/router.py :: check_is_live`, §1.3) |
 | Application container logs are empty right after a deploy                                                                                                                                               | Working as intended — `json-file` logs live in the container, and the deploy replaces both application containers; nginx keeps its own          | Nothing. The deploy copied them to `/var/log/frankfurtleague/` first (`scripts/ops/deploy.sh :: LOG_DIR`)                                                                                                            |
 | Reference data stale after a hand edit: the first visit once the cache's day has passed still gets it, up to its week ([`docs/frontend/spec.md`](../frontend/spec.md#15-out-of-band-invalidation) §1.5) | Working as intended — an out-of-band MongoDB edit invalidates nothing                                                                           | Drop the five league tags ([`runbooks.md`](runbooks.md) §20); waiting takes a day, plus one stale answer to the visit refreshing each entry                                                                          |

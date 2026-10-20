@@ -2,10 +2,10 @@
 
 A route handler is a public URL from the moment the file exists, and nothing else compares the App
 Router tree to the edge's locations, which `nginx/shared/site.conf` holds for both entry files: a
-handler no location names reaches Next through `location /`,
-which carries no `limit_req`. The accounting is total rather than aimed at the public handlers
-alone, because no predicate selects those, and `REASONS` carries the locations covering an unmetered
-one (`docs/ops/spec.md`).
+handler no location names reaches Next through `location /`, whose one rate pair meters server
+actions alone. The accounting is total rather than aimed at the public handlers alone, because no
+predicate selects those, and `REASONS` carries the locations covering an unmetered one
+(`docs/ops/spec.md`).
 
 A construct this reader cannot place refuses rather than answering; a reason covering no handler is a
 finding, and so is an exact match naming a URL nothing in the tree answers.
@@ -53,8 +53,8 @@ ROUTE_FILES: Final = ("route.ts", "route.tsx", "route.js", "route.jsx")
 # metadata convention, and two lists here would drift a metadata file out of the walk in silence.
 CODE_EXTENSIONS: Final = tuple(Path(name).suffix for name in ROUTE_FILES)
 
-# A page is charged to no location -- `location /` carries every one of them -- and is read for the
-# opposite question alone: whether an exact-match location names a URL this tree still answers.
+# A page is charged to no location, a link page's meter being `nginx/edge_test.sh`'s to drive, and is
+# read for one question alone: whether an exact-match location names a URL this tree still answers.
 PAGE_FILES: Final = tuple(f"page{suffix}" for suffix in CODE_EXTENSIONS)
 
 # A prefix location matches on the URI string, so the catch-all covers every handler there is.
@@ -559,7 +559,7 @@ def _unreached(handler: Handler, name: str, conf: str) -> Finding:
     return Finding(
         "fail",
         f"{name} answers {handler.url}, and no location in {conf} names it\n"
-        f"{CONTINUATION}it reaches Next through `location /`, which carries limit_conn and no limit_req",
+        f"{CONTINUATION}it reaches Next through `location /`, whose one rate pair meters server actions alone",
     )
 
 
