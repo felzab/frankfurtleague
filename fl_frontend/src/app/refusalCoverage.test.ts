@@ -137,6 +137,8 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "PATCH /spiele/{spiel_id}": spiele.mapSpielRefusal,
   "POST /spielbestaetigungen": spielbestaetigungen.mapAnsetzungRefusal,
   "POST /spielbestaetigungen/ansicht": spielbestaetigungen.mapAnsetzungAnsichtRefusal,
+  "POST /spielbestaetigungen/{spielbestaetigung_id}/eintragen": spielbestaetigungen.mapSpielbestaetigungAdminRefusal,
+  "POST /spielbestaetigungen/{spielbestaetigung_id}/verwerfen": spielbestaetigungen.mapSpielbestaetigungAdminRefusal,
   // Written by the match undo's replay alone.
   "PATCH /spiele/paarungen": (error) => replayRefusal(error, spiele.PAARUNGEN_REPLAY_REFUSALS) ?? null,
   "POST /spieler/{spieler_id}/adresswechsel": spieler.mapAdresswechselAntragRefusal,
