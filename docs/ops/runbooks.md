@@ -701,7 +701,8 @@ seat, registration and grant the address holds, so one sign-in stays whole
   person who can sign in: a request arriving by mail proves nothing about who sent it.
 - **They say they cannot sign in.** Ask the address on file first: start the change in the address
   tool with both addresses and no reason (`POST /adresswechsel`). Nothing goes to the new address
-  until the address on file signs in and approves the change on its account page within 24 hours
+  until the address on file signs in and approves the change on its account page within
+  `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours
   (`docs/backend/spec.md :: I794`). Where the mailbox in fact still works, its holder approves or
   stops it, so a request sent in somebody else's name reaches the real person; where nobody
   approves, the change lapses and the next bullet applies.
@@ -715,7 +716,8 @@ seat, registration and grant the address holds, so one sign-in stays whole
   refuse and say why. Record how you checked as the reason, naming nobody and no address: the reason
   stays twelve months in the log, and the backend refuses a name of the person
   (`REQ-ADRESSWECHSEL-008`). Start the change in the address tool with it. The new address confirms
-  by link within 24 hours, and the change takes effect seven days later, judged again then; until
+  by link within `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours,
+  and the change takes effect `:: ADRESSWECHSEL_WARTEZEIT_TAGE` days later, judged again then; until
   then the address on file, should it still be read, stops it by link or on its account page
   (`docs/backend/spec.md :: I795`). A stopped change means the mailbox is not gone: talk to the
   person before starting again.
