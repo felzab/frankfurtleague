@@ -5268,7 +5268,7 @@
     "/api/v0/saisons/{saison_id}/spielplan": {
       "post": {
         "summary": "Draw this Saison's Spielplan",
-        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, every fixture's confirmations and referee's report with them, inside\n`REQ-SPIELPLAN-005`'s window, and is refused `REQ-AUTH-009` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`: nothing writes the removed rows back.",
+        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, every fixture's confirmations with them, inside `REQ-SPIELPLAN-005`'s\nwindow and on a season holding no submitted match report (`REQ-SPIELPLAN-007`), and is refused\n`REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`: nothing writes\nthe removed rows back.",
         "operationId": "generate_spielplan_api_v0_saisons__saison_id__spielplan_post",
         "security": [
           {
@@ -5310,7 +5310,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-DATE-009.REQ-RULES-014.REQ-RULES-015.REQ-RULES-016.REQ-RULES-017.REQ-RULES-018.REQ-SPIELPLAN-001.REQ-SPIELPLAN-002.REQ-SPIELPLAN-003.REQ-SPIELPLAN-004.REQ-SPIELPLAN-005"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-DATE-009.REQ-RULES-014.REQ-RULES-015.REQ-RULES-016.REQ-RULES-017.REQ-RULES-018.REQ-SPIELPLAN-001.REQ-SPIELPLAN-002.REQ-SPIELPLAN-003.REQ-SPIELPLAN-004.REQ-SPIELPLAN-005.REQ-SPIELPLAN-007"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-RULES-001.REQ-RULES-007.REQ-RULES-013.REQ-VAL-001"
@@ -5335,7 +5335,7 @@
       },
       "delete": {
         "summary": "Undraw this Saison's Spielplan",
-        "description": "Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.\n\nEvery fixture's confirmations and referee's report go with it.\n\nThe replace's window bounds it (`REQ-SPIELPLAN-006`). Undoing the draw is what reopens the shape\nrules to `PATCH` and the groups to an entry.",
+        "description": "Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.\n\nEvery fixture's confirmations go with it.\n\nThe replace's window bounds it (`REQ-SPIELPLAN-006`), and a submitted match report refuses it\n(`REQ-SPIELPLAN-007`). Undoing the draw is what reopens the shape rules to `PATCH` and the groups to\nan entry.",
         "operationId": "undraw_spielplan_api_v0_saisons__saison_id__spielplan_delete",
         "security": [
           {
@@ -5383,7 +5383,7 @@
             "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "409": {
-            "$ref": "#/components/responses/409.REQ-SPIELPLAN-006"
+            "$ref": "#/components/responses/409.REQ-SPIELPLAN-006.REQ-SPIELPLAN-007"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -31888,7 +31888,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-DATE-009.REQ-RULES-014.REQ-RULES-015.REQ-RULES-016.REQ-RULES-017.REQ-RULES-018.REQ-SPIELPLAN-001.REQ-SPIELPLAN-002.REQ-SPIELPLAN-003.REQ-SPIELPLAN-004.REQ-SPIELPLAN-005": {
+      "409.DB-COMMON-002.REQ-DATE-009.REQ-RULES-014.REQ-RULES-015.REQ-RULES-016.REQ-RULES-017.REQ-RULES-018.REQ-SPIELPLAN-001.REQ-SPIELPLAN-002.REQ-SPIELPLAN-003.REQ-SPIELPLAN-004.REQ-SPIELPLAN-005.REQ-SPIELPLAN-007": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -31912,7 +31912,8 @@
                         "REQ-SPIELPLAN-002",
                         "REQ-SPIELPLAN-003",
                         "REQ-SPIELPLAN-004",
-                        "REQ-SPIELPLAN-005"
+                        "REQ-SPIELPLAN-005",
+                        "REQ-SPIELPLAN-007"
                       ]
                     }
                   }
@@ -32958,7 +32959,7 @@
           }
         }
       },
-      "409.REQ-SPIELPLAN-006": {
+      "409.REQ-SPIELPLAN-006.REQ-SPIELPLAN-007": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -32971,7 +32972,8 @@
                   "properties": {
                     "error_code": {
                       "enum": [
-                        "REQ-SPIELPLAN-006"
+                        "REQ-SPIELPLAN-006",
+                        "REQ-SPIELPLAN-007"
                       ]
                     }
                   }

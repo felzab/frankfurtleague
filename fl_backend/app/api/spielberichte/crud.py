@@ -177,6 +177,12 @@ async def write_bericht(
     return await pull_one_from_db(collection=spielberichte_collection, db_filter={"spiel_id": spiel_raw["_id"]}, session=session)
 
 
+async def count_eingereichte_berichte(*, spielberichte_collection: AsyncCollection, saison_id: str, session: AsyncClientSession | None) -> int:
+    """How many of the season's report documents hold a submitted report, under `session`."""
+
+    return await spielberichte_collection.count_documents({"saison_id": saison_id, "bericht": {"$ne": None}}, session=session)
+
+
 async def pull_zustaende(*, spielberichte_collection: AsyncCollection, saison_id: str) -> list[FLSpielberichtZustandEintrag]:
     """Every report of one season holding a block, each with its state against its fixture as stored now."""
 
