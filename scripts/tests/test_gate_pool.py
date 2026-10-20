@@ -219,7 +219,7 @@ def _pool(directory: Path, rows: list[tuple[str, ...]], *, merge: bool = False) 
     command = [sys.executable, str(POOL), "--dir", str(directory), "--units", str(units)]
     if merge:
         command.append("--merge")
-    return subprocess.run(command, capture_output=True, text=True, check=False)
+    return subprocess.run(command, capture_output=True, text=True, check=False, env=base_env())
 
 
 def _rows(directory: Path) -> list[list[str]]:
@@ -236,7 +236,7 @@ def _drive(snippet: tuple[str, ...], directory: Path, *, timeout: float | None =
     """
     lines = "\n".join(DRIVER + snippet)
     source = lines.replace("POOL_DIR", repr(str(SCRIPTS / "gate"))).replace("DIRECTORY", repr(str(directory)))
-    return subprocess.run([sys.executable, "-c", source], capture_output=True, text=True, check=False, timeout=timeout)
+    return subprocess.run([sys.executable, "-c", source], capture_output=True, text=True, check=False, timeout=timeout, env=base_env())
 
 
 def test_every_unit_s_own_exit_status_reaches_the_manifest_under_its_own_name(tmp_path: Path) -> None:
@@ -312,6 +312,22 @@ def test_the_two_streams_are_captured_apart_unless_the_caller_asks_for_one(tmp_p
     assert (apart / "streams.err").read_bytes() == b"err"
     assert not (merged / "streams.err").exists()
     assert sorted((merged / "streams.out").read_bytes()) == sorted(b"outerr")
+
+
+def test_a_case_run_inside_a_watched_gate_neither_joins_its_registry_nor_loses_its_stop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A watched Windows gate exports its pools' registry to every tool it starts, this suite's pytest among them."""
+    registry = tmp_path / "gate-pools"
+    registry.write_bytes(b"")
+    monkeypatch.setenv(str(declared(POOL, "POOLS")), str(registry))
+    stopped = _drive(TERMINATE, tmp_path)
+    assert stopped.returncode == 0, stopped.stderr
+    directory = tmp_path / "pool"
+    directory.mkdir()
+    ran = _pool(directory, [("pass", *_exits(0))])
+    assert ran.returncode == 0, ran.stderr
+    assert registry.read_bytes() == b"", "a pool this suite started named itself in the gate's own registry"
 
 
 def test_ending_the_run_stops_every_unit_running_under_it(tmp_path: Path) -> None:
@@ -431,6 +447,22 @@ def test_a_pool_names_itself_where_a_stop_reads_it_before_any_unit_starts(tmp_pa
     assert registry.read_bytes() == result.stdout.strip().encode("ascii") + b"\n"
 
 
+# Exits 0 having left its mark, so a unit that started at all is seen.
+MARKS: Final = "import sys; from pathlib import Path; Path(sys.argv[1]).write_bytes(b'started')"
+
+
+def test_a_pool_naming_itself_after_a_stop_starts_no_unit(tmp_path: Path) -> None:
+    """The stop spares only the pools it read, so a pool it never read is ended under any unit it starts."""
+    registry = tmp_path / "pools"
+    registry.write_bytes(f"{declared(POOL, 'STOPPED')}\n".encode("ascii"))
+    named = f"os.environ[gate_pool.POOLS] = {str(registry)!r}"
+    started = tmp_path / "started"
+    result = _drive((*STALLING, named, f"run_pool(('unit', (sys.executable, '-c', {MARKS!r}, {str(started)!r})))"), tmp_path)
+    assert result.returncode == int(declared(KERNEL, "EXIT_INTERRUPTED")), result.stderr
+    assert [(row[0], row[1]) for row in _rows(tmp_path)] == [("unit", str(declared(POOL, "NOT_STARTED")))]
+    assert not started.exists(), "a pool the stop never read started a unit"
+
+
 def test_a_unit_still_writing_is_never_named_however_long_it_runs(tmp_path: Path) -> None:
     """Silence and not age: an age bound names every slow build and teaches the reader to skip the line."""
     script = tmp_path / "moving.py"
@@ -540,6 +572,23 @@ def test_a_stalled_pytest_case_s_stack_reaches_the_notice_through_its_worker(sou
     assert (tmp_path / "release").exists(), f"no notice carried the stalled case's stack; it wrote:\n{said}\n{_rows(tmp_path)}"
     carried = next(notice for notice in result.stderr.split(_notice("pytest")) if "Timeout (" in notice)
     assert stalled in carried, result.stderr
+
+
+# A dump as Linux writes one, each thread header carrying its name in brackets, its stalled frame
+# under a stack too deep for a notice's tail.
+NAMED_DUMP: Final[tuple[str, ...]] = (
+    "lines = ['collecting', 'Timeout (0:00:01)!']",
+    "lines += ['Thread 0x00007f00aa [python] (most recent call first):', '  File \"x.py\", line 1 in other']",
+    "lines += ['Current thread 0x00007f00bb [python] (most recent call first):', '  File \"t.py\", line 8 in waits_for_release']",
+    "lines += ['  File \"t.py\", line 12 in descends'] * 150 + ['', 'after the dump']",
+    "assert any('waits_for_release' in line for line in gate_pool.shown(lines)), 'the stalled frame was cut'",
+)
+
+
+def test_a_named_thread_s_stalled_frame_survives_the_notice_s_tail(tmp_path: Path) -> None:
+    """Only Linux names its threads, so without this case the bracketed header is held by the CI deep case alone."""
+    result = _drive(NAMED_DUMP, tmp_path)
+    assert result.returncode == 0, result.stderr
 
 
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"

@@ -892,7 +892,10 @@ running; started through Git's own `bin\bash.exe`, as a harness starts Git Bash,
 that job and the stop stays a group's. **A run nothing can watch keeps
 none of this**: with no interpreter at the checkers' floor, or a watcher that did not arm, a stop
 leaves what the run started running, and the run says so where it announces its scopes
-(`scripts/gate/verify.sh :: join_the_job`).
+(`scripts/gate/verify.sh :: join_the_job`); a watcher ended before the gate, by anything but its
+own stop, leaves the same and nothing says so. **Every run is unwatched until its watcher arms**:
+a console's Ctrl-C before then stops the run only where the gate's own shell takes the interrupt;
+in a console where it does not, the interrupt is lost and the run goes on to its verdict.
 
 **`next typegen` goes first and alone** because it writes the route types under
 `fl_frontend/.next/types/` and `fl_frontend/next-env.d.ts` that `tsc` reads: without them a
@@ -1234,8 +1237,9 @@ clauses. PLAT-1: a Python read of the platform is a module-level UPPER_CASE `Fin
 allowlist row. PLAT-2: no test under
 `scripts/checks/docs_gate/platform.py :: TEST_SCOPES` skips, returns early or exits on the platform. PLAT-3:
 every admitted constant, and every allowlisted read whatever its row's anchor, is bound to both values
-somewhere in that same test corpus, save a row whose reason opens with
-`scripts/checks/docs_gate/platform.py :: PLAT3_EXEMPT_LEAD` and says why no binding reaches its arms. PLAT-4: a
+somewhere in that same test corpus, save a row whose reason is
+`scripts/checks/docs_gate/platform.py :: Unbindable`, saying why no binding reaches its arms, and that
+row is itself a finding where a test binds both values or it excuses no read PLAT-3 binds. PLAT-4: a
 platform word in the _code_ of a shell script under `scripts/checks/docs_gate/platform.py :: SHELL_SCOPES`
 or `.githooks/` is an allowlist row, where the same word in a comment is not one. The allowlist is
 `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`, keyed by a COR-6 anchor with the reason beside

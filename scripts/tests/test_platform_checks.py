@@ -13,7 +13,7 @@ import contextlib
 import json
 import subprocess
 import sys
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -105,6 +105,8 @@ def _corpus() -> dict[str, str]:
             "from docs_gate import platform",
             "",
             "rows, write_rows = json.loads(sys.argv[1]), json.loads(sys.argv[2])",
+            # JSON carries no type, so a row exempt from PLAT-3 travels as an object holding its reason.
+            "rows = {key: platform.Unbindable(**reason) if isinstance(reason, dict) else reason for key, reason in rows.items()}",
             # A case's rows are the whole allowlist: this repository's own rows name files the corpus
             # below does not hold, and a row outside the population read is itself a finding.
             "found = platform.check_platform_branches(rows)",
@@ -149,12 +151,18 @@ def _gate() -> Fixture:
 
 # One printed finding: the check, the file, the line it named or 0, and its detail.
 Reported = tuple[str, str, int, str]
+# A `PLATFORM_ALLOW` row's reason: plain, or `scripts/checks/docs_gate/platform.py :: Unbindable`'s fields.
+Reason = str | dict[str, str]
 
 
-def _run(rows: dict[str, str] | None = None, write_rows: dict[str, str] | None = None) -> tuple[int, list[Reported]]:
+def _unbindable(reason: str) -> dict[str, str]:
+    return {"reason": reason}
+
+
+def _run(rows: Mapping[str, Reason] | None = None, write_rows: dict[str, str] | None = None) -> tuple[int, list[Reported]]:
     """The checker's exit code over the fixture as it stands, and every finding it printed."""
     root = _gate().root
-    command = (sys.executable, str(root / DRIVER), json.dumps(rows or {}), json.dumps(write_rows or {}))
+    command = (sys.executable, str(root / DRIVER), json.dumps(dict(rows or {})), json.dumps(write_rows or {}))
     done = subprocess.run(command, cwd=root, capture_output=True, text=True, encoding="utf-8", check=False)
     assert done.returncode in (RED, GREEN), "the driver crashed:" + NL + done.stdout + done.stderr
     found: list[Reported] = []
@@ -308,7 +316,7 @@ def test_a_constant_or_predicate_bound_to_one_value_alone_is_plat_3() -> None:
         assert (code, found) == (GREEN, []), found
 
 
-def test_a_row_anchored_on_its_line_owes_plat_3_unless_its_reason_says_no_binding_reaches() -> None:
+def test_a_row_anchored_on_its_line_owes_plat_3_unless_it_is_unbindable() -> None:
     """A module-level guard has no enclosing symbol, so a row on its line slipped PLAT-3 with nothing saying so."""
     guard = ("", 'if sys.platform != "win32":', "    raise SystemExit(2)")
     anchor = TOOL + ' :: if sys.platform != "win32":'
@@ -316,8 +324,22 @@ def test_a_row_anchored_on_its_line_owes_plat_3_unless_its_reason_says_no_bindin
         code, found = _run(rows={anchor: "refuses to load off Windows"})
         assert code == RED
         assert _shape(found) == [(PLATFORM, TOOL, "PLAT-3"), (PLATFORM, TOOL, "PLAT-3")], found
-        code, found = _run(rows={anchor: "no test can bind both values: the other arm is the refusal itself"})
+        code, found = _run(rows={anchor: _unbindable("the other arm is the refusal itself")})
         assert (code, found) == (GREEN, []), found
+
+
+def test_an_unbindable_row_is_held_to_its_claim() -> None:
+    """Unchecked, the exemption was accepted on a read the tests did bind both ways, and on a shell row it means nothing at all."""
+    probe = ("", "", "def probe() -> bool:", '    return sys.platform == "win32"')
+    both = ("", "", "def test_both() -> None:", '    tool.sys.platform = "linux"', '    tool.sys.platform = "win32"')
+    with _appended(TOOL, *probe), _appended(TOOL_TEST, *both):
+        code, found = _run(rows={TOOL + " :: probe": _unbindable("read per call for the narrowing")})
+        assert code == RED
+        _only(found, PLATFORM, TOOL, "PLAT-3", "`Unbindable`", "binds both values")
+    with _appended(RUN_SH, "host() {", '  case "$(uname -s)" in', "    Linux) printf linux ;;", "  esac", "}"):
+        code, found = _run(rows={RUN_SH + " :: host": _unbindable("classifies the host")})
+        assert code == RED
+        _only(found, PLATFORM, RUN_SH, "PLAT-3", "means nothing")
 
 
 def test_a_shell_token_in_code_is_plat_4_wherever_the_shell_is_read() -> None:

@@ -64,6 +64,8 @@ NOTICES: Final = "FL_GATE_NOTICES"
 # The file a watched Windows gate's pools append their pids to, which its stop spares until their
 # units have ended (`scripts/gate/gate_watch.py :: wind_down`); unset everywhere else.
 POOLS: Final = "FL_GATE_POOLS"
+# The line a stop appends there before it reads the pools.
+STOPPED: Final = "stop"
 
 ASSIGNMENT: Final = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
@@ -314,15 +316,18 @@ def notice_route(pool: Pool) -> tuple[Callable[[bytes], None], Path | None]:
     return emit, relay
 
 
-def announce() -> None:
-    """Name this pool where a stop reads it, before any unit starts.
+def announce() -> bool:
+    """Name this pool where a stop reads it before any unit starts; True where a stop came first.
 
-    Bytes, one whole line per append (`.claude/CLAUDE.md` §6).
+    Named, then looks, as a stop marks, then reads: racing, each finds the other. Bytes, one whole
+    line per append (`.claude/CLAUDE.md` §6).
     """
     registry = os.environ.get(POOLS)
-    if registry:
-        with Path(registry).open("ab") as pools:
-            pools.write(f"{os.getpid()}\n".encode("ascii"))
+    if not registry:
+        return False
+    with Path(registry).open("ab") as pools:
+        pools.write(f"{os.getpid()}\n".encode("ascii"))
+    return STOPPED.encode("ascii") in Path(registry).read_bytes().split()
 
 
 def stop_on_signal(number: int, frame: FrameType | None) -> None:
@@ -403,13 +408,13 @@ def main() -> int:
         started=time.monotonic(),
     )
 
-    announce()
+    stopped = announce()
     watched = threading.Event()
     arm(pool, watched)
     sink, relay = notice_route(pool)
     threading.Thread(target=watch_stalls, args=(pool, watched, sink, relay), daemon=True).start()
     try:
-        return drive(pool, units)
+        return EXIT_INTERRUPTED if stopped else drive(pool, units)
     finally:
         watched.set()
         # Without a manifest a crash here reads as a gate that proved nothing rather than one that

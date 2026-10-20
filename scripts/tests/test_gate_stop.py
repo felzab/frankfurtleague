@@ -222,12 +222,23 @@ with open(log, "wb") as out:
     raise SystemExit(child.wait())
 """
 INTERRUPTED: Final = 130
+# The consoles that interrupt reaches the gate through, none with a visible window: none at all,
+# where the watcher alone takes it, and a hidden one, where every pool takes it too
+# (`scripts/gate/gate_pool.py :: terminate`).
+CONSOLES: Final = ("no window", "a hidden window") if WINDOWS else ("a terminal",)
+# Started with no window itself, it opens a console for its command and keeps that console's hidden.
+HIDDEN_WINDOW: Final = """import subprocess, sys
+hidden = subprocess.STARTUPINFO(dwFlags=subprocess.STARTF_USESHOWWINDOW, wShowWindow=0)
+raise SystemExit(subprocess.call(sys.argv[1:], creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=hidden))
+"""
 
 
-def _interrupted(gate: tuple[str, ...], env: dict[str, str], started: Path, log: Path) -> subprocess.Popen[bytes]:
+def _interrupted(gate: tuple[str, ...], env: dict[str, str], started: Path, log: Path, console: str) -> subprocess.Popen[bytes]:
     """The gate, interrupted as its platform's terminal interrupts a run once every tool has started."""
     if WINDOWS:
         command = (sys.executable, "-c", CONSOLE_INTERRUPT, str(started), str(TOOLS), str(log), *gate)
+        if console == "a hidden window":
+            command = (sys.executable, "-c", HIDDEN_WINDOW, *command)
         run = subprocess.Popen(command, env=env, creationflags=CONSOLE)
     else:
         with log.open("wb") as out:
@@ -240,12 +251,13 @@ def _interrupted(gate: tuple[str, ...], env: dict[str, str], started: Path, log:
     return run
 
 
-def test_an_interrupt_ends_every_tool_and_leaves_nothing_behind() -> None:
+@pytest.mark.parametrize("console", list(CONSOLES))
+def test_an_interrupt_ends_every_tool_and_leaves_nothing_behind(console: str) -> None:
     """Ctrl-C at the terminal: on Windows the console's interrupt reaches no shell without a console of its own and no tool MSYS starts."""
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     root, env, started, scratch = _tree(STUB_PNPM, STUB_PYTHON.format(interpreter=Path(sys.executable).as_posix()))
     log = started.parent / "gate.log"
-    run = _interrupted((BASH, (root / "scripts" / "gate" / "verify.sh").as_posix(), *FLAGS), env, started, log)
+    run = _interrupted((BASH, (root / "scripts" / "gate" / "verify.sh").as_posix(), *FLAGS), env, started, log, console)
     try:
         try:
             status = run.wait(STARTED_BOUND_S + STOPPED_BOUND_S)
@@ -266,6 +278,30 @@ def test_an_interrupt_ends_every_tool_and_leaves_nothing_behind() -> None:
         with contextlib.suppress(OSError):
             run.kill()
         run.wait()
+
+
+# `scripts/lib/_lib.sh :: on_interrupt`, met by a second signal while the EXIT trap it hands over to
+# reclaims, as a stopped Windows gate meets the console's interrupt and the watcher's SIGTERM both.
+LIB: Final = VERIFY.parent.parent / "lib" / "_lib.sh"
+SECOND_SIGNAL: Final = """set -euo pipefail
+marker="$2"
+# shellcheck source=/dev/null
+source "$1"
+reclaim() { kill -TERM "$$"; sleep 0.3; printf 'reclaimed' > "$marker"; }
+trap reclaim EXIT
+kill -INT "$$"
+sleep 2
+"""
+
+
+def test_an_interrupt_s_cleanup_outlasts_a_second_signal(tmp_path: Path) -> None:
+    """Re-entered, the interrupt's statement printed twice and its `exit` cut the EXIT trap's reclaim short."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    marker = tmp_path / "reclaimed"
+    done = run_shell(BASH, write_shell(tmp_path / "twice.sh", SECOND_SIGNAL), LIB.as_posix(), marker.as_posix(), env=base_env())
+    assert done.returncode == INTERRUPTED, done.stdout + done.stderr
+    assert marker.exists(), f"the second signal cut the reclaim short:\n{done.stderr}"
+    assert done.stderr.count("Interrupted") == 1, done.stderr
 
 
 # `scripts/gate/verify.sh :: join_the_job` with no interpreter to watch by, under each `$OSTYPE` it
@@ -337,11 +373,257 @@ else:
 REFUSED: Final = 2
 
 
-def test_the_watcher_tells_an_ended_launcher_from_one_it_cannot_see_or_one_a_reused_pid_names() -> None:
-    """Read as ended, a launcher the account cannot open stopped the gate before it ran, naming a launcher that never ended."""
+def _drive_watcher(snippet: str) -> None:
+    """One case against the watcher's own functions on Windows, and its refusal to load anywhere else."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     if WINDOWS:
-        done = subprocess.run((sys.executable, "-c", WATCHED, str(WATCH.parent)), capture_output=True, text=True, check=False)
+        done = subprocess.run((sys.executable, "-c", snippet, str(WATCH.parent), BASH), capture_output=True, text=True, check=False)
         assert done.returncode == 0, done.stdout + done.stderr
     else:
         done = subprocess.run((sys.executable, str(WATCH), "--gate", "1"), capture_output=True, text=True, check=False)
         assert done.returncode == REFUSED and "a POSIX gate is stopped by a signal" in done.stderr, done.stdout + done.stderr
+
+
+def test_the_watcher_tells_an_ended_launcher_from_one_it_cannot_see_or_one_a_reused_pid_names() -> None:
+    """Read as ended, a launcher the account cannot open stopped the gate before it ran, naming a launcher that never ended."""
+    _drive_watcher(WATCHED)
+
+
+# `scripts/gate/gate_watch.py :: launchers_of` where Windows records the topmost MSYS ancestor's
+# creator as a pid since reused: a process created after that ancestor and before the gate.
+REUSED_CREATOR: Final = """import os, subprocess, sys, time
+sys.path.insert(0, sys.argv[1])
+import gate_watch as watch
+sleeping = (sys.executable, "-c", "import time; time.sleep(60)")
+ancestor = os.getppid()
+later = subprocess.Popen(sleeping, stdin=subprocess.DEVNULL)
+time.sleep(0.05)
+gate = subprocess.Popen(sleeping, stdin=subprocess.DEVNULL)
+try:
+    recorded = watch._windows_parents
+    watch._windows_parents = lambda: {**recorded(), ancestor: later.pid}
+    found = watch.launchers_of([ancestor], gate.pid, watch.kernel32.OpenProcess(watch.GATE_ACCESS, False, gate.pid))
+    assert found is not None, "the ancestor itself read as ended"
+    assert later.pid not in found.values(), "a process created after the ancestor was watched as what started it"
+finally:
+    later.kill()
+    gate.kill()
+"""
+
+
+def test_the_launcher_above_the_ancestors_is_held_to_the_ancestor_it_started() -> None:
+    """Held to the gate instead, a pid reused between the two read as a launcher, and its ending stopped a gate nobody had stopped."""
+    _drive_watcher(REUSED_CREATOR)
+
+
+# `scripts/gate/gate_watch.py :: wind_down` over a listing one of whose members has ended since, as a
+# member does between the listing and its reads, and a registry the gate's own trap has removed.
+ENDED_MEMBER: Final = """import subprocess, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import gate_watch as watch
+kernel32 = watch.kernel32
+job = kernel32.CreateJobObjectW(None, None)
+def joined():
+    process = subprocess.Popen((sys.executable, "-c", "import time; time.sleep(60)"), stdin=subprocess.DEVNULL)
+    handle = kernel32.OpenProcess(watch.GATE_ACCESS, False, process.pid)
+    assert kernel32.AssignProcessToJobObject(job, handle)
+    kernel32.CloseHandle(handle)
+    return process
+ended, running = joined(), joined()
+listed = watch._job_pids(job)
+# Its Popen keeps its handle, as a parent waiting on it does, so its pid still opens.
+ended.kill()
+ended.wait()
+watch._job_pids = lambda _: listed
+try:
+    outlived = watch.wind_down(job, Path(sys.argv[2]).parent / "kill.exe", Path(tempfile.mkdtemp()) / "removed")
+    assert outlived == 0, outlived
+    assert running.wait(timeout=30) == watch.EXIT_INTERRUPTED, "the member still running was never ended"
+finally:
+    running.kill()
+"""
+
+
+def test_a_member_ending_while_the_stop_reads_the_job_never_loses_the_stop() -> None:
+    """Read as a crash, the watcher ended nothing, and a gate interrupted in its start-up ran on to a green verdict."""
+    _drive_watcher(ENDED_MEMBER)
+
+
+# `scripts/gate/gate_watch.py :: main` whose wind-down fails: the gate a sleeper of MSYS's own, as
+# the watcher reads `kill.exe` beside it, and the interrupt the first thing to end.
+FAILED_WIND_DOWN: Final = """import subprocess, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import gate_watch as watch
+gate = subprocess.Popen((str(Path(sys.argv[2]).parent / "sleep.exe"), "60"), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+watch.first_to_end = lambda *processes: processes[1]
+def failing(job, kill, registry):
+    raise OSError("a wind-down that failed")
+watch.wind_down = failing
+sys.argv = ["gate_watch", "--gate", str(gate.pid)]
+try:
+    watch.main()
+except OSError:
+    pass
+else:
+    raise SystemExit("the wind-down's failure was never raised")
+try:
+    gate.wait(timeout=30)
+except subprocess.TimeoutExpired:
+    gate.kill()
+    raise SystemExit("a wind-down that failed left the job running") from None
+"""
+
+
+def test_a_wind_down_that_fails_still_ends_the_job() -> None:
+    """The graceful phase is a courtesy; the job's end is the stop, and skipped it leaves the gate running."""
+    _drive_watcher(FAILED_WIND_DOWN)
+
+
+# `scripts/gate/gate_watch.py :: wind_down` over a shell whose tool the first listing missed, as one
+# started before the signal is: the shell waits on the tool, and its trap's own work must finish.
+UNLISTED_TOOL: Final = """import os, subprocess, sys, tempfile, time
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import gate_watch as watch
+kernel32 = watch.kernel32
+scratch = Path(tempfile.mkdtemp())
+started, reclaimed = scratch / "started", scratch / "reclaimed"
+(scratch / "tool.py").write_bytes(b"import sys, time; open(sys.argv[1], 'wb'); time.sleep(60)")
+(scratch / "reclaim.py").write_bytes(b"import sys, time; time.sleep(1); open(sys.argv[1], 'wb')")
+(scratch / "shell.sh").write_bytes(
+    b'reclaim() { "$FL_PY" "$FL_SCRATCH/reclaim.py" "$FL_SCRATCH/reclaimed"; exit 130; }\\n'
+    b"trap reclaim TERM\\n"
+    b'"$FL_PY" "$FL_SCRATCH/tool.py" "$FL_SCRATCH/started"\\n'
+)
+env = dict(os.environ, FL_PY=Path(sys.executable).as_posix(), FL_SCRATCH=scratch.as_posix())
+job = kernel32.CreateJobObjectW(None, None)
+shell = subprocess.Popen((sys.argv[2], (scratch / "shell.sh").as_posix()), stdin=subprocess.DEVNULL, env=env)
+handle = kernel32.OpenProcess(watch.GATE_ACCESS, False, shell.pid)
+assert kernel32.AssignProcessToJobObject(job, handle)
+kernel32.CloseHandle(handle)
+try:
+    deadline = time.monotonic() + 30
+    while not started.exists():
+        assert time.monotonic() < deadline, "the shell's tool never started"
+        time.sleep(0.05)
+    listings = [[shell.pid]]
+    real = watch._job_pids
+    watch._job_pids = lambda job: listings.pop() if listings else real(job)
+    watch.GRACE_S = 10.0
+    outlived = watch.wind_down(job, Path(sys.argv[2]).parent / "kill.exe", scratch / "pools")
+    assert outlived == 0, "the shell waited out the grace on a tool the stop never reached"
+    assert shell.wait(timeout=30) == 130, shell.returncode
+    assert reclaimed.exists(), "the stop ended what the shell's own trap started"
+finally:
+    kernel32.TerminateJobObject(job, 1)
+"""
+
+
+def test_a_tool_started_before_its_shell_s_signal_is_stopped_and_its_trap_s_work_is_not() -> None:
+    """Listed once, a shell signalled while starting a tool waited on it for the whole grace and was then ended unreclaimed."""
+    _drive_watcher(UNLISTED_TOOL)
+
+
+# `scripts/gate/gate_watch.py :: wind_down`'s order: the stop marked in the registry before the pools
+# named there are read.
+MARKED_FIRST: Final = """import sys, tempfile
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import gate_watch as watch
+registry = Path(tempfile.mkdtemp()) / "pools"
+registry.write_bytes(b"")
+read = []
+named = watch._pools_named
+def reading(path):
+    read.append(path.read_bytes().split())
+    return named(path)
+watch._pools_named = reading
+job = watch.kernel32.CreateJobObjectW(None, None)
+assert watch.wind_down(job, Path(sys.argv[2]).parent / "kill.exe", registry) == 0
+assert read == [[watch.STOPPED.encode("ascii")]], read
+"""
+
+
+def test_a_stop_marks_the_registry_before_it_reads_the_pools_named_there() -> None:
+    """Read first, a pool naming itself in between was neither spared nor told, and was ended under the units it then started."""
+    _drive_watcher(MARKED_FIRST)
+
+
+# `scripts/gate/verify.sh :: pool_open`, its directory's creation witnessed: what `POOL_DIRS` held then.
+POOL_OPEN_FIXTURE: Final = """set -euo pipefail
+POOL_DIRS=()
+mkdir() {{ printf '%s' "${{POOL_DIRS[*]}}" > "{witness}"; command mkdir "$@"; }}
+{pool_open}
+pool_open
+printf '%s' "$POOL_DIR"
+"""
+
+
+def test_a_pool_s_directory_is_named_for_its_reclaim_before_it_exists(tmp_path: Path) -> None:
+    """Created first, a stop landing before the name was kept left the directory behind with nothing to reclaim it."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    witness = tmp_path / "witness"
+    fixture = POOL_OPEN_FIXTURE.format(witness=witness.as_posix(), pool_open=lift_function(VERIFY, "pool_open"))
+    env = base_env()
+    env["TMPDIR"] = (tmp_path / "scratch").as_posix()
+    (tmp_path / "scratch").mkdir()
+    done = run_shell(BASH, write_shell(tmp_path / "open.sh", fixture), env=env)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert witness.exists(), "the directory was created before anything ran that could name it"
+    assert witness.read_bytes().decode("utf-8") == done.stdout, "the directory existed before the run kept its name"
+    assert (tmp_path / "scratch" / Path(done.stdout).name / "units.tsv").is_file(), done.stdout
+
+
+# `scripts/gate/verify.sh :: gate_exit` over one pool directory whose manifest holds one unit's status.
+GATE_EXIT_FIXTURE: Final = """set -uo pipefail
+step_worker() {{ return 1; }}
+worker() {{ return 1; }}
+cleanup() {{ :; }}
+detail() {{ printf '%s\\n' "$@"; }}
+DB_RUN_MARKER=""
+POOLS_REGISTRY=""
+POOL_DIRS=("{directory}")
+{crashed_units}
+{gate_exit}
+trap gate_exit EXIT
+exit {ending}
+"""
+# What a unit's bash records when the stop's SIGTERM reaches it before its trap is set: Windows
+# shifts the signal into the exit code, and POSIX's `Popen` answers it negated.
+SIGNALLED_BEFORE_ITS_TRAP: Final = "3840"
+POSIX_SIGNALLED: Final = "-15"
+
+
+@pytest.mark.parametrize(
+    ("ending", "unit_status", "kept"),
+    [
+        (INTERRUPTED, SIGNALLED_BEFORE_ITS_TRAP, False),
+        (INTERRUPTED, POSIX_SIGNALLED, False),
+        (INTERRUPTED, "5", True),
+        (1, SIGNALLED_BEFORE_ITS_TRAP, True),
+    ],
+    ids=[
+        "a Windows kill in an interrupted run",
+        "a POSIX kill in an interrupted run",
+        "a crash in an interrupted run",
+        "a kill behind a verdict",
+    ],
+)
+def test_an_interrupted_run_reads_a_unit_killed_by_its_stop_as_no_crash(ending: int, unit_status: str, kept: bool, tmp_path: Path) -> None:
+    """Read as a crash, every unit the stop reached early was blamed and its directory kept; only the stop's own kills are spared."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    pool = tmp_path / "pool"
+    pool.mkdir()
+    (pool / "manifest.tsv").write_bytes(f"unit\t{unit_status}\t0\t1\n".encode("ascii"))
+    fixture = GATE_EXIT_FIXTURE.format(
+        directory=pool.as_posix(),
+        crashed_units=lift_function(VERIFY, "crashed_units"),
+        gate_exit=lift_function(VERIFY, "gate_exit"),
+        ending=ending,
+    )
+    done = run_shell(BASH, write_shell(tmp_path / "exit.sh", fixture), env=base_env())
+    assert done.returncode == ending, done.stdout + done.stderr
+    assert pool.exists() is kept, done.stdout + done.stderr
+    assert (f"the unit unit crashed with status {unit_status}" in done.stderr) is kept, done.stderr
