@@ -970,10 +970,13 @@ formatter's own cache is keyed on content, and what it cannot see is a prettier 
 prettier's documented caveat — or the contents of the Tailwind stylesheet `.prettierrc.json` names by
 path. A plugin bump, or a stylesheet edit that moves a class's sort order, warrants deleting that
 cache file; it is accepted on a development machine because the stale verdict there is a false green
-that CI's own run then fails. **CI's format verdict never rests on a verdict another lockfile or
-another stylesheet wrote**: the format job restores prettier's cache under a key carrying the
-lockfile's hash and that of every stylesheet under `fl_frontend/src`, so either change starts a
-runner from an empty cache. **What the cache spares is
+that CI's own run then fails. **CI's format verdict never rests on a verdict another version of a
+package it loads or another stylesheet wrote**: the format job restores prettier's cache under a key
+carrying the installed version of prettier, of every plugin `.prettierrc.json` names, of the
+Tailwind package the sorting plugin reads (`tailwindcss`, that file naming no other) and of every
+package a stylesheet under `fl_frontend/src` imports, each with all it depends on, and the hash of
+every such stylesheet, so either change starts a runner from an empty cache, and a dependency change
+none of them loads leaves it warm. **What the cache spares is
 the parse and never the walk**: prettier lists every entry under `..`, `node_modules` and `.git`
 included, before it asks `.prettierignore` which files to read, so a tool cache that file does not
 name is read on every run.
@@ -1219,8 +1222,8 @@ stamped runs show and declines to say which of them ran warm, and the Dockerfile
 catching is the one that empties that cache —
 so the median report is its only
 guard. `format`'s and `frontend`'s budgets are the cold job's — a runner starts without prettier's
-cache wherever the lockfile or a stylesheet moves, and without the Next cache and pnpm's lockfile
-verdict wherever the lockfile does — so each is cut from the widest cold run on record rather than
+cache wherever a package a prettier verdict loads or a stylesheet moves, and without the Next cache
+and pnpm's lockfile verdict wherever the lockfile does — so each is cut from the widest cold run on record rather than
 from the stamped main runs alone, most of which restored the cache, and a re-stamp never lowers it
 (`scripts/checks/check_gate_budget.py :: COLD_BUDGET`).
 **Raising a budget, a reference or a floor costs a measurement.** In a pull request's `docs` job,
