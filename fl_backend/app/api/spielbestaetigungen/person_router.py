@@ -29,6 +29,7 @@ from app.api.spielbestaetigungen.services import (
     clubs_without_a_season_row,
     compose_schiedsrichter_antwort_update,
     eigene_begruendung_of,
+    eingetragen_of,
     find_fremde_zeile_refusal,
     find_spent_link_refusal,
     first_press_refusal,
@@ -81,9 +82,10 @@ async def get_eigene_spielbestaetigungen(
     Answer every confirmation row in an `active` season naming one of the signed-in address's live, confirmed referee records.
 
     Open, answered and closed rows alike, each with the fixture as it stands -- or, where the fixture moved since, the
-    Ansetzung the row asked about -- its state, and the referee's own decline reason. No deadline is served: a referee
-    answers until the fixture's day. Ordered with the rows still open first, then by the Ansetzung's day. Nobody's
-    address or seat is served, and no reason an administrator entered on the row.
+    Ansetzung the row asked about -- its state, the referee's own decline reason, and whether the league recorded the
+    answer for them, naming nobody. No deadline is served: a referee answers until the fixture's day. Ordered with the
+    rows still open first, then by the Ansetzung's day. Nobody's address or seat is served, and no reason an
+    administrator entered on the row.
 
     Refuses an address holding no live, confirmed referee record (`REQ-FUNKTION-001`).
     """
@@ -144,6 +146,7 @@ async def get_eigene_spielbestaetigungen(
                 "ansetzung": ansetzung,
                 "zustand": schiedsrichter_zustand_of(spielbestaetigung_raw=row, lage=lage, today=today),
                 "begruendung": eigene_begruendung_of(row),
+                "eingetragen": eingetragen_of(row),
             }
         )
 
@@ -165,6 +168,7 @@ async def post_schiedsrichter_antwort(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spiele_collection: SpieleCollection,
     saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
     records: SubjektLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -179,12 +183,12 @@ async def post_schiedsrichter_antwort(
     carries.
 
     Refuses, in this order: an address holding no live, confirmed referee record (`REQ-FUNKTION-001`); an id naming no
-    row, or a row naming none of those records (`REQ-ANSETZUNG-015`, one answer for both); a row already answered
-    (`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club
-    (`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the row, or which books another referee
-    or none (`REQ-ANSETZUNG-004`); and a fixture whose day has gone by (`REQ-ANSETZUNG-003`). An acceptance is judged
-    again outside the transaction just before answering, so a move or a reassignment landing mid-answer refuses it
-    rather than letting it stand.
+    row of an `active` season, or a row naming none of those records (`REQ-ANSETZUNG-015`, one answer for both); a row
+    already answered, by them or by the league for them (`REQ-ANSETZUNG-002`); one closed unanswered
+    (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club (`REQ-ANSETZUNG-005`), then one whose date,
+    time, ground or sides moved since the row, or which books another referee or none (`REQ-ANSETZUNG-004`); and a
+    fixture whose day has gone by (`REQ-ANSETZUNG-003`). An acceptance is judged again outside the transaction just
+    before answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.
 
     **The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name
     on the public fixture, and a decline takes it off.
@@ -196,8 +200,16 @@ async def post_schiedsrichter_antwort(
         subjekt = await funktionen_of(identifier, records, session=session)
         refuse(find_eigener_eintrag_refusal(gehalten=bool(subjekt.schiedsrichter)))
 
+        # The seasons the panel lists: a row of a season ended since is no booking left to answer, its slot the archive's.
+        saisons = await pull_many_from_db(
+            collection=saisons_collection, db_filter={"status": "active"}, projection=["_id"], limit=LIST_LIMIT_MAX, session=session
+        )
         # `find_one` rather than `pull_one_from_db`, whose 404 would tell the caller which ids exist.
-        row = await spielbestaetigungen_collection.find_one({"_id": spielbestaetigung_id}, projection=EIGENE_ZEILE_FIELDS, session=session)
+        row = await spielbestaetigungen_collection.find_one(
+            {"_id": spielbestaetigung_id, "saison_id": {"$in": [str(saison["_id"]) for saison in saisons]}},
+            projection=EIGENE_ZEILE_FIELDS,
+            session=session,
+        )
         refuse(
             find_fremde_zeile_refusal(
                 spielbestaetigung_raw=row, schiedsrichter_ids=[eintrag.schiedsrichter_id for eintrag in subjekt.schiedsrichter]
@@ -226,7 +238,7 @@ async def post_schiedsrichter_antwort(
                 return_document=ReturnDocument.BEFORE,
             )
         except DocumentNotFoundException:
-            refuse(first_press_refusal())
+            refuse(first_press_refusal(schiedsrichter=True))
 
         if antwort_data.antwort == "abgelehnt":
             # Never `PATCH /spiele/{spiel_id}`, which re-resolves the season's bracket: a person's press moves this one
@@ -240,8 +252,9 @@ async def post_schiedsrichter_antwort(
                     return_document=ReturnDocument.BEFORE,
                 )
             except DocumentNotFoundException:
-                # The filter is the judgement, so no `DB-COMMON-001` is published for a fixture that stands.
-                refuse(ansetzung_verlassen_refusal())
+                # Unreachable: the snapshot judged above books them, and a write since conflicts rather than missing.
+                # Mapped to that judgement's refusal, so no `DB-COMMON-001` is published for a miss no caller meets.
+                refuse(ansetzung_verlassen_refusal(schiedsrichter=True))
         else:
             # The acceptance writes no fixture, so a move, a reassignment or a club's exit landing under this transaction
             # raises no conflict: all judged again outside it before answering (`docs/backend/spec.md :: I118`).

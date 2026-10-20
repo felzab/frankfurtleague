@@ -252,7 +252,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   outside this rule, published because § 18 (1) MStV and, where it reaches this site, § 5 DDG
   require them (`fl_frontend/src/core/brand.ts :: VORSTAND`, [section 11](#11-open-and-owed-a-decision)).
 - **Referees give their own consent record**, on the same terms as a pupil rather than a contact
-  person: a referee's name is published on every fixture they officiate, so the record is
+  person: a referee's name may stand on the fixtures they officiate, so the record is
   `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` — the publication scope, the media
   answer beside it, the wording they were shown and the day they answered. Entering a referee mails
   them a one-time link, which lasts fourteen days and can be re-sent; the person enters their own date
@@ -347,7 +347,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   Datenschutzexperte**, and the published notice lists it under a withdrawal, which takes the name
   off every fixture page at the fixture list's next read. The gate is the pupils' own predicate,
   read off the referee's record when the fixture is read
-  (`fl_backend/app/api/spieler/services.py :: NAME_IS_PUBLIC`, `docs/backend/spec.md :: READ-REFEREE-004`);
+  (`fl_backend/app/shared/einwilligung.py :: NAME_IS_PUBLIC`, `docs/backend/spec.md :: READ-REFEREE-004`);
   a referee asked about a fixture is shown on it only once they agreed, the league's own entry of an
   agreement counting (`:: READ-REFEREE-005`). Ruled 2026-10-20.
 - **The booked referee reads both clubs' squads, every name and shirt number, for their own
@@ -930,7 +930,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   Widerspruch takes their part sooner ([section 5](#5-erasure-reaches-everyone-who-asks)). A
   referee's rows hold the referee's id and no seat, a reason on one, the referee's decline's or an
   administrator's answer's, going at the season's end as above, and stand while the referee's row does, their erasure removing them (`docs/backend/spec.md :: I761`). The published notice tabulates it
-  (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19.
+  (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19, the administrator's reason on that clock
+  2026-10-20.
 - **A match report keeps its scorers, its cards and its proposed result as the league's record, and
   loses on that same clearing what characterises the pupils' conduct**: from the pass that clears the
   contact blocks, every pass strips the season's `spielberichte` of the referee's remarks and every

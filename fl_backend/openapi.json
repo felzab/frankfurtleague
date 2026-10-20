@@ -384,7 +384,7 @@
             "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "409": {
-            "$ref": "#/components/responses/409.REQ-BOOKING-001.REQ-BOOKING-002.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003"
+            "$ref": "#/components/responses/409.REQ-BOOKING-001.REQ-BOOKING-002.REQ-BOOKING-003.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3281,7 +3281,7 @@
             "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "409": {
-            "$ref": "#/components/responses/409.REQ-BOOKING-001.REQ-BOOKING-002.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003"
+            "$ref": "#/components/responses/409.REQ-BOOKING-001.REQ-BOOKING-002.REQ-BOOKING-003.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -8111,7 +8111,7 @@
     "/api/v0/schiedsrichter/bestaetigung": {
       "post": {
         "summary": "Confirm one Schiedsrichter's entry and consent",
-        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were\nshown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,\nwhich the fixture list does not read yet, serving the name each fixture stores.\n\nRefuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed\n(`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), any label but the referee\npage's running one (`REQ-EINWILLIGUNG-001`), a link mailed to an address the ban list holds now, whenever the link\nwas minted (`REQ-SCHIEDSRICHTER-009`), an age outside what this consent asks (`REQ-SCHIEDSRICHTER-005`), and a media\nconsent from a referee below `medien_mindestalter` (`REQ-SCHIEDSRICHTER-008`) -- the label and the last two judged\nbefore anything is written, so a reloaded page or a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:\na withheld name would go on being served for as long as that entry lives.",
+        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were\nshown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,\nwhich the fixture list joins at read time to decide whether to publish the name each fixture stores.\n\nRefuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed\n(`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), any label but the referee\npage's running one (`REQ-EINWILLIGUNG-001`), a link mailed to an address the ban list holds now, whenever the link\nwas minted (`REQ-SCHIEDSRICHTER-009`), an age outside what this consent asks (`REQ-SCHIEDSRICHTER-005`), and a media\nconsent from a referee below `medien_mindestalter` (`REQ-SCHIEDSRICHTER-008`) -- the label and the last two judged\nbefore anything is written, so a reloaded page or a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:\na withheld name would go on being served for as long as that entry lives.",
         "operationId": "post_bestaetigung_api_v0_schiedsrichter_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -10934,7 +10934,7 @@
     "/api/v0/spielbestaetigungen/selbst": {
       "get": {
         "summary": "A signed-in referee's own fixture assignments",
-        "description": "Answer every confirmation row in an `active` season naming one of the signed-in address's live, confirmed referee records.\n\nOpen, answered and closed rows alike, each with the fixture as it stands -- or, where the fixture moved since, the\nAnsetzung the row asked about -- its state, and the referee's own decline reason. No deadline is served: a referee\nanswers until the fixture's day. Ordered with the rows still open first, then by the Ansetzung's day. Nobody's\naddress or seat is served, and no reason an administrator entered on the row.\n\nRefuses an address holding no live, confirmed referee record (`REQ-FUNKTION-001`).",
+        "description": "Answer every confirmation row in an `active` season naming one of the signed-in address's live, confirmed referee records.\n\nOpen, answered and closed rows alike, each with the fixture as it stands -- or, where the fixture moved since, the\nAnsetzung the row asked about -- its state, the referee's own decline reason, and whether the league recorded the\nanswer for them, naming nobody. No deadline is served: a referee answers until the fixture's day. Ordered with the\nrows still open first, then by the Ansetzung's day. Nobody's address or seat is served, and no reason an\nadministrator entered on the row.\n\nRefuses an address holding no live, confirmed referee record (`REQ-FUNKTION-001`).",
         "operationId": "get_eigene_spielbestaetigungen_api_v0_spielbestaetigungen_selbst_get",
         "responses": {
           "200": {
@@ -10974,7 +10974,7 @@
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/antwort": {
       "post": {
         "summary": "Accept or decline one of the signed-in referee's own fixture assignments",
-        "description": "Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.\n\nThe first answer binds, as a club's does. A decline also takes the referee off the fixture, writing its referee\nnull and nothing else of it -- no other fixture is resolved again and no club is told -- and closes the row, so\nbooking the same referee again asks them afresh. The reason is stored as typed, for the administrator, and goes at\nthe season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture\ncarries.\n\nRefuses, in this order: an address holding no live, confirmed referee record (`REQ-FUNKTION-001`); an id naming no\nrow, or a row naming none of those records (`REQ-ANSETZUNG-015`, one answer for both); a row already answered\n(`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club\n(`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the row, or which books another referee\nor none (`REQ-ANSETZUNG-004`); and a fixture whose day has gone by (`REQ-ANSETZUNG-003`). An acceptance is judged\nagain outside the transaction just before answering, so a move or a reassignment landing mid-answer refuses it\nrather than letting it stand.\n\n**The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name\non the public fixture, and a decline takes it off.",
+        "description": "Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.\n\nThe first answer binds, as a club's does. A decline also takes the referee off the fixture, writing its referee\nnull and nothing else of it -- no other fixture is resolved again and no club is told -- and closes the row, so\nbooking the same referee again asks them afresh. The reason is stored as typed, for the administrator, and goes at\nthe season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture\ncarries.\n\nRefuses, in this order: an address holding no live, confirmed referee record (`REQ-FUNKTION-001`); an id naming no\nrow of an `active` season, or a row naming none of those records (`REQ-ANSETZUNG-015`, one answer for both); a row\nalready answered, by them or by the league for them (`REQ-ANSETZUNG-002`); one closed unanswered\n(`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club (`REQ-ANSETZUNG-005`), then one whose date,\ntime, ground or sides moved since the row, or which books another referee or none (`REQ-ANSETZUNG-004`); and a\nfixture whose day has gone by (`REQ-ANSETZUNG-003`). An acceptance is judged again outside the transaction just\nbefore answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.\n\n**The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name\non the public fixture, and a decline takes it off.",
         "operationId": "post_schiedsrichter_antwort_api_v0_spielbestaetigungen__spielbestaetigung_id__antwort_post",
         "security": [
           {
@@ -19275,6 +19275,18 @@
               }
             ],
             "title": "Notiz"
+          },
+          "schiedsrichter_stand": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{24}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schiedsrichter Stand"
           }
         },
         "additionalProperties": false,
@@ -19290,7 +19302,8 @@
           "uhrzeit",
           "ort",
           "schiedsrichter",
-          "notiz"
+          "notiz",
+          "schiedsrichter_stand"
         ],
         "title": "FLPatchSpielDataPayload"
       },
@@ -27358,6 +27371,10 @@
               }
             ],
             "title": "Begruendung"
+          },
+          "eingetragen": {
+            "type": "boolean",
+            "title": "Eingetragen"
           }
         },
         "type": "object",
@@ -27367,7 +27384,8 @@
           "schiedsrichter_id",
           "ansetzung",
           "zustand",
-          "begruendung"
+          "begruendung",
+          "eingetragen"
         ],
         "title": "FLSpielbestaetigungSelbst",
         "description": "One of the signed-in referee's rows, as their panel lists it."
@@ -32496,7 +32514,7 @@
           }
         }
       },
-      "409.REQ-BOOKING-001.REQ-BOOKING-002.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003": {
+      "409.REQ-BOOKING-001.REQ-BOOKING-002.REQ-BOOKING-003.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -32511,6 +32529,7 @@
                       "enum": [
                         "REQ-BOOKING-001",
                         "REQ-BOOKING-002",
+                        "REQ-BOOKING-003",
                         "REQ-CLASH-001",
                         "REQ-DATE-001",
                         "REQ-ELIGIBILITY-001",

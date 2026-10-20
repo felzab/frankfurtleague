@@ -168,6 +168,7 @@ describe("the match editor's save of an asserted event", () => {
       notiz: null,
       spiel_id: "6890a1b2c3d4e5f607182901",
       sonderereignis: null,
+      schiedsrichter_stand: null,
     };
 
     assert.equal(buildPatchSpielDataPayloadSchema({ hasSonderereignis: false }).safeParse(payload).success, true);

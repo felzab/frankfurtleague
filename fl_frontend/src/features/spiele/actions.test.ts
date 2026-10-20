@@ -19,6 +19,7 @@ const PATCH_OPERATION = "PATCH /spiele/{spiel_id}";
 const PATCH_CODES = [
   "REQ-BOOKING-001",
   "REQ-BOOKING-002",
+  "REQ-BOOKING-003",
   "REQ-CLASH-001",
   "REQ-DATE-001",
   "REQ-ELIGIBILITY-001",
@@ -47,6 +48,7 @@ const EDIT = {
   notiz: null,
   spiel_id: "6890a1b2c3d4e5f607182930",
   sonderereignis: null,
+  schiedsrichter_stand: null,
 };
 
 /*

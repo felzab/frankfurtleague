@@ -226,3 +226,29 @@ describe("a create dialog the match editor opens", () => {
     await openVenueDialog(user, /Jetzt anlegen/);
   });
 });
+
+describe("the referee the match editor's save says it was served", () => {
+  /* The stand is the referee the editor loaded, never its pick: read off the draft, every booking would claim the
+     fixture already held the referee it picks, which the save refuses as the slot having moved (`REQ-BOOKING-003`). */
+  it("sends the stored slot beside the referee picked", async () => {
+    const user = userEvent.setup();
+    await renderEditor(user, { schiedsrichter: [REFEREE] });
+    await user.click(pickerTrigger("Schiedsrichter"));
+    const row = within(await screen.findByRole("listbox"))
+      .getAllByRole("option")
+      .find((option) => option.textContent?.startsWith("Erika Muster") === true);
+    await user.click(row ?? assert.fail("the confirmed referee is not offered"));
+    calls.length = 0;
+
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(async () => settled());
+    const confirm = screen.queryByRole("button", { name: "Trotzdem speichern" });
+    if (confirm !== null) await user.click(confirm);
+    await sent();
+
+    const saved = calls.filter((call) => call.action === "patchAdminSpielDataAction").map((call) => call.payload as Record<string, unknown>);
+    assert.equal(saved.length, 1, "the pick was never saved, so nothing below is judged");
+    const booked = saved[0]?.["schiedsrichter"] as { schiedsrichter_id?: string } | null;
+    assert.deepEqual([booked?.schiedsrichter_id, saved[0]?.["schiedsrichter_stand"]], [REFEREE.id, null]);
+  });
+});

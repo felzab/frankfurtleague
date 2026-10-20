@@ -197,8 +197,12 @@ export function AdminEditSpielDataForm({
   };
 
   // Both sides submit as they stand, `null` included: an empty picker is how a bracket slot the
-  // group phase has not filled yet is recorded.
-  const buildPayload = (): FLPatchSpielDataPayloadDraft => ({ ...draft, spiel_id: spielData.id });
+  // group phase has not filled yet is recorded. The stand is the referee this editor was served, never the draft's pick.
+  const buildPayload = (): FLPatchSpielDataPayloadDraft => ({
+    ...draft,
+    spiel_id: spielData.id,
+    schiedsrichter_stand: spielData.schiedsrichter?.schiedsrichter_id ?? null,
+  });
 
   // The fixture as it will stand once saved, built once so the preview, the categorisation and the
   // knockout-cancellation warning cannot disagree.

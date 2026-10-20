@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Final, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, model_validator
 
@@ -519,12 +519,21 @@ class FLPatchSpielDataPayload(BaseModel):
     # The bound is the log row's ceiling (`app/shared/schemas/bounds.py`), no read model's business.
     notiz: str | None = Field(max_length=SPIEL_NOTIZ_MAX_LENGTH)
 
+    # A precondition, written nowhere: the referee the editor was served, null for an empty slot. Required with no
+    # default, as `kontakte_stand` is: an omitted precondition judges nothing
+    # (`app/api/spiele/services.py :: find_referee_stand_refusal`).
+    schiedsrichter_stand: CustomObjectId | None
+
     @model_validator(mode="before")
     @classmethod
     def empty_strings_to_none(cls, data: Any) -> Any:
         if isinstance(data, dict):
             return {k: (None if isinstance(v, str) and v.strip() == "" else v) for k, v in data.items()}
         return data
+
+
+# What the wholesale save writes: the payload's fields, its precondition apart.
+SPIEL_PATCH_WRITTEN_FIELDS: Final = frozenset(FLPatchSpielDataPayload.model_fields) - {"schiedsrichter_stand"}
 
 
 # Every wholesale-payload field outside the Paarung, named once: the report and the restore read this
@@ -659,6 +668,8 @@ class FLPatchSpielPaarungPayload(_SpielRestore):
                 if schiedsrichter is None
                 else FLSpielSchiedsrichterFieldPayload(schiedsrichter_id=schiedsrichter.schiedsrichter_id, payment=schiedsrichter.payment)
             ),
+            # The document's own referee: a restore of the referee the undone save replaced is that save's decision undone.
+            schiedsrichter_stand=None if stored.schiedsrichter is None else stored.schiedsrichter.schiedsrichter_id,
             **beyond,
         )
 

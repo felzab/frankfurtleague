@@ -7,7 +7,7 @@ from typing import Any, get_type_hints
 
 from app.api.bewerbungen.services import parse_new_club
 from app.api.saisons.services import RECORDED_FACT_FIELDS, _a_side_is_off_the_draw, holds_a_recorded_fact
-from app.api.spiele.schemas import FLPatchSpielDataPayload
+from app.api.spiele.schemas import SPIEL_PATCH_WRITTEN_FIELDS
 from app.api.spiele.services import apply_payload_to_spiel
 from app.api.teams.admin_router import post_team
 from app.core.collections import Collection
@@ -472,7 +472,7 @@ class TestEveryFieldAPatchWritesIsWeighedOrNamed:
 
         # The floor, and a cross-check on the reader: this is the `include=` set `patch_spiel_data`
         # dumps into its `$set`, so a key the sweep missed shows up here rather than passing.
-        assert written == set(FLPatchSpielDataPayload.model_fields) | {"ergebnis"}
+        assert written == SPIEL_PATCH_WRITTEN_FIELDS | {"ergebnis"}
 
         # The head of each path: the projection reads `team1.tore`, and what a payload writes is
         # `team1` whole.
