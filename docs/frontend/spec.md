@@ -1123,7 +1123,9 @@ the container it started and closes the file's clients last opened first
 (`fl_frontend/src/core/expiredTransactions.test.ts`), and a file left with an expired transaction
 fails through it (`fl_frontend/src/core/expiredTransactions.db.test.ts`). A file that fails while it
 loads runs no hook at all, which node:test's documentation does not state, so testcontainers'
-reaper removes the container it leaves. A case that deadlocks on a transaction, or
+reaper removes the container it leaves. **A replica set that fails its start fails the file with
+the last lines of its own log** (`fl_frontend/src/core/expiredTransactions.ts :: startJudged`,
+`fl_frontend/src/core/expiredTransactions.db.test.ts`). A case that deadlocks on a transaction, or
 leaves a commit the server never received, can pass while another waits the abort out. That
 teardown answers an expiry and a close that failed together
 (`fl_frontend/src/core/expiredTransactions.ts :: teardownFailure`).
