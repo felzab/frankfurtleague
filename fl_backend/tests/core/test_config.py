@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 from fastapi.dependencies.models import Dependant
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import Field, SecretStr, ValidationError
 from pymongo import MongoClient
 from pymongo.errors import ConfigurationError, InvalidURI, OperationFailure, ServerSelectionTimeoutError
@@ -174,6 +175,15 @@ class TestCorsAllowedOrigins:
     def test_the_bare_wildcard_the_hosts_variable_allows_fails_the_boot(self, monkeypatch, tmp_path):
         """Refused on purpose, unlike `API_TRUSTED_HOSTS`: this API is fetched server-side, and a wildcard with credentials is invalid CORS."""
         assert refusal(monkeypatch, tmp_path, API_CORS_ALLOWED_ORIGINS="*") == "Invalid environment variables: API_CORS_ALLOWED_ORIGINS"
+
+    def test_the_allowed_methods_are_the_methods_the_routes_serve(self):
+        """Equal both ways: a method a router gains is refused at its preflight until listed, and one listed past every route is a door."""
+
+        app = create_app(build())
+        [cors] = [middleware for middleware in app.user_middleware if middleware.cls is CORSMiddleware]
+        served = {method for route in api_routes(app) for method in route.methods or () if method not in {"HEAD", "OPTIONS"}}
+
+        assert set(cors.kwargs["allow_methods"]) == served
 
 
 class TestDatabaseBaseName:
