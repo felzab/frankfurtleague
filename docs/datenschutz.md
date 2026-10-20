@@ -293,7 +293,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   after their seating keeps the seat, and their link takes no confirmation
   (`docs/backend/spec.md :: I505`). A mailbox a save takes off the row is told, naming nobody, that
   its entry and every link it was sent there are gone; a club's replacement, an erasure, a
-  Widerspruch and the season's end tell nobody (`docs/backend/spec.md :: I800`). Ruled 2026-10-20.
+  Widerspruch and the season's end tell nobody (`docs/backend/spec.md :: I804`). Ruled 2026-10-20.
 
 ## 3. The current pupil records are reset once
 
@@ -350,6 +350,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/api/spieler/services.py :: NAME_IS_PUBLIC`, `docs/backend/spec.md :: READ-REFEREE-004`);
   a referee asked about a fixture is shown on it only once they agreed, the league's own entry of an
   agreement counting (`:: READ-REFEREE-005`). Ruled 2026-10-20.
+- **The booked referee reads both clubs' squads, every name and shirt number, for their own
+  fixture's report, as part of officiating**, whatever a pupil answered about publication: nothing
+  of it is published. The form serves the squads only from the match day and only while the fixture
+  takes a report (`fl_backend/app/api/spielberichte/services.py :: nimmt_einen_bericht`), and the
+  published notice says so. Ruled 2026-10-20.
 - **A photograph, a video or an interview needs a consent of its own, and only a person of eighteen
   or over may give it, for the Datenschutzexperte.** The consent is separate from the name and
   answered as a yes or a no on a pupil's, a referee's and a contact person's confirmation page
@@ -676,8 +681,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   remarks on a match (`spielberichte.bericht.bemerkungen`) are refused, when written, every name either
   club's three seats, the booked referee and either squad's pupils of the season hold, matched as the
   request below is (`fl_backend/app/api/spielberichte/services.py :: find_name_in_bemerkungen_refusal`);
-  a name written otherwise, or a person outside the fixture, stays in them for as long as the report
-  stands, which is as long as its fixture. The request an
+  a name written otherwise, or a person outside the fixture, stays in them until the end of the season
+  after the match, when the remarks go ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)). The request an
   administrator's erasure answers
   (`aktionen.anlass`) stands on every log row that erasure files, for the log's twelve months
   (`docs/backend/spec.md :: I683`, `:: I119`). It is refused where it holds an address
@@ -929,6 +934,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   referee's rows hold the referee's id and no seat, a reason on one, the referee's decline's or an
   administrator's answer's, going at the season's end as above, and stand while the referee's row does, their erasure removing them (`docs/backend/spec.md :: I761`). The published notice tabulates it
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19.
+- **A match report keeps its scorers, its cards and its proposed result as the league's record, and
+  loses on that same clearing what characterises the pupils' conduct**: from the pass that clears the
+  contact blocks, every pass strips the season's `spielberichte` of the referee's remarks and every
+  card's reason, on the reports and in the log's images, in a transaction of its own after the
+  confirmations' strip (`fl_backend/app/api/bewerbungen/sweep_router.py :: strip_the_reports`,
+  `docs/backend/spec.md :: I803`). The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`).
+  Ruled 2026-10-20.
 - **Timers in the frontend process are what turn those clocks from an intention into a mechanism**
   (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, calling
   `fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison` and

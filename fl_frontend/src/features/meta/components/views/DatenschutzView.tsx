@@ -594,6 +594,11 @@ export function DatenschutzView() {
             Administratorinnen und Administratoren der Liga.
           </p>
           <p className={ABSATZ_CLASSES}>
+            Die Schiedsrichterin oder der Schiedsrichter eines Spiels sieht ab dem Spieltag für den Spielbericht die Kader beider Teams mit Vor-
+            und Nachnamen und Rückennummer, auch ohne eine Einwilligung zur Veröffentlichung: Das gehört zur Spielleitung, veröffentlicht wird
+            dabei nichts.
+          </p>
+          <p className={ABSATZ_CLASSES}>
             Eine E-Mail-Adresse gehört bei uns zu einer Person. Registriert sich jemand mit einer Adresse, unter der schon eine Person
             eingetragen ist, und weichen Name oder Geburtsdatum von diesem Eintrag ab, fragen wir das Team, ob es dieselbe Person ist, und
             nennen ihm dafür den eingetragenen Namen, nie das Geburtsdatum. Ist sie es nicht, lehnt das Team die Registrierung ab, und wir

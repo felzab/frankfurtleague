@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 import { Tabs } from "@heroui/react/tabs";
 
+import { berichtChipText } from "@/features/spielberichte/utils";
 import { groupBestaetigungenBySpielId } from "@/features/spielbestaetigungen/utils";
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { SpielCardGrid } from "@/features/spiele/components/ui/SpielCardGrid";
@@ -18,6 +19,7 @@ import { CARDS_CASCADE_CLASSES, PAGE_RISE_CLASSES } from "@/shared/components/ui
 
 import { ACTION_REQUIRED_LABELS, bestaetigungNotizen, buildActionRequiredSections } from "../../utils";
 
+import type { FLSpielberichtZustandEintrag } from "@/features/spielberichte/schemas";
 import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
 import type { SpielCardNotes } from "@/features/spiele/components/collections/SpielCardsList";
 import type { FLBracketFault, FLSpiel } from "@/features/spiele/schemas";
@@ -59,6 +61,7 @@ export function AdminSpieleActionRequiredView({
   bracketFaults,
   bestaetigungen,
   bestaetigungenVollstaendig,
+  spielberichte,
   today,
   isFinishedSaison,
 }: {
@@ -67,6 +70,8 @@ export function AdminSpieleActionRequiredView({
   /** The season's confirmation rows; `null` where their read failed, which the page says rather than showing empty tabs as clear. */
   bestaetigungen: readonly FLSpielbestaetigung[] | null;
   bestaetigungenVollstaendig: boolean;
+  /** The season's reports and their states, read whatever `SPIELBERICHT_EINGABE` reads. */
+  spielberichte: readonly FLSpielberichtZustandEintrag[];
   today: string;
   isFinishedSaison: boolean;
 }) {
@@ -77,8 +82,20 @@ export function AdminSpieleActionRequiredView({
   // Memoised by hand: the React Compiler is deliberately off (`next.config.ts`), so without this
   // every section switch re-partitions the whole match list for the identical result.
   const sections = useMemo(
-    () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults, bestaetigungen: zeilen }),
-    [overviewSpiele, today, bracketFaults, zeilen],
+    () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults, bestaetigungen: zeilen, spielberichte }),
+    [overviewSpiele, today, bracketFaults, zeilen, spielberichte],
+  );
+
+  // On every card of every section, as the fixture's own state is: a proposal still to adopt is news wherever it shows.
+  const berichtChipsBySpielId = useMemo(
+    () =>
+      new Map(
+        spielberichte.flatMap((eintrag) => {
+          const text = berichtChipText(eintrag);
+          return text === null ? [] : [[eintrag.spiel_id, text] as const];
+        }),
+      ),
+    [spielberichte],
   );
 
   // Keyed by `spiel_id` so each card states its own reasons; one shared box leaves the reader
@@ -220,6 +237,7 @@ export function AdminSpieleActionRequiredView({
                   isAdmin
                   notes={notes[section.category]}
                   bestaetigungenBySpielId={bestaetigungenBySpielId}
+                  berichtChipsBySpielId={berichtChipsBySpielId}
                 />
               </SpielCardGrid>
             )}

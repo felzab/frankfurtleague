@@ -217,6 +217,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
         teams_collection=database[Collection.TEAMS],
         aktionen_collection=database[Collection.AKTIONEN],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
         sperrliste=ban_list(database),
         db=client,
         today=today,
@@ -1186,6 +1187,7 @@ class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
                     teams_collection=database[Collection.TEAMS],
                     aktionen_collection=database[Collection.AKTIONEN],
                     spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                    spielberichte_collection=database[Collection.SPIELBERICHTE],
                     sperrliste=ban_list(database),
                     db=client,
                     today=TODAY,
@@ -2210,3 +2212,67 @@ class TestTheSeasonsEndStripsItsConfirmations:
             assert (left["antwort"], left["kontakte"]) == ({**rows["this season"]["antwort"], "begruendung": None}, None)
         for left in (stored["next season"], images["next season"]):
             assert left["antwort"] == rows["next season"]["antwort"]
+
+
+def a_report(
+    saison_id: str, *, bemerkungen: str | None = "Starker Regen ab der Pause.", rot_grund: str | None = "taetlichkeit"
+) -> dict[str, Any]:
+    """A report with a named scorer and two cards, a caution with its reason and a red card with or without one."""
+
+    karten = [
+        {"seite": "team2", "spieler_id": ObjectId(), "minute": "45+2", "farbe": "gelb", "grund": "foulspiel"},
+        {"seite": "team1", "spieler_id": ObjectId(), "minute": "80", "farbe": "rot", "grund": rot_grund},
+    ]
+
+    return documents.spielbericht_document(
+        {"_id": ObjectId(), "saison_id": saison_id}, bericht=documents.bericht_document(bemerkungen=bemerkungen, karten=karten)
+    )
+
+
+class TestTheSeasonsEndStripsItsReports:
+    def test_the_remarks_and_card_reasons_go_from_reports_and_images_and_another_season_keeps_them(self, mongo_replica_set_url: str):
+        """The scorers, the cards and the proposed result stay: the record of the match."""
+
+        reports = {
+            "this season": a_report(SAISON_ID),
+            # No remarks, and a card already without a reason: what a filter on a null reason passes over.
+            "this season, no remarks": a_report(SAISON_ID, bemerkungen=None, rot_grund=None),
+            "next season": a_report(NEXT_SAISON_ID),
+        }
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            berichte = database[Collection.SPIELBERICHTE]
+            await berichte.insert_many([dict(report) for report in reports.values()])
+            for report in reports.values():
+                # A logged write, so an image holds the remarks and reasons too.
+                await patch_one_in_db(
+                    collection=berichte,
+                    db_filter={"_id": report["_id"]},
+                    update={"$inc": {"bericht.version": 1}},
+                    return_document=ReturnDocument.BEFORE,
+                )
+            response = await sweep(database, client)
+            stored = {name: (await berichte.find_one({"_id": report["_id"]}) or {})["bericht"] for name, report in reports.items()}
+            images = {
+                name: (await database[Collection.AKTIONEN].find_one({"document_id": report["_id"], "before": {"$ne": None}}) or {})["before"][
+                    "bericht"
+                ]
+                for name, report in reports.items()
+            }
+
+            return response, stored, images
+
+        response, stored, images = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+
+        assert response.fehlgeschlagen == 0
+        for name in ("this season", "this season, no remarks"):
+            kept = reports[name]["bericht"]
+            for left in (stored[name], images[name]):
+                assert left["bemerkungen"] is None, name
+                assert left["karten"] == [{**karte, "grund": None} for karte in kept["karten"]], name
+                assert (left["torschuetzen"], left["ergebnis_vorschlag"]) == (kept["torschuetzen"], kept["ergebnis_vorschlag"]), name
+        for left in (stored["next season"], images["next season"]):
+            assert (left["bemerkungen"], left["karten"]) == (
+                reports["next season"]["bericht"]["bemerkungen"],
+                reports["next season"]["bericht"]["karten"],
+            )

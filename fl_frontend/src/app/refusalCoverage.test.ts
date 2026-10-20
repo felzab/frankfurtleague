@@ -18,7 +18,7 @@ import type { FLBewerbungEinwilligungAnsichtResponse } from "@/features/bewerbun
 doubleActionRequest();
 
 const { answerSettled, publishedRefusals } = await import("@/shared/testing/publishedRefusals.ts");
-const { isFunktionLost } = await import("@/shared/utils/actionError.ts");
+const { isFunktionLost, isRefusal } = await import("@/shared/utils/actionError.ts");
 const { replayRefusal } = await import("@/shared/utils/adminUndo.ts");
 const berechtigungen = await import("@/features/berechtigungen/refusals.ts");
 const bewerbungen = await import("@/features/bewerbungen/refusals.ts");
@@ -37,6 +37,7 @@ const schiedsrichterQueries = await import("@/features/schiedsrichter/queries.ts
 const sperrliste = await import("@/features/sperrliste/refusals.ts");
 const spiele = await import("@/features/spiele/refusals.ts");
 const spielbestaetigungen = await import("@/features/spielbestaetigungen/utils.ts");
+const spielberichte = await import("@/features/spielberichte/utils.ts");
 const spieler = await import("@/features/spieler/refusals.ts");
 const spielerQueries = await import("@/features/spieler/queries.ts");
 const spielorte = await import("@/features/spielorte/refusals.ts");
@@ -157,6 +158,16 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   // Read beside the referee's own records, so the same page's landing.
   "GET /spielbestaetigungen/selbst": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
   "POST /spielbestaetigungen/{spielbestaetigung_id}/antwort": spielbestaetigungen.mapSchiedsrichterAntwortRefusal,
+  "GET /spielberichte/person": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
+  // The report page's own read: a lost record is the panel's landing, a fixture booked to somebody else its own state.
+  "GET /spielberichte/{spiel_id}/bericht": (error) =>
+    isFunktionLost(error)
+      ? "the landing, in the page's stead"
+      : isRefusal(error) && error.serverErrorCode === "REQ-BERICHT-002"
+        ? "the page's state for a fixture booked to somebody else"
+        : null,
+  "PUT /spielberichte/{spiel_id}/bericht": (error) => spielberichte.mapSpielberichtRefusal(error, "schiedsrichter"),
+  "PATCH /spielberichte/{spiel_id}": (error) => spielberichte.mapSpielberichtRefusal(error, "admin"),
   "PATCH /spieler/selbst/einwilligung": (error) => konto.mapEigeneEinwilligungRefusal(error, MEDIEN_MIN_ALTER),
   "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": (error) => konto.mapEigeneEinwilligungRefusal(error, MEDIEN_MIN_ALTER),
   "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung": (error) => konto.mapEigeneEinwilligungRefusal(error, MEDIEN_MIN_ALTER),
