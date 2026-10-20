@@ -60,11 +60,15 @@ describe("the match's writes", () => {
 
     assert.equal((await previewAdminSpielDataAction(edit)).success, true, "the dry run never landed, so what it moves is judged on nothing");
     assert.deepEqual(cacheCalls, [], "a dry run moved a cached read or refreshed the page under the editor's draft");
-    assert.equal((await patchAdminSpielDataAction(edit, "2026")).success, true, "the save never landed, so what it moves is judged on nothing");
+    assert.equal(
+      (await patchAdminSpielDataAction(edit, "2026", null)).success,
+      true,
+      "the save never landed, so what it moves is judged on nothing",
+    );
 
     assert.deepEqual(requestsOf(calls), [
       { endpoint: `/spiele/${spiel_id}?dry_run=true`, method: "PATCH", body: fields, readOnly: true },
-      { endpoint: `/spiele/${spiel_id}`, method: "PATCH", body: fields },
+      { endpoint: `/spiele/${spiel_id}`, method: "PATCH", body: fields, params: {} },
     ]);
     assert.deepEqual(cacheCalls, [
       { name: "updateTag", args: ["spiele"] },
@@ -73,6 +77,19 @@ describe("the match's writes", () => {
       { name: "updateTag", args: ["teams:saison_id:2026"] },
       { name: "refresh", args: [] },
     ]);
+  });
+
+  /* A seed lost on the way stamps nothing, and nothing else tells the administrator the report was not adopted. */
+  it("send the save seeded from a report with that report's version, and an unreadable seed as no seed", async () => {
+    answerWith(() => Promise.resolve({ acknowledged: 1, advanced_to: [], released_sides: [], bracket_faults: [], prior_paarungen: [] }));
+
+    assert.equal((await patchAdminSpielDataAction(EDIT, "2026", 3)).success, true);
+    assert.equal((await patchAdminSpielDataAction(EDIT, "2026", "3")).success, true, "an unreadable seed cost the edit");
+
+    assert.deepEqual(
+      requestsOf(calls).map((request) => request.params),
+      [{ uebernimmt_bericht: 3 }, {}],
+    );
   });
 });
 
@@ -94,7 +111,7 @@ describe("the match editor's refusals against the codes its endpoint publishes",
     await assertEachAnswered({
       operation: PATCH_OPERATION,
       refuseWith: answerWith,
-      act: () => patchAdminSpielDataAction(EDIT, "2026"),
+      act: () => patchAdminSpielDataAction(EDIT, "2026", null),
       mapped: mapSpielRefusal,
     });
     await assertEachAnswered({
