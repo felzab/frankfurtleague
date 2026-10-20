@@ -1,4 +1,4 @@
-import { SPIEL_BESTAETIGUNG_FRIST_TAGE } from "@/features/spiele/constants";
+import { SPIEL_ANFRAGE_VORLAUF_TAGE, SPIEL_BESTAETIGUNG_FRIST_TAGE } from "@/features/spiele/constants";
 
 import type { FLSonderereignis, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
@@ -119,22 +119,25 @@ export const ansetzungGeaendert = (draft: SpielBannerAnsetzung, stored: SpielBan
 
 const MS_PER_DAY = 86_400_000;
 
+/** The days from `today` to `datum`, each `YYYY-MM-DD`: `Date.parse` reads both as a UTC midnight, so the count is exact. */
+export const tageBis = (datum: string, today: string): number => (Date.parse(datum) - Date.parse(today)) / MS_PER_DAY;
+
 /**
  * Inside the deadline's days and strictly after `today`, the sweep's own floor: a fixture whose day has come is asked
- * nothing, so a date typed for one raises nothing. `Date.parse` reads each `YYYY-MM-DD` as a UTC midnight.
+ * nothing, so a date typed for one raises nothing.
  */
 function ohneVorlauf(datum: string | null, today: string): boolean {
   if (datum === null) return false;
-  const tage = (Date.parse(datum) - Date.parse(today)) / MS_PER_DAY;
+  const tage = tageBis(datum, today);
 
   return tage > 0 && tage <= SPIEL_BESTAETIGUNG_FRIST_TAGE;
 }
 
 /**
- * The conditions the sweep mints a fixture's rows on, spelled again for the draft: a banner over a fixture no pass asks
- * about warns of a request that never comes. Both tiers run one table of them (`docs/frontend/spec.md :: I743`).
+ * `anfrage_is_due` spelled again for the editor: a warning over a fixture no pass asks about speaks of a request that
+ * never comes. Both tiers run one table of it (`docs/frontend/spec.md :: I743`).
  */
-function wirdAngefragt(
+export function wirdAngefragt(
   ansetzung: SpielBannerAnsetzung,
   {
     isActiveSaison,
@@ -156,9 +159,10 @@ function wirdAngefragt(
   if (ansetzung.uhrzeit === null || ansetzung.spielortId === null || ansetzung.team1Id === null || ansetzung.team2Id === null) return false;
   // On the fixture's day itself, as the pass closes it: a club gone by then is asked nothing.
   const { datum } = ansetzung;
-  if (datum !== null && austrittTage.some((tag) => tag <= datum)) return false;
+  if (datum === null || austrittTage.some((tag) => tag <= datum)) return false;
+  const tage = tageBis(datum, today);
 
-  return ohneVorlauf(ansetzung.datum, today);
+  return tage > 0 && tage <= SPIEL_BESTAETIGUNG_FRIST_TAGE + SPIEL_ANFRAGE_VORLAUF_TAGE;
 }
 
 /** A list of fixture numbers as German writes it: "29, 30 und 31", with "und" and no serial comma. */
@@ -421,6 +425,7 @@ export function buildSpielBanners({
   if (
     isSpielSweepOn &&
     ansetzungGeaendert(ansetzung, storedAnsetzung) &&
+    ohneVorlauf(ansetzung.datum, today) &&
     wirdAngefragt(ansetzung, { isActiveSaison, sonderereignis, hasAnyTore, hasShootOut, austrittTage, today })
   ) {
     banners.push({

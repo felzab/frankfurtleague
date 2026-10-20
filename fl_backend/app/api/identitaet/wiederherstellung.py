@@ -220,7 +220,7 @@ def _withdrawable(block: Mapping[str, Any], line: JournalLine) -> dict[FLEinwill
     made = datetime.fromisoformat(line.am)
 
     def set_since(wahl: FLEinwilligungWahl) -> bool:
-        evidenced = beleg_of(block, wahl, stamp=log_stamp)
+        evidenced = beleg_of(block, wahl)
         return evidenced is not None and evidenced[0] > made
 
     return {wahl: wert for wahl, wert in line.wahlen.items() if ist_erteilt(wahl, block.get(wahl)) and not set_since(wahl)}
@@ -594,7 +594,7 @@ async def run_replay(
     # A person whose erasure has run again: their own choices' records went with it, and nothing of theirs is left to replay.
     gone = {person_hash for person_hash in erased_at if not held[person_hash]}
     # An effect before its person's erasure left their records at the replaced address in a snapshot from before it
-    # (`docs/backend/spec.md :: I800`). Newest first, so a chain of changes reaches the earliest address still held.
+    # (`docs/backend/spec.md :: I804`). Newest first, so a chain of changes reaches the earliest address still held.
     for entry in reversed(read):
         if _erased_after(entry, gone, erased_at) and entry.line.zuvor is not None and not held[entry.line.zuvor]:
             gone.add(entry.line.zuvor)

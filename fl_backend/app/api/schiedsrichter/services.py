@@ -9,7 +9,6 @@ from app.api.schiedsrichter.schemas import FLSchiedsrichterAdresswechselZustand,
 from app.api.spiele.schemas import unplayed_filter
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
-from app.core.recording import log_stamp
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.adresswechsel import ADRESSWECHSEL_FELD as SHARED_ADRESSWECHSEL_FELD
 from app.shared.adresswechsel import (
@@ -246,9 +245,7 @@ def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool,
 
     # Born whole rather than moved: the stamp refusal admits only a row whose stored block no answer
     # of this referee's stands on, and a dotted `$set` under a null block aborts the transaction.
-    record = compose_geboren(
-        block=compose_einwilligung(umfang=umfang, medien=medien, text_version=text_version, today=today), am=am, stamp=log_stamp
-    )
+    record = compose_geboren(block=compose_einwilligung(umfang=umfang, medien=medien, text_version=text_version, today=today), am=am)
 
     return {"$set": {"geburtsdatum": geburtsdatum, EINWILLIGUNG_FELD: record}}
 

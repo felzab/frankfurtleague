@@ -24,8 +24,10 @@ from app.api.registrierungen.services import compose_bestaetigung, compose_confi
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.api.spielbestaetigungen.services import compose_ansetzung, halter_of
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.core.recording import log_stamp
 from app.shared.adresswechsel import FLAdresswechselWeg, compose_block
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
+from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, compose_beleg, compose_geboren
 from tests.config import build_test_config
 
 ADDRESS: Final[Mapping[str, str]] = {
@@ -36,13 +38,27 @@ ADDRESS: Final[Mapping[str, str]] = {
     "stadt": "Frankfurt am Main",
 }
 
-# A guardian's word as a person stored before the registration flow carries it.
-EINWILLIGUNG: Final[Mapping[str, str]] = {
-    "umfang": "kader_oeffentlich",
-    "erteilt_von": "erziehungsberechtigt",
-    "datum": "2026-01-15",
-    "bestaetigt_am": "2026-01-20",
-}
+_GERMANY: Final = ZoneInfo("Europe/Berlin")
+
+
+def bestaetigt_um(tag: str) -> str:
+    """The instant a seed's person confirmed on `tag`: noon in Germany, spelled as `log_stamp` spells evidence."""
+
+    return log_stamp(datetime.fromisoformat(f"{tag}T12:00:00").replace(tzinfo=_GERMANY))
+
+
+# A pupil's record as their own confirmation wrote it and their admission carried it onto the person,
+# publishing the name and no media.
+EINWILLIGUNG: Final[Mapping[str, Any]] = compose_geboren(
+    block={
+        "umfang": "kader_oeffentlich",
+        "datum": "2026-01-20",
+        "bestaetigt_am": "2026-01-20",
+        "text_version": LAUFENDE_FASSUNGEN["bestaetigung_spieler"],
+        "medien": False,
+    },
+    am=bestaetigt_um("2026-01-20"),
+)
 
 # The ordinary competition, so no rule a suite is not about refuses first. Every key spelled out, so a
 # key added to `FLSaisonRules` fails a seed rather than taking a default nobody picked.
@@ -201,7 +217,7 @@ def spieler_document(spieler_id: Any, vorname: str, nachname: str | None, **fiel
         "_id": spieler_id,
         "vorname": vorname,
         "nachname": nachname,
-        "einwilligung": dict(EINWILLIGUNG),
+        "einwilligung": copy.deepcopy(dict(EINWILLIGUNG)),
         "inactive_since": None,
         **fields,
     }
@@ -317,12 +333,41 @@ def registrierung_document(
 
 
 def kontaktperson_document(
-    vorname: str, *, bestaetigt_am: str | None = None, einwilligung: Mapping[str, Any] | None = None, **fields: Any
+    vorname: str,
+    *,
+    bestaetigt_am: str | None = None,
+    einwilligung: Mapping[str, Any] | None = None,
+    am: str | None = None,
+    **fields: Any,
 ) -> dict[str, Any]:
     """One contact seat as the submission stores it, or, given `bestaetigt_am`, as its own person's confirmation left it.
 
     `einwilligung` holds the record's keys a case sets itself, its label and choices among them, laid over the seat's own.
     """
+
+    seated: dict[str, Any] = {
+        "umfang": "kontaktdaten",
+        "erfasst_von": "administrativ",
+        "text_version": "v3",
+        "datum": "2026-03-20",
+        "bestaetigt_am": None,
+    }
+    if bestaetigt_am is None:
+        block = {**seated, **(einwilligung or {})}
+    elif not bestaetigt_am:
+        # A blank stamp, which only a hand edit stores and every reader takes for none: nobody answered.
+        block = {**seated, "erfasst_von": "person", "bestaetigt_am": bestaetigt_am, **(einwilligung or {})}
+    else:
+        # As `app/api/bewerbungen/services.py :: compose_confirmation_update` answers the seat: both
+        # choices with their evidence, judged against the seat as seated, and no stored speaker.
+        answered = {key: value for key, value in seated.items() if key != "erfasst_von"}
+        block = {**answered, "bestaetigt_am": bestaetigt_am, "medien": False, **(einwilligung or {})}
+        if NACHWEIS not in block:
+            beleg_am = am if am is not None else bestaetigt_um(bestaetigt_am)
+            block[NACHWEIS] = {
+                wahl: compose_beleg(gespeichert=seated, wahl=wahl, wert=block[wahl], am=beleg_am, text_version=block["text_version"])
+                for wahl in WAHLEN
+            }
 
     return {
         "vorname": vorname,
@@ -330,14 +375,7 @@ def kontaktperson_document(
         "email": f"{vorname.lower()}@example.com",
         "telefon": "+49 170 1234567",
         "geburtsdatum": None if bestaetigt_am is None else "1984-05-09",
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "administrativ" if bestaetigt_am is None else "person",
-            "text_version": "v3",
-            "datum": "2026-03-20",
-            "bestaetigt_am": bestaetigt_am,
-            **(einwilligung or {}),
-        },
+        "einwilligung": block,
         **fields,
     }
 
@@ -382,18 +420,24 @@ def saison_spieler_document(spieler_id: Any, saison_id: str, team_id: Any, **fie
 # and every label a case asserts are passed at the call.
 
 
-def eigene_einwilligung_document(*, text_version: str, bestaetigt_am: str, **fields: Any) -> dict[str, Any]:
-    """A pupil's or a referee's consent as their own confirmation left it, publishing the name and no media."""
+def eigene_einwilligung_document(*, text_version: str, bestaetigt_am: str, am: str | None = None, **fields: Any) -> dict[str, Any]:
+    """A pupil's or a referee's consent as their own confirmation left it, publishing the name and no media.
 
-    return {
-        "umfang": "kader_oeffentlich",
-        "erteilt_von": "volljaehrig",
-        "datum": bestaetigt_am,
-        "bestaetigt_am": bestaetigt_am,
-        "text_version": text_version,
-        "medien": False,
-        **fields,
-    }
+    Each choice evidenced at `am`, noon of `bestaetigt_am` unless a case names it; `fields` laid over the block.
+    """
+
+    geboren = compose_geboren(
+        block={
+            "umfang": "kader_oeffentlich",
+            "datum": bestaetigt_am,
+            "bestaetigt_am": bestaetigt_am,
+            "text_version": text_version,
+            "medien": False,
+        },
+        am=am if am is not None else bestaetigt_um(bestaetigt_am),
+    )
+
+    return {**geboren, **fields}
 
 
 def schiedsrichter_document(

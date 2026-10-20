@@ -1,7 +1,7 @@
 import { SPIELPLAN_ZURUECKNEHMEN } from "./constants";
 
 import type { NextPageProps } from "@/shared/types/types";
-import type { FLSpiel } from "../spiele/schemas";
+import type { FLSpiel, FLSpielTeamField } from "../spiele/schemas";
 import type { FLGruppenNames } from "../teams/schemas";
 import type { FLSaisonPhase, FLSaisonPhaseSchedule, FLSaisonStatus } from "./schemas";
 import type { SaisonGruppenOccupancy, SaisonGruppenSwapContext, SaisonSpieltagBound, SaisonSwapTeam, SpielplanBestand } from "./types";
@@ -30,7 +30,12 @@ export function searchWithoutSaisonId(searchParams: Awaited<NextPageProps["searc
  * `REQ-SWAP-002`, `REQ-SWAP-004`, `REQ-RULES-012` and `REQ-REPLACE-002`. Wider closes a control the
  * endpoint accepts, narrower offers one it refuses.
  */
-export function hasTakenPlace(spiel: FLSpiel): boolean {
+export function hasTakenPlace(
+  spiel: Pick<FLSpiel, "ergebnis" | "sonderereignis" | "elfmeterschiessen"> & {
+    team1: Pick<FLSpielTeamField, "tore"> | null;
+    team2: Pick<FLSpielTeamField, "tore"> | null;
+  },
+): boolean {
   // **The set is this question's alone, never `SONDEREREIGNIS_RECORDING_AN_ABSENCE`.** An
   // abandonment and a no-show each left a record; `ausgefallen` and `annulliert` leave none, so
   // neither belongs here however much they read like the others.

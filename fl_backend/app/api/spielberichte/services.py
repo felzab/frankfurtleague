@@ -99,7 +99,17 @@ def build_zustand_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
                 "localField": "spiel_id",
                 "foreignField": "_id",
                 "pipeline": [
-                    {"$project": {"_id": 0, "team1.tore": 1, "team2.tore": 1, "ergebnis": 1, "sonderereignis": 1, "elfmeterschiessen": 1}}
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "saison_phase": 1,
+                            "team1.tore": 1,
+                            "team2.tore": 1,
+                            "ergebnis": 1,
+                            "sonderereignis": 1,
+                            "elfmeterschiessen": 1,
+                        }
+                    }
                 ],
                 "as": "spiel",
             }
@@ -164,10 +174,18 @@ def find_nicht_geleitet_refusal(*, spiel_raw: Mapping[str, Any], schiedsrichter_
     )
 
 
+def ist_gespielt(*, datum: str | None, today: str) -> bool:
+    return datum is not None and datum <= today
+
+
+def ist_abgesagt(*, sonderereignis: str | None) -> bool:
+    return sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT
+
+
 def find_nicht_gespielt_refusal(*, datum: str | None, today: str) -> WriteRefusal | None:
     """`REQ-BERICHT-001`: a report follows the match day; the day arriving, or a date corrected, lifts it."""
 
-    if datum is not None and datum <= today:
+    if ist_gespielt(datum=datum, today=today):
         return None
 
     return WriteRefusal(
@@ -180,7 +198,7 @@ def find_nicht_gespielt_refusal(*, datum: str | None, today: str) -> WriteRefusa
 def find_abgesagt_refusal(*, sonderereignis: str | None) -> WriteRefusal | None:
     """`REQ-BERICHT-004`: a fixture called off or struck out took no place to report on."""
 
-    if sonderereignis not in SONDEREREIGNIS_WITHOUT_A_RESULT:
+    if not ist_abgesagt(sonderereignis=sonderereignis):
         return None
 
     return WriteRefusal(
@@ -188,6 +206,12 @@ def find_abgesagt_refusal(*, sonderereignis: str | None) -> WriteRefusal | None:
         status=HTTPStatus.CONFLICT,
         message="the fixture is called off or struck out, and carries no report",
     )
+
+
+def nimmt_einen_bericht(spiel_raw: Mapping[str, Any], *, today: str) -> bool:
+    """Whether the fixture takes a report today, as `REQ-BERICHT-001` and `REQ-BERICHT-004` judge a write, refusing nothing."""
+
+    return ist_gespielt(datum=spiel_raw.get("datum"), today=today) and not ist_abgesagt(sonderereignis=spiel_raw.get("sonderereignis"))
 
 
 def find_nicht_im_kader_refusal(*, lage: BerichtLage, neu: Mapping[FLSpielberichtSeite, set[ObjectId]]) -> WriteRefusal | None:
@@ -261,8 +285,8 @@ def judge_bericht(
 def vorschlag_entspricht(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[str, Any]) -> bool:
     """Whether the stored result is what the proposal proposes.
 
-    A no-show by its event alone, its goals being the forfeit's; a shoot-out only where the fixture keeps one, the save
-    discarding it on a group fixture or a decided one.
+    A no-show by its event alone, its goals being the forfeit's; a shoot-out, an absent one included, only where the
+    fixture keeps one.
     """
 
     if vorschlag.sonderereignis in SONDEREREIGNIS_NO_SHOW:
@@ -272,19 +296,32 @@ def vorschlag_entspricht(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[
     if tore != (vorschlag.team1_tore, vorschlag.team2_tore) or spiel_raw.get("sonderereignis") != vorschlag.sonderereignis:
         return False
 
+    # `app/api/spiele/services.py :: apply_payload_to_spiel`'s rule: a level knockout keeps its shoot-out, so one saved
+    # without the proposed shoot-out is not the proposal.
+    if spiel_raw["saison_phase"] == "gruppenphase" or vorschlag.team1_tore != vorschlag.team2_tore:
+        return True
+
     gespeichert = spiel_raw.get("elfmeterschiessen")
 
-    return gespeichert is None or FLSpielElfmeterschiessen.model_validate(gespeichert) == vorschlag.elfmeterschiessen
+    return (None if gespeichert is None else FLSpielElfmeterschiessen.model_validate(gespeichert)) == vorschlag.elfmeterschiessen
+
+
+# The states awaiting the administrator, which the triage lists: an adopted report awaits nothing, and one on a match
+# that took no place awaits nothing anyone can do.
+BERICHT_ZUSTAENDE_OFFEN: Final[frozenset[FLSpielberichtZustand]] = frozenset({"vorgeschlagen", "abweichend"})
 
 
 def bericht_zustand_of(bericht: FLSpielberichtBericht, spiel_raw: Mapping[str, Any]) -> FLSpielberichtZustand:
-    """The state a report reads in, from the adoption, the block's version and the result together.
+    """The state a report reads in, from the fixture, the adoption and the block's version.
 
-    A fixture holding no result reads `vorgeschlagen` however the report was stamped, which is what an undo of the
-    adopting save leaves.
+    No result reads `vorgeschlagen` however the report was stamped, as after an undone adoption or on an abandonment
+    still owing its result.
     """
 
-    if spiel_raw.get("ergebnis") is None and spiel_raw.get("sonderereignis") is None:
+    if ist_abgesagt(sonderereignis=spiel_raw.get("sonderereignis")):
+        return "abgesagt"
+
+    if spiel_raw.get("ergebnis") is None:
         return "vorgeschlagen"
 
     # Equal versions, never instants: a correction and an adoption in one second are two writes.
@@ -294,8 +331,13 @@ def bericht_zustand_of(bericht: FLSpielberichtBericht, spiel_raw: Mapping[str, A
     return "abweichend"
 
 
-def compose_ansicht(lage: BerichtLage, *, genannt: Sequence[FLSpielberichtSpieler], dokument: Mapping[str, Any] | None) -> dict[str, Any]:
-    """What the referee's form and the administrator's panel both read: the fixture, the live squads, and the stored block."""
+def compose_ansicht(
+    lage: BerichtLage, *, kader_offen: bool, genannt: Sequence[FLSpielberichtSpieler], dokument: Mapping[str, Any] | None
+) -> dict[str, Any]:
+    """What the referee's form and the administrator's panel both read: the fixture, the live squads, and the stored block.
+
+    The squads empty unless `kader_offen`: the referee picks from them only while the fixture takes a report.
+    """
 
     spiel = lage.spiel
 
@@ -314,10 +356,18 @@ def compose_ansicht(lage: BerichtLage, *, genannt: Sequence[FLSpielberichtSpiele
             "team2": team("team2"),
             "sonderereignis": spiel.get("sonderereignis"),
         },
-        "kader": {seite: live_kader(lage, seite) for seite in SEITEN},
+        "kader": {seite: live_kader(lage, seite) if kader_offen else [] for seite in SEITEN},
         "genannt": genannt,
         "bericht": None if dokument is None else dokument.get("bericht"),
     }
+
+
+def bericht_unveraendert(payload: FLSpielberichtBerichtPayload, gespeichert: Mapping[str, Any] | None) -> bool:
+    """Whether the stored block already says everything the payload says, so a save of it has nothing to write."""
+
+    return gespeichert is not None and all(
+        gespeichert.get(key) == value for key, value in payload.model_dump(context={"keep_oid": True}).items()
+    )
 
 
 def compose_neuer_bericht(payload: FLSpielberichtBerichtPayload, *, von: FLSpielberichtVon, now: datetime) -> dict[str, Any]:
@@ -346,6 +396,42 @@ def compose_bericht_update(payload: FLSpielberichtBerichtPayload, *, now: dateti
         | {"bericht.geaendert_am": now},
         "$inc": {"bericht.version": 1},
     }
+
+
+# --- The SEASON'S END: the remarks and every card's reason, on the reports and in their log images; the scorers, the
+# cards and the proposed result stand as the league's record of the match.
+
+
+def build_season_report_texts_filter(saison_id: str) -> Mapping[str, Any]:
+    """This season's reports still holding remarks or a card's reason, so a season stripped already is written nothing."""
+
+    # `$type` and never `$ne: null`, which a list of cards matches only where no card holds a null reason.
+    return {"saison_id": saison_id, "$or": [{"bericht.bemerkungen": {"$type": "string"}}, {"bericht.karten.grund": {"$type": "string"}}]}
+
+
+def build_season_report_images_filter(saison_id: str) -> Mapping[str, Any]:
+    """Every `spielberichte` log row whose image of this season's report holds remarks or a card's reason."""
+
+    return {
+        "collection": str(Collection.SPIELBERICHTE),
+        "before.saison_id": saison_id,
+        "$or": [{"before.bericht.bemerkungen": {"$type": "string"}}, {"before.bericht.karten.grund": {"$type": "string"}}],
+    }
+
+
+def season_end_report_image_edits(image: Mapping[str, Any], saison_id: str) -> dict[str, None]:
+    """One image of this season's report stripped as the report is: its remarks and every card's reason."""
+
+    bericht = image.get("bericht")
+    if image.get("saison_id") != saison_id or not isinstance(bericht, Mapping):
+        return {}
+
+    edits: dict[str, None] = {"bericht.bemerkungen": None} if bericht.get("bemerkungen") is not None else {}
+    for index, karte in enumerate(bericht.get("karten") or []):
+        if isinstance(karte, Mapping) and karte.get("grund") is not None:
+            edits[f"bericht.karten.{index}.grund"] = None
+
+    return edits
 
 
 # --- The REFEREE'S ERASURE: the reports they sent, and the log images of them.

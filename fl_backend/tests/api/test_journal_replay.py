@@ -103,7 +103,6 @@ REGISTRATION_OID = ObjectId("6890a1b2c3d4e5f607870041")
 
 CONFIRMED_LABEL = "2026-09-schiedsrichterseite-3"
 SEAT_LABEL = "2026-09-bestaetigungsseite-6"
-NO_EVIDENCE = {"umfang": None, "medien": None}
 
 ROW_LINK = "the-season-rows-link"
 APPLICATION_LINK = "the-applications-link"
@@ -127,6 +126,14 @@ def _seat(email: str, *, confirmed: bool = True) -> dict[str, Any]:
         else {},
     )
     return {**seat, "email": email}
+
+
+# The stand each account page serves for the record as `_seed` stores it, which a press from that page echoes.
+SERVED_STAND: dict[Seite, dict[str, str | None]] = {
+    "konto_spieler": nachweis_stand_of(bloecke=[_own()]),
+    "konto_schiedsrichter": nachweis_stand_of(bloecke=[_own()]),
+    "konto_kontakt": nachweis_stand_of(bloecke=[_seat(PERSON_TYPED)["einwilligung"]]),
+}
 
 
 async def _seed(database: AsyncDatabase) -> None:
@@ -247,7 +254,7 @@ def _person(email: str) -> SignedActor:
 
 
 def _withdrawal(page: Seite, **choices: Any) -> dict[str, Any]:
-    return {"text_version": LAUFENDE_FASSUNGEN[page], "nachweis_stand": NO_EVIDENCE, **choices}
+    return {"text_version": LAUFENDE_FASSUNGEN[page], "nachweis_stand": SERVED_STAND[page], **choices}
 
 
 Press = Callable[[AsyncClient, AsyncDatabase], Awaitable[Any]]
@@ -464,7 +471,10 @@ class TestEachPressAndItsReplay:
             await database[Collection.SCHIEDSRICHTER].update_one({"_id": REFEREE_OID}, {"$set": {"einwilligung.medien": False}})
             path, body = (
                 f"{V}/schiedsrichter/selbst/{REFEREE_OID}/einwilligung",
-                _withdrawal("konto_schiedsrichter", umfang="kader_oeffentlich", medien=True),
+                {
+                    **_withdrawal("konto_schiedsrichter", umfang="kader_oeffentlich", medien=True),
+                    "nachweis_stand": nachweis_stand_of(bloecke=[{**_own(), "medien": False}]),
+                },
             )
             with caplog.at_level(logging.INFO):
                 granted = await http.patch(path, json=body, headers=_person(PERSON))

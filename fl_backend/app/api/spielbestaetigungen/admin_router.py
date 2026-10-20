@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Depends, Query
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.spielbestaetigungen.crud import pull_admin_rows
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigung,
     FLSpielbestaetigungEintragenPayload,
@@ -14,7 +15,6 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungVerwerfenResponse,
 )
 from app.api.spielbestaetigungen.services import (
-    ADMIN_FIELDS,
     ANSETZUNG_QUELLEN,
     build_answerable_filter,
     build_verwerfbar_filter,
@@ -26,7 +26,7 @@ from app.api.spielbestaetigungen.services import (
     verwerfen_refusal,
 )
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import patch_one_in_db, pull_one_from_db, refuse
 from app.core.dependencies import DBClient, SaisonsCollection, SpielbestaetigungenCollection, SpieleCollection, get_german_date_str
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
@@ -56,30 +56,24 @@ async def get_spielbestaetigungen(
     """
     Every confirmation row of the season, or of its one fixture, and the day the confirmation pass last ran over it.
 
-    Newest first, closed rows included. No seat's link hashes and no answer's holder digest are served.
-    `vollstaendig` is false where more rows exist than one read serves, the oldest being the ones left out. A season no
-    document has answers no rows and a null day rather than 404.
+    Newest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still
+    holding its party's question is served; `limit` cuts the others, and `vollstaendig` is false where it left the
+    oldest of them out. A season no document has answers no rows and a null day rather than 404.
     """
 
     db_filter: dict[str, Any] = {"saison_id": filters.saison_id}
     if filters.spiel_id is not None:
         db_filter["spiel_id"] = filters.spiel_id
 
-    # One row over what is served, and the extra never is: it answers whether the list is whole without a count.
-    read = await pull_many_from_db(
-        collection=spielbestaetigungen_collection,
-        db_filter=db_filter,
-        limit=filters.limit + 1,
-        # Rows carry no creation stamp; an ObjectId's leading bytes are its insert time.
-        sort_by=[("_id", -1)],
-        projection=ADMIN_FIELDS,
+    rows, vollstaendig = await pull_admin_rows(
+        spielbestaetigungen_collection=spielbestaetigungen_collection, db_filter=db_filter, limit=filters.limit
     )
     saison = await saisons_collection.find_one({"_id": filters.saison_id}, {"spiel_sweep_gelaufen_am": 1})
 
     return FLSpielbestaetigungenListResponse(
-        spielbestaetigungen=[FLSpielbestaetigung.model_validate(row) for row in read[: filters.limit]],
+        spielbestaetigungen=[FLSpielbestaetigung.model_validate(row) for row in rows],
         spiel_sweep_gelaufen_am=(saison or {}).get("spiel_sweep_gelaufen_am"),
-        vollstaendig=len(read) <= filters.limit,
+        vollstaendig=vollstaendig,
     )
 
 

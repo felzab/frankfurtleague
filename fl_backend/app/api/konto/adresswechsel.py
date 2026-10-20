@@ -421,7 +421,7 @@ async def _rekey_the_person(
 ) -> None:
     """The digests naming the person by the replaced address, re-keyed rather than recorded, so an erasure of the new one reaches them.
 
-    Kept on a record instead, every erasure step would have to read them (`docs/backend/spec.md :: I801`).
+    Kept on a record instead, every erasure step would have to read them (`docs/backend/spec.md :: I805`).
     """
 
     await patch_many_in_db(

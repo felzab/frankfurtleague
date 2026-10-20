@@ -31,7 +31,7 @@ import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "./constants.ts";
-import { MAIL_ABGEWIESEN } from "./utils.ts";
+import { GESPEICHERTES_GEBURTSDATUM_AUSSERHALB, MAIL_ABGEWIESEN } from "./utils.ts";
 
 import type { ReactElement } from "react";
 import type { FLEinladungAnsichtResponse } from "./schemas.ts";
@@ -1111,6 +1111,27 @@ describe("the returning pupil's confirmation page", () => {
     );
     assert.ok(!Object.values(FASSUNG.bedienelemente).some((scope) => panel.includes(scope)), "the panel shows a publication scope");
     assert.doesNotMatch(panel, /Fotos, Videos und Interviews\s*(erlaubt|nicht erlaubt)/, "the panel shows a media answer");
+  });
+
+  /* The page has no field for the stored date, so the refusal's sentence is the only repair it can show:
+     the generic retry sends the pupil to a press the same date refuses again. */
+  it("raises the stored date's refusal as the failure toast's own sentence", async () => {
+    raised.length = 0;
+    fetchMock.mock.mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ success: false, error: GESPEICHERTES_GEBURTSDATUM_AUSSERHALB }), { status: 200 })),
+    );
+    const { unmount } = render(
+      h(SpielerBestaetigungView, {
+        start: { zustand: "gueltig", ansicht: WIEDERKEHREND_GEOEFFNET, token: "kein-echtes-token" },
+        fassung: WIEDERKEHREND,
+      }),
+    );
+
+    await userEvent.setup().click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
+    await act(fetchMock.answered);
+
+    await waitFor(() => assert.deepEqual(failureToasts(), [["Antwort nicht gespeichert", GESPEICHERTES_GEBURTSDATUM_AUSSERHALB]]));
+    unmount();
   });
 });
 

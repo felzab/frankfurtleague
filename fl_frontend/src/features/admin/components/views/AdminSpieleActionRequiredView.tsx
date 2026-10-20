@@ -5,7 +5,8 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 import { Tabs } from "@heroui/react/tabs";
 
-import { groupBestaetigungenBySpielId } from "@/features/spielbestaetigungen/utils";
+import { berichtChipText } from "@/features/spielberichte/utils";
+import { ANTWORT_LABELS } from "@/features/spielbestaetigungen/constants";
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { SpielCardGrid } from "@/features/spiele/components/ui/SpielCardGrid";
 import { groupBracketFaultsBySpielId } from "@/features/spiele/utils";
@@ -16,8 +17,9 @@ import { TAB_INDICATOR_CLASSES, TAB_ITEM_CLASSES, TAB_TRACK_CLASSES } from "@/sh
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { CARDS_CASCADE_CLASSES, PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 
-import { ACTION_REQUIRED_LABELS, bestaetigungNotizen, buildActionRequiredSections } from "../../utils";
+import { ACTION_REQUIRED_LABELS, bestaetigungNotizen, buildActionRequiredSections, saisonBestaetigungen } from "../../utils";
 
+import type { FLSpielberichtZustandEintrag } from "@/features/spielberichte/schemas";
 import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
 import type { SpielCardNotes } from "@/features/spiele/components/collections/SpielCardsList";
 import type { FLBracketFault, FLSpiel } from "@/features/spiele/schemas";
@@ -59,6 +61,7 @@ export function AdminSpieleActionRequiredView({
   bracketFaults,
   bestaetigungen,
   bestaetigungenVollstaendig,
+  spielberichte,
   today,
   isFinishedSaison,
 }: {
@@ -67,18 +70,33 @@ export function AdminSpieleActionRequiredView({
   /** The season's confirmation rows; `null` where their read failed, which the page says rather than showing empty tabs as clear. */
   bestaetigungen: readonly FLSpielbestaetigung[] | null;
   bestaetigungenVollstaendig: boolean;
+  /** The season's reports and their states, read whatever `SPIELBERICHT_EINGABE` reads. */
+  spielberichte: readonly FLSpielberichtZustandEintrag[];
   today: string;
   isFinishedSaison: boolean;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const zeilen = bestaetigungen ?? KEINE_BESTAETIGUNGEN;
+  // Grouped once for the categories, the notes and the cards alike.
+  const saison = useMemo(() => saisonBestaetigungen(bestaetigungen ?? KEINE_BESTAETIGUNGEN, bracketFaults), [bestaetigungen, bracketFaults]);
 
   // Memoised by hand: the React Compiler is deliberately off (`next.config.ts`), so without this
   // every section switch re-partitions the whole match list for the identical result.
   const sections = useMemo(
-    () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults, bestaetigungen: zeilen }),
-    [overviewSpiele, today, bracketFaults, zeilen],
+    () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults, bestaetigungen: saison, spielberichte }),
+    [overviewSpiele, today, bracketFaults, saison, spielberichte],
+  );
+
+  // On every card of every section, as the fixture's own state is: a proposal still to adopt is news wherever it shows.
+  const berichtChipsBySpielId = useMemo(
+    () =>
+      new Map(
+        spielberichte.flatMap((eintrag) => {
+          const text = berichtChipText(eintrag);
+          return text === null ? [] : [[eintrag.spiel_id, text] as const];
+        }),
+      ),
+    [spielberichte],
   );
 
   // Keyed by `spiel_id` so each card states its own reasons; one shared box leaves the reader
@@ -86,15 +104,18 @@ export function AdminSpieleActionRequiredView({
   const notes = useMemo(
     (): Partial<Record<ActionRequiredCategory, SpielCardNotes>> => ({
       bracket_fault: { tone: "danger", bySpielId: groupBracketFaultsBySpielId(bracketFaults) },
-      vorschlag_offen: { tone: "info", bySpielId: bestaetigungNotizen("vorschlag_offen", overviewSpiele, zeilen, today) },
+      // The tone of the chip naming the same club's state on the card below.
+      vorschlag_offen: {
+        tone: ANTWORT_LABELS.abgelehnt.tone,
+        bySpielId: bestaetigungNotizen("vorschlag_offen", overviewSpiele, saison, today),
+      },
       bestaetigung_ueberfaellig: {
-        tone: "warning",
-        bySpielId: bestaetigungNotizen("bestaetigung_ueberfaellig", overviewSpiele, zeilen, today),
+        tone: ANTWORT_LABELS.ueberfaellig.tone,
+        bySpielId: bestaetigungNotizen("bestaetigung_ueberfaellig", overviewSpiele, saison, today),
       },
     }),
-    [bracketFaults, overviewSpiele, zeilen, today],
+    [bracketFaults, overviewSpiele, saison, today],
   );
-  const bestaetigungenBySpielId = useMemo(() => groupBestaetigungenBySpielId(zeilen), [zeilen]);
 
   const activeSection =
     sections.find((section) => section.category === searchParams.get(SECTION_PARAM)) ??
@@ -181,7 +202,8 @@ export function AdminSpieleActionRequiredView({
         </div>
       </div>
 
-      {/* Standing, never dismissible: the three confirmation tabs read zero or short for as long as the rows are. */}
+      {/* Standing, never dismissible: a tab reads zero or short for as long as the rows are. The read serves every open
+          row whole, so a cut reaches the closed ones alone, and of those the categories read a referee's decline. */}
       {(bestaetigungen === null || !bestaetigungenVollstaendig) && (
         <div className="flex w-full max-w-page flex-col px-4 pb-4 sm:px-8">
           <Callout
@@ -191,7 +213,7 @@ export function AdminSpieleActionRequiredView({
             }>
             {bestaetigungen === null
               ? "Die Kategorien zu Terminvorschlägen und Bestätigungen sind deshalb leer, auch wo ein Spiel hineingehört. Lade die Seite neu."
-              : "Geladen sind nur die neuesten Antworten dieser Saison. Die Kategorien zu Terminvorschlägen und Bestätigungen können Spiele auslassen."}
+              : `Geladen sind alle offenen Anfragen dieser Saison, von den geschlossenen nur die neuesten. „${ACTION_REQUIRED_LABELS.schiedsrichter_abgesagt.name}“ kann deshalb Spiele auslassen.`}
           </Callout>
         </div>
       )}
@@ -219,7 +241,8 @@ export function AdminSpieleActionRequiredView({
                   isFinishedSaison={isFinishedSaison}
                   isAdmin
                   notes={notes[section.category]}
-                  bestaetigungenBySpielId={bestaetigungenBySpielId}
+                  bestaetigungen={saison}
+                  berichtChipsBySpielId={berichtChipsBySpielId}
                 />
               </SpielCardGrid>
             )}
