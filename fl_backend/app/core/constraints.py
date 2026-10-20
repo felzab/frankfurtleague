@@ -671,8 +671,8 @@ _SPIELBESTAETIGUNG_ANSETZUNG = _object(
     },
 )
 
-# One seat's links on a confirmation row. The hashes are typed alone: their bound of three is the
-# reminder's `$slice`, a count being no type (`docs/backend/spec.md :: I16`).
+# One seat's links on a confirmation row. The hashes are typed alone, a seat keeping every link it was
+# mailed (`docs/backend/spec.md :: I752`) and a count being no type (`:: I16`).
 _SPIELBESTAETIGUNG_SITZ = _object(
     nullable=True,
     required=("token_hashes",),

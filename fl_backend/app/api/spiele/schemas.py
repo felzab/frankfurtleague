@@ -765,7 +765,7 @@ class FLSpielJoined(FLSpielCommon):
     # the next save. Required: only the join composes it (`docs/backend/spec.md :: I763`).
     ansetzung_bestaetigt: bool | None
 
-    # The acceptance gate ahead of the consent gate (`docs/backend/spec.md :: I790`); `FLSpielJoinedAdmin`
+    # The acceptance gate ahead of the consent gate (`docs/backend/spec.md :: I781`); `FLSpielJoinedAdmin`
     # re-declares the field plainly, which drops this validator there.
     schiedsrichter: Annotated[FLSpielSchiedsrichterFieldPublic | None, BeforeValidator(_withheld_unless_agreed)]
 

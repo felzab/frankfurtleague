@@ -463,10 +463,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`DatenschutzView.tsx :: Deine E-Mail-Adresse steht bei uns für Dich allein`). A mailbox shared
   anyway is one account: whoever reads it signs in, sees and changes every record under it, and an
   erasure keyed on it takes them all. The registration confirmation still opens the returning
-  pupil's page — the stored birthdate and consent shown back, no choice asked again — only where the
-  name matches as well and that person confirmed their record
+  pupil's page — no choice asked again, and the stored birthdate taken as given rather than shown —
+  only where the name matches as well and that person confirmed their record
   (`fl_backend/app/api/registrierungen/services.py :: seite_of` over `:: persons_named`), the one
-  place a shared mailbox would otherwise show one pupil another's answers and leave their own
+  place a shared mailbox would otherwise give one pupil another's birthdate and leave their own
   consent unasked. Ruled 2026-09-27. Inside a season row or application that a Widerspruch answers
   or a contact erasure clears, one name is one person as well: its log images lose every seat
   holding the person's name, so an address corrected in a later save takes its earlier seat with it
@@ -662,7 +662,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   a referee's for declining a fixture they were booked on (`spielbestaetigungen.antwort.begruendung`), may name anyone, no name in it being checked; it goes
   with its own writer's erasure (above), so a person it names, a squad pupil most likely, stays in it
   past their own erasure until it is deleted with the season's contact data
-  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)); the reason box's hint asks for
+  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)). The reason an administrator
+  types when recording a party's agreement on its behalf is the same field, unchecked too, and is
+  keyed on no address at all, so no erasure reaches it and only the season's end deletes it
+  (`docs/backend/spec.md :: I775`); the reason box's hint asks for
   no names, nothing enforces it, and the published notice says a name may stand in the reason
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19, the unchecked text 2026-10-20. The request an
   administrator's erasure answers
@@ -903,17 +906,18 @@ Every ruling below is the sign-up flow as it stands for the next season.
   2026-09-02.
 - **A season's fixture confirmations keep the clubs' answers as the season's record, and lose from
   that same clearing on everything that tells the people apart.** From the pass that clears the
-  contact blocks, every pass strips the season's `spielbestaetigungen` team rows of their reason, their
-  holder digest, their seats' link hashes and their delivery records, on the rows and in the log's
-  images, until nothing of them is left. The strip is a transaction of its own after the blocks'
+  contact blocks, every pass strips the season's `spielbestaetigungen` rows of their reason, a
+  referee's row and an administrator's answer included, and the team rows of their holder digest,
+  their seats' link hashes and their delivery records, on the rows and in the log's images, until
+  nothing of them is left. The strip is a transaction of its own after the blocks'
   share, so a failing strip holds back no block and is tried again on the next pass
   (`fl_backend/app/api/bewerbungen/sweep_router.py :: strip_the_confirmations`,
   `docs/backend/spec.md :: I757`). Which way each club answered,
   its day, the answering role and a proposed date stay, naming nobody, and the rows have no clock of
   their own, a season's fixtures being kept as the league's record. A person's erasure or
   Widerspruch takes their part sooner ([section 5](#5-erasure-reaches-everyone-who-asks)). A
-  referee's rows hold the referee's id, no seat, and the reason of a decline the referee gave, and
-  stand while the referee's row does, their erasure removing them (`docs/backend/spec.md :: I761`). The published notice tabulates it
+  referee's rows hold the referee's id and no seat, a decline's reason going at the season's end as
+  above, and stand while the referee's row does, their erasure removing them (`docs/backend/spec.md :: I761`). The published notice tabulates it
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19.
 - **Timers in the frontend process are what turn those clocks from an intention into a mechanism**
   (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, calling

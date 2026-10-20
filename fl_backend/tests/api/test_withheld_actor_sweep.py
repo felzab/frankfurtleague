@@ -99,6 +99,7 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/saisons/{saison_id}/loeschung/vorschau": "how many pupils an activation deletes, counted and never named",
     "/api/v0/schiedsrichter": f"referees, {_PERSON_RECORDS}",
     "/api/v0/schiedsrichter/{schiedsrichter_id:objectid}": f"one referee, {_PERSON_RECORDS}",
+    "/api/v0/spielbestaetigungen": 'fixture confirmations, an administrator\'s answer recorded as `{art: "admin"}` with no address',
     "/api/v0/spiele/action_required": "fixtures",
     "/api/v0/spiele/list/admin": "fixtures",
     "/api/v0/spiele/{spiel_id:objectid}": "a save's dry run, which reports the fixtures it would move",

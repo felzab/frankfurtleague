@@ -161,6 +161,14 @@ def a_row(fixture: Mapping[str, Any], team_id: ObjectId, **fields: Any) -> dict[
     return spielbestaetigung_document(fixture, partei={"art": "team", "team_id": team_id}, **fields)
 
 
+def discarded(fixture: Mapping[str, Any], team_id: ObjectId) -> dict[str, Any]:
+    """A club's decline proposing another date, closed by the administrator's discard."""
+
+    abgelehnt = {**zugesagt(), "art": "abgelehnt", "vorschlag": {"datum": "2026-05-03", "uhrzeit": "17:00:00"}, "begruendung": "Halle belegt"}
+
+    return a_row(fixture, team_id, antwort=abgelehnt, geschlossen={"am": "2026-04-21", "grund": "verworfen"})
+
+
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
@@ -207,15 +215,42 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
         assert on_a_fixture(mongo_url, fixture, rows, verdict) is False
 
     def test_an_answer_whose_row_closed_stops_counting(self, mongo_url: str):
-        """A discarded agreement stays on its row; read as open, it would go on confirming the fixture."""
+        """A call-off closes the agreement and a reinstated fixture is asked afresh; read as open, it would go on confirming it."""
 
         fixture = a_fixture()
         rows = [
             a_row(fixture, VERDICT_HOME, antwort=zugesagt()),
-            a_row(fixture, VERDICT_AWAY, antwort=zugesagt(), geschlossen={"am": "2026-04-21", "grund": "verworfen"}),
+            a_row(fixture, VERDICT_AWAY, antwort=zugesagt(), geschlossen={"am": "2026-04-21", "grund": "abgesagt"}),
         ]
 
         assert on_a_fixture(mongo_url, fixture, rows, verdict) is False
+
+    @pytest.mark.parametrize(
+        "home",
+        [pytest.param("zugesagt", id="beside the other club's agreement"), pytest.param("verworfen", id="beside a second discard")],
+    )
+    def test_a_discarded_proposal_counts_as_its_clubs_agreement(self, mongo_url: str, home: str):
+        """The league kept the date: a join of unclosed rows alone reads one club as never asked, or both as nobody."""
+
+        fixture = a_fixture()
+        rows = [
+            a_row(fixture, VERDICT_HOME, antwort=zugesagt()) if home == "zugesagt" else discarded(fixture, VERDICT_HOME),
+            discarded(fixture, VERDICT_AWAY),
+        ]
+
+        assert on_a_fixture(mongo_url, fixture, rows, verdict) is True
+
+    def test_a_discard_about_an_ansetzung_the_fixture_has_left_counts_for_nothing(self, mongo_url: str):
+        """The close never reaches a closed row, so a discard joined whatever its stand would hold the moved fixture provisional for good."""
+
+        fixture = a_fixture()
+
+        async def body(database: AsyncDatabase) -> bool | None:
+            await database[Collection.SPIELE].update_one({"_id": VERDICT_SPIEL_ID}, {"$set": MOVES["the time"]})
+
+            return await verdict(database)
+
+        assert on_a_fixture(mongo_url, fixture, [discarded(fixture, VERDICT_AWAY)], body) is None
 
     @pytest.mark.parametrize("move", list(MOVES.values()), ids=list(MOVES))
     def test_a_moved_fixture_reads_as_provisional_in_the_very_next_read(self, mongo_url: str, move: Mapping[str, Any]):
@@ -324,7 +359,7 @@ async def einsatz(database: AsyncDatabase) -> bool | None:
 
 
 class TestTheRefereeIsServedOnceAskedAndAgreed:
-    """`docs/backend/spec.md :: I790`: three-valued, so a fixture nobody asked the referee about serves them as before."""
+    """`docs/backend/spec.md :: I781`: three-valued, so a fixture nobody asked the referee about serves them as before."""
 
     def test_a_referee_never_asked_is_served_by_name(self, mongo_url: str):
         """The two-valued gate's failure: every referee of every fixture the pass has not reached would vanish."""

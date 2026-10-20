@@ -125,8 +125,8 @@ function toCalendarDate(stored: string): CalendarDate | null {
 /** The paragraphs both pages hold under one key, which the standing text renders on either. */
 type HinweisSchluessel = SpielerAbsatzSchluessel & SpielerWiederkehrendAbsatzSchluessel;
 
-/** The two choices that stand, in the words of the label the page showed: the returning page's readout and every answer panel. */
-function wahlZeilen(fassung: SpielerSeitenFassung, umfang: FLEinwilligungUmfang | null, medien: boolean | null) {
+/** The two choices the new pupil's page took, in the words of the label it showed: its answer panel's readout. */
+function wahlZeilen(fassung: SpielerFassung, umfang: FLEinwilligungUmfang | null, medien: boolean | null) {
   return [
     ...(umfang === null ? [] : [{ label: "Auf der Website", wert: fassung.bedienelemente[umfang] }]),
     ...(medien === null ? [] : [medienZeile(medien)]),
@@ -211,7 +211,7 @@ function KlickBestaetigung({ id, fassung, werte }: { id: string; fassung: Spiele
 }
 
 type Antwort =
-  | { success: true; ergebnis: "bestaetigt"; geburtsdatum: string; umfang: FLEinwilligungUmfang | null; medien: boolean | null }
+  | { success: true; ergebnis: "bestaetigt"; geburtsdatum: string | null; umfang: FLEinwilligungUmfang | null; medien: boolean | null }
   | (PublicEnvelope & { success: false; zustand?: SpielerLinkZustand });
 
 /**
@@ -270,12 +270,24 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
           <p className={ABSATZ_CLASSES}>
             Danke. Deine Registrierung für <Wert>{stand.ansicht.team}</Wert> ist bestätigt.
           </p>
-          <GespeicherteAngaben
-            zeilen={[
-              { label: "Geburtsdatum", wert: formatSpielDatum(stand.gespeichert.geburtsdatum) },
-              ...wahlZeilen(stand.fassung, stand.gespeichert.umfang, stand.gespeichert.medien),
-            ]}
-          />
+          {stand.fassung.seite === "bestaetigung_spieler" ? (
+            <GespeicherteAngaben
+              zeilen={[
+                ...(stand.gespeichert.geburtsdatum === null
+                  ? []
+                  : [{ label: "Geburtsdatum", wert: formatSpielDatum(stand.gespeichert.geburtsdatum) }]),
+                ...wahlZeilen(stand.fassung, stand.gespeichert.umfang, stand.gespeichert.medien),
+              ]}
+            />
+          ) : (
+            // What this page asked and nothing the person's record holds: a date only where one was typed here.
+            <>
+              {stand.gespeichert.geburtsdatum !== null && (
+                <GespeicherteAngaben zeilen={[{ label: "Geburtsdatum", wert: formatSpielDatum(stand.gespeichert.geburtsdatum) }]} />
+              )}
+              <p className={ABSATZ_CLASSES}>Deine gespeicherten Angaben gelten weiter. Du siehst sie in Deinem Konto.</p>
+            </>
+          )}
           <p className={ABSATZ_CLASSES}>
             Dein Team entscheidet jetzt über die Aufnahme in den Kader. Du musst nichts weiter tun und bekommst Bescheid.
           </p>
@@ -336,7 +348,7 @@ function SpielerBestaetigungForm({
   // Nothing preselected, whatever the read served: a media switch that opened on and a scope already
   // picked are consents nobody gave on this page.
   const [entwurf, setEntwurf] = useState<{ geburtsdatum: string; umfang: FLEinwilligungUmfang | null; medien: boolean }>({
-    geburtsdatum: ansicht.geburtsdatum ?? "",
+    geburtsdatum: "",
     umfang: null,
     medien: false,
   });
@@ -346,7 +358,7 @@ function SpielerBestaetigungForm({
 
   // Built from the floor the link answered, never the module's own: the endpoint judges this
   // person, so a schema on a constant would let the press through at the wrong number.
-  const bestaetigungSchema = buildRegistrierungBestaetigungPayloadSchema(ansicht.mindestalter, fassung.seite);
+  const bestaetigungSchema = buildRegistrierungBestaetigungPayloadSchema(ansicht.mindestalter, fassung.seite, ansicht.geburtsdatum_gespeichert);
 
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } =
     useDraftFieldErrors({
@@ -369,7 +381,8 @@ function SpielerBestaetigungForm({
   // the schema is what turns that into a field error rather than this builder into a cast.
   const payload = () => ({
     token: token,
-    geburtsdatum: entwurf.geburtsdatum,
+    // None where one is stored: the press takes that one (`REQ-REGISTRIERUNG-017` refuses a date sent beside it).
+    geburtsdatum: ansicht.geburtsdatum_gespeichert ? null : entwurf.geburtsdatum,
     // Both choices null from the returning page, which asks neither (`REQ-REGISTRIERUNG-017` refuses any other).
     umfang: fragtWahlen ? entwurf.umfang : null,
     // Never the draft's own `true` where no switch stands: one given before the date moved below the
@@ -435,10 +448,7 @@ function SpielerBestaetigungForm({
         setSubmitFieldErrors({}, {});
         onAbschluss({
           zustand: "erfolg",
-          // The returning page's pair off the read, its answer carrying none: those choices stand.
-          gespeichert: fragtWahlen
-            ? { geburtsdatum: antwort.geburtsdatum, umfang: antwort.umfang, medien: antwort.medien }
-            : { geburtsdatum: antwort.geburtsdatum, umfang: ansicht.umfang, medien: ansicht.medien },
+          gespeichert: { geburtsdatum: antwort.geburtsdatum, umfang: antwort.umfang, medien: antwort.medien },
         });
       });
     });
@@ -461,7 +471,7 @@ function SpielerBestaetigungForm({
         <section className="flex flex-col gap-y-3">
           <h3 className={FORM_SECTION_HEADING_CLASSES}>Dein Geburtsdatum</h3>
 
-          {ansicht.geburtsdatum === null ? (
+          {!ansicht.geburtsdatum_gespeichert ? (
             <div className={FIELD_PAIR_CLASSES}>
               <AppDatePicker
                 name="geburtsdatum"
@@ -476,9 +486,9 @@ function SpielerBestaetigungForm({
               />
             </div>
           ) : (
-            // Shown rather than asked: the league already holds this person's date, and asking again
-            // invites a second answer to a question that was settled once.
-            <GespeicherteAngaben zeilen={[{ label: "Gespeichert", wert: formatSpielDatum(ansicht.geburtsdatum) }]} />
+            // Neither asked nor shown: asking again invites a second answer to a question settled once,
+            // and whoever holds the link is not yet known to be the person whose date it is.
+            <p className={ABSATZ_CLASSES}>Dein Geburtsdatum ist bei uns schon gespeichert. Du siehst es in Deinem Konto.</p>
           )}
         </section>
 
@@ -504,7 +514,6 @@ function SpielerBestaetigungForm({
                 eigene={EIGENE_SLOTS}
               />
             </p>
-            <GespeicherteAngaben zeilen={wahlZeilen(fassung, ansicht.umfang, ansicht.medien)} />
             {/* The way there alone: the stamped paragraph above already says what the account page changes. */}
             <p className={ABSATZ_CLASSES}>
               <Link

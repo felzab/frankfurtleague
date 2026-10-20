@@ -47,7 +47,7 @@ from app.api.bewerbungen.services import (
 from app.api.kontakte.services import contact_block_image_edits
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
-from app.api.spielbestaetigungen.crud import strip_the_seasons_team_rows
+from app.api.spielbestaetigungen.crud import strip_the_seasons_confirmations
 from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.teams.crud import pull_team_names, void_moved_seats
 from app.api.teams.schemas import FLKontaktRolle
@@ -527,7 +527,7 @@ async def sweep_saison(
         # and every pass strips what is still left whether or not a block clears on it.
         batch.took([{"_id": saison_id}])
 
-        return await strip_the_seasons_team_rows(
+        return await strip_the_seasons_confirmations(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             aktionen_collection=aktionen_collection,
             saison_id=saison_id,

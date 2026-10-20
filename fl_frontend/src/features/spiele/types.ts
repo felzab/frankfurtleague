@@ -8,6 +8,9 @@ import type { FLSpielStatus } from "./schemas";
 export type ActionRequiredCategory =
   | "ergebnis_pending"
   | "besetzung_missing"
+  | "vorschlag_offen"
+  | "bestaetigung_ueberfaellig"
+  | "bestaetigung_sofort"
   | "bracket_fault"
   | "datum_missing"
   | "uhrzeit_missing"

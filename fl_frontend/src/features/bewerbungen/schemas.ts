@@ -622,7 +622,6 @@ export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchem
   rolle: FLKontaktRolleSchema,
   // The second seat one answer on this link writes, where the same person holds two; null otherwise.
   zugleich_rolle: FLKontaktRolleSchema.nullable(),
-  text_version: z.string().nullable(),
   // The label whose words the page renders and whose name the answer sends back: the backend picks the
   // applicant's page or the administration's by how the seat was filled, so no page of this side's choosing.
   laufende_fassung: z.string(),

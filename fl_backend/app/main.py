@@ -47,6 +47,7 @@ from app.api.schiedsrichter.person_router import router as schiedsrichter_person
 from app.api.schiedsrichter.router import router as schiedsrichter_router
 from app.api.schiedsrichter.sweep_router import router as schiedsrichter_sweep_router
 from app.api.sperrliste.admin_router import router as sperrliste_admin_router
+from app.api.spielbestaetigungen.admin_router import router as spielbestaetigungen_admin_router
 from app.api.spielbestaetigungen.person_router import router as spielbestaetigungen_person_router
 from app.api.spielbestaetigungen.router import router as spielbestaetigungen_router
 from app.api.spielbestaetigungen.sweep_router import router as spielbestaetigungen_sweep_router
@@ -143,6 +144,7 @@ WRITE_ROUTERS = (
     identitaet_admin_router,
     sperrliste_admin_router,
     berechtigungen_admin_router,
+    spielbestaetigungen_admin_router,
 )
 # Its own group because it belongs to neither: base-tier and mixed read/write, so either tuple's
 # comment would go false about the tier or the methods.

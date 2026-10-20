@@ -68,7 +68,6 @@ const ANSICHT = {
   schule: "Lessing-Kolleg",
   rolle: "ansprechperson",
   zugleich_rolle: null,
-  text_version: LAUFEND,
   laufende_fassung: LAUFEND,
   mindestalter: 18,
   medien_mindestalter: 18,
@@ -253,7 +252,7 @@ describe("the contact seat's confirmation handler", () => {
      link's state read afresh and never a guessed „bestätigt“. */
   it("answers a seat already answered with the state the link's view now reads", async () => {
     schreibAntwort = () => aRefusal("REQ-BEWERBUNG-011");
-    ansichtAntwort = () => ({ ...ANSICHT, zustand: "abgelehnt", text_version: null });
+    ansichtAntwort = () => ({ ...ANSICHT, zustand: "abgelehnt" });
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
@@ -272,7 +271,7 @@ describe("the contact seat's confirmation handler", () => {
   ] as const) {
     it(`answers ${code} with the ${zustand} panel where the link's view reads ${gelesen}`, async () => {
       schreibAntwort = () => aRefusal(code);
-      ansichtAntwort = () => ({ ...ANSICHT, zustand: gelesen, text_version: null });
+      ansichtAntwort = () => ({ ...ANSICHT, zustand: gelesen });
 
       const answer = await bodyOf(aRequest(gueltigerKoerper));
 
@@ -467,7 +466,7 @@ describe("a seat an administrator typed onto a team's season row", () => {
   /* The page opened on the row as open, so only the read after the press can say the team left since, which the
      closed row's page names apart from an ended season, as a reload of it does. */
   it("hands that page the view the read after the refusal answered, naming the team's withdrawal", async () => {
-    const ausgetreten = { ...ANSICHT, zustand: "saison_vorbei", quelle: "saison", zeile: "ausgetreten", text_version: null };
+    const ausgetreten = { ...ANSICHT, zustand: "saison_vorbei", quelle: "saison", zeile: "ausgetreten" };
     schreibAntwort = () => aRefusal("REQ-KONTAKT-006");
     ansichtAntwort = () => ausgetreten;
 

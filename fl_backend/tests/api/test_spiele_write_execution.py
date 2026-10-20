@@ -1133,6 +1133,7 @@ async def faults_now(database: AsyncDatabase) -> list[FLBracketFault]:
         saisons_collection=database[Collection.SAISONS],
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         saison_id=SAISON_ID,
         today=TODAY,
     )

@@ -66,6 +66,7 @@ FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
     "2026-10-bestaetigungsseite-8": "36008941791735e7b283b3c47566083f5a182fad6ef8ac5ab1e07f3a1fc62a77",
     "2026-10-bestaetigungsseite-verwaltung-2": "f38fb3df50883ebd87e89ee2b40c74b4554f4f94029c998a17db60577af0a711",
     "2026-10-bestaetigungsseite-saison-2": "a566bb3e3cd6b1942429dd3690554ddbd08ba0e58b915bf0792e247e1775f31b",
+    "2026-10-spielerseite-wiederkehrend-3": "d898f89df50229c43e01e16489804fe764c2450f4246f0e71cba47b153d7031e",
 }
 
 
@@ -438,6 +439,24 @@ FASSUNG_STAMMDATEN: Final[Mapping[str, tuple[str, date, tuple[str, ...] | None]]
             "keineEinwilligung",
         ),
     ),
+    "2026-10-spielerseite-wiederkehrend-3": (
+        "bestaetigung_spieler_wiederkehrend",
+        date(2026, 10, 21),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "wer",
+            "einwilligungen",
+            "rechtsgrundlage",
+            "frist",
+            "widerruf",
+            "art21",
+            "klickIdentitaet",
+            "klickAlter",
+            "klickHinweise",
+        ),
+    ),
 }
 
 
@@ -596,7 +615,7 @@ class TestTheRegistryOfWordings:
     def test_the_returning_pupils_page_keeps_the_pupil_pages_words_but_where_they_ask_a_choice_or_the_birthdate(self):
         """One registration under one set of rules: a sentence reworded on one page alone would tell two pupils two rules.
 
-        No choice is asked, its switch and controls being the words the stored choices are shown back under.
+        No choice is asked or shown, so a control word frozen here is one no reader saw.
         """
 
         neu = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_spieler"]]
@@ -607,7 +626,7 @@ class TestTheRegistryOfWordings:
 
         assert geteilt == {"wer", "rechtsgrundlage", "frist", "widerruf", "art21", "klickIdentitaet", "klickHinweise"}
         assert not {"veroeffentlichung", "medien", "klickEinwilligung"} & set(wiederkehrend.absaetze_nach_schluessel)
-        assert (wiederkehrend.schalter, dict(wiederkehrend.bedienelemente)) == (neu.schalter, dict(neu.bedienelemente))
+        assert (wiederkehrend.schalter, dict(wiederkehrend.bedienelemente)) == (neu.schalter, {})
 
     @pytest.mark.parametrize("seite", ["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung", "bestaetigung_kontakt_saison"])
     def test_the_whatsapp_consent_is_taken_back_on_the_account_page_under_the_words_it_was_given(self, seite: Seite):

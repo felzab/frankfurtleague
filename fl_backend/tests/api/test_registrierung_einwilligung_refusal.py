@@ -35,6 +35,7 @@ from app.api.registrierungen.services import (
     find_medien_refusal,
     find_unknown_token_refusal,
     find_wahlen_refusal,
+    gespeichertes_geburtsdatum,
     ist_vorschlag,
     persons_named,
     seite_of,
@@ -137,11 +138,11 @@ class TestTheLookupAndItsProjections:
 
         assert not any(key.startswith("bestaetigung.token_hash") for key in projection)
 
-    def test_the_view_declares_exactly_the_ten_names_it_may_answer(self):
+    def test_the_view_declares_exactly_the_eight_names_it_may_answer(self):
         """An EQUALITY, not a subset.
 
-        This is the widest of the link reads, so a field added to the model reaches a caller
-        holding nothing but a token, and every other case here would still pass.
+        A field added to the model reaches a caller holding nothing but a token, and every other case
+        here would still pass: a stored birthdate or choice above all, which the view says only exists.
         """
 
         assert set(FLRegistrierungBestaetigungAnsichtResponse.model_fields) == {
@@ -153,9 +154,7 @@ class TestTheLookupAndItsProjections:
             "seite",
             "mindestalter",
             "medien_mindestalter",
-            "geburtsdatum",
-            "umfang",
-            "medien",
+            "geburtsdatum_gespeichert",
         }
 
     def test_the_answer_declares_exactly_what_the_press_echoes(self):
@@ -407,7 +406,7 @@ class TestWhichPageTheLinkOpens:
     def test_the_address_is_narrowed_by_the_name_before_anybody_is_shown_back(self, spelling: str, found: bool):
         """The defect this narrowing exists for: the league holds ONE person at the mailbox, and a differently-named pupil registers there.
 
-        On the address alone that pupil is shown, and then stores, the stored person's birthdate.
+        On the address alone that pupil's press stores the stored person's birthdate as their own.
         """
 
         named = persons_named([self.PERSON], vorname=spelling, nachname="Brackenmoor")
@@ -546,8 +545,28 @@ class TestWhatAReturningPupilsConfirmationWrites:
             compose_confirmation_update(geburtsdatum="2009-05-09", umfang=umfang, medien=medien, text_version=A_LABEL, today=TODAY, am=AM)
 
 
+class TestTheBirthdateAPageTakesAsGiven:
+    """The returning pupil's page takes the person's stored date, and no other page takes any."""
+
+    PERSON = {"geburtsdatum": "2009-05-09"}
+
+    @pytest.mark.parametrize(
+        ("seite", "person", "taken"),
+        [
+            pytest.param(SEITE_WIEDERKEHREND, PERSON, "2009-05-09", id="the returning page, a date stored"),
+            pytest.param(SEITE_WIEDERKEHREND, {"geburtsdatum": None}, None, id="the returning page, none stored"),
+            pytest.param(SEITE_NEU, PERSON, None, id="the new pupil's page, a sibling's date at the mailbox"),
+            pytest.param(SEITE_NEU, None, None, id="the new pupil's page, nobody at the address"),
+        ],
+    )
+    def test_only_the_returning_page_takes_a_stored_date(self, seite: Any, person: Any, taken: Any):
+        """The third case is the load-bearing one: a person at the address the page did not resolve to is somebody else."""
+
+        assert gespeichertes_geburtsdatum(seite=seite, person_raw=person) == taken
+
+
 class TestTheChoicesThePageAsks:
-    """`REQ-REGISTRIERUNG-017`: both choices on the new pupil's page, neither on the returning pupil's."""
+    """`REQ-REGISTRIERUNG-017`: both choices on the new pupil's page, neither on the returning pupil's, a date where none is stored."""
 
     @pytest.mark.parametrize(
         ("seite", "umfang", "medien", "refused"),
@@ -565,10 +584,27 @@ class TestTheChoicesThePageAsks:
     def test_each_body_is_judged_against_its_page(self, seite: Any, umfang: Any, medien: Any, refused: bool):
         """The last case is the load-bearing one: an off switch is an answer, and the returning page asked none."""
 
-        refusal = find_wahlen_refusal(seite=seite, umfang=umfang, medien=medien)
+        refusal = find_wahlen_refusal(seite=seite, umfang=umfang, medien=medien, geburtsdatum="2009-05-09", gespeichert=None)
 
         assert (refusal is not None) == refused
         assert refusal is None or (refusal.error_code, refusal.status) == (REGISTRIERUNG_WAHLEN_UNPASSEND, 422)
+
+    @pytest.mark.parametrize(
+        ("geburtsdatum", "gespeichert", "refused"),
+        [
+            pytest.param("2009-05-09", None, False, id="none stored, one sent"),
+            pytest.param(None, "2009-05-09", False, id="one stored, none sent"),
+            pytest.param(None, None, True, id="none stored, none sent"),
+            pytest.param("2009-05-09", "2009-05-09", True, id="one stored, the same one sent"),
+        ],
+    )
+    def test_a_birthdate_is_answered_exactly_where_none_is_stored(self, geburtsdatum: Any, gespeichert: Any, refused: bool):
+        """The last case is the load-bearing one: a date sent beside a stored one is a page that served it, or a stranger's guess."""
+
+        refusal = find_wahlen_refusal(seite=SEITE_WIEDERKEHREND, umfang=None, medien=None, geburtsdatum=geburtsdatum, gespeichert=gespeichert)
+
+        assert (refusal is not None) == refused
+        assert refusal is None or refusal.error_code == REGISTRIERUNG_WAHLEN_UNPASSEND
 
 
 class TestWhatAReturningAdmissionWrites:
@@ -633,12 +669,14 @@ class TestWhatTheAnswerPayloadRefuses:
 
         assert_rejects(FLRegistrierungBestaetigungPayload, body, field)
 
-    def test_the_returning_pupils_page_states_both_choices_as_null(self):
+    def test_the_returning_pupils_page_states_its_unasked_answers_as_null(self):
         """Which page a body may carry nulls on is the press's to judge (`REQ-REGISTRIERUNG-017`), never the model's."""
 
-        stated = FLRegistrierungBestaetigungPayload.model_validate(antwort(umfang=None, medien=None, text_version=RETURNING_LABEL))
+        stated = FLRegistrierungBestaetigungPayload.model_validate(
+            antwort(geburtsdatum=None, umfang=None, medien=None, text_version=RETURNING_LABEL)
+        )
 
-        assert (stated.umfang, stated.medien) == (None, None)
+        assert (stated.geburtsdatum, stated.umfang, stated.medien) == (None, None, None)
 
     def test_the_two_scopes_are_the_pair_the_validator_declares(self):
         """A third member offered here and refused by mongod is a 500 on a page that has already taken the consent."""

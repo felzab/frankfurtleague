@@ -35,11 +35,11 @@ const SPIEL = FLSpielAdminSchema.parse(spielFields());
 /* The type holds each prop present, never where its value comes from: a literal or the neighbouring boolean in its
    place passes tsc and every sheet of the form, and warns of a pass that never runs. */
 describe("what the match editor's view hands its form", () => {
-  for (const [isSpielSweepOn, isActiveSaison, today] of [
-    [true, false, "2026-05-01"],
-    [false, true, "2026-06-02"],
+  for (const [isSpielSweepOn, isActiveSaison, today, bestaetigungen] of [
+    [true, false, "2026-05-01", null],
+    [false, true, "2026-06-02", { zeilen: [], gelaufenAm: "2026-06-01" }],
   ] as const) {
-    it(`hands the pass as ${isSpielSweepOn ? "on" : "off"}, the season as ${isActiveSaison ? "running" : "not running"} and the day as given`, () => {
+    it(`hands the pass as ${isSpielSweepOn ? "on" : "off"}, the season as ${isActiveSaison ? "running" : "not running"}, the day and the confirmations as given`, () => {
       handed.length = 0;
 
       renderTree(
@@ -51,13 +51,13 @@ describe("what the match editor's view hands its form", () => {
           numberOfGroups: null,
           isFinishedSaison: false,
           isActiveSaison: isActiveSaison,
-          children: h(AdminSpielEditView, { spielData: SPIEL, today: today, isSpielSweepOn: isSpielSweepOn }),
+          children: h(AdminSpielEditView, { spielData: SPIEL, today: today, isSpielSweepOn: isSpielSweepOn, bestaetigungen: bestaetigungen }),
         }),
       );
 
       assert.deepEqual(
-        handed.map((props) => [props["isSpielSweepOn"], props["isActiveSaison"], props["today"]]),
-        [[isSpielSweepOn, isActiveSaison, today]],
+        handed.map((props) => [props["isSpielSweepOn"], props["isActiveSaison"], props["today"], props["bestaetigungen"]]),
+        [[isSpielSweepOn, isActiveSaison, today, bestaetigungen]],
       );
     });
   }

@@ -163,6 +163,9 @@ ADMIN_READS = [
     ("/api/v0/schiedsrichter/{schiedsrichter_id}", "get"),
     ("/api/v0/bewerbungen", "get"),
     ("/api/v0/bewerbungen/{bewerbung_id}", "get"),
+    # Every confirmation row of a season, each reason a club typed or an administrator recorded among them: free text
+    # that may name anyone, which no base-tier read serves.
+    ("/api/v0/spielbestaetigungen", "get"),
     # A POST because the address travels in a body, so `MUTATIONS` covers it too -- and would
     # stop covering it the day somebody makes the reveal a GET.
     ("/api/v0/identitaet/erasure/ansicht", "post"),

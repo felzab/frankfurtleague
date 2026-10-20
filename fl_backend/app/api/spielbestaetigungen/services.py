@@ -499,6 +499,95 @@ def compose_antwort_update(
     }
 
 
+# --- The ADMINISTRATOR's settle and discard. Each check judges the row read in-session and its write's filter
+# says the same again, so a party's answer committing between the two leaves the row as that party wrote it.
+
+ANSETZUNG_NICHT_EINTRAGBAR = "REQ-ANSETZUNG-013"
+ANSETZUNG_NICHT_VERWERFBAR = "REQ-ANSETZUNG-014"
+
+# Exactly what the season-wide read serves: every stored field but the hashes and the holder
+# (`tests/core/test_constraints.py :: STORED_BUT_NOT_SERVED`), kept off the wire from the driver up.
+ADMIN_FIELDS: Mapping[str, int] = {**{f"kontakte.{seat}.token_hashes": 0 for seat in KONTAKT_ROLLEN}, "antwort.von.halter": 0}
+
+
+def eintragen_refusal() -> WriteRefusal:
+    """`REQ-ANSETZUNG-013`, built here alone: by the check on the row read and by the settle whose filtered write matched nothing."""
+
+    return WriteRefusal(
+        error_code=ANSETZUNG_NICHT_EINTRAGBAR,
+        status=HTTPStatus.CONFLICT,
+        message="this confirmation is already answered or closed, so it takes no administrator's answer",
+    )
+
+
+def find_eintragen_refusal(*, spielbestaetigung_raw: Mapping[str, Any]) -> WriteRefusal | None:
+    """The administrator answers only a row neither answered nor closed, as a seat's press does."""
+
+    if spielbestaetigung_raw.get("antwort") is None and spielbestaetigung_raw.get("geschlossen") is None:
+        return None
+
+    return eintragen_refusal()
+
+
+def compose_eintragen_update(*, begruendung: str, today: str) -> dict[str, Any]:
+    """A Zusage recorded for the party, naming nobody: no role and no holder, so no person's erasure ever reaches its reason."""
+
+    return {"$set": {"antwort": {"art": "zugesagt", "am": today, "von": {"art": "admin"}, "vorschlag": None, "begruendung": begruendung}}}
+
+
+def build_verwerfbar_filter() -> dict[str, Any]:
+    """An open team decline carrying a proposal: the one row a discard closes, and the triage's `vorschlag_offen`.
+
+    Any other row closed `verworfen` would silence its party for the Ansetzung (`docs/backend/spec.md :: I768`).
+    """
+
+    return {"partei.art": "team", "antwort.art": "abgelehnt", "antwort.vorschlag": {"$ne": None}, **build_closable_filter()}
+
+
+def verwerfen_refusal() -> WriteRefusal:
+    """`REQ-ANSETZUNG-014`, built here alone: by the check on the row read and by the discard whose filtered write matched nothing."""
+
+    return WriteRefusal(
+        error_code=ANSETZUNG_NICHT_VERWERFBAR,
+        status=HTTPStatus.CONFLICT,
+        message="only an open club decline carrying a proposed date can be discarded",
+    )
+
+
+def build_triage_rows_filter(*, saison_id: str, today: str) -> dict[str, Any]:
+    """This season's team rows putting their fixture in the administrator's queue.
+
+    A standing proposal, a deadline passed unanswered, or due today and asked today or never: `angefragt_am` stands in
+    for the mint day no row stores.
+    """
+
+    offen = {"partei.art": "team", **build_answerable_filter()}
+
+    return {
+        "saison_id": saison_id,
+        "$or": [
+            build_verwerfbar_filter(),
+            {**offen, "frist": {"$lt": today}},
+            {**offen, "frist": today, "angefragt_am": {"$in": [None, today]}},
+        ],
+    }
+
+
+def find_verwerfen_refusal(*, spielbestaetigung_raw: Mapping[str, Any]) -> WriteRefusal | None:
+    """`build_verwerfbar_filter` asked of the row read."""
+
+    partei, antwort = spielbestaetigung_raw.get("partei") or {}, spielbestaetigung_raw.get("antwort") or {}
+    if (
+        partei.get("art") == "team"
+        and antwort.get("art") == "abgelehnt"
+        and antwort.get("vorschlag") is not None
+        and spielbestaetigung_raw.get("geschlossen") is None
+    ):
+        return None
+
+    return verwerfen_refusal()
+
+
 # --- A REFEREE'S OWN ROWS: the panel's read and the referee's answer, signed in rather than by a link.
 
 ANSETZUNG_FREMDE_ZEILE = "REQ-ANSETZUNG-015"
@@ -917,16 +1006,22 @@ def _seat_entries(image: Mapping[str, Any], seats: Set[str]) -> dict[str, None]:
 
 
 def build_season_images_filter(saison_id: str) -> dict[str, Any]:
-    """Every log row whose image may be one of this season's team rows; the judge decides."""
+    """Every log row whose image may be one of this season's team rows, or a referee row holding a reason; the judge decides."""
 
-    return {"collection": str(Collection.SPIELBESTAETIGUNGEN), "before.saison_id": saison_id, "before.partei.art": "team"}
+    return {
+        "collection": str(Collection.SPIELBESTAETIGUNGEN),
+        "before.saison_id": saison_id,
+        "$or": [{"before.partei.art": "team"}, {"before.antwort.begruendung": {"$ne": None}}],
+    }
 
 
 def season_end_image_edits(image: Mapping[str, Any], saison_id: str) -> dict[str, None]:
-    """One image of this season's team rows stripped as its season's end strips the row: every seat's link entry, the reason, the holder."""
+    """One image of this season's rows stripped as its season's end strips the row: every seat's link entry, the reason, the holder.
 
-    partei = image.get("partei")
-    if image.get("saison_id") != saison_id or not isinstance(partei, Mapping) or partei.get("art") != "team":
+    A referee row holds no seat and no holder, so its image loses its reason alone.
+    """
+
+    if image.get("saison_id") != saison_id:
         return {}
 
     edits = _seat_entries(image, set(KONTAKT_ROLLEN))
@@ -942,9 +1037,9 @@ def season_end_image_edits(image: Mapping[str, Any], saison_id: str) -> dict[str
 
 
 def build_season_reasons_filter(saison_id: str) -> dict[str, Any]:
-    """This season's team rows holding a reason, whoever gave it: the season's end takes every one, the answer's way and role kept."""
+    """This season's rows holding a reason, whoever gave it and whatever the party: the season's end takes every one, the answer's way kept."""
 
-    return {"saison_id": saison_id, "partei.art": "team", "antwort.begruendung": {"$ne": None}}
+    return {"saison_id": saison_id, "antwort.begruendung": {"$ne": None}}
 
 
 def build_season_halter_filter(saison_id: str) -> dict[str, Any]:
