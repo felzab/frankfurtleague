@@ -416,3 +416,49 @@ except subprocess.TimeoutExpired:
 def test_a_wind_down_that_fails_still_ends_the_job() -> None:
     """The graceful phase is a courtesy; the job's end is the stop, and skipped it leaves the gate running."""
     _drive_watcher(FAILED_WIND_DOWN)
+
+
+# `scripts/gate/gate_watch.py :: wind_down` over a shell whose tool the stop's first listing missed, as
+# one started between the listing and the signal is: the shell waits on the tool, and its trap then
+# starts work of its own, which the stop must leave to finish.
+UNLISTED_TOOL: Final = """import os, subprocess, sys, tempfile, time
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import gate_watch as watch
+kernel32 = watch.kernel32
+scratch = Path(tempfile.mkdtemp())
+started, reclaimed = scratch / "started", scratch / "reclaimed"
+(scratch / "tool.py").write_bytes(b"import sys, time; open(sys.argv[1], 'wb'); time.sleep(60)")
+(scratch / "reclaim.py").write_bytes(b"import sys, time; time.sleep(1); open(sys.argv[1], 'wb')")
+(scratch / "shell.sh").write_bytes(
+    b'reclaim() { "$FL_PY" "$FL_SCRATCH/reclaim.py" "$FL_SCRATCH/reclaimed"; exit 130; }\\n'
+    b"trap reclaim TERM\\n"
+    b'"$FL_PY" "$FL_SCRATCH/tool.py" "$FL_SCRATCH/started"\\n'
+)
+env = dict(os.environ, FL_PY=Path(sys.executable).as_posix(), FL_SCRATCH=scratch.as_posix())
+job = kernel32.CreateJobObjectW(None, None)
+shell = subprocess.Popen((sys.argv[2], (scratch / "shell.sh").as_posix()), stdin=subprocess.DEVNULL, env=env)
+handle = kernel32.OpenProcess(watch.GATE_ACCESS, False, shell.pid)
+assert kernel32.AssignProcessToJobObject(job, handle)
+kernel32.CloseHandle(handle)
+try:
+    deadline = time.monotonic() + 30
+    while not started.exists():
+        assert time.monotonic() < deadline, "the shell's tool never started"
+        time.sleep(0.05)
+    listings = [[shell.pid]]
+    real = watch._job_pids
+    watch._job_pids = lambda job: listings.pop() if listings else real(job)
+    watch.GRACE_S = 10.0
+    outlived = watch.wind_down(job, Path(sys.argv[2]).parent / "kill.exe", scratch / "pools")
+    assert outlived == 0, "the shell waited out the grace on a tool the stop never reached"
+    assert shell.wait(timeout=30) == 130, shell.returncode
+    assert reclaimed.exists(), "the stop ended what the shell's own trap started"
+finally:
+    kernel32.TerminateJobObject(job, 1)
+"""
+
+
+def test_a_tool_started_before_its_shell_s_signal_is_stopped_and_its_trap_s_work_is_not() -> None:
+    """Listed once, a shell signalled while starting a tool waited on it for the whole grace and was then ended unreclaimed."""
+    _drive_watcher(UNLISTED_TOOL)

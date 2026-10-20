@@ -20,6 +20,8 @@ import sys
 import tempfile
 import time
 from ctypes import wintypes
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Final
 
@@ -112,6 +114,8 @@ MSYS_RUNTIME: Final = "msys-2.0.dll"
 # (two image tags removed) 0.28-0.32 s.
 GRACE_S: Final = 30.0
 GRACE_POLL_S: Final = 0.05
+# Later than any process's creation, in `_created`'s ticks: a shell's signal time until it is sent.
+UNSENT: Final = 1 << 64
 
 
 def _checked(result: object, what: str) -> None:
@@ -180,60 +184,144 @@ def _pools_named(registry: Path) -> set[int]:
         return set()
 
 
+class Fate(Enum):
+    """What a stop did to a member of the job."""
+
+    SIGNALLED = "signalled"
+    ENDED = "ended"
+    SPARED = "spared"
+    LEFT = "left"
+
+
+@dataclass
+class _Member:
+    handle: int
+    created: int
+    msys: bool
+    fate: Fate = Fate.LEFT
+    # A signalled shell's: when its signal was sent, which parts what it started for the stop to
+    # reach from what its trap starts.
+    reached: int = 0
+
+
+class _Stop:
+    """One stop's record of the job: every member it has opened, and what it did to each."""
+
+    def __init__(self, job: int, kill: Path, pools: set[int]) -> None:
+        self.job, self.kill, self.pools = job, kill, pools
+        self.members: dict[int, _Member] = {}
+
+    def _open(self, pid: int) -> _Member | None:
+        handle = kernel32.OpenProcess(MEMBER_ACCESS, False, pid)
+        if not handle:
+            return None
+        inside = wintypes.BOOL()
+        # Ended since the listing, unreadable, or its pid taken by a process outside the job: the
+        # job's own end takes it either way, and a crash here would end nothing.
+        with contextlib.suppress(OSError):
+            if kernel32.IsProcessInJob(handle, self.job, ctypes.byref(inside)) and inside and not _ended(handle):
+                return _Member(handle, _created(handle), (image_of(handle).parent / MSYS_RUNTIME).is_file())
+        kernel32.CloseHandle(handle)
+        return None
+
+    def _owed(self, pid: int, member: _Member, parents: dict[int, int]) -> bool:
+        """Whether a process started after the stop was first sent is the stop's to reach, as a POSIX group's member would be."""
+        creator = parents.get(pid, 0)
+        parent = self.members.get(creator)
+        # Its creator's pid reused since, or a process the stop never opened: nothing waits on it.
+        if parent is None or parent.created > member.created:
+            return False
+        if parent.fate is Fate.SIGNALLED:
+            # Started after the signal is the trap's own work, which ending would cut short.
+            return member.created < parent.reached
+        return parent.fate is Fate.ENDED or (parent.fate is Fate.SPARED and creator in self.pools)
+
+    def reach(self, listed: list[int], *, first: bool) -> list[int]:
+        """Stop every listed member the stop is owed and has not reached; answer the shells it signalled.
+
+        `first` is the job as the stop found it, all of it owed; a later listing's newcomers are
+        owed by `_owed`.
+        """
+        fresh: dict[int, _Member] = {}
+        for pid in listed:
+            known = self.members.get(pid)
+            if known is not None and not _ended(known.handle):
+                continue
+            if known is not None:
+                kernel32.CloseHandle(self.members.pop(pid).handle)
+            if (member := self._open(pid)) is not None:
+                fresh[pid] = member
+        if not fresh:
+            return []
+        parents = _windows_parents()
+        self.members.update(fresh)
+        # Oldest first, so a creator listed beside what it started is decided before it; a shell not
+        # yet signalled owes the stop everything it has started.
+        for pid, member in sorted(fresh.items(), key=lambda item: item[1].created):
+            if first or self._owed(pid, member, parents):
+                member.fate, member.reached = (Fate.SIGNALLED, UNSENT) if member.msys else (Fate.ENDED, 0)
+        if first:
+            # Up to the forked copy of bash running it and no further, the shell above that being the
+            # one whose trap is owed: a launcher between, as a virtualenv's `python.exe` is, ended
+            # first would be the pool's ending.
+            for pid in self.pools & set(fresh):
+                while pid in fresh and fresh[pid].fate is not Fate.SPARED:
+                    fresh[pid].fate = Fate.SPARED
+                    if fresh[pid].msys:
+                        break
+                    pid = parents.get(pid, 0)
+        signalled = {pid: member for pid, member in fresh.items() if member.fate is Fate.SIGNALLED}
+        if signalled:
+            reached = self._signal(signalled)
+            for member in signalled.values():
+                member.reached = reached
+        for member in fresh.values():
+            if member.fate is Fate.ENDED:
+                kernel32.TerminateProcess(member.handle, EXIT_INTERRUPTED)
+        return [member.handle for member in signalled.values()]
+
+    def _signal(self, shells: dict[int, _Member]) -> int:
+        """SIGTERM every shell named, in one call; answer when that call was created, in `_created`'s ticks."""
+        # Before any native is ended, so no bash sees its child end before its trap is due.
+        sender = subprocess.Popen(
+            (str(self.kill), "-W", "-s", "TERM", *(str(pid) for pid in shells)),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        try:
+            # The sender's own creation, stamped by the clock that stamps every process `_owed` compares.
+            handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, sender.pid)
+            _checked(handle, "OpenProcess on the gate's kill")
+            try:
+                return _created(handle)
+            finally:
+                kernel32.CloseHandle(handle)
+        finally:
+            sender.wait()
+
+    def close(self) -> None:
+        for member in self.members.values():
+            kernel32.CloseHandle(member.handle)
+
+
 def wind_down(job: int, kill: Path, registry: Path) -> int:
     """Stop the job as SIGTERM stops a POSIX group; answer how many signalled shells outlived `GRACE_S`.
 
     MSYS processes take SIGTERM and natives end; a pool outlives its units as on POSIX, or its shell
-    reclaims the directory they still write.
+    reclaims the directory they still write. Listed again while it waits: what a shell started after
+    the first listing and before its signal is what its trap waits on.
     """
-    pools = _pools_named(registry)
-    parents = _windows_parents()
-    members: dict[int, tuple[int, bool]] = {}
+    stop = _Stop(job, kill, _pools_named(registry))
     try:
-        for pid in _job_pids(job):
-            handle = kernel32.OpenProcess(MEMBER_ACCESS, False, pid)
-            if not handle:
-                continue
-            inside = wintypes.BOOL()
-            # Ended since the listing, unreadable, or its pid taken by a process outside the job: the
-            # job's own end takes it either way, and a crash here would end nothing.
-            with contextlib.suppress(OSError):
-                if kernel32.IsProcessInJob(handle, job, ctypes.byref(inside)) and inside and not _ended(handle):
-                    members[pid] = (handle, (image_of(handle).parent / MSYS_RUNTIME).is_file())
-                    continue
-            kernel32.CloseHandle(handle)
-        # Up to the forked copy of bash running it and no further, the shell above that being the one
-        # whose trap is owed: a launcher between, as a virtualenv's `python.exe` is, ended first would
-        # be the pool's ending.
-        spared: set[int] = set()
-        for pid in pools & set(members):
-            while pid in members and pid not in spared:
-                spared.add(pid)
-                if members[pid][1]:
-                    break
-                pid = parents.get(pid, 0)
-        signalled = [(pid, handle) for pid, (handle, msys) in members.items() if msys and pid not in spared]
-        if signalled:
-            # In one call and before any native is ended, so no bash sees its child end before its trap is due.
-            subprocess.run(
-                (str(kill), "-W", "-s", "TERM", *(str(pid) for pid, _ in signalled)),
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                check=False,
-            )
-        for pid, (handle, msys) in members.items():
-            if not msys and pid not in spared:
-                kernel32.TerminateProcess(handle, EXIT_INTERRUPTED)
-        running = [handle for _, handle in signalled]
+        running = stop.reach(_job_pids(job), first=True)
         deadline = time.monotonic() + GRACE_S
         while running and time.monotonic() < deadline:
             time.sleep(GRACE_POLL_S)
-            running = [handle for handle in running if not _ended(handle)]
+            running = [handle for handle in running if not _ended(handle)] + stop.reach(_job_pids(job), first=False)
         return len(running)
     finally:
-        for handle, _ in members.values():
-            kernel32.CloseHandle(handle)
+        stop.close()
 
 
 def _watched(pid: int, child: int) -> int | None:
