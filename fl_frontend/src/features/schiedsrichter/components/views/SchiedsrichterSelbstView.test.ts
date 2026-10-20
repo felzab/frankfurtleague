@@ -176,13 +176,12 @@ describe("a referee's fixtures on their own page", () => {
   /* The league may enter a referee's Zusage, which puts them on the schedule as their own does: the panel says whose it
      is, or the referee reads an agreement they never gave as theirs. */
   it("marks a Zusage the league entered as the league's, and the referee's own as theirs", () => {
-    renderView(
-      [SCHIEDSRICHTERIN],
-      [
+    renderView([SCHIEDSRICHTERIN], {
+      einsaetze: [
         { ...EINSATZ, zustand: "zugesagt", eingetragen: true },
         { ...EINSATZ, id: "6890a1b2c3d4e5f607390052", zustand: "zugesagt" },
       ],
-    );
+    });
 
     assert.equal(screen.getAllByText("Zusage von der Verwaltung eingetragen").length, 1);
     assert.equal(screen.getAllByText("Zugesagt").length, 1);
