@@ -36,6 +36,7 @@ from app.api.spielberichte.services import (
     find_saison_beendet_refusal,
     judge_bericht,
     neu_genannt,
+    nimmt_einen_bericht,
 )
 from app.api.spiele.schemas import FLPatchSpielePaarungenPayload
 from app.core.exceptions import WriteRefusalException
@@ -238,6 +239,21 @@ class TestOnlyTheBookedRefereeReports:
         assert refused_with(
             BERICHT_NICHT_GELEITET, find_nicht_geleitet_refusal(spiel_raw=spiel(schiedsrichter=booked), schiedsrichter_ids=[SCHIEDSRICHTER])
         )
+
+
+class TestAFixtureTakesAReportOncePlayedAndNotCalledOff:
+    @pytest.mark.parametrize(
+        ("fields", "nimmt"),
+        [
+            pytest.param({}, True, id="played-today"),
+            pytest.param({"datum": "2027-05-15"}, False, id="tomorrow"),
+            pytest.param({"datum": None}, False, id="undated"),
+            pytest.param({"sonderereignis": "ausgefallen"}, False, id="called-off"),
+            pytest.param({"sonderereignis": "abgebrochen"}, True, id="abandoned"),
+        ],
+    )
+    def test_whether_the_form_serves_its_squads(self, fields: dict[str, Any], nimmt: bool):
+        assert nimmt_einen_bericht(spiel(**fields), today=TODAY) is nimmt
 
 
 class TestTheRefereeWritesWhileTheSeasonRuns:
