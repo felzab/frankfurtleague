@@ -345,7 +345,7 @@ def verwehrt_fuer(record: Mapping[str, Any], *, akteur: str, inhaber: bool) -> F
 
 
 def maskierte_adresse(email: str) -> str:
-    """The pending address a league-started change shows its address on file (`docs/backend/spec.md :: I819`).
+    """The pending address a league-started change shows its address on file (`docs/backend/spec.md :: I822`).
 
     Three bullets whatever the length; the last label alone, needing no public-suffix list; decoded first, so an
     internationalised domain shows its own letter.

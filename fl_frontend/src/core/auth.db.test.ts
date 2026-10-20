@@ -471,7 +471,7 @@ describe("what a ban ends, against a real database (`docs/frontend/spec.md :: I4
   });
 });
 
-describe("an address change carrying the account, against a real database (`docs/frontend/spec.md :: I826`)", () => {
+describe("an address change carrying the account, against a real database (`docs/frontend/spec.md :: I829`)", () => {
   /** An account at `email` holding two sessions and one passkey. */
   async function accountAt(email: string): Promise<string> {
     const { adapter } = await auth.$context;
