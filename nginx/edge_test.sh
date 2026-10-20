@@ -535,6 +535,13 @@ grade_security_headers() { # $1 what the request was, the headers already read
       HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
     fi
   done
+  # The file is what the sent value is compared to, so a `preload` written back into it passes that comparison
+  # (nginx/shared/security_headers.conf holds why none is sent).
+  if [[ "${SENT_VALUE[strict-transport-security]:-}" == *preload* ]]; then
+    fail "HEADER $1"
+    detail "expected Strict-Transport-Security without preload" "nginx sent: ${SENT_VALUE[strict-transport-security]}"
+    HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+  fi
   for name in "${!SECURITY_HEADERS[@]}"; do
     # Exactly one: none is a location whose own add_header dropped the inherited set, two a copy
     # restated beside the include -- for the CSP, a second enforcing policy.
