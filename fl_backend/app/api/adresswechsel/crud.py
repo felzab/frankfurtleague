@@ -848,7 +848,7 @@ def build_erasure_adresswechsel_pipeline(identifier: str) -> list[Mapping[str, A
     # Each clause its index's, or the `$or` scans the collection: the key's type stated for `build_address_filter`'s reason.
     return [
         {"$match": {**LIVE_TERMS, "$or": [{"adresse": {"$eq": folded, "$type": "string"}}, {"email": folded}]}},
-        {"$project": {"adresse": 1, "email": 1}},
+        {"$project": {"adresse": 1, "email": 1, "token_hash": 1}},
         {"$sort": {"_id": 1}},
     ]
 
@@ -857,6 +857,12 @@ def others_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Ma
     """The changes of other addresses naming this one as their new address: the previews' rows, the address's own being its own."""
 
     return [row for row in rows if row.get("adresse") != identifier]
+
+
+def known_to_the_new_mailbox(rows: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """The ones whose link reached the new mailbox (`docs/backend/spec.md :: I794`): a request awaiting approval has not."""
+
+    return [row for row in rows if row.get("token_hash") is not None]
 
 
 _GENEHMIGUNG_AKTEURE: Final = ("genehmigung.gestartet_von", "genehmigung.genehmigt_von")

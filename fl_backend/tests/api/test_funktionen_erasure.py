@@ -1528,6 +1528,22 @@ class TestThePreview:
         assert (answer["adresswechsel"], answer["verwaltung"], answer["letzter_inhaber"]) == (2, "administration", False)
         assert "@" not in response.text and GEBURTSDATUM not in response.text
 
+    def test_it_counts_no_change_whose_link_has_not_reached_this_mailbox(self, mongo_replica_set_url: str):
+        """An administrator's request still awaiting the address on file has told the new mailbox nothing, and its preview neither."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            asked_first = documents.adresswechsel_document(
+                adresse="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2026-03-30", weg="freigabe"
+            )
+            await database[Collection.ADRESSWECHSEL].insert_one(asked_first)
+            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+                preview = (await http.get(f"{PATH}/ansicht", headers=as_person(TYPED))).json()["adresswechsel"]
+
+            return preview, (await erased_by_the_handler(database, client)).adresswechsel
+
+        # The seed's two changes alone; the press still ends all three, nothing of the asked one being this address's.
+        assert on_a_league(mongo_replica_set_url, body) == (2, 3)
+
     def test_a_dead_spelling_of_the_address_goes_unnamed_and_goes(self, mongo_replica_set_url: str):
         """A grant typed in capitals admits nobody, so the preview names no tier for it; the press removes it all the same."""
 
