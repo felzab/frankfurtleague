@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
-import { doubleLogger, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
-import { answerReadsWith, EMPTIEST_ANSWER } from "@/shared/testing/pageHarness.ts";
+import { doubleLogger, loggedErrorCodes, loggedErrorTraces } from "@/shared/testing/actionDoubles.ts";
+import { answerReadsWith, EDGE_TRACE_ID, EMPTIEST_ANSWER } from "@/shared/testing/pageHarness.ts";
 
 import type { ReactElement } from "react";
 
@@ -42,6 +42,7 @@ describe("the server status badge", () => {
   it("reads offline for a ping that threw untyped, and logs it", async () => {
     assert.equal(await badge(new TypeError("Cannot read properties of undefined (reading 'acknowledged')")), "Serverstatus: oFLine");
     assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"]);
+    assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
   });
 
   /* Only a deploy repairs a ping answered off its schema, which the badge would otherwise report as an outage. */

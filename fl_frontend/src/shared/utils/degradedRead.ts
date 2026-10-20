@@ -41,6 +41,7 @@ export function logCodedFailure(message: string, error: unknown, untypedCode: "F
   });
 }
 
+// Attached inside `runWithIncomingTrace`'s scope at its call site: outside it, an untyped failure's line names no request.
 /**
  * A page's degraded read's rejection handler: a failed read settles to the page's `null`, and a contract break reaches
  * the error boundary, which logs it (`docs/frontend/spec.md :: I650`).
@@ -54,6 +55,7 @@ export function nullUnlessContractBreak(error: unknown): null {
   return null;
 }
 
+// Attached inside `runWithIncomingTrace`'s scope at its call site: outside it, an untyped failure's line names no request.
 /**
  * An admin editor's label readout's rejection handler, logging every failure that does not explain itself. The editor is
  * the operator's tool for repairing the record, so it stands where a person-facing page would not render.

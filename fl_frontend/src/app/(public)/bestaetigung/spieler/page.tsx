@@ -53,15 +53,17 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
   // than rejecting unobserved.
   const [start, neu, wiederkehrend] = await Promise.all([
     typeof token === "string" && token !== ""
-      ? getSpielerBestaetigungAnsicht(token).then(
-          (gelesen): SpielerBestaetigungStart =>
-            gelesen.zustand === "gueltig" ? { zustand: "gueltig", ansicht: gelesen.ansicht, token: token } : gelesen,
-          // A failed read is its own state, the dead-link panel calling a live link void.
-          (error: unknown): SpielerBestaetigungStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
+      ? runWithIncomingTrace(() =>
+          getSpielerBestaetigungAnsicht(token).then(
+            (gelesen): SpielerBestaetigungStart =>
+              gelesen.zustand === "gueltig" ? { zustand: "gueltig", ansicht: gelesen.ansicht, token: token } : gelesen,
+            // A failed read is its own state, the dead-link panel calling a live link void.
+            (error: unknown): SpielerBestaetigungStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
+          ),
         )
       : ({ zustand: "ungueltig" } satisfies SpielerBestaetigungStart),
-    runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler")).catch(nullUnlessContractBreak),
-    runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler_wiederkehrend")).catch(nullUnlessContractBreak),
+    runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler").catch(nullUnlessContractBreak)),
+    runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler_wiederkehrend").catch(nullUnlessContractBreak)),
   ]);
 
   return (

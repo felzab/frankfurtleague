@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
 import { APIBadStatusError, APIMalformedDataError, UnreadGrantError } from "@/core/errors.ts";
-import { doubleActionRequest, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
-import { answer, answerReadsWith, EMPTIEST_ANSWER, pageBody, saisonFields } from "@/shared/testing/pageHarness.ts";
+import { doubleActionRequest, loggedErrorCodes, loggedErrorTraces } from "@/shared/testing/actionDoubles.ts";
+import { answer, answerReadsWith, EDGE_TRACE_ID, EMPTIEST_ANSWER, pageBody, saisonFields } from "@/shared/testing/pageHarness.ts";
 
 import { FLSaisonSchema } from "./schemas.ts";
 
@@ -73,6 +73,7 @@ describe("the count beside the rollover press", () => {
 
     assert.equal((await rollover()).loeschung, "unlesbar");
     assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
+    assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
   });
 
   /* The guard logs an unread grant as it refuses (`FE-AUTH-010`): the count's handler adds no second line. */

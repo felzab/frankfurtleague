@@ -66,7 +66,9 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
   // Caught, so a failure reaches the view as its own state: „abgelaufen“ would be a deadline this
   // read never learnt. A broken contract is no failed read: it reaches the error boundary, which logs it.
 
-  const antwort = await getBewerbungFenster(saison_id).catch((error: unknown) => nullUnlessContractBreak(error) ?? undefined);
+  const antwort = await runWithIncomingTrace(() =>
+    getBewerbungFenster(saison_id).catch((error: unknown) => nullUnlessContractBreak(error) ?? undefined),
+  );
   if (antwort === null) notFound();
   const fenster = antwort === undefined ? { isUnlesbar: true, fenster: null } : { isUnlesbar: false, fenster: antwort.fenster };
 
@@ -75,9 +77,11 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
   // form down with it.
   const schulen =
     fenster.fenster?.laeuft === true
-      ? await getBewerbungSchulen().then(
-          (antwort) => ({ isSchulenLesbar: true, schulen: antwort.schulen }),
-          (error: unknown) => nullUnlessContractBreak(error) ?? { isSchulenLesbar: false, schulen: [] },
+      ? await runWithIncomingTrace(() =>
+          getBewerbungSchulen().then(
+            (antwort) => ({ isSchulenLesbar: true, schulen: antwort.schulen }),
+            (error: unknown) => nullUnlessContractBreak(error) ?? { isSchulenLesbar: false, schulen: [] },
+          ),
         )
       : { isSchulenLesbar: true, schulen: [] };
 
@@ -85,9 +89,11 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
   // palette.
   const vergeben =
     fenster.fenster?.laeuft === true
-      ? await getBewerbungTrikotfarben(saison_id).then(
-          (antwort) => antwort.vergeben,
-          (error: unknown) => nullUnlessContractBreak(error) ?? [],
+      ? await runWithIncomingTrace(() =>
+          getBewerbungTrikotfarben(saison_id).then(
+            (antwort) => antwort.vergeben,
+            (error: unknown) => nullUnlessContractBreak(error) ?? [],
+          ),
         )
       : [];
 
@@ -95,9 +101,11 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
   // against. A failed read is the page's own state rather than a form stamping nothing.
   const fassung =
     fenster.fenster?.laeuft === true
-      ? await runWithIncomingTrace(() => getLaufendeFassung("bewerbung")).then(
-          (gelesen) => ({ textVersion: gelesen.text_version, absaetze: gelesen.absaetze, schalter: gelesen.schalter }),
-          nullUnlessContractBreak,
+      ? await runWithIncomingTrace(() =>
+          getLaufendeFassung("bewerbung").then(
+            (gelesen) => ({ textVersion: gelesen.text_version, absaetze: gelesen.absaetze, schalter: gelesen.schalter }),
+            nullUnlessContractBreak,
+          ),
         )
       : null;
 

@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { einwilligungAnswer } from "@/core/einwilligungDocument.ts";
-import { doubleLogger, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
+import { doubleLogger, loggedErrorCodes, loggedErrorTraces } from "@/shared/testing/actionDoubles.ts";
 import { laufendeSchiedsrichterFassung } from "@/shared/testing/einwilligungAnswers.ts";
-import { answerReadsWith, backendUnreachable, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
+import { answerReadsWith, backendUnreachable, EDGE_TRACE_ID, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
 
 import type { ReactElement } from "react";
 import type { SchiedsrichterBestaetigungStart } from "./components/views/SchiedsrichterBestaetigungView.tsx";
@@ -73,6 +73,7 @@ describe("the words the referee's confirmation page is handed", () => {
     assert.deepEqual(await start({ scheitert: true }), { zustand: "unlesbar" });
     // Untyped, as a cached read's throw arrives: only this line tells it from a bug.
     assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
+    assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
   });
 
   /* A registry answering against what this page was built for is no failed read: only a deploy repairs
@@ -119,6 +120,11 @@ describe("the words the referee's confirmation page is handed", () => {
 
       assert.deepEqual(body.props.start, { zustand: "unlesbar" });
       assert.deepEqual(loggedErrorCodes(), codes);
+      assert.deepEqual(
+        loggedErrorTraces(),
+        codes.map(() => EDGE_TRACE_ID),
+        "a line names no request",
+      );
     });
   }
 });

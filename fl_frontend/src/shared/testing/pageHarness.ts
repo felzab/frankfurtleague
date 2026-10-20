@@ -11,13 +11,18 @@ import z from "zod";
 
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
 import { exportingModule, registerDoubles } from "@/core/exportingModule.ts";
+import { formatTraceparent, TRACEPARENT_HEADER } from "@/core/trace.ts";
 import { hasDirective } from "@/core/treeWalk.ts";
-import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
+import { incomingHeaders, REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 import type { ReactElement, ReactNode } from "react";
+
+/** The trace the edge opens for every page request this harness serves, as nginx stamps one on each. */
+export const EDGE_TRACE_ID = "0af7651916cd43dd8448eb211c80319c";
+incomingHeaders.set(TRACEPARENT_HEADER, formatTraceparent({ traceId: EDGE_TRACE_ID, spanId: "b7ad6b7169203331" }));
 
 /** One step a page took against the backend or the request, in the order it took them. */
 export type PageStep =

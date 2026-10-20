@@ -4,8 +4,8 @@ import { beforeEach, describe, it } from "node:test";
 import { isValidElement } from "react";
 
 import { APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
-import { doubleLogger, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
-import { answer, answerReadsWith, EMPTIEST_ANSWER, saisonFields } from "@/shared/testing/pageHarness.ts";
+import { doubleLogger, loggedErrorCodes, loggedErrorTraces } from "@/shared/testing/actionDoubles.ts";
+import { answer, answerReadsWith, EDGE_TRACE_ID, EMPTIEST_ANSWER, saisonFields } from "@/shared/testing/pageHarness.ts";
 
 import { FLSaisonSchema } from "../../../saisons/schemas.ts";
 
@@ -58,6 +58,7 @@ describe("the landing page's fixture grid", () => {
 
     assert.deepEqual(await sectionsAnswered(), [true, false]);
     assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"]);
+    assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
   });
 
   /* Only a deploy repairs a read answered off its schema, so no section shows it as an outage. */

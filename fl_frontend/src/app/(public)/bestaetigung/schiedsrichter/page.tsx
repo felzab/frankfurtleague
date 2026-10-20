@@ -53,8 +53,8 @@ async function SchiedsrichterBestaetigungContent(props: NextPageProps) {
   // together, so a contract break in either read reaches the error boundary whatever the link's state
   // rather than rejecting unobserved.
   const [gelesen, geleseneWorte] = await Promise.all([
-    getSchiedsrichterBestaetigungAnsicht(token).catch(nullUnlessContractBreak),
-    runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_schiedsrichter")).catch(nullUnlessContractBreak),
+    runWithIncomingTrace(() => getSchiedsrichterBestaetigungAnsicht(token).catch(nullUnlessContractBreak)),
+    runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_schiedsrichter").catch(nullUnlessContractBreak)),
   ]);
 
   if (gelesen === null) return <SchiedsrichterBestaetigungView start={{ zustand: "unlesbar" }} />;

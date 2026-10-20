@@ -15,10 +15,10 @@ import { einwilligungAnswer } from "@/core/einwilligungDocument.ts";
 import { KONTO_HREF } from "@/core/kontoHref.ts";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken.ts";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants.ts";
-import { doubleLogger, doubleToasts, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
+import { doubleLogger, doubleToasts, loggedErrorCodes, loggedErrorTraces } from "@/shared/testing/actionDoubles.ts";
 import { laufendeSpielerFassung, laufendeSpielerWiederkehrendFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
-import { answerReadsWith, backendUnreachable, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
+import { answerReadsWith, backendUnreachable, EDGE_TRACE_ID, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
@@ -341,6 +341,7 @@ describe("the registration page over an invite read that did not answer", () => 
 
     assert.deepEqual(await registrierungStart(), { zustand: "unlesbar" });
     assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
+    assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
   });
 
   /* An answer off its schema is a broken contract, never a failed read: the error boundary logs it, and the reload panel would hide it. */
@@ -751,6 +752,11 @@ describe("which of the confirmation page's words its stamped version covers", ()
 
       assert.deepEqual(body.props.start, { zustand: "unlesbar" });
       assert.deepEqual(loggedErrorCodes(), codes);
+      assert.deepEqual(
+        loggedErrorTraces(),
+        codes.map(() => EDGE_TRACE_ID),
+        "a line names no request",
+      );
     });
   }
 
@@ -759,6 +765,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
     assert.equal(await handedFassung({ scheitert: true }), null, "a failed words read reached the view as words");
     // Both pages' words, each untyped as a cached read's throw arrives: only these lines tell them from a bug.
     assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001", "FE-RSC-001"], "a failure went unlogged");
+    assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID, EDGE_TRACE_ID], "a line names no request");
     assert.equal(
       textOf(
         renderMarkup(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: GEOEFFNET, token: "kein-echtes-token" }, fassung: null }),

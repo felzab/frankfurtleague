@@ -9,13 +9,14 @@ import { act, createRef, createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { doubleLogger, doubleToasts, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
+import { doubleLogger, doubleToasts, loggedErrorCodes, loggedErrorTraces } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import {
   answerReadsWith,
   backendUnreachable,
   callPage,
   clearSteps,
+  EDGE_TRACE_ID,
   EMPTIEST_ANSWER,
   pageBody,
   readsOf,
@@ -173,6 +174,7 @@ describe("what a spent link's page carries", () => {
 
     assert.deepEqual(start, { zustand: "unlesbar" });
     assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
+    assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
   });
 
   /* An answered view naming nobody who answered is a broken contract, which the error boundary logs. */

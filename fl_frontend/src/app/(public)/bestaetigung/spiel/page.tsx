@@ -6,6 +6,7 @@ import { getSpielbestaetigungAnsicht } from "@/features/spielbestaetigungen/quer
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { openGraphFor } from "@/shared/utils/metadata";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
@@ -44,7 +45,7 @@ async function SpielbestaetigungContent(props: NextPageProps) {
 
   // A failed read is its own state: the dead-link panel there would call a live link void. A broken
   // contract is no failed read and reaches the error boundary, which logs it.
-  const gelesen = await getSpielbestaetigungAnsicht(token).catch(nullUnlessContractBreak);
+  const gelesen = await runWithIncomingTrace(() => getSpielbestaetigungAnsicht(token).catch(nullUnlessContractBreak));
 
   if (gelesen === null) return <SpielbestaetigungView start={{ zustand: "unlesbar" }} />;
   if (gelesen.zustand !== "gueltig" && gelesen.zustand !== "vorschlag") return <SpielbestaetigungView start={gelesen} />;
