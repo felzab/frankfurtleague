@@ -457,8 +457,8 @@ export const FLSaisonTeamBestaetigungenAnsichtSchema = z.object({
 export type FLSaisonTeamBestaetigungenAnsicht = z.infer<typeof FLSaisonTeamBestaetigungenAnsichtSchema>;
 
 /**
- * Mirrors `FLSaisonTeamAdresswechsel` — the change pending at each seat's address, whichever record's page
- * started it, `null` where none waits.
+ * Mirrors `FLSaisonTeamAdresswechsel` — the change pending at each seat's address, one for every record that
+ * address holds, `null` where none waits.
  */
 export const FLSaisonTeamAdresswechselSchema = z.object({
   trainer: CustomObjectIdStringSchema.nullable(),
