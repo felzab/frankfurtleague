@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { istAndereAdresse } from "@/features/konto/components/forms/AdresswechselBeantragen";
 import { patchSchiedsrichterAction, undoAdminSchiedsrichterEditAction } from "@/features/schiedsrichter/actions";
 import { saveMayMint } from "@/features/schiedsrichter/linkMint";
 import { FLPatchSchiedsrichterPayloadSchema, hatAdresse } from "@/features/schiedsrichter/schemas";
@@ -23,7 +24,7 @@ import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarnin
 import { unansweredAction } from "@/shared/utils/actionError";
 import { fieldStatus } from "@/shared/utils/draftStatus";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
-import { hinweisFehlt, versandWarnt } from "@/shared/utils/linkVersand";
+import { versandWarnt } from "@/shared/utils/linkVersand";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
@@ -108,6 +109,9 @@ export function AdminSchiedsrichterEditForm({
   const [schule, setSchule] = useState(schiedsrichter.schule);
   const [kontakt, setKontakt] = useState<FLKontakt>(schiedsrichter.kontakt);
   const [defaultPayment, setDefaultPayment] = useState<number | null>(schiedsrichter.default_payment);
+  // The start box's typing, `null` while it is closed: a confirmed referee's address moves by its own start alone.
+  const [adresseEntwurf, setAdresseEntwurf] = useState<string | null>(null);
+  const bestaetigt = schiedsrichter.einwilligung?.bestaetigt_am != null && schiedsrichter.kontakt.email !== null;
 
   // Over the STORED address: null, or the placeholder a row without one is given, is somewhere no
   // link can go and no undo may write back.
@@ -146,7 +150,14 @@ export function AdminSchiedsrichterEditForm({
   };
 
   const status = deriveSchiedsrichterDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
-  const isDirty = status.isDirty && !hasSaved;
+  const isDraftDirty = status.isDirty && !hasSaved;
+  const adresseGetippt =
+    bestaetigt &&
+    adresseEntwurf !== null &&
+    schiedsrichter.kontakt.email !== null &&
+    istAndereAdresse(adresseEntwurf, schiedsrichter.kontakt.email);
+  // A typed new address counts as unsaved for leaving the page, never for the save bar, which does not carry it.
+  const isDirty = isDraftDirty || adresseGetippt;
 
   // The latch's job ends when the revalidated referee arrives and the two agree; left latched, every
   // later edit on a restored tree read as not-dirty.
@@ -185,7 +196,7 @@ export function AdminSchiedsrichterEditForm({
     resetDraftToStored,
   });
 
-  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
+  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDraftDirty);
 
   const requestSave = () => {
     // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block
@@ -230,11 +241,11 @@ export function AdminSchiedsrichterEditForm({
             .join(" ");
 
           offerUndo({
-            undo: () => undoAdminSchiedsrichterEditAction({ ...undoPayload, adresswechsel_gespeichert: res.adresswechselGespeichert === true }),
+            undo: () => undoAdminSchiedsrichterEditAction(undoPayload),
             message: gespeichertesSatz === "" ? undefined : gespeichertesSatz,
             // A save that mailed nothing is clean; one whose link did not go out is graded a warning, the
-            // referee having no working link and nobody else being told, and so is one whose notice failed.
-            warn: versandWarnt(res.versand) || hinweisFehlt(res.hinweis),
+            // referee having no working link and nobody else being told.
+            warn: versandWarnt(res.versand),
             fallback: "Die Schiedsrichterdaten wurden aktualisiert.",
             // Judged here and not left to the undo action: the shared spine can only answer a body the
             // schema refuses with a reload nothing would change.
@@ -247,7 +258,8 @@ export function AdminSchiedsrichterEditForm({
           // After the undo payload is built: leaving with typed values still in state lets a save-then-undo
           // reopen on values the referee does not hold.
           resetDraftToStored();
-          leavePage();
+          // Staying over a typed new address, which the start box beside the draft still holds.
+          if (!adresseGetippt) leavePage();
         });
       }),
     );
@@ -286,12 +298,22 @@ export function AdminSchiedsrichterEditForm({
             {...focusSection("kontakt")}>
             <FormKontaktSection
               kontakt={kontakt}
+              bestaetigt={
+                bestaetigt && schiedsrichter.kontakt.email !== null
+                  ? {
+                      schiedsrichterId: schiedsrichter.id,
+                      email: schiedsrichter.kontakt.email,
+                      isDirty: isDraftDirty,
+                      entwurf: adresseEntwurf,
+                      onEntwurfChange: setAdresseEntwurf,
+                    }
+                  : null
+              }
               onChange={setKontakt}
               onFieldLeft={validateFields}
             />
 
-            {/* Beside the address it would replace, and only while one waits: the box above still holds
-                the address in force, which an administrator would otherwise read as a save that failed. */}
+            {/* Beside the address it would replace, and only while a change is pending. */}
             {schiedsrichter.adresswechsel !== null && (
               <FormAdresswechselSection
                 schiedsrichterId={schiedsrichter.id}

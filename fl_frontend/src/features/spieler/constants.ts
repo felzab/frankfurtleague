@@ -234,11 +234,5 @@ export function kaderAustragenHinweis(saisonId: string): string {
   return `Der Spieler verschwindet aus dem Kader der Saison ${saisonId}. ${KADER_AUSTRAGEN_FOLGE}`;
 }
 
-/**
- * Mirrored from `fl_backend/app/shared/schemas/bounds.py`, so the lapsed address link's panel states
- * the day the endpoint refuses on.
- */
-export const SPIELER_ADRESSWECHSEL_FRIST_TAGE = 14;
-
 /** The address box's press, which the refusal of a taken address names: one spelling, so a reworded press takes the sentence with it. */
 export const ADRESSE_AENDERN = "Adresse ändern";

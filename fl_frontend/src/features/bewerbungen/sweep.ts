@@ -13,6 +13,7 @@ import { versandAusfallOf } from "@/core/versandAusfall";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants";
 import { postRegistrierungSweep } from "@/features/registrierungen/mutations";
 import { postSchiedsrichterAdresswechselSweep } from "@/features/schiedsrichter/mutations";
+import { mailSchiedsrichterAdresswechselWirksam } from "@/features/schiedsrichter/notifications";
 import { sendZielMail } from "@/features/zustellung/notifications";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -95,15 +96,27 @@ export async function runBewerbungSweep(): Promise<void> {
   }
 }
 
-/** A referee's or a pupil's pending address the day after its link lapsed. On every pass: no switch holds a lapsed address. */
+/**
+ * A referee's or a pupil's pending change whose step lapsed, and one whose waiting time ended. On every pass:
+ * no switch holds a lapsed address or keeps a due one from taking effect.
+ */
 async function sweepAdresswechsel(): Promise<void> {
   let entfernt = 0;
+  let wirksam = 0;
+  let verworfen = 0;
   try {
     let antwort: FLSchiedsrichterAdresswechselSweepResponse;
     let nach: string | null = null;
     do {
       antwort = await postSchiedsrichterAdresswechselSweep(nach);
       entfernt += antwort.entfernt;
+      verworfen += antwort.verworfen;
+      wirksam += antwort.wirksam.length;
+      // Each call's own effects, mailed before the next call: the answer is the only place the replaced
+      // address survives the effect, and a later call's failure must not take this one's notices with it.
+      for (const mitteilung of antwort.wirksam) {
+        await mailSchiedsrichterAdresswechselWirksam({ operation: "sweepAdresswechsel", mitteilung: mitteilung });
+      }
       // The pass's one end and its guard against a place not past the one sent, as the pupils' deletion's
       // (`fl_frontend/src/features/saisons/loeschung.ts :: loeschungLaufen`).
       if (nach !== null && antwort.nach !== null && antwort.nach <= nach) {
@@ -113,9 +126,13 @@ async function sweepAdresswechsel(): Promise<void> {
     } while (nach !== null);
 
     // The last call's count, never a sum: each call counts every lapsed change standing, an earlier page's failures among them.
-    logPass("schiedsrichter.adresswechsel_sweep_pass", { entfernt: entfernt, verbleibend: antwort.verbleibend }, antwort.verbleibend);
+    logPass(
+      "schiedsrichter.adresswechsel_sweep_pass",
+      { entfernt: entfernt, wirksam: wirksam, verworfen: verworfen, verbleibend: antwort.verbleibend },
+      antwort.verbleibend,
+    );
   } catch (error) {
-    logger.info("schiedsrichter.adresswechsel_sweep_pass", { entfernt: entfernt });
+    logger.info("schiedsrichter.adresswechsel_sweep_pass", { entfernt: entfernt, wirksam: wirksam, verworfen: verworfen });
     logSweepFailure("schiedsrichter.adresswechsel_sweep_failed", error, undefined);
   }
 }

@@ -166,10 +166,30 @@ const SPIELER = {
 };
 
 /** A new address waiting on its mailbox, whose panel's re-send moves the record as the request does. */
-const SPIELER_ADRESSWECHSEL = { email: "lena@neu.example", verschickt_am: "2026-10-01", frist: "2099-12-31", zustellung: null };
+const SPIELER_ADRESSWECHSEL = {
+  email: "lena@neu.example",
+  weg: "konto" as const,
+  verschickt_am: "2026-10-01",
+  gueltig_bis: "2099-12-31T11:30:00Z",
+  freigegeben_am: null,
+  grund: null,
+  bestaetigt_am: null,
+  wirksam_ab: null,
+  zustellung: null,
+};
 
 /** The referee's twin of the pupil's waiting address. */
-const SCHIEDSRICHTER_ADRESSWECHSEL = { email: "pia@neu.example", verschickt_am: "2026-10-01", frist: "2099-12-31", zustellung: null };
+const SCHIEDSRICHTER_ADRESSWECHSEL = {
+  email: "pia@neu.example",
+  weg: "konto" as const,
+  verschickt_am: "2026-10-01",
+  gueltig_bis: "2099-12-31T11:30:00Z",
+  freigegeben_am: null,
+  grund: null,
+  bestaetigt_am: null,
+  wirksam_ab: null,
+  zustellung: null,
+};
 
 const SPIELER_MEMBERSHIP = {
   team_id: TEAM_A.teamId,

@@ -2,11 +2,14 @@ import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
+import { ERASURE_ANLASS_MAX_LENGTH } from "@/features/funktionen/constants";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
+import { ADRESSE_IM_GRUND_REGEX } from "@/features/sperrliste/schemas";
 import { EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
 import {
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
+  einzeiligerName,
   FLBewerbungZustellungSchema,
   KontaktEmailSchema,
   PersonNameSchema,
@@ -129,16 +132,23 @@ export const FLSpielerMembershipSchema = z.object({
 });
 export type FLSpielerMembership = z.infer<typeof FLSpielerMembershipSchema>;
 
+/** Mirrors the stored `weg`: how a change reaches its effect, which both lanes and the account page share. */
+export const FLAdresswechselWegSchema = z.enum(["konto", "freigabe", "wartezeit"]);
+
 /**
- * Mirrors a pupil's new address waiting on its own mailbox, the referee's twin
- * (`fl_frontend/src/features/schiedsrichter/schemas.ts :: FLSchiedsrichterAdresswechselSchema`). No
- * `token_hash`: the credential is read by the confirming query alone, so no read model carries it.
+ * Mirrors a pupil's pending address change, the referee's under its own name. Neither hash: only the
+ * confirming and stopping queries read them. An instant is null where its `weg` has not reached that step.
  */
 export const FLSpielerAdresswechselSchema = z.object({
-  // The address on its way in, which nothing but the editor shows: no read keys on it until it confirms.
+  // The address on its way in, which nothing but the editor shows: no read keys on it until it takes effect.
   email: z.string(),
+  weg: FLAdresswechselWegSchema,
   verschickt_am: CustomDateStringSchema,
-  frist: CustomDateStringSchema,
+  gueltig_bis: z.string().nullable(),
+  freigegeben_am: z.string().nullable(),
+  grund: z.string().nullable(),
+  bestaetigt_am: z.string().nullable(),
+  wirksam_ab: z.string().nullable(),
   zustellung: FLBewerbungZustellungSchema.nullable(),
 });
 export type FLSpielerAdresswechsel = z.infer<typeof FLSpielerAdresswechselSchema>;
@@ -259,10 +269,29 @@ export const FLSpielerAdminSingleResponseSchema = BaseAPIResponseSchema.extend({
 });
 export type FLSpielerAdminSingleResponse = z.infer<typeof FLSpielerAdminSingleResponseSchema>;
 
-/** Mirrors `FLSpielerAdresswechselPayload`: the address an administrator asks the pupil's link to go to. `id` travels in the path. */
+/**
+ * Mirrors `CustomAdresswechselGrund`, the erasure occasion's bounds: copied into the start's log row and
+ * kept with the log, so the backend refuses a name of the person in it (`REQ-SPIELER-009`).
+ */
+export const AdresswechselGrundSchema = einzeiligerName(
+  z
+    .string({ error: "Bitte gib einen Grund ein." })
+    .trim()
+    .nonempty({ error: "Bitte gib einen Grund ein." })
+    .max(ERASURE_ANLASS_MAX_LENGTH, { error: `Der Grund darf höchstens ${String(ERASURE_ANLASS_MAX_LENGTH)} Zeichen lang sein.` }),
+  "Der Grund",
+)
+  // The log row outlives the change by a year, and no redaction reaches its reason.
+  .refine((grund) => !ADRESSE_IM_GRUND_REGEX.test(grund), { error: "Der Grund darf keine E-Mail-Adresse enthalten." });
+
+/**
+ * Mirrors `FLSpielerAdresswechselPayload`: the address an administrator starts a change to. `grund` null
+ * asks the address on file to approve first; a reason starts the waiting time. `id` travels in the path.
+ */
 export const FLSpielerAdresswechselPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   email: KontaktEmailSchema,
+  grund: AdresswechselGrundSchema.nullable(),
 });
 export type FLSpielerAdresswechselPayload = z.infer<typeof FLSpielerAdresswechselPayloadSchema>;
 
@@ -278,19 +307,25 @@ export const FLSpielerAdresswechselVerwerfenPayloadSchema = z.object({
 export type FLSpielerAdresswechselVerwerfenPayload = z.infer<typeof FLSpielerAdresswechselVerwerfenPayloadSchema>;
 
 /**
- * A freshly minted address link, answered ONCE: the raw token exists here and in the new mailbox
- * alone, so no read model and no log line may carry this shape.
+ * A freshly minted change, answered ONCE: the raw tokens exist here and in the two mailboxes alone, so
+ * no read model and no log line may carry this shape. The referee's mint is this one.
  */
 export const FLSpielerAdresswechselMintSchema = z.object({
-  token: z.string(),
-  frist: CustomDateStringSchema,
+  weg: FLAdresswechselWegSchema,
+  // Null while a `freigabe` change waits on its approval: nothing goes to the new mailbox before it.
+  token: z.string().nullable(),
+  // Null on a re-send: the stop link already in the mailbox of the address on file keeps working.
+  stopp_token: z.string().nullable(),
+  gueltig_bis: z.string(),
   // The address the mint's own transaction read. Mailing the one a caller typed or read BEFORE the
   // mint sends the credential to a mailbox a rival request has already replaced.
   email: z.string().nonempty(),
   // The address still in force, which is told a change was asked and never which one.
   bisherige_email: z.string().nonempty(),
-  // What both mails greet with, read in the mint's own transaction: no admin read serves one pupil by id.
+  // What the notice greets with, read in the mint's own transaction: no admin read serves one pupil by id.
   vorname: z.string(),
+  // The administrator's warning that the new address already holds records of its own, which merge.
+  adresse_belegt: z.boolean(),
 });
 export type FLSpielerAdresswechselMint = z.infer<typeof FLSpielerAdresswechselMintSchema>;
 
@@ -317,13 +352,27 @@ export const FLSpielerAdresswechselAnsichtPayloadSchema = z.object({
 export type FLSpielerAdresswechselAnsichtPayload = z.infer<typeof FLSpielerAdresswechselAnsichtPayloadSchema>;
 
 /**
- * What an address link is told before any press: its standing and its deadline. Never a name or
- * either address: a leaked link learns no mailbox to write to (`READ-PUPIL-005`).
+ * What an address link is told before any press, on its own side. Never a name or either address: a
+ * leaked link learns no mailbox to write to (`READ-PUPIL-005`).
  */
-export const FLSpielerAdresswechselAnsichtResponseSchema = BaseAPIResponseSchema.extend({
+export const FLSpielerAdresswechselAnsichtNeuSchema = z.object({
+  seite: z.literal("neu"),
   // No `bestaetigt`: an answer removes what the link opens, so a reopened link is an unknown token.
   zustand: z.enum(["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar"]),
-  frist: CustomDateStringSchema,
+  gueltig_bis: z.string(),
+});
+
+export const FLSpielerAdresswechselAnsichtBisherigSchema = z.object({
+  seite: z.literal("bisherig"),
+  // No ban state: the stop is offered in every state, as the decline is.
+  zustand: z.enum(["freigabe_offen", "offen", "wartezeit"]),
+  gueltig_bis: z.string().nullable(),
+  wirksam_ab: z.string().nullable(),
+});
+export type FLSpielerAdresswechselAnsichtBisherig = z.infer<typeof FLSpielerAdresswechselAnsichtBisherigSchema>;
+
+export const FLSpielerAdresswechselAnsichtResponseSchema = BaseAPIResponseSchema.extend({
+  ansicht: z.discriminatedUnion("seite", [FLSpielerAdresswechselAnsichtNeuSchema, FLSpielerAdresswechselAnsichtBisherigSchema]),
 });
 export type FLSpielerAdresswechselAnsichtResponse = z.infer<typeof FLSpielerAdresswechselAnsichtResponseSchema>;
 
@@ -334,10 +383,32 @@ export const FLSpielerAdresswechselAntwortPayloadSchema = z.object({
 });
 export type FLSpielerAdresswechselAntwortPayload = z.infer<typeof FLSpielerAdresswechselAntwortPayloadSchema>;
 
+/** Mirrors `mitteilung`: what the completion notice is built from, for the route handler alone and never the browser. */
+export const FLAdresswechselMitteilungSchema = z.object({
+  bisherige_email: z.string().nonempty(),
+  vorname: z.string(),
+});
+export type FLAdresswechselMitteilung = z.infer<typeof FLAdresswechselMitteilungSchema>;
+
 export const FLSpielerAdresswechselAntwortResponseSchema = BaseAPIResponseSchema.extend({
   antwort: z.enum(["bestaetigt", "abgelehnt"]),
+  // Set where a change with a waiting time now waits: the hourly pass writes its effect then.
+  wirksam_ab: z.string().nullable(),
+  // Set where the confirmation took effect.
+  mitteilung: FLAdresswechselMitteilungSchema.nullable(),
 });
 export type FLSpielerAdresswechselAntwortResponse = z.infer<typeof FLSpielerAdresswechselAntwortResponseSchema>;
+
+/** The stop of the address on file, by the token its notice carried. */
+export const FLSpielerAdresswechselStoppPayloadSchema = z.object({
+  token: adresswechselToken,
+});
+export type FLSpielerAdresswechselStoppPayload = z.infer<typeof FLSpielerAdresswechselStoppPayloadSchema>;
+
+export const FLSpielerAdresswechselStoppResponseSchema = BaseAPIResponseSchema.extend({
+  gestoppt: z.literal(true),
+});
+export type FLSpielerAdresswechselStoppResponse = z.infer<typeof FLSpielerAdresswechselStoppResponseSchema>;
 
 /** A junction row, echoed as it was written — it has no read model of its own. */
 export const FLSaisonSpielerResponseSchema = BaseAPIResponseSchema.extend({

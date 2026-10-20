@@ -786,7 +786,17 @@ describe("the late-entry marker, which the backend derives", () => {
 });
 
 const GESPEICHERT = "lena@schule.example";
-const WARTEND: FLSpielerAdresswechsel = { email: "lena@neu.example", verschickt_am: "2026-10-01", frist: "2026-10-15", zustellung: null };
+const WARTEND: FLSpielerAdresswechsel = {
+  email: "lena@neu.example",
+  weg: "konto",
+  verschickt_am: "2026-10-01",
+  gueltig_bis: "2026-10-15T10:00:00Z",
+  freigegeben_am: null,
+  grund: null,
+  bestaetigt_am: null,
+  wirksam_ab: null,
+  zustellung: null,
+};
 
 /** The editor page over one pupil holding `adresse`, rendered as its reads answer it. */
 async function renderAdressePage(adresse: { email: string | null; adresswechsel: FLSpielerAdresswechsel | null; abgelaufen: boolean }) {
@@ -810,7 +820,7 @@ describe("the pupil's address on the editor", () => {
 
     assert.equal(angabe("Hinterlegte Adresse")?.textContent, GESPEICHERT);
     assert.equal(angabe("Neue Adresse")?.textContent, WARTEND.email);
-    assert.match(angabe("Gültig bis")?.textContent ?? "", /^15\.10\.2026\s*abgelaufen$/);
+    assert.match(angabe("Gültig bis")?.textContent ?? "", /^15\.10\.2026 um 12:00 Uhr\s*abgelaufen$/);
     assert.ok(screen.getByRole("button", { name: "Link erneut senden" }), "the waiting change has no re-send");
   });
 
@@ -836,7 +846,7 @@ describe("the pupil's address on the editor", () => {
 
     assert.deepEqual(
       calls.map((call) => [call.action, call.payload]),
-      [["beantrageSpielerAdresswechselAction", { id: SPIELER_ID, email: "Lena@Neu.Example" }]],
+      [["beantrageSpielerAdresswechselAction", { id: SPIELER_ID, email: "Lena@Neu.Example", grund: null }]],
     );
   });
 

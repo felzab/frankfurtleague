@@ -44,11 +44,19 @@ const ADRESSWECHSEL = "/schiedsrichter/sweep/adresswechsel";
 let adresswechselAnswer: (nach: string | null) => unknown = () => entfernt(0, 0);
 
 /** One call of the lapsed addresses' half: how many went, how many are still due, and where the pass goes on. */
-const entfernt = (anzahl: number, verbleibend: number, nach: string | null = null) => ({
+const entfernt = (
+  anzahl: number,
+  verbleibend: number,
+  nach: string | null = null,
+  wirksam: { bisherige_email: string; vorname: string }[] = [],
+  verworfen = 0,
+) => ({
   acknowledged: 1,
   entfernt: anzahl,
   verbleibend: verbleibend,
   nach: nach,
+  wirksam: wirksam,
+  verworfen: verworfen,
 });
 
 /** The grants' claim with nothing to announce. */
@@ -1164,7 +1172,7 @@ describe("the half after the season loop", () => {
         {
           level: "warn",
           event: "schiedsrichter.adresswechsel_sweep_pass",
-          fields: { error_code: "FE-SWEEP-001", entfernt: 1, verbleibend: 42 },
+          fields: { error_code: "FE-SWEEP-001", entfernt: 1, wirksam: 0, verworfen: 0, verbleibend: 42 },
         },
       ],
     );
@@ -1183,7 +1191,7 @@ describe("the half after the season loop", () => {
         {
           level: "warn",
           event: "schiedsrichter.adresswechsel_sweep_pass",
-          fields: { error_code: "FE-SWEEP-001", entfernt: 5, verbleibend: 1 },
+          fields: { error_code: "FE-SWEEP-001", entfernt: 5, wirksam: 0, verworfen: 0, verbleibend: 1 },
         },
       ],
     );
@@ -1204,7 +1212,7 @@ describe("the half after the season loop", () => {
       assert.deepEqual(
         lines.filter(({ event }) => event.startsWith("schiedsrichter.")),
         [
-          { level: "info", event: "schiedsrichter.adresswechsel_sweep_pass", fields: { entfernt: 3 } },
+          { level: "info", event: "schiedsrichter.adresswechsel_sweep_pass", fields: { entfernt: 3, wirksam: 0, verworfen: 0 } },
           {
             level: "error",
             event: "schiedsrichter.adresswechsel_sweep_failed",
@@ -1245,7 +1253,33 @@ describe("the half after the season loop", () => {
 
     assert.deepEqual(
       lines.filter(({ level, event }) => level === "info" && !SEASON_HALVES.test(event)),
-      [{ level: "info", event: "schiedsrichter.adresswechsel_sweep_pass", fields: { entfernt: 2, verbleibend: 0 } }],
+      [{ level: "info", event: "schiedsrichter.adresswechsel_sweep_pass", fields: { entfernt: 2, wirksam: 0, verworfen: 0, verbleibend: 0 } }],
+    );
+  });
+
+  /* The answer is the only place a replaced address survives its change's effect: each is mailed its completion
+     notice, naming no new address, and one refused send costs the others nothing. */
+  it("mails every replaced address of the pass its completion notice, a refused one costing the rest nothing", async () => {
+    refused.add("alt-1@schule.de");
+    adresswechselAnswer = inTurn([
+      entfernt(0, 0, ORT_ADRESSE, [{ bisherige_email: "alt-1@schule.de", vorname: "Mira" }], 1),
+      entfernt(1, 0, null, [{ bisherige_email: "alt-2@schule.de", vorname: "Jonas" }]),
+    ]);
+
+    await runBewerbungSweep();
+
+    const notices = events.flatMap((event) => (event.kind === "mail" && event.subject.endsWith("wurde geändert") ? [event] : []));
+    assert.deepEqual(
+      notices.map(({ to }) => to),
+      ["alt-1@schule.de", "alt-2@schule.de"],
+    );
+    assert.ok(
+      notices.every(({ text }) => !text.includes("token=")),
+      "a completion notice carries a link",
+    );
+    assert.deepEqual(
+      lines.filter(({ event }) => event.startsWith("schiedsrichter.adresswechsel_sweep_pass")).map(({ fields }) => fields),
+      [{ entfernt: 1, wirksam: 2, verworfen: 1, verbleibend: 0 }],
     );
   });
 });

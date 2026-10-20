@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
-import { assertRedactedAtTheEdge } from "@/core/edgeRedaction.ts";
+import { ADRESSWECHSEL_STOPPEN, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { readable } from "@/core/mailText.ts";
@@ -37,9 +36,9 @@ const client = doubleApiAnswers(async ({ endpoint, method }: ApiCall) => {
 
 const { beantrageSpielerAdresswechselAction, einladeSpielerAdresswechselAction, verwirfSpielerAdresswechselAction } =
   await import("./actions.ts");
-const { describeSpielerAdresswechselMail } = await import("./notifications.ts");
+const { describeAdresswechselMail } = await import("./notifications.ts");
 const { mapSpielerAdresswechselAnsichtRefusal, mapSpielerAdresswechselRefusal } = await import("./queries.ts");
-const { SPIELER_ADRESSWECHSEL_PATH } = await import("@/core/spielerEmail.ts");
+const { adresswechselLink } = await import("@/core/adresswechselEmail.ts");
 const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { refusedOn, unpublishedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
@@ -48,6 +47,7 @@ const BISHER = "lena@alt.example";
 /** As the mint answers `GETIPPT`: the payload rule lower-cases the domain alone, and this spelling is the one mailed. */
 const NEU = "Lena@neu.example";
 const GETIPPT = "Lena@Neu.Example";
+const GRUND = "Postfach von der Schule gelöscht, bestätigt am 21.10.2026";
 
 const REQUEST_OPERATION = "POST /spieler/{spieler_id}/adresswechsel";
 const RESEND_OPERATION = "POST /spieler/{spieler_id}/adresswechsel/einladen";
@@ -56,7 +56,21 @@ const DISCARD_OPERATION = "DELETE /spieler/{spieler_id}/adresswechsel";
 const ANSWER_OPERATION = "POST /spieler/adresswechsel";
 const VIEW_OPERATION = "POST /spieler/adresswechsel/ansicht";
 
-const mint = { token: "neu-token", frist: "2026-10-29", email: NEU, bisherige_email: BISHER, vorname: "Lena" };
+/** A start with a reason: the new mailbox is asked, and the address on file told with a stop link. */
+const wartezeit = {
+  weg: "wartezeit",
+  token: "neu-token",
+  stopp_token: "stopp-token",
+  gueltig_bis: "2026-10-21T11:30:00Z",
+  email: NEU,
+  bisherige_email: BISHER,
+  vorname: "Lena",
+  adresse_belegt: false,
+};
+/** A start without one: nothing goes to the new mailbox before the address on file approves. */
+const freigabe = { ...wartezeit, weg: "freigabe", token: null };
+/** A re-send: the link alone, the stop link already in the mailbox of the address on file. */
+const erneut = { ...wartezeit, stopp_token: null };
 
 const mailedTo = () => mail.sent.map(({ to }) => to);
 const linkMail = () => mail.sent.find(({ to }) => to === NEU);
@@ -67,65 +81,87 @@ beforeEach(() => {
   client.calls.length = 0;
   setFresh(true);
   mail.answerWith(() => "accepted");
-  request = () => ({ acknowledged: 1, adresswechsel: mint });
-  resend = () => ({ acknowledged: 1, adresswechsel: mint });
+  request = () => ({ acknowledged: 1, adresswechsel: wartezeit });
+  resend = () => ({ acknowledged: 1, adresswechsel: erneut });
   discard = () => ({ acknowledged: 1, spieler_id: SPIELER_ID, vorname: "Lena", nachname: "Meier", inactive_since: null });
 });
 
-describe("the request for a pupil's new address", () => {
-  it("sends the typed address, and mails the link to the one the mint names and the notice to the stored one", async () => {
-    const res = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
+describe("an administrator's start of a pupil's change", () => {
+  it("sends the typed address and the reason, and mails the link to the one the mint names and the notice to the stored one", async () => {
+    const res = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT, grund: GRUND });
 
     assert.equal(res.success, true);
     assert.deepEqual(
       requestsOf(client.calls)
         .filter(({ endpoint }) => !endpoint.startsWith("/zustellung/"))
         .map(({ endpoint, method, body }) => [method, endpoint, body]),
-      [["POST", `/spieler/${SPIELER_ID}/adresswechsel`, { email: GETIPPT }]],
+      [["POST", `/spieler/${SPIELER_ID}/adresswechsel`, { email: GETIPPT, grund: GRUND }]],
     );
     // Never the typed spelling: the mint's own transaction is what says which mailbox the credential was made for.
     assert.deepEqual(mailedTo().sort(), [BISHER, NEU].sort());
-    assert.match(res.success ? (res.message ?? "") : "", /ging an Lena@neu\.example\. Bis zur Bestätigung gilt die bisherige\./);
+    assert.match(res.success ? (res.message ?? "") : "", /ging an Lena@neu\.example\..*gilt erst eine Woche nach ihrer Bestätigung\./);
   });
 
-  /* The serving origin, never the production site (`docs/frontend/spec.md :: I186`), on a parameter the edge redacts. */
-  it("puts the token on the serving origin's address page, in a parameter the edge redacts, in both parts", async () => {
-    await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
+  /* The address on file asked first: a request in somebody else's name reaches the real holder before any link goes. */
+  it("mails no link without a reason, only the request to the stored address, and says so", async () => {
+    request = () => ({ acknowledged: 1, adresswechsel: freigabe });
 
-    const url = `${AUTH_URL}${SPIELER_ADRESSWECHSEL_PATH}?token=neu-token`;
+    const res = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT, grund: null });
+
+    assert.deepEqual(mailedTo(), [BISHER]);
+    assert.equal(hinweis()?.subject, "Gib die neue E-Mail-Adresse frei");
+    assert.deepEqual(res.success ? [res.versand, res.hinweis] : [res], [null, "gesendet"]);
+    assert.match(res.success ? (res.message ?? "") : "", /Die bisherige Adresse ist gebeten, die Änderung in ihrem Konto freizugeben/);
+    assert.deepEqual(
+      requestsOf(client.calls)
+        .filter(({ endpoint }) => endpoint.startsWith("/zustellung/"))
+        .map(({ body }) => (body as { ziel: string }).ziel),
+      [],
+      "a request that sent no link filed a delivery for one",
+    );
+  });
+
+  /* The serving origin, never the production site (`docs/frontend/spec.md :: I186`), on the pupil's page. */
+  it("puts the link and the stop link on the serving origin's pupil page, in both parts", async () => {
+    await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT, grund: GRUND });
+
+    const url = adresswechselLink(AUTH_URL, "spieler", "neu-token");
+    const stopp = adresswechselLink(AUTH_URL, "spieler", "stopp-token");
     const link = linkMail();
+    const notice = hinweis();
     assert.ok(link?.text.includes(url) && link.html.includes(url), "a part of the link mail carries no address link on the serving origin");
-    assertRedactedAtTheEdge(url);
+    assert.ok(notice?.text.includes(stopp) && notice.html.includes(stopp), "a part of the notice carries no stop link on the serving origin");
+    assert.ok(notice?.html.includes(`>${ADRESSWECHSEL_STOPPEN}</a>`), "the notice's stop control is named otherwise");
   });
 
-  /* The day after the lapse the change goes with its decline, so the mail promises no decline past it. */
-  it("tells the holder of a mistyped address the decline and what doing nothing costs, never a decline after the lapse", async () => {
-    await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
+  it("tells the holder of a mistyped address the decline and what doing nothing costs", async () => {
+    await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT, grund: GRUND });
 
     const link = linkMail();
     for (const teil of [link?.text ?? "", link?.html ?? ""]) {
       assert.ok(teil.includes(`„${NICHT_MEINE_ADRESSE}“`), "a part names a decline the address page does not offer");
-      assert.ok(teil.includes("Tust Du nichts, löschen wir sie am Tag nach Ablauf des Links."), "a part says nothing of the removal");
-      assert.doesNotMatch(teil, /schon abgelaufen/, "a part promises the decline after the lapse");
+      assert.ok(teil.includes("Tust Du nichts, löschen wir sie, sobald der Link abgelaufen ist."), "a part says nothing of the removal");
     }
   });
 
-  /* The change may be somebody's mistake: the stored mailbox is owed the word, never the other mailbox's name. */
-  it("names the new address in the link mail and never in the notice", async () => {
-    await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
+  /* The change may be somebody's mistake or a pretext: the stored mailbox is owed the word, never the other mailbox's name. */
+  it("names the new address in neither the notice nor anything the stored address is sent", async () => {
+    await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT, grund: GRUND });
 
     const notice = hinweis();
     assert.ok(notice !== undefined, "the stored address was told nothing");
-    assert.ok(!notice.text.includes(NEU) && !notice.html.includes(NEU), "the notice names the new address");
-    assert.doesNotMatch(notice.html, /token=/, "the notice carries a link the stored mailbox has nothing to press with");
+    assert.ok(
+      !notice.text.toLowerCase().includes(NEU.toLowerCase()) && !notice.html.toLowerCase().includes(NEU.toLowerCase()),
+      "the notice names the new address",
+    );
     assert.match(notice.text, /Hallo Lena,/);
   });
 
   /* The new mailbox has proved nothing, and after a typo it is a stranger's: a minor's first name goes to the stored one alone. */
   it("greets the new mailbox by no name, and the stored one by the pupil's", async () => {
-    request = () => ({ acknowledged: 1, adresswechsel: { ...mint, vorname: "Mirabel" } });
+    request = () => ({ acknowledged: 1, adresswechsel: { ...wartezeit, vorname: "Mirabel" } });
 
-    await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
+    await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT, grund: GRUND });
 
     const link = linkMail();
     assert.ok(link !== undefined, "the new address was sent no link, so its greeting is judged over nothing");
@@ -141,7 +177,7 @@ describe("the request for a pupil's new address", () => {
   });
 
   it("files the link's delivery under the pupil's address change", async () => {
-    await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
+    await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT, grund: GRUND });
 
     assert.deepEqual(
       requestsOf(client.calls)
@@ -151,23 +187,21 @@ describe("the request for a pupil's new address", () => {
     );
   });
 
-  /* Through the mail gate like every message: a barred stored address is told nothing, and the link still goes. */
-  it("tells a barred stored address nothing, mails the link all the same and reports no failure", async () => {
-    mail.answerWith(({ to }) => (to === BISHER ? "barred" : "accepted"));
+  /* The administrator's own warning: the person's own start answers alike whatever the address holds. */
+  it("warns the administrator where the new address already holds records of its own", async () => {
+    request = () => ({ acknowledged: 1, adresswechsel: { ...wartezeit, adresse_belegt: true } });
 
-    const res = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
+    const res = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT, grund: GRUND });
 
-    assert.equal(res.success, true);
-    assert.equal(res.success && res.versand, "gesendet");
-    assert.doesNotMatch(res.success ? (res.message ?? "") : "", /Hinweis an die bisherige Adresse/);
+    assert.match(res.success ? (res.message ?? "") : "", /Unter der neuen Adresse stehen schon Einträge bei der Liga\./);
   });
 
   /* A withheld or barred link was filed rather than lost (`docs/frontend/spec.md :: I228`, `:: I542`). */
   it("reads a barred link as filed, naming no address, and a refused one as failed", async () => {
     mail.answerWith(({ to }) => (to === NEU ? "barred" : "accepted"));
-    const barred = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
+    const barred = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT, grund: GRUND });
     mail.answerWith(({ to }) => (to === NEU ? "refused" : "accepted"));
-    const refused = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
+    const refused = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT, grund: GRUND });
 
     assert.equal(barred.success && barred.versand, "gesperrt");
     assert.doesNotMatch(barred.success ? (barred.message ?? "") : "", /@/);
@@ -180,43 +214,48 @@ describe("the request for a pupil's new address", () => {
   it("reports a notice to the stored address that did not leave, beside a link that did", async () => {
     mail.answerWith(({ to }) => (to === BISHER ? "refused" : "accepted"));
 
-    const requested = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
-    const resent = await einladeSpielerAdresswechselAction({ id: SPIELER_ID });
+    const res = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT, grund: GRUND });
 
-    for (const res of [requested, resent]) {
-      assert.deepEqual(res.success ? [res.versand, res.hinweis] : [], ["gesendet", "fehlgeschlagen"]);
-    }
+    assert.deepEqual(res.success ? [res.versand, res.hinweis] : [], ["gesendet", "fehlgeschlagen"]);
   });
 
-  /* A courtesy beside a saved write words its own doubt (`docs/frontend/spec.md :: I372`): the request and its link
+  /* A notice beside a saved write words its own doubt (`docs/frontend/spec.md :: I372`): the start and its link
      stand, so the press is never answered as of unknown outcome for the notice alone. */
   it("reports a notice whose send broke off unanswered as unclear, beside the link that went", async () => {
     mail.answerWith(({ to }) => (to === BISHER ? "lost" : "accepted"));
 
-    const requested = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
-    const resent = await einladeSpielerAdresswechselAction({ id: SPIELER_ID });
+    const res = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT, grund: GRUND });
 
-    for (const res of [requested, resent]) {
-      assert.deepEqual(res.success ? [res.versand, res.hinweis] : [res], ["gesendet", "ungewiss"]);
-      assert.match(
-        res.success ? (res.message ?? "") : "",
-        /Ob der Hinweis an die bisherige Adresse angekommen ist, ist unklar\. Sag der Person selbst Bescheid\./,
-      );
-    }
+    assert.deepEqual(res.success ? [res.versand, res.hinweis] : [res], ["gesendet", "ungewiss"]);
+    assert.match(
+      res.success ? (res.message ?? "") : "",
+      /Ob der Hinweis an die bisherige Adresse angekommen ist, ist unklar\. Sag der Person selbst Bescheid\./,
+    );
   });
 
-  it("mails nothing where the request was refused", async () => {
-    request = () => refusedOn(REQUEST_OPERATION, "REQ-SPIELER-006");
+  it("mails nothing where the start was refused, and puts a name in the reason on the reason's box", async () => {
+    request = () => refusedOn(REQUEST_OPERATION, "REQ-SPIELER-009");
 
-    const res = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
+    const res = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT, grund: "Lena hat angerufen" });
 
     assert.equal(res.success, false);
+    assert.equal(res.success ? undefined : res.fieldErrors?.grund, "Der Grund enthält ein Wort, das einem Namen der Person gleicht.");
     assert.deepEqual(mailedTo(), []);
+  });
+
+  /* The reason is kept with the log a year, where no redaction reaches it. */
+  it("refuses an address in the reason before it sends anything", async () => {
+    const res = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT, grund: "Anfrage von mira@schule.de" });
+
+    assert.equal(res.success, false);
+    assert.equal(res.success ? undefined : res.fieldErrors?.grund, "Der Grund darf keine E-Mail-Adresse enthalten.");
+    assert.deepEqual(client.calls, []);
   });
 });
 
 describe("the pending change's two controls", () => {
-  it("re-sends once to the pending address, notices the one in force, and says the earlier link is dead", async () => {
+  /* The stop link in the stored mailbox keeps working, so a fresh notice would only kill the one its holder may be pressing. */
+  it("re-sends to the pending address alone, notices nobody, and says the earlier link is dead", async () => {
     const res = await einladeSpielerAdresswechselAction({ id: SPIELER_ID });
 
     assert.equal(res.success, true);
@@ -226,7 +265,8 @@ describe("the pending change's two controls", () => {
         .map(({ endpoint, method }) => `${String(method)} ${endpoint}`),
       [`POST /spieler/${SPIELER_ID}/adresswechsel/einladen`],
     );
-    assert.deepEqual(mailedTo().sort(), [BISHER, NEU].sort());
+    assert.deepEqual(mailedTo(), [NEU]);
+    assert.deepEqual(res.success ? [res.versand, res.hinweis] : [res], ["gesendet", null]);
     assert.match(res.success ? (res.message ?? "") : "", /Der vorherige Link gilt nicht mehr\./);
   });
 
@@ -274,7 +314,7 @@ describe("an address write from a session past the step-up window", () => {
     setFresh(false);
 
     for (const res of [
-      await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT }),
+      await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT, grund: null }),
       await einladeSpielerAdresswechselAction({ id: SPIELER_ID }),
       await verwirfSpielerAdresswechselAction({ id: SPIELER_ID }),
     ]) {
@@ -287,10 +327,19 @@ describe("an address write from a session past the step-up window", () => {
 });
 
 describe("what the administrator is told about an address change's messages", () => {
+  const MINT = { email: NEU, gueltig_bis: "2026-10-21T11:30:00Z", adresse_belegt: false };
+
   it("names the new address on the link and asks for a second route only where the notice failed", () => {
-    assert.match(describeSpielerAdresswechselMail(NEU, { link: "gesendet", hinweis: "gesendet" }), /ging an Lena@neu\.example/);
-    assert.doesNotMatch(describeSpielerAdresswechselMail(NEU, { link: "gesendet", hinweis: "gesperrt" }), /Hinweis/);
-    assert.match(describeSpielerAdresswechselMail(NEU, { link: "gesendet", hinweis: "fehlgeschlagen" }), /Sag der Person selbst Bescheid/);
+    assert.match(describeAdresswechselMail(MINT, { weg: "konto", link: "gesendet", hinweis: "gesendet" }), /ging an Lena@neu\.example/);
+    assert.doesNotMatch(describeAdresswechselMail(MINT, { weg: "konto", link: "gesendet", hinweis: "gesperrt" }), /Hinweis/);
+    assert.match(
+      describeAdresswechselMail(MINT, { weg: "konto", link: "gesendet", hinweis: "fehlgeschlagen" }),
+      /Sag der Person selbst Bescheid/,
+    );
+  });
+
+  it("states the approval's deadline where no link went, to the minute in Berlin", () => {
+    assert.match(describeAdresswechselMail(MINT, { weg: "freigabe", link: null, hinweis: "gesendet" }), /bis 21\. Oktober 2026 um 13:30\./);
   });
 });
 
@@ -308,6 +357,12 @@ describe("what one refused answer asks the address page to show", () => {
       assert.deepEqual(mapSpielerAdresswechselRefusal(refusedOn(ANSWER_OPERATION, code)), { zustand: zustand });
     });
   }
+
+  it("answers a stop link nothing matches as the void link's panel", () => {
+    assert.deepEqual(mapSpielerAdresswechselRefusal(refusedOn("POST /spieler/adresswechsel/stopp", "REQ-SPIELER-001")), {
+      zustand: "ungueltig",
+    });
+  });
 
   it("sends a body the API could not read back to the mail's link", () => {
     assert.deepEqual(mapSpielerAdresswechselRefusal(refusedOn(ANSWER_OPERATION, "REQ-VAL-002")), { error: ANTWORT_NEU_OEFFNEN });

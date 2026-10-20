@@ -113,7 +113,7 @@ describe("what each address write answers a refusal with", () => {
     await assertEachAnswered({
       operation: REQUEST_OPERATION,
       refuseWith: answerWith,
-      act: () => beantrageSpielerAdresswechselAction({ id: KEY.spieler_id, email: "lena@neu.example" }),
+      act: () => beantrageSpielerAdresswechselAction({ id: KEY.spieler_id, email: "lena@neu.example", grund: null }),
       mapped: mapAdresswechselAntragRefusal,
     });
   });

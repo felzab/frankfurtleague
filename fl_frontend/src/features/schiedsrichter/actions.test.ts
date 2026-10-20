@@ -274,42 +274,6 @@ describe("what the save tells the administrator about the message it sent", () =
     });
   }
 
-  /* A notice to the address in force that failed asks the administrator to tell the person, which a clean save
-     contradicts; one held back asks nothing (`docs/frontend/spec.md :: I679`). */
-  for (const [hinweis, variant, title] of [
-    ["fehlgeschlagen", "warning", "Mit Folgen gespeichert"],
-    ["zurueckgehalten", "success", "Änderung gespeichert"],
-  ] as const) {
-    it(`grades a save whose link went and whose notice is ${hinweis} a ${variant}`, async () => {
-      answerWith(() =>
-        Promise.resolve({
-          success: true,
-          updated_document: null,
-          message: "Schiedsrichter bearbeitet",
-          versandSatz: VERSAND_SATZ,
-          versand: "gesendet",
-          hinweis: hinweis,
-        }),
-      );
-
-      const user = userEvent.setup();
-      const { unmount } = renderEditor();
-      const before = toasts.length;
-      await user.type(screen.getByRole("textbox", { name: /Schule/ }), "n");
-      await user.click(screen.getAllByRole("button", { name: "Speichern" })[0]!);
-      await act(answered);
-      await waitFor(() => {
-        assert.ok(toasts.length > before, "the save raised no toast at all");
-      });
-
-      assert.deepEqual(
-        toasts.slice(before).map((raised) => [raised.variant, raised.title]),
-        [[variant, title]],
-      );
-      unmount();
-    });
-  }
-
   it("falls back to the editor's own sentence where the save mailed nothing", async () => {
     answerWith(() => Promise.resolve({ success: true, updated_document: null, message: "Schiedsrichter bearbeitet" }));
 
@@ -467,7 +431,17 @@ describe("which link the editor's page marks as lapsed", () => {
     const record = {
       einwilligung: BESTAETIGT,
       bestaetigung,
-      adresswechsel: { email: "anna@neu.example", verschickt_am: "2026-10-01", frist, zustellung: null },
+      adresswechsel: {
+        email: "anna@neu.example",
+        weg: "konto" as const,
+        verschickt_am: "2026-10-01",
+        gueltig_bis: "2020-01-01T11:00:00Z",
+        freigegeben_am: null,
+        grund: null,
+        bestaetigt_am: null,
+        wirksam_ab: null,
+        zustellung: null,
+      },
     };
     const served = { bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: true };
 

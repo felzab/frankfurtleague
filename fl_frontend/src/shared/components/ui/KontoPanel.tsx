@@ -11,11 +11,14 @@ import type { ReactNode } from "react";
  */
 export function KontoPanel({
   email,
+  adresswechsel,
   sicherheit,
   einwilligung,
   loeschung,
 }: {
   email: string;
+  /** The address control beside the address it would change, empty where the address holds nothing it moves. */
+  adresswechsel: ReactNode;
   sicherheit: ReactNode;
   einwilligung: ReactNode;
   loeschung: ReactNode;
@@ -34,12 +37,15 @@ export function KontoPanel({
               title="Anmeldung"
             />
           </div>
-          <dl className={panel.body()}>
-            <Angabe label="E-Mail-Adresse">
-              {/* Broken anywhere, as every page showing the sign-in address breaks it. */}
-              <span className="break-all">{email}</span>
-            </Angabe>
-          </dl>
+          <div className={panel.body()}>
+            <dl>
+              <Angabe label="E-Mail-Adresse">
+                {/* Broken anywhere, as every page showing the sign-in address breaks it. */}
+                <span className="break-all">{email}</span>
+              </Angabe>
+            </dl>
+            {adresswechsel}
+          </div>
         </section>
 
         {sicherheit}
