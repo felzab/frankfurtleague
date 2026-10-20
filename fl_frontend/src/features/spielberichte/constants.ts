@@ -64,10 +64,12 @@ export const SPIELBERICHT_ZUSTAND_TONE: Record<FLSpielberichtZustand, PillTone> 
 };
 
 /**
- * The states awaiting the administrator, named rather than read off the others, as the backend's
- * `BERICHT_ZUSTAENDE_OFFEN` names them: a state added later awaits nobody until it is named here.
+ * The states awaiting the administrator, named rather than read off the others: a state added later awaits nobody
+ * until it is named here. Mirrors `fl_backend/app/api/spielberichte/services.py :: BERICHT_ZUSTAENDE_OFFEN`, which
+ * decides the fixtures the triage unions in; `fl_backend/tests/shared/test_frontend_mirrors.py` holds the two equal.
  */
-export const SPIELBERICHT_ZUSTAENDE_OFFEN: ReadonlySet<FLSpielberichtZustand> = new Set(["vorgeschlagen", "abweichend", "teams_geaendert"]);
+const ZUSTAENDE_OFFEN = ["vorgeschlagen", "abweichend", "teams_geaendert"] as const satisfies readonly FLSpielberichtZustand[];
+export const SPIELBERICHT_ZUSTAENDE_OFFEN: ReadonlySet<FLSpielberichtZustand> = new Set(ZUSTAENDE_OFFEN);
 
 /**
  * What every report surface says while `SPIELBERICHT_EINGABE` reads off. Never „noch nicht“: the switch can go off again
