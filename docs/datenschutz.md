@@ -295,7 +295,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   after their seating keeps the seat, and their link takes no confirmation
   (`docs/backend/spec.md :: I505`). A mailbox a save takes off the row is told, naming nobody, that
   its entry and every link it was sent there are gone; a club's replacement, an erasure, a
-  Widerspruch and the season's end tell nobody (`docs/backend/spec.md :: I804`). Ruled 2026-10-20.
+  Widerspruch and the season's end tell nobody (`docs/backend/spec.md :: I807`). Ruled 2026-10-20.
 
 ## 3. The current pupil records are reset once
 

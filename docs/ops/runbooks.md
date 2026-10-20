@@ -1755,7 +1755,7 @@ the export wrote no file for. Each line is listed by its act and its record, nev
 - **An address change that took effect before its person's erasure**, where the restored database
   holds the new address nowhere, is listed as an erasure, at the address it replaced: a snapshot from
   before the change holds the person's records there
-  ([`../backend/spec.md`](../backend/spec.md#2-invariants) I804).
+  ([`../backend/spec.md`](../backend/spec.md#2-invariants) I808).
 - **A choice** reads `to replay`; `already done` where the restored record already stands as the
   choice left it, or the restored site set it since: the choice granted again by evidence later than
   the line, the seat sent a link or the address a change on a day after the snapshot's; `left for
