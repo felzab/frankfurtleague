@@ -159,6 +159,27 @@ def compose_genehmigt_update(*, akteur: str, now: datetime) -> dict[str, Any]:
     return {"$set": {"genehmigung.genehmigt_am": now.astimezone(UTC), "genehmigung.genehmigt_von": akteur}}
 
 
+def compose_postausgang(
+    *, art: Literal["wirksam", "verworfen"], email: str, now: datetime, bisherige_email: str | None, vorname: str | None, weg: str | None
+) -> dict[str, Any]:
+    """One notice an end owes, queued in the end's own transaction: its answer alone carried it, and a lost answer lost it.
+
+    Unclaimed until a pass claims it (`app/api/berechtigungen/services.py :: BEANSPRUCHUNG_DAUER`'s lease).
+    """
+
+    return {
+        "art": art,
+        "bisherige_email": bisherige_email,
+        "email": email,
+        "vorname": vorname,
+        "weg": weg,
+        "erfasst_am": now.astimezone(UTC),
+        "beansprucht_bis": None,
+        "beanspruchung": None,
+        "versuche": 0,
+    }
+
+
 def compose_genehmigung_widerrufen_update() -> dict[str, Any]:
     """An approval that does not stand, taken off: its request's instant and deadline stay, so a new approval is judged as the first."""
 

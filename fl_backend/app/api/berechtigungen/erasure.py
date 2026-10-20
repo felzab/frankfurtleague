@@ -144,6 +144,12 @@ async def carry_authorship_in_session(
     return carried
 
 
+async def carry_decisions_in_session(*, registrierungen_collection: AsyncCollection, alt: str, neue: str, session: AsyncClientSession) -> int:
+    """Re-key the registrations a person holding no grant declined, a seat holder deciding under their own address."""
+
+    return await _set_authored(registrierungen_collection, "entscheidung.von", alt, neue, session)
+
+
 async def _set_authored(collection: AsyncCollection, field: str, identifier: str, value: str, session: AsyncClientSession) -> int:
     """Put `value` in `field` of every record this person made, by id, so the log keeps the ids and no address."""
 

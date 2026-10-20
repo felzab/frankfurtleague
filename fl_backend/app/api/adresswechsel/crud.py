@@ -20,13 +20,13 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.adresswechsel.schemas import FLAdresswechselMitteilung
 from app.api.adresswechsel.services import (
     LIVE_TERMS,
     FLAdresswechselEndeArt,
     build_address_filter,
     compose_end_update,
     compose_genehmigung_widerrufen_update,
+    compose_postausgang,
     deckt,
     find_abgelaufen_refusal,
     find_bestaetigung_gesperrt_refusal,
@@ -38,7 +38,7 @@ from app.api.adresswechsel.services import (
 from app.api.aktionen.crud import carry_the_replaced_address_in_images, reattribute_administrator_in_session, redact_images_in_session
 from app.api.aktionen.services import IMAGE_ADDRESSES
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
-from app.api.berechtigungen.erasure import carry_authorship_in_session
+from app.api.berechtigungen.erasure import carry_authorship_in_session, carry_decisions_in_session
 from app.api.berechtigungen.services import genehmigung_steht, lebendige_adresse
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import RecordCollections
@@ -59,7 +59,8 @@ from app.api.spieler.services import build_selbst_pupil_filter
 from app.api.teams.crud import void_moved_seats
 from app.core.adressanker import anchor_the_addresses
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
+from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
+from app.core.drosselung import carry_counts_in_session
 from app.core.exceptions import WriteRefusal
 from app.core.journal import Journal, JournalLine
 from app.core.recording import ERASED_ACTOR_MARKER, build_redaction_filter, log_stamp
@@ -430,6 +431,8 @@ async def take_effect_in_session(
     berechtigungen_postausgang_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
+    adresswechsel_postausgang_collection: AsyncCollection,
+    drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     adressanker_collection: AsyncCollection,
     schluessel: SecretStr,
@@ -439,8 +442,8 @@ async def take_effect_in_session(
     abgelaufen: bool = False,
     # False for a confirmation that starts a waiting time: judged as the effect will be, and moving nothing yet.
     jetzt: bool = True,
-) -> tuple[Urteil, FLAdresswechselMitteilung | None]:
-    """Judge the change and move it where nothing refuses it or is owed, answering the notice to mail.
+) -> tuple[Urteil, bool]:
+    """Judge the change and move it where nothing refuses it or is owed, answering whether it took effect.
 
     A change finding nothing to move ends discarded; a refusal, an owed approval and a waiting time write nothing
     (`Urteil.wartet`).
@@ -470,9 +473,9 @@ async def take_effect_in_session(
             return_document=ReturnDocument.BEFORE,
         )
     if urteil.ursache is not None or urteil.wartet:
-        return urteil, None
+        return urteil, False
     if not jetzt and not urteil.leer:
-        return Urteil(ursache=None, leer=False, wartet=True), None
+        return Urteil(ursache=None, leer=False, wartet=True), False
 
     stamp = log_stamp(now)
     if urteil.leer:
@@ -489,9 +492,9 @@ async def take_effect_in_session(
         journal.note(
             ending_line(art="adresswechsel_verworfen", neue=str(record["email"]), record_id=record["_id"], am=stamp, schluessel=schluessel)
         )
-        return urteil, None
+        return urteil, False
 
-    mitteilung = await move_the_address_in_session(
+    await move_the_address_in_session(
         record=record,
         bestand=bestand,
         sperrliste=sperrliste,
@@ -507,6 +510,8 @@ async def take_effect_in_session(
         berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
         einladungen_collection=einladungen_collection,
         sperrliste_collection=sperrliste_collection,
+        adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+        drosselung_collection=drosselung_collection,
         aktionen_collection=aktionen_collection,
         adressanker_collection=adressanker_collection,
         schluessel=schluessel,
@@ -515,7 +520,7 @@ async def take_effect_in_session(
     )
     journal.note(wirksam_line(record=record, now=now, schluessel=schluessel))
 
-    return urteil, mitteilung
+    return urteil, True
 
 
 async def move_the_address_in_session(
@@ -535,12 +540,14 @@ async def move_the_address_in_session(
     berechtigungen_postausgang_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
+    adresswechsel_postausgang_collection: AsyncCollection,
+    drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     adressanker_collection: AsyncCollection,
     schluessel: SecretStr,
     now: datetime,
     session: AsyncClientSession,
-) -> FLAdresswechselMitteilung:
+) -> None:
     """Move everything `bestand` holds to the change's address in the caller's transaction, then end it as taken effect.
 
     One patch per row, never a fan-out, so each row's own history keeps the write that moved it (`docs/backend/spec.md :: I40`).
@@ -656,13 +663,50 @@ async def move_the_address_in_session(
         )
         await _reattribute_the_changes(adresswechsel_collection, alt, neu, session=session)
         await reattribute_administrator_in_session(aktionen_collection=aktionen_collection, identifier=alt, value=neu, session=session)
+    else:
+        # A seat holder declines a registration under their own address, as an administrator does.
+        await carry_decisions_in_session(registrierungen_collection=registrierungen_collection, alt=alt, neue=neu, session=session)
     await carry_the_replaced_address_in_images(
         aktionen_collection=aktionen_collection,
         alt=alt,
         neue=neu,
-        # Only an administrator wrote as one; every person may have started a change before.
-        collections=tuple(IMAGE_ADDRESSES) if bestand.berechtigung is not None else (Collection.ADRESSWECHSEL,),
+        # Only an administrator wrote as one; every person may have started a change, and declined a registration, before.
+        collections=tuple(IMAGE_ADDRESSES) if bestand.berechtigung is not None else (Collection.ADRESSWECHSEL, Collection.REGISTRIERUNGEN),
         stamp=stamp,
+        session=session,
+    )
+    # The day's counts follow the pseudonym, or every effect hands the person a fresh day (`docs/backend/spec.md :: I797`).
+    await carry_counts_in_session(
+        drosselung_collection=drosselung_collection,
+        alt=akteur_pseudonym(alt, schluessel=schluessel),
+        neu=akteur_pseudonym(neu, schluessel=schluessel),
+        session=session,
+    )
+    # An earlier effect's notice still queued carries its account to where the person is now, and an erasure there finds it.
+    queued = await aggregate_many_from_db(
+        collection=adresswechsel_postausgang_collection,
+        pipeline=[{"$match": {"email": same_address(alt)}}, {"$project": {"email": 1}}],
+        session=session,
+    )
+    if earlier := [row["_id"] for row in queued if folds_to(row.get("email"), alt)]:
+        await patch_many_in_db(
+            collection=adresswechsel_postausgang_collection,
+            db_filter={"_id": {"$in": earlier}},
+            update={"$set": {"email": neue}},
+            session=session,
+        )
+    # In this transaction, so a commit whose answer was lost still owes its notice (`docs/backend/spec.md :: I835`).
+    await post_one_to_db(
+        collection=adresswechsel_postausgang_collection,
+        document=compose_postausgang(
+            art="wirksam",
+            bisherige_email=alt,
+            email=neue,
+            # Greeting nobody on the lost-mailbox way: that mailbox may have passed to a stranger.
+            vorname=None if record["weg"] == "wartezeit" else bestand.vorname,
+            weg=record["weg"],
+            now=now,
+        ),
         session=session,
     )
 
@@ -671,8 +715,6 @@ async def move_the_address_in_session(
     await anchor_the_addresses(
         [neue, bestand.identifier], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session
     )
-
-    return FLAdresswechselMitteilung(bisherige_email=bestand.identifier, email=neue, vorname=bestand.vorname, weg=record["weg"])
 
 
 async def _move_the_grant(
@@ -823,6 +865,7 @@ _GENEHMIGUNG_AKTEURE: Final = ("genehmigung.gestartet_von", "genehmigung.genehmi
 async def end_the_address_changes_in_session(
     *,
     adresswechsel_collection: AsyncCollection,
+    adresswechsel_postausgang_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     identifier: str,
     # The subject's rows, read before the erasure's first write.
@@ -850,6 +893,18 @@ async def end_the_address_changes_in_session(
 
     # Read after the endings, which took the approval off every change they ended.
     await _reattribute_the_changes(adresswechsel_collection, identifier, ERASED_ACTOR_MARKER, session=session)
+
+    # A notice still owed to the erased person goes undelivered: by id, imageless, as a delivered one is removed.
+    owed = await aggregate_many_from_db(
+        collection=adresswechsel_postausgang_collection,
+        pipeline=[
+            {"$match": {"$or": [{"bisherige_email": same_address(identifier)}, {"email": same_address(identifier)}]}},
+            {"$project": {"bisherige_email": 1, "email": 1}},
+        ],
+        session=session,
+    )
+    if ids := [row["_id"] for row in owed if folds_to(row.get("bisherige_email"), identifier) or folds_to(row.get("email"), identifier)]:
+        await erase_many_from_db(collection=adresswechsel_postausgang_collection, db_filter={"_id": {"$in": ids}}, session=session)
 
     return len(rows)
 

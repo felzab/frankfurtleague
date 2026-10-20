@@ -536,7 +536,9 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ),
     # No kind's alone: a change belongs to the address, whatever it holds, and another address's to that one.
     ErasureStep(
-        reaches=frozenset({Collection.ADRESSWECHSEL, Collection.AKTIONEN}), personengruppe=None, run=end_the_address_changes_in_session
+        reaches=frozenset({Collection.ADRESSWECHSEL, Collection.ADRESSWECHSEL_POSTAUSGANG, Collection.AKTIONEN}),
+        personengruppe=None,
+        run=end_the_address_changes_in_session,
     ),
     ErasureStep(
         reaches=frozenset({Collection.SPIELBESTAETIGUNGEN, Collection.AKTIONEN}),
@@ -625,6 +627,7 @@ async def erase_everything(
     sperrliste_collection: AsyncCollection,
     adressanker_collection: AsyncCollection,
     adresswechsel_collection: AsyncCollection,
+    adresswechsel_postausgang_collection: AsyncCollection,
     sperrliste: BanList,
     # Whom the grant notice names as ending the person's grant: the person on their own request, the
     # administrator on theirs.
@@ -687,6 +690,7 @@ async def erase_everything(
     if _runs(end_the_address_changes_in_session, scope):
         adresswechsel = await end_the_address_changes_in_session(
             adresswechsel_collection=adresswechsel_collection,
+            adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
             aktionen_collection=aktionen_collection,
             identifier=identifier,
             rows=subject.adresswechsel,
@@ -994,6 +998,7 @@ async def erase_if_still_due(
     sperrliste_collection: AsyncCollection,
     adressanker_collection: AsyncCollection,
     adresswechsel_collection: AsyncCollection,
+    adresswechsel_postausgang_collection: AsyncCollection,
     sperrliste: BanList,
     schluessel: SecretStr,
     stamp: str,
@@ -1062,6 +1067,7 @@ async def erase_if_still_due(
         sperrliste_collection=sperrliste_collection,
         adressanker_collection=adressanker_collection,
         adresswechsel_collection=adresswechsel_collection,
+        adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
         sperrliste=sperrliste,
         # Read by the grants step alone, which this scope never runs.
         geaendert_von=SYSTEM_ACTOR_EMAIL,

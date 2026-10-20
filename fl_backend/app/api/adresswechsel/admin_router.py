@@ -64,12 +64,14 @@ from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     AdressankerCollection,
     AdresswechselCollection,
+    AdresswechselPostausgangCollection,
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
     BerechtigungenPostausgangCollection,
     BewerbungenCollection,
     DBClient,
+    DrosselungCollection,
     EinladungenCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
@@ -578,6 +580,8 @@ async def post_adresswechsel_genehmigung(
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
+    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
+    drosselung_collection: DrosselungCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
     adressanker_collection: AdressankerCollection,
@@ -592,8 +596,8 @@ async def post_adresswechsel_genehmigung(
 
     Where the new mailbox has confirmed and no waiting time remains, the change takes effect in this transaction: the grant
     is revoked at the replaced address and granted at the new one under this administrator's name, announced to every
-    administrator as a grant and a revoke are, and everything else the address holds moves; `mitteilung` names whom the
-    caller's completion notice greets. Otherwise the approval is recorded and the change takes effect at its confirmation
+    administrator as a grant and a revoke are, and everything else the address holds moves, its completion notice queued
+    in this transaction. Otherwise the approval is recorded and the change takes effect at its confirmation
     or at the end of its waiting time. **An approval refused writes nothing**: the change stands unapproved.
 
     Refused where the change asks no approval or was given it (`REQ-ADRESSWECHSEL-012`), where its seven days have passed
@@ -631,9 +635,9 @@ async def post_adresswechsel_genehmigung(
             return_document=ReturnDocument.AFTER,
         )
         if not ist_faellig(approved, now=germany_now):
-            return FLAdresswechselGenehmigungResponse(id=adresswechsel_id, wirksam=False, mitteilung=None)
+            return FLAdresswechselGenehmigungResponse(id=adresswechsel_id, wirksam=False)
 
-        urteil, mitteilung = await take_effect_in_session(
+        urteil, wirksam = await take_effect_in_session(
             record=approved,
             records=records,
             sperrliste=sperrliste,
@@ -650,6 +654,8 @@ async def post_adresswechsel_genehmigung(
             berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
+            adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+            drosselung_collection=drosselung_collection,
             aktionen_collection=aktionen_collection,
             adressanker_collection=adressanker_collection,
             schluessel=config.sperrliste_schluessel,
@@ -661,7 +667,7 @@ async def post_adresswechsel_genehmigung(
         if urteil.leer:
             return None
 
-        return FLAdresswechselGenehmigungResponse(id=adresswechsel_id, wirksam=mitteilung is not None, mitteilung=mitteilung)
+        return FLAdresswechselGenehmigungResponse(id=adresswechsel_id, wirksam=wirksam)
 
     async with journal:
         async with transaction_session(db) as session:

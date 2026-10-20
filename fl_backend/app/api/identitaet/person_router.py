@@ -23,6 +23,7 @@ from app.core.db import get_drosselung_collection
 from app.core.dependencies import (
     AdressankerCollection,
     AdresswechselCollection,
+    AdresswechselPostausgangCollection,
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
@@ -86,6 +87,7 @@ async def erase_selbst(
     sperrliste_collection: SperrlisteCollection,
     adressanker_collection: AdressankerCollection,
     adresswechsel_collection: AdresswechselCollection,
+    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     sperrliste: SperrlisteLookup,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_person_confirmation_check)],
     db: DBClient,
@@ -157,6 +159,7 @@ async def erase_selbst(
             sperrliste_collection=sperrliste_collection,
             adressanker_collection=adressanker_collection,
             adresswechsel_collection=adresswechsel_collection,
+            adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
             sperrliste=sperrliste,
             geaendert_von=identifier,
             schluessel=config.sperrliste_schluessel,

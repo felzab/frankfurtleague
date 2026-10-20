@@ -361,12 +361,14 @@ AGGREGATES: tuple[Aggregate, ...] = (
     Aggregate(
         name="Adresswechsel",
         root=Collection.ADRESSWECHSEL,
-        members=(),
+        members=(Collection.ADRESSWECHSEL_POSTAUSGANG,),
         boundary=(
             "One live change per address, `uniq_adresswechsel_adresse`. The records it moves are the address's, read at "
             "the effect, never stored on the change: a registration committed during its waiting time moves too. So it is "
             "in no boundary with `spieler`, a seat, a referee or a grant, each of which the effect writes in its own "
-            "transaction beside the change's end. An ended change keeps no address and is removed by its TTL index."
+            "transaction beside the change's end. An ended change keeps no address and is removed by its TTL index. The "
+            "outbox joins it because an end owing a notice queues it in the end's own transaction, so a commit whose "
+            "answer was lost still has its notice delivered."
         ),
     ),
 )

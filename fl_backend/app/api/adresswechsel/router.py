@@ -44,12 +44,14 @@ from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     AdressankerCollection,
     AdresswechselCollection,
+    AdresswechselPostausgangCollection,
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
     BerechtigungenPostausgangCollection,
     BewerbungenCollection,
     DBClient,
+    DrosselungCollection,
     EinladungenCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
@@ -196,6 +198,8 @@ async def post_adresswechsel_antwort(
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
+    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
+    drosselung_collection: DrosselungCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
     adressanker_collection: AdressankerCollection,
@@ -209,8 +213,9 @@ async def post_adresswechsel_antwort(
     **A confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's
     start with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this
     transaction: every pupil row, confirmed referee row, confirmed contact seat, registration and grant the address on
-    file holds moves to the new one, asking no consent and writing none, and `mitteilung` names whom the caller's
-    completion notice greets. A change that waits is confirmed alone, answering `wirksam_ab` or `genehmigung_offen`.
+    file holds moves to the new one, asking no consent and writing none, and `wirksam` says so; its completion notice is
+    queued in this transaction for `POST /adresswechsel/sweep/postausgang`. A change that waits is confirmed alone,
+    answering `wirksam_ab` or `genehmigung_offen`.
     Either answer spends the link, which keeps answering what became of the change.
 
     Refuses a token no change holds (`REQ-ADRESSWECHSEL-001`), a link already answered or a change ended
@@ -260,9 +265,9 @@ async def post_adresswechsel_antwort(
                     schluessel=config.sperrliste_schluessel,
                 )
             )
-            return FLAdresswechselAntwortResponse(antwort="abgelehnt", wirksam_ab=None, genehmigung_offen=False, mitteilung=None)
+            return FLAdresswechselAntwortResponse(antwort="abgelehnt", wirksam_ab=None, genehmigung_offen=False, wirksam=False)
 
-        urteil, mitteilung = await take_effect_in_session(
+        urteil, wirksam = await take_effect_in_session(
             record=record,
             records=records,
             sperrliste=sperrliste,
@@ -279,6 +284,8 @@ async def post_adresswechsel_antwort(
             berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
+            adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+            drosselung_collection=drosselung_collection,
             aktionen_collection=aktionen_collection,
             adressanker_collection=adressanker_collection,
             schluessel=config.sperrliste_schluessel,
@@ -291,8 +298,8 @@ async def post_adresswechsel_antwort(
         refuse(refusal_of(urteil.ursache))
         if urteil.leer:
             return None
-        if mitteilung is not None:
-            return FLAdresswechselAntwortResponse(antwort="bestaetigt", wirksam_ab=None, genehmigung_offen=False, mitteilung=mitteilung)
+        if wirksam:
+            return FLAdresswechselAntwortResponse(antwort="bestaetigt", wirksam_ab=None, genehmigung_offen=False, wirksam=True)
 
         bestaetigt: Mapping[str, Any] = await patch_one_in_db(
             collection=adresswechsel_collection,
@@ -305,7 +312,7 @@ async def post_adresswechsel_antwort(
             antwort="bestaetigt",
             wirksam_ab=als_utc(bestaetigt.get("wirksam_ab")),
             genehmigung_offen=genehmigung_offen(bestaetigt),
-            mitteilung=None,
+            wirksam=False,
         )
 
     async with journal:

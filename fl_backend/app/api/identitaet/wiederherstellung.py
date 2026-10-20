@@ -473,6 +473,8 @@ async def _plan_adresswechsel_wirksam(
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
             einladungen_collection=database[Collection.EINLADUNGEN],
             sperrliste_collection=database[Collection.SPERRLISTE],
+            adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
+            drosselung_collection=database[Collection.DROSSELUNG],
             aktionen_collection=database[Collection.AKTIONEN],
             adressanker_collection=database[Collection.ADRESSANKER],
             schluessel=schluessel,

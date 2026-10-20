@@ -7411,7 +7411,7 @@
     "/api/v0/adresswechsel/{adresswechsel_id}/genehmigung": {
       "post": {
         "summary": "Approve the move of an administrator's access with their address change",
-        "description": "Approve the move of an administrator's grant with the change of their address, the second pair of eyes the change waits on.\n\nWhere the new mailbox has confirmed and no waiting time remains, the change takes effect in this transaction: the grant\nis revoked at the replaced address and granted at the new one under this administrator's name, announced to every\nadministrator as a grant and a revoke are, and everything else the address holds moves; `mitteilung` names whom the\ncaller's completion notice greets. Otherwise the approval is recorded and the change takes effect at its confirmation\nor at the end of its waiting time. **An approval refused writes nothing**: the change stands unapproved.\n\nRefused where the change asks no approval or was given it (`REQ-ADRESSWECHSEL-012`), where its seven days have passed\n(`-003`), to the changed address and to the administrator who started it (`-013`), to anyone but an owner, signed in\nsince becoming one, where the grant is an owner's (`-014`), and where the change ended (`-002`); and, where it would\ntake effect, as the confirmation is (`-004`, `-005`, `-006`, `-015`, `-016`). A change whose address has come to hold\nnothing to move ends discarded, answering `-002`. 404 for an id naming no change. A sign-in or confirmation older than\n`ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.",
+        "description": "Approve the move of an administrator's grant with the change of their address, the second pair of eyes the change waits on.\n\nWhere the new mailbox has confirmed and no waiting time remains, the change takes effect in this transaction: the grant\nis revoked at the replaced address and granted at the new one under this administrator's name, announced to every\nadministrator as a grant and a revoke are, and everything else the address holds moves, its completion notice queued\nin this transaction. Otherwise the approval is recorded and the change takes effect at its confirmation\nor at the end of its waiting time. **An approval refused writes nothing**: the change stands unapproved.\n\nRefused where the change asks no approval or was given it (`REQ-ADRESSWECHSEL-012`), where its seven days have passed\n(`-003`), to the changed address and to the administrator who started it (`-013`), to anyone but an owner, signed in\nsince becoming one, where the grant is an owner's (`-014`), and where the change ended (`-002`); and, where it would\ntake effect, as the confirmation is (`-004`, `-005`, `-006`, `-015`, `-016`). A change whose address has come to hold\nnothing to move ends discarded, answering `-002`. 404 for an id naming no change. A sign-in or confirmation older than\n`ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.",
         "operationId": "post_adresswechsel_genehmigung_api_v0_adresswechsel__adresswechsel_id__genehmigung_post",
         "security": [
           {
@@ -8175,7 +8175,7 @@
     "/api/v0/adresswechsel/bestaetigung": {
       "post": {
         "summary": "Confirm or decline a pending address",
-        "description": "Record whether the mailbox this link was sent to is the person's: `bestaetigt` confirms it, `abgelehnt` ends the change.\n\n**A confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's\nstart with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this\ntransaction: every pupil row, confirmed referee row, confirmed contact seat, registration and grant the address on\nfile holds moves to the new one, asking no consent and writing none, and `mitteilung` names whom the caller's\ncompletion notice greets. A change that waits is confirmed alone, answering `wirksam_ab` or `genehmigung_offen`.\nEither answer spends the link, which keeps answering what became of the change.\n\nRefuses a token no change holds (`REQ-ADRESSWECHSEL-001`), a link already answered or a change ended\n(`REQ-ADRESSWECHSEL-002`), and, in the order the link's view ranks its states, a CONFIRMATION through a link mailed to\nan address the ban list holds now (`-004`), one past its deadline (`-003`), one whose change would replace an address\nthe ban list holds now (`-005`), so a barred person cannot move their records off the address the ban keys on, one\nmoving a pupil onto an address another pupil signs in on (`-006`), one whose address came to hold a grant its approval\ndoes not cover (`-015`), and one moving a grant onto an address holding one (`-016`). **A decline is refused none of\nthese**: it removes an address nobody proved, out of every log image of the change too.\n\nA change whose address has come to hold nothing to move ends discarded, and the press answers `-002`. The codes past\n`-004` tell a caller what the view's `nicht_bestaetigbar` keeps alike; only the edge keeps them from the link's holder.",
+        "description": "Record whether the mailbox this link was sent to is the person's: `bestaetigt` confirms it, `abgelehnt` ends the change.\n\n**A confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's\nstart with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this\ntransaction: every pupil row, confirmed referee row, confirmed contact seat, registration and grant the address on\nfile holds moves to the new one, asking no consent and writing none, and `wirksam` says so; its completion notice is\nqueued in this transaction for `POST /adresswechsel/sweep/postausgang`. A change that waits is confirmed alone,\nanswering `wirksam_ab` or `genehmigung_offen`.\nEither answer spends the link, which keeps answering what became of the change.\n\nRefuses a token no change holds (`REQ-ADRESSWECHSEL-001`), a link already answered or a change ended\n(`REQ-ADRESSWECHSEL-002`), and, in the order the link's view ranks its states, a CONFIRMATION through a link mailed to\nan address the ban list holds now (`-004`), one past its deadline (`-003`), one whose change would replace an address\nthe ban list holds now (`-005`), so a barred person cannot move their records off the address the ban keys on, one\nmoving a pupil onto an address another pupil signs in on (`-006`), one whose address came to hold a grant its approval\ndoes not cover (`-015`), and one moving a grant onto an address holding one (`-016`). **A decline is refused none of\nthese**: it removes an address nobody proved, out of every log image of the change too.\n\nA change whose address has come to hold nothing to move ends discarded, and the press answers `-002`. The codes past\n`-004` tell a caller what the view's `nicht_bestaetigbar` keeps alike; only the edge keeps them from the link's holder.",
         "operationId": "post_adresswechsel_antwort_api_v0_adresswechsel_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -9229,7 +9229,7 @@
     "/api/v0/adresswechsel/sweep": {
       "post": {
         "summary": "End the lapsed address changes, and make the due ones take effect",
-        "description": "End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.\n\n**A lapsed change** -- its link, the approval it asked of the address on file, or its grant's approval by another\nadministrator -- ends as `abgelaufen`: its address and reason out of the record and every log image of it\n(`entfernt`). **A due change**, one whose waiting time has ended and whose grant's move, where it moves one, was\napproved, is judged again as its confirmation was: a ban on either address, another pupil signing in on the new one,\na grant its approval does not cover, a grant at the new address, or nothing left to move ends it discarded, and\n`verworfen` answers its new address alone, which the caller tells it did not take effect and never why; otherwise\neverything the replaced address holds moves, and `wirksam` names whom the caller mails the completion notice.\n\nEach change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or\nreplaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `nach` the last\nanswered**, the first naming none; it ends at the call answering `nach` null. A call reaches at most a fixed share of the\nchanges after `nach`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is\nlogged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the\nrequest's deadline cuts the call, it stops at that change, warns once, and answers what it did. `verbleibend` counts\nthe changes standing due after the call, so it is no stopping condition.",
+        "description": "End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.\n\n**A lapsed change** -- its link, the approval it asked of the address on file, or its grant's approval by another\nadministrator -- ends as `abgelaufen`: its address and reason out of the record and every log image of it\n(`entfernt`). **A due change**, one whose waiting time has ended and whose grant's move, where it moves one, was\napproved, is judged again as its confirmation was: a ban on either address, another pupil signing in on the new one,\na grant its approval does not cover, a grant at the new address, or nothing left to move ends it discarded, and\n`verworfen` counts it, its new address queued to be told it did not take effect and never why; otherwise\neverything the replaced address holds moves, and `wirksam` counts it, its completion notice queued. The notices are\n`POST /adresswechsel/sweep/postausgang`'s to claim, queued in each change's own transaction, so none rides on this answer.\n\nEach change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or\nreplaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `nach` the last\nanswered**, the first naming none; it ends at the call answering `nach` null. A call reaches at most a fixed share of the\nchanges after `nach`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is\nlogged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the\nrequest's deadline cuts the call, it stops at that change, warns once, and answers what it did. `verbleibend` counts\nthe changes standing due after the call, so it is no stopping condition.",
         "operationId": "sweep_adresswechsel_api_v0_adresswechsel_sweep_post",
         "security": [
           {
@@ -9282,6 +9282,90 @@
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
         },
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/adresswechsel/sweep/postausgang": {
+      "post": {
+        "summary": "Claim the notices the address changes' ends still owe",
+        "description": "Claim, oldest first and a page at a time, every owed notice no claim holds or whose claim has lapsed, for ten minutes.\n\nEach end owing a notice queued it in its own transaction: an effect its completion notice and its sign-in account's\ncarry, a due change the pass refused its new address's notice. A second call inside the lease is answered none of\nthem; the caller delivers each and hands the ids it delivered, with `beanspruchung`, to\n`POST /adresswechsel/sweep/postausgang/zugestellt`, and where the lease lapses first the next call claims them again,\nso a notice is delivered at least once. A notice handed out past the grants' attempt cap is answered `aufgegeben`:\nthe caller delivers nothing, logs it by id and stamps it. Server to server alone: the answer names addresses.",
+        "operationId": "post_adresswechsel_postausgang_api_v0_adresswechsel_sweep_postausgang_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLAdresswechselPostausgangResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/adresswechsel/sweep/postausgang/zugestellt": {
+      "post": {
+        "summary": "Remove the delivered notices a claim holds",
+        "description": "Remove each named notice the named claim still holds, and nothing else.\n\nA notice the claim does not hold -- unknown, removed already, or claimed since by another call after this claim\nlapsed -- is left alone and counted in `ignoriert`. A repeated id counts once. One transaction, imageless: a row\nnames addresses, and the log keeps no image of its removal.",
+        "operationId": "post_adresswechsel_zugestellt_api_v0_adresswechsel_sweep_postausgang_zugestellt_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLAdresswechselZugestelltPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLAdresswechselZugestelltResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "x-fl-tier": "system"
       }
     },
@@ -11554,15 +11638,9 @@
             "type": "boolean",
             "title": "Genehmigung Offen"
           },
-          "mitteilung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLAdresswechselMitteilung"
-              },
-              {
-                "type": "null"
-              }
-            ]
+          "wirksam": {
+            "type": "boolean",
+            "title": "Wirksam"
           }
         },
         "type": "object",
@@ -11570,10 +11648,10 @@
           "antwort",
           "wirksam_ab",
           "genehmigung_offen",
-          "mitteilung"
+          "wirksam"
         ],
         "title": "FLAdresswechselAntwortResponse",
-        "description": "The answer recorded, and nothing of the change beyond what the frontend's server mails and strips."
+        "description": "The answer recorded, and no address of the change: the notices an effect owes are queued, never answered."
       },
       "FLAdresswechselGenehmigungResponse": {
         "properties": {
@@ -11594,23 +11672,12 @@
           "wirksam": {
             "type": "boolean",
             "title": "Wirksam"
-          },
-          "mitteilung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLAdresswechselMitteilung"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "type": "object",
         "required": [
           "id",
-          "wirksam",
-          "mitteilung"
+          "wirksam"
         ],
         "title": "FLAdresswechselGenehmigungResponse"
       },
@@ -11666,10 +11733,81 @@
         ],
         "title": "FLAdresswechselIdResponse"
       },
-      "FLAdresswechselMitteilung": {
+      "FLAdresswechselPostausgangResponse": {
         "properties": {
-          "bisherige_email": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "beanspruchung": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beanspruchung"
+          },
+          "beansprucht_bis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beansprucht Bis"
+          },
+          "mitteilungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLAdresswechselPostausgangZeile"
+            },
+            "type": "array",
+            "title": "Mitteilungen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "beanspruchung",
+          "beansprucht_bis",
+          "mitteilungen"
+        ],
+        "title": "FLAdresswechselPostausgangResponse",
+        "description": "The owed notices one claim holds, oldest first; `beanspruchung` and `beansprucht_bis` null exactly where it holds none."
+      },
+      "FLAdresswechselPostausgangZeile": {
+        "properties": {
+          "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id"
+          },
+          "art": {
+            "type": "string",
+            "enum": [
+              "wirksam",
+              "verworfen"
+            ],
+            "title": "Art"
+          },
+          "bisherige_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Bisherige Email"
           },
           "email": {
@@ -11677,28 +11815,49 @@
             "title": "Email"
           },
           "vorname": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Vorname"
           },
           "weg": {
-            "type": "string",
-            "enum": [
-              "konto",
-              "freigabe",
-              "wartezeit"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "konto",
+                  "freigabe",
+                  "wartezeit"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Weg"
+          },
+          "aufgegeben": {
+            "type": "boolean",
+            "title": "Aufgegeben"
           }
         },
         "type": "object",
         "required": [
+          "id",
+          "art",
           "bisherige_email",
           "email",
           "vorname",
-          "weg"
+          "weg",
+          "aufgegeben"
         ],
-        "title": "FLAdresswechselMitteilung",
-        "description": "What a change taking effect hands the frontend's server: whom the completion notice greets, and the sign-in account to carry.\n\nServer to server alone: the link page's route handler strips it before the browser."
+        "title": "FLAdresswechselPostausgangZeile",
+        "description": "One owed notice a pass claimed, server to server alone: no browser receives an address of it.\n\n`wirksam`: whom the completion notice greets, and the sign-in account to carry. `verworfen`: the new address alone,\ntold it did not take effect, and never why."
       },
       "FLAdresswechselStoppPayload": {
         "properties": {
@@ -11755,17 +11914,13 @@
             "title": "Entfernt"
           },
           "verworfen": {
-            "items": {
-              "$ref": "#/components/schemas/FLAdresswechselVerworfenMitteilung"
-            },
-            "type": "array",
+            "type": "integer",
+            "minimum": 0.0,
             "title": "Verworfen"
           },
           "wirksam": {
-            "items": {
-              "$ref": "#/components/schemas/FLAdresswechselMitteilung"
-            },
-            "type": "array",
+            "type": "integer",
+            "minimum": 0.0,
             "title": "Wirksam"
           },
           "verbleibend": {
@@ -12233,19 +12388,60 @@
         "title": "FLAdresswechselVerwaltungPayload",
         "description": "The address a change starts on, the address it goes to, and the reason where the address on file is gone."
       },
-      "FLAdresswechselVerworfenMitteilung": {
+      "FLAdresswechselZugestelltPayload": {
         "properties": {
-          "email": {
+          "beanspruchung": {
             "type": "string",
-            "title": "Email"
+            "minLength": 1,
+            "title": "Beanspruchung"
+          },
+          "ids": {
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            },
+            "type": "array",
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "beanspruchung",
+          "ids"
+        ],
+        "title": "FLAdresswechselZugestelltPayload"
+      },
+      "FLAdresswechselZugestelltResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "zugestellt": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Zugestellt"
+          },
+          "ignoriert": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Ignoriert"
           }
         },
         "type": "object",
         "required": [
-          "email"
+          "zugestellt",
+          "ignoriert"
         ],
-        "title": "FLAdresswechselVerworfenMitteilung",
-        "description": "A due change the hourly pass refused: its new address alone, which is told it did not take effect, and never why."
+        "title": "FLAdresswechselZugestelltResponse"
       },
       "FLAktion": {
         "properties": {

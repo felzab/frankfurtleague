@@ -237,7 +237,7 @@ REMOVAL_MODULES = ("app/core/crud.py",)
 
 # A day count is operational state and no domain row, written and removed outside the log by design;
 # its id names the person's pseudonym, so a logged filter would keep what the erasure removes.
-UNLOGGED_REMOVALS = frozenset({"app/core/drosselung.py :: erase_counts_in_session"})
+UNLOGGED_REMOVALS = frozenset({"app/core/drosselung.py :: erase_counts_in_session", "app/core/drosselung.py :: carry_counts_in_session"})
 
 # The day a row retired, and so the field a retention sweep would select on.
 RETIREMENT_FIELD = "inactive_since"

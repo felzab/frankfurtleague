@@ -26,6 +26,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.adresswechsel.crud import end_an_emptied_change_in_session
+from app.api.adresswechsel.services import compose_postausgang
 from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung, compose_widerruf_update
 from app.api.identitaet.crud import ERASURE_STEPS, JEDE_PERSONENGRUPPE, erase_everything
@@ -197,7 +198,12 @@ PAYMENT = 25
 
 # A day count of each age the TTL monitor may not have reached, under a bound far off so the monitor
 # itself never takes one during a case.
-COUNT_IDS = (f"kontakt:{PSEUDONYM}:{TODAY}", f"spieler:{PSEUDONYM}:{YESTERDAY}", f"schiedsrichter:{PSEUDONYM}:2026-03-02")
+COUNT_IDS = (
+    f"kontakt:{PSEUDONYM}:{TODAY}",
+    f"spieler:{PSEUDONYM}:{YESTERDAY}",
+    f"schiedsrichter:{PSEUDONYM}:2026-03-02",
+    f"adresswechsel:{PSEUDONYM}:{TODAY}",
+)
 OTHER_COUNT_ID = f"kontakt:{OTHER_PSEUDONYM}:{TODAY}"
 FAR_OFF = datetime(2099, 1, 1, tzinfo=UTC)
 
@@ -469,6 +475,10 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         database,
         (OTHER_REFEREE_CHANGE_OID, "kraus.bernd@example.com", TYPED, "their-new-address", "2026-03-28"),
         (MOVING_PUPIL_CHANGE_OID, "gwendolyn@example.com", TYPED, "her-new-address", "2026-03-29"),
+    )
+    # A notice still owed to them from an earlier change of theirs, which the pass has not delivered yet.
+    await database[Collection.ADRESSWECHSEL_POSTAUSGANG].insert_one(
+        compose_postausgang(art="wirksam", bisherige_email="vorher.zorbanax@example.org", email=TYPED, vorname="Zorbanax", weg="konto", now=NOW)
     )
     await database[Collection.SPIELER].insert_one(
         spieler_document(READDRESSED_PUPIL_OID, "Hartwig", "Hartwig-Muster", email=TYPED, einwilligung=einwilligung)
@@ -814,7 +824,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
             "registrierungen": 2,
             "adresswechsel": 2,
             "berechtigungen": 0,
-            "drosselung": 3,
+            "drosselung": 4,
         }
 
 
@@ -1099,7 +1109,7 @@ class TestOneTransaction:
 
         # On the code, so this cannot pass because something else failed before any write.
         assert code == DOCUMENT_VALIDATION_FAILED
-        assert counts == {"berechtigungen": 2, "spieler": 5, "saison_spieler": 2, "schiedsrichter": 4, "registrierungen": 4, "drosselung": 4}
+        assert counts == {"berechtigungen": 2, "spieler": 5, "saison_spieler": 2, "schiedsrichter": 4, "registrierungen": 4, "drosselung": 5}
         assert (seat, pending, their_rows, stamped, on_the_ghost) == (TYPED, TYPED, 2, 0, 0)
         # And no journal line nor floor warning: an erasure rolled back is no erasure a replay may repeat.
         assert not [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]

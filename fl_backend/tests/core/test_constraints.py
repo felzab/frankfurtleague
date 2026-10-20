@@ -11,7 +11,14 @@ from pydantic import BaseModel, Field, SecretStr, StringConstraints, TypeAdapter
 from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
-from app.api.adresswechsel.schemas import FLAdresswechsel, FLAdresswechselBeendet, FLAdresswechselGenehmigung, FLAdresswechselVersand
+from app.api.adresswechsel.schemas import (
+    FLAdresswechsel,
+    FLAdresswechselBeendet,
+    FLAdresswechselGenehmigung,
+    FLAdresswechselPostausgang,
+    FLAdresswechselPostausgangArt,
+    FLAdresswechselVersand,
+)
 from app.api.adresswechsel.services import FLAdresswechselEndeArt, FLAdresswechselVerwaltung, FLAdresswechselWeg
 from app.api.aktionen.schemas import FLAktion, FLAktionMitStand, FLAktionRequest, FLAktorKind, FLAktorMitAdresse, FLAktorPerson, _served_prefix
 from app.api.berechtigungen.schemas import (
@@ -242,6 +249,7 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.ADRESSWECHSEL, ("beendet",), FLAdresswechselBeendet, frozenset()),
     (Collection.ADRESSWECHSEL, ("versand",), FLAdresswechselVersand, frozenset()),
     (Collection.ADRESSWECHSEL, ("versand", "zustellung"), FLBewerbungZustellung, frozenset()),
+    (Collection.ADRESSWECHSEL_POSTAUSGANG, (), FLAdresswechselPostausgang, frozenset()),
     # The sub-documents of a modelless row that DO have models, so the drift check reaches them.
     (Collection.SAISON_TEAMS, ("austritt",), FLAustritt, frozenset()),
     (Collection.SAISON_TEAMS, ("kontakte",), FLSaisonTeamKontakte, frozenset()),
@@ -476,6 +484,8 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     (Collection.ADRESSWECHSEL, (), "weg", get_args(FLAdresswechselWeg), False),
     (Collection.ADRESSWECHSEL, ("beendet",), "art", get_args(FLAdresswechselEndeArt), False),
     (Collection.ADRESSWECHSEL, ("genehmigung",), "verwaltung", get_args(FLAdresswechselVerwaltung), False),
+    (Collection.ADRESSWECHSEL_POSTAUSGANG, (), "art", get_args(FLAdresswechselPostausgangArt), False),
+    (Collection.ADRESSWECHSEL_POSTAUSGANG, (), "weg", get_args(FLAdresswechselWeg), True),
     (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.SAISON_TEAMS, ("bestaetigungen", "trainer", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.SAISON_TEAMS, ("bestaetigungen", "ansprechperson", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),

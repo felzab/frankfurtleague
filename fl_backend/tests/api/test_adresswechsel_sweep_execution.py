@@ -38,6 +38,7 @@ from tests.whole_database import where_held
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
+from .adresswechsel_harness import owed
 from .test_adresswechsel_sweep_refusal import COMMANDS_A_DUE_PERSON, COMMANDS_A_LAPSE, OTHER_COMMANDS
 
 pytestmark = pytest.mark.db
@@ -161,6 +162,8 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any 
         berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
         einladungen_collection=database[Collection.EINLADUNGEN],
         sperrliste_collection=database[Collection.SPERRLISTE],
+        adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
+        drosselung_collection=database[Collection.DROSSELUNG],
         sperrliste=ban_list(database),
         aktionen_collection=database[Collection.AKTIONEN],
         adressanker_collection=database[Collection.ADRESSANKER],
@@ -217,7 +220,7 @@ class TestALapsedChangeEndsOnceItsDeadlinePassed:
 
         answer, ended, standing, held = on_a_league(mongo_replica_set_url, body)
 
-        assert (answer.entfernt, answer.verworfen, answer.wirksam, answer.verbleibend, answer.nach) == (1, [], [], 0, None)
+        assert (answer.entfernt, answer.verworfen, answer.wirksam, answer.verbleibend, answer.nach) == (1, 0, 0, 0, None)
         assert (ended["beendet"]["art"], ended["adresse"], ended["email"]) == ("abgelaufen", None, None)
         assert standing == [numbered(2)]
         assert held == {pending(1): []}
@@ -229,7 +232,7 @@ class TestALapsedChangeEndsOnceItsDeadlinePassed:
 
         answer, standing = on_a_league(mongo_replica_set_url, body)
 
-        assert (answer.entfernt, answer.verworfen, answer.wirksam) == (0, [], [])
+        assert (answer.entfernt, answer.verworfen, answer.wirksam) == (0, 0, 0)
         assert standing == [numbered(1)]
 
 
@@ -237,12 +240,15 @@ class TestADueChangeTakesEffect:
     def test_it_moves_the_person_and_names_whom_to_notify(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_due_person(database, 1)
-            return await sweep(database, client), await database[Collection.SPIELER].distinct("email", {"vorname": "Quintessa"})
+            answer = await sweep(database, client)
+            return answer, await database[Collection.SPIELER].distinct("email", {"vorname": "Quintessa"}), await owed(database)
 
-        answer, addresses = on_a_league(mongo_replica_set_url, body)
+        answer, addresses, notices = on_a_league(mongo_replica_set_url, body)
 
-        assert [entry.model_dump() for entry in answer.wirksam] == [
-            {"bisherige_email": on_file(1), "email": pending(1), "vorname": "Quintessa", "weg": "wartezeit"}
+        assert answer.wirksam == 1
+        assert notices == [
+            # The lost-mailbox way greets nobody.
+            {"art": "wirksam", "bisherige_email": on_file(1), "email": pending(1), "vorname": None, "weg": "wartezeit"}
         ]
         assert addresses == [pending(1)]
 
@@ -257,21 +263,23 @@ class TestADueChangeTakesEffect:
                 database, client, email=address, grund="Falschangaben", von="admin@frankfurtleague.de", today="2026-04-16"
             )
 
-            return await sweep(database, client), await database[Collection.ADRESSWECHSEL].find_one({"_id": numbered(1)})
+            answer = await sweep(database, client)
+            return answer, await database[Collection.ADRESSWECHSEL].find_one({"_id": numbered(1)}), await owed(database)
 
-        answer, ended = on_a_league(mongo_replica_set_url, body)
+        answer, ended, notices = on_a_league(mongo_replica_set_url, body)
 
-        assert ([entry.model_dump() for entry in answer.verworfen], answer.wirksam) == ([{"email": pending(1)}], [])
+        assert (answer.verworfen, answer.wirksam) == (1, 0)
+        assert notices == [{"art": "verworfen", "bisherige_email": None, "email": pending(1), "vorname": None, "weg": None}]
         assert (ended["beendet"]["art"], ended["email"]) == ("verworfen", None)
 
     def test_a_change_finding_nothing_to_move_is_refused_alike(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await with_history(database, confirmed_on(a_change(1, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_BE_DUE))
-            return await sweep(database, client)
+            return await sweep(database, client), await owed(database)
 
-        answer = on_a_league(mongo_replica_set_url, body)
+        answer, notices = on_a_league(mongo_replica_set_url, body)
 
-        assert ([entry.email for entry in answer.verworfen], answer.wirksam) == ([pending(1)], [])
+        assert (answer.verworfen, answer.wirksam, [notice["email"] for notice in notices]) == (1, 0, [pending(1)])
 
 
 class WrittenAfterTheRead:
@@ -507,7 +515,7 @@ class TestTheDeadlineStopsTheCall:
 
         answer, dear, moved = on_a_league(mongo_replica_set_url, body)
 
-        assert ([entry.bisherige_email for entry in answer.wirksam], answer.verbleibend, answer.nach) == ([on_file(1)], 1, numbered(2))
+        assert (answer.wirksam, answer.verbleibend, answer.nach) == (1, 1, numbered(2))
         assert (dear, moved) == ([on_file(2)], [on_file(2)])
 
 
@@ -562,7 +570,7 @@ class TestADueChangeCostsTheCommandsItsShareIsSizedAt:
 
         answer, per_person = on_a_league(mongo_replica_set_url, body)
 
-        assert len(answer.wirksam) == 2 * FEW
+        assert answer.wirksam == 2 * FEW
         assert per_person == COMMANDS_A_DUE_PERSON
 
 

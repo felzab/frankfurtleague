@@ -350,6 +350,16 @@ async def change(database: AsyncDatabase, adresswechsel_id: ObjectId) -> Mapping
     return await row(database, Collection.ADRESSWECHSEL, adresswechsel_id)
 
 
+async def owed(database: AsyncDatabase) -> list[dict[str, Any]]:
+    """The notices the ends queued for the frontend's pass, in the order a claim hands them out."""
+
+    fields = ("art", "bisherige_email", "email", "vorname", "weg")
+    return [
+        {field: row[field] for field in fields}
+        async for row in database[Collection.ADRESSWECHSEL_POSTAUSGANG].find({}, sort=[("erfasst_am", 1), ("_id", 1)])
+    ]
+
+
 async def everything(database: AsyncDatabase) -> dict[str, Mapping[str, Any]]:
     """Every record the seed wrote for the person, by what it is."""
 

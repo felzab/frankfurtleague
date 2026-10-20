@@ -138,6 +138,9 @@ SYSTEM_WRITES = [
     # no session, and an activation's press deletes nobody in the administrator's name.
     ("/api/v0/identitaet/loeschung/lauf", "post"),
     ("/api/v0/adresswechsel/sweep", "post"),
+    # The address change's owed notices, claimed and stamped by the frontend's pass as the grants' are.
+    ("/api/v0/adresswechsel/sweep/postausgang", "post"),
+    ("/api/v0/adresswechsel/sweep/postausgang/zugestellt", "post"),
 ]
 
 MUTATIONS = [
