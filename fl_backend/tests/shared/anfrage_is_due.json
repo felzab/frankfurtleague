@@ -1,6 +1,8 @@
 [
   { "fall": "a fixture set in full, three days out", "anders": {}, "gefragt": true },
   { "fall": "tomorrow", "anders": { "tage": 1 }, "gefragt": true },
+  { "fall": "the last day the pass asks about", "anders": { "tage": 21 }, "gefragt": true },
+  { "fall": "a day past the last the pass asks about", "anders": { "tage": 22 }, "gefragt": false },
   { "fall": "today", "anders": { "tage": 0 }, "gefragt": false },
   { "fall": "yesterday", "anders": { "tage": -1 }, "gefragt": false },
   { "fall": "no date", "anders": { "tage": null }, "gefragt": false },

@@ -7,9 +7,11 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungTermin
 from app.api.spielbestaetigungen.services import (
+    ADMIN_FIELDS,
     ANSETZUNG_QUELLEN,
     AnsetzungLage,
     SeatVoid,
+    build_holding_filter,
     build_referee_images_filter,
     build_referee_rows_filter,
     build_season_entries_filter,
@@ -24,7 +26,7 @@ from app.api.spielbestaetigungen.services import (
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, anchor_in_db, erase_many_from_db, patch_many_in_db
+from app.core.crud import aggregate_many_from_db, anchor_in_db, erase_many_from_db, patch_many_in_db, pull_many_from_db
 from app.core.recording import build_redaction_filter, build_redaction_update
 from app.shared.schemas.custom import CustomObjectId
 
@@ -102,6 +104,34 @@ async def pull_vorschlag_offen(
     vorschlag = ((other or {}).get("antwort") or {}).get("vorschlag")
 
     return FLSpielbestaetigungTermin.model_validate(vorschlag) if isinstance(vorschlag, Mapping) else None
+
+
+# --- The ADMINISTRATOR's read.
+
+
+async def pull_admin_rows(
+    *, spielbestaetigungen_collection: AsyncCollection, db_filter: Mapping[str, Any], limit: int
+) -> tuple[list[Mapping[str, Any]], bool]:
+    """Every row still holding its question, whole, and the newest `limit` of the rest; and whether none was left out.
+
+    A cut across all rows would drop the oldest open ones, the overdue, first.
+    """
+
+    holding = await spielbestaetigungen_collection.find({**db_filter, **build_holding_filter()}, ADMIN_FIELDS).to_list(length=None)
+    # Read after the holding rows, so a row closing between the two reads arrives twice rather than not at all, and
+    # its closed image wins below.
+    rest = await pull_many_from_db(
+        collection=spielbestaetigungen_collection,
+        db_filter={**db_filter, "$nor": [build_holding_filter()]},
+        # One row over what is served, and the extra never is: it answers whether the list is whole without a count.
+        limit=limit + 1,
+        # Rows carry no creation stamp; an ObjectId's leading bytes are its insert time.
+        sort_by=[("_id", -1)],
+        projection=ADMIN_FIELDS,
+    )
+    rows = {row["_id"]: row for row in [*holding, *rest[:limit]]}
+
+    return sorted(rows.values(), key=lambda row: row["_id"], reverse=True), len(rest) <= limit
 
 
 # --- A REFEREE'S OWN ROWS.
