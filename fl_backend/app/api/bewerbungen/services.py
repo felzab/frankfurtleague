@@ -966,8 +966,8 @@ def ansprechperson_mailbox(*, kontakte: Any) -> tuple[str | None, list[FLKontakt
     if anchor is None:
         return None, []
 
-    key = mailbox_key(anchor)
-    held = [seat for seat in KONTAKT_ROLLEN if seat in addresses and mailbox_key(addresses[seat]) == key]
+    # One inbox is one stored address, each the fold every payload stores (`docs/backend/spec.md :: I332`).
+    held = [seat for seat in KONTAKT_ROLLEN if addresses.get(seat) == anchor]
 
     return anchor, [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in held]
 
@@ -1455,10 +1455,7 @@ def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str) -> list[FLKo
 
 
 def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[str]) -> list[tuple[str, list[FLKontaktRolle]]]:
-    """The seats as the mails go out: one message per mailbox, in first-seen order.
-
-    Keyed as the first mail keys it (`app/shared/folding.py :: mailbox_key`).
-    """
+    """The seats as the mails go out: one message per stored address, in first-seen order."""
 
     slots = kontakte if isinstance(kontakte, Mapping) else {}
     grouped: dict[str, tuple[str, list[FLKontaktRolle]]] = {}
@@ -1468,7 +1465,7 @@ def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[str]) -> list[tuple
         email = str(slot.get("email") or "").strip() if isinstance(slot, Mapping) else ""
         if not email:
             continue
-        address, held = grouped.setdefault(mailbox_key(email), (email, []))
+        address, held = grouped.setdefault(email, (email, []))
         held.append(seat_named(seat) or cast(FLKontaktRolle, seat))
 
     return list(grouped.values())

@@ -442,10 +442,9 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
 
 
 def _address_moves(*, stored: Mapping[str, Any], payload_email: str) -> bool:
-    # One inbox rather than one string: a domain has no case (RFC 5321 §2.4), so a raw compare re-mails
-    # an address nobody moved wherever the stored row and the payload spell its domain differently.
+    # Both the fold every payload stores (`docs/backend/spec.md :: I332`), so one string is one mailbox.
     stored_email = (stored.get("kontakt") or {}).get("email")
-    return stored_email is None or mailbox_key(payload_email) != mailbox_key(str(stored_email))
+    return stored_email is None or payload_email != stored_email
 
 
 def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> bool:

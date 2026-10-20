@@ -1348,24 +1348,6 @@ class TestCorrectingOneContactAddress:
         # The raw token exists in the answer and in the mail; the document keeps its hash alone.
         assert stored["bestaetigungen"]["ansprechperson"]["token_hash"] == hash_token(response.token)
 
-    def test_a_correction_the_sign_in_fold_calls_unmoved_is_written(self, mongo_replica_set_url: str):
-        """The local part's case alone, which the editor opens its press for, the delivery target moving.
-
-        The endpoint has to write it too, or the tiers disagree.
-        """
-
-        stored = "Sekretariat@zorbanax.example.de"
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seed_a_bounced_application(database, client)
-            await database[Collection.BEWERBUNGEN].update_one(
-                {"_id": CORRECTION_BEWERBUNG}, {"$set": {"kontakte.ansprechperson.email": stored}}
-            )
-            await correct(database, client, "ansprechperson")
-
-            return (await stored_bewerbung(database, CORRECTION_BEWERBUNG))["kontakte"]["ansprechperson"]["email"]
-
-        assert on_a_league(mongo_replica_set_url, body) == CORRECTED_EMAIL
 
     def test_the_mailbox_the_link_leaves_is_answered_and_the_same_mailbox_retyped_is_not(self, mongo_replica_set_url: str):
         """The old link may have arrived and opens until this write, so its reader is told that it now opens nothing."""

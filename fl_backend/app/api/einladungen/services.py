@@ -14,7 +14,6 @@ from app.api.einladungen.schemas import FLEinladungEmpfaenger, FLEinladungVersan
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.folding import mailbox_key
 
 EINLADUNG_TEAM_NICHT_EINGETRAGEN = "REQ-EINLADUNG-001"
 EINLADUNG_SAISON_VORBEI = "REQ-EINLADUNG-002"
@@ -178,11 +177,7 @@ def _confirmed_seat(kontakte: Any, seat: str) -> Mapping[str, Any] | None:
 
 
 def bestaetigte_empfaenger(*, kontakte: Any) -> list[FLEinladungEmpfaenger]:
-    """The mailboxes a link may be sent to, one entry per mailbox.
-
-    `app/shared/folding.py :: mailbox_key`'s question and never the sign-in fold's, which would
-    make two seats parted by the case of their local parts one recipient.
-    """
+    """The mailboxes a link may be sent to, one entry per stored address, each the fold every payload stores."""
 
     empfaenger: list[FLEinladungEmpfaenger] = []
     seen: set[str] = set()
@@ -194,11 +189,10 @@ def bestaetigte_empfaenger(*, kontakte: Any) -> list[FLEinladungEmpfaenger]:
             continue
 
         address = str(entry.get("email") or "")
-        mailbox = mailbox_key(address)
-        if not mailbox or mailbox in seen:
+        if not address or address in seen:
             continue
 
-        seen.add(mailbox)
+        seen.add(address)
         empfaenger.append(FLEinladungEmpfaenger(rolle=rolle, vorname=str(entry.get("vorname") or ""), email=address))
 
     return empfaenger

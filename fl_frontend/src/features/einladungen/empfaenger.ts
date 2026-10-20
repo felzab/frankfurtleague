@@ -1,5 +1,3 @@
-import { mailboxKey } from "@/core/emailAddress";
-
 import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { FLEinladungEmpfaenger } from "./schemas";
 
@@ -25,11 +23,8 @@ export function bestaetigteEmpfaenger(kontakte: FLSaisonTeamKontakte | null): re
     const adresse = person === null ? "" : person.email.trim();
     if (person === null || adresse === "" || person.einwilligung.bestaetigt_am === null) continue;
 
-    const postfach = mailboxKey(adresse);
-
-    // Keyed by mailbox and valued by the address as stored, so what is written to is the address the
-    // seat holds rather than a key built from it.
-    if (!gefunden.has(postfach)) gefunden.set(postfach, { rolle: rolle, vorname: person.vorname, email: adresse });
+    // One mailbox is one stored address, each the fold the API stores (`docs/backend/spec.md :: I332`).
+    if (!gefunden.has(adresse)) gefunden.set(adresse, { rolle: rolle, vorname: person.vorname, email: adresse });
   }
 
   return [...gefunden.values()];

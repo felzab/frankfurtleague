@@ -411,9 +411,10 @@ const korrigiert = (abgangEmail: string | null = null) => ({
   abgang_email: abgangEmail,
 });
 
-/** What the reseat's write answers where it lands, for the seats it filled. */
+/** What the reseat's write answers where it lands, for the seats it filled and the address as it stored it. */
 const besetzt = (rollen: readonly string[] = ["ansprechperson"]) => ({
   acknowledged: 1,
+  email: SITZ.email,
   rollen: rollen,
   token: "token-sitz",
   bestaetigungsfrist: "2026-09-18",
@@ -1034,6 +1035,22 @@ describe("the re-sent confirmation link", () => {
     assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the re-send names seats its own read paired");
   });
 
+  /* The API stores the fold of what was typed, and the message goes where its delivery events are
+     matched back: the address the write answers, never the one in the box. */
+  it("mails a corrected and a seated person at the address the write stored, never as typed", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+
+    answerWith(() => Promise.resolve(korrigiert()));
+    await kontaktEmailKorrigierenAction({ ...KORREKTUR, email: "Anna.Neu@Example.de" });
+    answerWith(() => Promise.resolve(besetzt()));
+    await besetzeKontaktSitzAction({ ...SITZ, email: "Berta@Example.de" });
+
+    assert.deepEqual(
+      mailed.map(({ to }) => to),
+      [KORREKTUR.email, SITZ.email],
+    );
+  });
+
   /* The one thing on this path that must not reach a second reader. A toast, a log line or a returned
      sentence carrying it hands the seat's credential to whoever can see the screen or the stream. */
   it("spells the minted token into the link and into nothing else", async () => {
@@ -1063,7 +1080,7 @@ describe("the re-sent confirmation link", () => {
         () => kontaktEmailKorrigierenAction(KORREKTUR),
         { acknowledged: 1, token, email: KORREKTUR.email, rollen: ["ansprechperson"], abgang_email: null },
       ],
-      [() => besetzeKontaktSitzAction(SITZ), { acknowledged: 1, token, rollen: ["ansprechperson"] }],
+      [() => besetzeKontaktSitzAction(SITZ), { acknowledged: 1, token, email: SITZ.email, rollen: ["ansprechperson"] }],
     ] as const) {
       writes.length = 0;
       readAcrossTheWrite(VOR_DER_REPARATUR, UNLESBARE_FRIST);

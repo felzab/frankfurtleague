@@ -169,23 +169,12 @@ function foldedDomain(domain: string): string {
 }
 
 /**
- * The one folded form `fl_frontend/src/core/verwaltung.ts :: verwaltungOf` asks about a grant in,
- * and the form every grant is stored in: the sign-in library lower-cases only the row it stores, and
- * normalises nothing on either lane.
+ * The form every record stores an address in and every lookup asks with (`docs/backend/spec.md :: I333`). The sign-in
+ * library lower-cases the address it stores and the one it is asked with, but trims neither: read in the installed
+ * better-auth 1.7.10 on 2026-10-20, which moves without us.
  */
 export function asSignInIdentifier(value: string): string {
   const trimmed = value.trim();
   const at = trimmed.lastIndexOf("@");
   return at === -1 ? asciiLowerCase(trimmed) : `${asciiLowerCase(trimmed.slice(0, at))}@${foldedDomain(trimmed.slice(at + 1))}`;
-}
-
-/**
- * What makes two stored addresses one inbox, the key every send and the correction's press dedupe
- * on, as `fl_backend/app/shared/folding.py :: mailbox_key` does. Never `asSignInIdentifier`: folded
- * whole, two people are one recipient and one of them is never written to.
- */
-export function mailboxKey(address: string): string {
-  const at = address.lastIndexOf("@");
-  // The local part byte for byte and the domain without case (RFC 5321 §2.4).
-  return at === -1 ? address : `${address.slice(0, at)}@${foldedDomain(address.slice(at + 1))}`;
 }

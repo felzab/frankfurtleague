@@ -7,7 +7,7 @@ import pytest
 from pydantic import TypeAdapter
 
 from app.api.identitaet.schemas import ErasureAdresse
-from app.shared.folding import canonical_address, league_address, mailbox_key, sign_in_identifier
+from app.shared.folding import canonical_address, league_address, sign_in_identifier
 
 # One table both suites run their own rule and fold over, the frontend half in `fl_frontend/src/core/emailAddress.test.ts`:
 # each runtime converts a Unicode domain on its own tables, held here to one answer, or each to its own where they part.
@@ -119,11 +119,3 @@ def test_a_typed_address_and_what_its_payload_stored_key_one_ban(row: Row):
 
     assert row.stored is not None
     assert canonical_address(row.typed) == canonical_address(row.stored)
-
-
-UMLAUT_DOMAIN: Final = "anna@müller.de"
-
-
-def test_a_unicode_domain_and_its_punycode_are_one_inbox_and_the_local_part_s_case_two():
-    assert mailbox_key(UMLAUT_DOMAIN) == mailbox_key("anna@XN--MLLER-KVA.DE")
-    assert mailbox_key("Anna@schule.de") != mailbox_key("anna@schule.de")

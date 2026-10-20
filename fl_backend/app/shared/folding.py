@@ -166,16 +166,3 @@ def person_name_key(value: Any) -> str:
     """`composed_name` and `lower`, never `casefold`: „Weiß“ and „Weiss“ are two families."""
 
     return composed_name(value).lower()
-
-
-def mailbox_key(address: str) -> str:
-    """What makes two stored addresses one INBOX, which is a narrower question than `sign_in_identifier`'s.
-
-    Folded whole, two people are one recipient and one of them is never written to.
-    """
-
-    local, at, domain = address.rpartition("@")
-
-    # The local part byte for byte and the domain without case (RFC 5321 §2.4), as
-    # `fl_frontend/src/core/emailAddress.ts :: mailboxKey` compares them.
-    return f"{local}@{_folded_domain(domain)}" if at else address
