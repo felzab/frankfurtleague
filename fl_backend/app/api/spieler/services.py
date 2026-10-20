@@ -391,15 +391,13 @@ def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId) -> list[Map
                 "_id": 0,
                 "spieler_id": 1,
                 "vorname": "$person.vorname",
-                # `$ifNull` on every optional key: `$project` omits a missing one rather than nulling
-                # it, and the response model requires each key, null or not.
-                "nachname": {"$ifNull": ["$person.nachname", None]},
-                "nummer": {"$ifNull": ["$nummer", None]},
-                "position": {"$ifNull": ["$position", None]},
-                "stufe": {"$ifNull": ["$stufe", None]},
+                "nachname": "$person.nachname",
+                "nummer": 1,
+                "position": 1,
+                "stufe": 1,
                 "rolle": 1,
                 "ist_nachnominiert": 1,
-                "inactive_since": {"$ifNull": ["$inactive_since", None]},
+                "inactive_since": 1,
             }
         },
         # The id last, so two pupils of one name keep one order between two reads.
