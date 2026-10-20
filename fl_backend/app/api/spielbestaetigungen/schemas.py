@@ -187,7 +187,7 @@ class FLSpielbestaetigungenListResponse(BaseAPIResponse):
     spielbestaetigungen: list[FLSpielbestaetigung]
     # Null where no pass has run over the season, or no season has the id.
     spiel_sweep_gelaufen_am: CustomDateString | None
-    # False where the cut left out rows that no longer hold their question, so a cut list is never read as the season whole.
+    # False where the cut left out rows not holding their question, so a cut list is never read as the season whole.
     vollstaendig: bool
 
 

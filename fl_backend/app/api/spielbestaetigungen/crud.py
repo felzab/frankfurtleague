@@ -112,11 +112,9 @@ async def pull_vorschlag_offen(
 async def pull_admin_rows(
     *, spielbestaetigungen_collection: AsyncCollection, db_filter: Mapping[str, Any], limit: int
 ) -> tuple[list[Mapping[str, Any]], bool]:
-    """Every row still holding its party's question, whole, and of the rest the newest `limit`; newest first, and whether none was left out.
+    """Every row still holding its question, whole, and the newest `limit` of the rest; and whether none was left out.
 
-    The triage and the cards judge a fixture by the holding rows, and the oldest of them are the overdue ones, so a cut
-    across every row would empty the overdue queue first. Their count follows the season's fixtures, which
-    `REQ-RULES-013` bounds: the index stands one row open per party and Ansetzung, and the pass closes what a move left.
+    A cut across all rows would drop the oldest open ones, the overdue, first.
     """
 
     holding = await spielbestaetigungen_collection.find({**db_filter, **build_holding_filter()}, ADMIN_FIELDS).to_list(length=None)

@@ -1166,8 +1166,7 @@ class TestWhatTheAdministratorsReadServes:
     def test_a_season_holding_more_rows_than_one_read_serves_says_so_and_keeps_every_open_one(self, mongo_replica_set_url: str):
         """Cut by age alone, the read would drop the overdue row first, the oldest still open.
 
-        Cut in silence, a full season's newest rows would read as the whole of it. The page is the caller's, so two of
-        three closed rows cut it.
+        The page is the caller's, so two of three closed rows cut it, and `vollstaendig` says so.
         """
 
         closed = {"geschlossen": {"am": TODAY, "grund": "ansetzung_geaendert"}}
