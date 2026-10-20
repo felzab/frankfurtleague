@@ -460,10 +460,14 @@ export function AdminEditSpielDataForm({
         const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
 
         offerUndo({
-          // Every fixture from the SAVE's own answer, in the order it reported them: the props this
-          // render was served are older than the save, so an undo built from them would revert a field
-          // another writer moved.
-          undo: () => undoAdminSpielEditAction({ paarungen: res.priorPaarungen ?? [], saison_id: spielData.saison_id }),
+          // Every fixture, and the report adoption it stamped, from the SAVE's own answer in its order: the props this
+          // render was served are older than the save, so an undo built from them would revert a field another writer moved.
+          undo: () =>
+            undoAdminSpielEditAction({
+              paarungen: res.priorPaarungen ?? [],
+              bericht: res.priorBericht ?? null,
+              saison_id: spielData.saison_id,
+            }),
           message: res.message,
           fallback: "Die Spieldaten wurden aktualisiert.",
           warn: affected.length > 0,

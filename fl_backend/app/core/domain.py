@@ -1447,21 +1447,23 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.CONTROL_ONLY,
         "on no payload: the fixture save carrying `uebernimmt_bericht` writes it inside its own transaction, and only on a "
         "report still at that version whose `seiten` are the clubs the save leaves, so a report corrected since the "
-        "editor read it is left unadopted rather than adopted unread, and one about other clubs credits neither",
+        "editor read it is left unadopted rather than adopted unread, and one about other clubs credits neither. The undo of "
+        "that save writes back what the stamp replaced, from the save's own answer, on a report still at the version "
+        "stamped",
         "app.api.spielberichte.crud.stamp_the_adoption",
     ),
     FieldPolicy(
         Collection.SPIELBERICHTE,
         "bericht.uebernommen_am",
         Editability.CONTROL_ONLY,
-        "on no payload: written beside `bericht.uebernommene_version`, by the same stamp",
+        "on no payload: written beside `bericht.uebernommene_version`, by the same stamp and the same undo",
         "app.api.spielberichte.crud.stamp_the_adoption",
     ),
     FieldPolicy(
         Collection.SPIELBERICHTE,
         "bericht.uebernommen_von",
         Editability.CONTROL_ONLY,
-        "on no payload: written beside `bericht.uebernommene_version`, by the same stamp",
+        "on no payload: written beside `bericht.uebernommene_version`, by the same stamp and the same undo",
         "app.api.spielberichte.crud.stamp_the_adoption",
     ),
 )

@@ -341,7 +341,7 @@ async def call_replay(
 ) -> FLPatchSpielePaarungenResponse:
     """The whole undo as one request, which is the only shape it has: the list travels in the order it is given."""
 
-    payload = FLPatchSpielePaarungenPayload(paarungen=paarungen)
+    payload = FLPatchSpielePaarungenPayload(paarungen=paarungen, bericht=None)
 
     return await patch_spiele_paarungen(payload=payload, **_dependencies(database, client))
 

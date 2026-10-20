@@ -313,7 +313,7 @@
       },
       "patch": {
         "summary": "Update a Spiel",
-        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten, and every name it carries is\ncomposed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,\nand every fixture this call changed arrives in `prior_paarungen` as it stood before it — this one\nleading the list, and carrying the fields beyond its Paarung that this payload replaced.\n\nWith `uebernimmt_bericht`, the save also stamps the fixture's Spielbericht adopted at that version, in the same\ntransaction. A report corrected since that version, or written about other clubs than the save leaves on the\nfixture, is left unstamped, and the save lands all the same: nothing is refused for it. A `dry_run` stamps nothing.",
+        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten, and every name it carries is\ncomposed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,\nand every fixture this call changed arrives in `prior_paarungen` as it stood before it — this one\nleading the list, and carrying the fields beyond its Paarung that this payload replaced.\n\nWith `uebernimmt_bericht`, the save also stamps the fixture's Spielbericht adopted at that version, in the same\ntransaction. A report corrected since that version, or written about other clubs than the save leaves on the\nfixture, is left unstamped, and the save lands all the same: nothing is refused for it. A stamp answers the\nadoption it replaced in `prior_bericht`, which the undo sends back; null where nothing was stamped. A `dry_run`\nstamps nothing.",
         "operationId": "patch_spiel_data_api_v0_spiele__spiel_id__patch",
         "security": [
           {
@@ -3258,7 +3258,7 @@
     "/api/v0/spiele/paarungen": {
       "patch": {
         "summary": "Restore the Paarungen one save moved",
-        "description": "Put every fixture one save moved back as it stood, in ONE transaction, and resolve the bracket again.\n\n**All of it lands or none of it does.** A refusal on any entry takes the entries already written\nback with it, so a replay never leaves a season half restored — which it otherwise would, the\nleading entry's resolution being what empties the scorelines the entries after it put back.\n\n**The list is replayed in the order it arrives and is never re-sorted**, that order being\n`prior_paarungen`'s: a fixture is restored after whatever feeds it, or its occupant is refused as\na hand-set team on a slot its `quelle` maintains.\n\nEach entry carries the four fields a bracket resolution can rewrite, and beyond them only the\nones its `other_fields.replaced` names: the date, the venue, the referee, the note and both\n`quelle`s are otherwise read from the stored document rather than from the request, so a value\nsomebody moved since that save survives. Every refusal, and the resolution itself, are\n`PATCH /spiele/{spiel_id}`'s.\n\n`advanced_to` and `released_sides` report what the replay cost fixtures it was NOT asked to\nrestore; one it puts back afterwards is the order doing its work rather than a loss. No\n`dry_run`: what these bodies would move is what the save they undo already reported.",
+        "description": "Put every fixture one save moved back as it stood, in ONE transaction, and resolve the bracket again.\n\n**All of it lands or none of it does.** A refusal on any entry takes the entries already written\nback with it, so a replay never leaves a season half restored — which it otherwise would, the\nleading entry's resolution being what empties the scorelines the entries after it put back.\n\n**The list is replayed in the order it arrives and is never re-sorted**, that order being\n`prior_paarungen`'s: a fixture is restored after whatever feeds it, or its occupant is refused as\na hand-set team on a slot its `quelle` maintains.\n\nEach entry carries the four fields a bracket resolution can rewrite, and beyond them only the\nones its `other_fields.replaced` names: the date, the venue, the referee, the note and both\n`quelle`s are otherwise read from the stored document rather than from the request, so a value\nsomebody moved since that save survives. Every refusal, and the resolution itself, are\n`PATCH /spiele/{spiel_id}`'s.\n\n`bericht` is the undone save's `prior_bericht`: the Spielbericht adoption that save stamped over is put back in\nthe same transaction, while the report still stands at the version stamped, so a report adopted by the save reads\nas it did before it. A report corrected since keeps the stamp, its raised version reading past it already.\n\n`advanced_to` and `released_sides` report what the replay cost fixtures it was NOT asked to\nrestore; one it puts back afterwards is the order doing its work rather than a loss. No\n`dry_run`: what these bodies would move is what the save they undo already reported.",
         "operationId": "patch_spiele_paarungen_api_v0_spiele_paarungen_patch",
         "requestBody": {
           "content": {
@@ -19461,6 +19461,16 @@
             },
             "type": "array",
             "title": "Prior Paarungen"
+          },
+          "prior_bericht": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielPriorBericht"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -19556,15 +19566,26 @@
             "maxItems": 1024,
             "minItems": 1,
             "title": "Paarungen"
+          },
+          "bericht": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielPriorBericht"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "paarungen"
+          "paarungen",
+          "bericht"
         ],
         "title": "FLPatchSpielePaarungenPayload",
-        "description": "Restore every fixture one save moved, in the order the report named them."
+        "description": "Restore every fixture one save moved, in the order the report named them, and the report adoption it stamped."
       },
       "FLPatchSpielePaarungenResponse": {
         "properties": {
@@ -25190,6 +25211,78 @@
         ],
         "title": "FLSpielOrtFieldPublic",
         "description": "The venue as a BASE-TIER read serves it: which ground, and where to find it.\n\nNo `mietpreis`: what one fixture agreed to pay is admin-tier (`READ-MONEY-001`)."
+      },
+      "FLSpielPriorBericht": {
+        "properties": {
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version"
+          },
+          "uebernommen_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uebernommen Am"
+          },
+          "uebernommen_von": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielPriorBerichtVon"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "uebernommene_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uebernommene Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_id",
+          "version",
+          "uebernommen_am",
+          "uebernommen_von",
+          "uebernommene_version"
+        ],
+        "title": "FLSpielPriorBericht",
+        "description": "A Spielbericht's adoption as it stood before a save stamped it at `version`: what an undo of that save puts back.\n\nLax, as `FLSpielPriorOrt` is, for its reason: a response reaches it too."
+      },
+      "FLSpielPriorBerichtVon": {
+        "properties": {
+          "art": {
+            "type": "string",
+            "const": "admin",
+            "title": "Art"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art"
+        ],
+        "title": "FLSpielPriorBerichtVon"
       },
       "FLSpielPriorOrt": {
         "properties": {
