@@ -8,9 +8,11 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.identitaet.crud import funktionen_of
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.konto.services import find_eigener_eintrag_refusal
+from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.spielberichte.crud import (
     anchor_the_pupils_named,
+    anchor_the_season_reported_in,
     pull_bericht_lage,
     pull_genannt,
     write_bericht,
@@ -26,6 +28,8 @@ from app.api.spielberichte.services import (
     compose_ansicht,
     find_bericht_stand_refusal,
     find_nicht_geleitet_refusal,
+    find_saison_beendet_refusal,
+    ist_abgeschlossen,
     judge_bericht,
     neu_genannt,
     nimmt_einen_bericht,
@@ -136,6 +140,7 @@ async def get_spielbericht_bericht(
     spiel_id: CustomRouteObjectId,
     identifier: SchiedsrichterIdentifier,
     spiele_collection: SpieleCollection,
+    saisons_collection: SaisonsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spieler_collection: SpielerCollection,
@@ -151,7 +156,9 @@ async def get_spielbericht_bericht(
     report, its remarks and card reasons included, or null.
 
     Served for a fixture still to come or called off too, whose page says why it takes no report, with both squads
-    empty: the pupils the stored report names are then all in `genannt`. Refused
+    empty: the pupils the stored report names are then all in `genannt`. Once the fixture's season has ended,
+    `abgeschlossen` is true and the read is the report alone, both squads empty, which its referee writes no more.
+    Refused
     `REQ-FUNKTION-001` where the address holds no confirmed, live referee record, and `REQ-BERICHT-002` where the fixture
     is booked to none of its records; `DB-COMMON-001` for a fixture that does not exist.
     """
@@ -162,6 +169,7 @@ async def get_spielbericht_bericht(
 
         lage = await pull_bericht_lage(
             spiele_collection=spiele_collection,
+            saisons_collection=saisons_collection,
             saison_spieler_collection=saison_spieler_collection,
             saison_teams_collection=saison_teams_collection,
             spiel_id=spiel_id,
@@ -173,7 +181,9 @@ async def get_spielbericht_bericht(
             )
         )
 
-        kader_offen = nimmt_einen_bericht(lage.spiel, today=today)
+        # After the season, the referee's page is a view of the report: no squad to pick from, no write.
+        abgeschlossen = ist_abgeschlossen(lage)
+        kader_offen = nimmt_einen_bericht(lage.spiel, today=today) and not abgeschlossen
         dokument = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
         genannt = await pull_genannt(
             spieler_collection=spieler_collection,
@@ -184,7 +194,7 @@ async def get_spielbericht_bericht(
         )
 
     return FLSpielberichtSchiedsrichterResponse.model_validate(
-        compose_ansicht(lage, kader_offen=kader_offen, genannt=genannt, dokument=dokument)
+        {**compose_ansicht(lage, kader_offen=kader_offen, genannt=genannt, dokument=dokument), "abgeschlossen": abgeschlossen}
     )
 
 
@@ -205,6 +215,7 @@ async def put_spielbericht_bericht(
     response: Response,
     identifier: SchiedsrichterIdentifier,
     spiele_collection: SpieleCollection,
+    saisons_collection: SaisonsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spieler_collection: SpielerCollection,
@@ -228,16 +239,18 @@ async def put_spielbericht_bericht(
 
     Refuses, in this order, each writing nothing: an address holding no confirmed, live referee record
     (`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records
-    (`REQ-BERICHT-002`); a `bericht_stand` other than the version standing now, or than none where none stands
-    (`REQ-BERICHT-006`); one undated or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out
-    (`REQ-BERICHT-004`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil
-    the report already named on that side staying while the side fields the club it did (`REQ-BERICHT-003`); and
-    remarks naming a seat holder of either club, the booked referee or a pupil of either squad (`REQ-BERICHT-005`),
-    last. Every refusal after the first but
-    `REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's records included, so
-    a write landing mid-press on what was judged refuses the report rather than letting it stand; a write of the report
-    itself landing mid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are
-    two forms opened on no report: the later is refused.
+    (`REQ-BERICHT-002`); one whose season has ended, whose report its referee only reads (`REQ-BERICHT-007`); a
+    `bericht_stand` other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated
+    or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out
+    proposed on a group-phase fixture (`REQ-BERICHT-009`); a pupil the write newly names on a side outside that side's
+    live squad of the season, a pupil the report already named on that side staying while the side fields the club it
+    did (`REQ-BERICHT-003`); a yellow or second yellow card naming no reason (`REQ-BERICHT-008`); and remarks naming a
+    seat holder of either club, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal
+    after the first but `REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's
+    records included, so a write landing on what was judged before that second asking refuses the report rather than
+    letting it stand, and one landing after it stands beside the report; a write of the report itself landing mid-press
+    conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two forms opened on no
+    report: the later is refused.
     """
 
     payload = bericht_data.bericht
@@ -251,6 +264,7 @@ async def put_spielbericht_bericht(
 
         lage = await pull_bericht_lage(
             spiele_collection=spiele_collection,
+            saisons_collection=saisons_collection,
             saison_spieler_collection=saison_spieler_collection,
             saison_teams_collection=saison_teams_collection,
             spiel_id=spiel_id,
@@ -260,8 +274,9 @@ async def put_spielbericht_bericht(
         block = None if gespeichert is None else gespeichert.get("bericht")
         neu = neu_genannt(payload, block, lage.spiel)
         refuse(find_nicht_geleitet_refusal(spiel_raw=lage.spiel, schiedsrichter_ids=eigene))
+        refuse(find_saison_beendet_refusal(lage))
         refuse(find_bericht_stand_refusal(stand=bericht_data.bericht_stand, gespeichert=block))
-        judge_bericht(lage=lage, payload=payload, neu=neu, today=today)
+        judge_bericht(lage=lage, payload=payload, gespeichert=block, neu=neu, today=today)
 
         await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*neu.values()), session=session)
         dokument = await write_bericht(
@@ -273,6 +288,9 @@ async def put_spielbericht_bericht(
             now=now,
             session=session,
         )
+        if gespeichert is None:
+            # After the insert, so a rival first write meets it there rather than blocking on the season.
+            await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=lage.spiel["saison_id"], session=session)
         genannt = await pull_genannt(
             spieler_collection=spieler_collection, lage=lage, kader_offen=True, bericht=dokument.get("bericht"), session=session
         )
@@ -285,6 +303,7 @@ async def put_spielbericht_bericht(
         refuse(find_eigener_eintrag_refusal(gehalten=bool(subjekt_jetzt.schiedsrichter)))
         jetzt = await pull_bericht_lage(
             spiele_collection=spiele_collection,
+            saisons_collection=saisons_collection,
             saison_spieler_collection=saison_spieler_collection,
             saison_teams_collection=saison_teams_collection,
             spiel_id=spiel_id,
@@ -295,15 +314,18 @@ async def put_spielbericht_bericht(
                 spiel_raw=jetzt.spiel, schiedsrichter_ids=[record.schiedsrichter_id for record in subjekt_jetzt.schiedsrichter]
             )
         )
-        judge_bericht(lage=jetzt, payload=payload, neu=neu, today=today)
+        refuse(find_saison_beendet_refusal(jetzt))
+        judge_bericht(lage=jetzt, payload=payload, gespeichert=block, neu=neu, today=today)
 
         angelegt = gespeichert is None or gespeichert.get("bericht") is None
-        ansicht = compose_ansicht(lage, kader_offen=True, genannt=genannt, dokument=dokument)
+        ansicht = {**compose_ansicht(lage, kader_offen=True, genannt=genannt, dokument=dokument), "abgeschlossen": False}
 
         return FLSpielberichtSchiedsrichterResponse.model_validate(ansicht), angelegt
 
-    async with transaction_session(db) as session:
-        answer, angelegt = await session.with_transaction(write_the_report)
+    # A first write anchors the season, a season write the cache serves (`docs/backend/spec.md :: I131`).
+    with dropping_the_saison_cache():
+        async with transaction_session(db) as session:
+            answer, angelegt = await session.with_transaction(write_the_report)
 
     # RFC 9110's PUT: a write creating the report says so.
     if angelegt:

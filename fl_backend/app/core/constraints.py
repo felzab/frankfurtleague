@@ -1770,6 +1770,21 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("saison_id", ASCENDING),),
         "a season's reports, which the triage's read and a replace's or an undraw's removal filter on",
     ),
+    # For `spielbestaetigungen_antwort_von_halter`'s reason: the reports are kept with no retention bound.
+    SupportIndex(
+        Collection.SPIELBERICHTE,
+        "spielberichte_eingereicht_von_schiedsrichter_id",
+        (("bericht.eingereicht_von.schiedsrichter_id", ASCENDING),),
+        "the reports a leaving referee sent, read inside their erasure's transaction",
+    ),
+    # The report reads it on every form and panel read and twice on every write, as do a team's
+    # registrations and squad pages; the only index led by `saison_id` is led by the pupil instead.
+    SupportIndex(
+        Collection.SAISON_SPIELER,
+        "saison_spieler_saison_id_team_id",
+        (("saison_id", ASCENDING), ("team_id", ASCENDING)),
+        "one season's squad rows of one or two clubs",
+    ),
     # A person's records by the fold every address payload stores (`docs/backend/spec.md :: I333`), one index per
     # clause of each `$or`, for the registration's pair's reason.
     *(

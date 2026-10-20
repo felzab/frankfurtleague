@@ -88,7 +88,7 @@ describe("adopting a report whose proposal the fixture already holds", () => {
       assert.fail("the editor has no save");
     assert.equal(speichern().disabled, true, "the premise: an untouched editor offers no save");
 
-    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen" }));
+    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen: Spielbericht" }));
     assert.equal(speichern().disabled, false, "the seed left nothing to save");
 
     await user.click(speichern());
@@ -107,7 +107,7 @@ describe("adopting a report whose proposal the fixture already holds", () => {
   it("hands the adoption the save stamped over to its undo", async () => {
     const user = userEvent.setup();
     render(editor());
-    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen" }));
+    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen: Spielbericht" }));
     await user.click(
       screen.getAllByRole<HTMLButtonElement>("button", { name: "Speichern" }).find((button) => button.type === "submit") ??
         assert.fail("the editor has no save"),

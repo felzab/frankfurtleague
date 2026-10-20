@@ -656,7 +656,7 @@ async def erase_everything(
     )
 
     # Each sentinel ahead of the step erasing its kind. The referee's takes the fixtures that booked the
-    # person; nothing is repointed at the pupils' yet, which stands for whatever record comes to name a pupil.
+    # person; nothing is repointed at the pupils' (`docs/backend/spec.md :: "A pupil's erasure leaves their id"`).
     if _runs(erase_referee_in_session, scope) and subject.schiedsrichter:
         await ensure_ghost_schiedsrichter(schiedsrichter_collection=schiedsrichter_collection, session=session)
     if _runs(erase_person_in_session, scope) and subject.spieler:

@@ -16,6 +16,7 @@ import { schiedsrichterSelbst } from "@/shared/testing/selbstFixtures.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import type { FLSpielberichtPersonEintrag } from "@/features/spielberichte/schemas.ts";
+import type { SchiedsrichterSpielberichte } from "@/features/spielberichte/types.ts";
 import type { FLSpielbestaetigungSelbst } from "@/features/spielbestaetigungen/schemas.ts";
 import type { FLSchiedsrichterSelbst } from "../../schemas.ts";
 
@@ -59,8 +60,8 @@ const renderView = (
   schiedsrichter: readonly FLSchiedsrichterSelbst[] = [SCHIEDSRICHTERIN],
   {
     einsaetze = [],
-    spielberichte = null,
-  }: { einsaetze?: readonly FLSpielbestaetigungSelbst[]; spielberichte?: readonly FLSpielberichtPersonEintrag[] | null } = {},
+    spielberichte = "geschlossen",
+  }: { einsaetze?: readonly FLSpielbestaetigungSelbst[]; spielberichte?: SchiedsrichterSpielberichte } = {},
 ) => render(underNext(h(SchiedsrichterSelbstView, { schiedsrichter, einsaetze, spielberichte })));
 
 describe("a referee's own page", () => {
@@ -124,7 +125,7 @@ describe("a referee's own page", () => {
 
   /* Closed, the section names why it offers nothing, so a referee does not read an empty season. */
   it("offers no report link while the reports are closed, and says so", () => {
-    renderView([SCHIEDSRICHTERIN], { spielberichte: null });
+    renderView([SCHIEDSRICHTERIN], { spielberichte: "geschlossen" });
 
     assert.equal(screen.queryAllByRole("link", { name: /^Spielbericht/ }).length, 0);
     assert.ok(screen.getByText(/gerade nicht freigeschaltet/));

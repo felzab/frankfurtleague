@@ -7,8 +7,9 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import { KARTEN_FARBE_LABELS, KARTEN_GRUND_LABELS } from "../../../constants";
+import { grundGestrippt } from "../../../schemas";
 import { AuswahlSelect } from "./AuswahlSelect";
-import { EntfernenButton, HinzufuegenButton, MinuteField, ohneKader, personOptionen, seitenOptionen } from "./eintragFelder";
+import { EntfernenButton, GeleertHinweis, HinzufuegenButton, MinuteField, ohneKader, personOptionen, seitenOptionen } from "./eintragFelder";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLKartenFarbe, FLKartenGrund, FLSpielberichtSeite } from "../../../schemas";
@@ -26,6 +27,8 @@ export function FormKartenSection({
   onAdd,
   fieldErrors,
   onValidateFields,
+  geleert,
+  bestand,
 }: {
   kontext: SpielberichtKontext;
   eintraege: readonly KarteDraft[];
@@ -33,6 +36,10 @@ export function FormKartenSection({
   onAdd: () => void;
   fieldErrors: FieldErrors;
   onValidateFields: (paths: readonly string[]) => void;
+  /** The entries whose person the form took out on opening (`eroeffnungOf`). */
+  geleert: ReadonlySet<number>;
+  /** The stored report's cards, whose stripped cautions owe no reason again. */
+  bestand: Parameters<typeof grundGestrippt>[0];
 }) {
   const panel = formPanel();
 
@@ -95,6 +102,7 @@ export function FormKartenSection({
                       error={fieldErrors[`${pfad}.spieler_id`]}
                     />
                   </div>
+                  {geleert.has(karte.key) && karte.spieler === "" && <GeleertHinweis />}
                   {ohneKader(kontext, karte.seite) && (
                     <p className="muted-hint">
                       Für dieses Team ist kein Kader hinterlegt. Beschreib die Karte dann in den Bemerkungen mit der Rückennummer.
@@ -129,8 +137,12 @@ export function FormKartenSection({
                     onChange={(grund) => update(karte.key, { grund: grund === KEIN_GRUND ? null : grund })}
                     error={fieldErrors[`${pfad}.grund`]}
                     // Marked by hand: a caution's reason is refused empty by the card's refinement
-                    // (`fl_frontend/src/features/spielberichte/schemas.ts :: kartePayload`), the leaf taking `null` for a red.
-                    isRequired={karte.farbe === "gelb" || karte.farbe === "gelb_rot"}
+                    // (`fl_frontend/src/features/spielberichte/schemas.ts :: kartePayload`), the leaf taking `null` for a red
+                    // and for a caution the season's end stripped.
+                    isRequired={
+                      (karte.farbe === "gelb" || karte.farbe === "gelb_rot") &&
+                      !grundGestrippt(bestand, { ...karte, spieler_id: karte.spieler })
+                    }
                   />
                 </li>
               );

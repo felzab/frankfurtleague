@@ -22,7 +22,7 @@ const { raised } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SpielberichtForm } = await import("./SpielberichtForm.tsx");
-const { kontextOf } = await import("./spielberichtDraft.ts");
+const { deriveSpielberichtDraftStatus, draftOf, kontextOf } = await import("./spielberichtDraft.ts");
 const { FLSpielberichtSchiedsrichterResponseSchema } = await import("../../../schemas.ts");
 
 const LESEN = FLSpielberichtSchiedsrichterResponseSchema.parse(spielberichtReadFixture());
@@ -50,8 +50,8 @@ const pick = async (user: User, trigger: HTMLElement, option: string) => {
 
 /** A 1:0 typed into the goal boxes. */
 async function eintragen(user: User): Promise<void> {
-  await user.type(screen.getByRole("textbox", { name: /Tore Goethe-Gymnasium/ }), "1");
-  await user.type(screen.getByRole("textbox", { name: /Tore Lessing-Gymnasium/ }), "0");
+  await user.type(screen.getByRole("textbox", { name: /^Goethe-Gymnasium/ }), "1");
+  await user.type(screen.getByRole("textbox", { name: /^Lessing-Gymnasium/ }), "0");
 }
 
 describe("the referee's report form", () => {
@@ -128,29 +128,66 @@ describe("the referee's report form", () => {
     assert.equal(Reflect.get(Object(calls[0]?.payload), "bericht_stand"), 4);
   });
 
+  /* A scorer ausgetragen since the match is in no squad the read serves, only in `genannt`: the picker and the change
+     list would otherwise read the stored entry as unpicked and as a bare id. */
+  it("keeps a stored scorer's name where no squad holds them any more", () => {
+    const kontext = kontextOf({ ...LESEN, kader: { team1: [], team2: LESEN.kader.team2 }, genannt: LESEN.kader.team1 });
+    render(
+      underNext(
+        h(SpielberichtForm, {
+          leser: "schiedsrichter",
+          spielId: BERICHT_SPIEL_ID,
+          kontext,
+          stored: LESEN.bericht,
+          header: { title: "Goethe-Gymnasium gegen Lessing-Gymnasium" },
+          zurueckHref: "/bereich/schiedsrichter",
+        }),
+        { router: nextRouter() },
+      ),
+    );
+
+    assert.ok(
+      screen.getAllByRole("button", { name: /Spielerin oder Spieler/ })[0]?.textContent?.includes("9 · Lina Berg"),
+      "the picker reads unpicked",
+    );
+
+    const gespeichert = draftOf(LESEN.bericht);
+    const status = deriveSpielberichtDraftStatus({ kontext, stored: gespeichert, draft: gespeichert, fieldErrors: {} });
+    assert.equal(status.byPath.get("bericht.torschuetzen")?.storedText, "Goethe-Gymnasium: 9 · Lina Berg, 23.");
+  });
+
+  /* „45+2“ needs a „+“, which a digits keypad may not carry on the phone a referee fills the report in on. */
+  it("asks for no digits-only keyboard in the minute box", async () => {
+    const user = userEvent.setup();
+    render(leer());
+    await user.click(screen.getByRole("button", { name: "Tor hinzufügen" }));
+
+    assert.equal(screen.getByRole("textbox", { name: "Minute" }).getAttribute("inputmode"), null);
+  });
+
   /* A no-show takes no scorer: an entry left standing would ride into a save the backend refuses, unseen. */
   it("drops the scorers with a no-show and offers none", async () => {
     const user = userEvent.setup();
     render(leer());
     await user.click(screen.getByRole("button", { name: "Tor hinzufügen" }));
 
-    await pick(user, screen.getByRole("button", { name: /^Besonderes Ereignis/ }), "Nichtantreten Team 2");
+    await pick(user, screen.getByRole("button", { name: /^Sonderereignis/ }), "Nichtantreten Team 2");
 
     assert.equal(screen.queryAllByText("Tor 1").length, 0, "the scorer entry survived the no-show");
     assert.equal(screen.queryAllByRole("button", { name: "Tor hinzufügen" }).length, 0, "a no-show still offers a scorer");
     assert.ok(screen.getByText("Bei einem Nichtantreten gibt es keine Torschützen."));
 
     // Gone from the draft and not merely hidden: taking the no-show back finds no entry the referee left behind.
-    await pick(user, screen.getByRole("button", { name: /^Besonderes Ereignis/ }), "Keines");
+    await pick(user, screen.getByRole("button", { name: /^Sonderereignis/ }), "Keines");
     assert.equal(screen.queryAllByText("Tor 1").length, 0, "the hidden scorer entry still stands in the draft");
   });
 
-  /* The success toast reads „Spielbericht gesendet“, so its failure is that title negated. */
-  it("titles a refused send as not sent", async () => {
+  /* The press reads „Speichern“ and the request went out, so the failure is the success negated, never „nicht gesendet“. */
+  it("titles a refused save as not saved", async () => {
     const user = userEvent.setup();
     render(leer());
-    await user.type(screen.getByRole("textbox", { name: /Tore Goethe-Gymnasium/ }), "0");
-    await user.type(screen.getByRole("textbox", { name: /Tore Lessing-Gymnasium/ }), "0");
+    await user.type(screen.getByRole("textbox", { name: /^Goethe-Gymnasium/ }), "0");
+    await user.type(screen.getByRole("textbox", { name: /^Lessing-Gymnasium/ }), "0");
     answerWith(() => Promise.resolve({ success: false, error: "Dieses Spiel leitest Du nicht mehr. Lade die Seite neu." }));
     raised.length = 0;
 
@@ -159,7 +196,7 @@ describe("the referee's report form", () => {
 
     assert.deepEqual(
       raised.filter(({ variant }) => variant === "danger").map(({ title }) => title),
-      ["Spielbericht nicht gesendet"],
+      ["Spielbericht nicht gespeichert"],
     );
   });
 
@@ -172,5 +209,51 @@ describe("the referee's report form", () => {
     await pick(user, screen.getByRole("button", { name: /^Team/ }), "Lessing-Gymnasium");
 
     assert.ok(screen.getByText(/Für dieses Team ist kein Kader hinterlegt\. Jedes Tor trägst Du dann als „unbekannt“ ein\./));
+  });
+
+  /* A knockout correction re-fielded team 2 since the report: the backend reads it `teams_geaendert` until a write stamps
+     the clubs playing now, so a save that changes nothing else must still go out. */
+  describe("on a report about a club that has left the fixture", () => {
+    const umbesetzt = (lesen: ReturnType<typeof spielberichtReadFixture>) => {
+      const gelesen = FLSpielberichtSchiedsrichterResponseSchema.parse({ ...lesen, seiten_geaendert: ["team2"] });
+      return underNext(
+        h(SpielberichtForm, {
+          leser: "schiedsrichter",
+          spielId: BERICHT_SPIEL_ID,
+          kontext: kontextOf(gelesen),
+          stored: gelesen.bericht,
+          header: { title: "Goethe-Gymnasium gegen Lessing-Gymnasium" },
+          zurueckHref: "/bereich/schiedsrichter",
+        }),
+        { router: nextRouter() },
+      );
+    };
+
+    it("says so and sends the report unchanged, written for the clubs playing now", async () => {
+      const user = userEvent.setup();
+      const ohneKarte = spielberichtReadFixture();
+      render(umbesetzt({ ...ohneKarte, bericht: { ...ohneKarte.bericht, karten: [] } }));
+      assert.ok(screen.getByText("Im Spiel stehen inzwischen andere Teams"));
+      calls.length = 0;
+
+      await user.click(screen.getByRole("button", { name: "Speichern" }));
+      await act(answered);
+
+      assert.equal(calls.length, 1, "the unchanged report was not sent, so its clubs stay unstamped");
+    });
+
+    it("takes the departed club's pupil out of its entry and marks it", async () => {
+      const user = userEvent.setup();
+      const gelesen = spielberichtReadFixture();
+      // Team 2's squad is the new club's: the stored card names a pupil of the club that left.
+      render(umbesetzt({ ...gelesen, kader: { ...gelesen.kader, team2: [] } }));
+      assert.ok(screen.getByText("Die eingetragene Person spielt nicht für dieses Team. Wähle die Person neu."));
+      calls.length = 0;
+
+      await user.click(screen.getByRole("button", { name: "Speichern" }));
+      await act(answered);
+
+      assert.deepEqual(calls, [], "a card naming the departed club's pupil was sent, which the backend refuses");
+    });
   });
 });

@@ -2,26 +2,23 @@
 
 import Link from "next/link";
 
+import ArrowDownToLine from "@gravity-ui/icons/ArrowDownToLine";
+
 import { Button } from "@heroui/react/button";
 
 import { labelBadge } from "@/shared/components/ui/badges";
-import { card } from "@/shared/components/ui/card";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
+import { benannt } from "@/shared/utils/benannt";
 
-import {
-  KARTEN_FARBE_LABELS,
-  KARTEN_GRUND_LABELS,
-  SPIELBERICHT_ZUSTAND_LABELS,
-  SPIELBERICHT_ZUSTAND_TONE,
-  TORSCHUETZE_UNBEKANNT_LABEL,
-} from "../../constants";
-import { berlinZeitpunkt, spielerLabel, vorschlagText } from "../../utils";
+import { SPIELBERICHT_ZUSTAND_LABELS, SPIELBERICHT_ZUSTAND_TONE } from "../../constants";
+import { berichtSperre, berlinZeitpunkt, vorschlagText } from "../../utils";
+import { BerichtEintraege } from "./BerichtEintraege";
 
-import type { FLSpielberichtBericht, FLSpielberichtSeite } from "../../schemas";
+import type { FLSpielberichtBericht } from "../../schemas";
 import type { Eingesetzt, SpielberichtStand } from "../../types";
 
 const KORREKTUR = "Spielbericht bearbeiten";
@@ -36,6 +33,7 @@ export function AdminSpielberichtPanel({
   uebernahmeGesperrt,
   eingesetzt,
   hatEntwurf,
+  today,
 }: {
   /** `null` where the read failed, which the panel says rather than reading as a fixture with no report. */
   stand: SpielberichtStand | null;
@@ -47,6 +45,8 @@ export function AdminSpielberichtPanel({
   eingesetzt: Eingesetzt;
   /** The editor holds unsaved changes, which the correction page's client-side navigation would drop unasked. */
   hatEntwurf: boolean;
+  /** The German day the editor was served on, which decides whether the stored fixture takes a report. */
+  today: string;
 }) {
   const panel = formPanel();
   const zustand = stand?.lesen.zustand ?? null;
@@ -71,6 +71,7 @@ export function AdminSpielberichtPanel({
             uebernahmeGesperrt={uebernahmeGesperrt}
             eingesetzt={eingesetzt}
             hatEntwurf={hatEntwurf}
+            today={today}
           />
         )}
       </div>
@@ -84,25 +85,23 @@ function BerichtInhalt({
   uebernahmeGesperrt,
   eingesetzt,
   hatEntwurf,
+  today,
 }: {
   stand: SpielberichtStand;
   onUebernehmen: (bericht: FLSpielberichtBericht) => void;
   uebernahmeGesperrt: string | null;
   eingesetzt: Eingesetzt;
   hatEntwurf: boolean;
+  today: string;
 }) {
   const saisonHref = useSaisonHref();
   const { lesen, korrigierbar } = stand;
   const { bericht, zustand, spiel } = lesen;
   // Both writes refuse a called-off fixture (`REQ-BERICHT-004`), and its result is no proposal's to set.
   const istAbgesagt = zustand === "abgesagt";
-
-  const team = (seite: FLSpielberichtSeite) => (seite === "team1" ? spiel.team1?.name : spiel.team2?.name) ?? "";
-  const person = (spielerId: string | null): string => {
-    if (spielerId === null) return TORSCHUETZE_UNBEKANNT_LABEL;
-    const genannt = [...lesen.kader.team1, ...lesen.kader.team2, ...lesen.genannt].find((spieler) => spieler.spieler_id === spielerId);
-    return genannt === undefined ? spielerId : spielerLabel(genannt);
-  };
+  // A proposal by side about clubs that left: its score beside this fixture's clubs would read as theirs, as the card's
+  // chip withholds it (`fl_frontend/src/features/spielberichte/utils.ts :: berichtChip`).
+  const zeigtVorschlag = !istAbgesagt && zustand !== "teams_geaendert";
 
   return (
     <>
@@ -130,93 +129,63 @@ function BerichtInhalt({
             </p>
           )}
           {istAbgesagt && (
-            <p className="muted-hint">Das Spiel ist ausgefallen oder annulliert. Der Bericht lässt sich weder übernehmen noch bearbeiten.</p>
+            <p className="muted-hint">
+              Das Spiel ist als ausgefallen oder annulliert eingetragen. Übernehmen und bearbeiten lässt sich der Bericht, sobald Du das
+              Sonderereignis entfernst.
+            </p>
           )}
 
-          <div className="flex w-full flex-col gap-y-2">
-            <p className="fluid-sm font-semibold text-foreground">{`Vorschlag: ${vorschlagText(bericht.ergebnis_vorschlag)}`}</p>
-            {!istAbgesagt && (
-              <>
-                <div className="flex flex-row flex-wrap items-center gap-3">
-                  <Hint
-                    mode="refusal"
-                    reason={uebernahmeGesperrt}
-                    label="Vorschlag übernehmen">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      isDisabled={uebernahmeGesperrt !== null}
-                      onPress={() => onUebernehmen(bericht)}
-                      className={`${formButton({ intent: "nav", size: "xs" })} shrink-0`}>
-                      Vorschlag übernehmen
-                    </Button>
-                  </Hint>
-                  {eingesetzt === "aktuell" && <span className={labelBadge("info")}>Eingesetzt</span>}
-                </div>
-                {/* A refresh can bring a newer report under a mounted editor: the badge would vouch for a proposal the
-                    draft does not hold, and the save would stamp nothing. */}
-                {eingesetzt === "veraltet" && (
-                  <p className="muted-hint">
-                    Der Spielbericht wurde geändert, seit Du seinen Vorschlag eingesetzt hast. Übernimm den Vorschlag erneut.
-                  </p>
-                )}
+          {zeigtVorschlag && (
+            <div className="flex w-full flex-col gap-y-2">
+              <p className="fluid-sm font-semibold text-foreground">{`Vorschlag: ${vorschlagText(bericht.ergebnis_vorschlag)}`}</p>
+              <div className="flex flex-row flex-wrap items-center gap-3">
                 <Hint
-                  mode="reveal"
-                  label="Hinweis zum Vorschlag"
-                  body={{ lead: "Setzt Tore, Elfmeterschießen und Ereignis aus dem Spielbericht ein. Gespeichert wird erst mit „Speichern“." }}
-                />
-              </>
-            )}
-          </div>
-
-          {bericht.torschuetzen.length > 0 && (
-            <ul
-              aria-label="Torschützen"
-              className="flex w-full flex-col gap-2">
-              {bericht.torschuetzen.map((tor, index) => (
-                <li
-                  // Entries carry no id of their own; their place in the stored list is stable while this read stands.
-                  key={index}
-                  className={`${card()} flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3`}>
-                  <span className="font-numeric fluid-sm font-semibold tabular-nums">{`${tor.minute}.`}</span>
-                  <span className="min-w-0 flex-1 fluid-sm">{person(tor.spieler_id)}</span>
-                  <span className="muted-meta">{team(tor.seite)}</span>
-                  {tor.eigentor && <span className={labelBadge("warning")}>Eigentor</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {bericht.karten.length > 0 && (
-            <ul
-              aria-label="Karten"
-              className="flex w-full flex-col gap-2">
-              {bericht.karten.map((karte, index) => (
-                <li
-                  key={index}
-                  className={`${card()} flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3`}>
-                  <span className="font-numeric fluid-sm font-semibold tabular-nums">{`${karte.minute}.`}</span>
-                  <span className="min-w-0 flex-1 fluid-sm">{person(karte.spieler_id)}</span>
-                  <span className="muted-meta">{team(karte.seite)}</span>
-                  <span className={labelBadge(karte.farbe === "gelb" ? "warning" : "danger")}>{KARTEN_FARBE_LABELS[karte.farbe]}</span>
-                  {karte.grund !== null && <span className="muted-meta">{`Grund: ${KARTEN_GRUND_LABELS[karte.grund]}`}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {bericht.bemerkungen !== null && (
-            <div className="flex w-full flex-col gap-y-1">
-              <p className="fluid-xs font-bold text-foreground">Bemerkungen (nur für die Verwaltung)</p>
-              <p className="fluid-sm whitespace-pre-line text-foreground">{bericht.bemerkungen}</p>
+                  mode="refusal"
+                  reason={uebernahmeGesperrt}
+                  label="Vorschlag übernehmen">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    // Named apart from the confirmations' press of the same words on this editor, which carries a date.
+                    aria-label={benannt("Vorschlag übernehmen", "Spielbericht")}
+                    isDisabled={uebernahmeGesperrt !== null}
+                    onPress={() => onUebernehmen(bericht)}
+                    className={`${formButton({ intent: "nav", size: "xs" })} shrink-0 gap-x-2`}>
+                    <ArrowDownToLine
+                      className="size-3.5"
+                      aria-hidden="true"
+                    />
+                    Vorschlag übernehmen
+                  </Button>
+                </Hint>
+                {eingesetzt === "aktuell" && <span className={labelBadge("info")}>Eingesetzt</span>}
+              </div>
+              {/* A refresh can bring a newer report under a mounted editor: the badge would vouch for a proposal the
+                    draft does not hold, and the save would stamp nothing. */}
+              {eingesetzt === "veraltet" && (
+                <p className="muted-hint">
+                  Der Spielbericht wurde geändert, seit Du seinen Vorschlag eingesetzt hast. Übernimm den Vorschlag erneut.
+                </p>
+              )}
+              <Hint
+                mode="reveal"
+                label="Hinweis zum Vorschlag"
+                body={{ lead: "Setzt Tore, Elfmeterschießen und Ereignis aus dem Spielbericht ein. Gespeichert wird erst mit „Speichern“." }}
+              />
             </div>
           )}
+
+          <BerichtEintraege
+            lesen={lesen}
+            bericht={bericht}
+            bemerkungenTitel="Bemerkungen (nur für die Verwaltung)"
+          />
         </>
       )}
 
-      {/* The correction page writes only while the switch reads on, and a client-side navigation passes the editor's
-          unsaved-changes guard, so a draft seeded from the proposal would go unasked. */}
-      {!istAbgesagt &&
+      {/* The correction page writes only while the switch reads on and the stored fixture takes a report; a
+          client-side navigation passes the editor's unsaved-changes guard, so a seeded draft would go unasked. */}
+      {berichtSperre(spiel, today) === null &&
         (!korrigierbar ? (
           <p className="muted-hint">Solange Spielberichte nicht freigeschaltet sind, lässt sich der Bericht nicht bearbeiten.</p>
         ) : hatEntwurf ? (

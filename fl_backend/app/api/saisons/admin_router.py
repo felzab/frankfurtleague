@@ -63,7 +63,7 @@ from app.api.saisons.services import (
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
-from app.api.spielberichte.crud import count_eingereichte_berichte
+from app.api.spielberichte.crud import anchor_the_season_reported_in, count_eingereichte_berichte
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import (
@@ -965,6 +965,9 @@ async def generate_spielplan(
         # The counts go to the response: they are what the admin confirmed deleting, and the flag
         # alone cannot say whether anything was there to delete.
         if spielplan_data.replace:
+            # The season a report's first write anchors, so the two conflict: the watermark's `$set` below can change
+            # nothing on a same-day redraw, and the report's insert meets no delete here (`docs/backend/spec.md :: I833`).
+            await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
             # NOT extracted, though `undraw_spielplan` repeats it: two sites are no pattern yet
             # (`.claude/CLAUDE.md` §3).
             await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
@@ -988,8 +991,8 @@ async def generate_spielplan(
         shape_written = {} if shape is None else {f"rules.{rule}": value for rule, value in shape.model_dump().items()}
 
         if spielplan_data.replace:
-            # A report's write reads the fixture and never writes it, so one landing mid-replace conflicts with nothing
-            # here: counted again outside the transaction (`docs/backend/spec.md :: I118`).
+            # Counted again outside the transaction (`docs/backend/spec.md :: I118`): a report's first write conflicts
+            # with this one on the season (`:: I833`), and a correction on the report, but a document no write made does not.
             refuse(
                 find_berichte_refusal(
                     berichte=await count_eingereichte_berichte(
