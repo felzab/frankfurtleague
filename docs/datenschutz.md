@@ -842,8 +842,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   address taken out of the record and its log images. **An ended change's record holds no address
   and no reason, only its links' check values, so each link answers how the change ended; the
   database deletes it thirty days after its end** (`:: ADRESSWECHSEL_NACHLAUF_TAGE`). A confirmed
-  change the pass refuses at its due time — the address on file barred meanwhile, holding nothing
-  left to move, or the new address taken — ends there, and the new address is mailed a short notice
+  change the pass refuses at its due time — either address barred meanwhile, the address on file
+  holding nothing left to move, the new address another pupil's or another grant's, or a grant the
+  approval does not cover
+  (`fl_backend/app/api/adresswechsel/crud.py :: judge_the_effect_in_session`) — ends there, and the new address is mailed a short notice
   naming nobody, saying the change did not take effect and the league can help; the address on file
   is mailed nothing. The published notice states the ending and the thirty days
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06, its timing re-ruled 2026-10-15 and
