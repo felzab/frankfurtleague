@@ -54,7 +54,7 @@ const BODY = {
 const REQUEST = BODY;
 
 /** The referee as the replay stored it, which every answer below echoes. */
-const STORED = { ...BODY, inactive_since: null, geburtsdatum: null, einwilligung: null, bestaetigung: null, adresswechsel: null };
+const STORED = { ...BODY, inactive_since: null, geburtsdatum: null, einwilligung: null, bestaetigung: null };
 
 /** The sentence an answer carries, success or not, which a case matches against. */
 const said = (answer: Awaited<ReturnType<typeof undoAdminSchiedsrichterEditAction>>): string =>

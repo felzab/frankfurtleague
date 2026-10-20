@@ -61,7 +61,6 @@ const referee = () => ({
       }
     : null,
   bestaetigung: null,
-  adresswechsel: null,
 });
 
 /** Each request answered as the backend answers it where it landed, the ones a case here reaches past its step-up. */
@@ -74,8 +73,8 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
   }
   if (endpoint.startsWith("/schiedsrichter/")) {
     return method === undefined
-      ? { acknowledged: 1, schiedsrichter: referee(), bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: false }
-      : { acknowledged: 1, updated_document: referee(), fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null };
+      ? { acknowledged: 1, schiedsrichter: referee(), bestaetigung_abgelaufen: false, adresswechsel_id: null }
+      : { acknowledged: 1, updated_document: referee(), fanned_out_to_spiele: 0, bestaetigung: null };
   }
   if (endpoint.endsWith("/spielplan")) {
     return {
@@ -457,17 +456,13 @@ describe("an administrator write the server holds to the step-up window", () => 
   });
 });
 
-/**
- * A referee's undo body as the editor sends it: the save's payload, its address `email`, and the
- * undo's own field, as the kontakte drive carries its save's `kontakte_stand`.
- */
+/** A referee's undo body as the editor sends it: the save's payload, its address `email` among it. */
 const refereeReplay = (email: string) => ({
   id: REFEREE_ID,
   name: "Anna Körner",
   schule: null,
   default_payment: 20,
   kontakt: { telefon: null, email },
-  adresswechsel_gespeichert: false,
 });
 
 /**
@@ -555,7 +550,7 @@ describe("an undo the server holds to the step-up window", () => {
 const GRANT_ID = "6890a1b2c3d4e5f6071b0001";
 const BEWERBUNG_ID = "6890a1b2c3d4e5f6071c0001";
 const SPERRE_ID = "6890a1b2c3d4e5f6071d0001";
-const SPIELER_ID = "6890a1b2c3d4e5f6071e0001";
+const ADRESSWECHSEL_ID = "6890a1b2c3d4e5f6071e0001";
 const SPIELBESTAETIGUNG_ID = "6890a1b2c3d4e5f6071f0001";
 const INCOMING_TEAM_ID = "6890a1b2c3d4e5f607182933";
 
@@ -636,12 +631,14 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   "PATCH /schiedsrichter/{schiedsrichter_id}": { name: "patchSchiedsrichterAction", payload: refereeReplay("anna@neu.example") },
   "POST /schiedsrichter/{schiedsrichter_id}/reactivate": { name: "reactivateSchiedsrichterAction", payload: { id: REFEREE_ID } },
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": { name: "einladeSchiedsrichterAction", payload: { id: REFEREE_ID } },
-  "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel": {
+  "POST /adresswechsel": {
     name: "beantrageAdresswechselAction",
-    payload: { id: REFEREE_ID, email: "anna@neu.example", grund: null },
+    payload: { adresse: STORED_EMAIL, email: "anna@neu.example", grund: null },
   },
-  "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": { name: "einladeAdresswechselAction", payload: { id: REFEREE_ID } },
-  "DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel": { name: "verwirfAdresswechselAction", payload: { id: REFEREE_ID } },
+  "POST /adresswechsel/{adresswechsel_id}/einladen": { name: "einladeAdresswechselAction", payload: { id: ADRESSWECHSEL_ID } },
+  "DELETE /adresswechsel/{adresswechsel_id}": { name: "verwirfAdresswechselAction", payload: { id: ADRESSWECHSEL_ID } },
+  // The approval hands a grant to another address, so its window is the enrolment's, as a grant write's.
+  "POST /adresswechsel/{adresswechsel_id}/genehmigung": { name: "genehmigeAdresswechselAction", payload: { id: ADRESSWECHSEL_ID } },
   "POST /sperrliste": { name: "postSperreAction", payload: { email: "zorbanax@beispielschule.de", grund: "Falsches Geburtsdatum angegeben" } },
   "DELETE /sperrliste/{sperrliste_id}": { name: "deleteSperreAction", payload: { id: SPERRE_ID } },
   "POST /spielbestaetigungen/{spielbestaetigung_id}/eintragen": {
@@ -652,12 +649,6 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
     name: "verwerfenSpielbestaetigungAction",
     payload: { id: SPIELBESTAETIGUNG_ID },
   },
-  "POST /spieler/{spieler_id}/adresswechsel": {
-    name: "beantrageSpielerAdresswechselAction",
-    payload: { id: SPIELER_ID, email: "lena@neu.example", grund: null },
-  },
-  "POST /spieler/{spieler_id}/adresswechsel/einladen": { name: "einladeSpielerAdresswechselAction", payload: { id: SPIELER_ID } },
-  "DELETE /spieler/{spieler_id}/adresswechsel": { name: "verwirfSpielerAdresswechselAction", payload: { id: SPIELER_ID } },
   "POST /teams/{team_id}/saisons": { name: "postSaisonTeamAction", payload: { team_id: TEAM_ID, saison_id: SAISON_ID, gruppe: "A" } },
   "POST /teams/{team_id}/saisons/{saison_id}/replace": {
     name: "replaceSaisonTeamAction",

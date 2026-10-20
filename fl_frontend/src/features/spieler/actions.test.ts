@@ -27,14 +27,14 @@ import {
 import { mapAlreadyInSaisonRefusal, mapSquadRefusal } from "./refusals.ts";
 
 import type { ReactElement, ReactNode } from "react";
-import type { FLSpielerAdresswechsel, FLSpielerRolle } from "./schemas.ts";
+import type { FLSpielerRolle } from "./schemas.ts";
 import type { AdminSpielerRow, SpielerSaisonMembership, SpielerTeamOption } from "./types.ts";
 
 const SPIELER_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
 const SAISON_ID = "2026";
 
 /* Every write answers as landed, a link press's with its link sent; this file still reads the real module's text. */
-const { calls, answered, answerWith } = doubleActions({
+const { calls, answered } = doubleActions({
   modules: ["/src/features/spieler/actions.ts"],
   answer: () => Promise.resolve({ success: true, message: "Gespeichert.", spieler_id: SPIELER_ID, versand: "gesendet" }),
 });
@@ -126,8 +126,7 @@ const OHNE_ADRESSE = {
   inactive_since: null,
   geburtsdatum: null,
   email: null,
-  adresswechsel: null,
-  adresswechsel_abgelaufen: false,
+  adresswechsel_id: null,
 };
 
 /** The player's editor on this season's squad row, which names the stored club. */
@@ -231,8 +230,7 @@ function person(id: string, vorname: string, rows: { saison_id: string; team_id:
     geburtsdatum: null,
     einwilligung: null,
     email: null as string | null,
-    adresswechsel: null as FLSpielerAdresswechsel | null,
-    adresswechsel_abgelaufen: false,
+    adresswechsel_id: null as string | null,
     memberships: rows.map(({ saison_id, team_id, rolle = null }) => ({
       saison_id,
       team_id,
@@ -786,26 +784,15 @@ describe("the late-entry marker, which the backend derives", () => {
 });
 
 const GESPEICHERT = "lena@schule.example";
-const WARTEND: FLSpielerAdresswechsel = {
-  email: "lena@neu.example",
-  weg: "konto",
-  verschickt_am: "2026-10-01",
-  gueltig_bis: "2026-10-15T10:00:00Z",
-  freigegeben_am: null,
-  grund: null,
-  bestaetigt_am: null,
-  wirksam_ab: null,
-  zustellung: null,
-};
+const WARTEND = "68c1f0a2b3c4d5e6f7a8b9e0";
 
 /** The editor page over one pupil holding `adresse`, rendered as its reads answer it. */
-async function renderAdressePage(adresse: { email: string | null; adresswechsel: FLSpielerAdresswechsel | null; abgelaufen: boolean }) {
+async function renderAdressePage(adresse: { email: string | null; adresswechselId: string | null }) {
   answerPages([
     {
       ...person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }]),
       email: adresse.email,
-      adresswechsel: adresse.adresswechsel,
-      adresswechsel_abgelaufen: adresse.abgelaufen,
+      adresswechsel_id: adresse.adresswechselId,
     },
   ]);
   render(underSaison(await editorPageBody()));
@@ -814,101 +801,39 @@ async function renderAdressePage(adresse: { email: string | null; adresswechsel:
 /** The value beside a stored fact's label. */
 const angabe = (label: string): Element | null => screen.getByText(label).nextElementSibling;
 
+/* The editor reads the address and the change pending at it and moves neither: a change is the person's own on
+   their account page or the address tool's, which every editor links the same way. */
 describe("the pupil's address on the editor", () => {
-  it("shows the stored address, and the waiting one with its deadline marked lapsed as the read judged it", async () => {
-    await renderAdressePage({ email: GESPEICHERT, adresswechsel: WARTEND, abgelaufen: true });
+  it("shows the stored address, and a pending change as the line linking to it in the address tool", async () => {
+    await renderAdressePage({ email: GESPEICHERT, adresswechselId: WARTEND });
 
     assert.equal(angabe("Hinterlegte Adresse")?.textContent, GESPEICHERT);
-    assert.equal(angabe("Neue Adresse")?.textContent, WARTEND.email);
-    assert.match(angabe("Gültig bis")?.textContent ?? "", /^15\.10\.2026 um 12:00 Uhr\s*abgelaufen$/);
-    assert.ok(screen.getByRole("button", { name: "Link erneut senden" }), "the waiting change has no re-send");
+    assert.equal(
+      screen.getByRole("link", { name: "Zur Änderung" }).getAttribute("href"),
+      `/bereich/admin/adresswechsel?adresswechsel=${WARTEND}&saison_id=${SAISON_ID}`,
+    );
+    assert.equal(screen.queryAllByRole("button", { name: /Link erneut senden|Änderung verwerfen|Adresse ändern/ }).length, 0);
   });
 
-  /* A pupil holding no address takes no change (`REQ-SPIELER-008`), and the empty value reads in the one muted grade. */
-  it("shows a pupil holding no address „Nicht hinterlegt“, muted, and no control to change one", async () => {
-    await renderAdressePage({ email: null, adresswechsel: null, abgelaufen: false });
+  it("names the address tool where no change waits, and links no change", async () => {
+    await renderAdressePage({ email: GESPEICHERT, adresswechselId: null });
+
+    assert.equal(screen.queryAllByRole("link", { name: "Zur Änderung" }).length, 0);
+    assert.equal(
+      screen.getByRole("link", { name: "„Adressänderung auf Anfrage“" }).getAttribute("href"),
+      `/bereich/admin/adresswechsel?saison_id=${SAISON_ID}`,
+    );
+  });
+
+  /* The empty value reads in the one muted grade, and the panel says where an address comes from. */
+  it("shows a pupil holding no address „Nicht hinterlegt“, muted, and no way to change one", async () => {
+    await renderAdressePage({ email: null, adresswechselId: null });
 
     assertLeer(angabe("Hinterlegte Adresse")?.firstElementChild, "Nicht hinterlegt");
-    assert.equal(screen.queryAllByRole("button", { name: "Adresse ändern" }).length, 0, "a pupil holding no address is offered a change");
-  });
-
-  it("sends the typed address through the request, the press its only way in", async () => {
-    await renderAdressePage({ email: GESPEICHERT, adresswechsel: null, abgelaufen: false });
-    const user = userEvent.setup();
-
-    await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
-    const box = screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ });
-    await user.clear(box);
-    await user.type(box, "Lena@Neu.Example");
-    calls.length = 0;
-    await user.click(screen.getByRole("button", { name: "Link an neue Adresse senden" }));
-    await act(answered);
-
-    assert.deepEqual(
-      calls.map((call) => [call.action, call.payload]),
-      [["beantrageSpielerAdresswechselAction", { id: SPIELER_ID, email: "Lena@Neu.Example", grund: null }]],
+    assert.equal(
+      screen.queryAllByRole("link", { name: /Adressänderung auf Anfrage/ }).length,
+      0,
+      "a pupil holding no address is offered a change",
     );
-  });
-
-  /* Enter in the box presses the box's own control: inside the editor's form it would otherwise submit the person's draft. */
-  it("takes Enter in the box as the request's press", async () => {
-    await renderAdressePage({ email: GESPEICHERT, adresswechsel: null, abgelaufen: false });
-    const user = userEvent.setup();
-
-    await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
-    const box = screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ });
-    await user.clear(box);
-    calls.length = 0;
-    await user.type(box, "lena@neu.example{Enter}");
-    await act(answered);
-
-    assert.deepEqual(
-      calls.map((call) => call.action),
-      ["beantrageSpielerAdresswechselAction"],
-    );
-  });
-
-  /* Over a typed draft, the one state in which the save stands enabled for Enter to submit through: over a clean one
-     it is disabled, and the case above would pass with the box letting Enter through. */
-  it("submits nothing from Enter in the box while the draft beside it holds typing", async () => {
-    await renderAdressePage({ email: GESPEICHERT, adresswechsel: null, abgelaufen: false });
-    const user = userEvent.setup();
-
-    const vorname = screen.getByRole("textbox", { name: "Vorname" });
-    await user.clear(vorname);
-    await user.type(vorname, "Lena-Marie");
-    await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
-    const box = screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ });
-    let submits = 0;
-    (box.closest("form") ?? assert.fail("the box stands in no form")).addEventListener("submit", () => (submits += 1));
-    await user.clear(box);
-    calls.length = 0;
-    await user.type(box, "lena@neu.example{Enter}");
-    await act(answered);
-
-    assert.equal(submits, 0, "Enter in the box submitted the editor's form");
-    assert.deepEqual(
-      calls.map((call) => call.action),
-      [],
-      "Enter in the box wrote over the draft",
-    );
-  });
-
-  it("keeps a refusal of the address on the box, which stays open on the typed value", async () => {
-    const BELEGT = "Diese Adresse ist schon bei einer anderen Spielerin oder einem anderen Spieler hinterlegt.";
-    answerWith(() => Promise.resolve({ success: false, error: BELEGT, fieldErrors: { email: BELEGT } }));
-    await renderAdressePage({ email: GESPEICHERT, adresswechsel: null, abgelaufen: false });
-    const user = userEvent.setup();
-
-    await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
-    const box = screen.getByRole<HTMLInputElement>("textbox", { name: /Neue E-Mail-Adresse/ });
-    await user.clear(box);
-    await user.type(box, "lena@neu.example");
-    await user.click(screen.getByRole("button", { name: "Link an neue Adresse senden" }));
-    await act(answered);
-
-    await waitFor(() => assert.equal(box.getAttribute("aria-invalid"), "true", "the refusal is not on the box"));
-    assert.equal(box.value, "lena@neu.example");
-    assert.ok(box.closest('[data-slot="textfield"]')?.textContent.includes(BELEGT), "the box does not say why");
   });
 });

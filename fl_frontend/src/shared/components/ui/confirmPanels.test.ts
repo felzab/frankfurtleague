@@ -151,6 +151,7 @@ const M = {
   spielbestaetigung: "features/spielbestaetigungen/components/forms/SpielbestaetigungPanel.tsx",
   zugangEntziehen: "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx",
   zugangStufe: "features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx",
+  zugangGenehmigen: "features/berechtigungen/components/forms/AdminBerechtigungGenehmigenPanel.tsx",
   einladung: "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx",
   saison: "features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx",
   registrierungen: "features/registrierungen/components/collections/RegistrierungenList.tsx",
@@ -179,6 +180,7 @@ const C = {
   spielbestaetigung: await component(M.spielbestaetigung, "SpielbestaetigungPanel"),
   zugangEntziehen: await component(M.zugangEntziehen, "AdminBerechtigungEntziehenPanel"),
   zugangStufe: await component(M.zugangStufe, "AdminBerechtigungStufePanel"),
+  zugangGenehmigen: await component(M.zugangGenehmigen, "AdminBerechtigungGenehmigenPanel"),
   einladung: await component(M.einladung, "FormEinladungSection"),
   saison: await component(M.saison, "FormSaisonSection"),
   registrierungen: await component(M.registrierungen, "RegistrierungenList"),
@@ -611,6 +613,24 @@ const PANELS: Record<string, Arming[]> = {
           }),
         ),
       resting: "Mich zur Verwaltung herabstufen",
+    },
+  ],
+  [M.zugangGenehmigen]: [
+    {
+      render: () =>
+        underNext(
+          el(C.zugangGenehmigen, {
+            adresse: "vorstand@schule.de",
+            adresswechsel: {
+              id: "68c1f0a2b3c4d5e6f7a8b9e0",
+              email: "vorstand@neu.de",
+              bestaetigt: true,
+              bis: "2026-10-27T11:30:00Z",
+              verwehrt: null,
+            },
+          }),
+        ),
+      resting: "Adressänderung genehmigen: vorstand@schule.de",
     },
   ],
   [M.einladung]: [

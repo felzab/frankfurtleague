@@ -48,7 +48,13 @@ import { mapKontakteRefusal } from "./refusals.ts";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
 import { describeUnrestorableKontakte, teamPageHref, toKontaktePayload } from "./utils.ts";
 
-import type { FLAustritt, FLKontaktperson, FLSaisonTeamBestaetigungenAnsicht, FLSaisonTeamKontakte } from "@/features/teams/schemas";
+import type {
+  FLAustritt,
+  FLKontaktperson,
+  FLSaisonTeamAdresswechsel,
+  FLSaisonTeamBestaetigungenAnsicht,
+  FLSaisonTeamKontakte,
+} from "@/features/teams/schemas";
 import type { AdminKontakteRow, AdminKontaktSeat, TeamSaisonMembership } from "@/features/teams/types";
 import type { ReactNode } from "react";
 import type { KontakteBanner } from "./components/forms/AdminKontakteEditForm/banners.ts";
@@ -181,12 +187,14 @@ const sectionElement = (
   isMember = true,
   nimmtLinks = true,
   bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null = null,
+  adresswechsel: FLSaisonTeamAdresswechsel | null = null,
 ): ReactNode =>
   h(FormKontakteSection, {
     laufendesLabel: FORM.text_version,
     value: kontakte,
     stored: kontakte,
     bestaetigungen,
+    adresswechsel,
     teamId: "507f1f77bcf86cd799439011",
     saisonId: "2526",
     nimmtLinks,
@@ -221,7 +229,9 @@ const viewElement = (
     saison: {
       saisonId: "2526",
       saisonStatus,
-      membership: hasRow ? { gruppe: "A", austritt, trikot_farbe: null, kontakte, bestaetigungen: null, kontakte_stand: "9f2c" } : null,
+      membership: hasRow
+        ? { gruppe: "A", austritt, trikot_farbe: null, kontakte, bestaetigungen: null, adresswechsel: null, kontakte_stand: "9f2c" }
+        : null,
     },
   });
 
@@ -608,6 +618,17 @@ describe("the editor's shape", () => {
     assert.equal(offers({ austritt: { type: "rueckzug", grund: "x", datum: "2026-03-12" } }), 0, "a withdrawn team's row offers a re-send");
   });
 
+  /* The editor reads a change pending at a seat's address and moves nothing: the same line the pupil and referee
+     editors show, linking to the address tool by the change's id. */
+  it("shows a change pending at one seat's address as the line linking to the address tool, on that seat alone", () => {
+    const id = "68c1f0a2b3c4d5e6f7a8b9e0";
+    const html = editorTree(sectionElement(BLOCK, true, true, null, { trainer: null, ansprechperson: id, stellvertretung: null }), BLOCK);
+
+    assert.equal(html.split("Eine neue Adresse wartet auf ihre Bestätigung.").length - 1, 1, "the line shows on other than the one seat");
+    assert.ok(html.includes(`href="/bereich/admin/adresswechsel?adresswechsel=${id}`), "the line links elsewhere than the change in the tool");
+    assert.ok(!sectionMarkup(BLOCK).includes("Eine neue Adresse wartet"), "a seat no change waits at shows the line");
+  });
+
   /* An empty seat is a saveable state rather than a half-finished one, and the record keeps no field
      saying why it is empty — so neither surface may say why either. */
   it("renders an empty seat as its switch alone, and never explains one", () => {
@@ -811,6 +832,7 @@ describe("the editor's shape", () => {
       trikot_farbe: null,
       kontakte: BLOCK_EMPTY,
       bestaetigungen: null,
+      adresswechsel: null,
       kontakte_stand: "9f2c",
     });
 
@@ -954,7 +976,15 @@ describe("the way in and out of the editor", () => {
           saison: {
             saisonId: "2526",
             saisonStatus: "active",
-            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte: BLOCK, bestaetigungen: null, kontakte_stand: "9f2c" },
+            membership: {
+              gruppe: "A",
+              austritt: null,
+              trikot_farbe: null,
+              kontakte: BLOCK,
+              bestaetigungen: null,
+              adresswechsel: null,
+              kontakte_stand: "9f2c",
+            },
           },
           today: "2026-03-01",
           gruppeLocked: false,

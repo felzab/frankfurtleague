@@ -78,7 +78,6 @@ const REFEREE: FLSchiedsrichter = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
-  adresswechsel: null,
 };
 
 /** Filled from `before`: each list is imported after this file's own doubles are registered. */

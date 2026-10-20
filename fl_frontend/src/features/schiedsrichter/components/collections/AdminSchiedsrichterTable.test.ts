@@ -27,7 +27,6 @@ const LIVE: FLSchiedsrichter = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
-  adresswechsel: null,
 };
 
 /**
