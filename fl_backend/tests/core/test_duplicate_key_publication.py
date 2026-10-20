@@ -1373,7 +1373,7 @@ WRITERS_HELD_ELSEWHERE: dict[str, tuple[frozenset[str], str]] = {
     "app/core/security.py :: person_judge": (frozenset({"judging_the_person"}), JUDGE),
     "app/api/identitaet/wiederherstellung.py :: _plan_widerruf": (frozenset({"rewrite_withdrawal"}), REPLAY),
     "app/api/identitaet/wiederherstellung.py :: _plan_widerspruch": (frozenset({"rewrite_widerspruch"}), REPLAY),
-    "app/api/identitaet/wiederherstellung.py :: _plan_adresswechsel": (frozenset({"rewrite_declined_address"}), REPLAY),
+    "app/api/identitaet/wiederherstellung.py :: _plan_adresswechsel": (frozenset({"rewrite_the_ending"}), REPLAY),
     "app/api/identitaet/wiederherstellung.py :: _plan_adresswechsel_wirksam": (frozenset({"rewrite_the_effect"}), REPLAY),
     "app/api/identitaet/wiederherstellung.py :: _plan_pseudonym": (frozenset({"rewrite_pseudonym"}), REPLAY),
     # A dependency, which no trace follows: the day count is an upsert outside the transaction by design

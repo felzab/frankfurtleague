@@ -1,3 +1,5 @@
+import type { AdresswechselWeg } from "@/core/adresswechsel";
+
 /**
  * How one link mail ended. `zurueckgehalten` is a deployment that mails nothing filing it
  * (`fl_frontend/src/core/mail.ts :: MailWithheldError`), `gesperrt` the ban list keeping it from the
@@ -39,7 +41,7 @@ export type HinweisVersand = LinkVersand | "ungewiss";
  * link before an approval, no notice on a re-send.
  */
 export type AdresswechselVersand = {
-  weg: "konto" | "freigabe" | "wartezeit";
+  weg: AdresswechselWeg;
   link: LinkVersand | null;
   hinweis: HinweisVersand | null;
 };

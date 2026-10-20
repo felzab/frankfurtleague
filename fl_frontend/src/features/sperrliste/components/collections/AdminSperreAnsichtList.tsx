@@ -101,14 +101,11 @@ const EINTRAEGE: Eintraege = {
       };
     }),
   adresswechsel: (adresswechsel, saisonHref) =>
-    adresswechsel.map(({ schiedsrichter_id }) => ({
-      text: "Eine noch nicht bestätigte Adressänderung einer Schiedsrichterin oder eines Schiedsrichters auf diese Adresse",
-      verweise: [{ label: SPERRE_ANSICHT_VERWEISE.adresswechsel, href: saisonHref(`/bereich/admin/schiedsrichter/${schiedsrichter_id}`) }],
-    })),
-  spieler_adresswechsel: (spielerAdresswechsel, saisonHref) =>
-    spielerAdresswechsel.map(({ spieler_id }) => ({
-      text: "Eine noch nicht bestätigte Adressänderung einer Spielerin oder eines Spielers auf diese Adresse",
-      verweise: [{ label: SPERRE_ANSICHT_VERWEISE.adresswechsel, href: saisonHref(`/bereich/admin/spieler/${spieler_id}`) }],
+    adresswechsel.map(({ adresswechsel_id }) => ({
+      text: "Eine noch nicht bestätigte Adressänderung auf diese Adresse",
+      verweise: [
+        { label: SPERRE_ANSICHT_VERWEISE.adresswechsel, href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechsel_id}`) },
+      ],
     })),
 };
 

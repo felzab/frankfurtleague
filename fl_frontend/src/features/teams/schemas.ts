@@ -456,6 +456,17 @@ export const FLSaisonTeamBestaetigungenAnsichtSchema = z.object({
 });
 export type FLSaisonTeamBestaetigungenAnsicht = z.infer<typeof FLSaisonTeamBestaetigungenAnsichtSchema>;
 
+/**
+ * Mirrors `FLSaisonTeamAdresswechsel` — the change pending at each seat's address, whichever record's page
+ * started it, `null` where none waits.
+ */
+export const FLSaisonTeamAdresswechselSchema = z.object({
+  trainer: CustomObjectIdStringSchema.nullable(),
+  ansprechperson: CustomObjectIdStringSchema.nullable(),
+  stellvertretung: CustomObjectIdStringSchema.nullable(),
+});
+export type FLSaisonTeamAdresswechsel = z.infer<typeof FLSaisonTeamAdresswechselSchema>;
+
 /** Mirrors `FLTeamMembership` — one junction row as seen from its club. */
 export const FLTeamMembershipSchema = z.object({
   saison_id: z.string(),
@@ -467,6 +478,8 @@ export const FLTeamMembershipSchema = z.object({
   kontakte: FLSaisonTeamKontakteSchema.nullable(),
   // Each seat's link as the contacts editor shows it, `null` where the row stores no block.
   bestaetigungen: FLSaisonTeamBestaetigungenAnsichtSchema.nullable(),
+  // `null` where the row stores no block, as `bestaetigungen` is.
+  adresswechsel: FLSaisonTeamAdresswechselSchema.nullable(),
   // Opaque here: the server derives it from the block beside it, and a save echoes it back so a row
   // that moved under an open editor is refused rather than overwritten (`REQ-KONTAKT-001`).
   kontakte_stand: z.string(),

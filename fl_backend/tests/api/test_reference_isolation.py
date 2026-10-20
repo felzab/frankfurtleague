@@ -254,7 +254,7 @@ def restored(other_fields: dict[str, Any] | None) -> Write:
 
     async def write(client: AsyncMongoClient, handles: Mapping[Collection, Any]) -> Any:
         return await patch_spiele_paarungen(
-            payload=FLPatchSpielePaarungenPayload.model_validate({"paarungen": [paarung]}),
+            payload=FLPatchSpielePaarungenPayload.model_validate({"paarungen": [paarung], "bericht": None}),
             db=client,
             spiele_collection=handles[Collection.SPIELE],
             teams_collection=handles[Collection.TEAMS],

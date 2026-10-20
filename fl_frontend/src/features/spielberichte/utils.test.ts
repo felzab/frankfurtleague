@@ -29,6 +29,11 @@ describe("what an administrator's card says of its report", () => {
   it("says nothing of a report awaiting nobody", () => {
     assert.deepEqual([chip("uebernommen"), chip("abgesagt")], [null, null]);
   });
+
+  /* Proposed for other clubs than the fixture fields now: its score beside the card's clubs would read as theirs. */
+  it("names a report about other teams without its score", () => {
+    assert.deepEqual(chip("teams_geaendert"), { text: "Bericht zu anderen Teams", tone: "warning" });
+  });
 });
 
 describe("a write composed on a report that has changed since", () => {

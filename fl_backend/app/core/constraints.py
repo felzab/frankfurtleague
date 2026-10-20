@@ -18,7 +18,13 @@ from app.core.collections import Collection
 from app.core.config import MONGODB_URI_FILE, get_config  # noqa: TID251
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN
-from app.shared.schemas.bounds import AKTION_RETENTION_SECONDS, SAISON_ID_LENGTH, TEAM_DESCRIPTION_MAX_LENGTH, TEAM_SHORTHAND_LENGTH
+from app.shared.schemas.bounds import (
+    ADRESSWECHSEL_NACHLAUF_TAGE,
+    AKTION_RETENTION_SECONDS,
+    SAISON_ID_LENGTH,
+    TEAM_DESCRIPTION_MAX_LENGTH,
+    TEAM_SHORTHAND_LENGTH,
+)
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomErgebnisString,
@@ -390,76 +396,29 @@ _SCHIEDSRICHTER_BESTAETIGUNG = _object(
     },
 )
 
-# How a change takes effect, mirrored by `app/shared/adresswechsel.py :: FLAdresswechselWeg`.
+# How a change takes effect and how it ended, mirrored by `app/api/adresswechsel/services.py :: FLAdresswechselWeg` and
+# `:: FLAdresswechselEndeArt`.
 _ADRESSWECHSEL_WEGE = ["konto", "freigabe", "wartezeit"]
+_ADRESSWECHSEL_ENDE_ARTEN = ["wirksam", "abgelehnt", "gestoppt", "abgelaufen", "ersetzt", "verworfen"]
 
-# A confirmed referee's address waiting on its change. Never `_SCHIEDSRICHTER_BESTAETIGUNG`:
-# nothing reminds about this link, and the address it proves is the block's own.
-_SCHIEDSRICHTER_ADRESSWECHSEL = _object(
+# The approval a change moving a grant waits on. Its two addresses are administrators', as `erteilt_von` is.
+_ADRESSWECHSEL_GENEHMIGUNG = _object(
     nullable=True,
-    required=(
-        "email",
-        "weg",
-        "token_hash",
-        "stopp_hash",
-        "verschickt_am",
-        "gueltig_bis",
-        "freigegeben_am",
-        "grund",
-        "bestaetigt_am",
-        "wirksam_ab",
-    ),
+    required=("verwaltung", "bis", "gestartet_von", "genehmigt_am", "genehmigt_von"),
     properties={
-        "email": {"bsonType": "string"},
-        "weg": {"bsonType": "string", "enum": _ADRESSWECHSEL_WEGE},
-        # Null while a change awaits the address on file's approval, and once spent on a change that waits.
-        "token_hash": {"bsonType": _STRING_OR_NULL},
-        "stopp_hash": {"bsonType": "string"},
-        "verschickt_am": {"bsonType": "string"},
-        # STORED for `_SCHIEDSRICHTER_BESTAETIGUNG`'s reason, an instant where that one is a day.
-        "gueltig_bis": {"bsonType": ["date", "null"]},
-        "freigegeben_am": {"bsonType": ["date", "null"]},
-        "grund": {"bsonType": _STRING_OR_NULL},
-        "bestaetigt_am": {"bsonType": ["date", "null"]},
-        "wirksam_ab": {"bsonType": ["date", "null"]},
-        # Out of `required` for `_BEWERBUNG_BESTAETIGUNG`'s reason.
-        "zustellung": _ZUSTELLUNG,
+        "verwaltung": {"bsonType": "string", "enum": ["owner", "administration"]},
+        "bis": {"bsonType": "date"},
+        "gestartet_von": {"bsonType": "string"},
+        "genehmigt_am": {"bsonType": ["date", "null"]},
+        "genehmigt_von": {"bsonType": _STRING_OR_NULL},
     },
 )
 
-# A pupil's new address waiting on its change. Spelled out rather than assigned
-# `_SCHIEDSRICHTER_ADRESSWECHSEL`, for `_SAISON_REGISTRIERUNG`'s reason: one name over both blocks
-# would let a widening of either widen the other silently.
-_SPIELER_ADRESSWECHSEL = _object(
+# Null while the change stands: `uniq_adresswechsel_adresse` reaches those rows alone, and the TTL index dates the rest.
+_ADRESSWECHSEL_BEENDET = _object(
     nullable=True,
-    required=(
-        "email",
-        "weg",
-        "token_hash",
-        "stopp_hash",
-        "verschickt_am",
-        "gueltig_bis",
-        "freigegeben_am",
-        "grund",
-        "bestaetigt_am",
-        "wirksam_ab",
-    ),
-    properties={
-        "email": {"bsonType": "string"},
-        "weg": {"bsonType": "string", "enum": _ADRESSWECHSEL_WEGE},
-        # Null while a change awaits the address on file's approval, and once spent on a change that waits.
-        "token_hash": {"bsonType": _STRING_OR_NULL},
-        "stopp_hash": {"bsonType": "string"},
-        "verschickt_am": {"bsonType": "string"},
-        # STORED for `_SCHIEDSRICHTER_BESTAETIGUNG`'s reason, an instant where that one is a day.
-        "gueltig_bis": {"bsonType": ["date", "null"]},
-        "freigegeben_am": {"bsonType": ["date", "null"]},
-        "grund": {"bsonType": _STRING_OR_NULL},
-        "bestaetigt_am": {"bsonType": ["date", "null"]},
-        "wirksam_ab": {"bsonType": ["date", "null"]},
-        # Out of `required` for `_BEWERBUNG_BESTAETIGUNG`'s reason.
-        "zustellung": _ZUSTELLUNG,
-    },
+    required=("art", "am"),
+    properties={"art": {"bsonType": "string", "enum": _ADRESSWECHSEL_ENDE_ARTEN}, "am": {"bsonType": "date"}},
 )
 
 # A seat's link on a team's season row. Never `_BEWERBUNG_BESTAETIGUNG`: no reminder chases these
@@ -809,6 +768,7 @@ _SPIELBERICHT_BERICHT = _object(
         "torschuetzen",
         "karten",
         "bemerkungen",
+        "seiten",
         "eingereicht_am",
         "eingereicht_von",
         "geaendert_am",
@@ -822,6 +782,11 @@ _SPIELBERICHT_BERICHT = _object(
         "torschuetzen": {"bsonType": "array", "items": _SPIELBERICHT_TORSCHUETZE},
         "karten": {"bsonType": "array", "items": _SPIELBERICHT_KARTE},
         "bemerkungen": {"bsonType": _STRING_OR_NULL},
+        # Null on a slot still open when the block was written.
+        "seiten": _object(
+            required=_SPIELBERICHT_SEITEN,
+            properties={seite: {"bsonType": ["objectId", "null"]} for seite in _SPIELBERICHT_SEITEN},
+        ),
         # Instants rather than German days: a correction and an adoption on one day are two moments a reader orders.
         "eingereicht_am": {"bsonType": "date"},
         # Keyed on `art` as `_SPIELBESTAETIGUNG_PARTEI` is, requiring the discriminator alone for its reason.
@@ -969,9 +934,6 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # `app/shared/folding.py :: sign_in_identifier` folds it, which is the form the
                 # sign-in seam's equality compares against.
                 "email": {"bsonType": _STRING_OR_NULL},
-                # A delivery carrier (`app/api/zustellung/services.py :: ZIEL_PFADE`). Out of `required`:
-                # only a pupil whose address an administrator asked to move carries one, until its mailbox answers.
-                "adresswechsel": _SPIELER_ADRESSWECHSEL,
                 # The person has left the LEAGUE; leaving one squad retires the junction row below.
                 "inactive_since": _INACTIVE_SINCE,
             },
@@ -1104,9 +1066,6 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # a row never minted a link carry none, and correcting an unconfirmed retired referee's address
                 # removes it (`app/api/schiedsrichter/services.py :: compose_korrektur_update`).
                 "bestaetigung": _SCHIEDSRICHTER_BESTAETIGUNG,
-                # A delivery carrier too. Out of `required`: only a confirmed referee whose address
-                # an administrator moved carries one, until its mailbox answers.
-                "adresswechsel": _SCHIEDSRICHTER_ADRESSWECHSEL,
                 # Out of `required` for the first two of `bestaetigung`'s reasons, and nullable
                 # besides: only the person's own confirmation writes it, so a live row awaiting one
                 # carries null.
@@ -1451,6 +1410,48 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             },
         )
     },
+    Collection.ADRESSWECHSEL: {
+        "$jsonSchema": _object(
+            required=(
+                "_id",
+                "adresse",
+                "email",
+                "weg",
+                "token_hash",
+                "stopp_hash",
+                "verschickt_am",
+                "gueltig_bis",
+                "freigegeben_am",
+                "grund",
+                "bestaetigt_am",
+                "wirksam_ab",
+                "versand",
+                "genehmigung",
+                "beendet",
+            ),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                # The key, folded; null once ended, as `email` and `grund` are: a tombstone holds no address.
+                "adresse": {"bsonType": _STRING_OR_NULL},
+                "email": {"bsonType": _STRING_OR_NULL},
+                "weg": {"bsonType": "string", "enum": _ADRESSWECHSEL_WEGE},
+                # Here and on no model, as `einladungen.token_hash` is. Null while the address on file's approval is asked.
+                "token_hash": {"bsonType": _STRING_OR_NULL},
+                "stopp_hash": {"bsonType": "string"},
+                "verschickt_am": {"bsonType": "string"},
+                # STORED for `_SCHIEDSRICHTER_BESTAETIGUNG`'s reason, an instant where that one is a day.
+                "gueltig_bis": {"bsonType": ["date", "null"]},
+                "freigegeben_am": {"bsonType": ["date", "null"]},
+                "grund": {"bsonType": _STRING_OR_NULL},
+                "bestaetigt_am": {"bsonType": ["date", "null"]},
+                "wirksam_ab": {"bsonType": ["date", "null"]},
+                # The delivery carrier (`app/api/zustellung/services.py :: ZIEL_PFADE`), hand-written for `einladungen.versand`'s reason.
+                "versand": {"bsonType": ["object", "null"], "properties": {"zustellung": _ZUSTELLUNG}},
+                "genehmigung": _ADRESSWECHSEL_GENEHMIGUNG,
+                "beendet": _ADRESSWECHSEL_BEENDET,
+            },
+        )
+    },
 }
 
 
@@ -1557,6 +1558,16 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     ),
     # What makes two first writes of one fixture's report one document: the second insert meets this.
     UniqueIndex(Collection.SPIELBERICHTE, "uniq_spielbericht_spiel_id", ("spiel_id",), "one report per fixture"),
+    # Two starts on one address meet here as a write conflict their transactions retry. The key's `$type` term keeps an
+    # ending's null address out; a keyed read carries it too (`app/api/adresswechsel/services.py :: build_address_filter`),
+    # or the planner scans.
+    UniqueIndex(
+        Collection.ADRESSWECHSEL,
+        "uniq_adresswechsel_adresse",
+        ("adresse",),
+        "one live change per address",
+        partial_filter={"beendet": {"$type": "null"}, "adresse": {"$type": "string"}},
+    ),
 )
 
 
@@ -1662,32 +1673,18 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("bestaetigung.token_hash", ASCENDING),),
         "the referee confirmation page's lookup, driven by strangers",
     ),
-    # PLAIN for the index above's reason.
+    # PLAIN for the index above's reason: a tombstone keeps its hashes, so each link answers how its change ended.
     SupportIndex(
-        Collection.SCHIEDSRICHTER,
-        "schiedsrichter_adresswechsel_token_hash",
-        (("adresswechsel.token_hash", ASCENDING),),
-        "the referee address page's lookup, driven by strangers",
-    ),
-    # PLAIN for the referee's above's reason.
-    SupportIndex(
-        Collection.SPIELER,
-        "spieler_adresswechsel_token_hash",
-        (("adresswechsel.token_hash", ASCENDING),),
-        "the pupil address page's lookup, driven by strangers",
-    ),
-    # PLAIN for the token hash's reason above, a null hash being a key no digest equals.
-    SupportIndex(
-        Collection.SCHIEDSRICHTER,
-        "schiedsrichter_adresswechsel_stopp_hash",
-        (("adresswechsel.stopp_hash", ASCENDING),),
-        "the referee address page's stop lookup, driven by strangers",
+        Collection.ADRESSWECHSEL,
+        "adresswechsel_token_hash",
+        (("token_hash", ASCENDING),),
+        "the address page's lookup, driven by strangers",
     ),
     SupportIndex(
-        Collection.SPIELER,
-        "spieler_adresswechsel_stopp_hash",
-        (("adresswechsel.stopp_hash", ASCENDING),),
-        "the pupil address page's stop lookup, driven by strangers",
+        Collection.ADRESSWECHSEL,
+        "adresswechsel_stopp_hash",
+        (("stopp_hash", ASCENDING),),
+        "the address page's stop lookup, driven by strangers",
     ),
     # Not a unique one, though a hash collides with nothing: a revoked row keeps its hash, so the
     # key holds as many rows as the team has been reissued links.
@@ -1815,6 +1812,15 @@ TTL_INDEXES: Sequence[TTLIndex] = (
         "geschrieben_am",
         0,
         "an address's anchor is removed once the TTL monitor next passes after its last write",
+    ),
+    # A live change never expires, holding no date at `beendet.am`: the hourly pass ends it, taking its address out of the
+    # log images, which a TTL deletion never would.
+    TTLIndex(
+        Collection.ADRESSWECHSEL,
+        "adresswechsel_beendet_am",
+        "beendet.am",
+        ADRESSWECHSEL_NACHLAUF_TAGE * 86400,
+        "an ended address change is removed once its tombstone's retention has passed",
     ),
 )
 
@@ -2267,7 +2273,6 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "bestaetigung.frist": _DAY,
         "einwilligung.datum": _DAY,
         "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
-        "adresswechsel.verschickt_am": _DAY,
     },
     Collection.SPERRLISTE: {
         "grund": _NON_EMPTY,
@@ -2322,6 +2327,9 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "bericht.karten.minute": _MINUTE,
         "bericht.bemerkungen": _NON_EMPTY_OR_NULL,
     },
+    Collection.ADRESSWECHSEL: {
+        "verschickt_am": _DAY,
+    },
     Collection.SPIELER: {
         "einwilligung.datum": _DAY,
         "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
@@ -2329,7 +2337,6 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "vorname": _NON_EMPTY_OR_NULL,
         "inactive_since": _OPTIONAL_DAY,
         "geburtsdatum": _OPTIONAL_DAY,
-        "adresswechsel.verschickt_am": _DAY,
     },
     Collection.SPIELORTE: {
         "name": _NON_EMPTY,

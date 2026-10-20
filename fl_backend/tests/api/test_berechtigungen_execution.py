@@ -460,16 +460,27 @@ class TestTheOutboxMovesWithItsChange:
         assert on_a_league(mongo_replica_set_url, body) == (1, 0)
 
 
+async def list_the_grants(database: AsyncDatabase, client: AsyncMongoClient, als: str = OWNER) -> Any:
+    """The list as this administrator reads it now, the changes waiting on an approval beside it."""
+
+    return await get_berechtigungen(
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+        adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+        sperrliste=ban_list(database),
+        db=client,
+        operator=als,
+        auth_time=int(time.time()),
+    )
+
+
 class TestTheListServesLiveGrantsAlone:
     def test_a_dead_row_is_counted_and_a_barred_address_is_withheld(self, mongo_replica_set_url: str):
         """Both on one list: the three live rows, one of them barred by a ban the Playground grant predates."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[tuple[str | None, bool, str]], int]:
             await database[Collection.SPERRLISTE].insert_one(ban_document(BERND, bis=STANDING))
-            listed = await get_berechtigungen(
-                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                sperrliste=ban_list(database),
-            )
+            listed = await list_the_grants(database, client)
 
             return [(row.adresse, row.gesperrt, row.verwaltung) for row in listed.berechtigungen], listed.uebersprungen
 
@@ -484,10 +495,7 @@ class TestTheListServesLiveGrantsAlone:
         """A field no reader decides anything from hides no grant, whatever a paste left in it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str | None, str | None]]:
-            listed = await get_berechtigungen(
-                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                sperrliste=ban_list(database),
-            )
+            listed = await list_the_grants(database, client)
 
             return [(row.adresse, row.erteilt_von) for row in listed.berechtigungen]
 
@@ -507,10 +515,7 @@ class TestTheListServesLiveGrantsAlone:
             await grant(database, client, als=ANNA)
             await revoke(database, client, ANNA_ID)
             await database[Collection.SPERRLISTE].insert_one(ban_document(ANNA, bis=STANDING))
-            listed = await get_berechtigungen(
-                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                sperrliste=ban_list(database),
-            )
+            listed = await list_the_grants(database, client)
 
             return [(row.adresse, row.erteilt_von, row.erteilt_von_gesperrt) for row in listed.berechtigungen]
 

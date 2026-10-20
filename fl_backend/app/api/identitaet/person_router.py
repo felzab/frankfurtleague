@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.adresswechsel.crud import others_naming
 from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen
 from app.api.berechtigungen.services import lebendige
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, ErasureJournal, erase_everything, resolve_subject
@@ -21,6 +22,7 @@ from app.core.crud import aggregate_many_from_db, refuse
 from app.core.db import get_drosselung_collection
 from app.core.dependencies import (
     AdressankerCollection,
+    AdresswechselCollection,
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
@@ -83,6 +85,7 @@ async def erase_selbst(
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
     adressanker_collection: AdressankerCollection,
+    adresswechsel_collection: AdresswechselCollection,
     sperrliste: SperrlisteLookup,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_person_confirmation_check)],
     db: DBClient,
@@ -153,6 +156,7 @@ async def erase_selbst(
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
             adressanker_collection=adressanker_collection,
+            adresswechsel_collection=adresswechsel_collection,
             sperrliste=sperrliste,
             geaendert_von=identifier,
             schluessel=config.sperrliste_schluessel,
@@ -256,7 +260,7 @@ async def get_erasure_ansicht(
         referee_rows=subject.schiedsrichter,
         pupil_rows=subject.spieler,
         registrierung_rows=subject.registrierungen,
-        adresswechsel_rows=[*subject.adresswechsel, *subject.spieler_adresswechsel],
+        adresswechsel_rows=others_naming(subject.adresswechsel, identifier),
         team_rows=team_rows,
     )
 

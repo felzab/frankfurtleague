@@ -90,8 +90,12 @@ def build_bericht_kader_pipeline(*, saison_id: str, team_ids: Sequence[ObjectId]
     ]
 
 
-def build_zustand_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
-    """A season's reports holding a block, each beside its fixture's result fields."""
+def build_eingereichte_pipeline(*, saison_id: str, spiel_fields: Mapping[str, int]) -> list[Mapping[str, Any]]:
+    """A season's reports holding a block, each joined to `spiel_fields` of a fixture that stands.
+
+    A report write crossing an undraw can outlive its fixture (`docs/backend/spec.md :: I118`), and is then neither read
+    nor counted.
+    """
 
     return [
         {"$match": {"saison_id": saison_id, "bericht": {"$ne": None}}},
@@ -100,24 +104,31 @@ def build_zustand_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
                 "from": Collection.SPIELE,
                 "localField": "spiel_id",
                 "foreignField": "_id",
-                "pipeline": [
-                    {
-                        "$project": {
-                            "_id": 0,
-                            "saison_phase": 1,
-                            "team1.tore": 1,
-                            "team2.tore": 1,
-                            "ergebnis": 1,
-                            "sonderereignis": 1,
-                            "elfmeterschiessen": 1,
-                        }
-                    }
-                ],
+                "pipeline": [{"$project": {"_id": 0, **spiel_fields}}],
                 "as": "spiel",
             }
         },
-        # A replace or an undraw removes a season's reports with its fixtures, so every report finds its fixture.
         {"$unwind": "$spiel"},
+    ]
+
+
+def build_zustand_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
+    """A season's reports holding a block, each beside its fixture's result fields."""
+
+    return [
+        *build_eingereichte_pipeline(
+            saison_id=saison_id,
+            spiel_fields={
+                "saison_phase": 1,
+                "team1.team_id": 1,
+                "team1.tore": 1,
+                "team2.team_id": 1,
+                "team2.tore": 1,
+                "ergebnis": 1,
+                "sonderereignis": 1,
+                "elfmeterschiessen": 1,
+            },
+        ),
         {"$project": {"_id": 0, "spiel_id": 1, "bericht": 1, "spiel": 1}},
     ]
 
@@ -126,6 +137,20 @@ def team_id_of(spiel_raw: Mapping[str, Any], seite: FLSpielberichtSeite) -> Obje
     side = spiel_raw.get(seite)
 
     return None if side is None else side["team_id"]
+
+
+def seiten_of(spiel_raw: Mapping[str, Any]) -> dict[FLSpielberichtSeite, ObjectId | None]:
+    """The clubs the fixture fields now, as a report's `seiten` stores them."""
+
+    return {seite: team_id_of(spiel_raw, seite) for seite in SEITEN}
+
+
+def seiten_geaendert(gespeichert: Mapping[str, Any], spiel_raw: Mapping[str, Any]) -> frozenset[FLSpielberichtSeite]:
+    """The sides on which the fixture fields another club than the report's last write found there."""
+
+    jetzt = seiten_of(spiel_raw)
+
+    return frozenset(seite for seite in SEITEN if gespeichert[seite] != jetzt[seite])
 
 
 def live_kader(lage: BerichtLage, seite: FLSpielberichtSeite) -> list[Mapping[str, Any]]:
@@ -151,13 +176,18 @@ def genannte_ids(bericht: Mapping[str, Any] | FLSpielberichtBerichtPayload | Non
     return named
 
 
-def neu_genannt(payload: FLSpielberichtBerichtPayload, gespeichert: Mapping[str, Any] | None) -> dict[FLSpielberichtSeite, set[ObjectId]]:
+def neu_genannt(
+    payload: FLSpielberichtBerichtPayload, gespeichert: Mapping[str, Any] | None, spiel_raw: Mapping[str, Any]
+) -> dict[FLSpielberichtSeite, set[ObjectId]]:
     """The pupils this write names that the stored block did not name on that side, the only ones judged against the squad.
 
     So a correction keeps a scorer ausgetragen since the match, or an erased pupil's sentinel.
     """
 
     stored = genannte_ids(gespeichert)
+    # A side fielding another club since keeps none: its stored pupils played for the club that left it.
+    for seite in set() if gespeichert is None else seiten_geaendert(gespeichert["seiten"], spiel_raw):
+        stored[seite] = set()
 
     return {seite: ids - stored[seite] for seite, ids in genannte_ids(payload).items()}
 
@@ -327,7 +357,7 @@ def vorschlag_entspricht(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[
 
 # The states awaiting the administrator, which the triage lists: an adopted report awaits nothing, and one on a match
 # that took no place awaits nothing anyone can do.
-BERICHT_ZUSTAENDE_OFFEN: Final[frozenset[FLSpielberichtZustand]] = frozenset({"vorgeschlagen", "abweichend"})
+BERICHT_ZUSTAENDE_OFFEN: Final[frozenset[FLSpielberichtZustand]] = frozenset({"vorgeschlagen", "abweichend", "teams_geaendert"})
 
 
 def bericht_zustand_of(bericht: FLSpielberichtBericht, spiel_raw: Mapping[str, Any]) -> FLSpielberichtZustand:
@@ -339,6 +369,11 @@ def bericht_zustand_of(bericht: FLSpielberichtBericht, spiel_raw: Mapping[str, A
 
     if ist_abgesagt(sonderereignis=spiel_raw.get("sonderereignis")):
         return "abgesagt"
+
+    # Ahead of every comparison of the result: a proposal by side is about the clubs its last write found, and read
+    # against another club's result it would credit that club.
+    if seiten_geaendert(dict(bericht.seiten), spiel_raw):
+        return "teams_geaendert"
 
     if spiel_raw.get("ergebnis") is None:
         return "vorgeschlagen"
@@ -381,19 +416,29 @@ def compose_ansicht(
     }
 
 
-def bericht_unveraendert(payload: FLSpielberichtBerichtPayload, gespeichert: Mapping[str, Any] | None) -> bool:
-    """Whether the stored block already says everything the payload says, so a save of it has nothing to write."""
+def bericht_unveraendert(
+    payload: FLSpielberichtBerichtPayload, gespeichert: Mapping[str, Any] | None, seiten: Mapping[FLSpielberichtSeite, ObjectId | None]
+) -> bool:
+    """Whether the stored block already says what the payload says, for the clubs `seiten` names, so a save of it writes nothing.
 
-    return gespeichert is not None and all(
-        gespeichert.get(key) == value for key, value in payload.model_dump(context={"keep_oid": True}).items()
+    A save sent unchanged after the clubs moved re-stamps them, making the report adoptable again.
+    """
+
+    return (
+        gespeichert is not None
+        and gespeichert.get("seiten") == seiten
+        and all(gespeichert.get(key) == value for key, value in payload.model_dump(context={"keep_oid": True}).items())
     )
 
 
-def compose_neuer_bericht(payload: FLSpielberichtBerichtPayload, *, von: FLSpielberichtVon, now: datetime) -> dict[str, Any]:
+def compose_neuer_bericht(
+    payload: FLSpielberichtBerichtPayload, *, von: FLSpielberichtVon, seiten: Mapping[FLSpielberichtSeite, ObjectId | None], now: datetime
+) -> dict[str, Any]:
     """The block's first write: version 1, and no adoption."""
 
     return {
         **payload.model_dump(context={"keep_oid": True}),
+        "seiten": dict(seiten),
         "eingereicht_am": now,
         "eingereicht_von": von.model_dump(context={"keep_oid": True}),
         "geaendert_am": now,
@@ -404,7 +449,9 @@ def compose_neuer_bericht(payload: FLSpielberichtBerichtPayload, *, von: FLSpiel
     }
 
 
-def compose_bericht_update(payload: FLSpielberichtBerichtPayload, *, now: datetime) -> dict[str, Any]:
+def compose_bericht_update(
+    payload: FLSpielberichtBerichtPayload, *, seiten: Mapping[FLSpielberichtSeite, ObjectId | None], now: datetime
+) -> dict[str, Any]:
     """A later write of the block: the content replaced, the version raised, who first wrote it and the adoption kept.
 
     The adoption stays as it was, so the raised version is what returns the report to `abweichend`.
@@ -412,7 +459,7 @@ def compose_bericht_update(payload: FLSpielberichtBerichtPayload, *, now: dateti
 
     return {
         "$set": {f"bericht.{key}": value for key, value in payload.model_dump(context={"keep_oid": True}).items()}
-        | {"bericht.geaendert_am": now},
+        | {"bericht.seiten": dict(seiten), "bericht.geaendert_am": now},
         "$inc": {"bericht.version": 1},
     }
 

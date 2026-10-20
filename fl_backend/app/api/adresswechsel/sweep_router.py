@@ -1,0 +1,329 @@
+from collections.abc import Mapping
+from datetime import datetime
+from typing import Annotated, Any, Final
+
+from fastapi import APIRouter, Depends, Query
+from pydantic import SecretStr
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.errors import PyMongoError
+
+from app.api.adresswechsel.crud import end_the_change_in_session, ending_line, take_effect_in_session
+from app.api.adresswechsel.schemas import (
+    FLAdresswechselMitteilung,
+    FLAdresswechselSweepParams,
+    FLAdresswechselSweepResponse,
+    FLAdresswechselVerworfenMitteilung,
+)
+from app.api.adresswechsel.services import build_due_terms, build_lapsed_terms
+from app.api.identitaet.lookup import RecordCollections, SubjektLookup
+from app.api.sperrliste.lookup import BanList, SperrlisteLookup, sperrliste_saison
+from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.crud import aggregate_many_from_db, pull_one_from_db
+from app.core.dependencies import (
+    AdressankerCollection,
+    AdresswechselCollection,
+    AktionenCollection,
+    BerechtigungenAngekuendigtCollection,
+    BerechtigungenCollection,
+    BerechtigungenPostausgangCollection,
+    BewerbungenCollection,
+    DBClient,
+    RegistrierungenCollection,
+    SaisonTeamsCollection,
+    SchiedsrichterCollection,
+    SpielbestaetigungenCollection,
+    SpielerCollection,
+    get_germany_now,
+)
+from app.core.exception_handlers import DATABASE_FAILED, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
+from app.core.exceptions import DocumentNotFoundException
+from app.core.journal import Journal
+from app.core.logging import fl_logger
+from app.core.recording import log_stamp
+from app.core.security import bind_system_actor, verify_access_system
+from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
+
+# System tier and the system actor: the clock ends a lapsed change and makes a due one take effect, and no administrator
+# pressed anything.
+router = APIRouter(
+    prefix=f"/api/v{API_VERSION}/adresswechsel/sweep",
+    dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
+)
+
+# Sized on the commands a due change moving a pupil row and a referee row sends, inside
+# `app/core/middlewares.py :: REQUEST_DEADLINE_S`; a dearer one meets that deadline (`docs/backend/spec.md :: I322`).
+ADRESSWECHSEL_PER_PASS: Final = 9
+
+
+def _pipeline(*, now: datetime, nach: Any, groesse: int) -> list[dict[str, Any]]:
+    """Every lapsed and due change after `nach`, in `_id` order, at most `groesse`, with the count, as ONE document.
+
+    No index serves the instants: the collection holds live changes and recent tombstones alone.
+    """
+
+    seite: list[dict[str, Any]] = [{"$sort": {"_id": 1}}, {"$limit": groesse}]
+
+    return [
+        {"$match": {"$or": [build_lapsed_terms(now), build_due_terms(now)]}},
+        {"$project": {"_id": 1, "faellig": {"$eq": [{"$type": "$wirksam_ab"}, "date"]}}},
+        {"$facet": {"seite": seite if nach is None else [{"$match": {"_id": {"$gt": nach}}}, *seite], "anzahl": [{"$count": "anzahl"}]}},
+    ]
+
+
+async def _end_the_lapsed_change(
+    row: Mapping[str, Any],
+    *,
+    adresswechsel_collection: AsyncCollection,
+    aktionen_collection: AsyncCollection,
+    db: AsyncMongoClient,
+    now: datetime,
+    stamp: str,
+) -> None:
+    """One change in a transaction of its own, judged again there: `DocumentNotFoundException` where it has not lapsed.
+
+    Unjournalled: restored, a lapsed change lapses again at the next pass.
+    """
+
+    async def end_the_lapsed_change(session: AsyncClientSession) -> None:
+        await end_the_change_in_session(
+            adresswechsel_collection=adresswechsel_collection,
+            aktionen_collection=aktionen_collection,
+            db_filter={"_id": row["_id"], **build_lapsed_terms(now)},
+            art="abgelaufen",
+            now=now,
+            stamp=stamp,
+            session=session,
+        )
+
+    async with transaction_session(db) as session:
+        await session.with_transaction(end_the_lapsed_change)
+
+
+async def _make_the_due_change_take_effect(
+    row: Mapping[str, Any],
+    *,
+    records: RecordCollections,
+    sperrliste: BanList,
+    massgebliche_saison_id: str | None,
+    adresswechsel_collection: AsyncCollection,
+    spieler_collection: AsyncCollection,
+    schiedsrichter_collection: AsyncCollection,
+    saison_teams_collection: AsyncCollection,
+    bewerbungen_collection: AsyncCollection,
+    registrierungen_collection: AsyncCollection,
+    spielbestaetigungen_collection: AsyncCollection,
+    berechtigungen_collection: AsyncCollection,
+    berechtigungen_angekuendigt_collection: AsyncCollection,
+    berechtigungen_postausgang_collection: AsyncCollection,
+    aktionen_collection: AsyncCollection,
+    adressanker_collection: AsyncCollection,
+    db: AsyncMongoClient,
+    schluessel: SecretStr,
+    now: datetime,
+    stamp: str,
+) -> FLAdresswechselMitteilung | FLAdresswechselVerworfenMitteilung:
+    """One due change in its own transaction, judged again as its confirmation was.
+
+    Answers the completion's notice, or the new address alone where refused; `DocumentNotFoundException` where stopped,
+    discarded or replaced since the page was read.
+    """
+
+    journal = Journal()
+
+    @journal.attempted
+    async def take_effect(session: AsyncClientSession) -> FLAdresswechselMitteilung | FLAdresswechselVerworfenMitteilung:
+        record = await pull_one_from_db(
+            collection=adresswechsel_collection, db_filter={"_id": row["_id"], **build_due_terms(now)}, session=session
+        )
+        urteil, mitteilung = await take_effect_in_session(
+            record=record,
+            records=records,
+            sperrliste=sperrliste,
+            massgebliche_saison_id=massgebliche_saison_id,
+            adresswechsel_collection=adresswechsel_collection,
+            spieler_collection=spieler_collection,
+            schiedsrichter_collection=schiedsrichter_collection,
+            saison_teams_collection=saison_teams_collection,
+            bewerbungen_collection=bewerbungen_collection,
+            registrierungen_collection=registrierungen_collection,
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            berechtigungen_collection=berechtigungen_collection,
+            berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            aktionen_collection=aktionen_collection,
+            adressanker_collection=adressanker_collection,
+            schluessel=schluessel,
+            now=now,
+            journal=journal,
+            session=session,
+        )
+        if mitteilung is not None:
+            return mitteilung
+        # A due change's approval was given: the due terms read it.
+        assert not urteil.wartet
+
+        # Every judgement the confirmation makes, at the end of the waiting time as at its start (`docs/backend/spec.md :: I795`).
+        if not urteil.leer:
+            await end_the_change_in_session(
+                adresswechsel_collection=adresswechsel_collection,
+                aktionen_collection=aktionen_collection,
+                db_filter={"_id": record["_id"]},
+                art="verworfen",
+                now=now,
+                stamp=stamp,
+                session=session,
+            )
+            # Journalled, as an administrator's discard is: the cause refusing it may postdate a snapshot a restore brings
+            # the change back from, due.
+            journal.note(
+                ending_line(art="adresswechsel_verworfen", neue=str(record["email"]), record_id=record["_id"], am=stamp, schluessel=schluessel)
+            )
+
+        # Read in this transaction before the end nulled it, for the pass's caller alone: never why, never the address on file.
+        return FLAdresswechselVerworfenMitteilung(email=str(record["email"]))
+
+    async with journal:
+        async with transaction_session(db) as session:
+            return await session.with_transaction(take_effect)
+
+
+@router.post(
+    "",
+    response_model=FLAdresswechselSweepResponse,
+    summary="End the lapsed address changes, and make the due ones take effect",
+    responses={409: DUPLICATE_KEY_RESPONSE},
+)
+async def sweep_adresswechsel(
+    params: Annotated[FLAdresswechselSweepParams, Query()],
+    records: SubjektLookup,
+    adresswechsel_collection: AdresswechselCollection,
+    spieler_collection: SpielerCollection,
+    schiedsrichter_collection: SchiedsrichterCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    bewerbungen_collection: BewerbungenCollection,
+    registrierungen_collection: RegistrierungenCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    berechtigungen_collection: BerechtigungenCollection,
+    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    sperrliste: SperrlisteLookup,
+    aktionen_collection: AktionenCollection,
+    adressanker_collection: AdressankerCollection,
+    db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
+    germany_now: datetime = Depends(get_germany_now),
+) -> FLAdresswechselSweepResponse:
+    """
+    End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
+
+    **A lapsed change** -- its link, the approval it asked of the address on file, or its grant's approval by another
+    administrator -- ends as `abgelaufen`: its address and reason out of the record and every log image of it
+    (`entfernt`). **A due change**, one whose waiting time has ended and whose grant's move, where it moves one, was
+    approved, is judged again as its confirmation was: a ban on either address, another pupil signing in on the new one,
+    a grant its approval does not cover, a grant at the new address, or nothing left to move ends it discarded, and
+    `verworfen` answers its new address alone, which the caller tells it did not take effect and never why; otherwise
+    everything the replaced address holds moves, and `wirksam` names whom the caller mails the completion notice.
+
+    Each change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or
+    replaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `nach` the last
+    answered**, the first naming none; it ends at the call answering `nach` null. A call reaches at most a fixed share of the
+    changes after `nach`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is
+    logged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the
+    request's deadline cuts the call, it stops at that change, warns once, and answers what it did. `verbleibend` counts
+    the changes standing due after the call, so it is no stopping condition.
+    """
+
+    [gelesen] = await aggregate_many_from_db(
+        collection=adresswechsel_collection,
+        # One past the share, so a call ending exactly at the share's last row can tell whether any follow.
+        pipeline=_pipeline(now=germany_now, nach=params.nach, groesse=ADRESSWECHSEL_PER_PASS + 1),
+    )
+    seite, anzahl = gelesen["seite"], sum(row["anzahl"] for row in gelesen["anzahl"])
+    stamp = log_stamp(germany_now)
+    # Outside every change's transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`), and only where a due change
+    # asks the ban list: a page of lapses reads no season.
+    massgebliche_saison_id = await sperrliste_saison(sperrliste) if any(row["faellig"] for row in seite[:ADRESSWECHSEL_PER_PASS]) else None
+
+    entfernt, uebersprungen = 0, 0
+    verworfen: list[FLAdresswechselVerworfenMitteilung] = []
+    wirksam: list[FLAdresswechselMitteilung] = []
+    erreicht: Any = None
+    abgebrochen = False
+    for row in seite[:ADRESSWECHSEL_PER_PASS]:
+        erreicht = row["_id"]
+        welche, was = ("due", "effect") if row["faellig"] else ("lapsed", "end")
+        # Each caught outside the change's session (`docs/backend/spec.md :: I539`).
+        try:
+            if row["faellig"]:
+                ergebnis = await _make_the_due_change_take_effect(
+                    row,
+                    records=records,
+                    sperrliste=sperrliste,
+                    massgebliche_saison_id=massgebliche_saison_id,
+                    adresswechsel_collection=adresswechsel_collection,
+                    spieler_collection=spieler_collection,
+                    schiedsrichter_collection=schiedsrichter_collection,
+                    saison_teams_collection=saison_teams_collection,
+                    bewerbungen_collection=bewerbungen_collection,
+                    registrierungen_collection=registrierungen_collection,
+                    spielbestaetigungen_collection=spielbestaetigungen_collection,
+                    berechtigungen_collection=berechtigungen_collection,
+                    berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+                    berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                    aktionen_collection=aktionen_collection,
+                    adressanker_collection=adressanker_collection,
+                    db=db,
+                    schluessel=config.sperrliste_schluessel,
+                    now=germany_now,
+                    stamp=stamp,
+                )
+            else:
+                await _end_the_lapsed_change(
+                    row,
+                    adresswechsel_collection=adresswechsel_collection,
+                    aktionen_collection=aktionen_collection,
+                    db=db,
+                    now=germany_now,
+                    stamp=stamp,
+                )
+        except DocumentNotFoundException:
+            # The filter is the judgement: confirmed, stopped, discarded or sent a fresh link since the read, and not due.
+            uebersprungen += 1
+            continue
+        # Any class, or the next pass stops at this change again and holds back every one behind it
+        # (`docs/backend/spec.md :: I717`); not `BaseException`, so a cancellation still ends the call.
+        except Exception as failure:
+            # The only branch an unanswered commit reaches: `with_transaction` retries one until the deadline and raises
+            # it as a timeout keeping the label.
+            if isinstance(failure, PyMongoError) and failure.timeout:
+                ungewiss = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
+                # Below the handler's ERROR: no record is at fault, and every later change would fail the same way.
+                fl_logger.warning(
+                    f"Database deadline passed at the {welche} address change {row['_id']}"
+                    f"{f', its {was} unanswered' if ungewiss else ''}: the call stops, and the rest stay due",
+                    extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
+                )
+                abgebrochen = True
+                break
+
+            # The id and what locates the failure, never an address this pass handles.
+            code, diagnosis = diagnosis_of(failure)
+            fl_logger.error(f"The {welche} address change {row['_id']} saw no {was}: {diagnosis}", extra={"error_code": code})
+            continue
+
+        if not row["faellig"]:
+            entfernt += 1
+        elif isinstance(ergebnis, FLAdresswechselVerworfenMitteilung):
+            verworfen.append(ergebnis)
+        else:
+            wirksam.append(ergebnis)
+
+    return FLAdresswechselSweepResponse(
+        entfernt=entfernt,
+        verworfen=verworfen,
+        wirksam=wirksam,
+        verbleibend=anzahl - entfernt - len(verworfen) - len(wirksam) - uebersprungen,
+        nach=erreicht if abgebrochen or len(seite) > ADRESSWECHSEL_PER_PASS else None,
+    )

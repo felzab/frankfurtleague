@@ -1332,7 +1332,9 @@ SEEDED_VERSION = 2
 
 
 def a_report_on(spiel: dict[str, Any], *, version: int) -> dict[str, Any]:
-    return documents.spielbericht_document(spiel, bericht=documents.bericht_document(version=version))
+    return documents.spielbericht_document(
+        spiel, bericht=documents.bericht_document(version=version, seiten=documents.spielbericht_seiten(spiel))
+    )
 
 
 async def reports_now(database: AsyncDatabase) -> dict[ObjectId, dict[str, Any]]:
@@ -1447,3 +1449,24 @@ class TestAStaleSeedIsNotAdopted:
 
         assert spiele_after[VIERTELFINALE_NR]["ergebnis"] == "3:1", "a stale seed cost the administrator the result they saved"
         assert after[VIERTELFINALE] == before[VIERTELFINALE], "a report corrected since the seed was adopted unread"
+
+
+class TestAReportAboutOtherClubsIsNotAdopted:
+    @pytest.mark.parametrize("seite", ["team1", "team2"])
+    def test_it_stays_unstamped_at_the_seeded_version_and_the_save_lands(self, mongo_replica_set_url: str, seite: str):
+        """Written while another club held one side: stamped, its 3:1 would read as the clubs the save leaves."""
+
+        spiele, (quarter_report, semi_report) = a_bracket_with_reports(quarter_final_at=SEEDED_VERSION)
+        quarter_report["bericht"]["seiten"][seite] = ObjectId()
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await with_reports(database, [quarter_report, semi_report])
+            spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1))
+            await call_patch(database, client, VIERTELFINALE, spiel_data, uebernimmt_bericht=SEEDED_VERSION)
+
+            return await spiele_now(database), before, await reports_now(database)
+
+        spiele_after, before, after = on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
+
+        assert spiele_after[VIERTELFINALE_NR]["ergebnis"] == "3:1", "a report about other clubs cost the administrator the result"
+        assert after[VIERTELFINALE] == before[VIERTELFINALE], "a report about other clubs was adopted for the clubs playing"

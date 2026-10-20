@@ -44,7 +44,7 @@ const { BewerbungForm } = await import("@/features/bewerbungen/components/forms/
 const { BestaetigungFormPanel } = await import("@/features/bewerbungen/components/views/BestaetigungFormPanel.tsx");
 const { BestaetigungSaisonVorbei } = await import("@/features/bewerbungen/components/views/BestaetigungSaisonVorbei.tsx");
 const { SchiedsrichterBestaetigungView } = await import("@/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx");
-const { AdresswechselLinkView } = await import("@/features/konto/components/views/AdresswechselLinkView.tsx");
+const { AdresswechselLinkView } = await import("@/features/adresswechsel/components/views/AdresswechselLinkView.tsx");
 const { CodeStep } = await import("@/features/auth/components/forms/CodeStep.tsx");
 const { RegistrierungFormPanel } = await import("@/features/registrierungen/components/views/RegistrierungFormPanel.tsx");
 const { SpielerBestaetigungView } = await import("@/features/registrierungen/components/views/SpielerBestaetigungView.tsx");
@@ -351,14 +351,12 @@ const FORMS: Record<string, PublicForm> = {
       await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
     },
   },
-  // Both lanes' pages, which differ by the route they post to alone.
   "the address page": {
-    module: "features/konto/components/views/AdresswechselLinkView.tsx",
-    route: "/api/bestaetigung/spieler/adresse",
+    module: "features/adresswechsel/components/views/AdresswechselLinkView.tsx",
+    route: "/api/bestaetigung/adresse",
     render: () =>
       h(AdresswechselLinkView, {
-        route: "/api/bestaetigung/spieler/adresse",
-        start: { zustand: "gueltig", gueltigBis: "2026-10-05T10:00:00Z", token: "kein-echtes-token" },
+        start: { zustand: "gueltig", gueltigBis: "2026-10-05T10:00:00Z", weg: "konto", token: "kein-echtes-token" },
       }),
     submit: (user) => user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE })),
   },

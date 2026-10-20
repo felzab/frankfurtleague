@@ -11,14 +11,13 @@ from typing import Any, get_args, get_origin
 import pytest
 from pydantic import BaseModel
 
+from app.api.adresswechsel.crud import end_the_address_changes_in_session
 from app.api.aktionen.crud import redact_address_in_images
 from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
 from app.api.identitaet.crud import ERASURE_STEPS, JEDE_PERSONENGRUPPE, Personengruppe, _runs, erase_everything
 from app.api.saisons.schemas import FLSaison
-from app.api.schiedsrichter.crud import remove_pending_addresses_in_session
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
 from app.api.spiele.schemas import FLSpiel
-from app.api.spieler.crud import remove_pending_pupil_addresses_in_session
 from app.api.spieler.schemas import FLSpieler
 from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
@@ -639,11 +638,7 @@ def test_the_registry_runs_every_step_by_name_in_its_declared_order():
 
 
 # The steps whose writes leave the address in images no step of theirs redacts: another record the person made or names.
-_LEAVING_THE_ADDRESS_IN_IMAGES = (
-    erase_grants_and_authorship_in_session,
-    remove_pending_addresses_in_session,
-    remove_pending_pupil_addresses_in_session,
-)
+_LEAVING_THE_ADDRESS_IN_IMAGES = (erase_grants_and_authorship_in_session, end_the_address_changes_in_session)
 
 
 def test_no_scope_runs_a_step_leaving_the_address_in_an_image_without_the_address_pass():

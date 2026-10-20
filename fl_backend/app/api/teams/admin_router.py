@@ -8,6 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
+from app.api.adresswechsel.services import build_addresses_filter
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.bewerbungen.services import mint_token, seat_adressen, seat_named
 from app.api.einladungen.schemas import FLEinladung, FLEinladungMintResponse, FLEinladungResponse, FLEinladungWriteResponse, FLEinladungZeile
@@ -82,6 +83,8 @@ from app.api.teams.services import (
     links_owed,
     mint_answer,
     mit_abgelaufen,
+    mit_adresswechseln,
+    seated_identifiers,
     seats_one_link_answers,
     voids_a_live_link,
 )
@@ -102,6 +105,7 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     AdressankerCollection,
+    AdresswechselCollection,
     AktionenCollection,
     BewerbungenCollection,
     DBClient,
@@ -175,18 +179,36 @@ async def _rewrite_the_outgoing_clubs_sides(
 # A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
 # capture this one whatever the declaration order.
 @router.get("/memberships", response_model=FLTeamsMembershipsResponse, summary="Every team with its season memberships")
-async def get_team_memberships(teams_collection: TeamsCollection, today: str = Depends(get_german_date_str)) -> FLTeamsMembershipsResponse:
+async def get_team_memberships(
+    teams_collection: TeamsCollection, adresswechsel_collection: AdresswechselCollection, today: str = Depends(get_german_date_str)
+) -> FLTeamsMembershipsResponse:
     """
     Every team, retired ones included, each with every season membership it holds. Sorted by name.
 
-    `GET /teams` cannot answer it: that read is season-scoped with a strict junction join.
+    `GET /teams` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
+    change of each seat's address, which the address tool shows.
     """
 
     teams_raw = await aggregate_many_from_db(
         collection=teams_collection, pipeline=build_team_memberships_pipeline(), collation=GERMAN_COLLATION
     )
+    adressen = seated_identifiers(teams_raw)
+    # One read for every seat: a seat stores its address as typed, so no `$lookup` can meet the folded key.
+    live = (
+        {
+            row["adresse"]: row["_id"]
+            for row in await aggregate_many_from_db(
+                collection=adresswechsel_collection,
+                pipeline=[{"$match": build_addresses_filter(adressen)}, {"$project": {"adresse": 1}}],
+            )
+        }
+        if adressen
+        else {}
+    )
 
-    return FLTeamsMembershipsResponse(teams=FLTeamWithMembershipsListAdapter.validate_python(mit_abgelaufen(teams_raw, today=today)))
+    return FLTeamsMembershipsResponse(
+        teams=FLTeamWithMembershipsListAdapter.validate_python(mit_adresswechseln(mit_abgelaufen(teams_raw, today=today), live=live))
+    )
 
 
 # Two static segments, as `GET /saisons/list/admin` has, so the admin tier lists every season-scoped

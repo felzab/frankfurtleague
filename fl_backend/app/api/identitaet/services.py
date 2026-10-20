@@ -8,7 +8,7 @@ so a judgement left beside a handle is one nothing stops from growing a read of 
 
 import re
 import unicodedata
-from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from http import HTTPStatus
 from typing import Any, Final, Literal, get_args
@@ -19,16 +19,14 @@ from app.api.berechtigungen.schemas import FLVerwaltung
 from app.api.berechtigungen.services import OWNER, holds_an_owners_power, lebendige, verwaltung_des
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
 from app.api.identitaet.schemas import FLErasureAnsicht, FLSelbstErasureAnsicht, FLSubjekt, FLSubjektSitz
-from app.api.kontakte.services import rows_possibly_naming, same_address
+from app.api.kontakte.services import rows_possibly_naming
 from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_erasure_registrierung_filter
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.services import (
-    ADRESSWECHSEL_FELD,
-    build_real_referees_filter,
     build_selbst_referee_filter,
     build_unplayed_assignment_filter,
 )
-from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_real_spieler_filter, build_selbst_pupil_filter
+from app.api.spieler.services import build_real_spieler_filter, build_selbst_pupil_filter
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
@@ -135,43 +133,12 @@ def build_season_team_pipeline(rows: Iterable[Mapping[str, Any]]) -> list[Mappin
     ]
 
 
-def build_pending_address_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every referee row whose pending address change may name the address; no other read keys on that field."""
-
-    return [
-        {"$match": {f"{ADRESSWECHSEL_FELD}.email": same_address(identifier), **build_real_referees_filter()}},
-        {"$project": {f"{ADRESSWECHSEL_FELD}.email": 1, "kontakt.email": 1}},
-        {"$sort": {"_id": 1}},
-    ]
-
-
-def build_pending_pupil_address_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every pupil row whose pending address change, the referee block's twin, may name the address."""
-
-    return [
-        {"$match": {f"{SPIELER_ADRESSWECHSEL_FELD}.email": same_address(identifier), **build_real_spieler_filter()}},
-        {"$project": {f"{SPIELER_ADRESSWECHSEL_FELD}.email": 1, "email": 1}},
-        {"$sort": {"_id": 1}},
-    ]
-
-
 def referee_address(row: Mapping[str, Any]) -> Any:
     return (row.get("kontakt") or {}).get("email")
 
 
 def pupil_address(row: Mapping[str, Any]) -> Any:
     return row.get("email")
-
-
-def pending_addresses_of(
-    rows: Iterable[Mapping[str, Any]], identifier: str, *, feld: str, stored: Callable[[Mapping[str, Any]], Any]
-) -> list[Mapping[str, Any]]:
-    """The rows whose pending address under `feld` IS this mailbox and whose `stored` one is not, each the old address's person's.
-
-    A row holding the address in both is the address's own row, which the erasure takes whole.
-    """
-
-    return [row for row in rows if folds_to((row.get(feld) or {}).get("email"), identifier) and not folds_to(stored(row), identifier)]
 
 
 def build_unplayed_saison_pipeline(schiedsrichter_ids: Iterable[Any]) -> list[Mapping[str, Any]]:
@@ -271,7 +238,6 @@ def compose_erasure_ansicht_auf_anfrage(
     pupil_rows: Sequence[Mapping[str, Any]],
     registrierung_rows: Sequence[Mapping[str, Any]],
     adresswechsel_rows: Sequence[Mapping[str, Any]],
-    spieler_adresswechsel_rows: Sequence[Mapping[str, Any]],
     kader_rows: Sequence[Mapping[str, Any]],
     team_rows: Sequence[Mapping[str, Any]],
     unplayed_rows: Sequence[Mapping[str, Any]],
@@ -313,8 +279,7 @@ def compose_erasure_ansicht_auf_anfrage(
                 {**_registrierung_entry(row, team_names), "registrierung_id": row["_id"], "team_id": row["team_id"], "status": row["status"]}
                 for row in registrierung_rows
             ],
-            "adresswechsel": [{"schiedsrichter_id": row["_id"]} for row in adresswechsel_rows],
-            "spieler_adresswechsel": [{"spieler_id": row["_id"]} for row in spieler_adresswechsel_rows],
+            "adresswechsel": [{"adresswechsel_id": row["_id"]} for row in adresswechsel_rows],
         }
     )
 

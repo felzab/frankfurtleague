@@ -7,19 +7,30 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.berechtigungen.crud import live_unbarred_grant_since
+from app.api.adresswechsel.crud import end_the_change_in_session, ending_line, read_the_bestand, start_the_change_in_session
+from app.api.adresswechsel.schemas import FLAdresswechselGenehmigungStand
+from app.api.adresswechsel.services import (
+    LIVE_TERMS,
+    als_utc,
+    build_address_filter,
+    build_awaiting_approval_terms,
+    compose_genehmigung,
+    compose_link_update,
+    compose_record,
+    find_abgelaufen_refusal,
+    find_kein_genehmiger_refusal,
+    find_nichts_refusal,
+    find_unveraendert_refusal,
+    ist_abgelaufen,
+    maskierte_adresse,
+    wartet_auf,
+)
+from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
+from app.api.berechtigungen.services import genehmiger_of, lebendige
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.crud import funktionen_aus
-from app.api.identitaet.lookup import SubjektLookup
+from app.api.identitaet.lookup import RecordCollections, SubjektLookup
 from app.api.identitaet.services import ist_eigener_schiedsrichter, ist_eigener_spieler, may_grant_on_schiedsrichter, may_grant_on_spieler
-from app.api.konto.adresswechsel import (
-    Bestand,
-    Zeile,
-    discard_the_change_in_session,
-    ending_line,
-    read_the_bestand,
-    start_the_change_in_session,
-)
 from app.api.konto.schemas import (
     FLKontoAdresswechselFreigabeResponse,
     FLKontoAdresswechselMintResponse,
@@ -39,22 +50,18 @@ from app.api.konto.services import (
     compose_schiedsrichter_konto,
     compose_sitze_selbst,
     compose_spieler_konto,
-    find_eigener_eintrag_refusal,
     kontext_zeile,
 )
-from app.api.schiedsrichter.services import (
-    build_selbst_referee_pipeline,
-    find_adresswechsel_expired_refusal,
-    find_schiedsrichter_adresse_unveraendert_refusal,
-)
-from app.api.sperrliste.lookup import BanList, SperrlisteLookup
-from app.api.spieler.services import build_selbst_pupil_pipeline, find_adresse_unveraendert_refusal, find_spieler_token_expired_refusal
-from app.core.collections import Collection
+from app.api.schiedsrichter.services import build_selbst_referee_pipeline
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
+from app.api.spieler.services import build_selbst_pupil_pipeline
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
     AdressankerCollection,
+    AdresswechselCollection,
     AktionenCollection,
+    BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
     BewerbungenCollection,
     DBClient,
@@ -67,21 +74,13 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.drosselung import adresswechsel_gedrosselt
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin, verify_recent_person_confirmation
 from app.core.transactions import transaction_session
-from app.shared.adresswechsel import (
-    ADRESSWECHSEL_FELD,
-    als_utc,
-    build_awaiting_approval_terms,
-    build_pending_terms,
-    compose_block,
-    compose_link_update,
-    wartet_auf,
-)
+from app.shared.folding import sign_in_identifier
 
 # Every person binder fixes a Funktion and this page is none's: `kontakt` is bound, its seat control
 # having no page of its own. Its one write is the address change, which crosses every record the address holds.
@@ -198,49 +197,67 @@ async def get_einwilligungen(
 # is: the change crosses every Funktion the address holds.
 
 
-def _adresswechsel_answer(bestand: Bestand, *, verwaltung: bool) -> FLKontoAdresswechselResponse:
-    zeile = bestand.offen
-    block = None if zeile is None else zeile.block
+def _offen(record: Mapping[str, Any]) -> FLKontoAdresswechselOffen:
+    genehmigung = record.get("genehmigung")
+    gestand = None
+    if isinstance(genehmigung, Mapping):
+        bis = als_utc(genehmigung.get("bis"))
+        assert bis is not None
+        gestand = FLAdresswechselGenehmigungStand(
+            verwaltung=genehmigung["verwaltung"], genehmigt=genehmigung.get("genehmigt_am") is not None, bis=bis
+        )
 
-    return FLKontoAdresswechselResponse(
-        moeglich=bestand.traeger is not None,
-        bleibt_verwaltung=verwaltung,
-        offen=None
-        if block is None
-        else FLKontoAdresswechselOffen(
-            weg=block["weg"],
-            wartet_auf=wartet_auf(block),
-            gueltig_bis=als_utc(block.get("gueltig_bis")),
-            wirksam_ab=als_utc(block.get("wirksam_ab")),
-        ),
+    return FLKontoAdresswechselOffen(
+        # The address the person typed here is theirs to see; one an administrator typed is shown recognisable alone.
+        email=record["email"] if record["weg"] == "konto" else maskierte_adresse(str(record["email"])),
+        weg=record["weg"],
+        wartet_auf=wartet_auf(record),
+        gueltig_bis=als_utc(record.get("gueltig_bis")),
+        wirksam_ab=als_utc(record.get("wirksam_ab")),
+        genehmigung=gestand,
     )
 
 
-async def _holds_a_grant(identifier: str, *, berechtigungen_collection: AsyncCollection, sperrliste: BanList) -> bool:
-    return await live_unbarred_grant_since(identifier, berechtigungen_collection=berechtigungen_collection, sperrliste=sperrliste) is not None
+async def _adresswechsel_answer(
+    identifier: str,
+    *,
+    records: RecordCollections,
+    adresswechsel_collection: AsyncCollection,
+    berechtigungen_collection: AsyncCollection,
+    session: AsyncClientSession | None,
+) -> FLKontoAdresswechselResponse:
+    bestand = await read_the_bestand(identifier, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
+    record = await adresswechsel_collection.find_one(build_address_filter(identifier), session=session)
+
+    return FLKontoAdresswechselResponse(moeglich=not bestand.leer, offen=None if record is None else _offen(record))
 
 
 @router.get("/adresswechsel", response_model=FLKontoAdresswechselResponse, summary="Whether a signed-in person may change their address")
 async def get_adresswechsel(
     identifier: KontaktIdentifier,
     records: SubjektLookup,
+    adresswechsel_collection: AdresswechselCollection,
     berechtigungen_collection: BerechtigungenCollection,
-    sperrliste: SperrlisteLookup,
+    db: DBClient,
 ) -> FLKontoAdresswechselResponse:
     """
-    Answer whether the signed-in address holds a record its own change moves, and the change pending on it.
+    Answer whether the signed-in address holds anything its own change moves, and the change pending on it.
 
-    PERSON TIER. `moeglich` where the address holds a pupil row or a confirmed referee row; `bleibt_verwaltung` where it also
-    holds an administrator's grant, which no change moves. **The pending address is never served**, here or to anyone on
-    the side of the address on file: a change an administrator started may be a pretext whose target its holder must not
-    learn either.
+    PERSON TIER. `moeglich` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a
+    registration or a grant. **The pending address is served masked where an administrator started the change**, whole
+    only where the person typed it here: a change an administrator started may be a pretext whose target the holder of
+    the address on file must not learn. `genehmigung` is the approval a change moving the person's grant waits on.
     """
 
-    bestand = await read_the_bestand(identifier, records=records, session=None)
-
-    return _adresswechsel_answer(
-        bestand, verwaltung=await _holds_a_grant(identifier, berechtigungen_collection=berechtigungen_collection, sperrliste=sperrliste)
-    )
+    # A snapshot, so the records and the change are answered as of one moment.
+    async with db.start_session(snapshot=True) as session:
+        return await _adresswechsel_answer(
+            identifier,
+            records=records,
+            adresswechsel_collection=adresswechsel_collection,
+            berechtigungen_collection=berechtigungen_collection,
+            session=session,
+        )
 
 
 @router.post(
@@ -248,14 +265,16 @@ async def get_adresswechsel(
     response_model=FLKontoAdresswechselMintResponse,
     summary="Start a change of the signed-in person's address",
     dependencies=[Depends(verify_recent_person_confirmation), Depends(adresswechsel_gedrosselt)],
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_adresswechsel(
     identifier: KontaktIdentifier,
     adresswechsel_data: Annotated[FLKontoAdresswechselPayload, Body()],
     records: SubjektLookup,
-    spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
+    adresswechsel_collection: AdresswechselCollection,
+    berechtigungen_collection: BerechtigungenCollection,
+    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
     adressanker_collection: AdressankerCollection,
     db: DBClient,
@@ -265,15 +284,16 @@ async def post_adresswechsel(
     """
     Start a change of the address the person signs in on, answering both raw links once, for the frontend's server to mail.
 
-    The new mailbox is mailed its link, and the address on file a notice with a stop link; **every record the address holds
-    as its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. A change already
-    pending on any of those records is ended, an administrator's too: a sign-in at the address on file proves the mailbox is
-    not lost. **Nothing about the new address is judged here** -- the ban list, another pupil and every record it holds are
-    the confirmation's to judge -- so this start answers alike whatever the new address holds.
+    The new mailbox is mailed its link, and the address on file a notice with a stop link; **everything the address holds
+    as its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. Where it holds a
+    grant, the change also waits on another administrator's approval, an owner's for an owner's grant, and
+    `genehmiger` names whom the frontend's server tells. The address's live change ends replaced, an administrator's too:
+    a sign-in at the address on file proves the mailbox is not lost. **Nothing about the new address is judged here** --
+    the ban list, another pupil, a grant it holds -- so this start answers alike whatever the new address holds.
 
     Refused `REQ-AUTH-009` from a sign-in or confirmation, passkey or code, older than `ENROLMENT_WINDOW_MINUTES`;
-    `REQ-FUNKTION-001` where the address holds no pupil row and no confirmed referee row; `REQ-SPIELER-007`, or
-    `REQ-SCHIEDSRICHTER-012` where a referee row carries the change, where the typed address is the one signed in; and
+    `REQ-ADRESSWECHSEL-010` where the address holds nothing a change moves; `-007` where the typed address is the one
+    signed in; `-011` where nobody could approve the grant's move, the last owner making another first; and
     `REQ-DROSSELUNG-001` past the day's count of starts and approvals.
     """
 
@@ -283,47 +303,57 @@ async def post_adresswechsel(
     journal = Journal()
 
     @journal.attempted
-    async def start_the_change(session: AsyncClientSession) -> tuple[Zeile, datetime]:
-        bestand = await read_the_bestand(identifier, records=records, session=session)
-        traeger = bestand.traeger
-        refuse(find_eigener_eintrag_refusal(gehalten=traeger is not None))
-        assert traeger is not None
-        if traeger.collection == Collection.SPIELER:
-            refuse(find_adresse_unveraendert_refusal(stored=identifier, email=email))
-        else:
-            refuse(find_schiedsrichter_adresse_unveraendert_refusal(stored=identifier, email=email))
+    async def start_the_change(session: AsyncClientSession) -> FLKontoAdresswechselMintResponse:
+        bestand = await read_the_bestand(identifier, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
+        refuse(find_nichts_refusal(leer=bestand.leer))
+        refuse(find_unveraendert_refusal(adresse=identifier, email=email, folded=sign_in_identifier(email)))
 
-        block = compose_block(email=email, weg="konto", token_hash=token_hash, stopp_hash=stopp_hash, grund=None, now=germany_now)
-        await start_the_change_in_session(
-            bestand=bestand,
-            traeger=traeger,
-            block=block,
-            spieler_collection=spieler_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
+        genehmiger: list[str] = []
+        genehmigung = None
+        if bestand.berechtigung is not None:
+            grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
+            announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
+            gesperrt = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in lebendige(grants)], session=session)
+            verwaltung = str(bestand.berechtigung["verwaltung"])
+            genehmiger = genehmiger_of(verwaltung=verwaltung, ausgenommen={identifier}, grants=grants, announced=announced, gesperrt=gesperrt)
+            refuse(find_kein_genehmiger_refusal(genehmiger=len(genehmiger)))
+            genehmigung = compose_genehmigung(verwaltung=verwaltung, gestartet_von=identifier, now=germany_now)
+
+        record = compose_record(
+            adresse=identifier,
+            email=email,
+            weg="konto",
+            token_hash=token_hash,
+            stopp_hash=stopp_hash,
+            grund=None,
+            genehmigung=genehmigung,
+            now=germany_now,
+        )
+        adresswechsel_id = await start_the_change_in_session(
+            record=record,
+            adresswechsel_collection=adresswechsel_collection,
             aktionen_collection=aktionen_collection,
             adressanker_collection=adressanker_collection,
             schluessel=config.sperrliste_schluessel,
-            stamp=log_stamp(germany_now),
+            now=germany_now,
             journal=journal,
             session=session,
         )
 
-        return traeger, block["gueltig_bis"]
+        return FLKontoAdresswechselMintResponse(
+            id=adresswechsel_id,
+            token=raw_token,
+            stopp_token=raw_stopp,
+            gueltig_bis=record["gueltig_bis"],
+            email=email,
+            bisherige_email=identifier,
+            vorname=bestand.vorname,
+            genehmiger=genehmiger,
+        )
 
     async with journal:
         async with transaction_session(db) as session:
-            traeger, gueltig_bis = await session.with_transaction(start_the_change)
-
-    return FLKontoAdresswechselMintResponse(
-        art=traeger.art,
-        id=traeger.row["_id"],
-        token=raw_token,
-        stopp_token=raw_stopp,
-        gueltig_bis=gueltig_bis,
-        email=email,
-        bisherige_email=traeger.adresse,
-        vorname=traeger.vorname,
-    )
+            return await session.with_transaction(start_the_change)
 
 
 @router.post(
@@ -335,9 +365,7 @@ async def post_adresswechsel(
 )
 async def post_adresswechsel_freigabe(
     identifier: KontaktIdentifier,
-    records: SubjektLookup,
-    spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
+    adresswechsel_collection: AdresswechselCollection,
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLKontoAdresswechselFreigabeResponse:
@@ -347,46 +375,35 @@ async def post_adresswechsel_freigabe(
     **Nothing reaches the new mailbox before this press** (`docs/backend/spec.md :: I794`). Nothing about the new address is
     judged here either: the approver is owed no answer about it, and the confirmation judges it.
 
-    Refused `REQ-AUTH-009` as the start is; 404 where no such change awaits the address's approval; `REQ-SPIELER-002`, or
-    `REQ-SCHIEDSRICHTER-003` where a referee row carries the change, past the approval's deadline; and `REQ-DROSSELUNG-001` as
-    the start is.
+    Refused `REQ-AUTH-009` as the start is; 404 where no such change awaits the address's approval;
+    `REQ-ADRESSWECHSEL-003` past the approval's deadline; and `REQ-DROSSELUNG-001` as the start is.
     """
 
     raw_token, token_hash = mint_token()
+    db_filter = {**build_address_filter(identifier), **build_awaiting_approval_terms()}
 
-    async def approve_the_change(session: AsyncClientSession) -> tuple[Zeile, Mapping[str, Any]]:
-        bestand = await read_the_bestand(identifier, records=records, session=session)
-        zeile = next((zeile for zeile in bestand.zeilen if zeile.block is not None and wartet_auf(zeile.block) == "freigabe"), None)
-        if zeile is None:
+    async def approve_the_change(session: AsyncClientSession) -> Mapping[str, Any]:
+        record = await adresswechsel_collection.find_one(db_filter, session=session)
+        if record is None:
             # The judgement names no address: the exception's filter reaches the log line.
             raise DocumentNotFoundException(filter=build_awaiting_approval_terms(), error_code=DOCUMENT_NOT_FOUND)
-        if zeile.collection == Collection.SPIELER:
-            refuse(find_spieler_token_expired_refusal(block=zeile.block, now=germany_now))
-        else:
-            refuse(find_adresswechsel_expired_refusal(block=zeile.block, now=germany_now))
+        refuse(find_abgelaufen_refusal(abgelaufen=ist_abgelaufen(record, now=germany_now)))
 
-        db_filter = {"_id": zeile.row["_id"], **build_awaiting_approval_terms()}
-        update = compose_link_update(token_hash=token_hash, now=germany_now, freigabe=True)
-        if zeile.collection == Collection.SPIELER:
-            updated = await patch_one_in_db(
-                collection=spieler_collection, db_filter=db_filter, update=update, session=session, return_document=ReturnDocument.AFTER
-            )
-        else:
-            updated = await patch_one_in_db(
-                collection=schiedsrichter_collection, db_filter=db_filter, update=update, session=session, return_document=ReturnDocument.AFTER
-            )
-
-        return zeile, updated[ADRESSWECHSEL_FELD]
+        return await patch_one_in_db(
+            collection=adresswechsel_collection,
+            db_filter={"_id": record["_id"], **LIVE_TERMS},
+            update=compose_link_update(token_hash=token_hash, now=germany_now, freigabe=True),
+            session=session,
+            return_document=ReturnDocument.AFTER,
+        )
 
     async with transaction_session(db) as session:
-        zeile, wechsel = await session.with_transaction(approve_the_change)
+        record = await session.with_transaction(approve_the_change)
 
-    gueltig_bis = als_utc(wechsel["gueltig_bis"])
+    gueltig_bis = als_utc(record["gueltig_bis"])
     assert gueltig_bis is not None
 
-    return FLKontoAdresswechselFreigabeResponse(
-        art=zeile.art, id=zeile.row["_id"], token=raw_token, gueltig_bis=gueltig_bis, email=wechsel["email"]
-    )
+    return FLKontoAdresswechselFreigabeResponse(id=record["_id"], token=raw_token, gueltig_bis=gueltig_bis, email=record["email"])
 
 
 @router.delete(
@@ -398,11 +415,9 @@ async def post_adresswechsel_freigabe(
 async def delete_adresswechsel(
     identifier: KontaktIdentifier,
     records: SubjektLookup,
-    spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    aktionen_collection: AktionenCollection,
+    adresswechsel_collection: AdresswechselCollection,
     berechtigungen_collection: BerechtigungenCollection,
-    sperrliste: SperrlisteLookup,
+    aktionen_collection: AktionenCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
@@ -413,41 +428,43 @@ async def delete_adresswechsel(
     Asks no fresh confirmation and counts nothing: a stop hands nothing over. 404 where no change is pending on the address.
     """
 
+    stamp = log_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted
-    async def stop_the_change(session: AsyncClientSession) -> Bestand:
-        bestand = await read_the_bestand(identifier, records=records, session=session)
-        zeile = bestand.offen
-        if zeile is None:
-            raise DocumentNotFoundException(filter=build_pending_terms(), error_code=DOCUMENT_NOT_FOUND)
+    async def stop_the_change(session: AsyncClientSession) -> FLKontoAdresswechselResponse:
+        live = await adresswechsel_collection.find_one(build_address_filter(identifier), {"_id": 1}, session=session)
+        if live is None:
+            # The judgement names no address: the exception's filter reaches the log line.
+            raise DocumentNotFoundException(filter=dict(LIVE_TERMS), error_code=DOCUMENT_NOT_FOUND)
 
-        stored = await discard_the_change_in_session(
-            collection=zeile.collection,
-            spieler_collection=spieler_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
+        stored = await end_the_change_in_session(
+            adresswechsel_collection=adresswechsel_collection,
             aktionen_collection=aktionen_collection,
-            db_filter={"_id": zeile.row["_id"], **build_pending_terms()},
-            stamp=log_stamp(germany_now),
+            db_filter={"_id": live["_id"]},
+            art="gestoppt",
+            now=germany_now,
+            stamp=stamp,
             session=session,
         )
         journal.note(
             ending_line(
                 art="adresswechsel_gestoppt",
-                neue=str(stored[ADRESSWECHSEL_FELD]["email"]),
-                collection=zeile.collection,
-                record_id=zeile.row["_id"],
-                am=log_stamp(germany_now),
+                neue=str(stored["email"]),
+                record_id=stored["_id"],
+                am=stamp,
                 schluessel=config.sperrliste_schluessel,
             )
         )
 
-        return await read_the_bestand(identifier, records=records, session=session)
+        return await _adresswechsel_answer(
+            identifier,
+            records=records,
+            adresswechsel_collection=adresswechsel_collection,
+            berechtigungen_collection=berechtigungen_collection,
+            session=session,
+        )
 
     async with journal:
         async with transaction_session(db) as session:
-            bestand = await session.with_transaction(stop_the_change)
-
-    return _adresswechsel_answer(
-        bestand, verwaltung=await _holds_a_grant(identifier, berechtigungen_collection=berechtigungen_collection, sperrliste=sperrliste)
-    )
+            return await session.with_transaction(stop_the_change)

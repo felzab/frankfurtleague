@@ -35,7 +35,7 @@ let appEnv = "production";
 
 let apiAnswer: (call: ApiEvent) => unknown = () => ({});
 
-const ADRESSWECHSEL = "/schiedsrichter/sweep/adresswechsel";
+const ADRESSWECHSEL = "/adresswechsel/sweep";
 
 /**
  * The half after the season loop, answered apart so a case about a season's clocks never answers it. It is handed the
@@ -43,13 +43,16 @@ const ADRESSWECHSEL = "/schiedsrichter/sweep/adresswechsel";
  */
 let adresswechselAnswer: (nach: string | null) => unknown = () => entfernt(0, 0);
 
+/** A change the pass made take effect, as its answer hands it on: made because the mailbox was lost, so no account moves. */
+type Wirksam = { bisherige_email: string; email: string; vorname: string; weg: "wartezeit" };
+
 /** One call of the lapsed addresses' half: how many went, how many are still due, and where the pass goes on. */
 const entfernt = (
   anzahl: number,
   verbleibend: number,
   nach: string | null = null,
-  wirksam: { bisherige_email: string; vorname: string }[] = [],
-  verworfen = 0,
+  wirksam: Wirksam[] = [],
+  verworfen: { email: string }[] = [],
 ) => ({
   acknowledged: 1,
   entfernt: anzahl,
@@ -1171,7 +1174,7 @@ describe("the half after the season loop", () => {
       [
         {
           level: "warn",
-          event: "schiedsrichter.adresswechsel_sweep_pass",
+          event: "adresswechsel.sweep_pass",
           fields: { error_code: "FE-SWEEP-001", entfernt: 1, wirksam: 0, verworfen: 0, verbleibend: 42 },
         },
       ],
@@ -1186,11 +1189,11 @@ describe("the half after the season loop", () => {
     await runBewerbungSweep();
 
     assert.deepEqual(
-      lines.filter(({ event }) => event.startsWith("schiedsrichter.")),
+      lines.filter(({ event }) => event.startsWith("adresswechsel.")),
       [
         {
           level: "warn",
-          event: "schiedsrichter.adresswechsel_sweep_pass",
+          event: "adresswechsel.sweep_pass",
           fields: { error_code: "FE-SWEEP-001", entfernt: 5, wirksam: 0, verworfen: 0, verbleibend: 1 },
         },
       ],
@@ -1210,12 +1213,12 @@ describe("the half after the season loop", () => {
 
       assert.deepEqual(halfCalls(), [{}, { nach: ORT_ADRESSE }]);
       assert.deepEqual(
-        lines.filter(({ event }) => event.startsWith("schiedsrichter.")),
+        lines.filter(({ event }) => event.startsWith("adresswechsel.")),
         [
-          { level: "info", event: "schiedsrichter.adresswechsel_sweep_pass", fields: { entfernt: 3, wirksam: 0, verworfen: 0 } },
+          { level: "info", event: "adresswechsel.sweep_pass", fields: { entfernt: 3, wirksam: 0, verworfen: 0 } },
           {
             level: "error",
-            event: "schiedsrichter.adresswechsel_sweep_failed",
+            event: "adresswechsel.sweep_failed",
             fields: { error_code: "FE-SWEEP-001", name: "ContractBreakError", saison_id: undefined },
           },
         ],
@@ -1237,7 +1240,7 @@ describe("the half after the season loop", () => {
       [
         {
           level: "error",
-          event: "schiedsrichter.adresswechsel_sweep_failed",
+          event: "adresswechsel.sweep_failed",
           fields: { error_code: "FE-SWEEP-001", name: "Error", saison_id: undefined },
         },
       ],
@@ -1253,7 +1256,7 @@ describe("the half after the season loop", () => {
 
     assert.deepEqual(
       lines.filter(({ level, event }) => level === "info" && !SEASON_HALVES.test(event)),
-      [{ level: "info", event: "schiedsrichter.adresswechsel_sweep_pass", fields: { entfernt: 2, wirksam: 0, verworfen: 0, verbleibend: 0 } }],
+      [{ level: "info", event: "adresswechsel.sweep_pass", fields: { entfernt: 2, wirksam: 0, verworfen: 0, verbleibend: 0 } }],
     );
   });
 
@@ -1262,8 +1265,14 @@ describe("the half after the season loop", () => {
   it("mails every replaced address of the pass its completion notice, a refused one costing the rest nothing", async () => {
     refused.add("alt-1@schule.de");
     adresswechselAnswer = inTurn([
-      entfernt(0, 0, ORT_ADRESSE, [{ bisherige_email: "alt-1@schule.de", vorname: "Mira" }], 1),
-      entfernt(1, 0, null, [{ bisherige_email: "alt-2@schule.de", vorname: "Jonas" }]),
+      entfernt(
+        0,
+        0,
+        ORT_ADRESSE,
+        [{ bisherige_email: "alt-1@schule.de", email: "neu-1@schule.de", vorname: "Mira", weg: "wartezeit" }],
+        [{ email: "abgelehnt@schule.de" }],
+      ),
+      entfernt(1, 0, null, [{ bisherige_email: "alt-2@schule.de", email: "neu-2@schule.de", vorname: "Jonas", weg: "wartezeit" }]),
     ]);
 
     await runBewerbungSweep();
@@ -1277,9 +1286,32 @@ describe("the half after the season loop", () => {
       notices.every(({ text }) => !text.includes("token=")),
       "a completion notice carries a link",
     );
+    assert.ok(
+      notices.every(({ text }) => !text.includes("neu-1@schule.de") && !text.includes("neu-2@schule.de")),
+      "a completion notice names the new address",
+    );
     assert.deepEqual(
-      lines.filter(({ event }) => event.startsWith("schiedsrichter.adresswechsel_sweep_pass")).map(({ fields }) => fields),
+      lines.filter(({ event }) => event === "adresswechsel.sweep_pass").map(({ fields }) => fields),
       [{ entfernt: 1, wirksam: 2, verworfen: 1, verbleibend: 0 }],
+    );
+  });
+
+  /* A due change the pass refused leaves the new mailbox waiting on nothing: it is told, by no name, and one refused
+     send costs the others nothing. */
+  it("mails the new address of every due change the pass refused a nameless notice, a refused one costing the rest nothing", async () => {
+    refused.add("abgelehnt-1@schule.de");
+    adresswechselAnswer = () => entfernt(0, 0, null, [], [{ email: "abgelehnt-1@schule.de" }, { email: "abgelehnt-2@schule.de" }]);
+
+    await runBewerbungSweep();
+
+    const notices = events.flatMap((event) => (event.kind === "mail" && event.subject.endsWith("wurde nicht geändert") ? [event] : []));
+    assert.deepEqual(
+      notices.map(({ to }) => to),
+      ["abgelehnt-1@schule.de", "abgelehnt-2@schule.de"],
+    );
+    assert.ok(
+      notices.every(({ text }) => !/Hallo [A-ZÄÖÜ]/.test(text)),
+      "the notice greets the new mailbox by a name",
     );
   });
 });

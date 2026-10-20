@@ -25,7 +25,7 @@ import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
-import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
+import { FASSUNG_NEU_OEFFNEN, LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import type { SchiedsrichterBestaetigungStart } from "./SchiedsrichterBestaetigungView.tsx";
 
@@ -497,6 +497,28 @@ describe("what a refused press does to the page", () => {
       );
     });
   }
+
+  /* Words changed since the page opened: the generic retry resends the stale version the route refuses
+     again, where the refusal's own sentence sends the referee to the mail's link. */
+  it("announces a refusal's own sentence as the failure toast's description", async () => {
+    answerEveryFetch({ success: false, error: FASSUNG_NEU_OEFFNEN });
+
+    render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
+    await user.keyboard("01011990");
+    await user.click(screen.getByRole("radio", { name: WORTE.bedienelemente.intern }));
+    await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+    await act(fetchMock.answered);
+
+    await waitFor(() =>
+      assert.deepEqual(
+        toasts.map((toast) => [toast.variant, toast.title, toast.description]),
+        [["danger", "Antwort nicht gespeichert", FASSUNG_NEU_OEFFNEN]],
+      ),
+    );
+  });
 
   /* A commit whose answer was lost: the route's sentence sends an administrator to reload and check,
      which this page cannot follow, its token being gone from the address. */

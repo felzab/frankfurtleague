@@ -3,6 +3,7 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
+from app.api.adresswechsel.services import FLAdresswechselVerwehrt
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomStrippedNonEmptyString
 from app.shared.schemas.kontakt import CustomEmail
@@ -59,6 +60,19 @@ class FLBerechtigung(BaseModel):
     ernannt_am: datetime | None = None
 
 
+class FLBerechtigungAdresswechsel(BaseModel):
+    """The change of a grant's address waiting on an administrator's approval, which the list's reader may press."""
+
+    id: CustomObjectId
+    # Whole, as the address tool shows it to the same tier.
+    email: str
+    # Whether the new mailbox has confirmed, so the approval would make the change take effect.
+    bestaetigt: bool
+    bis: FLUtcInstant
+    # Why the reader may not approve it, or null where they may.
+    verwehrt: FLAdresswechselVerwehrt | None
+
+
 class FLBerechtigungZeile(BaseModel):
     """One grant as the list serves it."""
 
@@ -72,6 +86,8 @@ class FLBerechtigungZeile(BaseModel):
     erteilt_von: str | None
     erteilt_von_gesperrt: bool
     erteilt_am: FLUtcInstant
+    # Null on a barred row, whose change the ban refuses anyway.
+    adresswechsel: FLBerechtigungAdresswechsel | None
 
 
 class FLBerechtigungenListResponse(BaseAPIResponse):

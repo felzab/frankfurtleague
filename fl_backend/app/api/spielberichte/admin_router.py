@@ -188,7 +188,7 @@ async def patch_spielbericht(
         )
         gespeichert = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
         block = None if gespeichert is None else gespeichert.get("bericht")
-        neu = neu_genannt(payload, block)
+        neu = neu_genannt(payload, block, lage.spiel)
         refuse(find_bericht_stand_refusal(stand=bericht_data.bericht_stand, gespeichert=block))
         judge_bericht(lage=lage, payload=payload, neu=neu, today=today)
 

@@ -14,7 +14,7 @@ import { describeMovedSpiele, formatSpielUpdateMessage } from "./utils";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type z from "zod";
-import type { FLSpielPriorPaarung } from "./schemas";
+import type { FLSpielPriorBericht, FLSpielPriorPaarung } from "./schemas";
 
 /**
  * The `spiel_nr` of every other fixture a match write moved. Read by the edit page's live warning through
@@ -31,6 +31,8 @@ type MovedFixtures = {
  */
 type SavedFixtures = MovedFixtures & {
   priorPaarungen?: FLSpielPriorPaarung[];
+  /** The report adoption the save stamped over, which the undo puts back; `null` where it stamped none. */
+  priorBericht?: FLSpielPriorBericht | null;
 };
 
 export async function patchAdminSpielDataAction(
@@ -88,6 +90,7 @@ export async function patchAdminSpielDataAction(
       // Passed through untouched: the server built each entry from the slice it judged this write on,
       // and anything composed here would be composed from a read taken before that write.
       priorPaarungen: patch_operation.prior_paarungen,
+      priorBericht: patch_operation.prior_bericht,
     };
   });
 }
@@ -137,11 +140,11 @@ export async function undoAdminSpielEditAction(rawPayload: z.input<typeof SpielU
     const validated = SpielUndoSchema.safeParse(rawPayload);
     if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
 
-    const { saison_id, paarungen } = validated.data;
+    const { saison_id, paarungen, bericht } = validated.data;
     invalidatesOnWrite("spiele", "teams", `spiele:saison_id:${saison_id}`, `teams:saison_id:${saison_id}`);
     let operation;
     try {
-      operation = await patchAdminSpielePaarungen({ paarungen });
+      operation = await patchAdminSpielePaarungen({ paarungen, bericht });
     } catch (error) {
       // The change standing whole: the replay is one transaction, so a refusal on any fixture leaves
       // every one of them where the save put it.

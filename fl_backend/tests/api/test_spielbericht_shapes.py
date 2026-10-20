@@ -10,6 +10,7 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtBerichtPayload,
     FLSpielberichtKarte,
     FLSpielberichtKartePayload,
+    FLSpielberichtSeite,
     FLSpielberichtVonSchiedsrichter,
 )
 from app.api.spielberichte.services import (
@@ -30,6 +31,7 @@ from app.api.spielberichte.services import (
     find_nicht_im_kader_refusal,
     neu_genannt,
 )
+from app.api.spiele.schemas import FLPatchSpielePaarungenPayload
 from tests.documents import bericht_document
 
 TEAM1 = ObjectId("650000000000000000000201")
@@ -39,6 +41,7 @@ ANDERER_SCHIEDSRICHTER = ObjectId("650000000000000000000204")
 LIVE1 = ObjectId("650000000000000000000211")
 AUSGETRAGEN1 = ObjectId("650000000000000000000212")
 LIVE2 = ObjectId("650000000000000000000221")
+SPIEL_ID = ObjectId("650000000000000000000209")
 
 TODAY = "2027-05-14"
 NOW = datetime(2027, 5, 14, 20, tzinfo=UTC)
@@ -60,7 +63,7 @@ def payload(team1_tore: int | None, team2_tore: int | None, torschuetzen: list[d
 
 def spiel(**fields: Any) -> dict[str, Any]:
     return {
-        "_id": ObjectId("650000000000000000000209"),
+        "_id": SPIEL_ID,
         "saison_id": "2027",
         "saison_phase": "gruppenphase",
         "datum": TODAY,
@@ -198,7 +201,7 @@ class TestOnlyTheBookedRefereeReports:
 
 class TestANewlyNamedPupilIsInTheSquad:
     def test_a_live_pupil_on_their_own_side_passes(self):
-        neu = neu_genannt(FLSpielberichtBerichtPayload.model_validate(payload(1, 0, [tor("team1", LIVE1)])), None)
+        neu = neu_genannt(FLSpielberichtBerichtPayload.model_validate(payload(1, 0, [tor("team1", LIVE1)])), None, spiel())
 
         assert find_nicht_im_kader_refusal(lage=lage(), neu=neu) is None
 
@@ -209,18 +212,30 @@ class TestANewlyNamedPupilIsInTheSquad:
     )
     def test_a_pupil_outside_that_side_s_live_squad_is_refused(self, seite: str, spieler_id: ObjectId):
         counts = (1, 0) if seite == "team1" else (0, 1)
-        neu = neu_genannt(FLSpielberichtBerichtPayload.model_validate(payload(*counts, [tor(seite, spieler_id)])), None)
+        neu = neu_genannt(FLSpielberichtBerichtPayload.model_validate(payload(*counts, [tor(seite, spieler_id)])), None, spiel())
 
         assert refused_with(BERICHT_NICHT_IM_KADER, find_nicht_im_kader_refusal(lage=lage(), neu=neu))
 
     def test_a_correction_keeps_a_scorer_the_report_already_named(self):
         """A scorer ausgetragen since the match stays on the report; only what the write adds is judged."""
 
-        stored = bericht_document(torschuetzen=[tor("team1", AUSGETRAGEN1)])
-        neu = neu_genannt(FLSpielberichtBerichtPayload.model_validate(payload(1, 0, [tor("team1", AUSGETRAGEN1, minute="11")])), stored)
+        stored = bericht_document(torschuetzen=[tor("team1", AUSGETRAGEN1)], seiten=SEITEN)
+        neu = neu_genannt(
+            FLSpielberichtBerichtPayload.model_validate(payload(1, 0, [tor("team1", AUSGETRAGEN1, minute="11")])), stored, spiel()
+        )
 
         assert neu == {"team1": set(), "team2": set()}
         assert find_nicht_im_kader_refusal(lage=lage(), neu=neu) is None
+
+    def test_a_side_fielding_another_club_since_keeps_none_of_its_stored_pupils(self):
+        """Written when another club held team 1: its scorer kept unjudged would stand on the report for the club playing now."""
+
+        andere = ObjectId()
+        stored = bericht_document(torschuetzen=[tor("team1", andere)], seiten={**SEITEN, "team1": ObjectId()})
+        neu = neu_genannt(FLSpielberichtBerichtPayload.model_validate(payload(1, 0, [tor("team1", andere)])), stored, spiel())
+
+        assert neu == {"team1": {andere}, "team2": set()}
+        assert refused_with(BERICHT_NICHT_IM_KADER, find_nicht_im_kader_refusal(lage=lage(), neu=neu))
 
 
 class TestACalledOffFixtureTakesNoReport:
@@ -250,8 +265,12 @@ class TestTheRemarksNameNobody:
         assert find_name_in_bemerkungen_refusal(bemerkungen=bemerkungen, names=bericht_namen(lage())) is None
 
 
+# The clubs `spiel` fields, as the report's last write found them.
+SEITEN: dict[FLSpielberichtSeite, ObjectId | None] = {"team1": TEAM1, "team2": TEAM2}
+
+
 def gespeichert(**fields: Any) -> FLSpielberichtBericht:
-    return FLSpielberichtBericht.model_validate(bericht_document(**fields))
+    return FLSpielberichtBericht.model_validate(bericht_document(**{"seiten": SEITEN, **fields}))
 
 
 def gespielt(team1: int, team2: int, **fields: Any) -> dict[str, Any]:
@@ -307,6 +326,25 @@ class TestTheAdoptedStateIsDerivedFromThree:
         assert bericht_zustand_of(gespeichert(), spiel(sonderereignis="abgebrochen")) == "vorgeschlagen"
 
 
+class TestAReportAboutOtherClubsReadsItsOwnState:
+    """A knockout correction fields another club on a side the report credits goals and entries to."""
+
+    @pytest.mark.parametrize("seite", ["team1", "team2"])
+    def test_a_side_fielding_another_club_reads_teams_geaendert_whatever_the_result(self, seite: str):
+        """Adopted and matching, or holding no result: the proposal still names the clubs that left."""
+
+        bericht = gespeichert(**ADOPTED, seiten={**SEITEN, seite: ObjectId()})
+
+        assert bericht_zustand_of(bericht, gespielt(1, 0)) == "teams_geaendert"
+        assert bericht_zustand_of(bericht, spiel()) == "teams_geaendert"
+
+    def test_a_slot_filled_since_an_open_one_was_reported_reads_teams_geaendert(self):
+        assert bericht_zustand_of(gespeichert(seiten={**SEITEN, "team2": None}), spiel()) == "teams_geaendert"
+
+    def test_a_fixture_called_off_reads_abgesagt_first(self):
+        assert bericht_zustand_of(gespeichert(seiten={**SEITEN, "team1": ObjectId()}), spiel(sonderereignis="ausgefallen")) == "abgesagt"
+
+
 def level(team1: int, team2: int, elfmeterschiessen: dict[str, int] | None) -> FLSpielberichtBericht:
     """An adopted 1:1 proposal, with or without a shoot-out."""
 
@@ -344,14 +382,18 @@ class TestALaterWriteRaisesTheVersionAndKeepsTheAdoption:
         block = compose_neuer_bericht(
             FLSpielberichtBerichtPayload.model_validate(payload(1, 0, [tor("team1", LIVE1)])),
             von=FLSpielberichtVonSchiedsrichter(art="schiedsrichter", schiedsrichter_id=SCHIEDSRICHTER),
+            seiten=SEITEN,
             now=NOW,
         )
 
         assert (block["version"], block["uebernommene_version"], block["eingereicht_am"], block["geaendert_am"]) == (1, None, NOW, NOW)
+        assert block["seiten"] == SEITEN
         assert block["eingereicht_von"] == {"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}
 
     def test_a_correction_touches_neither_who_first_wrote_it_nor_the_adoption(self):
-        update = compose_bericht_update(FLSpielberichtBerichtPayload.model_validate(payload(1, 0, [tor("team1", LIVE1)])), now=NOW)
+        update = compose_bericht_update(
+            FLSpielberichtBerichtPayload.model_validate(payload(1, 0, [tor("team1", LIVE1)])), seiten=SEITEN, now=NOW
+        )
 
         assert update["$inc"] == {"bericht.version": 1}
         assert set(update["$set"]) == {
@@ -359,7 +401,57 @@ class TestALaterWriteRaisesTheVersionAndKeepsTheAdoption:
             "bericht.torschuetzen",
             "bericht.karten",
             "bericht.bemerkungen",
+            # Re-stamped by every write, so a report the referee sends again about the clubs playing now reads adoptable.
+            "bericht.seiten",
             "bericht.geaendert_am",
         }
         # Stored as ObjectIds, which the validator requires.
         assert update["$set"]["bericht.torschuetzen"][0]["spieler_id"] == LIVE1
+
+
+def prior(**fields: Any) -> dict[str, Any]:
+    """An adoption at version 1 stamped over by a save at version 2."""
+
+    return {
+        "spiel_id": SPIEL_ID,
+        "version": 2,
+        "uebernommen_am": NOW,
+        "uebernommen_von": {"art": "admin"},
+        "uebernommene_version": 1,
+        **fields,
+    }
+
+
+def undo_body(bericht: dict[str, Any] | None) -> dict[str, Any]:
+    paarung = {"spiel_id": SPIEL_ID, "team1": None, "team2": None, "elfmeterschiessen": None, "sonderereignis": None, "other_fields": None}
+    return {"paarungen": [paarung], "bericht": bericht}
+
+
+class TestAnUndoPutsBackOneWholeAdoption:
+    """What the undo writes back onto a report is checked before any write: the body is the client's to send."""
+
+    def test_an_earlier_adoption_and_none_stand(self):
+        assert FLPatchSpielePaarungenPayload.model_validate(undo_body(prior())).bericht is not None
+        assert (
+            FLPatchSpielePaarungenPayload.model_validate(
+                undo_body(prior(uebernommen_am=None, uebernommen_von=None, uebernommene_version=None))
+            ).bericht
+            is not None
+        )
+
+    @pytest.mark.parametrize(
+        "fields",
+        [{"uebernommen_am": None}, {"uebernommen_von": None}, {"uebernommene_version": None}, {"uebernommene_version": 3}],
+        ids=["no-instant", "no-writer", "no-version", "a-version-past-the-one-stamped"],
+    )
+    def test_a_partial_or_later_adoption_is_refused(self, fields: dict[str, Any]):
+        """Written back, it would read adopted at a version no stamp took."""
+
+        with pytest.raises(ValidationError):
+            FLPatchSpielePaarungenPayload.model_validate(undo_body(prior(**fields)))
+
+    def test_a_report_of_a_fixture_the_undo_does_not_lead_with_is_refused(self):
+        """The save stamps its own fixture's report, which leads its undo; any other report is one the save never touched."""
+
+        with pytest.raises(ValidationError, match="Spielbericht"):
+            FLPatchSpielePaarungenPayload.model_validate(undo_body(prior(spiel_id=ObjectId())))

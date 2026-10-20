@@ -8,6 +8,7 @@ import { parseDate } from "@internationalized/date";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 
+import { AdresswechselOffen } from "@/features/adresswechsel/components/ui/AdresswechselHinweis";
 import { LinkStandAngaben } from "@/features/bewerbungen/components/ui/LinkStandAngaben";
 import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
@@ -50,6 +51,7 @@ import { FormKontaktEinladen } from "./FormKontaktEinladen";
 import type { KontakteFieldPath } from "@/features/kontakte/kontakteDraftStatus";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type {
+  FLSaisonTeamAdresswechsel,
   FLSaisonTeamBestaetigungAnsicht,
   FLSaisonTeamBestaetigungenAnsicht,
   FLSaisonTeamKontakte,
@@ -100,6 +102,7 @@ export function FormKontakteSection({
   value,
   stored,
   bestaetigungen,
+  adresswechsel,
   teamId,
   saisonId,
   nimmtLinks,
@@ -118,6 +121,8 @@ export function FormKontakteSection({
   stored: FLSaisonTeamKontakte | null;
   /** Each seat's link as the row stores it, read beside the block, as the referee editor reads its own. */
   bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null;
+  /** Each seat's pending address change, shown as the pupil and referee editors show their own. */
+  adresswechsel: FLSaisonTeamAdresswechsel | null;
   teamId: string;
   saisonId: string;
   /** The row still takes confirmation links: its season is not over and its team has not left it. */
@@ -222,6 +227,7 @@ export function FormKontakteSection({
             label={label}
             person={basis[rolle]}
             link={bestaetigungen?.[rolle] ?? null}
+            adresswechselId={adresswechsel?.[rolle] ?? null}
             kannLeerOeffnen={laufendesLabel !== null}
             isMirrored={isMirrored(rolle)}
             /* The question belongs to the Trainer seat: it asks who the Trainer IS, and the answer is
@@ -295,6 +301,7 @@ function KontaktpersonFields({
   label,
   person,
   link,
+  adresswechselId,
   kannLeerOeffnen,
   isMirrored,
   zugleich,
@@ -309,6 +316,8 @@ function KontaktpersonFields({
   person: KontaktpersonDraft | null;
   /** The seat's link where one went out, read out above its re-send as the referee editor reads out its own. */
   link: FLSaisonTeamBestaetigungAnsicht | null;
+  /** The change pending at the stored seat's address, which this page shows and never moves. */
+  adresswechselId: string | null;
   /** A blank seat can be stamped with the running label, which the page could not read where this is false. */
   kannLeerOeffnen: boolean;
   /** This seat IS another seat's person, so its boxes read out rather than take input. */
@@ -380,6 +389,8 @@ function KontaktpersonFields({
             />
           </dl>
         )}
+
+        {adresswechselId !== null && <AdresswechselOffen adresswechselId={adresswechselId} />}
 
         {einladen}
       </div>

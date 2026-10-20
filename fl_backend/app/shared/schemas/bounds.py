@@ -146,6 +146,13 @@ ADRESSWECHSEL_GUELTIG_STUNDEN: Final = 24
 # on file free to stop it: a school week and its weekends, past any holiday weekend three days fit inside.
 ADRESSWECHSEL_WARTEZEIT_TAGE: Final = 7
 
+# How long a change moving a grant waits from its start on another administrator's approval: a week, so an approver
+# away for a weekend is no reason to start it again.
+ADRESSWECHSEL_GENEHMIGUNG_TAGE: Final = 7
+
+# How long an ended change's record is kept, holding no address, so each link answers what became of it.
+ADRESSWECHSEL_NACHLAUF_TAGE: Final = 30
+
 # A row stores the deadline it was given, so raising this moves no request already sent; a fixture
 # dated inside it is due the day it is asked.
 SPIEL_BESTAETIGUNG_FRIST_TAGE: Final = 7

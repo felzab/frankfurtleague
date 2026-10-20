@@ -175,12 +175,15 @@ describe("categorizeActionRequired", () => {
 
   /* A correction after adoption comes back as `abweichend`, so it asks for a second look as a first report does; an
      adopted one asks nothing, its result standing as the report proposes. */
-  it("files a fixture under its report's proposal while the report reads proposed or diverging, never once adopted or called off", () => {
+  it("files a fixture under its report's proposal while the report reads proposed, diverging or about other teams, never once adopted or called off", () => {
     const spiel = makeSpiel({ datum: TODAY, ergebnis: "3:1" });
     const nach = (zustand: FLSpielberichtZustand) =>
       categorizeActionRequired([spiel], TODAY, [], saisonBestaetigungen([], []), [{ spiel_id: spiel.id, zustand }]).ergebnis_vorschlag.length;
 
-    assert.deepEqual([nach("vorgeschlagen"), nach("abweichend"), nach("uebernommen"), nach("abgesagt")], [1, 1, 0, 0]);
+    assert.deepEqual(
+      [nach("vorgeschlagen"), nach("abweichend"), nach("teams_geaendert"), nach("uebernommen"), nach("abgesagt")],
+      [1, 1, 1, 0, 0],
+    );
   });
 
   it("leaves the category empty when no fault names a match in the list", () => {
@@ -337,6 +340,24 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
     assert.deepEqual(bestaetigungNotizen("bestaetigung_ueberfaellig", [ANGESETZT], saisonBestaetigungen(zeilen, []), TODAY).get(ANGESETZT.id), [
       "Team A: angefragt am 22.07.2026, keine Antwort",
       "Team B: Anfrage nicht verschickt",
+    ]);
+  });
+
+  // The other club's row stays unclosed until the next pass, and noted it would print a silence about a request the
+  // move withdrew, on a card the current row keeps in the tab.
+  it("notes no club by a row about an Ansetzung the fixture has left", () => {
+    const zeilen = [
+      zeile({ frist: "2026-07-29", angefragt_am: "2026-07-22" }),
+      zeile({
+        partei: { art: "team", team_id: ANSETZUNG.team2_id },
+        ansetzung: { ...ANSETZUNG, uhrzeit: "19:00:00" },
+        frist: "2026-07-29",
+        angefragt_am: "2026-07-22",
+      }),
+    ];
+
+    assert.deepEqual(bestaetigungNotizen("bestaetigung_ueberfaellig", [ANGESETZT], saisonBestaetigungen(zeilen, []), TODAY).get(ANGESETZT.id), [
+      "Team A: angefragt am 22.07.2026, keine Antwort",
     ]);
   });
 

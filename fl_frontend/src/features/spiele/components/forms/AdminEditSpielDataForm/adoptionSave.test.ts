@@ -2,11 +2,12 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { afterEach, describe, it } from "node:test";
+import { setImmediate as settled } from "node:timers/promises";
 
 import { act, createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { FLSpielberichtAdminResponseSchema } from "@/features/spielberichte/schemas.ts";
@@ -16,12 +17,21 @@ import { side, spielFields } from "@/shared/testing/fixtures.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { spielberichtReadFixture } from "@/shared/testing/spielberichtFixtures.ts";
 
+/** What the save answers it stamped over: no adoption before this one. */
+const PRIOR_BERICHT = {
+  spiel_id: "68c1f0a2b3c4d5e6f7a8b9e2",
+  version: 3,
+  uebernommen_am: null,
+  uebernommen_von: null,
+  uebernommene_version: null,
+};
+
 const { calls, answered } = doubleActions({
   modules: ["/src/features/spiele/actions.ts"],
-  answer: () => Promise.resolve({ success: true, message: "Spiel gespeichert.", priorPaarungen: [] }),
+  answer: () => Promise.resolve({ success: true, message: "Spiel gespeichert.", priorPaarungen: [], priorBericht: PRIOR_BERICHT }),
   payloadOf: (args) => args,
 });
-doubleToasts();
+const { raised } = doubleToasts();
 
 const { AdminEditSpielDataForm } = await import("./AdminEditSpielDataForm.tsx");
 
@@ -64,6 +74,8 @@ const editor = () =>
     { search: "saison_id=2026" },
   );
 
+afterEach(cleanup);
+
 describe("adopting a report whose proposal the fixture already holds", () => {
   /* The stamp is the save's only effect here: a seed outside the draft status leaves the save disabled, and the report
      stays filed under „Bericht“ with nothing the administrator can press. */
@@ -88,5 +100,27 @@ describe("adopting a report whose proposal the fixture already holds", () => {
       "the save did not send the version it adopts",
     );
     assert.equal(screen.queryAllByText("Eingesetzt").length, 0, "the seed outlived the save that sent it");
+  });
+
+  /* The undo puts back the result the save adopted onto, so it puts back the adoption too: left standing, the report
+     reads adopted on a result the undo took back. */
+  it("hands the adoption the save stamped over to its undo", async () => {
+    const user = userEvent.setup();
+    render(editor());
+    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen" }));
+    await user.click(
+      screen.getAllByRole<HTMLButtonElement>("button", { name: "Speichern" }).find((button) => button.type === "submit") ??
+        assert.fail("the editor has no save"),
+    );
+    await act(answered);
+
+    const offer = await waitFor(
+      () => raised.find((toast) => toast.options?.actionProps?.onPress !== undefined) ?? assert.fail("the save offered no undo"),
+    );
+    offer.options?.actionProps?.onPress?.();
+    await settled();
+
+    const undo = calls.find(({ action }) => action === "undoAdminSpielEditAction") ?? assert.fail("the offer sent no undo");
+    assert.deepEqual((undo.payload as readonly { bericht?: unknown }[])[0]?.bericht, PRIOR_BERICHT, "the undo left the adoption standing");
   });
 });

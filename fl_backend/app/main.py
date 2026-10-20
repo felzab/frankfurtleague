@@ -16,6 +16,9 @@ from pydantic import BaseModel
 from pydantic.json_schema import models_json_schema
 from starlette.convertors import Convertor
 
+from app.api.adresswechsel.admin_router import router as adresswechsel_admin_router
+from app.api.adresswechsel.router import router as adresswechsel_router
+from app.api.adresswechsel.sweep_router import router as adresswechsel_sweep_router
 from app.api.aktionen.admin_router import router as aktionen_admin_router
 from app.api.berechtigungen.admin_router import router as berechtigungen_admin_router
 from app.api.berechtigungen.sweep_router import router as berechtigungen_sweep_router
@@ -41,11 +44,9 @@ from app.api.registrierungen.sweep_router import router as registrierungen_sweep
 from app.api.saisons.admin_router import router as saisons_admin_router
 from app.api.saisons.router import router as saisons_router
 from app.api.schiedsrichter.admin_router import router as schiedsrichter_admin_router
-from app.api.schiedsrichter.adresswechsel_router import router as schiedsrichter_adresswechsel_router
 from app.api.schiedsrichter.bestaetigung_router import router as schiedsrichter_bestaetigung_router
 from app.api.schiedsrichter.person_router import router as schiedsrichter_person_router
 from app.api.schiedsrichter.router import router as schiedsrichter_router
-from app.api.schiedsrichter.sweep_router import router as schiedsrichter_sweep_router
 from app.api.sperrliste.admin_router import router as sperrliste_admin_router
 from app.api.spielberichte.admin_router import router as spielberichte_admin_router
 from app.api.spielberichte.person_router import router as spielberichte_person_router
@@ -56,7 +57,6 @@ from app.api.spielbestaetigungen.sweep_router import router as spielbestaetigung
 from app.api.spiele.admin_router import router as spiele_admin_router
 from app.api.spiele.router import router as spiele_router
 from app.api.spieler.admin_router import router as spieler_admin_router
-from app.api.spieler.adresswechsel_router import router as spieler_adresswechsel_router
 from app.api.spieler.person_router import router as spieler_person_router
 from app.api.spieler.router import router as spieler_router
 from app.api.spieler.selbst_router import router as spieler_selbst_router
@@ -149,6 +149,7 @@ WRITE_ROUTERS = (
     berechtigungen_admin_router,
     spielbestaetigungen_admin_router,
     spielberichte_admin_router,
+    adresswechsel_admin_router,
 )
 # Its own group because it belongs to neither: base-tier and mixed read/write, so either tuple's
 # comment would go false about the tier or the methods.
@@ -158,8 +159,7 @@ PUBLIC_ROUTERS = (
     registrierungen_public_router,
     registrierungen_einwilligung_router,
     schiedsrichter_bestaetigung_router,
-    schiedsrichter_adresswechsel_router,
-    spieler_adresswechsel_router,
+    adresswechsel_router,
     spielbestaetigungen_router,
 )
 # Its own group for the same reason: system-tier operations the application makes to itself, which
@@ -173,7 +173,7 @@ SYSTEM_ROUTERS = (
     identitaet_router,
     berechtigungen_sweep_router,
     identitaet_sweep_router,
-    schiedsrichter_sweep_router,
+    adresswechsel_sweep_router,
     spielbestaetigungen_sweep_router,
 )
 # Its own group, as the two above are: a signed-in person's routers read and write on the admin key

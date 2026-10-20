@@ -11,6 +11,8 @@ from pydantic import BaseModel, Field, SecretStr, StringConstraints, TypeAdapter
 from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
+from app.api.adresswechsel.schemas import FLAdresswechsel, FLAdresswechselBeendet, FLAdresswechselGenehmigung, FLAdresswechselVersand
+from app.api.adresswechsel.services import FLAdresswechselEndeArt, FLAdresswechselVerwaltung, FLAdresswechselWeg
 from app.api.aktionen.schemas import FLAktion, FLAktionMitStand, FLAktionRequest, FLAktorKind, FLAktorMitAdresse, FLAktorPerson, _served_prefix
 from app.api.berechtigungen.schemas import (
     FLBerechtigung,
@@ -53,7 +55,7 @@ from app.api.saisons.schemas import (
     FLSaisonStatus,
     TeamsPerGroup,
 )
-from app.api.schiedsrichter.schemas import FLSchiedsrichter, FLSchiedsrichterAdresswechsel, FLSchiedsrichterBestaetigung
+from app.api.schiedsrichter.schemas import FLSchiedsrichter, FLSchiedsrichterBestaetigung
 from app.api.sperrliste.schemas import FLSperrlisteEintrag
 from app.api.spielberichte.schemas import (
     FLKartenFarbe,
@@ -62,6 +64,7 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtKarte,
     FLSpielberichtSeite,
+    FLSpielberichtSeiten,
     FLSpielberichtSonderereignis,
     FLSpielberichtTorschuetze,
     FLSpielberichtUebernommenVon,
@@ -100,7 +103,6 @@ from app.api.spieler.schemas import (
     FLEinwilligung,
     FLSaisonSpielerRow,
     FLSpieler,
-    FLSpielerAdresswechsel,
     FLSpielerPosition,
     FLSpielerRolle,
     FLSpielerStufe,
@@ -136,11 +138,11 @@ from app.core.constraints import (
     SUPPORT_INDEXES,
     TTL_INDEXES,
     UNIQUE_INDEXES,
+    TTLIndex,
     _apply_concurrently,
     diagnose_failure,
 )
 from app.core.recording import Actor, AktorFunktion, LoggedAct, Operation, PersonActor
-from app.shared.adresswechsel import FLAdresswechselWeg
 from app.shared.einwilligung_nachweis import WAHLEN
 from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomOptionalString, parse_empty_string_to_none
@@ -226,8 +228,6 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     # The delivery state at the register's other home: one shared sub-schema in Python, and the
     # drift walk reaching each path separately (`app/api/zustellung/services.py :: ZIEL_PFADE`).
     (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), FLBewerbungZustellung, frozenset()),
-    (Collection.SCHIEDSRICHTER, ("adresswechsel",), FLSchiedsrichterAdresswechsel, frozenset()),
-    (Collection.SCHIEDSRICHTER, ("adresswechsel", "zustellung"), FLBewerbungZustellung, frozenset()),
     # `gruppe` and `austritt` join from `saison_teams`, `statistik` derives from `spiele`.
     (Collection.TEAMS, (), FLTeam, frozenset({"gruppe", "austritt", "statistik"})),
     # Twice on purpose: `FLTeam` is the read shape; `FLTeamRecord` is the write echo and must match exactly.
@@ -236,9 +236,12 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     # Everything but the two names comes from the saison_spieler junction.
     (Collection.SPIELER, ("einwilligung",), FLEinwilligung, frozenset()),
     (Collection.SPIELER, (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "ist_nachnominiert", "rolle"})),
-    # A pupil's pending address and its delivery state, the referee's twin carrier on another collection.
-    (Collection.SPIELER, ("adresswechsel",), FLSpielerAdresswechsel, frozenset()),
-    (Collection.SPIELER, ("adresswechsel", "zustellung"), FLBewerbungZustellung, frozenset()),
+    # An address's change, its approval, its end and its delivery state.
+    (Collection.ADRESSWECHSEL, (), FLAdresswechsel, frozenset()),
+    (Collection.ADRESSWECHSEL, ("genehmigung",), FLAdresswechselGenehmigung, frozenset()),
+    (Collection.ADRESSWECHSEL, ("beendet",), FLAdresswechselBeendet, frozenset()),
+    (Collection.ADRESSWECHSEL, ("versand",), FLAdresswechselVersand, frozenset()),
+    (Collection.ADRESSWECHSEL, ("versand", "zustellung"), FLBewerbungZustellung, frozenset()),
     # The sub-documents of a modelless row that DO have models, so the drift check reaches them.
     (Collection.SAISON_TEAMS, ("austritt",), FLAustritt, frozenset()),
     (Collection.SAISON_TEAMS, ("kontakte",), FLSaisonTeamKontakte, frozenset()),
@@ -308,6 +311,7 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.SPIELBERICHTE, ("bericht", "karten"), FLSpielberichtKarte, frozenset()),
     (Collection.SPIELBERICHTE, ("bericht", "eingereicht_von"), (FLSpielberichtVonSchiedsrichter, FLSpielberichtVonAdmin), frozenset()),
     (Collection.SPIELBERICHTE, ("bericht", "uebernommen_von"), FLSpielberichtUebernommenVon, frozenset()),
+    (Collection.SPIELBERICHTE, ("bericht", "seiten"), FLSpielberichtSeiten, frozenset()),
     # The junction's declared shape; nothing validates a stored row through it.
     (Collection.SAISON_SPIELER, (), FLSaisonSpielerRow, frozenset()),
     (Collection.SPERRLISTE, (), FLSperrlisteEintrag, frozenset()),
@@ -467,12 +471,11 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # The same Literal at the register's other home: one shared sub-schema in Python, and the drift
     # walk still reaches each path on its own (`app/api/zustellung/services.py :: ZIEL_PFADE`).
     (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
-    (Collection.SCHIEDSRICHTER, ("adresswechsel", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
-    (Collection.SPIELER, ("adresswechsel", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.ADRESSWECHSEL, ("versand", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.EINLADUNGEN, ("versand", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
-    # How a change takes effect, one Literal for both lanes' blocks.
-    (Collection.SCHIEDSRICHTER, ("adresswechsel",), "weg", get_args(FLAdresswechselWeg), False),
-    (Collection.SPIELER, ("adresswechsel",), "weg", get_args(FLAdresswechselWeg), False),
+    (Collection.ADRESSWECHSEL, (), "weg", get_args(FLAdresswechselWeg), False),
+    (Collection.ADRESSWECHSEL, ("beendet",), "art", get_args(FLAdresswechselEndeArt), False),
+    (Collection.ADRESSWECHSEL, ("genehmigung",), "verwaltung", get_args(FLAdresswechselVerwaltung), False),
     (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.SAISON_TEAMS, ("bestaetigungen", "trainer", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.SAISON_TEAMS, ("bestaetigungen", "ansprechperson", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
@@ -647,8 +650,7 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     # recovered from the editor's read of the block beside it.
     (Collection.SCHIEDSRICHTER, ("bestaetigung",)): frozenset({"token_hash"}),
     # The address change's two links' hashes, the new mailbox's and the stop link's, for the confirmation link's reason.
-    (Collection.SCHIEDSRICHTER, ("adresswechsel",)): frozenset({"token_hash", "stopp_hash"}),
-    (Collection.SPIELER, ("adresswechsel",)): frozenset({"token_hash", "stopp_hash"}),
+    (Collection.ADRESSWECHSEL, ()): frozenset({"token_hash", "stopp_hash"}),
     # Served on a read, every live link of the season would be recoverable from an admin page. The
     # action log's pre-image of a REVOKED row serves one, safely: the hash rebuilds nothing, and
     # that operation revoked the row it imaged.
@@ -1251,13 +1253,29 @@ def test_no_two_declared_indexes_share_a_name():
     assert len(names) == len(set(names))
 
 
+# TTL indexes keyed on a date a live row never holds: the row expires once ended, its key's parent then written whole.
+# MongoDB expires no row lacking a date there (https://www.mongodb.com/docs/manual/core/index-ttl/, which moves without us;
+# read 2026-10-20).
+ENDED_ROW_TTL_INDEXES = frozenset({"adresswechsel_beendet_am"})
+
+
+def _ttl_path(ttl: TTLIndex) -> tuple[tuple[str, ...], str]:
+    *parent, key = ttl.key.split(".")
+    return tuple(parent), key
+
+
 @pytest.mark.parametrize("ttl", TTL_INDEXES, ids=lambda ttl: ttl.name)
 def test_every_ttl_index_expires_on_a_date_field_the_validator_declares(ttl):
     """A TTL index over a string builds, serves reads and expires nothing, reporting neither the type nor the silence."""
-    declared = properties_at(ttl.collection, ()).get(ttl.key)
+    parent, key = _ttl_path(ttl)
+    declared = properties_at(ttl.collection, parent).get(key)
 
     assert declared is not None, f"{ttl.name} expires on {ttl.key!r}, which {ttl.collection} has no field for"
     assert declared.get("bsonType") == "date", f"{ttl.name} expires on {ttl.key!r}, declared as {declared.get('bsonType')!r}"
+    # Where the key sits in a block a live row holds null, that block is all a live row may hold there.
+    for depth in range(len(parent)):
+        holder = properties_at(ttl.collection, parent[:depth])[parent[depth]]
+        assert (ttl.name in ENDED_ROW_TTL_INDEXES) is ("null" in holder.get("bsonType", [])), ttl.name
 
 
 # The TTL indexes built over a collection already holding rows without the key, each by name. Its
@@ -1270,9 +1288,12 @@ RETROFITTED_TTL_INDEXES = frozenset({"aktionen_retention"})
 def test_a_ttl_key_is_required_exactly_where_no_row_predates_it(ttl):
     """Retrofitted, a required key invalidates every row standing, strict validation refusing an UPDATE of one.
 
-    Anywhere else, an unrequired key admits a row never expired.
+    Anywhere else, an unrequired key admits a row never expired; a nested key is required at every level it sits in.
     """
-    assert (ttl.key in required_at(ttl.collection, ())) is (ttl.name not in RETROFITTED_TTL_INDEXES)
+    parent, key = _ttl_path(ttl)
+    required = all(step in required_at(ttl.collection, (*parent[:depth],)) for depth, step in enumerate((*parent, key)))
+
+    assert required is (ttl.name not in RETROFITTED_TTL_INDEXES)
 
 
 def test_every_retrofitted_ttl_index_is_one_declared():

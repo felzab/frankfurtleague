@@ -29,7 +29,7 @@ const panel = (props: { stand: SpielberichtStand | null; hatEntwurf?: boolean })
         stand: props.stand,
         onUebernehmen: () => undefined,
         uebernahmeGesperrt: null,
-        istEingesetzt: false,
+        eingesetzt: null,
         hatEntwurf: props.hatEntwurf ?? false,
       }),
       { search: "saison_id=2026" },

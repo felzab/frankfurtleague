@@ -92,15 +92,10 @@ PUBLIC_WRITES = [
     # the token is the whole credential, so the guard here would have no session to check.
     ("/api/v0/schiedsrichter/bestaetigung/ansicht", "post"),
     ("/api/v0/schiedsrichter/bestaetigung", "post"),
-    # A referee's address link, on a base-tier router of its own for the same reason.
-    ("/api/v0/schiedsrichter/adresswechsel/ansicht", "post"),
-    ("/api/v0/schiedsrichter/adresswechsel", "post"),
-    # A pupil's address link, its own base-tier router for the referee's link's reason.
-    ("/api/v0/spieler/adresswechsel/ansicht", "post"),
-    ("/api/v0/spieler/adresswechsel", "post"),
-    # The address on file's stop link on each lane, on the same routers for the same reason.
-    ("/api/v0/spieler/adresswechsel/stopp", "post"),
-    ("/api/v0/schiedsrichter/adresswechsel/stopp", "post"),
+    # The address change's links, the new mailbox's and the stop link, on a base-tier router of their own for the same reason.
+    ("/api/v0/adresswechsel/bestaetigung/ansicht", "post"),
+    ("/api/v0/adresswechsel/bestaetigung", "post"),
+    ("/api/v0/adresswechsel/bestaetigung/stopp", "post"),
     # A pupil's own confirmation link, on a third base-tier router under the registration prefix:
     # the token is the whole credential, so the guard here would have no session to check.
     ("/api/v0/registrierungen/bestaetigung/ansicht", "post"),
@@ -142,7 +137,7 @@ SYSTEM_WRITES = [
     # The season-after rule and the lapsed address's clock, whichever caller runs them: a timer holds
     # no session, and an activation's press deletes nobody in the administrator's name.
     ("/api/v0/identitaet/loeschung/lauf", "post"),
-    ("/api/v0/schiedsrichter/sweep/adresswechsel", "post"),
+    ("/api/v0/adresswechsel/sweep", "post"),
 ]
 
 MUTATIONS = [
