@@ -83,7 +83,7 @@ def _seat_paths(block: str, *leaves: str) -> set[str]:
 # no handler reads fails here.
 ANSICHT_RESOLVES = frozenset(
     _seat_paths("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am")
-    | _seat_paths("kontakte", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version")
+    | _seat_paths("kontakte", "email", "einwilligung.bestaetigt_am")
     | _seat_paths("kontakte", "einwilligung.eingetragen_von", "einwilligung.datum")
     | {"kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist", "schule.team_name", "team_id", "eingereicht_am"}
 )
@@ -260,12 +260,12 @@ def leaf_paths(document: Any, prefix: str = "") -> set[str]:
 
 class TestWhatALinkOpens:
     def test_a_live_link_shows_the_seat_and_no_contact_record(self, mongo_replica_set_url: str):
-        """`READ-BEWERBUNG-002`: a school, a season, a role and a wording, and no name or anything a leaked link could act on."""
+        """`READ-BEWERBUNG-002`: a school, a season and a role, and no name, no stored record or anything a leaked link could act on."""
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW["ansprechperson"]))
 
         assert (response.zustand, response.saison_id, response.schule, response.rolle) == ("gueltig", SAISON_ID, SCHOOL_NAME, "ansprechperson")
-        assert (response.text_version, response.zugleich_rolle) == ("v3", None)
+        assert response.zugleich_rolle is None
         rendered = response.model_dump_json()
         assert "Quillhilde" not in rendered and NACHNAME not in rendered and MAIL_DOMAIN not in rendered and TELEFON not in rendered
 
@@ -780,7 +780,7 @@ class TestADecline:
         assert document["bestaetigungen"]["stellvertretung"]["abgelehnt_am"] == TODAY
         assert (response.ergebnis, response.geburtsdatum, response.medien) == ("abgelehnt", None, False)
         assert response.ausstehend == list(KONTAKT_ROLLEN)
-        assert (view.zustand, view.text_version) == ("abgelehnt", None)
+        assert view.zustand == "abgelehnt"
 
     def test_the_seat_leaves_every_log_image_and_an_earlier_answer_beside_it_stays(self, mongo_replica_set_url: str):
         """Restore the redaction by document and this fails: the Trainer's state before their own consent is in the log alone.

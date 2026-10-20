@@ -185,7 +185,7 @@ class TestTheAnonymousProjectionsAreDerivedPerSeat:
 
 
 class TestWhatALeakedLinkLearns:
-    def test_the_view_declares_exactly_the_eleven_names_it_may_answer(self):
+    def test_the_view_declares_exactly_the_ten_names_it_may_answer(self):
         """`READ-BEWERBUNG-002` as an EQUALITY: a field added to the model reaches a caller holding nothing but a token, a name above all."""
 
         assert set(FLBewerbungEinwilligungAnsichtResponse.model_fields) - {"acknowledged"} == {
@@ -196,7 +196,6 @@ class TestWhatALeakedLinkLearns:
             "schule",
             "rolle",
             "zugleich_rolle",
-            "text_version",
             "laufende_fassung",
             "mindestalter",
             "medien_mindestalter",
