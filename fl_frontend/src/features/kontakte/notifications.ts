@@ -1,5 +1,7 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import { frontend_config } from "@/core/config";
 import { KONTAKT_ABGANG_HINWEIS, KONTAKT_ABGANG_TAG } from "@/core/kontaktAbgangTag";
 import { buildKontaktAbgangEmail, buildKontaktBestaetigungEmail } from "@/core/kontaktEmail";
@@ -10,7 +12,6 @@ import { versandAusfallOf } from "@/core/versandAusfall";
 import { rollenText } from "@/features/bewerbungen/notifications";
 import { describeLinkMail } from "@/features/schiedsrichter/notifications";
 import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
-import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
@@ -70,12 +71,10 @@ export async function mailKontaktLink({
  */
 export async function mailKontaktAbgang({
   operation,
-  saisonTeamId,
   saisonId,
   abgang,
 }: {
   operation: string;
-  saisonTeamId: string;
   saisonId: string;
   abgang: FLKontaktAbgang;
 }): Promise<void> {
@@ -89,8 +88,9 @@ export async function mailKontaktAbgang({
         saisonId: saisonId,
       }),
       tags: { [KONTAKT_ABGANG_TAG]: KONTAKT_ABGANG_HINWEIS },
-      // The day in the key: the body carries no token, so a retried save the same day composes the same message.
-      idempotencyKey: mailIdempotencyKey([KONTAKT_ABGANG_TAG, saisonTeamId, getGermanTodayStr()], abgang.email),
+      // Minted per call, which `deliver`'s retries reuse: a key held for the provider's 24 hours over the row and the day
+      // would swallow the same removal undone and saved again.
+      idempotencyKey: mailIdempotencyKey([KONTAKT_ABGANG_TAG, randomUUID()], abgang.email),
     });
   } catch (error) {
     // A barred or a withheld message is the mailer's own line, as on every lane.

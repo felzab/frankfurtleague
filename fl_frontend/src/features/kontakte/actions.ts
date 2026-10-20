@@ -88,7 +88,6 @@ export async function patchSaisonTeamKontakteAction(
       saisonTeam.abgaenge.map((abgang) =>
         mailKontaktAbgang({
           operation: "patchSaisonTeamKontakteAction",
-          saisonTeamId: saisonTeam.saison_team_id,
           saisonId: saisonTeam.saison_id,
           abgang: abgang,
         }),
@@ -165,7 +164,6 @@ export async function undoAdminKontakteEditAction(rawPayload: FLPatchSaisonTeamK
       operation.abgaenge.map((abgang) =>
         mailKontaktAbgang({
           operation: "undoAdminKontakteEditAction",
-          saisonTeamId: operation.saison_team_id,
           saisonId: operation.saison_id,
           abgang: abgang,
         }),

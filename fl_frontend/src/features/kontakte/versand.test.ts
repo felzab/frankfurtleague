@@ -345,6 +345,20 @@ describe("the contacts save that takes a mailbox off the row", () => {
     assert.equal(res.success && res.versandSatz, describeLinkMail("anna@schule.example", "gesendet"), "the notice was reported as a link");
   });
 
+  // The provider sends nothing for a key it holds from the last 24 hours, so a removal undone and saved again the same day
+  // has to arrive under a key of its own.
+  it("keys every save's notice afresh, so the same removal saved twice in a day is sent twice", async () => {
+    save = () => saved([], [abgang("dora@schule.example", ["ansprechperson"])]);
+
+    await patchSaisonTeamKontakteAction(PAYLOAD);
+    await patchSaisonTeamKontakteAction(PAYLOAD);
+
+    const keys = mail.sent.filter(({ to }) => to === "dora@schule.example").map(({ idempotencyKey }) => idempotencyKey);
+    assert.equal(keys.length, 2);
+    assert.ok(keys.every((key) => key !== undefined));
+    assert.notEqual(keys[0], keys[1]);
+  });
+
   it("is still a landed save where the notice could not leave", async () => {
     save = () => saved([], [abgang("dora@schule.example", ["ansprechperson"])]);
     mail.answerWith(() => "refused");
