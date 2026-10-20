@@ -624,7 +624,7 @@ def pytest_configure_node(node: Any) -> None:
     """xdist's controller hook, unreached without `-n`.
 
     A worker is a session of its own and would start both servers. The controller also KEEPS them:
-    testcontainers' reaper reclaims a container when its starter disconnects.
+    a server stops with its starter's teardown, and the reaper reclaims only after a kill.
     """
 
     # A cost heuristic, never a decision: the default tier's own `-m` is the one run known to want

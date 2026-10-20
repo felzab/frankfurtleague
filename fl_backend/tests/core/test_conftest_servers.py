@@ -55,6 +55,8 @@ def test_a_server_exiting_at_start_fails_naming_its_log_and_leaves_no_container(
         pass
 
     assert EXIT_MARKER in str(excinfo.value), f"the container's log never reached the error: {excinfo.value}"
+    # Not implied by the marker, which comes from the container's log whatever `_stood_in` recorded.
+    assert refused_at_start, "no container of the image was recorded, so the removal below checks nothing"
     for container in refused_at_start:
         with pytest.raises(NotFound):
             container.reload()
@@ -75,6 +77,8 @@ def test_a_replica_set_that_never_initiates_fails_naming_its_log_and_leaves_no_c
 
     assert isinstance(excinfo.value.__cause__, ServerSelectionTimeoutError), f"the set failed before it was asked to initiate: {excinfo.value}"
     assert SILENT_MARKER in str(excinfo.value), f"the container's log never reached the error: {excinfo.value}"
+    # Not implied by the marker, which comes from the container's log whatever `_stood_in` recorded.
+    assert stood_in, "no container of the image was recorded, so the removal below checks nothing"
     for container in stood_in:
         with pytest.raises(NotFound):
             container.reload()
