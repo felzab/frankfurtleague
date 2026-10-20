@@ -16,6 +16,7 @@ export type ActionRequiredCategory =
   | "uhrzeit_missing"
   | "ort_missing"
   | "schiedsrichter_missing"
+  | "schiedsrichter_abgesagt"
   | "abgesagt";
 
 type FLSpieleSortingOptions = "datum" | "uhrzeit" | "spiel_nr" | "saison_phase";

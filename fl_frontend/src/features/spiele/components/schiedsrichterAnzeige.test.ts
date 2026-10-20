@@ -99,16 +99,24 @@ describe("what the draft preview renders where a fixture's referee has no name",
   });
 });
 
-/** A row the admin list does serve, nameless because a hand-write left it so. */
+/** A confirmed row the admin list does serve, nameless because a hand-write left it so. */
 const NAMENLOS_IN_LIST: FLSchiedsrichter = {
   id: NAMELESS_ID,
   name: null,
   schule: null,
   default_payment: PAYMENT,
-  kontakt: { telefon: null, email: null },
+  kontakt: { telefon: null, email: "namenlos@example.org" },
   inactive_since: null,
-  geburtsdatum: null,
-  einwilligung: null,
+  geburtsdatum: "2007-03-01",
+  einwilligung: {
+    umfang: "kader_oeffentlich",
+    erteilt_von: "volljaehrig",
+    datum: "2026-09-01",
+    bestaetigt_am: "2026-09-01",
+    text_version: "2026-10-schiedsrichterseite-4",
+    medien: false,
+    nachweis: { umfang: null, medien: null },
+  },
   bestaetigung: null,
   adresswechsel: null,
 };

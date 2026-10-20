@@ -15,8 +15,14 @@ import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types"
 import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/schemas";
 
-/** One mapping for a pick and for the editor's create dialog, as `toOrtDraft` is for a venue. */
-export const toSchiedsrichterDraft = (referee: FLSchiedsrichterAngezeigt): FLSpielSchiedsrichterFieldDraft => ({
+/** A referee a fixture cannot be booked to until their own confirmation is stamped. */
+const NOCH_NICHT_BESTAETIGT = "Noch nicht bestätigt";
+
+/** A picker row, carrying why it cannot be picked where it cannot. */
+type Angeboten = FLSchiedsrichterAngezeigt & { nichtWaehlbar?: string };
+
+/** One mapping for every pick, as `toOrtDraft` is for a venue. */
+const toSchiedsrichterDraft = (referee: FLSchiedsrichterAngezeigt): FLSpielSchiedsrichterFieldDraft => ({
   schiedsrichter_id: referee.id,
   name: referee.name,
   payment: referee.default_payment,
@@ -42,11 +48,18 @@ export function FormSchiedsrichterSection({
   // and never the ghost (`docs/backend/spec.md :: I227`). Nothing written comes from here:
   // `fl_frontend/src/features/spiele/schemas.ts :: FLSpielSchiedsrichterFieldPayloadSchema` carries
   // the id and the fee alone.
-  const offered: FLSchiedsrichterAngezeigt[] = schiedsrichter.map((candidate) => ({
+  const offered: Angeboten[] = schiedsrichter.map((candidate) => ({
     ...candidate,
     name: candidate.name ?? SCHIEDSRICHTER_OHNE_NAMEN_LABEL,
     nameIstPlatzhalter: candidate.name === null,
+    // Listed rather than left out, so an unconfirmed referee reads as waiting and never as missing; the one the
+    // fixture holds stays pickable, the save judging it (`REQ-BOOKING-002`).
+    ...((candidate.einwilligung?.bestaetigt_am ?? null) === null && candidate.id !== schiedsrichterPayload?.schiedsrichter_id
+      ? { nichtWaehlbar: NOCH_NICHT_BESTAETIGT }
+      : {}),
   }));
+  // Created in the editor's dialog, so unconfirmed by construction until the referee answers their link.
+  const angelegt: Angeboten[] = created.map((referee) => ({ ...referee, nichtWaehlbar: NOCH_NICHT_BESTAETIGT }));
 
   // The referee this fixture ALREADY holds, where the list offers nobody: it drops every retired row
   // and the ghost by id, so without this the trigger renders blank on a fixture that HAS a referee.
@@ -91,12 +104,13 @@ export function FormSchiedsrichterSection({
 
   return (
     <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-      <PickOrCreateAutocomplete<FLSchiedsrichterAngezeigt>
+      <PickOrCreateAutocomplete<Angeboten>
         label="Schiedsrichter"
         fieldPath="schiedsrichter.schiedsrichter_id"
         placeholder="z.B. Pierluigi Collina"
         items={[...held, ...offered]}
-        created={created}
+        created={angelegt}
+        hint="Zur Auswahl steht, wer den eigenen Eintrag bestätigt hat. Ob jemand zur selben Zeit schon eingeteilt ist, prüft das Speichern, und zu- oder absagen kann die Person selbst."
         selectedId={schiedsrichterPayload?.schiedsrichter_id ?? null}
         onSelect={handleSchiedsrichterChange}
         createLabel="Neuen Schiedsrichter anlegen"

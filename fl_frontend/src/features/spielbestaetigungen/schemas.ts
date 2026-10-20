@@ -120,6 +120,15 @@ export type FLSpielbestaetigungAnsichtResponse = z.infer<typeof FLSpielbestaetig
 export const FLSpielbestaetigungVorschlagPayloadSchema = FLSpielbestaetigungTerminSchema;
 export type FLSpielbestaetigungVorschlagPayload = z.infer<typeof FLSpielbestaetigungVorschlagPayloadSchema>;
 
+/** A decline's reason, a club's and a referee's alike: one line, as the endpoint stores it. */
+const begruendungText = z
+  .string()
+  .trim()
+  .max(SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH, {
+    error: `Die Begründung darf höchstens ${String(SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH)} Zeichen lang sein.`,
+  });
+const begruendung = einzeiligerName(begruendungText, "Die Begründung");
+
 /**
  * One club's answer. Proposal and reason are required keys, null where unused, as the endpoint requires: a decline
  * proposes a date, an acceptance carries neither. An empty reason counts as none, as the endpoint stores it.
@@ -129,15 +138,7 @@ export const FLSpielbestaetigungAntwortPayloadSchema = z
     token: bestaetigungToken,
     antwort: FLSpielbestaetigungAntwortArtSchema,
     vorschlag: FLSpielbestaetigungVorschlagPayloadSchema.nullable(),
-    begruendung: einzeiligerName(
-      z
-        .string()
-        .trim()
-        .max(SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH, {
-          error: `Die Begründung darf höchstens ${String(SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH)} Zeichen lang sein.`,
-        }),
-      "Die Begründung",
-    ).nullable(),
+    begruendung: begruendung.nullable(),
   })
   .refine((antwort) => antwort.antwort !== "abgelehnt" || antwort.vorschlag !== null, {
     error: "Bitte schlag einen anderen Termin vor.",
@@ -159,6 +160,52 @@ export const FLSpielbestaetigungAntwortResponseSchema = BaseAPIResponseSchema.ex
   vorschlag: FLSpielbestaetigungTerminSchema.nullable(),
 });
 export type FLSpielbestaetigungAntwortResponse = z.infer<typeof FLSpielbestaetigungAntwortResponseSchema>;
+
+/**
+ * A referee's own row's states. Never `gesperrt`, the binder refusing a barred person before the read, nor
+ * `vorschlag`, a referee proposing no date; `abgelaufen` is a match day gone by, a referee's answer keeping no deadline.
+ */
+export const FLSpielbestaetigungSchiedsrichterZustandSchema = z.enum(["gueltig", "zugesagt", "abgelehnt", "abgelaufen", "ungueltig"]);
+export type FLSpielbestaetigungSchiedsrichterZustand = z.infer<typeof FLSpielbestaetigungSchiedsrichterZustandSchema>;
+
+/** One row of a referee's own, open or closed, naming which of the address's referee records it asks. */
+export const FLSpielbestaetigungSelbstSchema = z.object({
+  id: CustomObjectIdStringSchema,
+  spiel_id: CustomObjectIdStringSchema,
+  schiedsrichter_id: CustomObjectIdStringSchema,
+  ansetzung: FLSpielbestaetigungAnsichtAnsetzungSchema,
+  zustand: FLSpielbestaetigungSchiedsrichterZustandSchema,
+  // The referee's own decline reason, null in every other state.
+  begruendung: z.string().nullable(),
+});
+export type FLSpielbestaetigungSelbst = z.infer<typeof FLSpielbestaetigungSelbstSchema>;
+
+export const FLSpielbestaetigungenSelbstResponseSchema = BaseAPIResponseSchema.extend({
+  spielbestaetigungen: z.array(FLSpielbestaetigungSelbstSchema),
+});
+export type FLSpielbestaetigungenSelbstResponse = z.infer<typeof FLSpielbestaetigungenSelbstResponseSchema>;
+
+/** A referee's answer on their own panel: the reason a required key, null on an acceptance. */
+export const FLSpielbestaetigungSchiedsrichterAntwortPayloadSchema = z.object({
+  antwort: FLSpielbestaetigungAntwortArtSchema,
+  begruendung: begruendung.nullable(),
+});
+export type FLSpielbestaetigungSchiedsrichterAntwortPayload = z.infer<typeof FLSpielbestaetigungSchiedsrichterAntwortPayloadSchema>;
+
+/**
+ * What a referee's decline form sends its action, which wraps it in the answer's payload: the league needs the
+ * reason to book somebody else, so the endpoint takes no decline without one.
+ */
+export const SchiedsrichterAbsageSchema = z.object({
+  begruendung: einzeiligerName(begruendungText.nonempty({ error: "Bitte gib einen Grund für Deine Absage an." }), "Die Begründung"),
+});
+export type SchiedsrichterAbsage = z.infer<typeof SchiedsrichterAbsageSchema>;
+
+export const FLSpielbestaetigungSchiedsrichterAntwortResponseSchema = BaseAPIResponseSchema.extend({
+  spielbestaetigung_id: CustomObjectIdStringSchema,
+  zustand: FLSpielbestaetigungAntwortArtSchema,
+});
+export type FLSpielbestaetigungSchiedsrichterAntwortResponse = z.infer<typeof FLSpielbestaetigungSchiedsrichterAntwortResponseSchema>;
 
 /** The `active` seasons a pass visits, and the newest day a pass ran over any of them. */
 export const FLSpielbestaetigungSweepSaisonsResponseSchema = BaseAPIResponseSchema.extend({
@@ -225,6 +272,10 @@ export const FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzungSchema = z.objec
 });
 export type FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung = z.infer<typeof FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzungSchema>;
 
+/** A referee taken off a fixture whose Einteilung went out: the slot they were told of, and their address alone. */
+export const FLSpielbestaetigungSweepSchiedsrichterGewechseltSchema = FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzungSchema;
+export type FLSpielbestaetigungSweepSchiedsrichterGewechselt = z.infer<typeof FLSpielbestaetigungSweepSchiedsrichterGewechseltSchema>;
+
 /** One season's pass: the requests still to stamp, the reminders already stamped, and the void notices. */
 export const FLSpielbestaetigungSweepResponseSchema = BaseAPIResponseSchema.extend({
   saison_id: z.string(),
@@ -233,6 +284,7 @@ export const FLSpielbestaetigungSweepResponseSchema = BaseAPIResponseSchema.exte
   einteilungen: z.array(FLSpielbestaetigungSweepEinteilungSchema),
   neue_ansetzungen: z.array(FLSpielbestaetigungSweepNeueAnsetzungSchema),
   schiedsrichter_neue_ansetzungen: z.array(FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzungSchema),
+  schiedsrichter_gewechselt: z.array(FLSpielbestaetigungSweepSchiedsrichterGewechseltSchema),
   geschlossen: z.int().nonnegative(),
   fehlgeschlagen: z.int().nonnegative(),
 });
@@ -307,6 +359,7 @@ export const FLSpielbestaetigungGrundSchema = z.enum([
   "spiel_entschieden",
   "abgesagt",
   "schiedsrichter_gewechselt",
+  "schiedsrichter_abgelehnt",
   "verworfen",
   "spiel_vergangen",
 ]);

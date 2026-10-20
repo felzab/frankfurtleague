@@ -33,7 +33,6 @@ import { FormAnsetzungSection } from "./FormAnsetzungSection";
 import { FormErgebnisSection } from "./FormErgebnisSection";
 import { FormMatchupSection } from "./FormMatchupSection";
 import { FormNotizSection } from "./FormNotizSection";
-import { toSchiedsrichterDraft } from "./FormSchiedsrichterSection";
 import { FormSonderereignisSection } from "./FormSonderereignisSection";
 import { toOrtDraft } from "./FormSpielortSection";
 import { SpielExpectedProvider } from "./SpielExpectedContext";
@@ -656,9 +655,9 @@ export function AdminEditSpielDataForm({
         heading="Schiedsrichter anlegen">
         <AdminCreateSchiedsrichterForm
           onClose={closeCreating}
+          // Listed and never selected: a referee just created is unconfirmed, which the save refuses (`REQ-BOOKING-002`).
           onCreated={(referee) => {
             setCreatedSchiedsrichter((previous) => [...previous, referee]);
-            setSchiedsrichterPayload(toSchiedsrichterDraft(referee));
           }}
         />
       </FormModal>

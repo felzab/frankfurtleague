@@ -286,32 +286,65 @@ describe("the way back from the account page", () => {
 /** One referee row as the own-data read serves it; the read's emptiest answer would hold none to show. */
 const SCHIEDSRICHTER_SELBST = { ...schiedsrichterSelbst(), schiedsrichter_id: TEAM_A };
 
+/** One fixture the referee is booked on, as their own rows' read serves it. */
+const EINSATZ = {
+  id: "6890a1b2c3d4e5f607250051",
+  spiel_id: "6890a1b2c3d4e5f607250061",
+  schiedsrichter_id: TEAM_A,
+  ansetzung: { team1_name: "Ernst-Reuter-Schule", team2_name: "Goethe-Gymnasium", datum: "2026-11-20", uhrzeit: "14:30:00", spielort: null },
+  zustand: "gueltig",
+  begruendung: null,
+};
+
+/** The referee's page, its two reads answering the referee's own data and the fixtures named. */
+async function refereePage(einsaetze: readonly (typeof EINSATZ)[]) {
+  setSubject(person({ schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }));
+  answerReadsWith((endpoint, schema, params) => {
+    if (endpoint === "/schiedsrichter/selbst") return { acknowledged: 1, schiedsrichter: [SCHIEDSRICHTER_SELBST] };
+    if (endpoint === "/spielbestaetigungen/selbst") return { acknowledged: 1, spielbestaetigungen: einsaetze };
+    return EMPTIEST_ANSWER(endpoint, schema, params);
+  });
+  try {
+    return await renderedAlone(PersoenlichSchiedsrichterPage);
+  } finally {
+    answerReadsWith(EMPTIEST_ANSWER);
+  }
+}
+
 describe("the referee's page", () => {
-  /* The person tier's own read, and no other: the page shows the referee their own data. */
-  it("reads the referee's own records and shows their data", async () => {
-    setSubject(person({ schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }));
-    answerReadsWith((endpoint, schema, params) =>
-      endpoint === "/schiedsrichter/selbst"
-        ? { acknowledged: 1, schiedsrichter: [SCHIEDSRICHTER_SELBST] }
-        : EMPTIEST_ANSWER(endpoint, schema, params),
-    );
-    const { markup, reads } = await renderedAlone(PersoenlichSchiedsrichterPage);
+  /* The person tier's own reads, and no other: the page shows the referee their own data and their fixtures. */
+  it("reads the referee's own records and rows and shows their data", async () => {
+    const { markup, reads } = await refereePage([]);
 
-    assert.deepEqual(reads, ["/schiedsrichter/selbst"]);
+    assert.deepEqual([...reads].sort(), ["/schiedsrichter/selbst", "/spielbestaetigungen/selbst"]);
     assert.ok(textOf(markup, " ").includes("Mara Okafor"), "the referee's own data is not what renders");
-    answerReadsWith(EMPTIEST_ANSWER);
   });
 
-  /* The row went between the page's check and the backend's: the page's own turn-away, reached late. */
-  it("sends a referee the backend finds no confirmed row for to the landing", async () => {
-    setSubject(person({ schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }));
-    answerReadsWith(() => {
-      throw refusedOn("GET /schiedsrichter/selbst", "REQ-FUNKTION-001");
+  /* The section's empty state is drawn only for an empty list: one drawn unconditionally passes the second half alone. */
+  it("shows a booked fixture rather than the empty state, and the empty state where none is booked", async () => {
+    const { EINSAETZE_LEER } = await import("@/features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx");
+
+    const gebucht = textOf((await refereePage([EINSATZ])).markup, " ");
+    assert.ok(gebucht.includes("Ernst-Reuter-Schule gegen Goethe-Gymnasium"), "the booked fixture does not render");
+    assert.ok(!gebucht.includes(EINSAETZE_LEER), "a referee booked on a fixture is told they are booked on none");
+
+    const frei = textOf((await refereePage([])).markup, " ");
+    assert.ok(frei.includes(EINSAETZE_LEER) && frei.includes("Mara Okafor"), "the empty state does not stand beside the referee's data");
+  });
+
+  /* The row went between the page's check and the backend's: the page's own turn-away, reached late, by either read. */
+  for (const operation of ["GET /schiedsrichter/selbst", "GET /spielbestaetigungen/selbst"]) {
+    it(`sends a referee the backend finds no confirmed row for to the landing, refused by ${operation}`, async () => {
+      setSubject(person({ schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }));
+      answerReadsWith((endpoint, schema, params) => {
+        if (operation.endsWith(endpoint)) throw refusedOn(operation, "REQ-FUNKTION-001");
+        return EMPTIEST_ANSWER(endpoint, schema, params);
+      });
+
+      assert.deepEqual(await redirectsOf(PersoenlichSchiedsrichterPage), ["/bereich"]);
+      answerReadsWith(EMPTIEST_ANSWER);
     });
-
-    assert.deepEqual(await redirectsOf(PersoenlichSchiedsrichterPage), ["/bereich"]);
-    answerReadsWith(EMPTIEST_ANSWER);
-  });
+  }
 
   /* The page speaks to a referee, so a person holding none is sent where their own Funktionen are. */
   it("sends a person holding no referee row to the landing, logging why", async () => {

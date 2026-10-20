@@ -60,6 +60,7 @@ const VENUE: FLSpielort = {
   inactive_since: null,
 };
 
+/** A referee who confirmed their own entry, which alone a fixture can be booked to. */
 const REFEREE: FLSchiedsrichter = {
   id: "6890a1b2c3d4e5f607800031",
   name: "Erika Muster",
@@ -67,11 +68,21 @@ const REFEREE: FLSchiedsrichter = {
   default_payment: 20,
   kontakt: { telefon: null, email: "erika.muster@example.org" },
   inactive_since: null,
-  geburtsdatum: null,
-  einwilligung: null,
+  geburtsdatum: "2007-03-01",
+  einwilligung: {
+    umfang: "kader_oeffentlich",
+    erteilt_von: "volljaehrig",
+    datum: "2026-09-01",
+    bestaetigt_am: "2026-09-01",
+    text_version: "2026-10-schiedsrichterseite-4",
+    medien: false,
+    nachweis: { umfang: null, medien: null },
+  },
   bestaetigung: null,
   adresswechsel: null,
 };
+
+const CREATED_REFEREE = "Jonas Weber";
 
 const CREATED_VENUE = "Turnhalle Riedberg";
 
@@ -181,6 +192,30 @@ describe("a create dialog the match editor opens", () => {
     await user.click(within(dialog).getByRole("button", { name: "Speichern" }));
 
     assert.deepEqual(await sent(), [], "the empty referee dialog's submit sent a write");
+  });
+
+  /* A referee just created is unconfirmed, and the save refuses an unconfirmed referee: booking it would offer a save
+     that cannot succeed. Listed rather than hidden, so the admin sees the create landed. */
+  it("lists a referee it creates as not yet confirmed, and books none", async () => {
+    const user = userEvent.setup();
+    await renderEditor(user, { schiedsrichter: [REFEREE] });
+    await user.click(pickerTrigger("Schiedsrichter"));
+    await user.click(await screen.findByRole("button", { name: /Neuen Schiedsrichter anlegen/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Schiedsrichter anlegen" });
+    await user.type(within(dialog).getByRole("textbox", { name: "Name" }), CREATED_REFEREE);
+    await user.type(within(dialog).getByRole("textbox", { name: "E-Mail" }), "jonas.weber@example.org");
+    await user.type(within(dialog).getByRole("textbox", { name: "Standard-Honorar" }), "20");
+    calls.length = 0;
+
+    await user.click(within(dialog).getByRole("button", { name: "Speichern" }));
+
+    assert.deepEqual(await sent(), ["postSchiedsrichterAction"], "the referee dialog's submit sent the match editor's save as well");
+    assert.ok(!pickerTrigger("Schiedsrichter").textContent?.includes(CREATED_REFEREE), "the created referee is booked on the fixture");
+    await user.click(pickerTrigger("Schiedsrichter"));
+    const row = within(await screen.findByRole("listbox"))
+      .getAllByRole("option")
+      .find((option) => option.textContent?.startsWith(CREATED_REFEREE) === true);
+    assert.equal(row?.getAttribute("aria-disabled"), "true", "the created referee is not listed, or listed as pickable");
   });
 
   /* react-stately opens no select over an empty list, which left a league with no venue no way to its first. */
