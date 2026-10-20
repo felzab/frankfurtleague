@@ -400,7 +400,8 @@ anywhere else needs an exact match and its twin, as `/registrierung` and `/loesc
 page reading the token through another module goes unseen. Each block restates `location /`'s ceiling and action pair and declares no `proxy_set_header`,
 `add_header` or `error_page`, each of which would replace an inherited set. `nginx/edge_test.sh`
 floods one link page past the burst, then fails any link page, twin, double slash, dot segment,
-percent-encoded letter, `HEAD` or JSON post that is not refused with the edge's own `429`.
+percent-encoded letter, `HEAD` or JSON post that is not refused with the edge's own `429`, and any
+link block whose action pair lets a server action past the action burst.
 
 **A body cap below the server block's `20M` is set at the location it bounds.** The application
 form's `64k` cap alone is measured, 2026-08-30: a 100,049-byte POST is refused `413` at the edge,
