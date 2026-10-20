@@ -18,7 +18,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from starlette.requests import Request
 
 from app.api.sperrliste.services import adresse_hash
-from app.core.actor_token import ACTOR_TOKEN_MAX_LENGTH, Lane
+from app.core.actor_token import ACTOR_TOKEN_MAX_LENGTH, PASSKEY_FACTOR, Lane
 from app.core.collections import Collection
 from app.core.exceptions import ACTOR_TOKEN_CHALLENGE, NO_DATABASE_CLIENT, ActorTokenRefusedException, MalformedRequestException
 from app.core.logging import FL_LOGGER_NAME
@@ -367,6 +367,9 @@ PUBLIC_WRITES = [
     # The holder of a pupil's new mailbox, for the same reason.
     ("/api/v0/spieler/adresswechsel/ansicht", "POST"),
     ("/api/v0/spieler/adresswechsel", "POST"),
+    # The address on file's stop link, a pupil's and a referee's: the link is the whole credential, as the new mailbox's is.
+    ("/api/v0/spieler/adresswechsel/stopp", "POST"),
+    ("/api/v0/schiedsrichter/adresswechsel/stopp", "POST"),
     # A pupil answering their own link holds no session either, so both endpoints bind the public
     # actor and the confirmation's write is recorded under it.
     ("/api/v0/registrierungen/bestaetigung/ansicht", "POST"),
@@ -424,6 +427,9 @@ PERSON_WRITES: list[tuple[str, str]] = [
     ("/api/v0/bewerbungen/{bewerbung_id:objectid}/person/einwilligung", "PATCH"),
     ("/api/v0/registrierungen/selbst/{registrierung_id:objectid}/einwilligung", "PATCH"),
     ("/api/v0/identitaet/selbst/erasure", "POST"),
+    ("/api/v0/konto/adresswechsel", "POST"),
+    ("/api/v0/konto/adresswechsel/freigabe", "POST"),
+    ("/api/v0/konto/adresswechsel", "DELETE"),
 ]
 
 # Split by the methods `SAFE_METHODS` names as recording nothing, since a read binding no actor
@@ -739,6 +745,7 @@ STEP_UP_WRITES = [
     pytest.param("post", "/api/v0/saisons/{saison_id}/einladungen/versand", id="the season's invitation send"),
     pytest.param("post", "/api/v0/schiedsrichter", id="a referee's entry"),
     pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen", id="a referee's fresh link"),
+    pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel", id="a referee's address change asked"),
     pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen", id="a referee's fresh address link"),
     pytest.param("delete", "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel", id="a referee's address change discarded"),
     pytest.param("post", "/api/v0/sperrliste", id="a ban"),
@@ -1010,6 +1017,42 @@ class TestThePersonBinderOverAServedRequest:
         response = person_client(barred=None).get(PERSON_PROBE, headers={ACTOR_HEADER: actor_token(KNOWN_IDENTIFIER, lane="person")})
 
         assert (response.status_code, response.json()["error_code"]) == (503, UNREACHED_DATABASE)
+
+
+# The person's own address change, started or approved, held to the enrolment window by either factor.
+ADDRESS_CHANGE_WRITES = [
+    pytest.param("/api/v0/konto/adresswechsel", {"email": "neu.postfach@anderswo.example"}, id="a start"),
+    pytest.param("/api/v0/konto/adresswechsel/freigabe", None, id="an approval"),
+]
+
+
+def person_signed_in_before(age_s: int, *, factor: str | None = None) -> dict[str, str]:
+    """A person's token whose sign-in lies `age_s` before the guard read it, by code unless `factor` names another."""
+
+    claims = actor_claims(KNOWN_IDENTIFIER, lane="person")
+    return {ACTOR_HEADER: sign({**claims, "auth_time": claims["iat"] - age_s, **({} if factor is None else {"amr": [factor]})})}
+
+
+class TestTheAddressChangeAsksAFreshSignIn:
+    """`docs/backend/spec.md :: I820`: a start or an approval from a sign-in or confirmation inside the enrolment window, by either factor."""
+
+    @pytest.mark.parametrize(("path", "body"), ADDRESS_CHANGE_WRITES)
+    def test_an_older_sign_in_is_refused_with_rfc_9470_s_challenge(self, path: str, body: Any):
+        response = person_client().post(path, json=body, headers={**ADMIN_KEY, **person_signed_in_before(ENROLMENT_WINDOW_S + 1)})
+
+        assert (response.status_code, response.json()["error_code"]) == (401, CONFIRMATION_REQUIRED)
+        assert response.headers["www-authenticate"] == (
+            f'{ACTOR_TOKEN_CHALLENGE} error="insufficient_user_authentication", max_age="{ENROLMENT_WINDOW_S}"'
+        )
+
+    @pytest.mark.parametrize("factor", [None, PASSKEY_FACTOR], ids=["by-code", "by-passkey"])
+    @pytest.mark.parametrize(("path", "body"), ADDRESS_CHANGE_WRITES)
+    def test_either_factor_at_the_window_s_edge_passes_the_check(self, path: str, body: Any, factor: str | None):
+        """The control: the code goes to the address on file, the confirmation OWASP's process asks of it; refuse it and this fails."""
+
+        response = person_client().post(path, json=body, headers={**ADMIN_KEY, **person_signed_in_before(ENROLMENT_WINDOW_S, factor=factor)})
+
+        assert response.json()["error_code"] == UNREACHED_DATABASE
 
 
 class TestThePseudonym:

@@ -13,7 +13,9 @@ Invariants:
 
 import copy
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any, Final
+from zoneinfo import ZoneInfo
 
 from bson import ObjectId
 
@@ -22,6 +24,7 @@ from app.api.registrierungen.services import compose_bestaetigung, compose_confi
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.api.spielbestaetigungen.services import compose_ansetzung, halter_of
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.shared.adresswechsel import FLAdresswechselWeg, compose_block
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from tests.config import build_test_config
 
@@ -405,3 +408,11 @@ def registrierung_bestaetigt(
         "today": today,
         "am": am,
     }
+
+
+def adresswechsel_document(*, email: str, token_hash: str, day: str, weg: FLAdresswechselWeg = "konto") -> dict[str, Any]:
+    """A pending change's block as a start mints it at noon of `day` in Germany, its stop link a hash nobody holds."""
+
+    started = datetime.fromisoformat(f"{day}T12:00:00").replace(tzinfo=ZoneInfo("Europe/Berlin"))
+
+    return compose_block(email=email, weg=weg, token_hash=token_hash, stopp_hash=hash_token(f"stop-{token_hash}"), grund=None, now=started)

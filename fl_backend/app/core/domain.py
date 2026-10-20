@@ -732,7 +732,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "`POST /bewerbungen/einwilligung`: a consent fills `geburtsdatum` and the consent record's stamp, "
         "wording, scope and media answer on every seat that person holds, each answer with its evidence, a decline nulls those "
         "slots, and both are refused once "
-        "the seat is answered or the link is over (`REQ-BEWERBUNG-010`, `REQ-BEWERBUNG-011`). Once answered, the same "
+        "the seat is answered or the link is over (`REQ-BEWERBUNG-010`, `REQ-BEWERBUNG-011`). An address change taking effect "
+        "moves a confirmed seat's `email` to the new address, the application of any status. Once answered, the same "
         "person withdraws the WhatsApp scope and the media answer, each with its evidence, on every seat they hold while the "
         "application is pending, "
         "through `PATCH /bewerbungen/{bewerbung_id}/person/einwilligung`. Two administrative "
@@ -969,7 +970,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "with its evidence, and a Widerspruch nulls those slots; and the "
         "seat's own person moves "
         "`umfang` and `medien`, each with its evidence, on every seat they hold on the row, and nothing else, through "
-        "`PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`",
+        "`PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`. An address change taking effect moves a confirmed "
+        "seat's `email` to the new address and voids the seat's links on the team's match confirmations",
         "app.api.teams.schemas.FLPatchSaisonTeamKontaktePayload",
     ),
     FieldPolicy(
@@ -1018,8 +1020,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "email",
         Editability.CONTROL_ONLY,
         "written by two controls alone, each as `sign_in_identifier` folds an address: the admission, from the registration's "
-        "address at the person's creation or onto a proposed person holding none, and the confirmation of an address change "
-        "through `POST /spieler/adresswechsel`, from the address its new mailbox proved. No payload carries it, an admission "
+        "address at the person's creation or onto a proposed person holding none, and an address change taking effect -- its "
+        "new mailbox's confirmation on either lane, or the hourly `POST /schiedsrichter/sweep/adresswechsel` at the end of its "
+        "waiting time -- from the address that mailbox proved. No payload carries it, an admission "
         "never gives a person holding one another, and `uniq_spieler_email` keeps one person per address. "
         "`POST /identitaet/subjekt` joins on the field by equality, so a value stored in any other form is matched by nothing",
         "app.api.registrierungen.services.compose_person_update",
@@ -1028,12 +1031,15 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SPIELER,
         "adresswechsel",
         Editability.CONTROL_ONLY,
-        "no payload carries the block. `POST /spieler/{spieler_id}/adresswechsel` writes it WHOLE, replacing a pending one, "
-        "and `POST /spieler/{spieler_id}/adresswechsel/einladen` replaces it whole for the same address, each answering the raw "
-        "token once. `DELETE /spieler/{spieler_id}/adresswechsel` removes it, and so does either answer its person gives through "
-        "`POST /spieler/adresswechsel`, the erasure of the address it names and, the day after its link lapses, "
-        "`POST /schiedsrichter/sweep/adresswechsel`. The three delivery endpoints write its delivery state on the system key alone",
-        "app.api.spieler.services.compose_spieler_adresswechsel",
+        "no payload carries the block. A start writes it WHOLE -- the person's own `POST /konto/adresswechsel` or an "
+        "administrator's `POST /spieler/{spieler_id}/adresswechsel` or `POST /schiedsrichter/{schiedsrichter_id}/adresswechsel` "
+        "-- ending every other change pending on the address's rows; `POST /konto/adresswechsel/freigabe` and "
+        "`POST /spieler/{spieler_id}/adresswechsel/einladen` mint its link, and a `wartezeit` change's confirmation through "
+        "`POST /spieler/adresswechsel` spends it. It goes with the change's effect, a decline, a stop through "
+        "`POST /spieler/adresswechsel/stopp` or `DELETE /konto/adresswechsel`, `DELETE /spieler/{spieler_id}/adresswechsel`, "
+        "the erasure of the address it names, and `POST /schiedsrichter/sweep/adresswechsel` at a lapse or a refused effect. "
+        "The three delivery endpoints write its delivery state on the system key alone",
+        "app.shared.adresswechsel.compose_block",
     ),
     FieldPolicy(
         Collection.SPIELER,
@@ -1231,24 +1237,25 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SCHIEDSRICHTER,
         "kontakt.email",
         Editability.CONDITIONAL,
-        "written by a save only until the referee has confirmed; afterwards it moves only when the new mailbox confirms it "
-        "through `POST /schiedsrichter/adresswechsel`, the save keeping the stored address meanwhile, because the address is "
-        "what the person's own sign-in and records are keyed on. Required on both payloads with no default, so a create or a "
+        "written by a save only until the referee has confirmed; afterwards a save moving it is refused "
+        "(`REQ-SCHIEDSRICHTER-011`) and it moves only when an address change takes effect, because the address is what the "
+        "person's own sign-in and records are keyed on. Required on both payloads with no default, so a create or a "
         "save without an address is a 422: an administrator enters a referee, and the address is the one route by which that "
         "person learns of it. Nullable on the stored row all the same, for the ghost, which stands behind nobody",
-        "app.api.schiedsrichter.services.save_asks_an_address_change",
+        "app.api.schiedsrichter.services.find_bestaetigte_adresse_refusal",
     ),
     FieldPolicy(
         Collection.SCHIEDSRICHTER,
         "adresswechsel",
         Editability.CONTROL_ONLY,
-        "no payload carries the block. The save that moves a confirmed referee's address writes it WHOLE, replacing a pending "
-        "one, and `POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen` replaces it whole for the same address, "
-        "each answering the raw token once; `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes it, and so do "
-        "either answer its person gives through `POST /schiedsrichter/adresswechsel` and, the day after its link lapses, "
-        "`POST /schiedsrichter/sweep/adresswechsel`. The three delivery endpoints write its "
-        "delivery state as they write `bestaetigung`'s, on the system key alone",
-        "app.api.schiedsrichter.services.compose_korrektur_update",
+        "no payload carries the block. A start writes it WHOLE, the person's own or an administrator's on either lane, as the "
+        "pupil's block is written, ending every other change pending on the address's rows; "
+        "`POST /konto/adresswechsel/freigabe` and `POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen` mint its "
+        "link. It goes with the change's effect, a decline through `POST /schiedsrichter/adresswechsel`, a stop through "
+        "`POST /schiedsrichter/adresswechsel/stopp` or `DELETE /konto/adresswechsel`, "
+        "`DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel`, and `POST /schiedsrichter/sweep/adresswechsel`. The three "
+        "delivery endpoints write its delivery state as they write `bestaetigung`'s, on the system key alone",
+        "app.shared.adresswechsel.compose_block",
     ),
     FieldPolicy(
         Collection.SCHIEDSRICHTER,
@@ -1258,8 +1265,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "create, the save that corrects an unconfirmed live referee's address, the reactivation of an unconfirmed referee, and "
         "`POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen` -- and the save correcting an unconfirmed RETIRED "
         "referee's address removes it and mints nothing, so the link a replaced block held stops working at once "
-        "and the delivery state of the message it went out in goes with it. A confirmed referee's address moves through "
-        "`POST /schiedsrichter/adresswechsel` instead, whose confirmation removes that delivery state alone. "
+        "and the delivery state of the message it went out in goes with it. A confirmed referee's address moves through an "
+        "address change instead, whose effect removes that delivery state alone. "
         "`POST /zustellung`, `POST /zustellung/angenommen` "
         "and `POST /zustellung/abgewiesen` write that delivery state under it on the system key alone, each applying only where "
         "the report is about the message the record still holds and answering `angewendet: false` where it is not. A client able "
@@ -1312,7 +1319,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "bestaetigung",
         Editability.CONTROL_ONLY,
         "on no payload. The submission mints the block whole, and the sweep's reminder adds a second live hash beside the "
-        "first without moving `frist`, so a pupil still holding the first mail is not punished by the chase. `POST "
+        "first without moving `frist`, so a pupil still holding the first mail is not punished by the chase. An address change "
+        "taking effect replaces an unanswered row's hashes with one nobody holds, so only a link reaching the moved address "
+        "confirms it. `POST "
         "/zustellung`, `POST /zustellung/angenommen` and `POST /zustellung/abgewiesen` write the delivery state under it on the "
         "system key alone",
         "app.api.registrierungen.services.compose_bestaetigung",
@@ -2056,12 +2065,12 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.NOT_FOUND,
         operation=(
             "POST /schiedsrichter/bestaetigung/ansicht · POST /schiedsrichter/bestaetigung · POST /schiedsrichter/adresswechsel/ansicht"
-            " · POST /schiedsrichter/adresswechsel"
+            " · POST /schiedsrichter/adresswechsel · POST /schiedsrichter/adresswechsel/stopp"
         ),
         aggregate="Schiedsrichter",
         summary=(
-            "a referee's link opens no entry -- unknown, replaced by a later mint, an address change already answered or "
-            "discarded, or deleted with the referee"
+            "a referee's link opens no entry -- unknown, replaced by a later mint, an address change already answered, stopped "
+            "or discarded, or deleted with the referee"
         ),
         implemented_by="app.api.schiedsrichter.services.find_unknown_token_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestATokenNoRefereeHolds",
@@ -2069,9 +2078,9 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-SCHIEDSRICHTER-003",
         status=HTTPStatus.GONE,
-        operation="POST /schiedsrichter/bestaetigung · POST /schiedsrichter/adresswechsel",
+        operation="POST /schiedsrichter/bestaetigung · POST /schiedsrichter/adresswechsel · POST /konto/adresswechsel/freigabe",
         aggregate="Schiedsrichter",
-        summary="a link whose deadline has passed records no consent and confirms no address",
+        summary="a link or an approval whose deadline has passed records no consent and confirms or approves no address",
         implemented_by="app.api.schiedsrichter.services.find_expired_token_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestALinkWhoseDeadlineHasPassed",
     ),
@@ -2096,7 +2105,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-SCHIEDSRICHTER-006",
         status=HTTPStatus.CONFLICT,
-        operation="POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen",
+        operation="POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen · POST /schiedsrichter/{schiedsrichter_id}/adresswechsel",
         aggregate="Schiedsrichter",
         summary="a referee carrying no usable email address is sent no link, and no send is stamped on their entry",
         implemented_by="app.api.schiedsrichter.services.find_missing_address_refusal",
@@ -2107,7 +2116,8 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation=(
             "POST /schiedsrichter · PATCH /schiedsrichter/{schiedsrichter_id} · POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen"
-            " · POST /schiedsrichter/{schiedsrichter_id}/reactivate · POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen"
+            " · POST /schiedsrichter/{schiedsrichter_id}/reactivate · POST /schiedsrichter/{schiedsrichter_id}/adresswechsel"
+            " · POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen"
         ),
         aggregate="Schiedsrichter",
         summary="no confirmation or address link is minted for an address the ban list still holds",
@@ -2142,12 +2152,49 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_schiedsrichter_adresswechsel_execution.py::TestAChangeReplacingABarredAddress",
     ),
     Rule(
+        code="REQ-SCHIEDSRICHTER-011",
+        status=HTTPStatus.CONFLICT,
+        operation="PATCH /schiedsrichter/{schiedsrichter_id}",
+        aggregate="Schiedsrichter",
+        summary="a save moves no confirmed referee's address to another mailbox, which an address change alone moves",
+        implemented_by="app.api.schiedsrichter.services.find_bestaetigte_adresse_refusal",
+        tested_by="tests/api/test_schiedsrichter_adresswechsel_execution.py::TestTheSaveOnAConfirmedReferee",
+    ),
+    Rule(
+        code="REQ-SCHIEDSRICHTER-012",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /schiedsrichter/{schiedsrichter_id}/adresswechsel · POST /konto/adresswechsel",
+        aggregate="Schiedsrichter",
+        summary="an address change names an address other than the one the referee signs in on",
+        implemented_by="app.api.schiedsrichter.services.find_schiedsrichter_adresse_unveraendert_refusal",
+        tested_by="tests/api/test_schiedsrichter_adresswechsel_execution.py::TestTheRequestsRefusals",
+    ),
+    Rule(
+        code="REQ-SCHIEDSRICHTER-013",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="POST /schiedsrichter/{schiedsrichter_id}/adresswechsel",
+        aggregate="Schiedsrichter",
+        summary="an administrator's reason for an address change names no person of the records the change moves",
+        implemented_by="app.api.schiedsrichter.services.find_schiedsrichter_name_im_grund_refusal",
+        tested_by="tests/api/test_schiedsrichter_adresswechsel_execution.py::TestTheRequestsRefusals",
+    ),
+    Rule(
+        code="REQ-SCHIEDSRICHTER-014",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /schiedsrichter/{schiedsrichter_id}/adresswechsel",
+        aggregate="Schiedsrichter",
+        summary="an address change is started for a referee who has confirmed, an unconfirmed one's address being the editor's to correct",
+        implemented_by="app.api.schiedsrichter.services.find_unbestaetigter_wechsel_refusal",
+        tested_by="tests/api/test_schiedsrichter_adresswechsel_execution.py::TestTheRequestsRefusals",
+    ),
+    Rule(
         code="REQ-SPIELER-001",
         status=HTTPStatus.NOT_FOUND,
-        operation="POST /spieler/adresswechsel/ansicht · POST /spieler/adresswechsel",
+        operation="POST /spieler/adresswechsel/ansicht · POST /spieler/adresswechsel · POST /spieler/adresswechsel/stopp",
         aggregate="Spieler",
         summary=(
-            "a pupil's address link opens no change -- unknown, replaced by a later mint, already answered or discarded, or gone with the pupil"
+            "a pupil's address link opens no change -- unknown, replaced by a later mint, already answered, stopped or discarded, or "
+            "gone with the pupil"
         ),
         implemented_by="app.api.spieler.services.find_spieler_token_unknown_refusal",
         tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheConfirmation",
@@ -2155,9 +2202,9 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-SPIELER-002",
         status=HTTPStatus.GONE,
-        operation="POST /spieler/adresswechsel",
+        operation="POST /spieler/adresswechsel · POST /konto/adresswechsel/freigabe",
         aggregate="Spieler",
-        summary="an address link whose deadline has passed confirms no address",
+        summary="an address link or an approval whose deadline has passed confirms or approves no address",
         implemented_by="app.api.spieler.services.find_spieler_token_expired_refusal",
         tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheConfirmationsRefusals",
     ),
@@ -2193,16 +2240,21 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation=(
             "POST /spieler/{spieler_id}/adresswechsel · POST /spieler/{spieler_id}/adresswechsel/einladen · POST /spieler/adresswechsel"
+            " · POST /schiedsrichter/{schiedsrichter_id}/adresswechsel · POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen"
+            " · POST /schiedsrichter/adresswechsel"
         ),
         aggregate="Spieler",
-        summary="no address change is minted or confirmed to an address another pupil signs in on",
+        summary=(
+            "no address change an administrator starts is minted, and none is confirmed, moving a pupil row onto an address "
+            "another pupil signs in on"
+        ),
         implemented_by="app.api.spieler.services.find_adresse_vergeben_refusal",
         tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheRequestsRefusals",
     ),
     Rule(
         code="REQ-SPIELER-007",
         status=HTTPStatus.CONFLICT,
-        operation="POST /spieler/{spieler_id}/adresswechsel",
+        operation="POST /spieler/{spieler_id}/adresswechsel · POST /konto/adresswechsel",
         aggregate="Spieler",
         summary="an address change names an address other than the one the pupil signs in on",
         implemented_by="app.api.spieler.services.find_adresse_unveraendert_refusal",
@@ -2217,6 +2269,15 @@ RULES: tuple[Rule, ...] = (
         aggregate="Spieler",
         summary="a pupil holding no address takes no address change, an address reaching them with their registration alone",
         implemented_by="app.api.spieler.services.find_keine_adresse_refusal",
+        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheRequestsRefusals",
+    ),
+    Rule(
+        code="REQ-SPIELER-009",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="POST /spieler/{spieler_id}/adresswechsel",
+        aggregate="Spieler",
+        summary="an administrator's reason for an address change names no person of the records the change moves",
+        implemented_by="app.api.spieler.services.find_spieler_name_im_grund_refusal",
         tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheRequestsRefusals",
     ),
     Rule(
@@ -2759,7 +2820,7 @@ RULES: tuple[Rule, ...] = (
             "GET /teams/{team_id}/saisons/{saison_id}/person/sitze · GET /spieler/selbst · PATCH /spieler/selbst/einwilligung · "
             "GET /schiedsrichter/selbst · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
             "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung · "
-            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"
+            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung · POST /konto/adresswechsel"
         ),
         aggregate="Saison",
         summary=(

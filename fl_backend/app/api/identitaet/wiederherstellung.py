@@ -32,7 +32,9 @@ from pymongo.errors import PyMongoError
 
 from app.api.bewerbungen.services import compose_decline_update, compose_saison_decline_update, seat_adressen, seat_is_answered
 from app.api.identitaet.crud import unattribute_pseudonym_in_session
+from app.api.identitaet.lookup import RecordCollections
 from app.api.kontakte.crud import redact_the_decliner, remove_the_holders_reasons, remove_their_reasons
+from app.api.konto.adresswechsel import move_the_address_in_session, read_the_bestand
 from app.api.konto.services import compose_person_move, compose_sitz_move
 from app.api.schiedsrichter.crud import discard_adresswechsel_in_session
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
@@ -396,6 +398,64 @@ async def _plan_adresswechsel(
     return Plan("to replay", rewrite_declined_address)
 
 
+def _records_of(database: AsyncDatabase) -> RecordCollections:
+    return RecordCollections(
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        spieler_collection=database[Collection.SPIELER],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+    )
+
+
+async def _plan_adresswechsel_wirksam(
+    line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None
+) -> Plan:
+    """A change that took effect: moved again where the restored carrier still holds it pending, the effect's own body writing it.
+
+    A carrier holding no such change is left for review: the address it moved to is held nowhere the replay can read it from.
+    """
+
+    assert line.collection is not None
+    feld = _ADRESSWECHSEL_FELD[line.collection]
+    row = await database[line.collection].find_one({"_id": line.record_id}, {"email": 1, "kontakt.email": 1, feld: 1}, session=session)
+    if row is None:
+        return Plan("no such record")
+
+    if _holds(_PERSON_ADDRESS[line.collection](row), line, schluessel):
+        return Plan("already done")
+    wechsel = row.get(feld)
+    if not isinstance(wechsel, Mapping) or not _holds(wechsel.get("email"), line, schluessel):
+        return Plan(
+            "left for review", detail="the address it moved to is pending on no change of the record: its person starts the change again"
+        )
+
+    records = _records_of(database)
+    bestand = await read_the_bestand(str(_PERSON_ADDRESS[line.collection](row)), records=records, session=session)
+    traeger = bestand.zeile(line.collection, row["_id"])
+    if traeger is None:
+        return Plan("left for review", detail="the record that carried the change is no longer its person's own")
+
+    async def rewrite_the_effect(session: AsyncClientSession) -> Any:
+        await move_the_address_in_session(
+            bestand=bestand,
+            traeger=traeger,
+            neue=str(wechsel["email"]),
+            spieler_collection=database[Collection.SPIELER],
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            bewerbungen_collection=database[Collection.BEWERBUNGEN],
+            registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+            spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+            adressanker_collection=database[Collection.ADRESSANKER],
+            schluessel=schluessel,
+            session=session,
+        )
+
+    return Plan("to replay", rewrite_the_effect)
+
+
 async def pseudonym_traces(database: AsyncDatabase, pseudonym: str, *, session: AsyncClientSession | None) -> tuple[list[Any], int]:
     """The log rows an erased person's pseudonym still marks, by id, and how many day counts it still keys."""
 
@@ -462,8 +522,10 @@ async def plan_replay(
             return await _plan_widerruf(line, database, schluessel=schluessel, session=session)
         case "widerspruch":
             return await _plan_widerspruch(line, database, schluessel=schluessel, session=session, now=now, window=window)
-        case "adresswechsel_abgelehnt":
+        case "adresswechsel_abgelehnt" | "adresswechsel_gestoppt":
             return await _plan_adresswechsel(line, database, schluessel=schluessel, session=session, now=now, window=window)
+        case "adresswechsel_wirksam":
+            return await _plan_adresswechsel_wirksam(line, database, schluessel=schluessel, session=session)
         case "loeschung":
             return await _plan_pseudonym(line, database, session=session, now=now)
 

@@ -32,9 +32,9 @@ from app.shared.schemas.custom import parse_object_id
 # follows (`scripts/ops/export_journal.sh :: JOURNAL_TOKEN`).
 JOURNAL_TOKEN: Final = "loeschung-journal"
 
-# An erasure, which an administrator runs again on its page, and the three choices a person makes for themselves,
-# which the replay writes again.
-JournalArt = Literal["loeschung", "widerruf", "widerspruch", "adresswechsel_abgelehnt"]
+# An erasure, which an administrator runs again on its page, and what a person's own act changed, which the replay
+# writes again: three choices, a stopped address change, and a change taking effect.
+JournalArt = Literal["loeschung", "widerruf", "widerspruch", "adresswechsel_abgelehnt", "adresswechsel_gestoppt", "adresswechsel_wirksam"]
 
 # The collections each act is made on: a line naming any other is unreadable rather than replayed there.
 DATENSAETZE: Final[Mapping[JournalArt, frozenset[Collection]]] = {
@@ -44,6 +44,9 @@ DATENSAETZE: Final[Mapping[JournalArt, frozenset[Collection]]] = {
     ),
     "widerspruch": frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN}),
     "adresswechsel_abgelehnt": frozenset({Collection.SPIELER, Collection.SCHIEDSRICHTER}),
+    "adresswechsel_gestoppt": frozenset({Collection.SPIELER, Collection.SCHIEDSRICHTER}),
+    # The row that carried the change: the replay moves every record its restored address holds.
+    "adresswechsel_wirksam": frozenset({Collection.SPIELER, Collection.SCHIEDSRICHTER}),
 }
 
 _HASH: Final = re.compile(r"[0-9a-f]{64}")

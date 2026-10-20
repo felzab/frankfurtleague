@@ -17,8 +17,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.aktionen.crud import redact_address_in_images
 from app.api.aktionen.services import IMAGE_ADDRESSES, ImageAddress, address_image_edits
 from app.api.einladungen.services import compose_einladung, compose_widerruf_update
-from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD, compose_adresswechsel
-from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, compose_spieler_adresswechsel
+from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
+from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD
 from app.core.collections import Collection
 from app.core.crud import delete_many_from_db, patch_one_in_db
 from app.core.recording import ERASED_ACTOR_MARKER
@@ -117,7 +117,7 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
                 **documents.schiedsrichter_document(
                     PENDING_REFEREE, email=REFEREE_STORED, name="Ortrun Fadenbach", default_payment=20, einwilligung=None
                 ),
-                ADRESSWECHSEL_FELD: compose_adresswechsel(email=ERASED, token_hash="w" * 64, today="2026-03-01"),
+                ADRESSWECHSEL_FELD: documents.adresswechsel_document(email=ERASED, token_hash="w" * 64, day="2026-03-01"),
             },
         ]
     )
@@ -133,7 +133,7 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
                 "Walburga",
                 "Fadenbach",
                 email=PUPIL_STORED,
-                **{SPIELER_ADRESSWECHSEL_FELD: compose_spieler_adresswechsel(email=ERASED, token_hash="v" * 64, today="2026-03-01")},
+                **{SPIELER_ADRESSWECHSEL_FELD: documents.adresswechsel_document(email=ERASED, token_hash="v" * 64, day="2026-03-01")},
             ),
         ]
     )

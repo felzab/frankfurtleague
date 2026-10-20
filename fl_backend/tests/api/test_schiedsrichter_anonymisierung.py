@@ -11,17 +11,19 @@ from pymongo.errors import DuplicateKeyError, OperationFailure
 
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.schemas import FLErasureResponse
+from app.api.konto.router import post_adresswechsel as start_the_change
+from app.api.konto.schemas import FLKontoAdresswechselPayload
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.schiedsrichter.admin_router import (
     delete_schiedsrichter,
     patch_schiedsrichter,
     reactivate_schiedsrichter,
 )
-from app.api.schiedsrichter.adresswechsel_router import post_adresswechsel
+from app.api.schiedsrichter.adresswechsel_router import post_adresswechsel as answer_the_change
 from app.api.schiedsrichter.router import get_schiedsrichter, get_schiedsrichter_by_id
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
-    FLSchiedsrichterAdresswechselPayload,
+    FLSchiedsrichterAdresswechselAntwortPayload,
     FLSchiedsrichterFilterParams,
     FLSchiedsrichterWriteResponse,
 )
@@ -49,6 +51,7 @@ from app.core.crud import delete_many_from_db, patch_one_in_db
 from app.core.exceptions import DocumentNotFoundException
 from app.core.recording import build_redaction_filter
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
@@ -57,6 +60,7 @@ from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_
 from tests.documents import rules_document, saison_document, spiel_document
 from tests.erasure import erased
 from tests.payloads import spiel_patch_body
+from tests.records import record_collections
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_schiedsrichter_anonymisierung_test")
@@ -338,41 +342,56 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId) -> None:
-    """Details EDITED through the real endpoints, which leave the log holding the pair the edit replaced.
+    """Details EDITED through the real endpoints, which leave the log holding the pair the edits replaced.
 
-    Without the edit the log would hold no contact value at all and every assertion below would pass
-    vacuously.
+    The telephone through the editor's save, and the address through the referee's own change, the one way a confirmed
+    referee's address moves. Without the edits the log would hold no contact value at all and every assertion below
+    would pass vacuously.
     """
 
-    saved = await patch_schiedsrichter(
+    bisherige = FORMER_KONTAKT[schiedsrichter_id]["email"]
+    await patch_schiedsrichter(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_data=FLPatchSchiedsrichterPayload(
             name=REFEREE_NAMES[schiedsrichter_id],
             schule=SCHULE,
             default_payment=DEFAULT_PAYMENT,
-            kontakt=FLKontaktPayload(**KONTAKT[schiedsrichter_id]),
+            kontakt=FLKontaktPayload(telefon=KONTAKT[schiedsrichter_id]["telefon"], email=bisherige),
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],
-        aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=TODAY,
-        germany_now=NOW,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
-    assert saved.adresswechsel is not None, "the seeded referee's address change minted no link"
-
-    # The referee has confirmed, so the address moves only once its new mailbox answers the link.
-    await post_adresswechsel(
-        antwort_data=FLSchiedsrichterAdresswechselPayload(token=saved.adresswechsel.token, antwort="bestaetigt"),
+    minted = await start_the_change(
+        identifier=sign_in_identifier(bisherige),
+        adresswechsel_data=FLKontoAdresswechselPayload(email=KONTAKT[schiedsrichter_id]["email"]),
+        records=record_collections(database),
+        spieler_collection=database[Collection.SPIELER],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        sperrliste=ban_list(database),
         aktionen_collection=database[Collection.AKTIONEN],
+        adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
         config=build_test_config(),
-        today=TODAY,
+        germany_now=NOW,
+    )
+    await answer_the_change(
+        antwort_data=FLSchiedsrichterAdresswechselAntwortPayload(token=minted.token, antwort="bestaetigt"),
+        records=record_collections(database),
+        spieler_collection=database[Collection.SPIELER],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+        sperrliste=ban_list(database),
+        aktionen_collection=database[Collection.AKTIONEN],
+        adressanker_collection=database[Collection.ADRESSANKER],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        db=client,
+        config=build_test_config(),
         germany_now=NOW,
     )
 
@@ -644,10 +663,8 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
                     spiele_collection=database[Collection.SPIELE],
                     sperrliste=ban_list(database),
                     adressanker_collection=database[Collection.ADRESSANKER],
-                    aktionen_collection=database[Collection.AKTIONEN],
                     db=client,
                     today=TODAY,
-                    germany_now=NOW,
                     refuse_unconfirmed=FRESH_STEP_UP_CHECK,
                 )
             elif press == "delete":

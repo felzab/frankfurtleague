@@ -30,7 +30,7 @@ from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, KONTO_SEITE_KONT
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.db import get_database, get_saison_teams_collection, get_schiedsrichter_collection, get_spieler_collection
-from app.core.drosselung import DROSSELUNG_ERREICHT, TAGESBUDGETS, get_drossel
+from app.core.drosselung import DROSSELUNG_ERREICHT, TAGESBUDGETS, ZAEHLER_BUDGETS, Zaehler, get_drossel
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DrosselungException
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import AktorFunktion, PersonActor, actor_var
@@ -213,22 +213,22 @@ def answered(response: Response) -> tuple[int, str | None]:
     return response.status_code, response.json().get("error_code")
 
 
-def count_id(funktion: AktorFunktion, email: str, day: str = TODAY) -> str:
+def count_id(funktion: Zaehler, email: str, day: str = TODAY) -> str:
     """The count's key, spelled here from its parts rather than read off the module, so a key that moved fails these cases."""
 
     return f"{funktion}:{akteur_pseudonym(sign_in_identifier(email), schluessel=CONFIG.sperrliste_schluessel)}:{day}"
 
 
-async def spend(database: AsyncDatabase, funktion: AktorFunktion, email: str, units: int) -> None:
+async def spend(database: AsyncDatabase, funktion: Zaehler, email: str, units: int) -> None:
     """The person's count for `TODAY` at `units` spent."""
 
     await database[Collection.DROSSELUNG].insert_one({"_id": count_id(funktion, email), "n": units, "ablauf": MIDNIGHT_UTC})
 
 
-async def exhaust(database: AsyncDatabase, funktion: AktorFunktion, email: str) -> None:
+async def exhaust(database: AsyncDatabase, funktion: Zaehler, email: str) -> None:
     """The person's count for `TODAY` at its ceiling, every unit spent."""
 
-    await spend(database, funktion, email, TAGESBUDGETS[funktion])
+    await spend(database, funktion, email, ZAEHLER_BUDGETS[funktion])
 
 
 async def counts(database: AsyncDatabase) -> dict[str, int]:
@@ -314,6 +314,48 @@ COUNTED_ON_EVERY_CALL = [
     pytest.param("POST", f"{API}/registrierungen/{ANY_REGISTRIERUNG}/aufnehmen", {}, id="an admission"),
     pytest.param("POST", f"{API}/registrierungen/{ANY_REGISTRIERUNG}/ablehnen", {}, id="a decline"),
 ]
+
+
+# The address change's two counted presses, on a count of their own: each mails a mailbox the person typed.
+ADDRESS_CHANGE_COUNTED = [
+    pytest.param("POST", f"{API}/konto/adresswechsel", {"email": "neu.postfach@anderswo.example"}, id="a start"),
+    pytest.param("POST", f"{API}/konto/adresswechsel/freigabe", None, id="an approval"),
+]
+
+
+class TestTheAddressChangesOwnCount:
+    @pytest.mark.parametrize(("method", "path", "body"), ADDRESS_CHANGE_COUNTED)
+    def test_its_exhausted_count_refuses_until_midnight_and_the_funktion_s_count_moves_not(
+        self, mongo_replica_set_url: str, method: str, path: str, body: Any
+    ):
+        """Count it on the binder's `kontakt` instead and the first case is a 404 or a start, the second count never reached."""
+
+        async def steps(database: AsyncDatabase) -> tuple[Response, dict[str, int]]:
+            await exhaust(database, "adresswechsel", PERSON)
+            async with app_client(mongo_replica_set_url, app=_first(), now=NOW) as http:
+                response = await http.request(method, path, json=body, headers=as_person(PERSON))
+            return response, await counts(database)
+
+        response, stored = seeded(mongo_replica_set_url, steps)
+
+        assert refused_until_midnight(response), response.text
+        assert stored == {count_id("adresswechsel", PERSON): ZAEHLER_BUDGETS["adresswechsel"] + 1}
+
+    def test_an_exhausted_funktion_count_refuses_no_start(self, mongo_replica_set_url: str):
+        """The control: the seat holder's day of panel work spends nothing a start counts on."""
+
+        async def steps(database: AsyncDatabase) -> tuple[Response, dict[str, int]]:
+            await exhaust(database, "kontakt", PERSON)
+            async with app_client(mongo_replica_set_url, app=_first(), now=NOW) as http:
+                response = await http.post(
+                    f"{API}/konto/adresswechsel", json={"email": "neu.postfach@anderswo.example"}, headers=as_person(PERSON)
+                )
+            return response, await counts(database)
+
+        response, stored = seeded(mongo_replica_set_url, steps)
+
+        assert response.status_code == 200, response.text
+        assert stored == {count_id("kontakt", PERSON): TAGESBUDGETS["kontakt"], count_id("adresswechsel", PERSON): 1}
 
 
 class TestAnExhaustedCount:

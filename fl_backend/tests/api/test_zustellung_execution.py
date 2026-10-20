@@ -2,7 +2,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
 import pytest
-from bson import ObjectId
+from bson import ObjectId, decode, encode
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import WriteError
@@ -10,9 +10,8 @@ from pymongo.errors import WriteError
 from app.api.bewerbungen.services import days_after
 from app.api.registrierungen.services import build_erinnerung_filter
 from app.api.registrierungen.services import compose_bestaetigung as compose_registrierung_bestaetigung
-from app.api.schiedsrichter.services import compose_adresswechsel, compose_bestaetigung
+from app.api.schiedsrichter.services import compose_bestaetigung
 from app.api.spielbestaetigungen.services import compose_seat_entry
-from app.api.spieler.services import compose_spieler_adresswechsel
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.api.zustellung.router import abgewiesen_zustellung, angenommen_zustellung, post_zustellung
 from app.api.zustellung.schemas import (
@@ -26,6 +25,7 @@ from app.api.zustellung.services import ZIEL_PFADE, traeger_halter, traeger_pfad
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
 from app.shared.schemas.bounds import REGISTRIERUNG_ERINNERUNG_TAGE
+from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_team_document, spiel_document, spielbestaetigung_document, spieler_document
 from tests.worker import worker_database
@@ -131,8 +131,8 @@ CARRIER_SEEDS: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
     "registrierung": compose_registrierung_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON, frist="2026-04-04"),
     # The Trainer's seat, the one every case below reports on; the seat axis's own cases reach the others.
     "kontakt": compose_kontakt_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
-    "schiedsrichter_adresswechsel": compose_adresswechsel(email="quillon@example.com", token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
-    "spieler_adresswechsel": compose_spieler_adresswechsel(email="okonkwo@example.com", token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
+    "schiedsrichter_adresswechsel": documents.adresswechsel_document(email="quillon@example.com", token_hash=SEEDED_TOKEN_HASH, day=MINTED_ON),
+    "spieler_adresswechsel": documents.adresswechsel_document(email="okonkwo@example.com", token_hash=SEEDED_TOKEN_HASH, day=MINTED_ON),
     "spielbestaetigung": compose_seat_entry(token_hash=SEEDED_TOKEN_HASH),
 }
 
@@ -454,9 +454,10 @@ class TestADeliveryEvent:
 
         assert response.angewendet is True
         # The seed beside it, compared whole: the write touches the record's own path alone, and a
-        # key of the person's bookkeeping it overwrote would be a link this call silently voided.
+        # key of the person's bookkeeping it overwrote would be a link this call silently voided. Through BSON, as
+        # the driver hands a stored instant back: naive, in UTC.
         expected = {"zustellung": {"nachricht_id": FIRST_MESSAGE, "stand": "unzustellbar", "grund": "NoEmail", "am": BOUNCED_AT}}
-        assert carrier_in(document, TRAEGER[ziel]) == {**CARRIER_SEEDS[ziel], **expected}
+        assert carrier_in(document, TRAEGER[ziel]) == decode(encode({**CARRIER_SEEDS[ziel], **expected}))
 
     @pytest.mark.parametrize("ziel", ZIELE, ids=lambda ziel: ziel)
     def test_an_event_naming_a_superseded_message_writes_nothing(self, ziel: FLZustellungZiel, mongo_replica_set_url: str):

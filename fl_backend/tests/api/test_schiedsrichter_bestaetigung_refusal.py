@@ -29,7 +29,6 @@ from app.api.schiedsrichter.services import (
     SCHIEDSRICHTER_RETIRED,
     SCHIEDSRICHTER_TOKEN_EXPIRED,
     SCHIEDSRICHTER_TOKEN_UNKNOWN,
-    KorrekturLink,
     bestaetigung_frist_from,
     build_token_filter,
     compose_bestaetigung,
@@ -441,7 +440,7 @@ class TestARetiredRefereeTakesNoFreshLink:
             stored=stored, payload=payload, payload_email="new@example.com", token_hash=TOKEN_HASH, today=TODAY
         )
 
-        assert minted is None
+        assert minted is False
         assert update == {"$set": payload, "$unset": {BESTAETIGUNG_FELD: ""}}
 
     def test_a_retired_referees_unmoved_address_keeps_its_link_in_whichever_spelling_it_was_stored(self):
@@ -452,7 +451,7 @@ class TestARetiredRefereeTakesNoFreshLink:
             stored=stored, payload=payload, payload_email=LOWER_CASE_SAVED, token_hash=TOKEN_HASH, today=TODAY
         )
 
-        assert (update, minted) == ({"$set": payload}, None)
+        assert (update, minted) == ({"$set": payload}, False)
 
     def test_a_live_referees_new_address_is_minted_for(self):
         stored = {"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None, "inactive_since": None}
@@ -462,7 +461,7 @@ class TestARetiredRefereeTakesNoFreshLink:
             stored=stored, payload=payload, payload_email="new@example.com", token_hash=TOKEN_HASH, today=TODAY
         )
 
-        assert minted == "bestaetigung"
+        assert minted is True
         assert update == {"$set": {**payload, BESTAETIGUNG_FELD: compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)}}
 
 
@@ -523,7 +522,7 @@ class TestAnAddressOnTheBanList:
         assert refusal.error_code == SCHIEDSRICHTER_ADRESSE_GESPERRT
 
 
-def korrektur(stored: Mapping[str, Any], payload_email: str, *, today: str = TODAY) -> tuple[dict[str, Any], KorrekturLink | None]:
+def korrektur(stored: Mapping[str, Any], payload_email: str, *, today: str = TODAY) -> tuple[dict[str, Any], bool]:
     """The save's update over an empty payload, so all it `$set`s is what the save minted."""
 
     return compose_korrektur_update(
@@ -549,7 +548,7 @@ class TestACorrectedAddressReMints:
     def test_an_unconfirmed_referee_whose_address_moves_gets_a_fresh_block(self, stored: Mapping[str, Any], payload_email: str):
         assert korrektur(stored, payload_email) == (
             {"$set": {BESTAETIGUNG_FELD: compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)}},
-            "bestaetigung",
+            True,
         )
 
     @pytest.mark.parametrize(
@@ -562,12 +561,12 @@ class TestACorrectedAddressReMints:
         ids=["address-unchanged", "address-unchanged-but-its-domain-in-capitals", "already-confirmed-and-unmoved"],
     )
     def test_every_other_save_mints_nothing(self, stored: Mapping[str, Any], payload_email: str):
-        assert korrektur(stored, payload_email) == ({"$set": {}}, None)
+        assert korrektur(stored, payload_email) == ({"$set": {}}, False)
 
     def test_the_fresh_block_restarts_the_deadline(self):
         update, minted = korrektur({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None}, "new@example.com", today=TOMORROW)
 
-        assert minted == "bestaetigung"
+        assert minted is True
         assert update["$set"][BESTAETIGUNG_FELD]["frist"] == bestaetigung_frist_from(today=TOMORROW)
 
 

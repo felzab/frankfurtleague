@@ -137,9 +137,14 @@ AKTEUR_PSEUDONYM_SHOWN: Final = 8
 # second route in.
 SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE: Final = 14
 
-# How long a pupil's new address has to confirm its link; a re-send restarts it. The referee's figure
-# and its own constant, for the floors' reason below: the two links wait on different people.
-SPIELER_ADRESSWECHSEL_FRIST_TAGE: Final = 14
+# How long a step of an address change waits from its asking: the new mailbox's link, or the address
+# on file's approval. NIST SP 800-63B-4 `#issuedrecovery` caps an emailed recovery code at 24 hours
+# (read 2026-10-20). One figure for both lanes.
+ADRESSWECHSEL_GUELTIG_STUNDEN: Final = 24
+
+# A change an administrator started with a reason waits this long after its confirmation, the address
+# on file free to stop it: a school week and its weekends, past any holiday weekend three days fit inside.
+ADRESSWECHSEL_WARTEZEIT_TAGE: Final = 7
 
 # A row stores the deadline it was given, so raising this moves no request already sent; a fixture
 # dated inside it is due the day it is asked.
@@ -210,3 +215,6 @@ DROSSELUNG_SPIELER_PRO_TAG: Final = 20
 DROSSELUNG_SCHIEDSRICHTER_PRO_TAG: Final = 100
 # A contact seat's is a season start: 25 admissions, 5 declines, two saves per squad row, 4 grants, about 84.
 DROSSELUNG_KONTAKT_PRO_TAG: Final = 300
+# A person's own address-change starts and approvals per German day, counted apart since each mails a
+# mailbox the person typed; the busiest legitimate day is a start, a restart over a typo and an approval.
+DROSSELUNG_ADRESSWECHSEL_PRO_TAG: Final = 10

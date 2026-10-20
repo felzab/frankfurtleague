@@ -32,11 +32,11 @@ from app.api.identitaet.services import LETZTER_INHABER_ERASURE
 from app.api.registrierungen.person_router import aufnehmen
 from app.api.registrierungen.schemas import FLRegistrierungAufnehmenPayload
 from app.api.registrierungen.services import compose_ablehnung_update
-from app.api.schiedsrichter.services import compose_adresswechsel, compose_einwilligung
+from app.api.schiedsrichter.services import compose_einwilligung
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.crud import erase_person_in_session
-from app.api.spieler.services import build_ghost_spieler, compose_spieler_adresswechsel
+from app.api.spieler.services import build_ghost_spieler
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import delete_many_from_db, patch_one_in_db
@@ -49,6 +49,7 @@ from app.core.security import ACTOR_HEADER, akteur_pseudonym, loeschung_journal_
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.core.transactions import transaction_session
 from app.main import create_app
+from tests import documents
 from tests.actor_tokens import ACTOR_TOKEN_CONTRACT, SignedActor, actor_claims, sign
 from tests.app_client import app_client
 from tests.bans import ban_list
@@ -391,7 +392,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
                 OTHER_REFEREE_OID,
                 email="kraus.bernd@example.com",
                 name="Bernd Kraus",
-                adresswechsel=compose_adresswechsel(email=TYPED, token_hash=hash_token("their-new-address"), today="2026-03-28"),
+                adresswechsel=documents.adresswechsel_document(email=TYPED, token_hash=hash_token("their-new-address"), day="2026-03-28"),
             ),
         ]
     )
@@ -434,7 +435,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             "Gwendolyn-Muster",
             email="gwendolyn@example.com",
             einwilligung=einwilligung,
-            adresswechsel=compose_spieler_adresswechsel(email=TYPED, token_hash=hash_token("her-new-address"), today="2026-03-29"),
+            adresswechsel=documents.adresswechsel_document(email=TYPED, token_hash=hash_token("her-new-address"), day="2026-03-29"),
         )
     )
     await database[Collection.SPIELER].insert_one(
@@ -501,7 +502,7 @@ async def a_mailbox_sharing_their_local_part(database: AsyncDatabase) -> None:
                 REFEREE_MOVING_ELSEWHERE_OID,
                 email="umzug.dritter@example.com",
                 name="Udo Dritter",
-                adresswechsel=compose_adresswechsel(email=ELSEWHERE, token_hash=hash_token("to-anderswo"), today="2026-03-28"),
+                adresswechsel=documents.adresswechsel_document(email=ELSEWHERE, token_hash=hash_token("to-anderswo"), day="2026-03-28"),
             ),
         ]
     )
@@ -512,7 +513,7 @@ async def a_mailbox_sharing_their_local_part(database: AsyncDatabase) -> None:
             "Ulla-Muster",
             email="ulla@example.com",
             einwilligung=eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-02"),
-            adresswechsel=compose_spieler_adresswechsel(email=ELSEWHERE, token_hash=hash_token("ulla-to-anderswo"), today="2026-03-29"),
+            adresswechsel=documents.adresswechsel_document(email=ELSEWHERE, token_hash=hash_token("ulla-to-anderswo"), day="2026-03-29"),
         )
     )
     await a_grant(database, ELSEWHERE_GRANT_OID, ELSEWHERE, "administration")
