@@ -185,7 +185,8 @@ export function AdminSpieleActionRequiredView({
         </div>
       </div>
 
-      {/* Standing, never dismissible: the three confirmation tabs read zero or short for as long as the rows are. */}
+      {/* Standing, never dismissible: a tab reads zero or short for as long as the rows are. The read serves every open
+          row whole, so a cut reaches the closed ones alone, and of those the categories read a referee's decline. */}
       {(bestaetigungen === null || !bestaetigungenVollstaendig) && (
         <div className="flex w-full max-w-page flex-col px-4 pb-4 sm:px-8">
           <Callout
@@ -195,7 +196,7 @@ export function AdminSpieleActionRequiredView({
             }>
             {bestaetigungen === null
               ? "Die Kategorien zu Terminvorschlägen und Bestätigungen sind deshalb leer, auch wo ein Spiel hineingehört. Lade die Seite neu."
-              : "Geladen sind nur die neuesten Antworten dieser Saison. Die Kategorien zu Terminvorschlägen und Bestätigungen können Spiele auslassen."}
+              : `Geladen sind alle offenen Anfragen dieser Saison, von den geschlossenen nur die neuesten. „${ACTION_REQUIRED_LABELS.schiedsrichter_abgesagt.name}“ kann deshalb Spiele auslassen.`}
           </Callout>
         </div>
       )}

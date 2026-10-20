@@ -232,4 +232,12 @@ describe("the clubs' answers on the admin search's cards", () => {
 
     screen.getByText("Die Spielbestätigungen ließen sich gerade nicht lesen");
   });
+
+  // A cut read names what it cut, or the cards it shorted read as complete.
+  it("says the answers were cut, and what the cut can leave out", () => {
+    renderView("", { ...ADMIN, spiele: [ANGESETZT], bestaetigungen: [ZUSAGE], bestaetigungenVollstaendig: false });
+
+    screen.getByText("Die Spielbestätigungen sind unvollständig");
+    screen.getByText(/von den geschlossenen nur die neuesten/);
+  });
 });

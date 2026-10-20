@@ -156,7 +156,8 @@ export function SpielsucheView({
       </div>
 
       <div className="flex w-full flex-col items-center px-4 pb-4 sm:px-8">
-        {/* Standing, never dismissible: a card short of its chips reads as a fixture nobody asked. */}
+        {/* Standing, never dismissible: a card short of its chips reads as a fixture nobody asked. A cut reaches the
+            closed rows alone, and of those a card chips a referee's decline. */}
         {(bestaetigungen === null || !bestaetigungenVollstaendig) && (
           <div className="flex w-full max-w-toolbar flex-col">
             <Callout
@@ -166,7 +167,7 @@ export function SpielsucheView({
               }>
               {bestaetigungen === null
                 ? "Die Karten zeigen deshalb keine Antworten der Teams. Lade die Seite neu."
-                : "Geladen sind nur die neuesten Antworten dieser Saison. Manchen Karten fehlen deshalb Antworten."}
+                : "Geladen sind alle offenen Anfragen dieser Saison, von den geschlossenen nur die neuesten. Einer Karte kann deshalb die Absage ihrer Schiedsrichterin oder ihres Schiedsrichters fehlen."}
             </Callout>
           </div>
         )}
