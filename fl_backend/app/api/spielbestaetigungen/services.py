@@ -923,9 +923,9 @@ def erinnerung_tage(*, today: str) -> list[str]:
 
 
 def build_erinnerung_filter(*, saison_id: str, today: str, inserted: Sequence[Any]) -> dict[str, Any]:
-    """The season's open rows owed a message: a team row's reminder due today, or an unstamped request (`docs/backend/spec.md :: I765`).
+    """The season's open rows owed a message: a team row's reminder due today, or an unstamped request still answerable.
 
-    Never a row this pass inserted, nor reminded on its request's day (`:: I767`); asked again until its deadline.
+    Never a row this pass inserted, nor reminded on its request's day (`docs/backend/spec.md :: I765`, `:: I767`).
     """
 
     return {
@@ -933,7 +933,8 @@ def build_erinnerung_filter(*, saison_id: str, today: str, inserted: Sequence[An
         **build_answerable_filter(),
         "_id": {"$nin": list(inserted)},
         "$or": [
-            {"angefragt_am": None, "frist": {"$gte": today}},
+            {"angefragt_am": None, "partei.art": "team", "frist": {"$gte": today}},
+            {"angefragt_am": None, "partei.art": "schiedsrichter", "ansetzung.datum": {"$gte": today}},
             {
                 "partei.art": "team",
                 "frist": {"$in": erinnerung_tage(today=today)},

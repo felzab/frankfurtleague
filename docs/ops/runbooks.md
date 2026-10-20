@@ -1432,7 +1432,8 @@ went, and the rows it passed over, at `INFO`, and as a warning under `FE-SWEEP-0
 rows over. A season it could not sweep files `spielbestaetigung.sweep_failed` besides, and a listing
 that failed files that line and no pass line, its cache drop still running and filing
 `cache.revalidation_failed` where that fails. A request or an Einteilung whose stamp never landed
-is asked again on every pass until one does or its row's deadline passes, each address whose last
+is asked again on every pass until one does or the row stops taking an answer (a club's after its
+deadline, a referee's after the fixture's day), each address whose last
 mail the provider refused passed over, so a stamp call failing hour after hour mails those seats
 and referees hourly: switch the confirmations off until it is repaired. Every link such a mail
 carried stays live until the deadline beside the later ones. A `spielbestaetigung.sweep_skipped` line in every hour says a pass is stuck, which

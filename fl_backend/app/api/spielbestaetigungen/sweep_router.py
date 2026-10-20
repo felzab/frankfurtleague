@@ -345,7 +345,8 @@ async def sweep_spielbestaetigungen(
     link, that request is the seat's message of the day and the row's other seats are reminded beside it.
 
     A row whose first request was never stamped as sent, inserted on an earlier pass, is asked again on every pass until a
-    stamp lands or its deadline passes: a team row in `anfragen`, with a fresh link per seat appended the same way and each
+    stamp lands or it stops taking an answer, a team row after its deadline and a referee row after the fixture's day: a
+    team row in `anfragen`, with a fresh link per seat appended the same way and each
     refused seat passed over; a referee row in `einteilungen`, unless the provider refused the last mail recorded to the
     referee's address. A row with nobody left to ask is not asked and stays unstamped, so it shows as never asked.
 

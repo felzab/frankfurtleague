@@ -1840,17 +1840,20 @@ class TestARequestNeverStampedIsAskedAgain:
         assert "tamsin.neu@example.com" in {link.address for anfrage in answer.anfragen for link in anfrage.links}
 
     def test_a_request_never_stamped_is_not_asked_once_its_deadline_has_passed(self, mongo_replica_set_url: str):
-        """Minted inside the notice period, so due the day it went: from the day after, its link answers a press `-003`."""
+        """Minted inside the notice period, so due the day it went: from the day after, its link answers a press `-003`.
+
+        A club's alone: the referee's row, answered until the day, is held by `TestAnEinteilungNeverStampedIsToldAgain`.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
             return await sweep(database, client, today=days_after(day=TODAY, days=1)), await rows(database)
 
-        late, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+        late, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK, schiedsrichter=None)])
 
         # The premise: every row stands unstamped and open, its deadline yesterday.
         assert {(row["angefragt_am"], row["geschlossen"], str(row["frist"])) for row in stored} == {(None, None, TODAY)}
-        assert (late.anfragen, late.einteilungen) == ([], [])
+        assert late.anfragen == []
 
     def test_a_seat_minted_afresh_on_an_unstamped_row_leaves_its_other_seats_asked_again(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1971,6 +1974,21 @@ class TestAnEinteilungNeverStampedIsToldAgain:
 
         assert [(einteilung.spielbestaetigung_id, einteilung.address) for einteilung in again.einteilungen] == [(stored["_id"], REFEREE_EMAIL)]
         assert (again.anfragen, settled.einteilungen, stored["angefragt_am"]) == ([], [], TODAY)
+
+    def test_a_referee_is_told_again_past_the_rows_deadline_until_the_fixtures_day(self, mongo_replica_set_url: str):
+        """The deadline is a club's alone: a referee answers until the day, so their Einteilung is told again until then."""
+
+        the_day_after = days_after(day=TODAY, days=1)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_lost_einteilung_stamp(database, client)
+            return await sweep(database, client, today=the_day_after), row_of(await rows(database), schiedsrichter_id=SCHIEDSRICHTER)
+
+        again, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        # The premise: the row's deadline lies before the pass's day, the fixture's after it.
+        assert stored["frist"] < the_day_after < stored["ansetzung"]["datum"]
+        assert [einteilung.spielbestaetigung_id for einteilung in again.einteilungen] == [stored["_id"]]
 
     def test_a_referee_whose_last_mail_the_provider_refused_is_passed_over_and_the_row_stays_unasked(self, mongo_replica_set_url: str):
         refused = {"nachricht_id": "", "stand": "unzustellbar", "grund": "NoEmail", "am": "2026-03-31T10:00:00+00:00"}
