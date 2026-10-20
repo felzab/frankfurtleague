@@ -353,6 +353,33 @@ def test_the_watcher_tells_an_ended_launcher_from_one_it_cannot_see_or_one_a_reu
     _drive_watcher(WATCHED)
 
 
+# `scripts/gate/gate_watch.py :: launchers_of` where Windows records the topmost MSYS ancestor's
+# creator as a pid since reused: a process created after that ancestor and before the gate.
+REUSED_CREATOR: Final = """import os, subprocess, sys, time
+sys.path.insert(0, sys.argv[1])
+import gate_watch as watch
+sleeping = (sys.executable, "-c", "import time; time.sleep(60)")
+ancestor = os.getppid()
+later = subprocess.Popen(sleeping, stdin=subprocess.DEVNULL)
+time.sleep(0.05)
+gate = subprocess.Popen(sleeping, stdin=subprocess.DEVNULL)
+try:
+    recorded = watch._windows_parents
+    watch._windows_parents = lambda: {**recorded(), ancestor: later.pid}
+    found = watch.launchers_of([ancestor], gate.pid, watch.kernel32.OpenProcess(watch.GATE_ACCESS, False, gate.pid))
+    assert found is not None, "the ancestor itself read as ended"
+    assert later.pid not in found.values(), "a process created after the ancestor was watched as what started it"
+finally:
+    later.kill()
+    gate.kill()
+"""
+
+
+def test_the_launcher_above_the_ancestors_is_held_to_the_ancestor_it_started() -> None:
+    """Held to the gate instead, a pid reused between the two read as a launcher, and its ending stopped a gate nobody had stopped."""
+    _drive_watcher(REUSED_CREATOR)
+
+
 # `scripts/gate/gate_watch.py :: wind_down` over a listing one of whose members has ended since, as a
 # member does between the listing and its reads, and a registry the gate's own trap has removed.
 ENDED_MEMBER: Final = """import subprocess, sys, tempfile
