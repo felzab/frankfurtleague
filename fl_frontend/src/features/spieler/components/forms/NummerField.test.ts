@@ -12,6 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 import { NUMMER_MAX_LENGTH, NUMMER_MUST_BE_DIGITS } from "@/features/spieler/constants.ts";
 import { FLPostSaisonSpielerPayloadSchema } from "@/features/spieler/schemas.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderMarkup } from "@/shared/testing/renderTest.ts";
 
@@ -59,7 +60,7 @@ const renderEditor = () =>
           adresswechsel: null,
           adresswechsel_abgelaufen: false,
         },
-        einwilligung: null,
+        einwilligung: bestaetigteEinwilligung(),
         saison: {
           saisonId: "2026",
           saisonStatus: "active",

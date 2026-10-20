@@ -7,7 +7,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.spieler.admin_router import (
-    delete_saison_spieler,
     get_spieler_nachnominierung,
     patch_saison_spieler,
     patch_spieler,
@@ -60,25 +59,6 @@ def person_row(*, spieler_number: int, geburtsdatum: str | None = None) -> dict[
 
 def squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | None = None, rolle: str | None = None) -> dict[str, Any]:
     return saison_spieler_document(spieler_id, SAISON_ID, team_id, rolle=rolle, inactive_since=inactive_since)
-
-
-def legacy_squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | None = None) -> dict[str, Any]:
-    """A row as written before either field existed: the keys are ABSENT rather than empty, which no projection can supply."""
-
-    row = squad_row(spieler_id=spieler_id, team_id=team_id, inactive_since=inactive_since)
-    del row["ist_nachnominiert"]
-    del row["rolle"]
-
-    return row
-
-
-def old_spelling_squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | None = None) -> dict[str, Any]:
-    """A MARKED row as written before the rename: no payload can produce one, so it is assembled here and inserted raw."""
-
-    row = legacy_squad_row(spieler_id=spieler_id, team_id=team_id, inactive_since=inactive_since)
-    row["is_nachgetragen"] = True
-
-    return row
 
 
 def on_a_database(url: str, body: Body, *, constrained: bool = True) -> Any:
@@ -495,60 +475,7 @@ class TestReactivatingIntoASeasonTheClubHasLeft:
         assert on_a_database(mongo_replica_set_url, body).error_code == SQUAD_TEAM_NOT_IN_SAISON
 
 
-class TestASquadRowPredatingTheTwoFieldsStillEchoes:
-    """Only the create writes the marker, so every other path echoes a legacy document's marker as stored.
-
-    A subscript there answers 500 on a request that changed nothing, and `python -m app.core.constraints --check` is what finds the row.
-    """
-
-    def test_leaving_a_squad_answers_for_one(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            await database.saison_spieler.insert_one(legacy_squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID))
-
-            return await delete_saison_spieler(
-                spieler_id=spieler_id_for(90),
-                saison_id=SAISON_ID,
-                saison_spieler_collection=database.saison_spieler,
-                today=TODAY,
-                db=database.client,
-            )
-
-        response = on_a_database(mongo_replica_set_url, body)
-
-        assert (response.ist_nachnominiert, response.rolle) == (False, None)
-        assert response.inactive_since == TODAY
-
-    def test_returning_to_a_squad_answers_for_one_too(self, mongo_replica_set_url: str):
-        """The other write naming neither flag: the soft delete's case cannot speak for a revive that reads its own stored row."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await database.saison_spieler.insert_one(
-                legacy_squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
-            )
-
-            return await revive(database, spieler_id_for(90))
-
-        response = on_a_database(mongo_replica_set_url, body)
-
-        assert (response.ist_nachnominiert, response.rolle) == (False, None)
-        assert response.inactive_since is None
-
-    def test_a_row_stored_under_the_markers_old_spelling_still_echoes_as_marked(self, mongo_replica_set_url: str):
-        """A hand-written dictionary read, which no Pydantic alias reaches: dropped, the retire answers a late entry as an ordinary one."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await database.saison_spieler.insert_one(old_spelling_squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID))
-
-            return await delete_saison_spieler(
-                spieler_id=spieler_id_for(90),
-                saison_id=SAISON_ID,
-                saison_spieler_collection=database.saison_spieler,
-                today=TODAY,
-                db=database.client,
-            )
-
-        assert on_a_database(mongo_replica_set_url, body).ist_nachnominiert is True
-
+class TestTheMarkerTheCreateStored:
     def test_an_edit_leaves_the_marker_as_the_create_stored_it(self, mongo_replica_set_url: str):
         """The edit carries no marker, so what the create derived is never replaced by what an editor's page believed."""
 

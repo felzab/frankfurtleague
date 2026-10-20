@@ -164,9 +164,8 @@ export const FLSpielerWithMembershipsSchema = z.object({
   inactive_since: CustomDateStringSchema.nullable(),
   // Nullable for `einwilligung`'s reason below, over a person stored before the field existed.
   geburtsdatum: CustomDateStringSchema.nullable(),
-  // Nullable rather than optional, mirroring the backend default: a person stored before consent
-  // was collected has no record, and this tier is the only one that may read one.
-  einwilligung: FLEinwilligungSchema.nullable(),
+  // This tier is the only one that may read the record.
+  einwilligung: FLEinwilligungSchema,
   // The sign-in address, folded. No save carries it: it moves through its own link alone, so a field
   // bound to this key in the save's draft would offer a write the API refuses.
   email: z.string().nullable(),

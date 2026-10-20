@@ -26,7 +26,7 @@ export function FormEinwilligungSection({
   einwilligung,
   istFassungBekannt,
 }: {
-  einwilligung: FLEinwilligung | null;
+  einwilligung: FLEinwilligung;
   /** Whether the registry holds the stored label, resolved by the page through the words read. */
   istFassungBekannt: boolean | null;
 }) {
@@ -49,45 +49,33 @@ export function FormEinwilligungSection({
       </div>
 
       <div className={panel.body()}>
-        {einwilligung === null ? (
-          // The missing control belongs in the same breath: this panel stands among editable
-          // ones, so a reader meeting an empty one goes looking for the way to record a consent.
-          <p className="muted-hint">
-            Für diese Spielerin oder diesen Spieler ist keine Einwilligung festgehalten. Eintragen lässt sie sich nicht.
-          </p>
-        ) : (
-          <>
-            <p className="muted-hint">Diese Angaben lassen sich nicht bearbeiten.</p>
+        <p className="muted-hint">Diese Angaben lassen sich nicht bearbeiten.</p>
 
-            <dl className={FIELD_PAIR_CLASSES}>
-              <Angabe label="Umfang">
-                {EINWILLIGUNG_UMFANG_LABELS[einwilligung.umfang]}
-                <Beleg nachweis={einwilligung.nachweis.umfang} />
-              </Angabe>
-              {/* A word and never a switch: this panel reads a record back, and a control here would
-                  offer an administrator the answer that is the person's alone. */}
-              <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
-                {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
-                <Beleg nachweis={einwilligung.nachweis.medien} />
-              </Angabe>
-              {/* A stored record's alone: nothing names who answered since, the person being the only one who may. */}
-              {einwilligung.erteilt_von !== null && <Angabe label="Herkunft">{EINWILLIGUNG_HERKUNFT_LABELS[einwilligung.erteilt_von]}</Angabe>}
-              <Angabe label="Erteilt am">{formatSpielDatum(einwilligung.datum)}</Angabe>
-              <Angabe label="Bestätigt am">{formatSpielDatum(einwilligung.bestaetigt_am)}</Angabe>
-              {/* The key rather than a German gloss of it, which would be a second name for one
-                  wording. */}
-              <Angabe label={EINWILLIGUNG_FASSUNG_FRAGE}>
-                <Fassung
-                  textVersion={einwilligung.text_version}
-                  istBekannt={istFassungBekannt}
-                />
-              </Angabe>
-            </dl>
-          </>
-        )}
+        <dl className={FIELD_PAIR_CLASSES}>
+          <Angabe label="Umfang">
+            {EINWILLIGUNG_UMFANG_LABELS[einwilligung.umfang]}
+            <Beleg nachweis={einwilligung.nachweis.umfang} />
+          </Angabe>
+          {/* A word and never a switch: this panel reads a record back, and a control here would
+                offer an administrator the answer that is the person's alone. */}
+          <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
+            {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
+            <Beleg nachweis={einwilligung.nachweis.medien} />
+          </Angabe>
+          {/* A stored record's alone: nothing names who answered since, the person being the only one who may. */}
+          {einwilligung.erteilt_von !== null && <Angabe label="Herkunft">{EINWILLIGUNG_HERKUNFT_LABELS[einwilligung.erteilt_von]}</Angabe>}
+          <Angabe label="Erteilt am">{formatSpielDatum(einwilligung.datum)}</Angabe>
+          <Angabe label="Bestätigt am">{formatSpielDatum(einwilligung.bestaetigt_am)}</Angabe>
+          {/* The key rather than a German gloss of it, which would be a second name for one
+                wording. */}
+          <Angabe label={EINWILLIGUNG_FASSUNG_FRAGE}>
+            <Fassung
+              textVersion={einwilligung.text_version}
+              istBekannt={istFassungBekannt}
+            />
+          </Angabe>
+        </dl>
 
-        {/* On both branches, because what the record answers is what the squad page serves: an
-            administrator meeting an empty panel would otherwise read the list as the whole story. */}
         <p className="muted-hint">{EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS}</p>
       </div>
     </section>

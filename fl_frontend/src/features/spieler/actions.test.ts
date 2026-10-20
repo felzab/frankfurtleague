@@ -12,6 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 import { ContractBreakError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
 import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pageBody } from "@/shared/testing/pageHarness.ts";
@@ -145,7 +146,7 @@ function renderEditor({
       h(AdminSpielerEditForm, {
         istFassungBekannt: true,
         spieler: OHNE_ADRESSE,
-        einwilligung: null,
+        einwilligung: bestaetigteEinwilligung(),
         saison: {
           saisonId: SAISON_ID,
           saisonStatus: "active",
@@ -229,7 +230,7 @@ function person(id: string, vorname: string, rows: { saison_id: string; team_id:
     nachname: null,
     inactive_since: null,
     geburtsdatum: null,
-    einwilligung: null,
+    einwilligung: bestaetigteEinwilligung(),
     email: null as string | null,
     adresswechsel: null as FLSpielerAdresswechsel | null,
     adresswechsel_abgelaufen: false,
@@ -721,7 +722,7 @@ describe("the late-entry marker, which the backend derives", () => {
         h(AdminSpielerEditForm, {
           istFassungBekannt: true,
           spieler: OHNE_ADRESSE,
-          einwilligung: null,
+          einwilligung: bestaetigteEinwilligung(),
           saison: { saisonId: SAISON_ID, saisonStatus: "active", erlaubteStufen: ["Q1"], nachnominierungLaeuft, membership: null },
           teams: [STORED_TEAM],
           pageHeader: { title: "Lena Meier" },

@@ -371,7 +371,7 @@ class TestTheConfirmationNarrowing:
     def test_an_empty_stamp_grants_nothing(self, seeded_league: str, email: str):
         """Kills a presence test: `""` is a string the validator admits, and the public name read already withholds on it.
 
-        The pupil, alone in its mailbox, is the flag's pupil arm, with no seat or referee beside it to raise the flag instead.
+        The pupil, alone in its mailbox, is the flag's pupil arm: nothing beside it raises the flag instead.
         """
 
         answer = answered(seeded_league, email)

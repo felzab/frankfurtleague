@@ -28846,8 +28846,7 @@
           },
           "ist_nachnominiert": {
             "type": "boolean",
-            "title": "Ist Nachnominiert",
-            "default": false
+            "title": "Ist Nachnominiert"
           },
           "saison_id": {
             "type": "string",
@@ -28872,6 +28871,8 @@
           "nummer",
           "position",
           "stufe",
+          "rolle",
+          "ist_nachnominiert",
           "saison_id",
           "inactive_since"
         ],
@@ -29196,8 +29197,7 @@
           },
           "ist_nachnominiert": {
             "type": "boolean",
-            "title": "Ist Nachnominiert",
-            "default": false
+            "title": "Ist Nachnominiert"
           },
           "inactive_since": {
             "anyOf": [
@@ -29220,6 +29220,8 @@
           "nummer",
           "position",
           "stufe",
+          "rolle",
+          "ist_nachnominiert",
           "inactive_since"
         ],
         "title": "FLSpielerSelbstKaderZeile",
@@ -29343,14 +29345,7 @@
             "title": "Geburtsdatum"
           },
           "einwilligung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLEinwilligung"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/FLEinwilligung"
           },
           "email": {
             "anyOf": [
@@ -29391,6 +29386,7 @@
           "nachname",
           "id",
           "inactive_since",
+          "einwilligung",
           "adresswechsel_abgelaufen",
           "memberships"
         ],

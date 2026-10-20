@@ -13,6 +13,7 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
 import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
 import { spielbestaetigungFields } from "@/shared/testing/fixtures.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
@@ -238,7 +239,7 @@ const spielerEditor = (inactiveSince: string | null, inKader = true, adresswechs
       adresswechsel: adresswechsel,
       adresswechsel_abgelaufen: false,
     },
-    einwilligung: null,
+    einwilligung: bestaetigteEinwilligung(),
     saison: {
       saisonId: "2026",
       saisonStatus: "active" as const,

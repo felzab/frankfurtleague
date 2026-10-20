@@ -69,7 +69,7 @@ class TestTheMembershipsPipeline:
             "nummer": 1,
             "position": 1,
             "stufe": 1,
-            "ist_nachnominiert": {"$ifNull": ["$ist_nachnominiert", {"$ifNull": ["$is_nachgetragen", "$$REMOVE"]}]},
+            "ist_nachnominiert": 1,
             "rolle": 1,
             # A squad row really can be retired, unlike a team junction row, and dropping this makes it look live.
             "inactive_since": 1,
@@ -124,6 +124,7 @@ class TestTheResponseModel:
                         "vorname": "Ohne",
                         "nachname": "Squad",
                         "inactive_since": None,
+                        "einwilligung": EINWILLIGUNG,
                         "adresswechsel_abgelaufen": False,
                         "memberships": [],
                     }
@@ -142,6 +143,7 @@ class TestTheResponseModel:
                     "vorname": "Anna",
                     "nachname": "Abel",
                     "inactive_since": None,
+                    "einwilligung": EINWILLIGUNG,
                     "adresswechsel_abgelaufen": False,
                     "memberships": [
                         {
@@ -166,6 +168,7 @@ class TestTheResponseModel:
                 "vorname": "Anna",
                 "nachname": "Abel",
                 "inactive_since": None,
+                "einwilligung": EINWILLIGUNG,
                 "adresswechsel_abgelaufen": False,
                 "memberships": [
                     {
@@ -185,62 +188,7 @@ class TestTheResponseModel:
         assert player.memberships[0].position is None
         assert player.memberships[0].stufe is None
 
-    def test_a_membership_reads_a_row_that_carries_neither_flag(self):
-        """`FLSpieler` defaults both for this reason, and this model reads the same rows: requiring them here would 500 the whole list."""
-        player = FLSpielerWithMemberships.model_validate(
-            {
-                "_id": str(SPIELER_OIDS["Abel"]),
-                "vorname": "Anna",
-                "nachname": "Abel",
-                "inactive_since": None,
-                "adresswechsel_abgelaufen": False,
-                "memberships": [
-                    {
-                        "saison_id": SAISON,
-                        "team_id": str(TEAM_OID),
-                        "nummer": "7",
-                        "position": "Mittelfeld",
-                        "stufe": "Q1",
-                        "inactive_since": None,
-                    }
-                ],
-            }
-        )
-
-        assert (player.memberships[0].ist_nachnominiert, player.memberships[0].rolle) == (False, None)
-
-    def test_a_membership_reads_a_row_stored_under_the_markers_old_spelling(self):
-        """The model's own leniency, which nothing reaches today.
-
-        The projection ahead of it emits the new key from either stored spelling, so this is what
-        would carry a reader that handed a stored row straight to the model.
-        """
-        player = FLSpielerWithMemberships.model_validate(
-            {
-                "_id": str(SPIELER_OIDS["Abel"]),
-                "vorname": "Anna",
-                "nachname": "Abel",
-                "inactive_since": None,
-                "adresswechsel_abgelaufen": False,
-                "memberships": [
-                    {
-                        "saison_id": SAISON,
-                        "team_id": str(TEAM_OID),
-                        "nummer": "7",
-                        "position": "Mittelfeld",
-                        "stufe": "Q1",
-                        "is_nachgetragen": True,
-                        "rolle": None,
-                        "inactive_since": None,
-                    }
-                ],
-            }
-        )
-
-        assert player.memberships[0].ist_nachnominiert is True
-
-    @pytest.mark.parametrize("spelling", ["ist_nachnominiert", "is_nachgetragen"])
-    def test_a_payload_refuses_the_marker_under_either_spelling(self, spelling: str):
+    def test_a_payload_refuses_the_marker(self):
         """The create derives it and nothing edits it, so a sent marker is refused rather than silently stored or dropped."""
 
         with pytest.raises(ValidationError) as failure:
@@ -252,21 +200,16 @@ class TestTheResponseModel:
                     "nummer": "7",
                     "position": "Mittelfeld",
                     "stufe": "Q1",
-                    spelling: True,
+                    "ist_nachnominiert": True,
                     "rolle": None,
                 }
             )
 
-        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", spelling)]
-
-    def test_a_membership_defaults_match_the_flattened_read(self):
-        """`FLSpielerMembership` and `FLSpieler` read the same collection: a default on one and not the other is the disagreement this pins."""
-        for field in ("ist_nachnominiert", "rolle"):
-            assert FLSpielerMembership.model_fields[field].default == FLSpieler.model_fields[field].default
+        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "ist_nachnominiert")]
 
     @pytest.mark.parametrize("payload_model", [FLPostSaisonSpielerPayload, FLPatchSaisonSpielerPayload])
     def test_a_payload_keeps_the_role_required(self, payload_model):
-        """The default belongs to the read models: the patch `$set`s its dump, so one here strips an armband a form forgot to send."""
+        """The patch `$set`s its dump, so a default here strips an armband a form forgot to send."""
         assert payload_model.model_fields["rolle"].is_required()
 
     @pytest.mark.parametrize("payload_model", [FLPostSaisonSpielerPayload, FLPatchSaisonSpielerPayload])
@@ -289,11 +232,6 @@ class TestWhichTierMayReadTheConsentRecord:
     def test_it_sits_on_the_person_and_not_on_the_squad_row(self):
         """Consent is given by somebody, and a season is not what they agreed to -- the same split `inactive_since` is on either side of."""
         assert "einwilligung" not in FLSpielerMembership.model_fields
-
-    def test_this_read_defaults_it_where_the_stored_shape_requires_it(self):
-        """`FLSpieler` describes a document nothing returns; this one validates live rows, so a bound is a 500 waiting to happen."""
-        assert FLSpielerWithMemberships.model_fields["einwilligung"].default is None
-        assert FLSpieler.model_fields["einwilligung"].is_required()
 
 
 class TestTheAddressASignedInPersonIsJoinedOn:
@@ -339,32 +277,6 @@ def _squad_row(name: str, saison_id: str, *, nummer: str | None, inactive_since:
     )
 
 
-def _legacy_spieler(name: str) -> dict[str, Any]:
-    """A person as written before the consent record existed: the key is ABSENT rather than null, which is the shape no backfill has reached."""
-    person = _spieler(name)
-    del person["einwilligung"]
-
-    return person
-
-
-def _legacy_squad_row(name: str, saison_id: str) -> dict[str, Any]:
-    """A row as written before either field existed: the keys are ABSENT rather than empty, which is what the projection cannot supply."""
-    row = _squad_row(name, saison_id, nummer="5")
-    del row["ist_nachnominiert"]
-    del row["rolle"]
-
-    return row
-
-
-def _old_spelling_squad_row(name: str, saison_id: str) -> dict[str, Any]:
-    """A MARKED row as written before the rename: no payload can produce one, so it is built here and inserted raw."""
-    row = _squad_row(name, saison_id, nummer="6")
-    del row["ist_nachnominiert"]
-    row["is_nachgetragen"] = True
-
-    return row
-
-
 @pytest.fixture(scope="session")
 def squads(mongo_database: Database) -> Database:
     """Its own corpus rather than `conftest.py`'s league: squads there would make the pipeline suites depend on rows they never mention.
@@ -379,7 +291,7 @@ def squads(mongo_database: Database) -> Database:
             # The one row carrying an address, so every other person here is the shape a row written
             # before the field existed has: the key absent rather than null.
             {**_spieler("Abel"), "email": STORED_ADDRESS},
-            _legacy_spieler("Alt"),
+            _spieler("Alt"),
             # The person is retired and their squad row is not: the two are independent.
             _spieler("Baum", inactive_since="2026-05-01"),
             _spieler("Cordes"),
@@ -396,12 +308,6 @@ def squads(mongo_database: Database) -> Database:
             _squad_row("Cordes", SAISON, nummer="11"),
             # The row is retired while the person plays on — independent in the other direction.
             _squad_row("Cordes", PRIOR_SAISON, nummer="9", inactive_since="2025-11-30"),
-            # Hung on a player who already holds a row, so no assertion above about who the corpus
-            # contains has to move.
-            _legacy_squad_row("Abel", PRIOR_SAISON),
-            # Marked, and hung on a second such player: the unmarked legacy row above cannot tell a
-            # working fall-back from one that answers `False` for everybody.
-            _old_spelling_squad_row("Alt", PRIOR_SAISON),
         ]
     )
 
@@ -450,45 +356,10 @@ class TestTheMembershipsPipelineExecuted:
         assert [row["vorname"] for row in raw] == ["A", "A", "B", "C", "O"]
         assert [row["nachname"] for row in raw][:2] == ["Abel", "Alt"]
 
-    def test_a_row_written_before_the_two_fields_existed_still_reads(self, squads: Database):
-        """The whole chain, because its middle is the surprise.
-
-        An `$ifNull` over two absent keys and a `1` over an absent one both omit the key rather
-        than nulling it, so the defaults below are what supply it.
-        """
-        raw = next(row for row in squads.spieler.aggregate(build_spieler_memberships_pipeline()) if row["nachname"] == "Abel")
-        legacy = next(row for row in raw["memberships"] if row["saison_id"] == PRIOR_SAISON)
-
-        assert "ist_nachnominiert" not in legacy and "rolle" not in legacy
-
-        rows = {row.saison_id: row for row in self._by_surname(squads)["Abel"].memberships}
-        assert (rows[PRIOR_SAISON].ist_nachnominiert, rows[PRIOR_SAISON].rolle) == (False, None)
-
-    def test_a_row_stored_under_the_markers_old_spelling_still_reads_as_marked(self, squads: Database):
-        """The projection decides which keys the model sees, so the fall-back belongs here too.
-
-        Dropped, the administrator's squad list reads every un-reset late entry as ordinary, and
-        every case seeding under the new key still passes.
-        """
-        raw = next(row for row in squads.spieler.aggregate(build_spieler_memberships_pipeline()) if row["nachname"] == "Alt")
-        stored = next(row for row in raw["memberships"] if row["saison_id"] == PRIOR_SAISON)
-
-        assert stored["ist_nachnominiert"] is True
-
-        rows = {row.saison_id: row for row in self._by_surname(squads)["Alt"].memberships}
-        assert rows[PRIOR_SAISON].ist_nachnominiert is True
-
     def test_the_consent_record_reaches_this_read_whole(self, squads: Database):
         """Through a real aggregation: nothing is projected at the root, so the record rides on the stored document."""
 
         assert self._by_surname(squads)["Abel"].einwilligung == FLEinwilligung.model_validate(EINWILLIGUNG)
-
-    def test_a_person_stored_before_the_consent_record_existed_does_not_break_the_list(self, squads: Database):
-        """The whole LIST, not the one row: every document goes through one model, so a refusal here is a 500 for everybody."""
-        raw = next(row for row in squads.spieler.aggregate(build_spieler_memberships_pipeline()) if row["nachname"] == "Alt")
-
-        assert "einwilligung" not in raw
-        assert self._by_surname(squads)["Alt"].einwilligung is None
 
     def test_the_stored_address_reaches_this_read_in_the_form_it_was_stored(self, squads: Database):
         """Through a real aggregation: the root is unprojected, so a key added to the document rides along, and this tier is where it may."""

@@ -15,6 +15,7 @@ import ts from "typescript";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
 import { side, spielFields } from "@/shared/testing/fixtures.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
@@ -267,7 +268,7 @@ const FORMS: Record<string, FormCase> = {
       const editor = (withMembership: boolean) =>
         h(AdminSpielerEditForm, {
           spieler,
-          einwilligung: null,
+          einwilligung: bestaetigteEinwilligung(),
           saison: {
             saisonId: "2026",
             saisonStatus: "active",

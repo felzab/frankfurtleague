@@ -15,6 +15,7 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
@@ -208,7 +209,7 @@ const spielerProps = (over: { inactiveSince?: string; rowInactiveSince?: string;
     inactive_since: over.inactiveSince ?? null,
     adresswechsel: over.adresswechsel === true ? SPIELER_ADRESSWECHSEL : null,
   },
-  einwilligung: null,
+  einwilligung: bestaetigteEinwilligung(),
   istFassungBekannt: true,
   saison: {
     saisonId: "2026",

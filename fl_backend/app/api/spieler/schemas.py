@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, AliasChoices, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
 from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.sperrliste.schemas import ADDRESS_IN_FREE_TEXT
@@ -189,19 +189,14 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
     # no read serves the sentinel, so a null reaching one is that exclusion failing.
     vorname: CustomNonEmptyString | None
 
-    # Defaulted where the junction requires them (the stored row the marker, the writable block the
-    # role): a squad row written before either field existed still has to be describable, and a
-    # model that 422s describes it as impossible.
-    ist_nachnominiert: bool = False
-    rolle: FLSpielerRolle | None = None
+    ist_nachnominiert: bool
     # The day this PERSON left the league. Distinct from the squad row's own `inactive_since`: a
     # player who left one squad has a retired junction row and is still a player.
     inactive_since: CustomOptionalDateString
     # Defaulted for `rolle`'s reason above, over a person stored before the field existed.
     geburtsdatum: CustomOptionalDateString = None
-    # No default, unlike every defaulted field above: a default would let a row with no consent read
-    # back as though it had been asked. Nullable for `vorname`'s reason, the sentinel being nobody who
-    # could have agreed to anything.
+    # No default: a default would let a row with no consent read back as though it had been asked.
+    # Nullable for `vorname`'s reason, the sentinel being nobody who could have agreed to anything.
     einwilligung: FLEinwilligung | None
     # Stored as `app/shared/folding.py :: sign_in_identifier` folds it and never as it was typed: the
     # seam joining a signed-in person to this row is an equality on the stored value, and a raw write
@@ -215,11 +210,7 @@ FLSpielerListAdapter = TypeAdapter(list[FLSpielerPublic])
 
 
 class FLSaisonSpielerRow(BaseModel):
-    """The junction document as it is STORED -- the DECLARED SHAPE ONLY, validated against no read.
-
-    `rolle` is the one defaulted key: every stored row predates it, and
-    `app/api/spieler/admin_router.py :: _as_junction` defaults it likewise.
-    """
+    """The junction document as it is STORED -- the DECLARED SHAPE ONLY, validated against no read."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
@@ -227,9 +218,7 @@ class FLSaisonSpielerRow(BaseModel):
     saison_id: str
     team_id: CustomObjectId
     ist_nachnominiert: bool
-    # DEFAULTED, alone on this model: every stored row predates the field, so the validator leaves
-    # it out of `required` and a model requiring it would describe those rows as impossible.
-    rolle: FLSpielerRolle | None = None
+    rolle: FLSpielerRolle | None
     stufe: FLSpielerStufe | None
     position: FLSpielerPosition | None
     # A STRING, never an int: squad numbers are worn, not counted, and "07" is a printed shirt.
@@ -461,11 +450,7 @@ class FLSpielerMembership(_SaisonSpielerWritable):
     where a team never leaves a season at all.
     """
 
-    # Defaulted for `FLSpieler`'s reason. The alias stands BEHIND the projection, which hands this
-    # model the new key from either stored spelling, so nothing reaches it; it is the ruled second
-    # half of that leniency (`docs/backend/spec.md :: I302`).
-    ist_nachnominiert: bool = Field(default=False, validation_alias=AliasChoices("ist_nachnominiert", "is_nachgetragen"))
-    rolle: FLSpielerRolle | None = None
+    ist_nachnominiert: bool
 
     saison_id: str
     inactive_since: CustomOptionalDateString
@@ -484,9 +469,9 @@ class FLSpielerWithMemberships(_SpielerPerson):
     inactive_since: CustomOptionalDateString
     # Defaulted for `FLSpielerMembership`'s reason, over a person stored before the field existed.
     geburtsdatum: CustomOptionalDateString = None
-    # On the PERSON, as `inactive_since` is: consent is given by somebody, not per season. Defaulted
-    # where `FLSpieler` requires it, for `FLSpielerMembership`'s reason.
-    einwilligung: FLEinwilligung | None = None
+    # On the PERSON, as `inactive_since` is: consent is given by somebody, not per season. Never null:
+    # this read serves no sentinel, and every person is born of their own confirmed registration.
+    einwilligung: FLEinwilligung
     # Served here and withheld from the base tier, as the record above is: this read is the admin
     # editor's, and an address is the person's own.
     email: str | None = None
@@ -571,8 +556,8 @@ class FLSpielerSelbstKaderZeile(BaseModel):
     nummer: str | None
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
-    rolle: FLSpielerRolle | None = None
-    ist_nachnominiert: bool = False
+    rolle: FLSpielerRolle | None
+    ist_nachnominiert: bool
     inactive_since: CustomOptionalDateString
 
 
