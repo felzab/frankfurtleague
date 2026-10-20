@@ -3360,8 +3360,8 @@ UNENFORCED: tuple[Unenforced, ...] = (
     Unenforced(
         subject="a person holding no squad row at all",
         reason=(
-            "A person can stand with no squad row -- every row written before this programme may, and retiring a "
-            "person's last squad entry leaves the person -- and `REQ-SQUAD-001` governs the row rather than its "
+            "A person can stand with no squad row only by a database edit -- the admission writes the person and the "
+            "row together, and the erasure removes both -- and `REQ-SQUAD-001` governs the row rather than its "
             "absence. `GET /spieler/memberships` returns them with an empty membership list, so the read that "
             "would report the state already is the surface that repairs it."
         ),

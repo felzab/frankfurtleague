@@ -161,8 +161,9 @@ class FLSchiedsrichter(_SchiedsrichterWritable):
     schule: str | None
     # On no payload: deactivation goes through the delete endpoint, which stamps the date itself.
     inactive_since: CustomOptionalDateString
-    # All three defaulted, and on no payload. The ghost carries none of them, and every row entered
-    # before this flow carries none either, so a read refusing an absent key would 500 the list.
+    # Defaulted, on no payload: the ghost carries none, the create no record or birthdate before
+    # confirmation, and an address correction on a retired, unconfirmed referee drops the link.
+    # Refusing an absent key would 500 the list.
     bestaetigung: FLSchiedsrichterBestaetigung | None = None
     einwilligung: FLEinwilligung | None = None
     geburtsdatum: CustomOptionalDateString = None
