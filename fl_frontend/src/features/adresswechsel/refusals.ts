@@ -144,6 +144,8 @@ const NAME_IM_GRUND = "Der Grund enthält ein Wort, das einem Namen der Person g
 
 /** The tool's start, or `null`: a refusal of either value stands on its box, which is the way out. */
 export function mapVerwaltungStartRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  // The change the start would end has ended since the tool read it, so the page is older than the address's present.
+  if (isRecordMissing(error)) return { error: KEIN_ADRESSWECHSEL };
   if (!isRefusal(error)) return null;
 
   const zugang = ZUGANG[error.serverErrorCode ?? ""];

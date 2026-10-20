@@ -4,7 +4,12 @@ import { describe, it } from "node:test";
 import { refusedOn, unpublishedOn } from "@/shared/testing/publishedRefusals.ts";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink.ts";
 
-import { mapAdresswechselAnsichtRefusal, mapAdresswechselPresseRefusal } from "./refusals.ts";
+import {
+  mapAdresswechselAnsichtRefusal,
+  mapAdresswechselPresseRefusal,
+  mapVerwaltungLinkRefusal,
+  mapVerwaltungStartRefusal,
+} from "./refusals.ts";
 
 const ANSWER_OPERATION = "POST /adresswechsel/bestaetigung";
 const STOP_OPERATION = "POST /adresswechsel/bestaetigung/stopp";
@@ -43,6 +48,18 @@ describe("what one refused press asks the link page to show", () => {
   it("answers nothing for a code it does not word", () => {
     assert.equal(mapAdresswechselPresseRefusal(unpublishedOn(ANSWER_OPERATION, "REQ-ADRESSWECHSEL-007", 409)), null);
     assert.equal(mapAdresswechselPresseRefusal(new Error("network")), null);
+  });
+});
+
+describe("what the tool's start says where the change it would end has ended", () => {
+  /* The tool reads one address's present and the start ends the change it showed: a 404 is that change gone since. */
+  it("answers the missing change with the reload its re-send and discard answer it with", () => {
+    const START = "POST /adresswechsel";
+    const RESEND = "POST /adresswechsel/{adresswechsel_id}/einladen";
+
+    assert.deepEqual(mapVerwaltungStartRefusal(refusedOn(START, "DB-COMMON-001")), {
+      error: mapVerwaltungLinkRefusal(refusedOn(RESEND, "DB-COMMON-001")),
+    });
   });
 });
 
