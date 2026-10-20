@@ -222,12 +222,23 @@ with open(log, "wb") as out:
     raise SystemExit(child.wait())
 """
 INTERRUPTED: Final = 130
+# Each console that interrupt can reach the gate through, none with a window anyone sees: no window
+# at all, where the watcher alone takes it, and a hidden one, where every pool takes it too and
+# leaves its units to the watcher (`scripts/gate/gate_pool.py :: terminate`).
+CONSOLES: Final = ("no window", "a hidden window") if WINDOWS else ("a terminal",)
+# Started with no window itself, it opens a console for its command and keeps that console's hidden.
+HIDDEN_WINDOW: Final = """import subprocess, sys
+hidden = subprocess.STARTUPINFO(dwFlags=subprocess.STARTF_USESHOWWINDOW, wShowWindow=0)
+raise SystemExit(subprocess.call(sys.argv[1:], creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=hidden))
+"""
 
 
-def _interrupted(gate: tuple[str, ...], env: dict[str, str], started: Path, log: Path) -> subprocess.Popen[bytes]:
+def _interrupted(gate: tuple[str, ...], env: dict[str, str], started: Path, log: Path, console: str) -> subprocess.Popen[bytes]:
     """The gate, interrupted as its platform's terminal interrupts a run once every tool has started."""
     if WINDOWS:
         command = (sys.executable, "-c", CONSOLE_INTERRUPT, str(started), str(TOOLS), str(log), *gate)
+        if console == "a hidden window":
+            command = (sys.executable, "-c", HIDDEN_WINDOW, *command)
         run = subprocess.Popen(command, env=env, creationflags=CONSOLE)
     else:
         with log.open("wb") as out:
@@ -240,12 +251,13 @@ def _interrupted(gate: tuple[str, ...], env: dict[str, str], started: Path, log:
     return run
 
 
-def test_an_interrupt_ends_every_tool_and_leaves_nothing_behind() -> None:
+@pytest.mark.parametrize("console", list(CONSOLES))
+def test_an_interrupt_ends_every_tool_and_leaves_nothing_behind(console: str) -> None:
     """Ctrl-C at the terminal: on Windows the console's interrupt reaches no shell without a console of its own and no tool MSYS starts."""
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     root, env, started, scratch = _tree(STUB_PNPM, STUB_PYTHON.format(interpreter=Path(sys.executable).as_posix()))
     log = started.parent / "gate.log"
-    run = _interrupted((BASH, (root / "scripts" / "gate" / "verify.sh").as_posix(), *FLAGS), env, started, log)
+    run = _interrupted((BASH, (root / "scripts" / "gate" / "verify.sh").as_posix(), *FLAGS), env, started, log, console)
     try:
         try:
             status = run.wait(STARTED_BOUND_S + STOPPED_BOUND_S)
@@ -266,6 +278,30 @@ def test_an_interrupt_ends_every_tool_and_leaves_nothing_behind() -> None:
         with contextlib.suppress(OSError):
             run.kill()
         run.wait()
+
+
+# `scripts/lib/_lib.sh :: on_interrupt`, met by a second signal while the EXIT trap it hands over to
+# reclaims, as a stopped Windows gate meets the console's interrupt and the watcher's SIGTERM both.
+LIB: Final = VERIFY.parent.parent / "lib" / "_lib.sh"
+SECOND_SIGNAL: Final = """set -euo pipefail
+marker="$2"
+# shellcheck source=/dev/null
+source "$1"
+reclaim() { kill -TERM "$$"; sleep 0.3; printf 'reclaimed' > "$marker"; }
+trap reclaim EXIT
+kill -INT "$$"
+sleep 2
+"""
+
+
+def test_an_interrupt_s_cleanup_outlasts_a_second_signal(tmp_path: Path) -> None:
+    """Re-entered, the interrupt's statement printed twice and its `exit` cut the EXIT trap's reclaim short."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    marker = tmp_path / "reclaimed"
+    done = run_shell(BASH, write_shell(tmp_path / "twice.sh", SECOND_SIGNAL), LIB.as_posix(), marker.as_posix(), env=base_env())
+    assert done.returncode == INTERRUPTED, done.stdout + done.stderr
+    assert marker.exists(), f"the second signal cut the reclaim short:\n{done.stderr}"
+    assert done.stderr.count("Interrupted") == 1, done.stderr
 
 
 # `scripts/gate/verify.sh :: join_the_job` with no interpreter to watch by, under each `$OSTYPE` it
