@@ -94,6 +94,7 @@ const FRONTEND_ONLY: Record<string, string> = {
 
   FLSpielplan: "composed client-side from separate responses; no endpoint returns it",
   FLSpieltagWithSpiele: "composed client-side from separate responses; no endpoint returns it",
+  FLSpieltagWithAdminSpiele: "composed client-side from separate admin-tier responses; no endpoint returns it",
 
   FLSpielTeamField: "no endpoint touches the stored side: a read serves FLSpielTeamFieldJoined and a write takes FLSpielTeamFieldPayload",
 
