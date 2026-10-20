@@ -133,10 +133,11 @@ export async function einladeAdresswechselAction(rawPayload: FLAdresswechselEinl
       success: true,
       // Said whichever way the send went: the previous link is dead either way, which is the fact an
       // administrator has to act on when the message did not leave.
-      message: `${describeAdresswechselMail(mint, versand)} Der vorherige Link gilt nicht mehr.`,
+      message: `${describeAdresswechselMail(mint, versand)} Der vorherige Link gilt nicht mehr.${mint.adresse_belegt ? ` ${ADRESSE_BELEGT_SATZ}` : ""}`,
       versand: versand.link,
       hinweis: versand.hinweis,
-      adresseBelegt: false,
+      // Read again by the re-send's own transaction: records may have reached the new address since the start.
+      adresseBelegt: mint.adresse_belegt,
     };
   });
 }

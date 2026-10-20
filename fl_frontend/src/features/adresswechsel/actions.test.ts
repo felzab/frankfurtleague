@@ -297,6 +297,16 @@ describe("the waiting change's two controls", () => {
     assert.match(message(res), /Der vorherige Link gilt nicht mehr\./);
   });
 
+  /* The re-send's own read: records may have reached the new address since the start warned of none. */
+  it("warns on a re-send where the new address now holds records of its own", async () => {
+    antwort[RESEND] = () => ({ ...erneut, adresse_belegt: true });
+
+    const res = await einladeAdresswechselAction({ id: ADRESSWECHSEL_ID });
+
+    assert.equal(res.success && res.adresseBelegt, true);
+    assert.match(message(res), /Unter der neuen Adresse stehen schon Einträge bei der Liga\./);
+  });
+
   it("discards by the change's id and mails nobody", async () => {
     const res = await verwirfAdresswechselAction({ id: ADRESSWECHSEL_ID });
 
