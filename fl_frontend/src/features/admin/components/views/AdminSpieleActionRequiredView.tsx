@@ -5,21 +5,29 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 import { Tabs } from "@heroui/react/tabs";
 
+import { groupBestaetigungenBySpielId } from "@/features/spielbestaetigungen/utils";
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { SpielCardGrid } from "@/features/spiele/components/ui/SpielCardGrid";
 import { groupBracketFaultsBySpielId } from "@/features/spiele/utils";
 import { COUNT_BADGE_CLASSES, trackCountBadge } from "@/shared/components/ui/badges";
+import { Callout } from "@/shared/components/ui/Callout";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { TAB_INDICATOR_CLASSES, TAB_ITEM_CLASSES, TAB_TRACK_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { CARDS_CASCADE_CLASSES, PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 
-import { ACTION_REQUIRED_LABELS, buildActionRequiredSections } from "../../utils";
+import { ACTION_REQUIRED_LABELS, bestaetigungNotizen, buildActionRequiredSections } from "../../utils";
 
+import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
+import type { SpielCardNotes } from "@/features/spiele/components/collections/SpielCardsList";
 import type { FLBracketFault, FLSpiel } from "@/features/spiele/schemas";
+import type { ActionRequiredCategory } from "@/features/spiele/types";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
 import type { Key } from "@heroui/react/rac";
 import type { FLActionUrgency } from "../../utils";
+
+// Module scope, so a failed read keeps one identity across renders and the memos below hold.
+const KEINE_BESTAETIGUNGEN: readonly FLSpielbestaetigung[] = [];
 
 /**
  * In the URL and not `useState`: the App Router keeps an admin tree alive between navigations, so a
@@ -49,27 +57,44 @@ const SELECTED_BADGE_CLASSES = `${COUNT_BADGE_CLASSES} bg-brand-solid-foreground
 export function AdminSpieleActionRequiredView({
   overviewSpiele,
   bracketFaults,
+  bestaetigungen,
+  bestaetigungenVollstaendig,
   today,
   isFinishedSaison,
 }: {
   overviewSpiele: FLSpiel[];
   bracketFaults: FLBracketFault[];
+  /** The season's confirmation rows; `null` where their read failed, which the page says rather than showing empty tabs as clear. */
+  bestaetigungen: readonly FLSpielbestaetigung[] | null;
+  bestaetigungenVollstaendig: boolean;
   today: string;
   isFinishedSaison: boolean;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const zeilen = bestaetigungen ?? KEINE_BESTAETIGUNGEN;
 
   // Memoised by hand: the React Compiler is deliberately off (`next.config.ts`), so without this
   // every section switch re-partitions the whole match list for the identical result.
   const sections = useMemo(
-    () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults }),
-    [overviewSpiele, today, bracketFaults],
+    () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults, bestaetigungen: zeilen }),
+    [overviewSpiele, today, bracketFaults, zeilen],
   );
 
   // Keyed by `spiel_id` so each card states its own reasons; one shared box leaves the reader
   // matching match numbers to cards by eye.
-  const faultsBySpielId = useMemo(() => groupBracketFaultsBySpielId(bracketFaults), [bracketFaults]);
+  const notes = useMemo(
+    (): Partial<Record<ActionRequiredCategory, SpielCardNotes>> => ({
+      bracket_fault: { tone: "danger", bySpielId: groupBracketFaultsBySpielId(bracketFaults) },
+      vorschlag_offen: { tone: "info", bySpielId: bestaetigungNotizen("vorschlag_offen", overviewSpiele, zeilen, today) },
+      bestaetigung_ueberfaellig: {
+        tone: "warning",
+        bySpielId: bestaetigungNotizen("bestaetigung_ueberfaellig", overviewSpiele, zeilen, today),
+      },
+    }),
+    [bracketFaults, overviewSpiele, zeilen, today],
+  );
+  const bestaetigungenBySpielId = useMemo(() => groupBestaetigungenBySpielId(zeilen), [zeilen]);
 
   const activeSection =
     sections.find((section) => section.category === searchParams.get(SECTION_PARAM)) ??
@@ -156,6 +181,21 @@ export function AdminSpieleActionRequiredView({
         </div>
       </div>
 
+      {/* Standing, never dismissible: the three confirmation tabs read zero or short for as long as the rows are. */}
+      {(bestaetigungen === null || !bestaetigungenVollstaendig) && (
+        <div className="flex w-full max-w-page flex-col px-4 pb-4 sm:px-8">
+          <Callout
+            severity="warning"
+            title={
+              bestaetigungen === null ? "Die Spielbestätigungen ließen sich gerade nicht lesen" : "Die Spielbestätigungen sind unvollständig"
+            }>
+            {bestaetigungen === null
+              ? "Die Kategorien zu Terminvorschlägen und Bestätigungen sind deshalb leer, auch wo ein Spiel hineingehört. Lade die Seite neu."
+              : "Geladen sind nur die neuesten Antworten dieser Saison. Die Kategorien zu Terminvorschlägen und Bestätigungen können Spiele auslassen."}
+          </Callout>
+        </div>
+      )}
+
       {sections.map((section) => (
         <Tabs.Panel
           key={section.category}
@@ -168,8 +208,8 @@ export function AdminSpieleActionRequiredView({
                 title="In dieser Kategorie braucht kein Spiel etwas."
               />
             ) : (
-              // Faults reach the `bracket_fault` section alone: the one list already filtered by that
-              // diagnosis, and the only category whose tab cannot state the reason itself.
+              // Notes reach their own section alone: the one list already filtered by that diagnosis,
+              // whose tab cannot name the fault, the club or the date itself.
               <SpielCardGrid
                 role="list"
                 className={CARDS_CASCADE_CLASSES}>
@@ -178,7 +218,8 @@ export function AdminSpieleActionRequiredView({
                   today={today}
                   isFinishedSaison={isFinishedSaison}
                   isAdmin
-                  faultsBySpielId={section.category === "bracket_fault" ? faultsBySpielId : undefined}
+                  notes={notes[section.category]}
+                  bestaetigungenBySpielId={bestaetigungenBySpielId}
                 />
               </SpielCardGrid>
             )}
