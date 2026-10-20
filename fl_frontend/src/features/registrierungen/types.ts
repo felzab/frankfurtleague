@@ -64,8 +64,8 @@ export type SpielerBestaetigungStart =
   { zustand: "gueltig"; ansicht: SpielerBestaetigungGeoeffnet; token: string } | { zustand: SpielerLinkZustand | "unlesbar" };
 
 /**
- * What a confirmed pupil's answer panel states: what this page asked and they sent, so nothing on the
- * returning pupil's page but a date typed where none was stored.
+ * What a confirmed pupil's answer panel states: what this page asked and they sent, so nothing at all on the
+ * returning pupil's page, which asks neither a choice nor a date.
  */
 export type SpielerBestaetigungGespeichert = {
   geburtsdatum: string | null;

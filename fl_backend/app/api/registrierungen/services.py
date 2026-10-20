@@ -311,6 +311,7 @@ REGISTRIERUNG_ALTER = "REQ-REGISTRIERUNG-007"
 REGISTRIERUNG_MEDIEN_ALTER = "REQ-REGISTRIERUNG-010"
 REGISTRIERUNG_BESTAETIGUNG_GESPERRT = "REQ-REGISTRIERUNG-012"
 REGISTRIERUNG_WAHLEN_UNPASSEND = "REQ-REGISTRIERUNG-017"
+REGISTRIERUNG_OHNE_GEBURTSDATUM = "REQ-REGISTRIERUNG-019"
 
 # The two pages one link opens, each with its running label (`app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`).
 SEITE_NEU: Final[FLRegistrierungSeite] = "bestaetigung_spieler"
@@ -548,15 +549,14 @@ def gespeichertes_geburtsdatum(*, seite: FLRegistrierungSeite, person_raw: Mappi
     return person_raw["geburtsdatum"] if seite == SEITE_WIEDERKEHREND and person_raw is not None else None
 
 
-def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any, geburtsdatum: Any, gespeichert: Any) -> WriteRefusal | None:
+def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any, geburtsdatum: Any) -> WriteRefusal | None:
     """`REQ-REGISTRIERUNG-017`: the body answers what its page did not ask, or leaves out what it did.
 
-    Both choices and a birthdate on the new pupil's page, none of the three on the returning pupil's,
-    whose person's date is `gespeichert`.
+    Both choices and a birthdate on the new pupil's page, none of the three on the returning pupil's.
     """
 
     gefragt = seite == SEITE_NEU
-    if (umfang is not None) == gefragt and (medien is not None) == gefragt and (geburtsdatum is not None) == (gespeichert is None):
+    if (umfang is not None) == gefragt and (medien is not None) == gefragt and (geburtsdatum is not None) == gefragt:
         return None
 
     return WriteRefusal(
@@ -566,6 +566,23 @@ def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any
             "the answers sent are not the ones this link's page asks: a returning pupil's page asks no choice and no "
             "birthdate, a new pupil's page both choices and the birthdate"
         ),
+    )
+
+
+def find_ohne_geburtsdatum_refusal(*, seite: FLRegistrierungSeite, gespeichert: Any) -> WriteRefusal | None:
+    """`REQ-REGISTRIERUNG-019`: the returning pupil's page takes the stored birthdate, and the person holds none.
+
+    Only a hand edit leaves a confirmed person undated, which `app/core/constraints.py :: NAMELESS_PERSON_RULE`
+    reports; the page has no field to ask one in, so the league corrects the person and the link answers again.
+    """
+
+    if seite != SEITE_WIEDERKEHREND or gespeichert is not None:
+        return None
+
+    return WriteRefusal(
+        error_code=REGISTRIERUNG_OHNE_GEBURTSDATUM,
+        status=HTTPStatus.CONFLICT,
+        message="the person this link confirms holds no birthdate for the returning pupil's page to take; the league corrects the record",
     )
 
 

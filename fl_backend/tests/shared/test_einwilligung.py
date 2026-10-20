@@ -66,7 +66,7 @@ FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
     "2026-10-bestaetigungsseite-8": "36008941791735e7b283b3c47566083f5a182fad6ef8ac5ab1e07f3a1fc62a77",
     "2026-10-bestaetigungsseite-verwaltung-2": "f38fb3df50883ebd87e89ee2b40c74b4554f4f94029c998a17db60577af0a711",
     "2026-10-bestaetigungsseite-saison-2": "a566bb3e3cd6b1942429dd3690554ddbd08ba0e58b915bf0792e247e1775f31b",
-    "2026-10-spielerseite-wiederkehrend-3": "d898f89df50229c43e01e16489804fe764c2450f4246f0e71cba47b153d7031e",
+    "2026-10-spielerseite-wiederkehrend-3": "513713fe524a1748819abb930a56b34f500246c24892d1a6d9462e6f6dbf3e58",
 }
 
 
