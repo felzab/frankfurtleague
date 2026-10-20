@@ -9,7 +9,7 @@ import { createElement as h } from "react";
 
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
-import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import {
   answer,
@@ -28,8 +28,6 @@ import type { SubjectSession } from "@/core/subject.ts";
 import type { ReactElement, ReactNode } from "react";
 
 const { setSession, setSubject } = doubleActionRequest();
-// Each shell hands a sign-out action to the bar, whose real module reaches `next/server` past the harness.
-doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step and the doubles as it evaluates (`docs/frontend/spec.md` §1.9). */

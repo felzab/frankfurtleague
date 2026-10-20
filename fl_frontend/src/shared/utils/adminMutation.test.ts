@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
+import ts from "typescript";
+
+import { serverActionModules } from "@/core/treeWalk.ts";
 import { cacheCalls, doubleActionRequest, loggedErrorCodes, loggedLines } from "@/shared/testing/actionDoubles.ts";
 
 /* The trace seed, the refresh, the session and the framework's control-flow rethrow are the
@@ -12,7 +17,7 @@ const { setSession, setRefusal } = doubleActionRequest({ session: ADMIN });
 const refreshes = (): number => cacheCalls.filter(({ name }) => name === "refresh").length;
 
 const { invalidatesOnWrite, runAdminMutation } = await import("./adminMutation.ts");
-const { boundCall, recordWriteSent, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
+const { boundCall, recordOwnSessionEnding, recordWriteSent, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 const { getAdminSession } = await import("@/core/auth");
 const { APIBadStatusError, APINetworkError, ApiUnsentError, RolledBackError } = await import("@/core/errors");
 const { ENROLMENT_WINDOW_MS } = await import("@/core/sessionLifetimes");
@@ -214,6 +219,65 @@ describe("the refresh an admin write owes the page", () => {
     await runAdminMutation("probeAction", writing(declaring({ success: false, error: "Nein." })));
     await runAdminMutation("probeAction", declaring({ success: true }));
     assert.deepEqual(cacheCalls, []);
+  });
+});
+
+/* Rendered again with its session gone, the page's area guard unmounts the whole frame; the page leaves by a
+   document load instead (`docs/frontend/spec.md :: I831`). */
+describe("a write that may have ended the caller's own session", () => {
+  /** A body ending its caller's own session, as a removal of this device's passkey does, answering `answer`. */
+  const endingItsSession =
+    <T>(answer: () => Promise<T>) =>
+    (): Promise<T> => {
+      recordWriteSent();
+      recordOwnSessionEnding();
+      return answer();
+    };
+
+  it("renders no page again after a success", async () => {
+    await runAdminMutation(
+      "probeAction",
+      endingItsSession(() => Promise.resolve({ success: true })),
+    );
+
+    assert.deepEqual(cacheCalls, [], "the spine rendered the page again");
+  });
+
+  it("renders no page again after an outcome nobody knows either", async () => {
+    const answer = await runAdminMutation(
+      "probeAction",
+      endingItsSession(() => Promise.reject(new RangeError("Invalid time value"))),
+    );
+
+    assert.equal("outcome" in answer ? answer.outcome : undefined, "unknown");
+    assert.deepEqual(cacheCalls, [], "the spine rendered the page again");
+  });
+
+  /* The spine drops no tag for such a write, `updateTag` rendering the page again: a write ending its caller's own
+     session that fed a cached read would leave it serving the old entry, so none may declare one. */
+  it("is declared by no action that also declares a cache tag", () => {
+    const declaring = serverActionModules(20).flatMap((file) => {
+      const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.ESNext, true, ts.ScriptKind.TS);
+      return source.statements.filter(ts.isFunctionDeclaration).flatMap((action) => {
+        const called = new Set<string>();
+        const visit = (node: ts.Node): void => {
+          if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) called.add(node.expression.text);
+          ts.forEachChild(node, visit);
+        };
+        visit(action);
+        return called.has("recordOwnSessionEnding")
+          ? [{ name: `${path.basename(path.dirname(file))} :: ${action.name?.text ?? "?"}`, tags: called.has("invalidatesOnWrite") }]
+          : [];
+      });
+    });
+
+    // The control: a reader finding no such action would pass the absence below over nothing.
+    assert.ok(declaring.length > 0, "no action declares that it may end its caller's own session");
+    assert.deepEqual(
+      declaring.filter(({ tags }) => tags).map(({ name }) => name),
+      [],
+      "an action ending its caller's own session declares a cache tag the spine will not drop",
+    );
   });
 });
 

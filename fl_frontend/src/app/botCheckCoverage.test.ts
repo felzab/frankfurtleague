@@ -51,6 +51,7 @@ const EXEMPT: Readonly<Record<string, string>> = {
     "the sign-in library's own surface, every mailing endpoint of which `fl_frontend/src/core/auth.test.ts :: IN_PROCESS_ONLY` and `fl_frontend/src/core/auth.ts :: DISABLED_PATHS` keep off it",
   "app/api/client-error/route.ts POST": "it writes one bounded log line and mails nobody",
   "app/api/signin/code/route.ts POST": "it checks a code already mailed, held to its per-address failure bound, and mails nobody",
+  "app/api/signout/route.ts POST": "it ends the caller's own session and mails nobody",
   "app/api/mail/zustellung/route.ts POST":
     "the mail provider's webhook, its credential the provider's signature over the body; it mails nobody",
   "app/api/bestaetigung/kontakt/route.ts POST": "its credential is a link the league minted and mailed; it mails no address the request types",
@@ -61,7 +62,6 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "app/api/bestaetigung/spiel/route.ts POST": "its credential is a link the league minted and mailed; it mails no address the request types",
   "app/api/bewerbung/kuerzel/route.ts GET": "a read: it writes nothing and mails nobody",
   "app/api/revalidate/route.ts POST": "its credential is the system key, which no visitor holds, and the edge refuses it; it mails nobody",
-  "features/auth/actions.ts :: signOutAction": "it ends the caller's own session and mails nobody",
 };
 
 /** Every method Next routes to a handler. */
