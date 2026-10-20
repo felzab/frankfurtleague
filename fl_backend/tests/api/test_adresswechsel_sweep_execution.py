@@ -349,7 +349,7 @@ class TestEachCallTakesAShare:
     def test_changes_parked_on_an_approval_take_no_share(self, mongo_replica_set_url: str):
         """A share and one more confirmed, each owing its approval while its address holds a grant: one call, ending the pass.
 
-        Read onto the page, they would fill the share and send every due change behind them to a later call.
+        On the page they would fill the share, every due change behind them waiting a call.
         """
 
         def parked(position: int) -> dict[str, Any]:
