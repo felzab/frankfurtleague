@@ -469,6 +469,20 @@ class TestTheConfirmation:
         assert code == SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT
         assert row["kontakt"]["email"] == EMAIL
 
+    def test_a_lapsed_link_to_a_barred_address_is_refused_as_its_view_reads_it(self, mongo_replica_set_url: str):
+        """The view ranks the ban ahead of the deadline, so the press does: the page then names what a reload shows."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            saved = await save(database, client, email=NEW_EMAIL)
+            await ban(database, client, email=NEW_EMAIL)
+            token = saved.adresswechsel.token
+
+            return (await view(database, token, today=AFTER_THE_DEADLINE)).zustand, await refused_code(
+                answer(database, client, token, "bestaetigt", today=AFTER_THE_DEADLINE)
+            )
+
+        assert on_a_league(mongo_replica_set_url, body) == ("gesperrt", SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT)
+
 
 class TestAChangeReplacingABarredAddress:
     """`REQ-SCHIEDSRICHTER-010`: a ban entered on the address on file while a change is pending stops the change's confirmation."""

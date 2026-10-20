@@ -1290,7 +1290,10 @@ failure, with the file, line and function it was raised in. The rest of that clo
 the named one stays due: every later pass names it again until its record is repaired
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I720). **An application whose
 announcement stamp is passed over is mailed its deletion notice again each day**, and stands past
-its fourteen days until the stamp lands or its season is `past`.
+its fourteen days until the stamp lands or its season is `past`. **The confirmation strip clock
+names the season**, as it takes an ended season's fixture confirmations whole: its line says what of
+theirs the season's end could not strip, the contact blocks clear all the same, and every later pass
+tries again ([`../backend/spec.md`](../backend/spec.md#2-invariants) I778).
 
 **A fresh date beside a `bewerbung.sweep_pass` or `registrierung.sweep_pass` warning is a clock
 passing rows over, not a pass that ran clean.** A clock failing on every row still moves its date,
@@ -1414,10 +1417,11 @@ it stamped as asked, the reminders the backend stamped for it to mail, whether o
 went, and the rows it passed over, at `INFO`, and as a warning under `FE-SWEEP-004` where it passed
 rows over. A season it could not sweep files `spielbestaetigung.sweep_failed` besides, and a listing
 that failed files that line and no pass line, its cache drop still running and filing
-`cache.revalidation_failed` where that fails. A request whose stamp never landed is asked again on
-every pass until one does, each seat whose last mail the provider refused passed over, so a stamp
-call failing hour after hour mails those seats hourly: switch the confirmations off until it is
-repaired. A `spielbestaetigung.sweep_skipped` line in every hour says a pass is stuck, which
+`cache.revalidation_failed` where that fails. A request or an Einteilung whose stamp never landed
+is asked again on every pass until one does or its row's deadline passes, each address whose last
+mail the provider refused passed over, so a stamp call failing hour after hour mails those seats
+and referees hourly: switch the confirmations off until it is repaired. Every link such a mail
+carried stays live until the deadline beside the later ones. A `spielbestaetigung.sweep_skipped` line in every hour says a pass is stuck, which
 recreating the frontend service ends:
 
     docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_

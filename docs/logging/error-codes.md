@@ -290,6 +290,9 @@ demand a tree spell every code below.
 - **`REQ-ROUTE-003`** — the routing layer raised a status no other code names, passed through as
   raised. The router raises only the statuses the other routing codes and `REQ-VAL-002` name, so
   one outside them is a server bug and answers the server fault it is.
+- **`REQ-ANSETZUNG-012`** — a club's reason for declining a fixture's date named a contact seat holder
+  of either club or the booked referee. A reason takes any text, by decision: it goes with its
+  writer's erasure and with the season's contacts.
 - **`SRV-BOOT-008`** — a warning the boot went past: a credential's old variable name, or the
   administrator list the grants replaced, was still set in the backend's environment. No such name
   is declared, so a container boots past one in silence; the deploy's and the local stack's

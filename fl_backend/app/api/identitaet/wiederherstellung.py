@@ -323,7 +323,7 @@ async def _plan_widerspruch(
             ]
             await void_moved_seats(spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN], voids=voids, session=session)
             await redact_seat_entries_in_images(
-                aktionen_collection=database[Collection.AKTIONEN], voids=voids, reasons=False, stamp=log_stamp(now), session=session
+                aktionen_collection=database[Collection.AKTIONEN], voids=voids, stamp=log_stamp(now), session=session
             )
             # As the link's answer takes them, which the restored rows and images hold again.
             await remove_their_reasons(
