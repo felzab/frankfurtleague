@@ -36,7 +36,7 @@ from app.api.adresswechsel.schemas import (
 from app.api.adresswechsel.sweep_router import sweep_adresswechsel
 from app.api.konto.router import delete_adresswechsel as stop_on_the_account_page
 from app.api.konto.router import get_adresswechsel, post_adresswechsel, post_adresswechsel_freigabe
-from app.api.konto.schemas import FLKontoAdresswechselPayload
+from app.api.konto.schemas import FLKontoAdresswechselFreigabePayload, FLKontoAdresswechselPayload
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from app.shared.schemas.bounds import ADRESSWECHSEL_WARTEZEIT_TAGE
@@ -283,8 +283,8 @@ def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = NEW
     return call(post_adresswechsel, database, client, adresswechsel_data=FLKontoAdresswechselPayload(email=email), **given)
 
 
-def approve_as_the_address(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> Awaitable[Any]:
-    return call(post_adresswechsel_freigabe, database, client, **given)
+def approve_as_the_address(database: AsyncDatabase, client: AsyncMongoClient, adresswechsel_id: ObjectId, **given: Any) -> Awaitable[Any]:
+    return call(post_adresswechsel_freigabe, database, client, freigabe_data=FLKontoAdresswechselFreigabePayload(id=adresswechsel_id), **given)
 
 
 def stop_here(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> Awaitable[Any]:

@@ -10581,8 +10581,18 @@
     "/api/v0/konto/adresswechsel/freigabe": {
       "post": {
         "summary": "Approve the address change an administrator asked of the signed-in person",
-        "description": "Approve a change an administrator started without a reason, minting the new mailbox's link once, for the frontend's server to mail.\n\n**Nothing reaches the new mailbox before this press** (`docs/backend/spec.md :: I794`). Nothing about the new address is\njudged here either: the approver is owed no answer about it, and the confirmation judges it.\n\nRefused `REQ-AUTH-009` as the start is; 404 where no such change awaits the address's approval;\n`REQ-ADRESSWECHSEL-003` past the approval's deadline; and `REQ-DROSSELUNG-001` as the start is.",
+        "description": "Approve the change `id` names, one an administrator started without a reason, minting the new mailbox's link once, for the frontend's server to mail.\n\n**Nothing reaches the new mailbox before this press** (`docs/backend/spec.md :: I794`). Nothing about the new address is\njudged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the\nchange its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.\n\nRefused `REQ-AUTH-009` as the start is; `REQ-ADRESSWECHSEL-002` where the change `id` names has ended; 404 where it\nis no change of this address awaiting its approval; `REQ-ADRESSWECHSEL-003` past the approval's deadline; and\n`REQ-DROSSELUNG-001` as the start is.",
         "operationId": "post_adresswechsel_freigabe_api_v0_konto_adresswechsel_freigabe_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLKontoAdresswechselFreigabePayload"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -10597,17 +10607,23 @@
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
           "default": {
             "$ref": "#/components/responses/default"
           },
           "400": {
-            "$ref": "#/components/responses/400.REQ-AUTH-005"
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-008"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-ADRESSWECHSEL-002"
           },
           "410": {
             "$ref": "#/components/responses/410.REQ-ADRESSWECHSEL-003"
@@ -18297,6 +18313,22 @@
         ],
         "title": "FLKontaktpersonPayload"
       },
+      "FLKontoAdresswechselFreigabePayload": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "FLKontoAdresswechselFreigabePayload",
+        "description": "The change the page showed: an administrator's later start replaces it, and the approval then reaches nothing."
+      },
       "FLKontoAdresswechselFreigabeResponse": {
         "properties": {
           "acknowledged": {
@@ -18402,6 +18434,11 @@
       },
       "FLKontoAdresswechselOffen": {
         "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id"
+          },
           "email": {
             "type": "string",
             "title": "Email"
@@ -18462,6 +18499,7 @@
         },
         "type": "object",
         "required": [
+          "id",
           "email",
           "weg",
           "wartet_auf",

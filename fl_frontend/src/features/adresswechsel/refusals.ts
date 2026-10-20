@@ -91,12 +91,20 @@ export function mapKontoAdresswechselRefusal(error: unknown): { error?: string; 
   }
 }
 
-/** The approval, or `null`: a change answered, stopped or replaced since the page loaded is the 404. */
+/** The approval, or `null`: a shown change awaiting no approval is the 404, and one replaced or stopped since the page loaded `-002`. */
 export function mapKontoFreigabeRefusal(error: unknown): string | null {
   if (isRecordMissing(error)) return "Es wartet keine Änderung mehr auf Deine Freigabe. Lade die Seite neu.";
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "REQ-ADRESSWECHSEL-003" ? "Die Zeit für die Freigabe ist abgelaufen. Die Änderung wird gelöscht." : null;
+  switch (error.serverErrorCode) {
+    case "REQ-ADRESSWECHSEL-003":
+      return "Die Zeit für die Freigabe ist abgelaufen. Die Änderung wird gelöscht.";
+    // Nothing approved: the page's change was replaced, and the reload shows the one standing now.
+    case "REQ-ADRESSWECHSEL-002":
+      return "Diese Änderung ist inzwischen beendet, freigegeben ist nichts. Lade die Seite neu.";
+    default:
+      return null;
+  }
 }
 
 /** The stop, or `null`: the one refusal is a change already gone, whose page the reload brings up to date. */

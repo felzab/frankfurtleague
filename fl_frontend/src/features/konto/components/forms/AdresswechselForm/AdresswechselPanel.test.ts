@@ -33,10 +33,14 @@ const MINUTE_MS = 60 * 1000;
 
 const OHNE: FLKontoAdresswechselResponse = { acknowledged: 1, moeglich: true, offen: null };
 
+/** The change the page was drawn for, which its approval names. */
+const SHOWN = "6890a1b2c3d4e5f607800042";
+
 /** A pending change as the read serves it, the new address already composed by the backend. */
 const offen = (teil: Partial<NonNullable<FLKontoAdresswechselResponse["offen"]>>): FLKontoAdresswechselResponse => ({
   ...OHNE,
   offen: {
+    id: SHOWN,
     email: "lena@neu.example",
     weg: "konto",
     wartet_auf: "neue_adresse",
@@ -128,6 +132,20 @@ describe("the account page's address control", () => {
     assert.match(
       document.body.textContent,
       /Gib sie nur frei, wenn Du das selbst bei uns angefragt hast\. Freigeben kannst Du bis 21\. Oktober 2026 um 13:30\./,
+    );
+  });
+
+  /* A second start replaces the change this page shows; the press names the shown one, so the backend approves nothing
+     the page never displayed. */
+  it("approves the change the page shows, by its id", async () => {
+    render(panel(offen({ email: "m•••@g•••.de", weg: "freigabe", wartet_auf: "freigabe" }), 1));
+
+    await userEvent.setup().click(screen.getByRole("button", { name: AENDERUNG_FREIGEBEN }));
+    await act(answered);
+
+    assert.deepEqual(
+      calls.map(({ action, payload }) => [action, payload]),
+      [["gibAdresswechselFreiAction", { id: SHOWN }]],
     );
   });
 

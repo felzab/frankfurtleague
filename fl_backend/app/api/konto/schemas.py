@@ -146,6 +146,8 @@ class FLKontoRegistrierungEinwilligung(BaseModel):
 class FLKontoAdresswechselOffen(BaseModel):
     """The address's live change as its own account page reads it."""
 
+    # What the approval names, so a tab drawn before a later start approves nothing it never showed.
+    id: CustomObjectId
     # Whole where the person typed it on this page; masked where an administrator started the change, which may be a
     # pretext whose target the holder of the address on file must not learn (`app/api/adresswechsel/services.py :: maskierte_adresse`).
     email: str
@@ -182,6 +184,14 @@ class FLKontoAdresswechselMintResponse(BaseAPIResponse):
     vorname: str
     # Whom the frontend's server tells an approval waits; empty where no grant moves.
     genehmiger: list[str]
+
+
+class FLKontoAdresswechselFreigabePayload(BaseModel):
+    """The change the page showed: an administrator's later start replaces it, and the approval then reaches nothing."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: CustomObjectId
 
 
 class FLKontoAdresswechselFreigabeResponse(BaseAPIResponse):

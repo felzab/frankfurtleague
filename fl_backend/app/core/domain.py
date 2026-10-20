@@ -3118,7 +3118,7 @@ RULES: tuple[Rule, ...] = (
         operation=(
             "POST /adresswechsel/bestaetigung · POST /adresswechsel/bestaetigung/stopp · POST /adresswechsel/ansicht"
             " · POST /adresswechsel/{adresswechsel_id}/einladen · DELETE /adresswechsel/{adresswechsel_id}"
-            " · POST /adresswechsel/{adresswechsel_id}/genehmigung"
+            " · POST /adresswechsel/{adresswechsel_id}/genehmigung · POST /konto/adresswechsel/freigabe"
         ),
         aggregate="Adresswechsel",
         summary="a change that ended, or a link already answered, takes no further answer, re-send, discard or approval",

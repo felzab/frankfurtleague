@@ -18,6 +18,7 @@ from app.api.adresswechsel.services import (
     compose_link_update,
     compose_record,
     find_abgelaufen_refusal,
+    find_beendet_refusal,
     find_kein_genehmiger_refusal,
     find_nichts_refusal,
     find_unveraendert_refusal,
@@ -32,6 +33,7 @@ from app.api.identitaet.crud import funktionen_aus
 from app.api.identitaet.lookup import RecordCollections, SubjektLookup
 from app.api.identitaet.services import ist_eigener_schiedsrichter, ist_eigener_spieler, may_grant_on_schiedsrichter, may_grant_on_spieler
 from app.api.konto.schemas import (
+    FLKontoAdresswechselFreigabePayload,
     FLKontoAdresswechselFreigabeResponse,
     FLKontoAdresswechselMintResponse,
     FLKontoAdresswechselOffen,
@@ -208,6 +210,7 @@ def _offen(record: Mapping[str, Any]) -> FLKontoAdresswechselOffen:
         )
 
     return FLKontoAdresswechselOffen(
+        id=record["_id"],
         # The address the person typed here is theirs to see; one an administrator typed is shown recognisable alone.
         email=record["email"] if record["weg"] == "konto" else maskierte_adresse(str(record["email"])),
         weg=record["weg"],
@@ -365,28 +368,36 @@ async def post_adresswechsel(
 )
 async def post_adresswechsel_freigabe(
     identifier: KontaktIdentifier,
+    freigabe_data: Annotated[FLKontoAdresswechselFreigabePayload, Body()],
     adresswechsel_collection: AdresswechselCollection,
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLKontoAdresswechselFreigabeResponse:
     """
-    Approve a change an administrator started without a reason, minting the new mailbox's link once, for the frontend's server to mail.
+    Approve the change `id` names, which an administrator started without a reason, minting the new mailbox's link once.
 
     **Nothing reaches the new mailbox before this press** (`docs/backend/spec.md :: I794`). Nothing about the new address is
-    judged here either: the approver is owed no answer about it, and the confirmation judges it.
+    judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
+    change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
 
-    Refused `REQ-AUTH-009` as the start is; 404 where no such change awaits the address's approval;
-    `REQ-ADRESSWECHSEL-003` past the approval's deadline; and `REQ-DROSSELUNG-001` as the start is.
+    Refused `REQ-AUTH-009` as the start is; `REQ-ADRESSWECHSEL-002` where the change `id` names has ended; 404 where it
+    is no change of this address awaiting its approval; `REQ-ADRESSWECHSEL-003` past the approval's deadline; and
+    `REQ-DROSSELUNG-001` as the start is.
     """
 
     raw_token, token_hash = mint_token()
-    db_filter = {**build_address_filter(identifier), **build_awaiting_approval_terms()}
+    adresswechsel_id = freigabe_data.id
+    db_filter = {"_id": adresswechsel_id, **build_address_filter(identifier), **build_awaiting_approval_terms()}
 
     async def approve_the_change(session: AsyncClientSession) -> Mapping[str, Any]:
         record = await adresswechsel_collection.find_one(db_filter, session=session)
         if record is None:
+            ended = await adresswechsel_collection.find_one(
+                {"_id": adresswechsel_id, "beendet": {"$type": "object"}}, {"_id": 1}, session=session
+            )
+            refuse(find_beendet_refusal(offen=ended is None))
             # The judgement names no address: the exception's filter reaches the log line.
-            raise DocumentNotFoundException(filter=build_awaiting_approval_terms(), error_code=DOCUMENT_NOT_FOUND)
+            raise DocumentNotFoundException(filter={"_id": adresswechsel_id, **build_awaiting_approval_terms()}, error_code=DOCUMENT_NOT_FOUND)
         refuse(find_abgelaufen_refusal(abgelaufen=ist_abgelaufen(record, now=germany_now)))
 
         return await patch_one_in_db(

@@ -544,7 +544,7 @@ class TestTheAddressOnFilesApproval:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             started = await administrator_starts(database, client, grund=None)
             before = await change(database, started.id)
-            approved = await approve_as_the_address(database, client)
+            approved = await approve_as_the_address(database, client, started.id)
             return started, before, approved, await change(database, started.id)
 
         started, before, approved, after = on_a_person(mongo_replica_set_url, body)
@@ -556,10 +556,33 @@ class TestTheAddressOnFilesApproval:
 
     def test_past_its_deadline_it_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await administrator_starts(database, client, grund=None)
-            return await refused_code(approve_as_the_address(database, client, germany_now=AFTER_THE_DEADLINE))
+            started = await administrator_starts(database, client, grund=None)
+            return await refused_code(approve_as_the_address(database, client, started.id, germany_now=AFTER_THE_DEADLINE))
 
         assert on_a_person(mongo_replica_set_url, body) == ADRESSWECHSEL_ABGELAUFEN
+
+    def test_a_tab_showing_a_change_since_replaced_approves_nothing(self, mongo_replica_set_url: str):
+        """The page read one request; a second start replaced it before the press, whose new address the page never showed."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            shown = await administrator_starts(database, client, grund=None)
+            later = await administrator_starts(database, client, grund=None, email=FOREIGN_EMAIL)
+            stale = await refused_code(approve_as_the_address(database, client, shown.id))
+            return stale, await change(database, later.id)
+
+        stale, later = on_a_person(mongo_replica_set_url, body)
+
+        assert stale == ADRESSWECHSEL_BEENDET
+        assert (later["token_hash"], later["freigegeben_am"]) == (None, None)
+
+    def test_another_address_s_change_is_not_found(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            theirs = await administrator_starts(database, client, grund=None, adresse=OTHER_EMAIL)
+            with pytest.raises(DocumentNotFoundException):
+                await approve_as_the_address(database, client, theirs.id)
+            return await change(database, theirs.id)
+
+        assert on_a_person(mongo_replica_set_url, body)["token_hash"] is None
 
 
 class TestTheToolsStart:

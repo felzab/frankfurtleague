@@ -51,8 +51,8 @@ const KONTO_LINK_TITEL: VersandTitel = {
   abgelegt: "Link zurückgehalten",
 };
 
-/** What the confirmation waits for: a start with its address, or the approval. */
-type Wartend = { art: "start"; email: string } | { art: "freigabe" };
+/** What the confirmation waits for: a start with its address, or the approval of the change the page showed. */
+type Wartend = { art: "start"; email: string } | { art: "freigabe"; id: string };
 
 /** The spine's refusal for want of a recent sign-in, which the page answers by asking rather than by a toast. */
 const wantsStepUp = (result: { success: boolean }): result is ActionFailure & { stepUp: true } =>
@@ -131,9 +131,9 @@ export function AdresswechselPanel({
   const sende = async (was: Wartend): Promise<void> => {
     setLaeuft(was.art);
     // A rejected action may still have mailed, and uncaught here it takes the page down with it.
-    const res = await (was.art === "start" ? starteAdresswechselAction({ email: was.email }) : gibAdresswechselFreiAction()).catch(
-      unansweredAction,
-    );
+    const res = await (
+      was.art === "start" ? starteAdresswechselAction({ email: was.email }) : gibAdresswechselFreiAction({ id: was.id })
+    ).catch(unansweredAction);
     setLaeuft(null);
 
     if (wantsStepUp(res)) {
@@ -291,7 +291,7 @@ export function AdresswechselPanel({
                 variant="primary"
                 isPending={laeuft === "freigabe"}
                 isDisabled={laeuft !== null}
-                onPress={() => mitBestaetigung({ art: "freigabe" })}
+                onPress={() => mitBestaetigung({ art: "freigabe", id: offen.id })}
                 className={formButton({ intent: "submit", stacks: true })}>
                 {AENDERUNG_FREIGEBEN}
               </Button>
