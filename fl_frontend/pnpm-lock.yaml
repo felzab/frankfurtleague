@@ -138,6 +138,9 @@ importers:
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
+      testcontainers:
+        specifier: ^12.2.1
+        version: 12.2.1(supports-color@7.2.0)
       tw-animate-css:
         specifier: 1.4.0
         version: 1.4.0
