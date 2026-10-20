@@ -20,7 +20,7 @@ import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications
 import type { AdresswechselEmail } from "@/core/adresswechselEmail";
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
 import type { AdresswechselVersand, HinweisVersand } from "@/shared/utils/linkVersand";
-import type { FLAdresswechselMitteilung, FLAdresswechselVerwaltungMintResponse, FLAdresswechselVerworfenMitteilung } from "./schemas";
+import type { FLAdresswechselPostausgangZeile, FLAdresswechselVerwaltungMintResponse } from "./schemas";
 
 /** What a start or a re-send minted, whichever tier answered it: the account page's start carries no `weg`, its own being `konto`. */
 export type AdresswechselMint = Pick<
@@ -87,21 +87,24 @@ export async function mailGenehmigungWartet({ operation, genehmiger }: { operati
 }
 
 /**
- * What a change taking effect owes after its commit: the replaced address's account moved with it, and that address's
- * completion notice. Never thrown from: each failure is logged and the person signs in anew at the new address.
+ * What an effect owes after its commit: the replaced address's account moved, then its completion notice. Never throws;
+ * answers whether both are done with, so the outbox keeps a failed one, and a move run again finds no account left.
  */
 export async function adresswechselWirksam({
   operation,
   mitteilung,
 }: {
   operation: string;
-  mitteilung: FLAdresswechselMitteilung;
-}): Promise<void> {
+  mitteilung: Pick<FLAdresswechselPostausgangZeile, "bisherige_email" | "email" | "vorname" | "weg">;
+}): Promise<boolean> {
+  const { bisherige_email: bisherige } = mitteilung;
+  if (bisherige === null) return true;
+
   // A change made because the address on file is lost carries nothing from it: its holder may be a stranger who signed
   // in there during the waiting time, and their sessions and passkeys must not follow the person.
   if (mitteilung.weg !== "wartezeit") {
     try {
-      const umzug = await carryAccount(mitteilung.bisherige_email, mitteilung.email);
+      const umzug = await carryAccount(bisherige, mitteilung.email);
       if (umzug === "belegt") logger.warn("adresswechsel.konto_nicht_umgezogen", { error_code: "FE-AUTH-013", grund: "belegt", operation });
     } catch (error) {
       // Name only, never the error, which carries an address (`docs/logging/spec.md :: L9`).
@@ -110,31 +113,34 @@ export async function adresswechselWirksam({
         name: error instanceof Error ? error.name : undefined,
         operation: operation,
       });
+      // Not done with, the notice unsent: the next claim moves the account and then tells the old address, which a
+      // notice sent now would have told of an account still waiting there.
+      return false;
     }
   }
 
-  await sendeHinweis(
-    mitteilung.bisherige_email,
-    buildAdresswechselWirksamEmail({ origin: frontend_config.AUTH_URL, vorname: mitteilung.vorname, zeitpunkt: new Date() }),
+  const versand = await sendeHinweis(
+    bisherige,
+    // Greeting nobody where the backend sends no name: the lost-mailbox way's old mailbox may be a stranger's.
+    buildAdresswechselWirksamEmail({ origin: frontend_config.AUTH_URL, vorname: mitteilung.vorname ?? "", zeitpunkt: new Date() }),
     "adresswechsel.wirksam_failed",
     operation,
   );
+  return versand !== "fehlgeschlagen";
 }
 
-/** The new mailbox's notice of a due change the pass refused, through the ban list like every message: a barred address hears nothing. */
-export async function mailAdresswechselNichtWirksam({
-  operation,
-  verworfen,
-}: {
-  operation: string;
-  verworfen: FLAdresswechselVerworfenMitteilung;
-}): Promise<HinweisVersand> {
-  return sendeHinweis(
-    verworfen.email,
+/**
+ * The new mailbox's notice of a due change the pass refused, through the ban list like every message: a barred address
+ * hears nothing. Answers whether it is done with, as `adresswechselWirksam` does.
+ */
+export async function mailAdresswechselNichtWirksam({ operation, email }: { operation: string; email: string }): Promise<boolean> {
+  const versand = await sendeHinweis(
+    email,
     buildAdresswechselNichtWirksamEmail({ origin: frontend_config.AUTH_URL }),
     "adresswechsel.nicht_wirksam_failed",
     operation,
   );
+  return versand !== "fehlgeschlagen";
 }
 
 async function sendeHinweis(adresse: string, mail: AdresswechselEmail, ereignis: string, operation: string): Promise<HinweisVersand> {

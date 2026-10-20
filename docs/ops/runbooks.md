@@ -1325,13 +1325,20 @@ the deadline stops there fails its call with the date left stale, as a failure t
 report.
 
 **The half after the seasons stamps no day, so its own line is the record.** Every pass ends by
-ending the address changes whose step lapsed and making the due ones take effect, mailing each
-replaced address its completion notice and the new address of a change refused at its due time a
-notice naming nobody. It writes
-one line per pass holding its counts and no person, `adresswechsel.sweep_pass`, at
-`INFO` where the pass left no row due, which a `LOG_LEVEL` above `INFO` drops, and as a warning
-where it left rows due; a half that threw files `adresswechsel.sweep_failed` under
-`FE-SWEEP-001` besides.
+ending the address changes whose step lapsed and making the due ones take effect, then draining the
+outbox those ends wrote: each replaced address gets its completion notice and the new address of a
+change refused at its due time a notice naming nobody. It writes one line per pass holding its
+counts and no person, `adresswechsel.sweep_pass`, at `INFO` where the pass left no row due, which a
+`LOG_LEVEL` above `INFO` drops, and as a warning where it left rows due; a half that threw files
+`adresswechsel.sweep_failed` under `FE-SWEEP-001` besides.
+
+**A notice the drain could not send stays owed, and goes out again at a later drain** — behind the
+next confirmation or approval, or after the next pass — once its ten-minute lease lapses. A drain
+that failed files `FE-SWEEP-005`; a refused send `FE-MAIL-002`. After 24 hand-outs the notice is
+given up under `FE-MAIL-016`, and nobody can be named afterwards, so repair the refusal while those
+lines stand:
+
+    docker compose logs --since 2h frontend | grep -E 'adresswechsel\.(postausgang_failed|stempel_failed|notice_abandoned|wirksam_failed|nicht_wirksam_failed)'
 
 **The pupils' deletion runs on a timer of its own wherever `LOESCHUNG_SWEEP` reads `on`**, a
 minute after the frontend starts and then hourly, whatever `BEWERBUNG_SWEEP` reads
@@ -1368,8 +1375,9 @@ database did not raise came from. Find the record it points to and repair it, an
 deletes the pupil. A warning saying the database deadline
 passed at a pupil or at an address change is the call stopping in time rather than a refusal: the
 pass goes on from the next call, and it needs nothing from you. Where it adds that the erasure, the
-removal or the effect went unanswered, under `DB-FAIL-002`, that one's outcome is unknown, and the
-next pass judges it afresh.
+removal or the effect went unanswered, under `DB-FAIL-002`, that one's outcome is unknown: one that
+did not commit is judged afresh by the next pass, and an effect or a refusal that did is told by
+the outbox's drain, its notice queued in the same transaction.
 
 **A `SRV-VAL-001` warning naming pupils left out of the deletion is a stored address no request
 matches** — empty, not in the form sign-in folds it to, or refused by the address rule, which only

@@ -210,7 +210,7 @@ async def end_the_change_in_session(
 ) -> Mapping[str, Any]:
     """End one live change, answering it as it stood: the one body every ending runs (`docs/backend/spec.md :: I693`).
 
-    Its images keep their instants and hashes, never the address nobody proved, nor its reason.
+    Its images lose the unproved address and the reason; an effect's keep both, the log's account of the move.
     """
 
     stored = await patch_one_in_db(
@@ -222,7 +222,7 @@ async def end_the_change_in_session(
     )
 
     # After the patch, so it reaches the image the patch filed. An effect keeps the new address, which the person's records
-    # hold and their erasure finds, and drops the replaced one, which nothing holds for an erasure to find.
+    # hold and their erasure finds, and drops the replaced one, which no record holds for an erasure to find.
     redacted = ("adresse",) if art == "wirksam" else ("email", "grund", *(("adresse",) if ohne_adresse else ()))
     await redact_images_in_session(
         aktionen_collection=aktionen_collection,
@@ -380,7 +380,7 @@ async def judge_the_effect_in_session(
         return Urteil(ursache=None, leer=False, wartet=True)
 
     # Judged again here rather than kept from the press: a revoke, a demotion, a ban or an erasure of the approver since
-    # leaves no approval standing (`docs/backend/spec.md :: I833`).
+    # leaves no approval standing (`docs/backend/spec.md :: I834`).
     von = genehmigung.get("genehmigt_von")
     steht = genehmigung_steht(
         betroffen=alte,
@@ -646,7 +646,7 @@ async def move_the_address_in_session(
     )
 
     # After every write above, so it reaches the images they filed: a record the effect leaves naming the replaced address
-    # by address alone would outlive the person's erasure at the new one (`docs/backend/spec.md :: I834`).
+    # by address alone would outlive the person's erasure at the new one (`docs/backend/spec.md :: I835`).
     alt, neu = bestand.identifier, sign_in_identifier(neue)
     if bestand.berechtigung is not None:
         # Who made a record is the person, whatever their address: the starter of a change stays excluded from approving it.
@@ -695,7 +695,7 @@ async def move_the_address_in_session(
             update={"$set": {"email": neu}},
             session=session,
         )
-    # In this transaction, so a commit whose answer was lost still owes its notice (`docs/backend/spec.md :: I835`). Both
+    # In this transaction, so a commit whose answer was lost still owes its notice (`docs/backend/spec.md :: I836`). Both
     # addresses folded, as every stored address is, so an erasure's equality finds the row.
     await post_one_to_db(
         collection=adresswechsel_postausgang_collection,
@@ -914,7 +914,7 @@ async def _reattribute_the_changes(
 ) -> None:
     """Put `value` where this folded administrator started or approved a live change: the erasure's marker, or their new address.
 
-    Read, then written by id: a fan-out's filter is kept as text by the log, which would keep the address it names.
+    Read, then written by id: the log keeps a fan-out's filter as text, address and all.
     """
 
     for path in _GENEHMIGUNG_AKTEURE:

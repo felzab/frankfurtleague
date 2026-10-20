@@ -213,7 +213,7 @@ const FRISTEN = [
   {
     daten:
       "Änderung der E-Mail-Adresse eines Kontos, ein Eintrag je bisheriger Adresse: die neue Adresse, solange sie nicht gilt, dazu ihr Link und der Stopp-Link an die bisherige Adresse als unlesbare Schlüssel, das Versanddatum, die Frist, gegebenenfalls die Freigabe oder die Genehmigung durch die Verwaltung, der Grund der Verwaltung, die Bestätigung und der Zeitpunkt, ab dem sie gilt",
-    frist: `Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird, die Verwaltung sie verwirft oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund; es bleibt ein Vermerk ohne Adresse, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach ${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem Versand, der Stopp-Link bis die Änderung gilt. Ist eine Frist abgelaufen, endet die Änderung innerhalb einer Stunde. Hat die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung; kann sie dann nicht gelten, schreiben wir der neuen Adresse, dass sie nicht gilt, ohne den Grund zu nennen`,
+    frist: `Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird, die Verwaltung sie verwirft oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund aus dem Eintrag; es bleibt ein Vermerk ohne Adresse, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach ${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Endet die Änderung, ohne zu gelten, löschen wir beides auch aus dem Änderungsprotokoll; gilt sie, bleibt der Grund dort zwölf Monate ab seinem Eintrag, damit nachvollziehbar bleibt, warum die Verwaltung die Adresse geändert hat. Die Nachricht, dass die Änderung gilt oder nicht gelten kann, halten wir mit den Adressen, die sie braucht, nur bis zu ihrem Versand bereit. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem Versand, der Stopp-Link bis die Änderung gilt. Ist eine Frist abgelaufen, endet die Änderung innerhalb einer Stunde. Hat die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung; kann sie dann nicht gelten, schreiben wir der neuen Adresse, dass sie nicht gilt, ohne den Grund zu nennen`,
   },
   {
     daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
@@ -412,10 +412,11 @@ export function DatenschutzView() {
             wurde, ob sie unzustellbar war, ob Resend sie zurückgehalten hat und ob sie als Spam gemeldet wurde. Diesen Zustellstand speichern
             wir bei dem Eintrag, um den es in der Nachricht geht. So sieht die Verwaltung, wen sie nicht erreicht. Gehört eine Nachricht zu
             keinem Eintrag, den wir aufbewahren, etwa ein Anmeldecode oder der Hinweis, dass Du nicht mehr als Kontaktperson eingetragen bist,
-            schreiben wir jeden Zustellstand außer „zugestellt“ ohne Deine Adresse in das Betriebsprotokoll der Anwendung. Rechtsgrundlage ist
-            Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, zu erkennen, wen unsere Nachrichten nicht erreichen. Der Zustellstand
-            wird zusammen mit diesem Eintrag gelöscht; beim Registrierungslink eines Teams, dessen Eintrag bestehen bleibt (Abschnitt 13),
-            bleibt er bestehen. Im Betriebsprotokoll bleibt er so lange wie das Protokoll selbst (Abschnitt 13).
+            schreiben wir jeden Zustellstand außer „zugestellt“ ohne Deine Adresse in das Betriebsprotokoll der Anwendung. Einige Hinweise
+            versenden wir ohne Kennung, etwa die zu Deinen Passkeys oder zu einer Änderung Deiner E-Mail-Adresse; ihren Zustellstand speichern
+            wir nirgends. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, zu erkennen, wen unsere Nachrichten
+            nicht erreichen. Der Zustellstand wird zusammen mit diesem Eintrag gelöscht; beim Registrierungslink eines Teams, dessen Eintrag
+            bestehen bleibt (Abschnitt 13), bleibt er bestehen. Im Betriebsprotokoll bleibt er so lange wie das Protokoll selbst (Abschnitt 13).
           </p>
         </LegalSection>
 

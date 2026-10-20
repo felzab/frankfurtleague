@@ -54,7 +54,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "21. Oktober 2026", digest: "d969d36fb09832d65e281ccb61f0a7ed550c4e1dd5b058429dd48cad13701c7a" } as const;
+const FASSUNG = { stand: "21. Oktober 2026", digest: "c17f4319870ccd2ad0aa09f64092bc07cdd7fd5d1b1cbd72f6ac92645f9e1575" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -270,12 +270,27 @@ describe("the privacy notice's retention table", () => {
           "sie gilt",
       ),
       "Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird, die Verwaltung sie " +
-        "verwirft oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund; es bleibt ein Vermerk ohne " +
-        "Adresse, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach " +
-        `${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem ` +
+        "verwirft oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund aus dem Eintrag; es bleibt ein " +
+        "Vermerk ohne Adresse, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach " +
+        `${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Endet die Änderung, ohne zu gelten, löschen wir beides auch aus dem ` +
+        "Änderungsprotokoll; gilt sie, bleibt der Grund dort zwölf Monate ab seinem Eintrag, damit nachvollziehbar bleibt, warum die " +
+        "Verwaltung die Adresse geändert hat. Die Nachricht, dass die Änderung gilt oder nicht gelten kann, halten wir mit den " +
+        `Adressen, die sie braucht, nur bis zu ihrem Versand bereit. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem ` +
         "Versand, der Stopp-Link bis die Änderung gilt. Ist eine Frist abgelaufen, endet die Änderung innerhalb einer Stunde. Hat " +
         `die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie ${inWochen(ADRESSWECHSEL_WARTEZEIT_TAGE)} nach ihrer Bestätigung; kann sie ` +
         "dann nicht gelten, schreiben wir der neuen Adresse, dass sie nicht gilt, ohne den Grund zu nennen",
+    );
+  });
+
+  /* An untagged message's provider report is acknowledged and recorded nowhere (`fl_frontend/src/app/api/mail/zustellung/route.ts`),
+     so the notice may not promise a log line for it. */
+  it("says the untagged notices' delivery state is kept nowhere", () => {
+    assert.equal(
+      vorkommen(
+        "Einige Hinweise versenden wir ohne Kennung, etwa die zu Deinen Passkeys oder zu einer Änderung Deiner E-Mail-Adresse; ihren " +
+          "Zustellstand speichern wir nirgends.",
+      ),
+      1,
     );
   });
 

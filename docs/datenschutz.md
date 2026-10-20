@@ -443,7 +443,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   it, since every write on it while it stood, a re-send included, filed one carrying them
   (`docs/backend/spec.md :: I704`, `:: I670`). The rest of each image stays. A change that took
   effect keeps its new address in the log, where the person's records hold it and their erasure
-  finds it, and loses the replaced one, which nothing holds any longer for an erasure to find.
+  finds it, and its reason, the account of why an administrator moved the address, for the log's
+  twelve months; it loses the replaced address, which only its completion notice holds until it is
+  sent.
 - **An erasure keyed on an email address names what it reaches.** Every record the address holds is
   its one person's (the entry below), and each is listed for confirmation before the write — by kind,
   name and the season it sits in, read through the erasure's own selection rather than inferred on
@@ -840,7 +842,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
   naming nobody, saying the change did not take effect and the league can help; the address on file
   is mailed nothing. The published notice states the ending and the thirty days
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06, its timing re-ruled 2026-10-15 and
-  2026-10-20.
+  2026-10-20. **The notice an end owes waits in `adresswechsel_postausgang` only until it is sent
+  or given up**: an effect's row holds the replaced address, the new one and, where the address on
+  file asked for or approved the change, the first name, a refusal's the new address alone. Each is
+  written in the end's own transaction, so a lost answer loses no notice, and removed with no image
+  in the log once delivered or after 24 hand-outs (`docs/backend/spec.md :: I836`, `:: I480`); an
+  erasure of either address removes it.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered where the address holds an account; an
   address holding none is mailed nothing** (`docs/frontend/spec.md :: I517`). Ruled 2026-09-27.

@@ -107,7 +107,7 @@ class FLAdresswechselPostausgangZeile(BaseModel):
     """One owed notice a pass claimed, server to server alone: no browser receives an address of it.
 
     `wirksam`: whom the completion notice greets, and the sign-in account to carry. `verworfen`: the new address alone,
-    told it did not take effect, and never why.
+    never told why.
     """
 
     id: CustomObjectId

@@ -62,8 +62,23 @@ const erneut = { ...wartezeit, stopp_token: null };
 type Answer = () => unknown;
 let antwort: Record<string, Answer>;
 
+/** The outbox's two calls and the grant announcement's claim, which the work behind an effect's answer makes. */
+const CLAIM = "/adresswechsel/sweep/postausgang";
+const STAMP = "/adresswechsel/sweep/postausgang/zugestellt";
+const NOTHING_ANNOUNCED = { acknowledged: 1, beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
+const OWED_ID = "68c1f0a2b3c4d5e6f7a8b9e1";
+let owed: unknown[];
+
 const client = doubleApiAnswers(async ({ endpoint, method }: ApiCall) => {
   if (endpoint.startsWith("/zustellung/")) return { acknowledged: 1, angewendet: true };
+  if (endpoint === "/berechtigungen/abgleich") return NOTHING_ANNOUNCED;
+  if (endpoint === STAMP) return { acknowledged: 1, zugestellt: 1, ignoriert: 0 };
+  if (endpoint === CLAIM) {
+    // One page, then an empty outbox: the drain claims until a claim holds nothing.
+    const mitteilungen = owed;
+    owed = [];
+    return { acknowledged: 1, beanspruchung: mitteilungen.length > 0 ? "claim-1" : null, beansprucht_bis: null, mitteilungen: mitteilungen };
+  }
   const key =
     method === "DELETE"
       ? DISCARD
@@ -113,8 +128,9 @@ beforeEach(() => {
     [START]: () => wartezeit,
     [RESEND]: () => erneut,
     [DISCARD]: () => ({ acknowledged: 1, id: ADRESSWECHSEL_ID }),
-    [APPROVAL]: () => ({ acknowledged: 1, id: ADRESSWECHSEL_ID, wirksam: false, mitteilung: null }),
+    [APPROVAL]: () => ({ acknowledged: 1, id: ADRESSWECHSEL_ID, wirksam: false }),
   };
+  owed = [];
 });
 
 describe("an administrator's start of a change", () => {
@@ -302,20 +318,27 @@ describe("another administrator's approval", () => {
     assert.deepEqual(deferred, [], "an approval that moved no grant announced one");
   });
 
-  /* The approval was the last step: what the confirmation would owe is owed here, the grant's announcement behind the answer. */
-  it("finishes a change it made take effect: the notice to the replaced address, and the grant's announcement behind the answer", async () => {
-    antwort[APPROVAL] = () => ({
-      acknowledged: 1,
-      id: ADRESSWECHSEL_ID,
-      wirksam: true,
-      mitteilung: { bisherige_email: BISHER, email: NEU, vorname: "Lena", weg: "wartezeit" },
-    });
+  /* The approval was the last step: the effect's notice waits in the outbox its transaction wrote, drained behind the
+     answer beside the grant's announcement, so a lost answer loses neither. */
+  it("finishes a change it made take effect behind the answer: the outbox's notice, stamped once sent, and the announcement", async () => {
+    antwort[APPROVAL] = () => ({ acknowledged: 1, id: ADRESSWECHSEL_ID, wirksam: true });
+    owed = [{ id: OWED_ID, art: "wirksam", bisherige_email: BISHER, email: NEU, vorname: null, weg: "wartezeit", aufgegeben: false }];
 
     const res = await genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID });
 
     assert.match(message(res), /Die neue Adresse gilt jetzt, und der Zugang zur Verwaltung ist mit ihr gewechselt\./);
+    assert.deepEqual(mailedTo(), [], "the answer waited on the notice");
+    assert.equal(deferred.length, 2, "the effect scheduled other work behind the answer than the announcement and the outbox");
+
+    for (const task of deferred) await task();
+
     assert.deepEqual(mailedTo(), [BISHER]);
-    assert.equal(deferred.length, 1, "the moved grant scheduled no announcement, or more than one");
+    assert.deepEqual(
+      requestsOf(client.calls)
+        .filter(({ endpoint }) => endpoint === STAMP)
+        .map(({ body }) => body),
+      [{ beanspruchung: "claim-1", ids: [OWED_ID] }],
+    );
   });
 
   it("answers every refusal the approval publishes through its mapper, and announces nothing", async () => {

@@ -2,6 +2,7 @@ import z from "zod";
 
 import { ADRESSWECHSEL_WEGE } from "@/core/adresswechsel";
 import { BaseAPIResponseSchema } from "@/core/schemas";
+import { ANKUENDIGUNGEN_MAX } from "@/features/berechtigungen/constants";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { ERASURE_ANLASS_MAX_LENGTH } from "@/features/funktionen/constants";
 import { ADRESSE_IM_GRUND_REGEX } from "@/features/sperrliste/schemas";
@@ -112,28 +113,14 @@ export const FLAdresswechselAntwortPayloadSchema = z.object({
 });
 export type FLAdresswechselAntwortPayload = z.infer<typeof FLAdresswechselAntwortPayloadSchema>;
 
-/**
- * Mirrors `FLAdresswechselMitteilung`: what a change taking effect hands the frontend's server, for the
- * completion notice and the sign-in account's move, and never the browser.
- */
-export const FLAdresswechselMitteilungSchema = z.object({
-  bisherige_email: z.string().nonempty(),
-  // The address the effect wrote, as the records now store it.
-  email: z.string().nonempty(),
-  vorname: z.string(),
-  // Whether the address on file's holder asked for or approved the change, which decides whether its account moves.
-  weg: FLAdresswechselWegSchema,
-});
-export type FLAdresswechselMitteilung = z.infer<typeof FLAdresswechselMitteilungSchema>;
-
 export const FLAdresswechselAntwortResponseSchema = BaseAPIResponseSchema.extend({
   antwort: z.enum(["bestaetigt", "abgelehnt"]),
   // Set where a change with a waiting time now waits: the hourly pass writes its effect then.
   wirksam_ab: z.string().nullable(),
   // Confirmed, and the effect waits for an administrator's approval.
   genehmigung_offen: z.boolean(),
-  // Set where the confirmation took effect.
-  mitteilung: FLAdresswechselMitteilungSchema.nullable(),
+  // Set where the confirmation took effect: its notice waits in the outbox, never in this answer.
+  wirksam: z.boolean(),
 });
 export type FLAdresswechselAntwortResponse = z.infer<typeof FLAdresswechselAntwortResponseSchema>;
 
@@ -150,21 +137,53 @@ export type FLAdresswechselStoppResponse = z.infer<typeof FLAdresswechselStoppRe
 
 // ---- The hourly pass -----------------------------------------------------------------------------
 
-/** Mirrors `FLAdresswechselVerworfenMitteilung`: a due change the pass refused, its new address alone, for that mailbox's notice. */
-export const FLAdresswechselVerworfenMitteilungSchema = z.object({
-  email: z.string().nonempty(),
-});
-export type FLAdresswechselVerworfenMitteilung = z.infer<typeof FLAdresswechselVerworfenMitteilungSchema>;
-
 export const FLAdresswechselSweepResponseSchema = BaseAPIResponseSchema.extend({
   entfernt: z.int().nonnegative(),
-  verworfen: z.array(FLAdresswechselVerworfenMitteilungSchema),
-  wirksam: z.array(FLAdresswechselMitteilungSchema),
+  // Counts alone: each change's notice was queued in its own transaction, for the outbox's claim.
+  verworfen: z.int().nonnegative(),
+  wirksam: z.int().nonnegative(),
   // Every lapsed or due change still standing after this call, an earlier page's failures among them.
   verbleibend: z.int().nonnegative(),
   nach: CustomObjectIdStringSchema.nullable(),
 });
 export type FLAdresswechselSweepResponse = z.infer<typeof FLAdresswechselSweepResponseSchema>;
+
+/**
+ * Mirrors `FLAdresswechselPostausgangZeile`: one notice an end owes, for this server alone. `wirksam` greets `vorname`,
+ * nobody where null, at the replaced address and carries its account; `verworfen` tells the new address alone.
+ */
+export const FLAdresswechselPostausgangZeileSchema = z.object({
+  id: CustomObjectIdStringSchema,
+  art: z.enum(["wirksam", "verworfen"]),
+  bisherige_email: z.string().nonempty().nullable(),
+  email: z.string().nonempty(),
+  vorname: z.string().nullable(),
+  // Whether the address on file's holder asked for or approved the change, which decides whether its account moves.
+  weg: FLAdresswechselWegSchema.nullable(),
+  aufgegeben: z.boolean(),
+});
+export type FLAdresswechselPostausgangZeile = z.infer<typeof FLAdresswechselPostausgangZeileSchema>;
+
+export const FLAdresswechselPostausgangResponseSchema = BaseAPIResponseSchema.extend({
+  beanspruchung: z.string().nullable(),
+  beansprucht_bis: z.string().nullable(),
+  mitteilungen: z.array(FLAdresswechselPostausgangZeileSchema),
+});
+export type FLAdresswechselPostausgangResponse = z.infer<typeof FLAdresswechselPostausgangResponseSchema>;
+
+/** Mirrors `FLAdresswechselZugestelltPayload`: the ids a claim delivered, stamped under that claim alone. */
+export const FLAdresswechselZugestelltPayloadSchema = z.object({
+  // Handed back as the claim answered it, never typed: no person reads a refusal of it.
+  beanspruchung: z.string(),
+  ids: z.array(CustomObjectIdStringSchema).min(1).max(ANKUENDIGUNGEN_MAX),
+});
+export type FLAdresswechselZugestelltPayload = z.infer<typeof FLAdresswechselZugestelltPayloadSchema>;
+
+export const FLAdresswechselZugestelltResponseSchema = BaseAPIResponseSchema.extend({
+  zugestellt: z.int().nonnegative(),
+  ignoriert: z.int().nonnegative(),
+});
+export type FLAdresswechselZugestelltResponse = z.infer<typeof FLAdresswechselZugestelltResponseSchema>;
 
 // ---- The address tool: admin tier ----------------------------------------------------------------
 
@@ -294,11 +313,10 @@ export type FLAdresswechselIdResponse = z.infer<typeof FLAdresswechselIdResponse
 
 /**
  * Mirrors `FLAdresswechselGenehmigungResponse`. Where the approval was the last step, the change took effect
- * in that same press and `mitteilung` carries what the confirmation's would.
+ * in that same press and its notice waits in the outbox, as the confirmation's would.
  */
 export const FLAdresswechselGenehmigungResponseSchema = BaseAPIResponseSchema.extend({
   id: CustomObjectIdStringSchema,
   wirksam: z.boolean(),
-  mitteilung: FLAdresswechselMitteilungSchema.nullable(),
 });
 export type FLAdresswechselGenehmigungResponse = z.infer<typeof FLAdresswechselGenehmigungResponseSchema>;

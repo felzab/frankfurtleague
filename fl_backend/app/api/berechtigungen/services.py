@@ -386,7 +386,7 @@ def genehmigung_verwehrt(
 ) -> FLGenehmigungVerwehrt | None:
     """Why this folded administrator may not approve the act `genehmigung` waits on, or `None`.
 
-    `inhaber` is whether their session holds an owner's power now (`docs/backend/spec.md :: I818`, `:: I832`).
+    `inhaber` is whether their session holds an owner's power now (`docs/backend/spec.md :: I818`, `:: I833`).
     """
 
     if betroffen == akteur:
@@ -412,7 +412,7 @@ def genehmigung_steht(
 ) -> bool:
     """Whether a given approval still stands where the act takes effect: its approver may approve it now as when they did.
 
-    An approval never outlives its approver's grant, their owner's tier, or a ban since (`docs/backend/spec.md :: I833`).
+    An approval never outlives its approver's grant, their owner's tier, or a ban since (`docs/backend/spec.md :: I834`).
     """
 
     von = genehmigung.get("genehmigt_von")

@@ -13,7 +13,8 @@ import {
   postAdresswechselVerwaltungAnsicht,
   verwirfAdresswechsel,
 } from "./mutations";
-import { adresswechselWirksam, describeAdresswechselMail, mailAdresswechsel, mailGenehmigungWartet } from "./notifications";
+import { describeAdresswechselMail, mailAdresswechsel, mailGenehmigungWartet } from "./notifications";
+import { runAdresswechselPostausgang } from "./postausgang";
 import { mapGenehmigungRefusal, mapVerwaltungAnsichtRefusal, mapVerwaltungLinkRefusal, mapVerwaltungStartRefusal } from "./refusals";
 import {
   FLAdresswechselEinladenPayloadSchema,
@@ -190,10 +191,11 @@ export async function genehmigeAdresswechselAction(rawPayload: FLAdresswechselGe
       return { success: false, error: buildRefusal({ reason: "Die Änderung wurde nicht genehmigt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
-    if (antwort.mitteilung !== null) {
-      // Behind the response, as a grant written on the administrators page is announced.
+    if (antwort.wirksam) {
+      // Behind the response, as a grant written on the administrators page is announced; the completion notice and the
+      // account's carry wait in the outbox the effect wrote, which the hourly pass drains where this one never runs.
       afterTheResponse(runBerechtigungenAbgleich);
-      await adresswechselWirksam({ operation: "genehmigeAdresswechselAction", mitteilung: antwort.mitteilung });
+      afterTheResponse(runAdresswechselPostausgang);
       return { success: true, message: "Die neue Adresse gilt jetzt, und der Zugang zur Verwaltung ist mit ihr gewechselt." };
     }
 
