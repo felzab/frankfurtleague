@@ -86,10 +86,11 @@ def build_bericht_kader_pipeline(*, saison_id: str, team_ids: Sequence[ObjectId]
                 "_id": 0,
                 "spieler_id": 1,
                 "team_id": 1,
+                # Each a key its validator requires, null where unset: a row lacking one is refused at its write.
                 "vorname": "$person.vorname",
-                "nachname": {"$ifNull": ["$person.nachname", None]},
-                "nummer": {"$ifNull": ["$nummer", None]},
-                "inactive_since": {"$ifNull": ["$inactive_since", None]},
+                "nachname": "$person.nachname",
+                "nummer": 1,
+                "inactive_since": 1,
             }
         },
         {"$sort": {"nachname": 1, "vorname": 1, "spieler_id": 1}},
