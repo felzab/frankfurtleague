@@ -786,9 +786,8 @@ def mongo_replica_set_url(request: pytest.FixtureRequest) -> Iterator[str]:
 def mongo_database(mongo_url: str) -> Iterator[Database]:
     """UNCONSTRAINED, unlike `tests/database.py :: a_clean_database`, and its consumers are why.
 
-    `tests/api/test_spieler_memberships_read.py :: squads` seeds a person predating `einwilligung`,
-    which the shipped validator requires; and both it and `tests/api/conftest.py :: league` drop
-    their collections, taking any validator with them.
+    `tests/api/test_spieler_memberships_read.py :: squads` and `tests/api/conftest.py :: league` both
+    drop their collections, taking any validator with them.
     """
 
     client = MongoClient(mongo_url)

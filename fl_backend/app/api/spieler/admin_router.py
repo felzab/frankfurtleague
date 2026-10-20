@@ -470,7 +470,7 @@ async def reactivate_saison_spieler(
             saison_id=saison_id,
             team_id=stored_raw["team_id"],
             spieler_id=spieler_id,
-            rolle=stored_raw.get("rolle"),
+            rolle=stored_raw["rolle"],
             session=session,
         )
 

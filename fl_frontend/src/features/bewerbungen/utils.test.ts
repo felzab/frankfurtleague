@@ -134,7 +134,7 @@ function bewerbung(id: string, saisonId: string): FLBewerbung {
     team_id: null,
     schule: SCHOOL,
     kontakte: { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null },
-    trikot: { vorhandener_satz: "12 rote Trikots", wunschfarbe: null },
+    trikot: { vorhandener_satz: "12 rote Trikots", wunschfarbe: "rot" },
     kader: { voraussichtliche_groesse: 14, gute_spieler: 3 },
     stufengroesse: 96,
     wunschgegner: null,

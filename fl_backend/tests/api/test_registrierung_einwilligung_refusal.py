@@ -36,7 +36,6 @@ from app.api.registrierungen.services import (
     find_unknown_token_refusal,
     find_wahlen_refusal,
     gespeichertes_geburtsdatum,
-    ist_vorschlag,
     persons_named,
     seite_of,
     sole_person,
@@ -368,7 +367,6 @@ class TestWhichPageTheLinkOpens:
             pytest.param(None, SEITE_NEU, id="nobody at the address"),
             pytest.param(PERSON, SEITE_WIEDERKEHREND, id="the confirmed person under the registration's name"),
             pytest.param({**PERSON, "inactive_since": "2025-07-01"}, SEITE_WIEDERKEHREND, id="that person retired"),
-            pytest.param({**PERSON, "geburtsdatum": None}, SEITE_WIEDERKEHREND, id="that person with no stored birthdate"),
             pytest.param({**PERSON, "vorname": "Bramblewick"}, SEITE_NEU, id="another name at the address, a sibling"),
             pytest.param({**PERSON, "einwilligung": einwilligung(bestaetigt_am="")}, SEITE_NEU, id="a record stamped with an empty string"),
         ],
@@ -447,16 +445,11 @@ class TestWhichPageTheLinkOpens:
         ],
     )
     def test_a_blank_name_on_both_sides_names_nobody(self, vorname: Any, nachname: Any, found: bool):
-        """Only a hand edit stores one.
+        """Only a hand edit stores one. Compared as two keys, two blanks are one name, and the page shows that person's record back."""
 
-        Compared as two keys, two blanks are one name, and the addressless row is proposed, handing its
-        record to the registering mailbox.
-        """
-
-        stored = {**self.PERSON, "vorname": vorname, "nachname": nachname, "email": None, "geburtsdatum": None}
+        stored = {**self.PERSON, "vorname": vorname, "nachname": nachname}
 
         assert (persons_named([stored], vorname=vorname, nachname=nachname) == [stored]) == found
-        assert ist_vorschlag(spieler_raw=stored, registrierung_raw=registrierung(vorname=vorname, nachname=nachname)) == found
 
     @pytest.mark.parametrize(
         ("rows", "found"),

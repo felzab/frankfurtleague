@@ -307,8 +307,8 @@ class FLSpielerWithMemberships(_SpielerPerson):
     # this read serves no sentinel, and every person is born of their own confirmed registration.
     einwilligung: FLEinwilligung
     # Served here and withheld from the base tier, as the record above is: this read is the admin
-    # editor's, and an address is the person's own.
-    email: str | None = None
+    # editor's, and an address is the person's own. Never null: the admission writes one.
+    email: str
     # The live change of the pupil's address, which the address tool shows; required, so a read forgetting to look
     # answers no change rather than hiding one.
     adresswechsel_id: CustomObjectId | None
