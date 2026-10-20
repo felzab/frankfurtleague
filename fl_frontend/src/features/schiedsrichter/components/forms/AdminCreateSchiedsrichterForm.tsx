@@ -36,11 +36,14 @@ const EMPTY_DRAFT: SchiedsrichterDraft = {
 export function AdminCreateSchiedsrichterForm({
   onClose,
   onCreated,
+  successMessage = "Schiedsrichter angelegt",
 }: {
   onClose: () => void;
   // The displayed shape rather than the stored one: a record created here carries a validated name,
   // which is what lets a picker that must render a name take it without a null case.
   onCreated?: (created: FLSchiedsrichterAngezeigt) => void;
+  /** A clean create's toast title, a literal at each call site for `EntityForm`'s `successMessage` reason. */
+  successMessage?: string;
 }) {
   return (
     <EntityForm<SchiedsrichterDraft, SchiedsrichterDraft, { versand: LinkVersand }>
@@ -76,7 +79,7 @@ export function AdminCreateSchiedsrichterForm({
       marksRequired
       // The create mails the new referee their confirmation link.
       stepUp
-      successMessage="Schiedsrichter angelegt"
+      successMessage={successMessage}
       // Saved whatever the link did: one that did not go out leaves the referee no way to confirm.
       warning={{ title: "Mit Folgen angelegt", when: (saved) => versandWarnt(saved.versand) }}
       onClose={onClose}

@@ -7,6 +7,9 @@ export const SAISONUEBERSICHT_TITEL = "Saisonübersicht";
 /** The signed-in person's area, which a contact person's mail sends them to as well. */
 export const DEIN_BEREICH_TITEL = "Dein Bereich";
 
+/** A referee's bookings on their own page, which the Einteilung's button and the landing's card name as well. */
+export const EINSAETZE_TITEL = "Deine Einsätze";
+
 /** The administration's own name, which `/bereich/admin` carries rather than the section it redirects to. */
 export const VERWALTUNG_TITEL = "Verwaltung";
 

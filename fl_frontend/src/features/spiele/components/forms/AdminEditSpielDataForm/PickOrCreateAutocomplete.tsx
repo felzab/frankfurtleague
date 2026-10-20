@@ -67,7 +67,7 @@ export function PickOrCreateAutocomplete<
   emptyStateText: string;
   /**
    * Opens the caller's create dialog, which hands what it creates to `created`. A record the save may book is also
-   * selected, since an "angelegt" toast over an empty picker is how a match got saved with no venue.
+   * selected, since an "angelegt" toast over an empty picker is how a match got saved with no referee.
    */
   onRequestCreate: () => void;
   /** The field's own hint, inside it, so the picker names it in its description. */

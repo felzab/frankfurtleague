@@ -10,7 +10,7 @@ from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.crud import find_anmeldung
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.services import holds_a_name
-from app.api.konto.adresswechsel import read_the_bestand, start_the_change_in_session
+from app.api.konto.adresswechsel import ending_line, read_the_bestand, start_the_change_in_session
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, hash_gesperrt, sperrliste_saison
 from app.api.spieler.crud import (
@@ -47,7 +47,7 @@ from app.api.spieler.services import (
 )
 from app.api.spieltage.crud import nachnominierung_laeuft_in
 from app.core.collections import Collection
-from app.core.config import API_VERSION
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
@@ -71,6 +71,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
+from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
@@ -294,7 +295,9 @@ async def post_adresswechsel(
     gehasht = sperrliste.hash_of(email)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
+    journal = Journal()
 
+    @journal.attempted
     async def judge_and_start_the_change(session: AsyncClientSession) -> tuple[str, str, datetime]:
         """Judge, then write the block, answering the address in force and the first name as this transaction reads them."""
 
@@ -330,6 +333,7 @@ async def post_adresswechsel(
             adressanker_collection=adressanker_collection,
             schluessel=sperrliste.schluessel,
             stamp=log_stamp(germany_now),
+            journal=journal,
             session=session,
         )
 
@@ -337,8 +341,9 @@ async def post_adresswechsel(
 
     # ONE transaction over the judgement and the write: a block written outside it would stand with a
     # live link an administrator was then told had been refused.
-    async with transaction_session(db) as session:
-        bisherige_email, vorname, gueltig_bis = await session.with_transaction(judge_and_start_the_change)
+    async with journal:
+        async with transaction_session(db) as session:
+            bisherige_email, vorname, gueltig_bis = await session.with_transaction(judge_and_start_the_change)
 
     return FLSpielerAdresswechselMintResponse(
         adresswechsel=FLSpielerAdresswechselMint(
@@ -450,6 +455,7 @@ async def delete_adresswechsel(
     spieler_collection: SpielerCollection,
     aktionen_collection: AktionenCollection,
     db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLSpielerAdminSingleResponse:
     """
@@ -457,24 +463,44 @@ async def delete_adresswechsel(
 
     **The address goes from the action log too** (`docs/backend/spec.md :: I704`): it is taken out of every image the log holds
     of this pupil, since every write on the row while the change stood, a re-send or this discard included, filed one carrying
-    an address nobody proved; the rest of each image stays. Nothing is mailed. 404 where the pupil holds no pending change, and
+    an address nobody proved; the rest of each image stays. Journalled as the stop is, so a restore does not bring back a
+    change confirmed in its waiting time to take effect. Nothing is mailed. 404 where the pupil holds no pending change, and
     for an id no pupil holds, the sentinel's included.
     """
 
+    db_filter = build_pending_spieler_adresswechsel_filter(spieler_id)
+    stamp = log_stamp(germany_now)
+    journal = Journal()
+
+    @journal.attempted
     async def discard_the_change(session: AsyncClientSession) -> Mapping[str, Any]:
-        # The filter is the judgement: a pupil holding no change is the 404 here.
-        return await discard_spieler_adresswechsel_in_session(
+        # The filter is the judgement: a pupil holding no change is the 404 here. `BEFORE` names the address the line
+        # keys on, and differs from the row left only by the block, which the answer does not serve.
+        stored = await discard_spieler_adresswechsel_in_session(
             spieler_collection=spieler_collection,
             aktionen_collection=aktionen_collection,
-            db_filter=build_pending_spieler_adresswechsel_filter(spieler_id),
-            stamp=log_stamp(germany_now),
-            return_document=ReturnDocument.AFTER,
+            db_filter=db_filter,
+            stamp=stamp,
+            return_document=ReturnDocument.BEFORE,
             session=session,
         )
+        journal.note(
+            ending_line(
+                art="adresswechsel_verworfen",
+                neue=str(stored[SPIELER_ADRESSWECHSEL_FELD]["email"]),
+                collection=Collection.SPIELER,
+                record_id=spieler_id,
+                am=stamp,
+                schluessel=config.sperrliste_schluessel,
+            )
+        )
+
+        return stored
 
     # One transaction, so the write, the log row recording it and the redaction land together.
-    async with transaction_session(db) as session:
-        updated_raw = await session.with_transaction(discard_the_change)
+    async with journal:
+        async with transaction_session(db) as session:
+            updated_raw = await session.with_transaction(discard_the_change)
 
     return _as_single(updated_raw)
 

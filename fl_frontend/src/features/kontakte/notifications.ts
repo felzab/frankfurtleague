@@ -1,15 +1,21 @@
 import "server-only";
 
 import { frontend_config } from "@/core/config";
-import { buildKontaktBestaetigungEmail } from "@/core/kontaktEmail";
+import { KONTAKT_ABGANG_HINWEIS, KONTAKT_ABGANG_TAG } from "@/core/kontaktAbgangTag";
+import { buildKontaktAbgangEmail, buildKontaktBestaetigungEmail } from "@/core/kontaktEmail";
+import { logger } from "@/core/logging";
+import { sendMail } from "@/core/mail";
+import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
+import { versandAusfallOf } from "@/core/versandAusfall";
 import { rollenText } from "@/features/bewerbungen/notifications";
 import { describeLinkMail } from "@/features/schiedsrichter/notifications";
 import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
+import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
 import type { LinkVersand } from "@/shared/utils/linkVersand";
-import type { FLKontaktMint } from "./schemas";
+import type { FLKontaktAbgang, FLKontaktMint } from "./schemas";
 
 // Outside `actions.ts`, which is `"use server"` and whose every export is a callable endpoint: exported
 // there, this would mail a link to whatever address a caller hands it, past every guard.
@@ -56,6 +62,47 @@ export async function mailKontaktLink({
         zeile: mint.zeile,
       }),
   }).then(linkVersandOf);
+}
+
+/**
+ * The notice to a mailbox a save took off the row, never thrown from: the save has landed. On the lane no record holds
+ * (`fl_frontend/src/core/kontaktAbgangTag.ts`), since the seat's own delivery record now describes its next holder.
+ */
+export async function mailKontaktAbgang({
+  operation,
+  saisonTeamId,
+  saisonId,
+  abgang,
+}: {
+  operation: string;
+  saisonTeamId: string;
+  saisonId: string;
+  abgang: FLKontaktAbgang;
+}): Promise<void> {
+  try {
+    await sendMail({
+      to: abgang.email,
+      ...buildKontaktAbgangEmail({
+        origin: frontend_config.AUTH_URL,
+        rollenText: rollenText(abgang.rollen),
+        schule: abgang.schule,
+        saisonId: saisonId,
+      }),
+      tags: { [KONTAKT_ABGANG_TAG]: KONTAKT_ABGANG_HINWEIS },
+      // The day in the key: the body carries no token, so a retried save the same day composes the same message.
+      idempotencyKey: mailIdempotencyKey([KONTAKT_ABGANG_TAG, saisonTeamId, getGermanTodayStr()], abgang.email),
+    });
+  } catch (error) {
+    // A barred or a withheld message is the mailer's own line, as on every lane.
+    const ausfall = versandAusfallOf(error);
+    if (ausfall === "gesperrt" || ausfall === "zurueckgehalten") return;
+    // Name only, never the error: its message can carry the address (`docs/logging/spec.md :: L9`).
+    logger.error("kontakt.abgang_failed", undefined, {
+      error_code: "FE-MAIL-015",
+      name: error instanceof Error ? error.name : undefined,
+      operation: operation,
+    });
+  }
 }
 
 /** One mint's message and how it ended. */

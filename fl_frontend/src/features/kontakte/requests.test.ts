@@ -35,6 +35,7 @@ beforeEach(() => {
     kontakte: null,
     kontakte_stand: "a1b2",
     bestaetigungen: [],
+    abgaenge: [],
   };
 });
 

@@ -547,16 +547,33 @@ def test_a_link_minted_to_a_path_no_page_answers_is_a_finding(monkeypatch, capsy
     assert "core/neuLink.ts mints a link to /neuhilfe, which no page" in capsys.readouterr().out
 
 
+RECORD_LINK = "export const neuLink = (origin: string, art: Art, token: string) => `${origin}${NEU_PFAD[art]}?token=${token}`;\n"
+
+
+def test_a_link_through_a_record_of_paths_mints_one_to_each_of_its_values():
+    """The key is a run-time value, so every value is a page some mail opens; a quoted key spells the same record."""
+    root = new_root("check-public-routes-")
+    record = 'const NEU_PFAD: Readonly<Record<Art, string>> = {\n  eins: "/neuhilfe",\n  "zwei": "/neuhilfe/zwei",\n};\n'
+    write(root, "core/neuLink.ts", record + RECORD_LINK)
+
+    assert [path for _, path in routes.minted(root)] == ["/neuhilfe", "/neuhilfe/zwei"]
+
+
 @pytest.mark.parametrize(
     "text",
     [
         "export const neuLink = (origin: string, token: string) => origin + `/neuhilfe?token=${token}`;\n",
         "export const neuLink = (origin: string, token: string) => `${origin}${NEU_PATH}?token=${token}`;\n",
+        'const NEU_PFAD = { eins: "/neuhilfe", zwei: NEU_PATH };\n' + RECORD_LINK,
+        RECORD_LINK,
     ],
-    ids=["no-origin-in-the-template", "a-path-constant-of-another-module"],
+    ids=["no-origin-in-the-template", "a-path-constant-of-another-module", "a-record-value-no-literal-spells", "a-record-of-another-module"],
 )
 def test_a_minted_link_this_reader_cannot_place_refuses(monkeypatch, text):
-    """A minter it skipped would drop its page from the listing, which reads as a tree with one link page fewer."""
+    """A minter it skipped would drop its page from the listing, which reads as a tree with one link page fewer.
+
+    A record is placed whole or not at all: dropping the value it cannot read drops that value's page.
+    """
     app = link_page("/neuhilfe")
     write(app.parent, "core/neuLink.ts", text)
 

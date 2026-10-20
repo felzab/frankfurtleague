@@ -674,13 +674,14 @@ const kontoBewerbung = (medien: boolean, whatsapp = false) =>
 
 const REGISTRIERUNG_ID = "68c1f0a2b3c4d5e6f7a8b952";
 /** One of a referee's own rows on their panel, open unless a case answers it. */
-const einsatz = (id: string, team2_name: string, zustand: "gueltig" | "zugesagt" = "gueltig") => ({
+const einsatz = (id: string, team2_name: string, zustand: "gueltig" | "zugesagt" | "abgelehnt" = "gueltig") => ({
   id,
   spiel_id: "68c1f0a2b3c4d5e6f7a8b9f9",
   schiedsrichter_id: "68c1f0a2b3c4d5e6f7a8b9f8",
   ansetzung: { team1_name: "SG Alpha", team2_name, datum: "2026-11-20", uhrzeit: "14:30:00", spielort: null },
   zustand,
   begruendung: null,
+  eingetragen: false,
 });
 
 const EINSATZ_BETA = "68c1f0a2b3c4d5e6f7a8b9f1";
@@ -1365,14 +1366,27 @@ const LANDINGS: Record<string, Landing> = {
   },
   "a referee's acceptance on their panel, on the next open row's acceptance": {
     before: () => h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta"), einsatz(EINSATZ_GAMMA, "SG Gamma")] }),
-    press: (user) => user.click(screen.getByRole("button", { name: "Zusagen: SG Alpha gegen SG Beta am 20.11.2026" })),
+    press: (user) => pressTwice(user, { resting: "Zusagen: SG Alpha gegen SG Beta am 20.11.2026", armed: "Ja, zusagen" }),
     after: () =>
       h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta", "zugesagt"), einsatz(EINSATZ_GAMMA, "SG Gamma")] }),
     lands: () => screen.getByRole("button", { name: "Zusagen: SG Alpha gegen SG Gamma am 20.11.2026" }),
   },
+  /* The decline is sent from inside its disclosure, so the place is the disclosure's whole slot: one on its trigger alone
+     reads as no slot at all from the submit, and the landing skips every row for the heading. */
+  "a referee's decline on their panel, on the next open row's decline": {
+    before: () => h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta"), einsatz(EINSATZ_GAMMA, "SG Gamma")] }),
+    press: async (user) => {
+      await user.click(screen.getByRole("button", { name: "Absagen: SG Alpha gegen SG Beta am 20.11.2026" }));
+      await user.type(screen.getByRole("textbox", { name: "Begründung" }), "Klassenfahrt");
+      await user.click(screen.getByRole("button", { name: "Absage senden" }));
+    },
+    after: () =>
+      h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta", "abgelehnt"), einsatz(EINSATZ_GAMMA, "SG Gamma")] }),
+    lands: () => screen.getByRole("button", { name: "Absagen: SG Alpha gegen SG Gamma am 20.11.2026" }),
+  },
   "a referee's last open row's acceptance, on the section's heading": {
     before: () => h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta")] }),
-    press: (user) => user.click(screen.getByRole("button", { name: "Zusagen: SG Alpha gegen SG Beta am 20.11.2026" })),
+    press: (user) => pressTwice(user, { resting: "Zusagen: SG Alpha gegen SG Beta am 20.11.2026", armed: "Ja, zusagen" }),
     after: () => h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta", "zugesagt")] }),
     lands: () => heading("Deine Einsätze"),
   },
