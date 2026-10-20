@@ -484,6 +484,9 @@ def refusal_codes_by_operation() -> dict[str, dict[str, set[str]]]:
 
     for route in api_routes(APP):
         for status, response in route.responses.items():
+            # A declared success, such as a PUT's 201 on a create, refuses nothing; a refusal skipped with it publishes no code.
+            if HTTPStatus(int(status)).is_success:
+                continue
             for method in route.methods or ():
                 declared.setdefault(f"{method} {route.path_format}", {}).setdefault(str(status), set()).update(
                     narrowed_codes(response["content"][JSON_MEDIA_TYPE]["schema"])

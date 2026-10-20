@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
+import { frontend_config } from "@/core/config";
 import { funktionenOf } from "@/core/funktionen";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { logPageVerweigert } from "@/features/funktionen/verweigert";
 import { SchiedsrichterSelbstView } from "@/features/schiedsrichter/components/views/SchiedsrichterSelbstView";
 import { getSchiedsrichterSelbst } from "@/features/schiedsrichter/queries";
+import { getSchiedsrichterSpielberichte } from "@/features/spielberichte/queries";
 import { getEigeneSpielbestaetigungen } from "@/features/spielbestaetigungen/queries";
 import { isFunktionLost } from "@/shared/utils/actionError";
 
@@ -20,10 +22,15 @@ export default async function PersoenlichSchiedsrichterPage() {
     redirect("/bereich");
   }
 
-  let selbst, einsaetze;
+  let selbst, einsaetze, spielberichte;
   try {
-    // Side by side: neither read waits on the other, and each answers the same lost record alike.
-    [selbst, einsaetze] = await Promise.all([getSchiedsrichterSelbst(), getEigeneSpielbestaetigungen()]);
+    // Side by side: no read waits on another, and each answers the same lost record alike. Nothing is read while the
+    // reports are closed: their section then says why it offers no fixture.
+    [selbst, einsaetze, spielberichte] = await Promise.all([
+      getSchiedsrichterSelbst(),
+      getEigeneSpielbestaetigungen(),
+      frontend_config.SPIELBERICHT_EINGABE === "on" ? getSchiedsrichterSpielberichte() : null,
+    ]);
   } catch (error) {
     // The row went between the page's own check and the backend's, which is the check above failing
     // late: the same landing. Every other failure is the area's boundary's.
@@ -35,6 +42,7 @@ export default async function PersoenlichSchiedsrichterPage() {
     <SchiedsrichterSelbstView
       schiedsrichter={selbst.schiedsrichter}
       einsaetze={einsaetze.spielbestaetigungen}
+      spielberichte={spielberichte?.spiele ?? null}
     />
   );
 }

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { parseDate, parseTime } from "@internationalized/date";
 
 import { AdminCreateSchiedsrichterForm } from "@/features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm";
+import { AdminSpielberichtPanel } from "@/features/spielberichte/components/views/AdminSpielberichtPanel";
 import { SpielbestaetigungPanel } from "@/features/spielbestaetigungen/components/forms/SpielbestaetigungPanel";
 import { spielAnsetzung } from "@/features/spielbestaetigungen/utils";
 import { AdminCreateSpielortForm } from "@/features/spielorte/components/forms/AdminCreateSpielortForm";
@@ -41,6 +42,7 @@ import { useVoidPreview } from "./useVoidPreview";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
+import type { FLSpielberichtAdminResponse } from "@/features/spielberichte/schemas";
 import type { SpielbestaetigungenStand } from "@/features/spielbestaetigungen/types";
 import type { FLSpielDraftFields } from "@/features/spiele/draftStatus";
 import type {
@@ -83,6 +85,7 @@ export function AdminEditSpielDataForm({
   today,
   isSpielSweepOn,
   bestaetigungen,
+  spielbericht = null,
   categorize,
   pageHeader,
 }: {
@@ -100,6 +103,8 @@ export function AdminEditSpielDataForm({
   isSpielSweepOn: boolean;
   /** The fixture's confirmations, `null` where their read failed; absent, the editor mounts no panel for them. */
   bestaetigungen?: SpielbestaetigungenStand | null;
+  /** The fixture's report as the page read it on this open; absent where the page hands none, the panel with it. */
+  spielbericht?: FLSpielberichtAdminResponse | null;
   /** Rendered inside the scroll container, so it scrolls while the action bar stays put. */
   pageHeader: EditPageHeaderContent;
   /**
@@ -145,6 +150,10 @@ export function AdminEditSpielDataForm({
   const [elfmeterschiessen, setElfmeterschiessen] = useState<FLSpielElfmeterschiessenDraft | null>(spielData.elfmeterschiessen);
 
   const [notiz, setNotiz] = useState<string | null>(spielData.notiz);
+
+  // The report version „Vorschlag übernehmen“ seeded the result from, as read at the press: the save's stamp names
+  // it, so a correction made since leaves the report unadopted. Held apart from the result atoms it seeded.
+  const [uebernimmtBericht, setUebernimmtBericht] = useState<number | null>(null);
 
   // ALWAYS closed on open, every fixture alike: the deliberate flip is the guard, so a stray
   // keystroke can neither invent a 0:0 nor silently rewrite a recorded result.
@@ -369,6 +378,7 @@ export function AdminEditSpielDataForm({
     setElfmeterschiessen(spielData.elfmeterschiessen);
     setNotiz(spielData.notiz);
     setErgebnisCanBeEdited(false);
+    setUebernimmtBericht(null);
 
     setSubmitFieldErrors({}, {});
   };
@@ -394,6 +404,21 @@ export function AdminEditSpielDataForm({
       banners: banners.filter((banner) => !isSpielRefusalBannerId(banner.id)),
       confirm: setConfirmingBanners,
     });
+  };
+
+  /**
+   * Carries the report's proposal into the result atoms, the form staying mounted and every other edit standing:
+   * the save is still the administrator's, through the same gate and dialog as a typed result.
+   */
+  const uebernehmeVorschlag = (bericht: NonNullable<FLSpielberichtAdminResponse["bericht"]>) => {
+    const { team1_tore, team2_tore, elfmeterschiessen: elfmeter, sonderereignis: ereignis } = bericht.ergebnis_vorschlag;
+    if (team1Payload) setTeam1Payload({ ...team1Payload, tore: team1_tore });
+    if (team2Payload) setTeam2Payload({ ...team2Payload, tore: team2_tore });
+    setElfmeterschiessen(elfmeter);
+    setSonderereignis(ereignis);
+    setHasSonderereignis(ereignis !== null);
+    setErgebnisCanBeEdited(true);
+    setUebernimmtBericht(bericht.version);
   };
 
   const writeAfterBlock = () => {
@@ -566,6 +591,19 @@ export function AdminEditSpielDataForm({
               onErgebnisCanBeEditedChange={setErgebnisCanBeEdited}
               onValidateFields={validateFields}
             />
+
+            {spielbericht !== null && (
+              <AdminSpielberichtPanel
+                lesen={spielbericht}
+                // Goals live on a side, so a draft holding no two sides has nowhere to carry the proposal.
+                onUebernehmen={
+                  spielbericht.bericht === null || team1Payload === null || team2Payload === null
+                    ? null
+                    : () => spielbericht.bericht !== null && uebernehmeVorschlag(spielbericht.bericht)
+                }
+                istEingesetzt={uebernimmtBericht !== null}
+              />
+            )}
 
             <FormNotizSection
               notiz={notiz}

@@ -59,6 +59,7 @@ from tests.documents import (
 )
 from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.records import record_collections
 from tests.whole_database import where_folded_to, where_held
 from tests.worker import worker_database
 
@@ -318,13 +319,14 @@ async def a_registration(database: AsyncDatabase, client: AsyncMongoClient) -> A
 async def a_pending_pupil_address(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     return await post_adresswechsel(
         spieler_id=PUPIL_OID,
-        adresswechsel_data=FLSpielerAdresswechselPayload(email=TYPED),
+        adresswechsel_data=FLSpielerAdresswechselPayload(email=TYPED, grund=None),
+        records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
-        today=TODAY,
         germany_now=NOW,
     )
 
@@ -352,11 +354,9 @@ async def a_corrected_referee_address(database: AsyncDatabase, client: AsyncMong
         spiele_collection=database[Collection.SPIELE],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],
-        aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
         today=TODAY,
-        germany_now=NOW,
     )
 
 

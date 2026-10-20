@@ -9,6 +9,7 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
     FLSpielberichtKarte,
+    FLSpielberichtKartePayload,
     FLSpielberichtVonSchiedsrichter,
 )
 from app.api.spielberichte.services import (
@@ -106,10 +107,19 @@ class TestAYellowCardCarriesItsReason:
     @pytest.mark.parametrize("farbe", ["gelb", "gelb_rot"])
     def test_a_caution_without_a_reason_is_refused(self, farbe: str):
         with pytest.raises(ValidationError, match="Grund"):
-            FLSpielberichtKarte.model_validate({"seite": "team1", "spieler_id": LIVE1, "minute": "12", "farbe": farbe, "grund": None})
+            FLSpielberichtKartePayload.model_validate({"seite": "team1", "spieler_id": LIVE1, "minute": "12", "farbe": farbe, "grund": None})
 
     def test_a_red_card_may_stand_without_one(self):
-        karte = FLSpielberichtKarte.model_validate({"seite": "team1", "spieler_id": LIVE1, "minute": "90+2", "farbe": "rot", "grund": None})
+        karte = FLSpielberichtKartePayload.model_validate(
+            {"seite": "team1", "spieler_id": LIVE1, "minute": "90+2", "farbe": "rot", "grund": None}
+        )
+
+        assert karte.grund is None
+
+    def test_a_stored_caution_reads_without_one(self):
+        """A season's end strips every card's reason, and the reads serve the report after it."""
+
+        karte = FLSpielberichtKarte.model_validate({"seite": "team1", "spieler_id": LIVE1, "minute": "12", "farbe": "gelb", "grund": None})
 
         assert karte.grund is None
 
@@ -283,6 +293,50 @@ class TestTheAdoptedStateIsDerivedFromThree:
 
         assert bericht_zustand_of(bericht, gespielt(3, 0, sonderereignis="nichtantreten_team2")) == "uebernommen"
         assert bericht_zustand_of(bericht, gespielt(0, 3, sonderereignis="nichtantreten_team1")) == "abweichend"
+
+    @pytest.mark.parametrize("sonderereignis", ["ausgefallen", "annulliert"])
+    def test_a_fixture_called_off_since_the_report_reads_abgesagt(self, sonderereignis: str):
+        """Read-only and awaiting nobody: no write can adopt a report on a match that took no place."""
+
+        assert bericht_zustand_of(gespeichert(), spiel(sonderereignis=sonderereignis)) == "abgesagt"
+        assert bericht_zustand_of(gespeichert(**ADOPTED), spiel(sonderereignis=sonderereignis)) == "abgesagt"
+
+    def test_an_abandonment_saved_without_its_result_reads_vorgeschlagen(self):
+        """It still owes a result, so nothing stands to differ from."""
+
+        assert bericht_zustand_of(gespeichert(), spiel(sonderereignis="abgebrochen")) == "vorgeschlagen"
+
+
+def level(team1: int, team2: int, elfmeterschiessen: dict[str, int] | None) -> FLSpielberichtBericht:
+    """An adopted 1:1 proposal, with or without a shoot-out."""
+
+    vorschlag = {"team1_tore": team1, "team2_tore": team2, "elfmeterschiessen": elfmeterschiessen, "sonderereignis": None}
+    return gespeichert(**ADOPTED, ergebnis_vorschlag=vorschlag)
+
+
+class TestAShootOutIsComparedWhereTheFixtureKeepsOne:
+    """`apply_payload_to_spiel` keeps a shoot-out on a level knockout and discards it everywhere else."""
+
+    @pytest.mark.parametrize(
+        ("stored", "zustand"),
+        [
+            pytest.param({"team1": 4, "team2": 3}, "uebernommen", id="the-same-shoot-out"),
+            pytest.param({"team1": 3, "team2": 4}, "abweichend", id="the-other-winner"),
+            pytest.param(None, "abweichend", id="saved-without-one"),
+        ],
+    )
+    def test_a_level_knockout_matches_on_its_shoot_out(self, stored: dict[str, int] | None, zustand: str):
+        fixture = gespielt(1, 1, saison_phase="achtelfinale", elfmeterschiessen=stored)
+
+        assert bericht_zustand_of(level(1, 1, {"team1": 4, "team2": 3}), fixture) == zustand
+
+    def test_a_level_knockout_proposing_none_differs_from_one_saved_with_one(self):
+        fixture = gespielt(1, 1, saison_phase="achtelfinale", elfmeterschiessen={"team1": 4, "team2": 3})
+
+        assert bericht_zustand_of(level(1, 1, None), fixture) == "abweichend"
+
+    def test_a_group_fixture_discards_the_proposed_shoot_out(self):
+        assert bericht_zustand_of(level(1, 1, {"team1": 4, "team2": 3}), gespielt(1, 1)) == "uebernommen"
 
 
 class TestALaterWriteRaisesTheVersionAndKeepsTheAdoption:

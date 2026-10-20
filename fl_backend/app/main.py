@@ -114,6 +114,7 @@ from app.core.security import (
     verify_person_actor,
     verify_person_is_unbarred,
     verify_recent_confirmation,
+    verify_recent_person_confirmation,
     verify_step_up,
 )
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
@@ -238,6 +239,7 @@ DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], DependencyRefusal] = {
     verify_actor_is_admin: _probed(HTTPStatus.FORBIDDEN, ACTOR_NOT_ADMIN),
     verify_person_is_unbarred: _probed(HTTPStatus.FORBIDDEN, PERSON_BARRED),
     verify_recent_confirmation: _probed(HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
+    verify_recent_person_confirmation: _probed(HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
     verify_step_up: _probed(HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
     get_db_client: _probed(HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
     get_database: _probed(HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
@@ -520,6 +522,9 @@ def refusal_codes(app: FastAPI) -> dict[Operation, Refusals]:
     unnamed: list[str] = []
     for route in document_routes(app):
         for status_code, response in route.responses.items():
+            # A success a route answers besides its default, such as a PUT's 201 on a create, refuses nothing.
+            if HTTPStatus(int(status_code)).is_success:
+                continue
             # Read off the declaration and never assumed from it, so a route refusing for a second
             # reason publishes that reason's code rather than the duplicate key's.
             if not (named := refused_codes(response)):

@@ -48,8 +48,9 @@ FLKartenGrund = Literal[
 # out has no report.
 FLSpielberichtSonderereignis = Literal["abgebrochen", "nichtantreten_team1", "nichtantreten_team2"]
 
-# Derived on every read from the report and the fixture, and stored nowhere.
-FLSpielberichtZustand = Literal["vorgeschlagen", "uebernommen", "abweichend"]
+# Derived on every read from the report and the fixture, and stored nowhere. `abgesagt` is a report on a fixture called
+# off or struck out since it was sent: the match took no place, so nothing awaits the administrator.
+FLSpielberichtZustand = Literal["vorgeschlagen", "uebernommen", "abweichend", "abgesagt"]
 
 
 class FLSpielberichtVorschlag(BaseModel):
@@ -66,7 +67,7 @@ class FLSpielberichtVorschlag(BaseModel):
 
 
 class FLSpielberichtTorschuetze(BaseModel):
-    """One goal. A null `spieler_id` is a scorer nobody named, never an erased one, whose entry names the sentinel."""
+    """One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one."""
 
     seite: FLSpielberichtSeite
     spieler_id: CustomObjectId | None
@@ -76,11 +77,19 @@ class FLSpielberichtTorschuetze(BaseModel):
 
 
 class FLSpielberichtKarte(BaseModel):
+    """One card as stored, its reason null on a red card and on every card once its season's end strips the reasons."""
+
     seite: FLSpielberichtSeite
     spieler_id: CustomObjectId
     minute: CustomSpielberichtMinute
     farbe: FLKartenFarbe
     grund: FLKartenGrund | None
+
+
+class FLSpielberichtKartePayload(FLSpielberichtKarte):
+    """One card as a write sends it."""
+
+    model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
     def a_caution_names_its_reason(self) -> Self:
@@ -149,7 +158,7 @@ class FLSpielberichtBerichtPayload(BaseModel):
 
     ergebnis_vorschlag: FLSpielberichtVorschlag
     torschuetzen: Annotated[list[FLSpielberichtTorschuetze], Field(max_length=SPIELBERICHT_EINTRAEGE_MAX)]
-    karten: Annotated[list[FLSpielberichtKarte], Field(max_length=SPIELBERICHT_EINTRAEGE_MAX)]
+    karten: Annotated[list[FLSpielberichtKartePayload], Field(max_length=SPIELBERICHT_EINTRAEGE_MAX)]
     bemerkungen: Annotated[CustomSpielberichtBemerkungen | None, BeforeValidator(parse_empty_string_to_none)]
 
     @model_validator(mode="after")
@@ -222,7 +231,7 @@ class FLSpielberichtSpiel(BaseModel):
 
 
 class FLSpielberichtSpieler(BaseModel):
-    """A pupil a report may name or names. Both names null on the erased pupils' sentinel alone."""
+    """A pupil a report may name or names, with the names their record holds."""
 
     spieler_id: CustomObjectId
     vorname: str | None
@@ -241,8 +250,8 @@ class FLSpielberichtKader(BaseModel):
 class _SpielberichtAnsicht(BaseAPIResponse):
     spiel: FLSpielberichtSpiel
     kader: FLSpielberichtKader
-    # Every pupil the stored block names outside both live squads -- one taken out of the squad since the match, or
-    # the erased pupils' sentinel -- so an entry stored before stays readable and keeps its name.
+    # Every pupil the stored block names outside the squads served -- one ausgetragen since the match, or of a club a
+    # knockout slot has since replaced -- so an entry stored before keeps its name.
     genannt: list[FLSpielberichtSpieler]
     bericht: FLSpielberichtBericht | None
 

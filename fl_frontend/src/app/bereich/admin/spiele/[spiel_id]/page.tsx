@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import { frontend_config } from "@/core/config";
 import { AdminContextWrapper } from "@/features/admin/components/providers/AdminContextWrapper";
 import { AdminSpielEditView } from "@/features/admin/components/views/AdminSpielEditView";
+import { getAdminSpielbericht } from "@/features/spielberichte/queries";
 import { getSpielbestaetigungen } from "@/features/spielbestaetigungen/queries";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { resolveSpielId } from "@/features/spiele/resolvers";
@@ -36,9 +37,18 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
   await connection();
   const spielId = await resolveSpielId(params);
 
-  // Admin-tier and uncached, so the editor seeds from the fixture as it stands rather than from a
-  // cache entry hours old. `null` is "no such fixture"; everything else throws.
-  const spielRes = await getAdminSpiel(spielId);
+  const [spielRes, berichtRes] = await Promise.all([
+    // Admin-tier and uncached, so the editor seeds from the fixture as it stands rather than from a
+    // cache entry hours old. `null` is "no such fixture"; everything else throws.
+    getAdminSpiel(spielId),
+    // Uncached for the same reason: „Vorschlag übernehmen“ seeds from the report version standing now. A failed read
+    // leaves the editor without its panel.
+    getAdminSpielbericht(spielId).catch(nullAfterLoggingUnexplained),
+  ]);
+  // Read whatever the switch: the triage files a standing report's fixture whatever it reads, and only the adoption
+  // here clears it. Closed, a fixture with no report shows no panel.
+  const spielbericht =
+    berichtRes !== null && (frontend_config.SPIELBERICHT_EINGABE === "on" || berichtRes.bericht !== null) ? berichtRes : null;
 
   if (!spielRes) {
     notFound();
@@ -68,6 +78,7 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
             ? null
             : { zeilen: bestaetigungenRes.spielbestaetigungen, gelaufenAm: bestaetigungenRes.spiel_sweep_gelaufen_am }
         }
+        spielbericht={spielbericht}
       />
     </AdminContextWrapper>
   );

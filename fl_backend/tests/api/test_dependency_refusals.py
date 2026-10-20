@@ -5,8 +5,9 @@ TESTS · the refusals a dependency answers before any handler, probed on every o
 so the table is held against what a request actually meets: every operation is asked without a key,
 with a wrong one, with its own and no actor, with its own and an administrator, with its own and an
 actor who is none, with its own and a forged actor, with its own and an administrator signed in
-past the step-up window, and with its own and a signed-in person, barred and not, against an
-application holding no database, where each dependency answers before the handler runs.
+past the step-up window, and with its own and a signed-in person, barred, signed in past the
+enrolment window and neither, against an application holding no database, where each dependency
+answers before the handler runs.
 """
 
 import ast
@@ -31,6 +32,7 @@ from app.core.exception_handlers import refused_codes
 from app.core.exceptions import BaseAPIException, DocumentNotFoundException, WriteRefusalException
 from app.core.security import (
     ACTOR_HEADER,
+    ENROLMENT_WINDOW_S,
     STEP_UP_WINDOW_S,
     BanLookup,
     get_ban_lookup,
@@ -76,6 +78,8 @@ FORGED_ACTOR = {ACTOR_HEADER: sign(actor_claims("admin@example.com"), private_ke
 # The person lane's two: one the ban list holds, and one it does not, who passes to the missing database.
 A_PERSON = SignedActor("schueler@example.com", lane="person")
 A_BARRED_PERSON = SignedActor(BARRED_PERSON, lane="person")
+# Unbarred, and signed in past the enrolment window an address change asks a fresh sign-in inside.
+A_STALE_PERSON = SignedActor("schueler@example.com", lane="person", signed_in_before_s=ENROLMENT_WINDOW_S + 1)
 
 
 class _StaleActor(Mapping[str, str]):
@@ -309,7 +313,7 @@ def _observed() -> dict[tuple[str, str], set[tuple[HTTPStatus, str]]]:
         own = _guard_key(route)
         for method in sorted(route.methods or ()):
             answers = found.setdefault((route.path_format, method.lower()), set())
-            actors = (ACTOR, NOT_AN_ADMINISTRATOR, FORGED_ACTOR, STALE_ACTOR, A_PERSON, A_BARRED_PERSON)
+            actors = (ACTOR, NOT_AN_ADMINISTRATOR, FORGED_ACTOR, STALE_ACTOR, A_PERSON, A_BARRED_PERSON, A_STALE_PERSON)
             for headers in ({}, WRONG_KEY, own, *({**own, **actor} for actor in actors)):
                 response = client.request(method, _url(route), headers=headers)
                 if response.status_code in PROBED_STATUSES:

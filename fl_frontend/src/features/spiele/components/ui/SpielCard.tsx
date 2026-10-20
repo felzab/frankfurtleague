@@ -34,6 +34,7 @@ export function SpielCard({
   today,
   isFinishedSaison,
   bestaetigungen,
+  berichtChip,
 }: {
   spielData: FLSpiel;
   onOpenInfoModal: () => void;
@@ -52,6 +53,8 @@ export function SpielCard({
   isFinishedSaison: boolean;
   /** This fixture's confirmation rows, an administrator's read: each party's answer to the Ansetzung it holds. */
   bestaetigungen?: readonly FLSpielbestaetigung[];
+  /** The report's proposal still to be adopted, on an administrator's card alone: the public cards never pass it. */
+  berichtChip?: string;
 }) {
   const {
     datum: spielDatum,
@@ -153,6 +156,7 @@ export function SpielCard({
           ansetzungBestaetigt={spielData.ansetzung_bestaetigt}
         />
         <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
+        {berichtChip !== undefined && <span className={labelBadge("info")}>{berichtChip}</span>}
       </div>
 
       {/* The admin card's alone, keyed on the edit link: a public caller handed the rows renders none of them. */}

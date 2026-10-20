@@ -146,12 +146,13 @@ CALLERS: dict[str, frozenset[str]] = {
     "anchor_the_actors_grant": frozenset({"app/core/security.py :: judging_the_administrator"}),
     # The season-after deletion pass, one pupil a transaction.
     "erase_if_still_due": frozenset({"app/api/identitaet/sweep_router.py :: erase_the_pupil_if_still_due"}),
-    # The application sweep's three steps the season-after rule ends, each transaction judging the season again.
+    # The application sweep's four steps the season-after rule ends, each transaction judging the season again.
     "pull_the_season_after": frozenset(
         {
             "app/api/bewerbungen/sweep_router.py :: erase_accepted",
             "app/api/bewerbungen/sweep_router.py :: clear_the_blocks",
             "app/api/bewerbungen/sweep_router.py :: strip_the_confirmations",
+            "app/api/bewerbungen/sweep_router.py :: strip_the_reports",
         }
     ),
     # The confirmation pass's mint, which reads the seats it mints links for off season rows every seat write writes.
@@ -455,7 +456,8 @@ ADDRESS_ANCHORS: frozenset[str] = frozenset(
         "app/api/registrierungen/public_router.py :: store_or_replay",
         "app/api/schiedsrichter/admin_router.py :: judge_and_create",
         "app/api/schiedsrichter/admin_router.py :: rename_and_fan_out",
-        "app/api/spieler/admin_router.py :: judge_and_mint_the_change",
+        "app/api/konto/adresswechsel.py :: move_the_address_in_session",
+        "app/api/konto/adresswechsel.py :: start_the_change_in_session",
         "app/api/teams/admin_router.py :: rewrite_the_block",
         "app/api/identitaet/crud.py :: erase_everything",
         "app/core/security.py :: judging_the_person",
@@ -471,6 +473,8 @@ THE_STORED_GRANTS = "judges the stored grants, anchoring each (I438), and stores
 STORED_ADDRESS = "mints or answers for the address the record already holds"
 THE_ACTORS_JUDGE = "the actor's judge, a read"
 THE_PERSONS_VERDICT = "a person's own sign-in verdict, a read"
+STARTS_A_CHANGE = "anchors the new address through `app/api/konto/adresswechsel.py :: start_the_change_in_session`"
+MOVES_THE_ADDRESS = "anchors the new address through `app/api/konto/adresswechsel.py :: move_the_address_in_session`, a wait storing none"
 
 # A write asking the ban list of an address is how one storing a NEW address shows itself, a ban refusing exactly that,
 # so each such scope anchors or says why the address it writes was already the record's.
@@ -518,7 +522,11 @@ ASKING_AND_ANCHORING_NOTHING: dict[str, str] = {
     "app/api/schiedsrichter/admin_router.py :: judge_and_mint": STORED_ADDRESS,
     "app/api/schiedsrichter/admin_router.py :: judge_and_remint_the_change": "re-mints the stored pending address",
     "app/api/schiedsrichter/admin_router.py :: reactivate_and_ask": STORED_ADDRESS,
-    "app/api/schiedsrichter/adresswechsel_router.py :: answer_for_the_mailbox": "consumes the pending change the erasure removes",
+    "app/api/konto/router.py :: _holds_a_grant": A_READ,
+    "app/api/konto/router.py :: delete_adresswechsel": "reads the address's grant after its stop, which stores no address",
+    "app/api/konto/router.py :: get_adresswechsel": A_READ,
+    "app/api/schiedsrichter/admin_router.py :: judge_and_start_the_change": STARTS_A_CHANGE,
+    "app/api/schiedsrichter/adresswechsel_router.py :: answer_for_the_mailbox": MOVES_THE_ADDRESS,
     "app/api/schiedsrichter/adresswechsel_router.py :: get_adresswechsel_ansicht": A_READ,
     "app/api/schiedsrichter/bestaetigung_router.py :: answer_for_the_person": STORED_ADDRESS,
     "app/api/schiedsrichter/bestaetigung_router.py :: get_bestaetigung_ansicht": A_READ,
@@ -530,7 +538,9 @@ ASKING_AND_ANCHORING_NOTHING: dict[str, str] = {
     "app/api/spielbestaetigungen/sweep_router.py :: mint": STORED_ADDRESS,
     "app/api/spielbestaetigungen/sweep_router.py :: remind": STORED_ADDRESS,
     "app/api/spieler/admin_router.py :: judge_and_remint_the_change": "re-mints the stored pending address",
-    "app/api/spieler/adresswechsel_router.py :: answer_for_the_mailbox": "consumes the pending change the erasure removes",
+    "app/api/spieler/admin_router.py :: judge_and_start_the_change": STARTS_A_CHANGE,
+    "app/api/spieler/adresswechsel_router.py :: answer_for_the_mailbox": MOVES_THE_ADDRESS,
+    "app/api/schiedsrichter/sweep_router.py :: take_effect": MOVES_THE_ADDRESS,
     "app/api/spieler/adresswechsel_router.py :: get_adresswechsel_ansicht": A_READ,
     "app/api/teams/admin_router.py :: get_einladung": A_READ,
     "app/api/teams/admin_router.py :: judge_and_mint": STORED_ADDRESS,
@@ -610,13 +620,20 @@ def _held_by_a_transaction(scope: str, transactional: frozenset[str], passed: fr
     return bool(callers) and all(caller not in passed and _held_by_a_transaction(caller, transactional, passed | {scope}) for caller in callers)
 
 
+# A restore's replay rewrites a line inside the callback judging it (`app/api/identitaet/wiederherstellung.py :: replay_line`),
+# handed the rewrite as a value, so no caller names it.
+REPLAY_ARBITER = "app/api/identitaet/wiederherstellung.py :: judged_and_rewritten"
+REPLAY_REWRITES: frozenset[str] = frozenset({"app/api/identitaet/wiederherstellung.py :: rewrite_the_effect"})
+
+
 def test_an_address_anchor_is_written_inside_a_transaction():
     """As the choke points' callers are held: an anchor committed outside a transaction meets nobody.
 
     By id through the fold and the key alone, so no caller anchors a spelling the erasure never writes.
     """
 
-    transactional = _transactional_scopes()
+    transactional = _transactional_scopes() | REPLAY_REWRITES
 
+    assert REPLAY_ARBITER in _transactional_scopes(), "the replay's rewrites are run by no transaction's callback"
     assert _app_callers_of(anchor_by_id_in_db.__name__) == {"app/core/adressanker.py :: anchor_the_addresses"}
     assert {scope for scope in ADDRESS_ANCHORS if not _held_by_a_transaction(scope, transactional)} == set()

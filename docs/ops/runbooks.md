@@ -591,9 +591,9 @@ refuses the next one without touching a row already written.
 **The rate limit buys time rather than prevention.** `= /api/bewerbung` carries a paired ceiling of 2r/m on
 one /64 and 6r/m on one /48 ([`spec.md`](spec.md) §1.3 for why the pair and why the wide half sits below the
 others), which puts filling the list from a single /48 at roughly three hours of sustained work rather than
-minutes. It does nothing about a flood spread across many allocations, and `limit_conn 50` on the catch-all
-is the only ceiling on concurrency — a backstop rather than a per-visitor control, and the one figure in that
-section never exercised against a real page load.
+minutes. It does nothing about a flood spread across many allocations, and no concurrency ceiling reaches
+this path: `limit_conn 50` sits on the catch-all and the link pages' blocks alone — a backstop rather than a
+per-visitor control, and the one figure in that section never exercised against a real page load.
 
 ## 5. When somebody asks for their data, or asks us to change it
 
@@ -688,42 +688,56 @@ reading before you save: a club rename fans out into the matches of every season
 ([`../glossary.md`](../glossary.md#spiel--one-match)), and a referee rename fans out into every
 season's matches, a referee not being season-scoped.
 
-**An email address is not an ordinary rectification, and which procedure applies is decided by the
-role the address sits in.** It is what a person signs in as, so changing one changes who can sign in
-as them.
+**An email address is not an ordinary rectification: it is who can sign in as the person.** A
+change of a pupil's or a confirmed referee's address moves, in one step, every pupil row, confirmed
+referee row, confirmed contact seat and open registration the address holds, so one sign-in stays
+whole; a grant stays where it is (`docs/backend/spec.md :: I793`).
 
-- **A pupil.** Enter the new address in the pupil editor (`POST /spieler/{spieler_id}/adresswechsel`).
-  The address on file stays in force and is told a change was asked, while the new one waits with a
-  link of its own; it moves only once its holder confirms there, so until then the pupil still signs
-  in at the address on file (`docs/backend/spec.md :: I701`). The ban list (`REQ-SPIELER-003`) and
-  another pupil already holding the address (`docs/backend/spec.md :: I702`) each refuse the request,
-  and a pupil holding no address takes none: an address arrives with their registration
-  (`docs/backend/spec.md :: I703`).
-  Re-send its link before it lapses, or discard the change when the request turns out to be wrong:
-  the day after its link lapses the hourly pass removes the change, and the new address is then
-  entered again
+- **The person can still sign in.** Point them to their account page, `/bereich/konto`, „E-Mail-Adresse
+  ändern“. They confirm it is them by passkey or by a code to the address on file, type the new
+  address, and confirm it from its own mailbox within 24 hours; the address on file is told, with a
+  link that stops the change (`docs/backend/spec.md :: I790`, `:: I796`). Never start a change for a
+  person who can sign in: a request arriving by mail proves nothing about who sent it.
+- **They say they cannot sign in.** Ask the address on file first: start the change in the pupil or
+  referee editor with „Die bisherige Adresse fragen“ and no reason
+  (`POST /spieler/{spieler_id}/adresswechsel`, `POST /schiedsrichter/{schiedsrichter_id}/adresswechsel`).
+  Nothing goes to the new address until the address on file signs in and approves the change on its
+  account page within 24 hours (`docs/backend/spec.md :: I794`). Where the mailbox in fact still
+  works, its holder approves or stops it, so a request sent in somebody else's name reaches the real
+  person; where nobody approves, the change lapses and the next bullet applies.
+- **The address on file is gone**: the approval lapsed unanswered, or the school or the provider
+  says the mailbox was deleted. This is the one route on which the league hands records to a new
+  mailbox without the old one's consent, so establish who is asking through a channel the league
+  already holds and the request did not arrive through, never by replying to the requesting mail:
+  for a pupil, a confirmed contact person of their current team, the Trainer or the Ansprechperson
+  on the season row, confirming in writing from their own confirmed address; for a referee, a call
+  to the telephone number on their record, or in person at a fixture. Where neither is possible,
+  refuse and say why. Record how you checked as the reason, naming nobody and no address: the reason
+  stays twelve months in the log, and the backend refuses a name of the person
+  (`REQ-SPIELER-009`, `REQ-SCHIEDSRICHTER-013`). Start the change with it („Die bisherige Adresse
+  ist nicht mehr erreichbar“). The new address confirms by link within 24 hours, and the change takes
+  effect seven days later, judged again then; until then the address on file, should it still be
+  read, stops it by link or on its account page (`docs/backend/spec.md :: I795`). A stopped change
+  means the mailbox is not gone: talk to the person before starting again.
+- **What refuses an administrator's start**: the ban list (`REQ-SPIELER-003`,
+  `REQ-SCHIEDSRICHTER-007`), another pupil signing in on the new address where a pupil row moves
+  (`docs/backend/spec.md :: I702`), and a pupil holding no address, whose address arrives with their
+  registration (`docs/backend/spec.md :: I703`). Where the new address already holds records of its
+  own, the start says so: once the change takes effect, they all belong to one sign-in.
+- **Re-send** a link only while the change waits on the new mailbox, and **discard** a change that
+  turns out to be wrong. A change whose step lapses goes within the hour
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
-  **Once the change confirms, the account sweep deletes the old address's sign-in account within the
-  hour**, once nothing else references that address
-  ([section 9](#9-checking-that-the-hourly-passes-have-run)). Registering again from the new address
-  instead writes a second person, which the admission joins to the first only where the first holds
-  no address. The address a PENDING registration was typed with is not corrected: the answer is to
-  register again through the team's link, the unconfirmed row going with the seven-day sweep.
+- **Once a change takes effect**, the replaced address is told, and the account sweep deletes its
+  sign-in account within the hour, its passkeys with it, once nothing else references the address
+  ([section 9](#9-checking-that-the-hourly-passes-have-run)). A grant still at the replaced address
+  keeps that account alive: change the grant by the procedure of
+  [section 3](#3-granting-or-revoking-admin-access).
 - **A referee who has NOT confirmed.** Correct `kontakt.email` in the referee editor. The save
   itself kills the link that went to the old mailbox, mints a fresh one and mails the corrected
-  address, so nothing further is owed and the old link opens nothing.
-- **A referee who HAS confirmed, retired or not.** Enter the new address in the referee editor. The
-  save keeps the address on file and holds the new one as a pending change with a link of its own;
-  the address moves only once its holder confirms there, so until then the referee still signs in,
-  and is written to, at the address on file (`docs/backend/spec.md :: I559`). Re-send its
-  link before it lapses, or discard it when the request turns out to be wrong: the day after its
-  link lapses the hourly pass removes the change, and the new address is then entered again
-  ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
-  Their consent link is not re-minted — the record is already given. **Once the change confirms,
-  the account sweep deletes the old address's sign-in account within the hour**, the referee's
-  passkeys with it, once nothing else references that address
-  ([section 9](#9-checking-that-the-hourly-passes-have-run)).
-- **The holder of a pending new referee address**, a mailbox an administrator's typing reached. Until
+  address, so nothing further is owed and the old link opens nothing. Their editor refuses an
+  address change for them (`REQ-SCHIEDSRICHTER-014`): until they confirm, they hold no record an
+  address change could move.
+- **The holder of a pending new referee address**, a mailbox a change was started for. Until
   it confirms, that address reaches nothing of the referee's (`docs/backend/spec.md :: I560`), and
   only the erasure's own read finds the row from it: type it on „Löschung auf Anfrage“, whose list
   names the pending change and links to that referee's editor, follow the link without pressing,
@@ -731,7 +745,8 @@ as them.
   which removes the address and the log's images of it (`docs/backend/spec.md :: I562`). Where the
   holder asked for their data to be deleted, the erasure itself removes the change alone and leaves
   the row standing (`docs/backend/spec.md :: I668`). The link's own „Das ist nicht meine Adresse“
-  does the same as the discard, past its deadline too.
+  does the same as the discard, past its deadline too, and the address on file's stop link
+  does it from the other side.
 - **The holder of a pending new pupil address**, the referee's case above on a pupil's row: the
   erasure page's list links to that pupil's editor, whose discard
   (`DELETE /spieler/{spieler_id}/adresswechsel`) removes the address and the log's images of it
@@ -746,10 +761,11 @@ as them.
   confirmation deadline, and where one person holds two seats it corrects both. A seat whose person
   has stepped out takes a different route, below.
 
-**A person asking to change their own address is answered by performing the procedure above.**
-No page lets anybody change the address they sign in as: a confirmed referee's change is the
-administrator's save and a pupil's the administrator's request, each proved by the new mailbox's own
-link and told to the address on file, and every other role's is the administrator's correction.
+**A person asking to change their own address is pointed to their account page.** A pupil's and a
+confirmed referee's address changes there, proved by the new mailbox's own link and told to the
+address on file; an administrator starts a change only for a lost mailbox, as above, and every other
+role's address is the administrator's correction. A person holding only contact seats starts none
+(`REQ-FUNKTION-001`), so their seat is corrected as the contact seat bullet says.
 
 **Withdrawing a consent is the person's own write on their account page, `/bereich/konto`, and
 never an erasure or an edit by hand** (`docs/backend/spec.md :: I613`, `:: I596`). Point a request
@@ -1167,8 +1183,8 @@ x /var/log/frankfurtleague/nginx
 **The erasure journal's lines are copied into a file per day,
 `/var/log/frankfurtleague/<day>-erasure-journal.log`, by a pair of units of their own.** Every
 erasure a person or an administrator asks for leaves one line in the backend's stream, and so does
-every consent a person withdraws on their own record, every Widerspruch made through a seat's link
-and every address change declined through its link
+every consent a person withdraws on their own record, every Widerspruch made through a seat's link,
+every address change declined or stopped and every one taking effect
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706); a restore runs each erasure
 again and replays each of those choices from those lines (§13). The stream loses them at the next recreate, or sooner once its size cap
 rotates them away; the day files keep them for this directory's thirty days, counted from each
@@ -1313,7 +1329,8 @@ the deadline stops there fails its call with the date left stale, as a failure t
 report.
 
 **The half after the seasons stamps no day, so its own line is the record.** Every pass ends by
-removing the referees' and the pupils' pending addresses whose link lapsed before today. It writes
+removing the pending address changes whose step lapsed and making the due ones take effect, mailing
+each replaced address its completion notice. It writes
 one line per pass holding its counts and no person, `schiedsrichter.adresswechsel_sweep_pass`, at
 `INFO` where the pass left no row due, which a `LOG_LEVEL` above `INFO` drops, and as a warning
 where it left rows due; a half that threw files `schiedsrichter.adresswechsel_sweep_failed` under
@@ -1353,9 +1370,9 @@ the fields a model refused, and under `SRV-FAIL-001` the file, line and function
 database did not raise came from. Find the record it points to and repair it, and the pass after
 deletes the pupil. A warning saying the database deadline
 passed at a pupil or at an address change is the call stopping in time rather than a refusal: the
-pass goes on from the next call, and it needs nothing from you. Where it adds that the erasure or
-the removal went unanswered, under `DB-FAIL-002`, that one's outcome is unknown, and the next pass
-judges it afresh.
+pass goes on from the next call, and it needs nothing from you. Where it adds that the erasure, the
+removal or the effect went unanswered, under `DB-FAIL-002`, that one's outcome is unknown, and the
+next pass judges it afresh.
 
 **A `SRV-VAL-001` warning naming pupils left out of the deletion is a stored address no request
 matches** — empty, not in the form sign-in folds it to, or refused by the address rule, which only
@@ -1426,7 +1443,8 @@ recreating the frontend service ends:
 
     docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_
 
-**Turn the confirmations on once, on a day you choose: the first armed passes are a burst.**
+**Turn the confirmations on once, on a day you choose after this season's player records are reset
+(§12), in the same edit as the report form's switch below: the first armed passes are a burst.**
 `SPIEL_SWEEP` ships off, so a deploy mails no team. Armed, the passes ask about every dated fixture
 of the running season inside the answer window
 (`fl_backend/app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE` plus
@@ -1434,8 +1452,8 @@ of the running season inside the answer window
 referee, spread over as many hourly passes as the per-pass share needs, and a fixture inside the
 deadline's own days is due the day it is asked.
 
-1. Add `SPIEL_SWEEP=on` to the server's `fl_frontend/.env` and deploy (§1). The frontend reads it
-   once as it boots.
+1. Add `SPIEL_SWEEP=on` and `SPIELBERICHT_EINGABE=on` to the server's `fl_frontend/.env` and
+   deploy (§1). The frontend reads both once as it boots.
 2. The next day, read `spiel_sweep_gelaufen_am` with the call above, and the pass lines.
 
 **Switching it off is that line set to `off`, and a deploy**, and it stops every season's fixture
@@ -1674,8 +1692,8 @@ again.
 **The action log cannot be the list, because the restore rolls it back too; the erasure journal is.**
 Everything written between the snapshot and the restore is gone, the log's own rows about it
 included. Every erasure a person or an administrator asked for left one line in the backend's
-stream, and so did every consent a person withdrew, every Widerspruch made through a seat's link and
-every address change declined through its link, each naming its person by a keyed hash and never
+stream, and so did every consent a person withdrew, every Widerspruch made through a seat's link,
+every address change declined or stopped and every one taking effect, each naming its person by a keyed hash and never
 by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by and by
 the digest their fixture answers carry, whether its commit landed or lost its answer
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706). §7's day files keep those lines outside the database for thirty days. **Once the restore has
@@ -1753,19 +1771,17 @@ did (I731); the log keeps one row under „Pseudonyme“ for the marks and the c
 the system, its call reading `REPLAY` and the line's act, record and journalling instant, never its
 person nor the journal's token, and a second run writes nothing. **A record left for review is
 written by nothing**: read it beside the person's mail thread and settle it by hand, the listing
-going on to name it since its hash matches nothing the record holds. Four things no line restores:
+going on to name it since its hash matches nothing the record holds. Four things a line restores in part or not at all:
 
 - **A grant made after a journalled withdrawal and before the restore's end** is in no journal, so
   the choice stays withdrawn, the safe side, until its person grants it again on the account page.
 - **A Widerspruch's replay mails nobody**, its submitter having been told when it was made.
-- **An address change its holder confirmed inside the window** is in no journal, which names nobody
-  by an address: the restored record holds the replaced address again, the change still pending
-  where the snapshot holds its request. The tool cannot list these, no line recording a
-  confirmation and the log that did having rolled back with the restore, so the administrators'
-  mail threads asking for each change are the record. For each change entered or confirmed inside
-  the window, re-send its link from the editor where the restored record still holds it pending, or
-  enter the new address again where it holds none ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)),
-  and write to the person that their change was undone and waits on their confirmation again.
+- **An address change that took effect inside the window, started before the snapshot**, replays
+  from its line, moving every record again; **one started inside the window** reads `left for
+review`, the restored record holding no change to move: ask the person to start it again on their
+  account page ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)). A change
+  started or confirmed inside the window and not yet in effect is in no journal: its person starts
+  it again too.
 - **An address an administrator corrected inside the window**: a referee's who had not confirmed,
   retired or not, in the referee editor, or a contact seat's through
   `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`. No line records an

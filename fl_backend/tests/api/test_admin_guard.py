@@ -98,6 +98,9 @@ PUBLIC_WRITES = [
     # A pupil's address link, its own base-tier router for the referee's link's reason.
     ("/api/v0/spieler/adresswechsel/ansicht", "post"),
     ("/api/v0/spieler/adresswechsel", "post"),
+    # The address on file's stop link on each lane, on the same routers for the same reason.
+    ("/api/v0/spieler/adresswechsel/stopp", "post"),
+    ("/api/v0/schiedsrichter/adresswechsel/stopp", "post"),
     # A pupil's own confirmation link, on a third base-tier router under the registration prefix:
     # the token is the whole credential, so the guard here would have no session to check.
     ("/api/v0/registrierungen/bestaetigung/ansicht", "post"),
@@ -198,6 +201,8 @@ ADMIN_READS = [
     # beside them carry every surname whole.
     ("/api/v0/spielberichte/{spiel_id}/admin", "get"),
     ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
+    # Every report's proposed result, which the public result never serves (`READ-BERICHT-002`).
+    ("/api/v0/spielberichte", "get"),
 ]
 
 
@@ -264,6 +269,10 @@ PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
         ("/api/v0/spielberichte/person", "get"),
         ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
         ("/api/v0/spielberichte/{spiel_id}/bericht", "put"),
+        ("/api/v0/konto/adresswechsel", "get"),
+        ("/api/v0/konto/adresswechsel", "post"),
+        ("/api/v0/konto/adresswechsel/freigabe", "post"),
+        ("/api/v0/konto/adresswechsel", "delete"),
     }
 )
 

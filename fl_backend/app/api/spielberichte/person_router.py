@@ -1,7 +1,8 @@
 from datetime import datetime
+from http import HTTPStatus
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Response
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.identitaet.crud import funktionen_of
@@ -21,7 +22,7 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtSchiedsrichterResponse,
     FLSpielberichtVonSchiedsrichter,
 )
-from app.api.spielberichte.services import compose_ansicht, find_nicht_geleitet_refusal, judge_bericht, neu_genannt
+from app.api.spielberichte.services import compose_ansicht, find_nicht_geleitet_refusal, judge_bericht, neu_genannt, nimmt_einen_bericht
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db, refuse
@@ -134,6 +135,7 @@ async def get_spielbericht_bericht(
     spielberichte_collection: SpielberichteCollection,
     records: SubjektLookup,
     db: DBClient,
+    today: str = Depends(get_german_date_str),
 ) -> FLSpielberichtSchiedsrichterResponse:
     """
     What the booked referee's report form reads.
@@ -141,7 +143,8 @@ async def get_spielbericht_bericht(
     The fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored
     report, its remarks and card reasons included, or null.
 
-    Served for a fixture still to come or called off too, whose page says why it takes no report. Refused
+    Served for a fixture still to come or called off too, whose page says why it takes no report, with both squads
+    empty: the pupils the stored report names are then all in `genannt`. Refused
     `REQ-FUNKTION-001` where the address holds no confirmed, live referee record, and `REQ-BERICHT-002` where the fixture
     is booked to none of its records; `DB-COMMON-001` for a fixture that does not exist.
     """
@@ -163,24 +166,36 @@ async def get_spielbericht_bericht(
             )
         )
 
+        kader_offen = nimmt_einen_bericht(lage.spiel, today=today)
         dokument = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
         genannt = await pull_genannt(
-            spieler_collection=spieler_collection, lage=lage, bericht=None if dokument is None else dokument.get("bericht"), session=session
+            spieler_collection=spieler_collection,
+            lage=lage,
+            kader_offen=kader_offen,
+            bericht=None if dokument is None else dokument.get("bericht"),
+            session=session,
         )
 
-    return FLSpielberichtSchiedsrichterResponse.model_validate(compose_ansicht(lage, genannt=genannt, dokument=dokument))
+    return FLSpielberichtSchiedsrichterResponse.model_validate(
+        compose_ansicht(lage, kader_offen=kader_offen, genannt=genannt, dokument=dokument)
+    )
 
 
 @router.put(
     BERICHT_PATH,
     response_model=FLSpielberichtSchiedsrichterResponse,
     summary="Write one fixture's report as its referee",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={
+        201: {"model": FLSpielberichtSchiedsrichterResponse, "description": "The report did not stand before, and this write created it"},
+        404: DOCUMENT_NOT_FOUND_RESPONSE,
+        409: DUPLICATE_KEY_RESPONSE,
+    },
     dependencies=[Depends(gedrosselt)],
 )
 async def put_spielbericht_bericht(
     spiel_id: CustomRouteObjectId,
     bericht_data: Annotated[FLSpielberichtPayload, Body()],
+    response: Response,
     identifier: SchiedsrichterIdentifier,
     spiele_collection: SpieleCollection,
     saison_spieler_collection: SaisonSpielerCollection,
@@ -195,10 +210,10 @@ async def put_spielbericht_bericht(
     """
     Write the whole report of one fixture as its booked referee, replacing what stood.
 
-    The proposed result, the scorers, the cards and the remarks. The first write creates it; every write raises its
-    `version`, so a report the
-    administrator adopted reads `abweichend` again until it is adopted anew. Writes no fixture: the result is the
-    administrator's to save.
+    The proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every
+    write changing it raises its `version`, so a report the administrator adopted reads `abweichend` again until it
+    is adopted anew, and a write changing nothing writes nothing. Writes no fixture: the result is the administrator's
+    to save.
 
     Refuses, in this order, each writing nothing: an address holding no confirmed, live referee record
     (`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records
@@ -206,13 +221,14 @@ async def put_spielbericht_bericht(
     (`REQ-BERICHT-004`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil
     the report already named on that side staying (`REQ-BERICHT-003`); and remarks naming a seat holder of either club,
     the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal after the first is asked
-    again outside the transaction just before answering, so a write landing mid-press on what was judged refuses the
-    report rather than letting it stand. Two first writes at once are one report and one `DB-COMMON-002`.
+    again outside the transaction just before answering, the referee's records included, so a write landing mid-press
+    on what was judged refuses the report rather than letting it stand. Two first writes at once are one report: the
+    later is written over the earlier, as a correction is.
     """
 
     payload = bericht_data.bericht
 
-    async def write_the_report(session: AsyncClientSession) -> FLSpielberichtSchiedsrichterResponse:
+    async def write_the_report(session: AsyncClientSession) -> tuple[FLSpielberichtSchiedsrichterResponse, bool]:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
 
         subjekt = await funktionen_of(identifier, records, session=session)
@@ -241,11 +257,16 @@ async def put_spielbericht_bericht(
             now=now,
             session=session,
         )
-        genannt = await pull_genannt(spieler_collection=spieler_collection, lage=lage, bericht=dokument.get("bericht"), session=session)
+        genannt = await pull_genannt(
+            spieler_collection=spieler_collection, lage=lage, kader_offen=True, bericht=dokument.get("bericht"), session=session
+        )
 
-        # Nothing judged is written here, so a referee taken off, a fixture re-dated or called off, a pupil ausgetragen
-        # or a seat holder renamed under this transaction raises no conflict: all judged again outside it before
-        # answering (`docs/backend/spec.md :: I118`).
+        # Nothing judged is written here, so a referee retired or taken off, a fixture re-dated or called off, a pupil
+        # ausgetragen or a seat holder renamed conflicts with nothing: judged again outside the transaction
+        # (`docs/backend/spec.md :: I118`).
+        async with db.start_session(snapshot=True) as ausserhalb:
+            subjekt_jetzt = await funktionen_of(identifier, records, session=ausserhalb)
+        refuse(find_eigener_eintrag_refusal(gehalten=bool(subjekt_jetzt.schiedsrichter)))
         jetzt = await pull_bericht_lage(
             spiele_collection=spiele_collection,
             saison_spieler_collection=saison_spieler_collection,
@@ -253,10 +274,23 @@ async def put_spielbericht_bericht(
             spiel_id=spiel_id,
             session=None,
         )
-        refuse(find_nicht_geleitet_refusal(spiel_raw=jetzt.spiel, schiedsrichter_ids=eigene))
+        refuse(
+            find_nicht_geleitet_refusal(
+                spiel_raw=jetzt.spiel, schiedsrichter_ids=[record.schiedsrichter_id for record in subjekt_jetzt.schiedsrichter]
+            )
+        )
         judge_bericht(lage=jetzt, payload=payload, neu=neu, today=today)
 
-        return FLSpielberichtSchiedsrichterResponse.model_validate(compose_ansicht(lage, genannt=genannt, dokument=dokument))
+        angelegt = gespeichert is None or gespeichert.get("bericht") is None
+        ansicht = compose_ansicht(lage, kader_offen=True, genannt=genannt, dokument=dokument)
+
+        return FLSpielberichtSchiedsrichterResponse.model_validate(ansicht), angelegt
 
     async with transaction_session(db) as session:
-        return await session.with_transaction(write_the_report)
+        answer, angelegt = await session.with_transaction(write_the_report)
+
+    # RFC 9110's PUT: a write creating the report says so.
+    if angelegt:
+        response.status_code = HTTPStatus.CREATED
+
+    return answer
