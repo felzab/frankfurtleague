@@ -208,7 +208,13 @@ export function AdminEditSpielDataForm({
   // knockout-cancellation warning cannot disagree.
   const previewSpiel = applyDraftToSpiel(spielData, draft);
 
-  const status = deriveSpielDraftStatus({ stored: spielData, draft, expectedCategories: categorize(previewSpiel), fieldErrors });
+  const status = deriveSpielDraftStatus({
+    stored: spielData,
+    draft,
+    uebernimmtBericht,
+    expectedCategories: categorize(previewSpiel),
+    fieldErrors,
+  });
   const isDirty = status.isDirty && !hasSaved;
 
   // Unlatched as soon as the props catch up: left latched, a later edit on a restored tree would
@@ -423,7 +429,7 @@ export function AdminEditSpielDataForm({
 
     startSaving(async () => {
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
-      const res = await patchAdminSpielDataAction(narrowed, spielData.saison_id).catch(unansweredAction);
+      const res = await patchAdminSpielDataAction(narrowed, spielData.saison_id, uebernimmtBericht).catch(unansweredAction);
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
