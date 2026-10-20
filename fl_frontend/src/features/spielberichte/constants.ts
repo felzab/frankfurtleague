@@ -67,9 +67,12 @@ export const SPIELBERICHT_ZUSTAND_TONE: Record<FLSpielberichtZustand, PillTone> 
  */
 export const SPIELBERICHT_ZUSTAENDE_OFFEN: ReadonlySet<FLSpielberichtZustand> = new Set(["vorgeschlagen", "abweichend"]);
 
-/** What every report surface says while `SPIELBERICHT_EINGABE` reads off. */
+/**
+ * What every report surface says while `SPIELBERICHT_EINGABE` reads off. Never „noch nicht“: the switch can go off again
+ * after the league opened it.
+ */
 export const SPIELBERICHT_GESCHLOSSEN = {
-  title: "Der Spielbericht ist noch nicht freigeschaltet",
+  title: "Der Spielbericht ist gerade nicht freigeschaltet",
   hint: "Sobald die Liga ihn freigibt, trägst Du hier das Ergebnis, die Torschützen und die Karten ein.",
 } as const;
 
