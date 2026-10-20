@@ -204,6 +204,46 @@ def run_shell(
     )
 
 
+# What `shell: bash` expands to on the runner, less the two flags that only skip start-up files.
+RUNNER_SHELL: Final = "set -eo pipefail\n"
+# A job's step, and the keys under it, at the indents both workflows keep.
+_STEP_OPEN_RE: Final = re.compile(r"^      - ")
+_STEP_NAME_RE: Final = re.compile(r"^      (?:- |  )name: (.+)$")
+_RUN_BLOCK_RE: Final = re.compile(r"^        run: \|$")
+_RUN_LINE: Final = "          "
+
+
+def step_script(workflow: Path, name: str) -> str:
+    """The `run: |` text of the step `name`, dedented to the margin, behind the runner's shell flags.
+
+    Read rather than copied, for `lift_function`'s reason.
+    """
+    steps: list[list[str]] = []
+    inside = False
+    for line in workflow.read_text(encoding="utf-8").splitlines():
+        if _STEP_OPEN_RE.match(line):
+            steps.append([line])
+            inside = True
+        elif inside and (not line or line.startswith("        ")):
+            steps[-1].append(line)
+        else:
+            inside = False
+    named = [step for step in steps if any((found := _STEP_NAME_RE.match(line)) and found[1] == name for line in step)]
+    assert len(named) == 1, f"{_cited(workflow)} names {len(named)} steps {name!r}, where the case reads exactly one"
+    opened = next((i for i, line in enumerate(named[0]) if _RUN_BLOCK_RE.match(line)), -1)
+    assert opened >= 0, f"{_cited(workflow)}'s {name!r} has no `run: |` block"
+    block: list[str] = []
+    for line in named[0][opened + 1 :]:
+        # A key after the block, such as an `env:`, ends it.
+        if line and not line.startswith(_RUN_LINE):
+            break
+        block.append(line.removeprefix(_RUN_LINE))
+    text = "\n".join(block).strip("\n") + "\n"
+    # An expression would reach the runner substituted and this case unsubstituted.
+    assert "${{" not in text, f"{name!r} interpolates an expression into its script"
+    return RUNNER_SHELL + text
+
+
 _SECOND_DEFINITION_RE: Final = re.compile(r"\b[A-Za-z_][\w-]*\s*\(\)\s*\{")
 
 
