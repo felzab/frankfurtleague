@@ -859,6 +859,7 @@ const FORMS: Record<string, FormCase> = {
         zustand: "gueltig" as const,
         begruendung: null,
         eingetragen: false,
+        vergangen: false,
       };
       return marksOf(h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz] }), async (into) => {
         // The reason box stands behind the disclosure, which is what offers it.
@@ -868,7 +869,8 @@ const FORMS: Record<string, FormCase> = {
       });
     },
     // A decline takes no answer without its reason, so the box is marked.
-    expected: ["name begruendung", "star Begründung drawn"],
+    // The row's name rides in the label for a screen reader, as the admin panel's box carries its party's.
+    expected: ["name begruendung", "star Begründung: SG Alpha gegen SG Beta am 20.11.2026 drawn"],
   },
   "the referee's confirmation": {
     module: "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",

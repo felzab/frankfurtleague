@@ -939,6 +939,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   administrator's answer's, going at the season's end as above, and stand while the referee's row does, their erasure removing them (`docs/backend/spec.md :: I761`). The published notice tabulates it
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19, the administrator's reason on that clock
   2026-10-20.
+- **A fixture's parties are mailed about it at the address on file when each message goes, and no
+  message names a person.** A club's seats receive the request and its reminders, a booked referee the
+  Einteilung; a party mailed about it is told when the fixture moves, a referee when the fixture no
+  longer books them, and every party mailed when it is called off (`docs/backend/spec.md :: I780`,
+  `:: I833`). A notice still owed is held on its closed row as a count of attempts and never as an
+  address (`:: I832`), so it needs no erasure step of its own: the address is read as each pass
+  sends, and a referee's erasure removes their rows. The taken-off and called-off notices ruled
+  2026-10-20.
 - **A match report keeps its scorers, its cards and its proposed result as the league's record, and
   loses on that same clearing what characterises the pupils' conduct**: from the pass that clears the
   contact blocks, every pass strips the season's `spielberichte` of the referee's remarks and every

@@ -250,7 +250,7 @@ export type SpielbestaetigungAnsicht =
   | { zustand: "zugesagt"; beantwortet_von: FLSpielbestaetigungVon }
   | { zustand: "abgelehnt"; beantwortet_von: FLSpielbestaetigungVon }
   // `termin-vorbei` is the page's own: an `abgelaufen` link whose fixture's day has gone by.
-  | { zustand: "abgelaufen" | "termin-vorbei" | "ungueltig" | "gesperrt" };
+  | { zustand: "abgelaufen" | "termin-vorbei" | "ungueltig" | "abgesagt" | "gesperrt" };
 
 /** Every state a link opens on once no press can spend it. */
 export type SpielbestaetigungLinkZustand = Exclude<SpielbestaetigungAnsicht["zustand"], "gueltig" | "vorschlag">;

@@ -32,14 +32,17 @@ const bestaetigungToken = z
  */
 const ANFRAGEN_LISTED_PER_PASS = 83;
 
+/** Restated from `fl_backend/app/api/spielbestaetigungen/schemas.py :: MITTEILUNGEN_PER_PASS`, held as the line above is. */
+const MITTEILUNGEN_PER_PASS = 25;
+
 export const FLSpielbestaetigungAntwortArtSchema = z.enum(["zugesagt", "abgelehnt"], {
   error: "Bitte sag zu oder schlag einen anderen Termin vor.",
 });
 export type FLSpielbestaetigungAntwortArt = z.infer<typeof FLSpielbestaetigungAntwortArtSchema>;
 
 /**
- * What a reopened link shows; `unlesbar`, a read that failed, is the page's own and no value of this set. `vorschlag`
- * is a link still answerable while the other club's decline proposes another date for the same Ansetzung.
+ * What a reopened link shows; `unlesbar`, a read that failed, is the page's own. `vorschlag` is a link still answerable
+ * while the other club's decline proposes another date, and `abgesagt` one whose fixture was called off.
  */
 export const FLSpielbestaetigungZustandSchema = z.enum([
   "gueltig",
@@ -48,6 +51,7 @@ export const FLSpielbestaetigungZustandSchema = z.enum([
   "abgelehnt",
   "abgelaufen",
   "ungueltig",
+  "abgesagt",
   "gesperrt",
 ]);
 export type FLSpielbestaetigungZustand = z.infer<typeof FLSpielbestaetigungZustandSchema>;
@@ -163,9 +167,16 @@ export type FLSpielbestaetigungAntwortResponse = z.infer<typeof FLSpielbestaetig
 
 /**
  * Never `gesperrt`, the binder refusing a barred person first, nor `vorschlag`: a referee proposes no date.
- * `abgelaufen` is an unanswered row closed for good: its day gone, or its fixture decided, called off or left by a club.
+ * `abgelaufen` is an unanswered row closed for good: its day gone, or its fixture decided or left by a club.
  */
-export const FLSpielbestaetigungSchiedsrichterZustandSchema = z.enum(["gueltig", "zugesagt", "abgelehnt", "abgelaufen", "ungueltig"]);
+export const FLSpielbestaetigungSchiedsrichterZustandSchema = z.enum([
+  "gueltig",
+  "zugesagt",
+  "abgelehnt",
+  "abgelaufen",
+  "ungueltig",
+  "abgesagt",
+]);
 export type FLSpielbestaetigungSchiedsrichterZustand = z.infer<typeof FLSpielbestaetigungSchiedsrichterZustandSchema>;
 
 /** One row of a referee's own, open or closed, naming which of the address's referee records it asks. */
@@ -179,6 +190,8 @@ export const FLSpielbestaetigungSelbstSchema = z.object({
   begruendung: z.string().nullable(),
   // Whether the league entered the answer for the referee, naming nobody: its Zusage counts as theirs would.
   eingetragen: z.boolean(),
+  // Whether the day lies before today on Berlin's calendar, judged by the read so the page's lists match its order.
+  vergangen: z.boolean(),
 });
 export type FLSpielbestaetigungSelbst = z.infer<typeof FLSpielbestaetigungSelbstSchema>;
 
@@ -278,7 +291,15 @@ export type FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung = z.infer<typeof
 export const FLSpielbestaetigungSweepSchiedsrichterGewechseltSchema = FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzungSchema;
 export type FLSpielbestaetigungSweepSchiedsrichterGewechselt = z.infer<typeof FLSpielbestaetigungSweepSchiedsrichterGewechseltSchema>;
 
-/** One season's pass: the requests still to stamp, the reminders already stamped, and the void notices. */
+/** A team row its fixture's call-off closed after its request went out: the slot it was asked about, and its mailboxes now. */
+export const FLSpielbestaetigungSweepSpielAbgesagtSchema = FLSpielbestaetigungSweepNeueAnsetzungSchema;
+export type FLSpielbestaetigungSweepSpielAbgesagt = z.infer<typeof FLSpielbestaetigungSweepSpielAbgesagtSchema>;
+
+/** The same for a referee row whose Einteilung went out: their address alone. */
+export const FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagtSchema = FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzungSchema;
+export type FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt = z.infer<typeof FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagtSchema>;
+
+/** One season's pass: the requests still to stamp, the reminders already stamped, and the notices still to stamp. */
 export const FLSpielbestaetigungSweepResponseSchema = BaseAPIResponseSchema.extend({
   saison_id: z.string(),
   anfragen: z.array(FLSpielbestaetigungSweepAnfrageSchema),
@@ -287,8 +308,12 @@ export const FLSpielbestaetigungSweepResponseSchema = BaseAPIResponseSchema.exte
   neue_ansetzungen: z.array(FLSpielbestaetigungSweepNeueAnsetzungSchema),
   schiedsrichter_neue_ansetzungen: z.array(FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzungSchema),
   schiedsrichter_gewechselt: z.array(FLSpielbestaetigungSweepSchiedsrichterGewechseltSchema),
+  spiel_abgesagt: z.array(FLSpielbestaetigungSweepSpielAbgesagtSchema),
+  schiedsrichter_spiel_abgesagt: z.array(FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagtSchema),
   geschlossen: z.int().nonnegative(),
   fehlgeschlagen: z.int().nonnegative(),
+  // Notices the pass stopped owing unsent, each a party nobody told.
+  mitteilungen_aufgegeben: z.int().nonnegative(),
 });
 export type FLSpielbestaetigungSweepResponse = z.infer<typeof FLSpielbestaetigungSweepResponseSchema>;
 
@@ -307,6 +332,18 @@ export const FLSpielbestaetigungSweepAngefragtResponseSchema = BaseAPIResponseSc
   fehlgeschlagen: z.int().nonnegative(),
 });
 export type FLSpielbestaetigungSweepAngefragtResponse = z.infer<typeof FLSpielbestaetigungSweepAngefragtResponseSchema>;
+
+/** Which rows' notices went, each owing none from then on. */
+export const FLSpielbestaetigungSweepMitgeteiltPayloadSchema = z.object({
+  spielbestaetigung_ids: z.array(CustomObjectIdStringSchema).max(MITTEILUNGEN_PER_PASS),
+});
+export type FLSpielbestaetigungSweepMitgeteiltPayload = z.infer<typeof FLSpielbestaetigungSweepMitgeteiltPayloadSchema>;
+
+export const FLSpielbestaetigungSweepMitgeteiltResponseSchema = BaseAPIResponseSchema.extend({
+  saison_id: z.string(),
+  mitgeteilt: z.int().nonnegative(),
+});
+export type FLSpielbestaetigungSweepMitgeteiltResponse = z.infer<typeof FLSpielbestaetigungSweepMitgeteiltResponseSchema>;
 
 // --- The administrator's read, settle and discard (`fl_backend/app/api/spielbestaetigungen/admin_router.py`).
 
