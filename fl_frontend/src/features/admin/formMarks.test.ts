@@ -19,8 +19,11 @@ import { side, spielFields } from "@/shared/testing/fixtures.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
+import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
+import type { FLEinladungAnsichtResponse, FLRegistrierungBestaetigungAnsichtResponse } from "@/features/registrierungen/schemas";
+import type { FLSchiedsrichterBestaetigungAnsichtResponse } from "@/features/schiedsrichter/schemas";
 import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { ReactNode } from "react";
 
@@ -679,9 +682,10 @@ const FORMS: Record<string, FormCase> = {
             kader_frei: true,
             team_eingetragen: true,
             nachnominierung: false,
-          },
+          } satisfies FLEinladungAnsichtResponse,
+          siteKey: TEST_SITE_KEY,
           onLinkTot: () => undefined,
-        } as never),
+        }),
       );
     },
     expected: ["name email", "name nachname", "name vorname", "star E-Mail drawn", "star Nachname drawn", "star Vorname drawn"],
@@ -734,7 +738,7 @@ const FORMS: Record<string, FormCase> = {
       const { laufendeSpielerFassung } = await import("@/shared/testing/einwilligungAnswers.ts");
       const { SpielerBestaetigungView } = await import("@/features/registrierungen/components/views/SpielerBestaetigungView.tsx");
       const fassung = laufendeSpielerFassung();
-      const ansicht = {
+      const ansicht: FLRegistrierungBestaetigungAnsichtResponse = {
         acknowledged: 1,
         zustand: "gueltig",
         team: "Lessing-Kolleg",
@@ -743,12 +747,10 @@ const FORMS: Record<string, FormCase> = {
         seite: fassung.seite,
         mindestalter: 16,
         medien_mindestalter: 18,
-        geburtsdatum: null,
-        umfang: null,
-        medien: null,
+        geburtsdatum_gespeichert: false,
       };
       return marksOf(
-        h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht, token: "kein-echtes-token" }, fassung } as never),
+        h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht, token: "kein-echtes-token" }, fassung }),
         async (into) => {
           await typeFirstDate(20, into);
           await pressEveryRadio(into);
@@ -791,14 +793,13 @@ const FORMS: Record<string, FormCase> = {
             ansicht: {
               acknowledged: 1,
               zustand: "gueltig",
-              text_version: fassung.textVersion,
               mindestalter: 16,
               medien_mindestalter: 18,
               frist: "2026-10-05",
-            },
+            } satisfies FLSchiedsrichterBestaetigungAnsichtResponse,
             fassung,
           },
-        } as never),
+        }),
         async (into) => {
           await typeFirstDate(20, into);
           await pressEveryRadio(into);

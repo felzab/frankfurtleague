@@ -19,6 +19,7 @@ import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
 import { ABLEHNEN_LABEL, VERTRETUNG_MIN_ALTER } from "../../constants.ts";
 
+import type { FLBewerbungEinwilligungAnsichtResponse } from "../../schemas.ts";
 import type { BestaetigungStart } from "./BestaetigungView.tsx";
 
 const fetchMock = doubleFetch();
@@ -32,16 +33,15 @@ const KONTAKT = laufendeKontaktSaisonFassung();
 /** Every sentence a page about an application says and a season row's seat must not: nobody applied, nothing is deleted with an application. */
 const NUR_BEWERBUNG = /Bewerbung|eingereicht|Wird Deine Schule neu eingetragen/;
 
-const ANSICHT = {
-  acknowledged: 1 as const,
-  zustand: "gueltig" as const,
-  quelle: "saison" as const,
-  zeile: "offen" as const,
+const ANSICHT: FLBewerbungEinwilligungAnsichtResponse = {
+  acknowledged: 1,
+  zustand: "gueltig",
+  quelle: "saison",
+  zeile: "offen",
   saison_id: "2627",
   schule: "Lessing-Kolleg",
-  rolle: "ansprechperson" as const,
-  zugleich_rolle: "trainer" as const,
-  text_version: KONTAKT.textVersion,
+  rolle: "ansprechperson",
+  zugleich_rolle: "trainer",
   laufende_fassung: KONTAKT.textVersion,
   mindestalter: VERTRETUNG_MIN_ALTER,
   medien_mindestalter: MEDIEN_MIN_ALTER,

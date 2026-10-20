@@ -4,6 +4,8 @@ import { beforeEach, describe, it } from "node:test";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
 
+import type { FLSpielbestaetigungAnsichtResponse } from "@/features/spielbestaetigungen/schemas.ts";
+
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
 const tags: [string, unknown][] = [];
@@ -47,7 +49,7 @@ const TOKEN = "abc123";
 const WRITE_OPERATION = "POST /spielbestaetigungen";
 
 /** The view of a link the other seat of the club already answered. */
-const BEANTWORTET = {
+const BEANTWORTET: FLSpielbestaetigungAnsichtResponse = {
   acknowledged: 1,
   zustand: "zugesagt",
   seite: "team1",

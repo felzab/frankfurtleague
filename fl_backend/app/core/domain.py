@@ -1339,7 +1339,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "the person holds one and the press writes the stored date, never serving it -- matched on the folded address AND the "
         "folded name, so a sibling registering from a mailbox shared anyway is not given the stored person's date -- and "
         "the write lands in the same `$set` as the consent record it is checked for (`REQ-REGISTRIERUNG-007`). No "
-        "control puts it back, so a mistyped date is corrected by registering again",
+        "control puts it back, so a mistyped date is corrected by registering again. A returning pupil's stored date, which "
+        "registering again takes too, is corrected by an administrator on the person "
+        "(`app.api.spieler.admin_router.patch_spieler`), and the refusal of that date names the league's address",
         "app.api.registrierungen.services.find_alter_refusal",
     ),
     FieldPolicy(
