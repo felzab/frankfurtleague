@@ -37,7 +37,6 @@ const BESTAETIGT: FLSchiedsrichter = {
   geburtsdatum: "2007-03-01",
   einwilligung: {
     umfang: "kader_oeffentlich",
-    erteilt_von: "volljaehrig",
     datum: "2026-09-01",
     bestaetigt_am: "2026-09-01",
     text_version: "2026-10-schiedsrichterseite-4",

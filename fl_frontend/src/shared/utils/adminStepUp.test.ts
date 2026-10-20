@@ -52,7 +52,6 @@ const referee = () => ({
   einwilligung: answered
     ? {
         umfang: "kader_oeffentlich",
-        erteilt_von: "volljaehrig",
         datum: "2026-01-02",
         bestaetigt_am: "2026-01-02",
         text_version: "2026-09-schiedsrichterseite",

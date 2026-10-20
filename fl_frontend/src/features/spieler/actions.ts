@@ -31,20 +31,21 @@ import type { ActionResult } from "@/shared/types/types";
 import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type {
   FLDeleteSpielerPayload,
-  FLPatchSpielerPayload,
   FLReactivateSpielerPayload,
   FLSaisonSpielerKeyPayload,
   FLSaisonSpielerResponse,
   FLSpielerAdminSingleResponse,
 } from "./schemas";
-import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft } from "./types";
+import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerPersonPayloadDraft } from "./types";
 
 /** Base tag only, for the reason `fl_frontend/src/features/spieler/queries.ts :: getSpieler` gives. */
 function invalidateSpieler(): void {
   invalidatesOnWrite("spieler");
 }
 
-export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Promise<ActionResult<{ spieler?: FLSpielerAdminSingleResponse }>> {
+export async function patchSpielerAction(
+  rawPayload: SpielerPersonPayloadDraft,
+): Promise<ActionResult<{ spieler?: FLSpielerAdminSingleResponse }>> {
   return runAdminMutation("patchSpielerAction", async () => {
     const validated = FLPatchSpielerPayloadSchema.safeParse(rawPayload);
 

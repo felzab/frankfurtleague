@@ -49,7 +49,6 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
 const NO_TEAM = nichtHinterlegt("Team");
 
 /** What an application predating the confirmation flow reads as, in the register the admin uses for an absent value. */
-const NO_BESTAETIGUNGEN = "Keine Bestätigungen angefragt";
 
 /** The eyebrow over each fact, one cell of the card's grid. */
 const FACT_LABEL_CLASSES = "fluid-xxs font-extrabold tracking-widest text-foreground-muted uppercase";
@@ -146,15 +145,6 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
   // `eingereicht`, and a filter over this would partition the queue on something no decision moves.
   const renderBestaetigung = (bewerbung: AdminBewerbungRow) => {
     const staende = bestaetigungsStand(bewerbung);
-
-    // An application submitted before the workflow has no per-seat state, and a badge reading „0 von
-    // 3“ over one would send an administrator hunting for links that were never sent.
-    if (staende === null)
-      return (
-        <span className="fluid-sm">
-          <Leer>{NO_BESTAETIGUNGEN}</Leer>
-        </span>
-      );
 
     // Ahead of the count, which would read „2 von 3“ over a row no answer can complete and send an
     // administrator waiting for a third that is never coming.

@@ -74,7 +74,7 @@ export function SpielerAngaben({ spieler, kaderEbene }: { spieler: FLSpielerSelb
     <>
       <dl className={FIELD_PAIR_CLASSES}>
         <Angabe label="Name">{kaderName(spieler)}</Angabe>
-        <Angabe label="Geburtsdatum">{spieler.geburtsdatum ? formatSpielDatum(spieler.geburtsdatum) : <Leer />}</Angabe>
+        <Angabe label="Geburtsdatum">{formatSpielDatum(spieler.geburtsdatum)}</Angabe>
       </dl>
 
       {spieler.kader.length > 0 && (

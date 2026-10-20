@@ -33,7 +33,6 @@ from app.core.collections import Collection
 from app.core.crud import build_query
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_nachweis import ohne_sprecher
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
 
@@ -935,10 +934,10 @@ def mit_adresswechseln(teams: Sequence[Mapping[str, Any]], *, live: Mapping[str,
 def als_unbestaetigt(einwilligung: Mapping[str, Any]) -> dict[str, Any]:
     """A seat's record held unconfirmed, as it stands until its person answers (`docs/backend/spec.md :: I142`).
 
-    The stamp nulled and any stored speaker dropped: a blank stamp is no answer, and no write sets a speaker.
+    The stamp nulled: a blank stamp is no answer.
     """
 
-    return {**ohne_sprecher(einwilligung), "bestaetigt_am": None}
+    return {**einwilligung, "bestaetigt_am": None}
 
 
 # Which fields say WHO holds a seat. The telephone number is not one: it is a way to reach a person
@@ -956,12 +955,6 @@ def _identity_of(seat: Mapping[str, Any]) -> tuple[str, ...]:
         sign_in_identifier(str(seat.get(field) or "")) if field == "email" else person_name_key(seat.get(field))
         for field in SEAT_IDENTITY_FIELDS
     )
-
-
-def _kenntnisnahme_of(seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
-    """This seat's consent record, or `None` where a stored row carries none."""
-
-    return einwilligung if isinstance(einwilligung := seat.get("einwilligung"), Mapping) else None
 
 
 def _seat_is_stamped(seat: Mapping[str, Any]) -> bool:
@@ -993,12 +986,12 @@ def _confirmation_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mappi
     """
 
     held = _seat_held_by(stored_slot, seat=seat)
-    einwilligung = None if held is None else _kenntnisnahme_of(held)
-    if held is None or einwilligung is None:
+    if held is None:
         return None
 
-    # The provenance stays the server's (`docs/backend/spec.md :: I142`): only a seat's own stamp
-    # makes it `person`, and a stored blank stamp is none.
+    # The record stays the server's (`docs/backend/spec.md :: I142`): only a seat's own stamp
+    # confirms it, and a stored blank stamp is none.
+    einwilligung = held["einwilligung"]
     return dict(einwilligung) if _seat_is_stamped(held) else als_unbestaetigt(einwilligung)
 
 
@@ -1065,42 +1058,6 @@ def kontakte_fassungen_gehalten(*, kontakte: Mapping[str, Any] | None, stored: A
             gehalten[slot] = held.get("text_version")
 
     return gehalten
-
-
-def compose_kontakte_at_entry(*, kontakte: Any) -> Any:
-    """The application's contact block as the junction row takes it, every seat held to its own stamp.
-
-    A pre-flow application carries a birthdate its applicant gave about somebody else, and acceptance
-    refuses nothing over it (`docs/backend/spec.md :: I143`).
-    """
-
-    if not isinstance(kontakte, Mapping):
-        return kontakte
-
-    composed = dict(kontakte)
-
-    for slot in KONTAKT_ROLLEN:
-        seat = composed.get(slot)
-        if not isinstance(seat, Mapping):
-            continue
-
-        # A confirmed seat moves whole but for a speaker its application stored: the row is a new
-        # document, and no write sets one there.
-        if _seat_is_stamped(seat):
-            composed[slot] = {**seat, "einwilligung": ohne_sprecher(seat["einwilligung"])}
-            continue
-
-        # Dropped rather than refused: the entry is legitimate, and nobody can put the date right --
-        # a decided application mints no confirmation link, so the person has no route to enter theirs.
-        stripped: dict[str, Any] = {**seat, "geburtsdatum": None}
-        # Left as it stands where a stored row carries no record at all: a stamp alone would be a
-        # consent record short of the fields every reader of one requires.
-        if (einwilligung := _kenntnisnahme_of(seat)) is not None:
-            stripped["einwilligung"] = als_unbestaetigt(einwilligung)
-
-        composed[slot] = stripped
-
-    return composed
 
 
 # --- The CONFIRMATION LINK a seat an administrator typed in is mailed, stored beside the slot at

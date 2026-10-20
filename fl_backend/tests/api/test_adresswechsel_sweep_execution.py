@@ -22,7 +22,7 @@ from app.api.adresswechsel.schemas import FLAdresswechselSweepParams
 from app.api.adresswechsel.services import wirksam_ab_von
 from app.api.adresswechsel.sweep_router import ADRESSWECHSEL_PER_PASS, sweep_adresswechsel
 from app.api.bewerbungen.services import hash_token
-from app.api.schiedsrichter.services import build_ghost_schiedsrichter, compose_einwilligung
+from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.services import build_ghost_spieler
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
@@ -104,7 +104,7 @@ def a_referee(position: int) -> dict[str, Any]:
         email=on_file(position),
         name=f"Schiedsrichter {position}",
         default_payment=20,
-        einwilligung=compose_einwilligung(umfang="kader_oeffentlich", medien=False, text_version="v1", today="2026-03-01"),
+        einwilligung=documents.eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-01"),
     )
 
 

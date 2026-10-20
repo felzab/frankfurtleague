@@ -45,7 +45,7 @@ from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
-from app.api.teams.services import compose_kontakte_at_entry, find_club_entry_refusal
+from app.api.teams.services import find_club_entry_refusal
 from app.core.adressanker import anchor_the_addresses
 from app.core.config import API_VERSION
 from app.core.crud import insert_live, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
@@ -106,10 +106,7 @@ async def annehmen_bewerbung(
 
     IRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an
     `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
-    confirm their own seat (`REQ-BEWERBUNG-013`); an application stored before the confirmation flow carries no
-    confirmation block and is not held to it. A seat of such an application enters the season without the birthdate
-    the applicant gave for it, and recorded as entered on that person's behalf: a birthdate is the seat holder's own
-    to state.
+    confirm their own seat (`REQ-BEWERBUNG-013`), so every seat enters the season as its person confirmed it.
     """
 
     async def accept_and_enter_the_school(session: AsyncClientSession) -> FLAnnehmenBewerbungResponse:
@@ -128,7 +125,7 @@ async def annehmen_bewerbung(
         # In-session, as everything judged here is: a confirmation landing mid-request is judged by
         # the retry rather than lost, and the block copied into `saison_teams` below then carries
         # every person's own date and stamp.
-        refuse(find_unconfirmed_kontakte_refusal(kontakte=bewerbung_raw.get("kontakte"), bestaetigungen=bewerbung_raw.get("bestaetigungen")))
+        refuse(find_unconfirmed_kontakte_refusal(kontakte=bewerbung_raw.get("kontakte")))
 
         saison_id = str(bewerbung_raw["saison_id"])
         # In-session, as the season's own patch reads it: `activate_saison` moves `status` in a
@@ -197,9 +194,9 @@ async def annehmen_bewerbung(
                 "austritt": None,
                 "trikot_farbe": annahme_data.trikot_farbe,
                 # The three people arrive WITH the row rather than in a later write: they are what the
-                # application was, and `/bereich/admin/kontakte` reads them from here. Composed, never copied:
-                # a pre-flow application's dates are nobody's own (`docs/backend/spec.md :: I141`).
-                "kontakte": compose_kontakte_at_entry(kontakte=bewerbung_raw["kontakte"]),
+                # application was, and `/bereich/admin/kontakte` reads them from here. Copied whole, each seat
+                # confirmed by its own person before acceptance was allowed (`REQ-BEWERBUNG-013`).
+                "kontakte": bewerbung_raw["kontakte"],
                 # Copied rather than joined on read (`docs/backend/spec.md :: I95`).
                 "name": name,
                 "shorthand": shorthand,
@@ -307,7 +304,7 @@ async def erneut_einwilligung(
     Where one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.
     The answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.
     The application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat
-    is judged with the pressed one, a seat stored before the confirmation flow is refused as an answered one is, and a
+    is judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a
     decision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list
     holds is refused `REQ-BEWERBUNG-019`. A path naming no seat is a 404.
     """
@@ -533,8 +530,8 @@ async def besetze_kontakt_sitz(
     nothing, seating them for a confirmation they cannot give.
 
     Refused on an application already decided (`REQ-BEWERBUNG-001`); on any seat this write would reach that nobody
-    stepped out of — confirmed, still waiting, erased at its person's request, or held by an application stored
-    before the confirmation flow, the claimed mirror included (`REQ-BEWERBUNG-011`); and on an address another
+    stepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included
+    (`REQ-BEWERBUNG-011`); and on an address another
     contact person on this application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds
     (`REQ-BEWERBUNG-019`); and on any label but the application form's running one (`REQ-EINWILLIGUNG-001`), the person
     seated being a new acceptance. A path naming no seat is a 404.

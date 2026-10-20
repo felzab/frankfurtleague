@@ -1576,10 +1576,9 @@ database shell. Four things decide whether the one pasted is right:
 - **Count before clearing, per seat and per collection, on the term the clear will use** — a date
   that is not null beside a `bestaetigt_am` that is null — and read the number of documents each
   update reports as modified against its count.
-- **The `null` half is what reaches a record written before `bestaetigt_am` existed**, matching an
-  absent key as well as a stored null, which is why that key sits outside `required`
-  (`fl_backend/app/core/constraints.py :: _KONTAKT_KENNTNISNAHME`). The `$ne: null` half matches a
-  stored value alone, so an empty seat and an already-clear one match neither.
+- **The `null` half matches the stored null every unconfirmed seat holds**, the key being
+  required (`fl_backend/app/core/constraints.py :: _KONTAKT_KENNTNISNAHME`), and the `$ne: null`
+  half a stored value alone, so an empty seat and an already-clear one match neither.
 - **Null rather than `$unset`**, which is the shape every write path stores and every read answers
   as none (`fl_backend/app/api/bewerbungen/services.py :: compose_kontakte`).
 - **One update per seat, each carrying its own seat's term**, for the reason §2's rename gives: a
@@ -1621,10 +1620,6 @@ write replaced ([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and
 so nothing survives this to say what the removed writes held. Take the snapshot's timestamp down
 first ([section 13](#13-after-a-restore-from-a-snapshot)). Erasing every `aktionen` row is run by
 hand as a MongoDB Playground paste, as every migration here is (§2).
-
-**The player half is what lets the old late-entry key go**: once it has run, no stored squad row
-carries the marker under its old spelling, and the leniency that reads it is removed in one change
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I303).
 
 **The referee rows standing today go at a different moment, not at this season's end**: immediately
 before the deploy whose fixture read first consults a referee's own consent record, so that read

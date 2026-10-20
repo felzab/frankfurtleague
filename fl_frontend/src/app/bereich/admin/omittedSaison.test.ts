@@ -13,6 +13,7 @@ import { overridingModule, registerDoubles } from "@/core/exportingModule.ts";
 import { readPublishedDocument } from "@/core/openapiDocument.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
 import { membershipAnswer } from "@/shared/testing/membershipFixtures.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import {
@@ -115,8 +116,8 @@ const spieler = (saisons: FLSaison[]) => ({
   vorname: "Ada",
   nachname: null,
   inactive_since: null,
-  geburtsdatum: null,
-  einwilligung: null,
+  geburtsdatum: "2009-05-04",
+  einwilligung: bestaetigteEinwilligung(),
   email: null,
   adresswechsel_id: null,
   memberships: saisons.map((entry) => ({

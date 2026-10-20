@@ -116,9 +116,8 @@ class _SaisonWritable(BaseModel):
     start_date: CustomDateString
     end_date: CustomDateString
     rules: FLSaisonRules
-    # NO default here, so the payloads inherit none: `PATCH` replaces the season wholesale, and an
-    # omitted key would close the application window as an edit nobody asked for. `FLSaison` below
-    # adds one back.
+    # NO default, so the payloads have none: `PATCH` replaces the season wholesale, and an omitted
+    # key would close the application window as an edit nobody asked for.
     bewerbung: FLSaisonBewerbung | None
     # No default either, for the reason above: the second window is shut by the same omission.
     registrierung: FLSaisonRegistrierung | None
@@ -165,16 +164,8 @@ class FLSaison(_SaisonWritable):
 
     status: FLSaisonStatus
 
-    # DEFAULTED, as `FLSpiel.notiz` is: every season written before the generator existed carries
-    # no key.
+    # DEFAULTED: the season's creation writes no key, the generator being what writes it.
     spielplan: FLSaisonSpielplan | None = None
-
-    # DEFAULTED for `spielplan`'s reason, and re-declared rather than defaulted on the base above:
-    # a default there would put the field on the PATCH payload as one an old client may omit.
-    bewerbung: FLSaisonBewerbung | None = None
-
-    # DEFAULTED and re-declared for `bewerbung`'s reason above.
-    registrierung: FLSaisonRegistrierung | None = None
 
     # DERIVED, and on no document. Injected before validation, because a computed field would close
     # an import cycle.

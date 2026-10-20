@@ -52,15 +52,6 @@ export const EINWILLIGUNG_UMFANG_LABELS: Record<FLEinwilligung["umfang"], string
   intern: "Nur innerhalb der Liga",
 };
 
-/** `bestandsuebernahme` is named plainly rather than softened: a record nobody was asked for must not read like consent somebody gave. */
-export const EINWILLIGUNG_HERKUNFT_LABELS: Record<NonNullable<FLEinwilligung["erteilt_von"]>, string> = {
-  // Whoever spoke, named without a gender: half the league's squads are girls, and each of these
-  // stands in a readout that no sentence beside it can qualify.
-  erziehungsberechtigt: "Von einer erziehungsberechtigten Person",
-  volljaehrig: "Von der Person selbst",
-  bestandsuebernahme: "Aus dem Bestand übernommen",
-};
-
 /**
  * `false` is read as nobody having agreed rather than as a refusal: the value stands on a carried-over
  * record nobody was asked, and a word naming a decision would put one in that person's mouth.

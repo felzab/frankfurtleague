@@ -20,6 +20,7 @@ from app.api.identitaet.schemas import FLAnmeldung, FLSubjekt, FLSubjektPayload
 from app.api.konto import router as konto_router
 from app.core.collections import Collection
 from tests.bans import ban_list
+from tests.documents import bestaetigte_kenntnisnahme
 from tests.records import record_collections
 
 IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
@@ -46,7 +47,7 @@ SEAT_ROW = {
     "saison_id": ACTIVE_SAISON,
     "team_id": ObjectId("6890a1b2c3d4e5f607820001"),
     "name": "Helmholtz",
-    "kontakte": {"trainer": {"email": IDENTIFIER, "einwilligung": {"bestaetigt_am": "2026-01-20"}}},
+    "kontakte": {"trainer": {"email": IDENTIFIER, "einwilligung": bestaetigte_kenntnisnahme(bestaetigt_am="2026-01-20")}},
 }
 
 

@@ -1,4 +1,11 @@
-import type { FLPatchSaisonSpielerPayload, FLPostSaisonSpielerPayload, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "./schemas";
+import type {
+  FLPatchSaisonSpielerPayload,
+  FLPatchSpielerPayload,
+  FLPostSaisonSpielerPayload,
+  FLSpielerPosition,
+  FLSpielerRolle,
+  FLSpielerStufe,
+} from "./schemas";
 
 /** Mirrors `FLSpielerSortOptions`: every option is a field the base tier serves, and it serves neither `nachname` whole nor `stufe` at all. */
 type FLSpielerSortingOptions = "vorname" | "nummer" | "position";
@@ -14,6 +21,11 @@ export type FLSpielerFilterParams = {
   limit?: number;
   sort_by?: FLSpielerSortingOptions;
   order?: "asc" | "desc";
+};
+
+/** The person half as the editor sends it: a cleared date picker submits `null`, which the schema refuses as a field error. */
+export type SpielerPersonPayloadDraft = Omit<FLPatchSpielerPayload, "geburtsdatum"> & {
+  geburtsdatum: string | null;
 };
 
 /** The squad editor's enter-a-season draft: `team_id` widened to `null` so an untouched picker is a field error rather than a type error. */
@@ -83,7 +95,7 @@ export type AdminSpielerStored = {
   vorname: string;
   nachname: string | null;
   inactive_since: string | null;
-  geburtsdatum: string | null;
+  geburtsdatum: string;
   email: string | null;
   adresswechsel_id: string | null;
 };

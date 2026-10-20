@@ -1016,8 +1016,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         # EDITABLE, not CONDITIONAL, and the same as `trikot_farbe`: what a replacement does to both is a
         # clearing rather than a refusal, and what `REQ-KONTAKT-001` refuses is a request.
         Editability.EDITABLE,
-        "brought onto the row by the acceptance, which copies the application's block with every seat held to its own "
-        "stamp (`app.api.teams.services.compose_kontakte_at_entry`); "
+        "brought onto the row by the acceptance, which copies the application's block whole, every seat confirmed by its "
+        "own person before acceptance is allowed (`REQ-BEWERBUNG-013`); "
         "required on the payload with no default, so an omitted block is a 422 rather than three people's records silently "
         "dropped; and cleared by a REPLACEMENT for `trikot_farbe`'s reason, holding the outgoing school's contact details "
         "against another club being personal data nobody there gave. No state of the row refuses it; a save composed "
@@ -1309,7 +1309,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.COMPOSED,
         "on no administrative payload and written whole by `POST /schiedsrichter/bestaetigung` alone, from the scope and the "
         "media answer the person chose: the server stamps `bestaetigt_am` and `datum` with the day it lands, nobody else "
-        "being permitted to answer for a referee, and names no speaker (`erteilt_von` is a stored record's alone). It is "
+        "being permitted to answer for a referee. It is "
         "written whole once -- a "
         "second press is refused (`REQ-SCHIEDSRICHTER-004`) -- and afterwards only the person moves its two choices through "
         "`PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung`, every other member standing, `text_version` "
@@ -1362,7 +1362,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.COMPOSED,
         "on no payload beyond the scope and the media answer the pupil chose on the new pupil's page: the server stamps "
         "`bestaetigt_am` and `datum` with the day the confirmation lands, nobody else being permitted to answer for a pupil, "
-        "names no speaker (`erteilt_von` is a stored record's alone) and writes the record born with each choice's evidence. "
+        "and writes the record born with each choice's evidence. "
         "The returning pupil's page asks no choice, so its record is `bestaetigt_am` and `text_version` alone "
         "(`REQ-REGISTRIERUNG-017`). `text_version` arrives on the payload, and anything but the running label of the page "
         "the press resolves is refused (`REQ-EINWILLIGUNG-001`). Until the admission, only the pupil moves a choice the "
@@ -2455,7 +2455,7 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen/{bewerbung_id}/annehmen",
         aggregate="Bewerbung",
-        summary="an application carrying a confirmation block is accepted only once every seat carries its person's own stamp",
+        summary="an application is accepted only once every seat carries its person's own stamp",
         implemented_by="app.api.bewerbungen.services.find_unconfirmed_kontakte_refusal",
         tested_by="tests/api/test_bewerbung_triage_refusal.py::TestEverySeatIsConfirmedBeforeAcceptance",
     ),
@@ -2798,8 +2798,8 @@ RULES: tuple[Rule, ...] = (
         operation="POST /registrierungen/bestaetigung",
         aggregate="Registrierung",
         summary=(
-            "a confirmation answers both choices on the new pupil's page and neither on the returning pupil's, and a "
-            "birthdate exactly where none is stored"
+            "a confirmation answers both choices and a birthdate on the new pupil's page and none of the three on the "
+            "returning pupil's, which takes the stored person's date"
         ),
         implemented_by="app.api.registrierungen.services.find_wahlen_refusal",
         tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestTheChoicesThePageAsks",
@@ -3408,21 +3408,16 @@ UNENFORCED: tuple[Unenforced, ...] = (
         surfaced_by="/bereich/admin/spieler",
     ),
     Unenforced(
-        subject="a person carrying no birthdate, whose age nothing judges",
+        subject="a pupil whose age no squad rule judges",
         reason=(
-            "A pupil supplies their own date at a registration's confirmation and at no other keyboard, so requiring one on "
-            "the PERSON would refuse every row standing today. The `spieler` validator leaves the field out of `required`, "
-            "which is what lets those rows go on validating. "
-            "The league's thresholds are `app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`, one per seat and judged "
-            "for a contact person answering their own confirmation link (`REQ-BEWERBUNG-012`), and the registration's own "
-            "floor, judged for the pupil answering theirs (`REQ-REGISTRIERUNG-007`); a stored `FLEinwilligung.erteilt_von` "
-            "of `volljaehrig` names who spoke rather than an age. What still carries no date is the person: a registration "
-            "holds its own until the admission writes `spieler` from it, and every pupil row standing today is dropped once "
-            "at the end of this season (`docs/datenschutz.md`), so the field stays unrequired here until that admission "
-            "exists to fill it."
+            "A pupil's age is judged once, against the date they supply at their registration's confirmation "
+            "(`REQ-REGISTRIERUNG-007`), and the admission carries that date onto the person. Entering, moving or bringing "
+            "back a squad row judges no age, so a pupil the floor admitted stays in the squads whatever a later edit of the "
+            "date says. The league's other thresholds are `app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`, one per "
+            "seat and judged for a contact person answering their own confirmation link (`REQ-BEWERBUNG-012`)."
         ),
         near=("REQ-BEWERBUNG-012", "REQ-REGISTRIERUNG-007", "REQ-SQUAD-001"),
-        proven_by="tests/core/test_unenforced.py::TestAPupilStoredWithNoBirthdate",
+        proven_by="tests/core/test_unenforced.py::TestAPupilsAgeNoSquadRuleJudges",
         surfaced_by="/bereich/admin/spieler",
     ),
     Unenforced(

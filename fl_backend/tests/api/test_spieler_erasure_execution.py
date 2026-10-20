@@ -92,15 +92,7 @@ def person_row(vorname: str) -> dict[str, Any]:
         # Surname derived from the given name, so one sweep of a whole database still tells two apart.
         f"{vorname}-Mustermann",
         email=f"{vorname.lower()}@example.com",
-        einwilligung={
-            "umfang": "kader_oeffentlich",
-            "erteilt_von": "erziehungsberechtigt",
-            "datum": TODAY,
-            "bestaetigt_am": TODAY,
-            "medien": False,
-            "text_version": None,
-        },
-        geburtsdatum=None,
+        geburtsdatum="2009-05-09",
     )
 
 
@@ -150,7 +142,7 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, vorname: str, team_
     )
     await patch_spieler(
         spieler_id=spieler_id,
-        spieler_data=FLPatchSpielerPayload(vorname=vorname, nachname=f"{vorname}-Musterfrau", geburtsdatum=None),
+        spieler_data=FLPatchSpielerPayload(vorname=vorname, nachname=f"{vorname}-Musterfrau", geburtsdatum="2009-05-09"),
         spieler_collection=database[Collection.SPIELER],
         db=database.client,
     )
@@ -170,7 +162,7 @@ async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
 
     await patch_spieler(
         spieler_id=spieler_id,
-        spieler_data=FLPatchSpielerPayload(vorname=LONE_VORNAME, nachname=f"{LONE_VORNAME}-Musterfrau", geburtsdatum=None),
+        spieler_data=FLPatchSpielerPayload(vorname=LONE_VORNAME, nachname=f"{LONE_VORNAME}-Musterfrau", geburtsdatum="2009-05-09"),
         spieler_collection=database[Collection.SPIELER],
         db=database.client,
     )

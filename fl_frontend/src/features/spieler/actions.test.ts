@@ -12,6 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 import { ContractBreakError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
 import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pageBody } from "@/shared/testing/pageHarness.ts";
@@ -124,7 +125,7 @@ const OHNE_ADRESSE = {
   vorname: "Lena",
   nachname: "Meier",
   inactive_since: null,
-  geburtsdatum: null,
+  geburtsdatum: "2009-05-04",
   email: null,
   adresswechsel_id: null,
 };
@@ -144,7 +145,7 @@ function renderEditor({
       h(AdminSpielerEditForm, {
         istFassungBekannt: true,
         spieler: OHNE_ADRESSE,
-        einwilligung: null,
+        einwilligung: bestaetigteEinwilligung(),
         saison: {
           saisonId: SAISON_ID,
           saisonStatus: "active",
@@ -227,8 +228,8 @@ function person(id: string, vorname: string, rows: { saison_id: string; team_id:
     vorname,
     nachname: null,
     inactive_since: null,
-    geburtsdatum: null,
-    einwilligung: null,
+    geburtsdatum: "2009-05-04",
+    einwilligung: bestaetigteEinwilligung(),
     email: null as string | null,
     adresswechsel_id: null as string | null,
     memberships: rows.map(({ saison_id, team_id, rolle = null }) => ({
@@ -719,7 +720,7 @@ describe("the late-entry marker, which the backend derives", () => {
         h(AdminSpielerEditForm, {
           istFassungBekannt: true,
           spieler: OHNE_ADRESSE,
-          einwilligung: null,
+          einwilligung: bestaetigteEinwilligung(),
           saison: { saisonId: SAISON_ID, saisonStatus: "active", erlaubteStufen: ["Q1"], nachnominierungLaeuft, membership: null },
           teams: [STORED_TEAM],
           pageHeader: { title: "Lena Meier" },

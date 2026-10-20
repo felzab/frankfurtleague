@@ -12,7 +12,7 @@ from pymongo.errors import OperationFailure
 
 from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
-from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter
+from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter, compose_bestaetigungen, hash_token
 from app.api.identitaet.crud import erase_pupil_actor_in_session, unattribute_in_session
 from app.api.registrierungen.services import compose_confirmation_update
 from app.api.teams.schemas import FLGruppenNames
@@ -37,9 +37,11 @@ from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_
 from tests.documents import (
     adresswechsel_document,
     bericht_document,
+    kontaktperson_document,
     spiel_document,
     spielbericht_document,
     spielbestaetigung_document,
+    spieler_document,
 )
 from tests.worker import worker_database
 
@@ -110,16 +112,13 @@ LATER_DECLARED_INDEX = "uniq_shorthand"
 ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
 
 
+# The seat as its applicant named the person under the form's label, and as that person then confirmed it.
+SEATED: Final = {"text_version": "v1", "datum": "2026-01-15"}
+
+
 def kontaktperson(vorname: str) -> dict[str, Any]:
     """A function rather than a constant: the nested consent has to be fresh per slot too, which a `dict()` of a shared one is not."""
-    return {
-        "vorname": vorname,
-        "nachname": f"{vorname}-Mustermann",
-        "email": f"{vorname.lower()}@example.com",
-        "telefon": "+49 69 1234567",
-        "geburtsdatum": "1980-05-04",
-        "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"},
-    }
+    return kontaktperson_document(vorname, bestaetigt_am="2026-01-16", einwilligung=SEATED, telefon="+49 69 1234567", geburtsdatum="1980-05-04")
 
 
 def valid_documents() -> dict[str, dict[str, Any]]:
@@ -142,6 +141,8 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 # Which levels this season offers — a subset of the league's set.
                 "erlaubte_stufen": ["E1", "E2", "Q1", "Q2", "Q3", "Q4"],
             },
+            "bewerbung": None,
+            "registrierung": None,
         },
         "teams": {
             "_id": TEAM_OID,
@@ -151,23 +152,22 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "full_name": "Lessing-Gymnasium",
             "website_url": "https://lessing-gymnasium.example.de",
             "address": dict(ADDRESS),
+            "schulform": None,
             "inactive_since": None,
         },
         # `name` and `shorthand` are the season's own copy of the club's identity, required since the
         # junction became their home; a row without them is unreadable rather than merely stale.
-        "saison_teams": {"saison_id": SAISON_ID, "team_id": TEAM_OID, "gruppe": "A", "austritt": None, "name": "Lessing", "shorthand": "LE"},
-        "spieler": {
-            "_id": SPIELER_OID,
-            "vorname": "Max",
-            "nachname": "Mustermann",
-            "inactive_since": None,
-            "einwilligung": {
-                "umfang": "kader_oeffentlich",
-                "erteilt_von": "erziehungsberechtigt",
-                "datum": "2026-01-15",
-                "bestaetigt_am": "2026-01-20",
-            },
+        "saison_teams": {
+            "saison_id": SAISON_ID,
+            "team_id": TEAM_OID,
+            "gruppe": "A",
+            "austritt": None,
+            "trikot_farbe": None,
+            "kontakte": None,
+            "name": "Lessing",
+            "shorthand": "LE",
         },
+        "spieler": spieler_document(SPIELER_OID, "Max", "Mustermann"),
         "saison_spieler": {
             "spieler_id": SPIELER_OID,
             "saison_id": SAISON_ID,
@@ -247,7 +247,13 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             },
             "trikot": {"vorhandener_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
             "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+            "stufengroesse": 96,
+            "wunschgegner": None,
             "entscheidung": None,
+            "bestaetigungsfrist": "2026-02-15",
+            "bestaetigungen": compose_bestaetigungen(
+                hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
+            ),
         },
         "aktionen": {
             "_id": AKTION_OID,

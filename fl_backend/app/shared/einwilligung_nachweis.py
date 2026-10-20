@@ -23,17 +23,6 @@ from typing import Any, Final, Literal
 NACHWEIS: Final = "nachweis"
 ERTEILT_ZUVOR: Final = "erteilt_zuvor"
 
-# Who answered, on a person's record and on a seat: stored records carry them, and no write sets
-# either any longer. Who seated a seat's person is `eingetragen_von`, and the evidence names no speaker.
-SPRECHER: Final[tuple[str, ...]] = ("erteilt_von", "erfasst_von")
-
-
-def ohne_sprecher(block: Mapping[str, Any]) -> dict[str, Any]:
-    """A consent block as a write carries it onto another document: every field but a stored speaker."""
-
-    return {field: value for field, value in block.items() if field not in SPRECHER}
-
-
 FLEinwilligungWahl = Literal["umfang", "medien"]
 WAHLEN: Final[tuple[FLEinwilligungWahl, ...]] = ("umfang", "medien")
 
@@ -147,7 +136,7 @@ def compose_erneuert(*, pfad: str, gespeichert: Mapping[str, Any], erneuert: Map
     neu_am, alt_am = erneuert.get("bestaetigt_am"), gespeichert.get("bestaetigt_am")
     juenger = not (isinstance(alt_am, str) and alt_am) or (isinstance(neu_am, str) and neu_am >= alt_am)
     gesetzt: dict[str, Any] = (
-        {f"{pfad}.{field}": value for field, value in erneuert.items() if field not in (*WAHLEN, NACHWEIS, *SPRECHER)} if juenger else {}
+        {f"{pfad}.{field}": value for field, value in erneuert.items() if field not in (*WAHLEN, NACHWEIS)} if juenger else {}
     )
     for wahl in WAHLEN:
         neu, alt = beleg_of(erneuert, wahl), beleg_of(gespeichert, wahl)

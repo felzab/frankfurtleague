@@ -20,7 +20,7 @@ const { undoAdminSpielerEditAction } = await import("./actions.ts");
 const SQUAD_OPERATION = "PATCH /spieler/{spieler_id}/saisons/{saison_id}";
 
 const SPIELER_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
-const PERSON = { id: SPIELER_ID, vorname: "Lena", nachname: "Meier", geburtsdatum: null };
+const PERSON = { id: SPIELER_ID, vorname: "Lena", nachname: "Meier", geburtsdatum: "2009-05-04" };
 const SAISON = {
   spieler_id: SPIELER_ID,
   saison_id: "2026",

@@ -1,5 +1,3 @@
-import { formatSpielDatum } from "@/shared/utils/format";
-
 import type { FLEinwilligungBeleg, FLEinwilligungNachweis } from "./schemas";
 
 // Europe/Berlin, as every other date in this app is rendered: the evidence stores an instant in UTC,
@@ -22,17 +20,12 @@ function beleg({ am, text_version }: FLEinwilligungBeleg): string {
 }
 
 /**
- * The act one consent choice stands on, for an administrator's readout. A choice with no evidence of its
- * own was never moved after the confirmation, so the confirmation's day and label are its act; an
- * unconfirmed record has none.
+ * The act one consent choice stands on, for an administrator's readout. Every confirmation evidences
+ * both choices, so a choice with none is one its person has not answered.
  */
-export function beschreibeNachweis(nachweis: FLEinwilligungNachweis | null, bestaetigtAm: string | null, textVersion: string | null): string {
-  if (nachweis !== null) {
-    const zuvor = nachweis.erteilt_zuvor === null ? "" : ` (zuvor erteilt am ${beleg(nachweis.erteilt_zuvor)})`;
-    return `seit ${beleg(nachweis)}${zuvor}`;
-  }
+export function beschreibeNachweis(nachweis: FLEinwilligungNachweis | null): string {
+  if (nachweis === null) return "Nicht bestätigt";
 
-  if (bestaetigtAm === null) return "Nicht bestätigt";
-
-  return `seit der Bestätigung am ${formatSpielDatum(bestaetigtAm)}${textVersion === null ? "" : `, Fassung ${textVersion}`}`;
+  const zuvor = nachweis.erteilt_zuvor === null ? "" : ` (zuvor erteilt am ${beleg(nachweis.erteilt_zuvor)})`;
+  return `seit ${beleg(nachweis)}${zuvor}`;
 }

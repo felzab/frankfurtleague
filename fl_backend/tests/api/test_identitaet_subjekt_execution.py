@@ -22,7 +22,16 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import EINWILLIGUNG, ban_document, rules_document, saison_document, saison_team_document, spieler_document, team_document
+from tests.documents import (
+    EINWILLIGUNG,
+    ban_document,
+    kontaktperson_document,
+    rules_document,
+    saison_document,
+    saison_team_document,
+    spieler_document,
+    team_document,
+)
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -122,8 +131,6 @@ ROW_NAME_B = "Lessing"
 
 STAMP = "2026-01-20"
 
-KENNTNISNAHME: dict[str, Any] = {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-05"}
-
 
 def _person(email: str, *, bestaetigt_am: str | None = STAMP) -> dict[str, Any]:
     """Every field `app/core/constraints.py :: _KONTAKTPERSON` requires, the address and the stamp the only ones a case reads.
@@ -131,13 +138,7 @@ def _person(email: str, *, bestaetigt_am: str | None = STAMP) -> dict[str, Any]:
     Stamped by default: the lookup answers a seat only once its own person has confirmed it.
     """
 
-    return {
-        "vorname": "Anna",
-        "nachname": "Müller",
-        "email": email,
-        "telefon": "+49 69 5550101",
-        "einwilligung": {**KENNTNISNAHME, "bestaetigt_am": bestaetigt_am},
-    }
+    return kontaktperson_document("Anna", bestaetigt_am=bestaetigt_am, nachname="Müller", email=email, telefon="+49 69 5550101")
 
 
 def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str, **slots: str | dict[str, Any]) -> dict[str, Any]:

@@ -16,7 +16,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.bewerbungen.public_router import post_bewerbung
-from app.api.bewerbungen.router import get_bewerbung_by_id
 from app.api.bewerbungen.schemas import FLBewerbung, FLPostBewerbungPayload
 from app.api.bewerbungen.services import (
     BEWERBUNG_ADRESSE_GESPERRT,
@@ -26,7 +25,9 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_SCHLUESSEL_ABWEICHEND,
     BEWERBUNG_SHORTHAND_TAKEN,
     BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
+    bestaetigungsfrist_from,
     build_schluessel_filter,
+    compose_bestaetigungen,
     compose_decline_update,
     compose_kontakte,
     hash_token,
@@ -588,11 +589,11 @@ class TestTheSubmissionKey:
         assert "idempotenz_fingerabdruck" not in stored
         assert code == BEWERBUNG_SCHLUESSEL_ABWEICHEND
 
-    def test_applications_stored_before_the_key_neither_collide_nor_move(self, mongo_replica_set_url: str):
-        """The partial filter: two rows carrying no key would otherwise both index as null and collide."""
+    def test_applications_stored_without_a_key_neither_collide_nor_move(self, mongo_replica_set_url: str):
+        """The partial filter: two keyless presses' rows would otherwise both index as null and collide."""
 
         async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.BEWERBUNGEN].insert_many([_application_without_a_wish(), _application_without_a_wish()])
+            await database[Collection.BEWERBUNGEN].insert_many([_stored_application(), _stored_application()])
             before = await database[Collection.BEWERBUNGEN].find({}).sort("_id", 1).to_list(length=None)
             await submit(database, schluessel=SCHLUESSEL)
             after = (
@@ -927,8 +928,8 @@ def _parsed_kontakte() -> dict[str, Any]:
     return FLPostBewerbungPayload.model_validate(payload()).kontakte.model_dump(mode="json")
 
 
-def _application_without_a_wish() -> dict[str, Any]:
-    """One application in the shape every one stored before `wunschgegner` existed carries: no such key."""
+def _stored_application(**fields: Any) -> dict[str, Any]:
+    """One application as a keyless submission stores it, `fields` laid over it."""
 
     return {
         "saison_id": SAISON_ID,
@@ -939,7 +940,14 @@ def _application_without_a_wish() -> dict[str, Any]:
         "kontakte": compose_kontakte(kontakte=_parsed_kontakte(), today=TODAY),
         "trikot": {"vorhandener_satz": "16 rote Trikots", "wunschfarbe": "rot"},
         "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+        "stufengroesse": 96,
+        "wunschgegner": None,
         "entscheidung": None,
+        "bestaetigungsfrist": bestaetigungsfrist_from(today=TODAY),
+        "bestaetigungen": compose_bestaetigungen(
+            hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today=TODAY
+        ),
+        **fields,
     }
 
 
@@ -947,17 +955,7 @@ def _stored_with(database: AsyncDatabase, kader: Mapping[str, Any]) -> Awaitable
     """One application inserted straight past the models, so only the `$jsonSchema` can be refusing it."""
 
     async def _insert() -> str:
-        document = {
-            "saison_id": SAISON_ID,
-            "eingereicht_am": TODAY,
-            "status": "eingereicht",
-            "team_id": EXISTING_OID,
-            "schule": None,
-            "kontakte": compose_kontakte(kontakte=_parsed_kontakte(), today=TODAY),
-            "trikot": {"vorhandener_satz": "16 rote Trikots", "wunschfarbe": "rot"},
-            "kader": dict(kader),
-            "entscheidung": None,
-        }
+        document = _stored_application(kader=dict(kader))
         try:
             await database[Collection.BEWERBUNGEN].insert_one(document)
         except OperationFailure as failure:
@@ -1052,19 +1050,9 @@ class TestTheDatabaseStillHoldsAnApplicationWithNoColour:
         """Read back through `FLBewerbung`, not with a raw `find_one`: parsing is where a narrowed model would fail."""
 
         async def body(database: AsyncDatabase) -> Any:
-            document = {
-                "saison_id": SAISON_ID,
-                "eingereicht_am": TODAY,
-                "status": "eingereicht",
-                "team_id": EXISTING_OID,
-                "schule": None,
-                "kontakte": compose_kontakte(kontakte=_parsed_kontakte(), today=TODAY),
-                # The colour an administrator has not assigned. The payload admits no null here, so
-                # only a stored row reaches the read models carrying one.
-                "trikot": {"vorhandener_satz": "16 rote Trikots", "wunschfarbe": None},
-                "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-                "entscheidung": None,
-            }
+            # The colour an administrator has not assigned. The payload admits no null here, so
+            # only a stored row reaches the read models carrying one.
+            document = _stored_application(trikot={"vorhandener_satz": "16 rote Trikots", "wunschfarbe": None})
             created = await database[Collection.BEWERBUNGEN].insert_one(document)
             stored = await database[Collection.BEWERBUNGEN].find_one({"_id": created.inserted_id})
 
@@ -1077,17 +1065,7 @@ class TestTheDatabaseStillHoldsAnApplicationWithNoColour:
         """Nullable, not optional: `required` names the key on the stored shape."""
 
         async def body(database: AsyncDatabase) -> str:
-            document = {
-                "saison_id": SAISON_ID,
-                "eingereicht_am": TODAY,
-                "status": "eingereicht",
-                "team_id": EXISTING_OID,
-                "schule": None,
-                "kontakte": compose_kontakte(kontakte=_parsed_kontakte(), today=TODAY),
-                "trikot": {"vorhandener_satz": "16 rote Trikots"},
-                "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-                "entscheidung": None,
-            }
+            document = _stored_application(trikot={"vorhandener_satz": "16 rote Trikots"})
             try:
                 await database[Collection.BEWERBUNGEN].insert_one(document)
             except OperationFailure as failure:
@@ -1096,153 +1074,6 @@ class TestTheDatabaseStillHoldsAnApplicationWithNoColour:
             return "accepted"
 
         assert on_a_league(mongo_replica_set_url, body) == "rejected"
-
-
-class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheOpponentField:
-    """`wunschgegner` is outside the validator's `required`, which every application predating it depends on.
-
-    The triage's `$set` re-runs the validator over the WHOLE document, so requiring the key would
-    refuse every decision on one of those.
-    """
-
-    def test_a_document_carrying_no_key_at_all_is_accepted(self, mongo_replica_set_url: str):
-        """The shipped `$jsonSchema`, so a document production would refuse fails here too."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            created = await database[Collection.BEWERBUNGEN].insert_one(_application_without_a_wish())
-            stored = await database[Collection.BEWERBUNGEN].find_one({"_id": created.inserted_id})
-
-            assert stored is not None
-            # Read back through `FLBewerbung`, not off the raw document: parsing is where a model
-            # without the default would fail.
-            return FLBewerbung(**stored).wunschgegner
-
-        assert on_a_league(mongo_replica_set_url, body) is None
-
-    def test_a_decision_on_one_is_still_accepted(self, mongo_replica_set_url: str):
-        """The failure that would ship silently: nothing writes `wunschgegner`, and the whole document is re-validated."""
-
-        async def body(database: AsyncDatabase) -> str:
-            # Past the validator: the row this class is about predates the key, so a `required` gaining
-            # it would fail the setup insert and report the case above's finding rather than this one's.
-            created = await database[Collection.BEWERBUNGEN].insert_one(_application_without_a_wish(), bypass_document_validation=True)
-            try:
-                await database[Collection.BEWERBUNGEN].update_one(
-                    {"_id": created.inserted_id},
-                    {"$set": {"status": "abgelehnt", "entscheidung": {"getroffen_am": TODAY, "von": "admin", "grund": "kein Platz"}}},
-                )
-            except OperationFailure as failure:
-                assert failure.code == DOCUMENT_VALIDATION_FAILED, f"expected a validation failure, got {failure.code}"
-                return "rejected"
-            return "accepted"
-
-        assert on_a_league(mongo_replica_set_url, body) == "accepted"
-
-
-def _application_before_the_year_group() -> dict[str, Any]:
-    """One application carrying the opponent key and no `stufengroesse`, so only this field's carve-out is under test."""
-
-    return _application_without_a_wish() | {"wunschgegner": None}
-
-
-class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheYearGroup:
-    """The `wunschgegner` carve-out again, re-proved: a required key here would refuse every decision on a stored application."""
-
-    def test_a_document_carrying_no_key_at_all_is_accepted(self, mongo_replica_set_url: str):
-        """The insert and the parse both: a validator requiring the key refuses one, and a model without a default refuses the other."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            created = await database[Collection.BEWERBUNGEN].insert_one(_application_before_the_year_group())
-            stored = await database[Collection.BEWERBUNGEN].find_one({"_id": created.inserted_id})
-
-            assert stored is not None
-            return FLBewerbung(**stored).stufengroesse
-
-        assert on_a_league(mongo_replica_set_url, body) is None
-
-    def test_a_decision_on_one_is_still_accepted(self, mongo_replica_set_url: str):
-        """A decision touches `status` and `entscheidung` alone, and MongoDB re-validates the whole row it lands on."""
-
-        async def body(database: AsyncDatabase) -> str:
-            # Past the validator, for the reason at
-            # `TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheOpponentField :: test_a_decision_on_one_is_still_accepted`:
-            # without it the setup insert fails before the update this case is named for is reached.
-            created = await database[Collection.BEWERBUNGEN].insert_one(_application_before_the_year_group(), bypass_document_validation=True)
-            try:
-                await database[Collection.BEWERBUNGEN].update_one(
-                    {"_id": created.inserted_id},
-                    {"$set": {"status": "abgelehnt", "entscheidung": {"getroffen_am": TODAY, "von": "admin", "grund": "kein Platz"}}},
-                )
-            except OperationFailure as failure:
-                assert failure.code == DOCUMENT_VALIDATION_FAILED, f"expected a validation failure, got {failure.code}"
-                return "rejected"
-            return "accepted"
-
-        assert on_a_league(mongo_replica_set_url, body) == "accepted"
-
-
-def _application_before_the_confirmation_fields() -> dict[str, Any]:
-    """One application with no birthdate key and no stamp key on any seat.
-
-    Wider than what the old form left, a date on every seat, so a read surviving this survives that.
-    """
-
-    document = _application_without_a_wish()
-
-    for seat in ("trainer", "ansprechperson", "stellvertretung"):
-        del document["kontakte"][seat]["geburtsdatum"]
-        del document["kontakte"][seat]["einwilligung"]["bestaetigt_am"]
-
-    return document
-
-
-class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheConfirmationFields:
-    """`geburtsdatum` and `bestaetigt_am` are outside the validator's `required`, and every stored application depends on it.
-
-    The `wunschgegner` precedent, and the `.claude/rules/backend.md` trap in the other direction: a
-    model widened where its hand-written copy was not.
-    """
-
-    def test_a_document_carrying_neither_key_is_accepted_and_the_admin_read_answers_it(self, mongo_replica_set_url: str):
-        """Through the endpoint rather than the raw document: the read is where a required field would 500 the whole triage."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            created = await database[Collection.BEWERBUNGEN].insert_one(_application_before_the_confirmation_fields())
-            response = await get_bewerbung_by_id(
-                bewerbung_id=created.inserted_id,
-                bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                sperrliste=ban_list(database),
-                today=TODAY,
-            )
-
-            return response.bewerbung.kontakte.trainer
-
-        trainer = on_a_league(mongo_replica_set_url, body)
-
-        assert trainer is not None
-        assert (trainer.geburtsdatum, trainer.einwilligung.bestaetigt_am) == (None, None)
-
-    def test_a_decision_on_one_is_still_accepted(self, mongo_replica_set_url: str):
-        """The failure that would ship silently: a decision re-validates the whole document, keys it never wrote included."""
-
-        async def body(database: AsyncDatabase) -> str:
-            # Past the validator, for the reason at
-            # `TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheOpponentField :: test_a_decision_on_one_is_still_accepted`:
-            # without it the setup insert fails before the update this case is named for is reached.
-            created = await database[Collection.BEWERBUNGEN].insert_one(
-                _application_before_the_confirmation_fields(), bypass_document_validation=True
-            )
-            try:
-                await database[Collection.BEWERBUNGEN].update_one(
-                    {"_id": created.inserted_id},
-                    {"$set": {"status": "abgelehnt", "entscheidung": {"getroffen_am": TODAY, "von": "admin", "grund": "kein Platz"}}},
-                )
-            except OperationFailure as failure:
-                assert failure.code == DOCUMENT_VALIDATION_FAILED, f"expected a validation failure, got {failure.code}"
-                return "rejected"
-            return "accepted"
-
-        assert on_a_league(mongo_replica_set_url, body) == "accepted"
 
 
 class TestAKuerzelARetiredClubStillHolds:

@@ -15,6 +15,7 @@ import ts from "typescript";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
 import { side, spielFields } from "@/shared/testing/fixtures.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
@@ -128,7 +129,7 @@ const PERSON = (vorname: string, email: string) => ({
   email,
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
-  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
+  einwilligung: kenntnisnahme({ text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
 });
 const TEAM_A = { teamId: "68c1f0a2b3c4d5e6f7a8b9c1", name: "SG Alpha", shorthand: "SA" };
 const TEAM_B = { teamId: "68c1f0a2b3c4d5e6f7a8b9c2", name: "SG Beta", shorthand: "SB" };
@@ -172,7 +173,7 @@ const staende = async () => {
     email,
     telefon: "069 1234567",
     geburtsdatum: null,
-    einwilligung: kenntnisnahme({ erfasst_von: "administrativ", text_version: "1", datum: "2026-09-01", bestaetigt_am: null }),
+    einwilligung: kenntnisnahme({ text_version: "1", datum: "2026-09-01", bestaetigt_am: null }),
   });
   const offen = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
 
@@ -250,7 +251,7 @@ const FORMS: Record<string, FormCase> = {
         vorname: "Lena",
         nachname: "Meier",
         inactive_since: null,
-        geburtsdatum: null,
+        geburtsdatum: "2009-05-04",
         email: null,
         adresswechsel_id: null,
       };
@@ -266,7 +267,7 @@ const FORMS: Record<string, FormCase> = {
       const editor = (withMembership: boolean) =>
         h(AdminSpielerEditForm, {
           spieler,
-          einwilligung: null,
+          einwilligung: bestaetigteEinwilligung(),
           saison: {
             saisonId: "2026",
             saisonStatus: "active",
@@ -283,7 +284,13 @@ const FORMS: Record<string, FormCase> = {
 
       return [...rostered.map((mark) => `rostered ${mark}`), ...unrostered.map((mark) => `unrostered ${mark}`)];
     },
-    expected: ["rostered name vorname", "unrostered name vorname", "unrostered star Team suppressed"],
+    expected: [
+      "rostered aria spinbutton:Geburtsdatum",
+      "rostered name vorname",
+      "unrostered aria spinbutton:Geburtsdatum",
+      "unrostered name vorname",
+      "unrostered star Team suppressed",
+    ],
   },
   "the match report": {
     module: "features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.tsx",
@@ -795,7 +802,6 @@ const FORMS: Record<string, FormCase> = {
         seite: fassung.seite,
         mindestalter: 16,
         medien_mindestalter: 18,
-        geburtsdatum_gespeichert: false,
       };
       return marksOf(
         h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht, token: "kein-echtes-token" }, fassung }),

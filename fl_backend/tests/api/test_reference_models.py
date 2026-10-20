@@ -228,24 +228,20 @@ class TestSpieler:
         with pytest.raises(ValidationError):
             FLSpieler.model_validate(missing)
 
-    def test_the_person_patch_requires_the_birthdate_key(self):
-        """No default, so a form that forgot the field cannot silently clear a stored date.
+    @pytest.mark.parametrize("absent", [True, False], ids=["absent", "null"])
+    def test_the_person_patch_requires_a_birthdate(self, absent: bool):
+        """No default and no null, so neither a form that forgot the field nor a cleared picker clears a stored date."""
 
-        The value stays optional -- null is an answer somebody gave; what is refused is the key's absence.
-        """
-
-        without = {"vorname": "Max", "nachname": "Mustermann"}
+        names = {"vorname": "Max", "nachname": "Mustermann"}
 
         with pytest.raises(ValidationError):
-            FLPatchSpielerPayload.model_validate(without)
-
-        assert FLPatchSpielerPayload.model_validate({**without, "geburtsdatum": None}).geburtsdatum is None
+            FLPatchSpielerPayload.model_validate(names if absent else {**names, "geburtsdatum": None})
 
     @pytest.mark.parametrize("part", ["vorname", "nachname"])
     def test_the_person_patch_holds_a_name_to_the_registrations_ceiling(self, part: str):
         """An administrator's edit may not store a name the pupil's own registration would refuse."""
 
-        names = {"vorname": "Max", "nachname": "Mustermann", "geburtsdatum": None}
+        names = {"vorname": "Max", "nachname": "Mustermann", "geburtsdatum": "2009-05-04"}
 
         with pytest.raises(ValidationError):
             FLPatchSpielerPayload.model_validate({**names, part: "A" * (KONTAKT_NAME_MAX_LENGTH + 1)})
@@ -255,16 +251,16 @@ class TestSpieler:
 
 
 class TestEinwilligung:
-    """The consent record: what may be published, who agreed it, and whether anyone confirmed it."""
+    """The consent record: what may be published, and whether anyone confirmed it."""
 
     def test_accepts_a_collected_consent(self, spieler, einwilligung):
-        collected = einwilligung(umfang="kader_oeffentlich", erteilt_von="erziehungsberechtigt")
+        collected = einwilligung(umfang="kader_oeffentlich")
 
         einwilligung = FLSpieler.model_validate(spieler(einwilligung=collected)).einwilligung
 
         assert einwilligung is not None and einwilligung.umfang == "kader_oeffentlich"
 
-    @pytest.mark.parametrize("field", ["umfang", "datum", "bestaetigt_am"])
+    @pytest.mark.parametrize("field", ["umfang", "datum", "bestaetigt_am", "text_version", "medien", "nachweis"])
     def test_requires_every_key(self, einwilligung, field, assert_rejects):
         """The keys in the validator's `required` tuple, so a model accepting one fewer would read back a row the database refuses to store."""
 
@@ -272,17 +268,6 @@ class TestEinwilligung:
         del incomplete[field]
 
         assert_rejects(FLEinwilligung, incomplete, field)
-
-    def test_a_record_predating_the_two_optional_keys_reads_back(self, einwilligung):
-        """The whole stored population: a model requiring either would 500 a list over every person the league already holds."""
-
-        record = einwilligung()
-        del record["text_version"], record["medien"]
-
-        parsed = FLEinwilligung.model_validate(record)
-
-        assert parsed.text_version is None
-        assert parsed.medien is False
 
     def test_a_media_consent_is_read_beside_the_publication_scope_and_not_inside_it(self, einwilligung):
         """Two independent answers: a reader asking `umfang` whether a photo may be published gets the wrong question's answer."""
@@ -293,33 +278,12 @@ class TestEinwilligung:
         assert parsed.medien is True
         assert parsed.umfang == "kader_oeffentlich"
 
-    def test_a_record_naming_no_speaker_reads_back(self, einwilligung):
-        """No write names who answered any longer, so every record written from now on reads without one."""
-
-        assert FLEinwilligung.model_validate(einwilligung()).erteilt_von is None
-
-    def test_a_carried_over_record_says_so_and_carries_no_dates(self, einwilligung):
-        """`bestandsuebernahme` is the point of the third member: nobody was asked, so there is no day and no confirmation."""
-
-        parsed = FLEinwilligung.model_validate(einwilligung(erteilt_von="bestandsuebernahme", datum=None, bestaetigt_am=None))
-
-        assert parsed.erteilt_von == "bestandsuebernahme"
-        assert parsed.datum is None
-
-    def test_an_unconfirmed_record_is_null_rather_than_absent(self, einwilligung):
-        """A null `bestaetigt_am` is the state a publication gate reads; omitting the key would make it indistinguishable from a bad row."""
-
-        assert FLEinwilligung.model_validate(einwilligung(bestaetigt_am=None)).bestaetigt_am is None
-
     @pytest.mark.parametrize(
         ("field", "value"),
         [
             # A scope somebody invented where the two the league publishes under already exist.
             ("umfang", "oeffentlich"),
             ("umfang", "kader"),
-            # A source outside the three: consent comes from a guardian, an adult, or a carry-over.
-            ("erteilt_von", "schule"),
-            ("erteilt_von", "trainer"),
         ],
     )
     def test_rejects_a_value_outside_its_closed_set(self, einwilligung, field, value, assert_rejects):
@@ -336,11 +300,7 @@ class TestEinwilligung:
 
 @pytest.mark.db
 class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
-    """What the Pydantic defaults claim, judged by `$jsonSchema` instead.
-
-    A model's default is a READ; `required` is what a write meets, and the two are declared in
-    different files.
-    """
+    """The record the registration flow writes, judged by `$jsonSchema` rather than by the model declared in another file."""
 
     def _written(self, url: str, einwilligung: dict[str, Any]) -> dict[str, Any]:
         async def body() -> Any:
@@ -351,6 +311,7 @@ class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
                         "vorname": "Wiltrudis",
                         "nachname": "Meier",
                         "inactive_since": None,
+                        "geburtsdatum": "2009-05-04",
                         "einwilligung": einwilligung,
                     }
                 )
@@ -359,23 +320,7 @@ class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
 
         return on_the_seed_loop(body())
 
-    def test_a_four_key_record_is_stored_and_reads_back_at_the_models_defaults(self, mongo_url: str, einwilligung):
-        """The whole stored population, past the validator rather than past Pydantic.
-
-        A `required` tuple holding either new key refuses every record the league already holds.
-        """
-
-        stored = self._written(mongo_url, einwilligung())
-
-        assert set(stored["einwilligung"]) == {"umfang", "erteilt_von", "datum", "bestaetigt_am"}
-
-        parsed = FLSpielerWithMemberships.model_validate({**stored, "adresswechsel_id": None, "memberships": []})
-
-        assert parsed.einwilligung is not None
-        assert (parsed.einwilligung.text_version, parsed.einwilligung.medien) == (None, False)
-
-    def test_a_six_key_record_is_stored_and_reads_back_carrying_both_answers(self, mongo_url: str, einwilligung):
-        """The other direction: a validator declaring neither key would refuse the record the registration flow is built to write."""
+    def test_a_confirmed_record_is_stored_and_reads_back_carrying_both_answers(self, mongo_url: str, einwilligung):
 
         stored = self._written(mongo_url, einwilligung(text_version="liga-2026-03", medien=True))
         parsed = FLSpielerWithMemberships.model_validate({**stored, "adresswechsel_id": None, "memberships": []})
@@ -408,13 +353,6 @@ class TestSaisonSpielerRow:
             "nummer",
             "inactive_since",
         }
-
-    def test_no_field_carries_a_default_except_the_one_the_validator_does_not_require(self):
-        """A default on any other key would make the model accept a row the database refuses, `required` holding the rest."""
-
-        # `rolle` alone, and it has to stay alone: every stored row predates the field, so requiring
-        # it would refuse all of them, and the model has to describe what the validator admits.
-        assert [name for name, field in FLSaisonSpielerRow.model_fields.items() if not field.is_required()] == ["rolle"]
 
     def test_a_number_is_a_string_and_not_an_int(self, saison_spieler):
         """Squad numbers are worn, not counted: `07` and `7` are different shirts, and an int erases the distinction."""
@@ -700,10 +638,7 @@ class TestTheSeasonsSpans:
 
 
 class TestTheSeasonsWindowsAreRequiredWithNoDefault:
-    """Parametrised over both windows: a default added to either would leave the other's case green.
-
-    The `None` re-declaration on the read model is what lets a season stored before a field validate.
-    """
+    """Parametrised over both windows: a default added to either would leave the other's case green."""
 
     @pytest.mark.parametrize("field", ["bewerbung", "registrierung"])
     def test_a_payload_omitting_a_window_is_refused_rather_than_closing_it(self, saison, field, assert_rejects):
@@ -716,12 +651,6 @@ class TestTheSeasonsWindowsAreRequiredWithNoDefault:
         body = {**TestTheSeasonsSpans.payload(saison), field: None}
 
         assert getattr(FLPatchSaisonPayload.model_validate(body), field) is None
-
-    @pytest.mark.parametrize("field", ["bewerbung", "registrierung"])
-    def test_a_stored_season_carrying_no_window_key_still_validates(self, saison, field):
-        stored = {key: value for key, value in saison().items() if key != field}
-
-        assert getattr(FLSaison.model_validate(stored), field) is None
 
 
 class TestSpielBooking:
@@ -816,7 +745,7 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
     def cases(self, address, kontakt, saison, saison_spieler, team) -> dict[str, tuple[type[BaseModel], dict[str, Any], tuple[str, ...]]]:
         spielort = {"address": address(), "name": "Sportplatz Ost", "default_mietpreis": 80}
         schiedsrichter = {"kontakt": kontakt(), "name": "Anna Referee", "schule": None, "default_payment": 20}
-        spieler = {"vorname": "Max", "nachname": "Mustermann", "geburtsdatum": None}
+        spieler = {"vorname": "Max", "nachname": "Mustermann", "geburtsdatum": "2009-05-04"}
         club = {key: value for key, value in team().items() if key in FLPostTeamPayload.model_fields}
         # A WRITE-side person, and not `tests/api/test_teams.py :: STORED_KONTAKTPERSON`, which holds
         # values the payload refuses on purpose.

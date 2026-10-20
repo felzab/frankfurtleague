@@ -44,7 +44,7 @@ const BEWERBUNG: FLBewerbung = FLBewerbungSchema.parse({
       // Spaced the way a school types one, which is the whole of what the two hrefs differ over.
       telefon: "069 12 34 56",
       geburtsdatum: "1990-01-01",
-      einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: null }),
+      einwilligung: kenntnisnahme({ text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: null }),
     },
     stellvertretung: null,
     trainer: null,
@@ -55,12 +55,12 @@ const BEWERBUNG: FLBewerbung = FLBewerbungSchema.parse({
   stufengroesse: 96,
   wunschgegner: "Helmholtzschule",
   entscheidung: null,
-  bestaetigungen: null,
-  bestaetigungsfrist: null,
+  bestaetigungen: { trainer: null, ansprechperson: null, stellvertretung: null },
+  bestaetigungsfrist: "2026-05-15",
 } satisfies FLBewerbung);
 
 const markup = (fields: Partial<FLBewerbung> = {}, teamName: string | null = TEAM_NAME): string =>
-  renderMarkup(BewerbungAngabenPanel, { bewerbung: { ...BEWERBUNG, ...fields }, teamName, staende: null });
+  renderMarkup(BewerbungAngabenPanel, { bewerbung: { ...BEWERBUNG, ...fields }, teamName, staende: [] });
 
 /** One fact's value, cut from the `<dd>` under its own `<dt>`: the same words stand in several rows. */
 const factLine = (html: string, label: string): string => new RegExp(`<dt[^>]*>${label}</dt><dd[^>]*>(.*?)</dd>`, "s").exec(html)?.[1] ?? "";
@@ -93,14 +93,12 @@ describe("the panel a triage decision is taken from", () => {
     assert.equal(textOf(factLine(markup({ wunschgegner: null }), "Wunschgegner")), "Nicht hinterlegt");
   });
 
-  /* The Herkunft is who seated the person, `eingetragen_von`: `erfasst_von` is written by nothing new
-     and leaves the stored records at the programme's end, so a label read off it would go blank. */
+  /* The Herkunft is who seated the person, `eingetragen_von`. */
   for (const [von, label] of [
     ["bewerbung", "Mit der Bewerbung eingetragen"],
     ["liga", "Von der Liga eingetragen"],
-    [null, "Herkunft nicht hinterlegt"],
   ] as const) {
-    it(`names a seat stored as ${String(von)} by who seated it, „${label}“`, () => {
+    it(`names a seat stored as ${von} by who seated it, „${label}“`, () => {
       const ansprechperson = BEWERBUNG.kontakte.ansprechperson;
       assert.ok(ansprechperson !== null);
       const html = markup({
@@ -111,7 +109,6 @@ describe("the panel a triage decision is taken from", () => {
       });
 
       assert.match(textOf(factLine(html, "Kenntnisnahme")), new RegExp(`^${label}, `));
-      if (von === null) assertLeerMarkup(factLine(html, "Kenntnisnahme"), label);
     });
   }
 
@@ -201,13 +198,7 @@ describe("the panel a triage decision is taken from", () => {
     assert.equal(textOf(row), "069 12 34 56", "the number is shown stripped rather than as it was typed");
   });
 
-  /* A `null` here is a school that answered nothing rather than one that answered zero, and the panel
-     has one grade for that: compared against a second unanswered row, so neither reads as a blank cell. */
-  it("gives an unanswered number the panel's one empty grade", () => {
-    const unanswered = factLine(markup({ stufengroesse: null }), "Größe der Stufe");
-
-    assert.notEqual(unanswered, "", "the row a school left empty renders as nothing at all");
-    assert.equal(unanswered, factLine(markup({ wunschgegner: null }), "Wunschgegner"), "two unanswered rows carry two different grades");
+  it("shows the cohort size the school stated", () => {
     assert.equal(textOf(factLine(markup(), "Größe der Stufe")), "96");
   });
 

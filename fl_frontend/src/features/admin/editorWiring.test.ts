@@ -15,6 +15,7 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
@@ -132,7 +133,7 @@ const PERSON = (vorname: string, email: string, telefon: string): FLKontaktperso
   email,
   telefon,
   geburtsdatum: "1990-12-10",
-  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
+  einwilligung: kenntnisnahme({ text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
 });
 
 const TEAM_A = { teamId: "68c1f0a2b3c4d5e6f7a8b9c1", name: "SG Alpha", shorthand: "SA" };
@@ -159,7 +160,7 @@ const SPIELER = {
   vorname: "Lena",
   nachname: "Meier",
   inactive_since: null,
-  geburtsdatum: null,
+  geburtsdatum: "2009-05-04",
   email: "lena.meier@schule.example",
   adresswechsel_id: null,
 };
@@ -180,7 +181,7 @@ const spielerProps = (over: { inactiveSince?: string; rowInactiveSince?: string;
     ...SPIELER,
     inactive_since: over.inactiveSince ?? null,
   },
-  einwilligung: null,
+  einwilligung: bestaetigteEinwilligung(),
   istFassungBekannt: true,
   saison: {
     saisonId: "2026",

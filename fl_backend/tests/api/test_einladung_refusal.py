@@ -17,6 +17,7 @@ from app.api.einladungen.services import (
     plan_einladung_versand,
     registrierungsfenster_laeuft,
 )
+from tests.documents import kontaktperson_document
 
 CONFIRMED_ON = "2026-03-20"
 
@@ -24,15 +25,7 @@ CONFIRMED_ON = "2026-03-20"
 def kontaktperson(vorname: str, email: str, *, bestaetigt_am: str | None) -> dict[str, Any]:
     """One seat as the junction stores it. `bestaetigt_am` is the whole of what a recipient has to clear."""
 
-    return {
-        "vorname": vorname,
-        "nachname": f"{vorname}-Mustermann",
-        "email": email,
-        "telefon": "+49 69 1234567",
-        "geburtsdatum": "1980-05-04",
-        "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"}
-        | {"bestaetigt_am": bestaetigt_am},
-    }
+    return kontaktperson_document(vorname, bestaetigt_am=bestaetigt_am, email=email, telefon="+49 69 1234567")
 
 
 def kontakte(*, trainer: Any = None, ansprechperson: Any = None, stellvertretung: Any = None) -> dict[str, Any]:

@@ -14,7 +14,6 @@ import { SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_KORREKTUR_HINWEIS } from "@
 import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
-import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { nextRouter, recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -42,14 +41,16 @@ const BLOCK: FLSchiedsrichterBestaetigung = {
   zustellung: null,
 };
 
+/** Each choice as the referee's own confirmation evidences it. */
+const BESTAETIGUNG = { am: "2026-09-22T09:00:00Z", text_version: "2026-09-schiedsrichterseite", erteilt_zuvor: null };
+
 const BESTAETIGT: FLEinwilligung = {
   umfang: "kader_oeffentlich",
-  erteilt_von: "volljaehrig",
   datum: "2026-09-22",
   bestaetigt_am: "2026-09-22",
   text_version: "2026-09-schiedsrichterseite",
   medien: false,
-  nachweis: { umfang: null, medien: null },
+  nachweis: { umfang: BESTAETIGUNG, medien: BESTAETIGUNG },
 };
 
 type Props = Parameters<typeof FormBestaetigungSection>[0];
@@ -106,18 +107,16 @@ describe("what the editor shows about a referee's own confirmation", () => {
   /* A key the registry holds nothing for is a record citing words nobody can produce, and a bare key
      renders it alike a known one; the key stands beside the mark, for whoever repairs it. */
   it("marks a stored label the registry does not hold, beside the key", () => {
-    assert.equal(fassungRow({ einwilligung: BESTAETIGT, istFassungBekannt: false }), `${String(BESTAETIGT.text_version)} Unbekannte Fassung`);
+    assert.equal(fassungRow({ einwilligung: BESTAETIGT, istFassungBekannt: false }), `${BESTAETIGT.text_version} Unbekannte Fassung`);
   });
 
   /* The registry's read failed: the panel says the check was not made rather than calling the label known or unknown. */
   it("says the stored label went unchecked where the registry could not be read", () => {
-    assert.equal(fassungRow({ einwilligung: BESTAETIGT, istFassungBekannt: null }), `${String(BESTAETIGT.text_version)} Nicht geprüft`);
+    assert.equal(fassungRow({ einwilligung: BESTAETIGT, istFassungBekannt: null }), `${BESTAETIGT.text_version} Nicht geprüft`);
   });
 
-  it("says in words where the record cites no label, and shows a known one as its key", () => {
-    assert.equal(fassungRow({ einwilligung: { ...BESTAETIGT, text_version: null } }), "Nicht hinterlegt");
-    assertLeerMarkup(renderTree(panel({ einwilligung: { ...BESTAETIGT, text_version: null } })), "Nicht hinterlegt");
-    assert.equal(fassungRow({ einwilligung: BESTAETIGT }), String(BESTAETIGT.text_version));
+  it("shows a known label as its key", () => {
+    assert.equal(fassungRow({ einwilligung: BESTAETIGT }), BESTAETIGT.text_version);
   });
 
   /* The account page moves one choice and leaves the confirmation's day and label standing, so a
@@ -133,7 +132,7 @@ describe("what the editor shows about a referee's own confirmation", () => {
             text_version: "2026-10-konto-schiedsrichter",
             erteilt_zuvor: { am: "2026-09-22T09:00:00Z", text_version: "2026-09-schiedsrichterseite" },
           },
-          medien: null,
+          medien: BESTAETIGUNG,
         },
       },
     });
@@ -144,8 +143,8 @@ describe("what the editor shows about a referee's own confirmation", () => {
     );
     assert.ok(text.includes("zuvor erteilt am 22.09.2026, 11:00 Uhr"), "the withdrawal hides the grant it ended");
     assert.ok(
-      text.includes("seit der Bestätigung am 22.09.2026, Fassung 2026-09-schiedsrichterseite"),
-      "a choice never moved does not stand on its confirmation",
+      text.includes("seit 22.09.2026, 11:00 Uhr, Fassung 2026-09-schiedsrichterseite"),
+      "a choice never moved does not stand on its confirmation's act",
     );
   });
 

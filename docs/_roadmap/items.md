@@ -346,43 +346,6 @@ it stays red until `fl_backend/.python-version` moves with it (`docs/ops/spec.md
 
 **Trigger to revisit:** a PyYAML release carrying a 3.15 wheel, or my ruling for the route above.
 
-### `8wd7-ff49` · A guardian's provenance stays in the consent vocabulary, and a pupil's birthdate is not yet required
-
-| Status | Depends on |
-| ------ | ---------- |
-| Open   | —          |
-
-**The admission writes the pupil's own record.** A confirmed registration's record reaches the person
-the admission creates whole; onto a person the league already holds, it renews the record, and each
-choice only where the registration set it later, so a choice the person moved since stands
-(`fl_backend/app/api/registrierungen/services.py :: compose_person_update`,
-`docs/backend/spec.md :: I611`). The publication gate reads this field
-(`docs/backend/spec.md :: READ-PUPIL-003`).
-
-**What is left is a value no route writes.** The rows carrying `erteilt_von` as `erziehungsberechtigt`
-are ones an earlier manual write left, and nothing distinguishes them from a record a guardian
-actually filed. `fl_backend/tests/core/test_consent_writers.py` holds the guardian's provenance to
-having no writer while the vocabulary still admits it.
-
-**The writer is ruled.** `docs/datenschutz.md` §2 settles it: everyone signs up for themselves
-through the website and gives their own consent there, from 16, and an administrator may neither
-create a player nor assume, enter or transcribe a consent on anybody's behalf. So the vocabulary has
-a person's own consent and a carried-over record to express and nothing else — `bestandsuebernahme`
-already marks the second, and `erziehungsberechtigt` stays in the enum for the rows that carry it,
-which the once-only reset of this season's pupil rows removes (`docs/datenschutz.md` §3).
-
-**The consent records' speakers are written by nothing either.** No write sets a consent block's
-`erteilt_von` or a contact seat's `erfasst_von`, and no validator requires them, as I ruled on
-2026-10-04; the records stored before carry them still
-(`fl_backend/app/shared/einwilligung_nachweis.py :: SPRECHER`), and the enum above is `erteilt_von`'s.
-
-**Done when** the enum has lost `erziehungsberechtigt` once the reset removed every row carrying it,
-and a pupil's birthdate is required on the person from then on, `fl_backend/app/core/domain.py ::
-UNENFORCED` carrying the state that ends there; and the consent blocks' two speaker fields are gone
-from every model and validator and, by a Playground paste of mine, from every stored record still
-carrying one. A grant's own `erteilt_von` on `berechtigungen`, the administrator who gave it, is
-another field and stays.
-
 ### `dgdv-27yw` · No rule engine reads this repository's sources, and two spellings its own readers refuse wait on a parse across the language boundary
 
 | Status | Depends on |

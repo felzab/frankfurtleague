@@ -28,7 +28,7 @@ export function AdminSpielerEditView({
   teams,
 }: {
   spieler: AdminSpielerStored;
-  einwilligung: FLEinwilligung | null;
+  einwilligung: FLEinwilligung;
   /** Whether the registry holds the stored label. */
   istFassungBekannt: boolean | null;
   saison: SpielerSaisonMembership;

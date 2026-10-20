@@ -17,7 +17,7 @@ two** — which is what a reviewer needs before reading the published notice
 | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | [1. Responsibility and the request route](#1-responsibility-and-the-request-route)                         | Who the controller is, and where a request goes              |
 | [2. Consent comes from the person, from 16 or 18](#2-consent-comes-from-the-person-from-16-or-18)          | The sign-up flow every ruling on consent assumes             |
-| [3. The current pupil records are reset once](#3-the-current-pupil-records-are-reset-once)                 | What happens to the backfilled consents                      |
+| [3. The current pupil records are reset once](#3-the-current-pupil-records-are-reset-once)                 | What the once-only reset removes, and when                   |
 | [4. What is published, and on what basis](#4-what-is-published-and-on-what-basis)                          | Addresses, names, the organisers' page, crawlers, the notice |
 | [5. Erasure reaches everyone who asks](#5-erasure-reaches-everyone-who-asks)                               | Who can be erased, what erasure reaches, what it does not    |
 | [6. Retention is bounded where a bound was chosen](#6-retention-is-bounded-where-a-bound-was-chosen)       | The action log, applications, contacts, access logs          |
@@ -91,11 +91,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   stored seat holds the same person — the same address and the same name, folded for case and inner
   spacing (`fl_backend/app/api/teams/services.py :: _seat_held_by`). A renamed seat therefore keeps
   nothing of whoever sat in it, a corrected typo costing that person a fresh confirmation because no
-  write can tell the two apart. An acceptance copies a seat's date into the season's junction row only
-  where that seat's own confirmation stamped it
-  (`fl_backend/app/api/teams/services.py :: compose_kontakte_at_entry`), which is what keeps an
-  application stored before the confirmation flow from carrying its applicant's answer into a second
-  collection. **A stored date no confirmation stamped is therefore judged by nothing**, and clearing
+  write can tell the two apart. An acceptance waits for every seat's own confirmation before it copies
+  the seats into the season's junction row
+  (`fl_backend/app/api/bewerbungen/services.py :: find_unconfirmed_kontakte_refusal`), so every date it
+  copies is one its person stamped. **A stored date no confirmation stamped is therefore judged by nothing**, and clearing
   one is the remedy [`backend/spec.md`](backend/spec.md#3-violation--remedy) carries rather than
   something a write can refuse. The consent vocabulary's `volljaehrig`
   (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, and
@@ -105,14 +104,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`) and
   (`:: VERTRETUNG_MIN_AGE_YEARS`), one per seat in
   `fl_backend/app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`.
-- **A pupil's birthdate is optional until the sign-up flow exists, and required from it.** Ruled
-  2026-09-08. The alternative weighed and refused was requiring it now: that means inventing data in
-  the one field whose purpose is the age floor, a validator that invalidates every standing pupil
-  row until a backfill is run by hand, and an administrator making a date up at every squad entry
-  until the flow ships. `fl_backend/app/core/domain.py :: UNENFORCED` carries the standing state and
-  names what ends it — the next season's registration, at which the pupil rows standing today are
-  dropped ([section 3](#3-the-current-pupil-records-are-reset-once)). **What the field is FOR is checking an age when a
-  question about one arises.** On a pupil's own row it gates no read and no publication and nothing
+- **A pupil's birthdate is required, and the pupil's own registration is what supplies it.** Ruled
+  2026-09-08: required from the sign-up flow on, so that nobody invents the one field whose purpose
+  is the age floor. The admission carries the date the pupil typed onto their record, and the
+  person's validator requires the key, which only the erased pupils' sentinel holds null
+  (`fl_backend/app/core/constraints.py`). **What the field is FOR is checking an age when a question
+  about one arises.** On a pupil's own row it gates no read and no publication and nothing
   judges it; the date a pupil types on their confirmation page is judged against the floor before
   anything is written (`fl_backend/app/api/registrierungen/services.py :: find_alter_refusal`),
   which is what the published notice tells a reader. Ruled 2026-09-08.
@@ -236,11 +233,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`DatenschutzView.tsx :: FRISTEN`), and none of the five as a refusal. Whether any belongs beside
   the two the notice names is [section 11](#11-open-and-owed-a-decision)'s question.
 
-- **There is no guardian workflow.** No code composes a consent on a guardian's word; a pupil's own
-  registration is what records one, and what the vocabulary still expresses beyond that is a
-  carried-over record. `erziehungsberechtigt` stays in the stored enum for the rows that already
-  carry it (`fl_backend/app/core/constraints.py :: _EINWILLIGUNG_QUELLEN`), and
-  `fl_backend/tests/core/test_consent_writers.py` is what holds the value to having no writer.
+- **There is no guardian workflow.** No code composes a consent on a guardian's word: a pupil's own
+  registration is what records one, and the record holds no field naming anyone else as its source
+  (`fl_backend/app/core/constraints.py :: _EINWILLIGUNG`).
 - **Nothing about a person is published without that person's recorded consent.** Both public reads
   of a pupil decide through `fl_backend/app/api/spieler/services.py :: name_is_public`, which
   publishes a name only where the consent record is present, its `umfang` is `kader_oeffentlich` and
@@ -310,14 +305,6 @@ Every ruling below is the sign-up flow as it stands for the next season.
 
 ## 3. The current pupil records are reset once
 
-- **The backfilled consents stand until the end of this season.** The pupil rows that were
-  backfilled carry a consent nobody was asked for, marked as carried over
-  (`bestandsuebernahme`); the rows registered since through the admin form carry the guardian
-  consent an administrator composed. The publication gate reads both populations alike
-  (`docs/backend/spec.md :: READ-PUPIL-003`): a carried-over record whose `bestaetigt_am` is stamped
-  publishes as before, and one with no stamp withholds the name.
-  **Datenschutzexperte consulted.** Ruled 2026-08 and re-confirmed
-  2026-09-01 and 2026-09-02.
 - **At the end of this season, once, every player row is deleted and the action log is reset in
   full.** From the next season on every player signs up through the website, and from then on
   player records are kept and governed by

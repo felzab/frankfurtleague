@@ -215,22 +215,18 @@ class FLBewerbung(BaseModel):
     trikot: FLBewerbungTrikot
     kader: FLBewerbungKader
     # How many pupils the school's whole Abi-Jahrgang holds, which the applicant states and nothing
-    # later checks. Defaulted for `wunschgegner`'s reason.
-    stufengroesse: int | None = None
+    # later checks.
+    stufengroesse: int
     # A FREE STRING, never a club reference: the school may name an applicant the league has not
     # accepted yet, and a picker over the accepted ones would give a LATER applicant the longer list.
-    # Defaulted for `app/api/teams/schemas.py :: FLTeam`'s reason.
-    wunschgegner: str | None = None
+    wunschgegner: str | None
     # As served, so a row reaches the wire only through
     # `app/api/bewerbungen/services.py :: mit_vorenthaltener_entscheidung`.
     entscheidung: FLBewerbungEntscheidungZeile | None
     # The day an unconfirmed application is deleted and its links expire. NOT the season's
-    # `Bewerbungsfrist`, which is the window the form is open in. Defaulted for `wunschgegner`'s
-    # reason, as is the block below.
-    bestaetigungsfrist: CustomOptionalDateString = None
-    # Absent on every application stored before the confirmation flow, which every predicate reads
-    # as "nothing to confirm": without that carve-out shipping makes each of them unacceptable.
-    bestaetigungen: FLBewerbungBestaetigungen | None = None
+    # `Bewerbungsfrist`, which is the window the form is open in.
+    bestaetigungsfrist: CustomDateString
+    bestaetigungen: FLBewerbungBestaetigungen
 
 
 FLBewerbungListAdapter = TypeAdapter(list[FLBewerbung])

@@ -321,7 +321,6 @@ describe("the referee's editor page", () => {
       inactive_since: null,
       einwilligung: {
         umfang: "intern",
-        erteilt_von: "volljaehrig",
         datum: "2026-09-22",
         bestaetigt_am: "2026-09-22",
         text_version: "2026-09-schiedsrichterseite",
@@ -356,7 +355,6 @@ describe("the referee's editor page", () => {
       inactive_since: null,
       einwilligung: {
         umfang: "intern",
-        erteilt_von: "volljaehrig",
         datum: "2026-09-22",
         bestaetigt_am: "2026-09-22",
         text_version: "2026-09-schiedsrichterseite",
@@ -412,7 +410,6 @@ describe("which link the editor's page marks as lapsed", () => {
   const bestaetigung = { verschickt_am: "2026-09-21", erinnert_am: null, frist, zustellung: null };
   const BESTAETIGT = {
     umfang: "intern",
-    erteilt_von: "volljaehrig",
     datum: "2026-09-22",
     bestaetigt_am: "2026-09-22",
     text_version: "2026-09-schiedsrichterseite",

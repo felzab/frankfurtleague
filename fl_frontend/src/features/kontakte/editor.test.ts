@@ -104,7 +104,16 @@ const ADA: FLKontaktperson = {
   email: "ada@example.org",
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
-  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
+  einwilligung: kenntnisnahme({
+    text_version: "1",
+    datum: "2026-03-12",
+    bestaetigt_am: "2026-03-14",
+    // Both choices as the seat's own confirmation evidences them.
+    nachweis: {
+      umfang: { am: "2026-03-14T09:00:00Z", text_version: "1", erteilt_zuvor: null },
+      medien: { am: "2026-03-14T09:00:00Z", text_version: "1", erteilt_zuvor: null },
+    },
+  }),
 };
 
 /** One list seat. `person: null` is what an erasure leaves, which is the state these cases are about. */
@@ -307,7 +316,7 @@ const unconfirmed = (vorname: string, nachname: string, email: string): FLKontak
   vorname,
   nachname,
   email,
-  einwilligung: { ...ADA.einwilligung, erfasst_von: "administrativ", bestaetigt_am: null },
+  einwilligung: { ...ADA.einwilligung, bestaetigt_am: null },
 });
 
 /** The editor page's address: the club the answers below hold, in the season they hold it in. */
@@ -1245,12 +1254,9 @@ describe("what the editor says about a Kenntnisnahme it may not write", () => {
     assert.match(renderedSeats, />Bestätigt am</, "the confirmation stamp is no longer shown at all");
     assert.ok(renderedSeats.includes(`value="${eingetragenVonLabel("bewerbung")}"`), "an applicant's seat does not say so");
     assert.ok(renderedSeats.includes(`value="${eingetragenVonLabel("liga")}"`), "a seat the league filled does not say so");
-    // The Stellvertretung was seated before the field: stored, so its origin is unrecorded rather than
-    // pending, and its box is labelled, so it takes the labelled word.
-    assert.ok(renderedSeats.includes('value="Nicht hinterlegt"'), "a seat stored before the field reads as one still pending");
     assert.ok(renderedSeats.includes("14.03.2026"), "the stamp renders no date, or renders it as the stored string");
 
-    for (const fieldName of ["erfasst_von", "eingetragen_von", "bestaetigt_am"]) {
+    for (const fieldName of ["eingetragen_von", "bestaetigt_am"]) {
       assert.ok(!renderedSeats.includes(`einwilligung.${fieldName}"`), `${fieldName} is still a named field, so a save can carry it`);
     }
   });
@@ -1306,7 +1312,7 @@ describe("the contact person's own two choices", () => {
         umfang: "kontaktdaten_whatsapp",
         medien: false,
         nachweis: {
-          umfang: null,
+          ...ADA.einwilligung.nachweis,
           medien: {
             am: "2026-10-04T08:00:00Z",
             text_version: "2026-10-konto-kontakt",
@@ -1339,7 +1345,7 @@ describe("the contact person's own two choices", () => {
       new RegExp(`>${EINWILLIGUNG_MEDIEN_FRAGE}<[\\s\\S]*?value="${EINWILLIGUNG_MEDIEN_LABELS.erteilt}"`).test(html),
       "a given media consent reads otherwise",
     );
-    assert.ok(html.includes("seit der Bestätigung am 14.03.2026, Fassung 1"), "a choice never moved does not stand on its confirmation");
+    assert.ok(html.includes("seit 14.03.2026, 10:00 Uhr, Fassung 1"), "a choice never moved does not stand on its confirmation's act");
   });
 });
 
@@ -1601,7 +1607,7 @@ describe("whose birthdate a seat holds, and who may put one there", () => {
     trainer: {
       ...seatPerson("Ada", "Byron", "ada@example.org"),
       geburtsdatum: null,
-      einwilligung: { ...ADA.einwilligung, erfasst_von: "administrativ", bestaetigt_am: null },
+      einwilligung: { ...ADA.einwilligung, bestaetigt_am: null },
     },
   };
 

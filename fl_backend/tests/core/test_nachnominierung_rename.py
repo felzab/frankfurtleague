@@ -1,17 +1,13 @@
 """
-CORE · which tracked files may still name the late-entry marker's old spelling
+CORE · that no tracked file but this one names the late-entry marker's old spelling
 
 A stored-key rename is where a green tree ships a dead field: a label left in a component nobody
-opened reads as the marker's absence, and a test string left behind stops checking anything. "No
-hit anywhere" is the wrong assertion while the read leniency stands, so this is an exact set —
-whose members the leniency's own cases pin, and outside which a hit is a miss rather than a
-decision.
+opened reads as the marker's absence, and a test string left behind stops checking anything. This
+module spells the stem to find it, so the assertion is an exact set holding this module alone.
 
 This module carries no database marker, so the default tier runs it — which the `backend` gate
 scope carries and a frontend-only run does not, leaving a label renamed back in `fl_frontend/`
 unswept until the next run that reaches this scope.
-
-See: docs/backend/spec.md :: I302
 """
 
 import re
@@ -21,8 +17,6 @@ from typing import Final
 
 import pytest
 
-from app.core.collections import Collection
-from app.core.constraints import COLLECTION_VALIDATORS
 from tests.openapi_document import REGENERATE
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[3]
@@ -35,21 +29,9 @@ OLD_SPELLING: Final = re.compile("nachgetragen", re.IGNORECASE)
 # git's own binary test, at `buffer_is_binary`: a NUL in the first 8000 bytes.
 BINARY_SNIFF_BYTES: Final = 8000
 
-# Only what the leniency needs: the three read sites, the facet's own two arms, the suites driving
-# them, and this module's pattern. `fl_backend/openapi.json` is regenerated from the models, which
+# This module's own pattern and sample. `fl_backend/openapi.json` is regenerated from the models, which
 # declare the new key alone, so it is never a member.
-LENIENT: Final = frozenset(
-    {
-        "fl_backend/app/api/spieler/schemas.py",
-        "fl_backend/app/api/spieler/services.py",
-        "fl_backend/app/api/spieler/admin_router.py",
-        "fl_backend/tests/api/test_spieler_memberships_read.py",
-        "fl_backend/tests/api/test_spieler_write_execution.py",
-        "fl_backend/tests/core/test_nachnominierung_rename.py",
-        "fl_frontend/src/features/spieler/facets.ts",
-        "fl_frontend/src/features/spieler/facets.test.ts",
-    }
-)
+SPELLING_IT: Final = frozenset({"fl_backend/tests/core/test_nachnominierung_rename.py"})
 
 # The one path this assertion cannot be green without and nobody may hand-edit: the published
 # contract, regenerated from the models by whoever commits.
@@ -104,7 +86,7 @@ class TestTheReader:
         assert OLD_SPELLING.search("ist_nachnominiert istNachnominiert Nachnominiert kader-nachnominiert") is None
 
 
-def test_only_the_declared_read_leniency_still_names_the_marker_s_old_spelling():
+def test_only_this_module_names_the_marker_s_old_spelling():
     found: set[str] = set()
     unreadable: list[str] = []
 
@@ -122,21 +104,8 @@ def test_only_the_declared_read_leniency_still_names_the_marker_s_old_spelling()
         sorted(unreadable)
     )
 
-    assert found == LENIENT, (
-        f"unexpected: {sorted(found - LENIENT)}; missing: {sorted(LENIENT - found)}. "
-        f"A member gone means the leniency it carried was dropped early; an extra is a rename left behind. "
+    assert found == SPELLING_IT, (
+        f"unexpected: {sorted(found - SPELLING_IT)}; missing: {sorted(SPELLING_IT - found)}. "
+        f"An extra is a rename left behind; this module missing means the reader no longer finds its own pattern. "
         f"{PENDING_AT_ASSEMBLY} is an extra until it is rebuilt, which is the committer's step:  {REGENERATE}"
-    )
-
-
-def test_the_marker_is_out_of_saison_spieler_s_required_while_the_leniency_stands():
-    """The site the sweep above cannot reach: an omission spells no old name, so a string reader passes over it."""
-    schema = COLLECTION_VALIDATORS[Collection.SAISON_SPIELER]["$jsonSchema"]
-    required = schema["required"]
-
-    assert "spieler_id" in required, "the required tuple was not found where this case reads it"
-    assert "ist_nachnominiert" in schema["properties"], "the marker is no longer spelled this way, so the absence below proves nothing"
-    assert "ist_nachnominiert" not in required, (
-        "requiring the marker refuses a retire or a reactivate on a row written under the old spelling; "
-        "drop it here in the change that makes the marker required, with the rest of LENIENT"
     )

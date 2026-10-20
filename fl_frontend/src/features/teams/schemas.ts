@@ -134,8 +134,6 @@ export type FLTrikotFarbe = z.infer<typeof FLTrikotFarbeSchema>;
  */
 export const FLKontaktKenntnisnahmeSchema = z.object({
   umfang: z.enum(["kontaktdaten", "kontaktdaten_whatsapp"], { error: "Die Kenntnisnahme gilt für Kontaktdaten, mit oder ohne WhatsApp." }),
-  // As `FLEinwilligungSchema.erteilt_von`: a stored seat's value alone, null on every seat written since.
-  erfasst_von: z.enum(["person", "administrativ"]).nullable(),
   // Unbounded on the read side, as every ceiling in this file is: a stored value over one of them
   // must still parse, or a single row fails a whole list.
   text_version: z.string(),
@@ -146,8 +144,8 @@ export const FLKontaktKenntnisnahmeSchema = z.object({
   // The seat's consent to photographs, video and interviews, answered apart from `umfang`.
   medien: z.boolean(),
   // Who seated the person, which decides the page the seat's link opens: the applicant on the form or
-  // the league. Null on a seat stored before the field, never a guess here.
-  eingetragen_von: z.enum(["bewerbung", "liga"]).nullable(),
+  // the league.
+  eingetragen_von: z.enum(["bewerbung", "liga"]),
   nachweis: FLEinwilligungNachweiseSchema,
 });
 export type FLKontaktKenntnisnahme = z.infer<typeof FLKontaktKenntnisnahmeSchema>;
@@ -157,8 +155,8 @@ export const FLKontaktKenntnisnahmePayloadSchema = z.object({
   // Written by the form from `EINWILLIGUNG_UMFANG` rather than picked: one scope exists, so a control
   // offering it would ask a question with one answer.
   umfang: z.literal("kontaktdaten", { error: "Die Kenntnisnahme gilt ausschließlich für Kontaktdaten." }),
-  // No `erfasst_von` and no `bestaetigt_am`: both are the server's to compose, and a payload that
-  // could name either would let an administrator file a transcription as the person's own answer.
+  // No `eingetragen_von` and no `bestaetigt_am`: both are the server's to compose, and a payload that
+  // could name the stamp would let an administrator file a transcription as the person's own answer.
   text_version: z
     .string()
     .trim()

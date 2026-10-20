@@ -43,7 +43,7 @@ import { Switch } from "@/shared/components/ui/Switch";
 import { TextField } from "@/shared/components/ui/TextField";
 import { textLink } from "@/shared/components/ui/textLink";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
-import { formatSpielDatum, NICHT_HINTERLEGT } from "@/shared/utils/format";
+import { formatSpielDatum } from "@/shared/utils/format";
 import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
 
 import { FormKontaktEinladen } from "./FormKontaktEinladen";
@@ -226,7 +226,6 @@ export function FormKontakteSection({
             rolle={rolle}
             label={label}
             person={basis[rolle]}
-            istGespeichert={stored?.[rolle] != null}
             link={bestaetigungen?.[rolle] ?? null}
             adresswechselId={adresswechsel?.[rolle] ?? null}
             kannLeerOeffnen={laufendesLabel !== null}
@@ -301,7 +300,6 @@ function KontaktpersonFields({
   rolle,
   label,
   person,
-  istGespeichert,
   link,
   adresswechselId,
   kannLeerOeffnen,
@@ -317,7 +315,6 @@ function KontaktpersonFields({
   /** Null where the seat holds nobody, which is a saveable state rather than a half-finished one. */
   person: KontaktpersonDraft | null;
   /** The row stores a person on this seat, so a record naming no one who seated them predates the field. */
-  istGespeichert: boolean;
   /** The seat's link where one went out, read out above its re-send as the referee editor reads out its own. */
   link: FLSaisonTeamBestaetigungAnsicht | null;
   /** The change pending at the stored seat's address, which this page shows and never moves. */
@@ -377,7 +374,6 @@ function KontaktpersonFields({
             rolle={rolle}
             label={label}
             person={person}
-            istGespeichert={istGespeichert}
             isMirrored={isMirrored}
             onChange={onChange}
             onFieldLeft={onFieldLeft}
@@ -408,7 +404,6 @@ function KontaktpersonInputs({
   rolle,
   label,
   person,
-  istGespeichert,
   isMirrored,
   onChange,
   onFieldLeft,
@@ -416,7 +411,6 @@ function KontaktpersonInputs({
   rolle: KontaktRolle;
   label: string;
   person: KontaktpersonDraft;
-  istGespeichert: boolean;
   isMirrored: boolean;
   onChange: (next: KontaktpersonDraft) => void;
   onFieldLeft: (paths: readonly string[]) => void;
@@ -502,16 +496,10 @@ function KontaktpersonInputs({
 
         <div className={FIELD_PAIR_CLASSES}>
           {/* Read out and never picked: the save that seats the person stamps who did, and nothing moves it
-              afterwards. A stored seat without it was seated before the field, which no reading here guesses. */}
+              afterwards. */}
           <TextField
             isReadOnly
-            value={
-              person.einwilligung.eingetragen_von === null
-                ? istGespeichert
-                  ? NICHT_HINTERLEGT
-                  : NOCH_OFFEN
-                : eingetragenVonLabel(person.einwilligung.eingetragen_von)
-            }
+            value={person.einwilligung.eingetragen_von === null ? NOCH_OFFEN : eingetragenVonLabel(person.einwilligung.eingetragen_von)}
             onChange={() => undefined}>
             <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Eingetragen</FieldLabel>
             <Input className={readoutClasses(person.einwilligung.eingetragen_von === null)} />
@@ -566,11 +554,7 @@ function KontaktpersonInputs({
               <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{KONTAKT_WHATSAPP_FRAGE}</FieldLabel>
               <Input className={FIELD_INPUT_CLASSES} />
             </TextField>
-            <Beleg
-              nachweis={person.einwilligung.nachweis.umfang}
-              bestaetigtAm={person.einwilligung.bestaetigt_am}
-              textVersion={person.einwilligung.text_version}
-            />
+            <Beleg nachweis={person.einwilligung.nachweis.umfang} />
           </div>
 
           <div className="flex flex-col gap-y-1">
@@ -581,11 +565,7 @@ function KontaktpersonInputs({
               <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{EINWILLIGUNG_MEDIEN_FRAGE}</FieldLabel>
               <Input className={FIELD_INPUT_CLASSES} />
             </TextField>
-            <Beleg
-              nachweis={person.einwilligung.nachweis.medien}
-              bestaetigtAm={person.einwilligung.bestaetigt_am}
-              textVersion={person.einwilligung.text_version}
-            />
+            <Beleg nachweis={person.einwilligung.nachweis.medien} />
           </div>
         </div>
       </div>

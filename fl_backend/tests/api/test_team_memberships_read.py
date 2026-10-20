@@ -50,6 +50,7 @@ class TestTheResponseModel:
                         "full_name": "Musterschule",
                         "website_url": "https://example.org",
                         "address": {"strasse": "Weg", "hausnummer": "1", "plz": "60313", "stadtteil": "", "stadt": "Frankfurt"},
+                        "schulform": None,
                         "inactive_since": None,
                         "memberships": [],
                     }

@@ -100,7 +100,6 @@ from app.api.spiele.schemas import (
 )
 from app.api.spieler.schemas import (
     FLEinwilligung,
-    FLEinwilligungQuelle,
     FLSaisonSpielerRow,
     FLSpieler,
     FLSpielerPosition,
@@ -115,7 +114,6 @@ from app.api.teams.schemas import (
     FLGruppenNames,
     FLKontaktEingetragenVon,
     FLKontaktKenntnisnahme,
-    FLKontaktKenntnisnahmeQuelle,
     FLKontaktperson,
     FLKontaktRolle,
     FLSaisonTeamBestaetigung,
@@ -398,13 +396,6 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     ),
     (
         Collection.SAISON_TEAMS,
-        ("kontakte", "trainer", "einwilligung"),
-        "erfasst_von",
-        get_args(FLKontaktKenntnisnahmeQuelle),
-        True,
-    ),
-    (
-        Collection.SAISON_TEAMS,
         ("kontakte", "ansprechperson", "einwilligung"),
         "umfang",
         get_args(FLKontaktKenntnisnahme.model_fields["umfang"].annotation),
@@ -412,24 +403,10 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     ),
     (
         Collection.SAISON_TEAMS,
-        ("kontakte", "ansprechperson", "einwilligung"),
-        "erfasst_von",
-        get_args(FLKontaktKenntnisnahmeQuelle),
-        True,
-    ),
-    (
-        Collection.SAISON_TEAMS,
         ("kontakte", "stellvertretung", "einwilligung"),
         "umfang",
         get_args(FLKontaktKenntnisnahme.model_fields["umfang"].annotation),
         False,
-    ),
-    (
-        Collection.SAISON_TEAMS,
-        ("kontakte", "stellvertretung", "einwilligung"),
-        "erfasst_von",
-        get_args(FLKontaktKenntnisnahmeQuelle),
-        True,
     ),
     (
         Collection.BEWERBUNGEN,
@@ -440,13 +417,6 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     ),
     (
         Collection.BEWERBUNGEN,
-        ("kontakte", "trainer", "einwilligung"),
-        "erfasst_von",
-        get_args(FLKontaktKenntnisnahmeQuelle),
-        True,
-    ),
-    (
-        Collection.BEWERBUNGEN,
         ("kontakte", "ansprechperson", "einwilligung"),
         "umfang",
         get_args(FLKontaktKenntnisnahme.model_fields["umfang"].annotation),
@@ -454,31 +424,15 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     ),
     (
         Collection.BEWERBUNGEN,
-        ("kontakte", "ansprechperson", "einwilligung"),
-        "erfasst_von",
-        get_args(FLKontaktKenntnisnahmeQuelle),
-        True,
-    ),
-    (
-        Collection.BEWERBUNGEN,
         ("kontakte", "stellvertretung", "einwilligung"),
         "umfang",
         get_args(FLKontaktKenntnisnahme.model_fields["umfang"].annotation),
         False,
-    ),
-    (
-        Collection.BEWERBUNGEN,
-        ("kontakte", "stellvertretung", "einwilligung"),
-        "erfasst_von",
-        get_args(FLKontaktKenntnisnahmeQuelle),
-        True,
     ),
     (Collection.SPIELER, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
-    (Collection.SPIELER, ("einwilligung",), "erteilt_von", get_args(FLEinwilligungQuelle), True),
     # The same sub-schema on another collection, and its own rows: `app/core/constraints.py ::
     # _EINWILLIGUNG` is shared, so a widening meant for one carrier reaches every carrier.
     (Collection.SCHIEDSRICHTER, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
-    (Collection.SCHIEDSRICHTER, ("einwilligung",), "erteilt_von", get_args(FLEinwilligungQuelle), True),
     (Collection.SPIELE, (), "saison_phase", get_args(FLSaisonPhase), False),
     (Collection.SPIELE, (), "sonderereignis", get_args(FLSonderereignis), True),
     (Collection.SPIELTAGE, (), "saison_phase", get_args(FLSaisonPhase), False),
@@ -527,7 +481,6 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # The consent vocabulary at its third home: one sub-schema in Python, and the drift walk still
     # reaches each collection's path on its own.
     (Collection.REGISTRIERUNGEN, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), True),
-    (Collection.REGISTRIERUNGEN, ("einwilligung",), "erteilt_von", get_args(FLEinwilligungQuelle), True),
     (Collection.REGISTRIERUNGEN, (), "status", get_args(FLRegistrierungStatus), False),
     # Closed on the stored row as well as the wire: the Playground writes a grant by hand.
     (Collection.BERECHTIGUNGEN, (), "verwaltung", get_args(FLVerwaltung), False),
@@ -587,7 +540,7 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
         False,
     ),
     # Who seated the person, at every seat's home: the page its link opens is read off it.
-    *((collection, block, "eingetragen_von", get_args(FLKontaktEingetragenVon), True) for collection, block in SEAT_RECORD_HOMES),
+    *((collection, block, "eingetragen_von", get_args(FLKontaktEingetragenVon), False) for collection, block in SEAT_RECORD_HOMES),
 ]
 
 

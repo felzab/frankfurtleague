@@ -42,15 +42,9 @@ export type SitzBestaetigung = {
   satz: string;
 };
 
-/**
- * `null` where the application predates the workflow. An absent block is what keeps such an
- * application acceptable, so it answers "no such state" rather than three outstanding seats, which
- * would close the Zusage on every queued application.
- */
-export function bestaetigungsStand(bewerbung: BewerbungSitze & Pick<FLBewerbung, "status">): SitzBestaetigung[] | null {
+/** Each seat's state, in the label table's order. */
+export function bestaetigungsStand(bewerbung: BewerbungSitze & Pick<FLBewerbung, "status">): SitzBestaetigung[] {
   const { bestaetigungen, kontakte, status } = bewerbung;
-
-  if (bestaetigungen === null) return null;
 
   // `KONTAKT_ROLLEN` and never a list of this file's own: the seat order is the label table's
   // (`.claude/rules/frontend.md` **admin**).
@@ -209,7 +203,7 @@ export function gepaarteSitze(bewerbung: BewerbungSitze, rolle: KontaktRolle): K
 
   const andere = zugleich === null ? null : rolle === "trainer" ? zugleich : rolle === zugleich ? "trainer" : null;
 
-  if (bestaetigungen === null || andere === null || kontakte[andere] === null || bestaetigungen[andere] === null) return [rolle];
+  if (andere === null || kontakte[andere] === null || bestaetigungen[andere] === null) return [rolle];
 
   return KONTAKT_ROLLEN.map(({ value }) => value).filter((value) => value === rolle || value === andere);
 }
@@ -219,13 +213,12 @@ export function gepaarteSitze(bewerbung: BewerbungSitze, rolle: KontaktRolle): K
  * under the closed control is the one the write would answer with. Four sentences, because each
  * names a different way out — and an erasure is the only one with none.
  */
-export function zusageHindernis(staende: readonly SitzBestaetigung[] | null, teamName: string | null): string | null {
+export function zusageHindernis(staende: readonly SitzBestaetigung[], teamName: string | null): string | null {
   if (teamName === null) {
     return "Ohne eine neue Schule und ohne ein bestehendes Team steht nicht fest, wer aufgenommen würde. Bleibt nur die Absage.";
   }
 
-  // `null` where the application predates the workflow, which is what keeps it acceptable.
-  const offen = staende === null ? [] : staende.filter(istOffen);
+  const offen = staende.filter(istOffen);
 
   if (offen.length === 0) return null;
 
@@ -260,12 +253,12 @@ export function loeschungsSatz({
   istAbgelaufen,
 }: {
   staende: readonly SitzBestaetigung[];
-  frist: string | null;
+  frist: string;
   eingereicht: boolean;
   /** The read's judgement of the deadline on the server's day, never this browser's. */
   istAbgelaufen: boolean;
 }): string | null {
-  if (!eingereicht || frist === null || !staende.some(istOffen)) return null;
+  if (!eingereicht || !staende.some(istOffen)) return null;
 
   const tag = formatSpielDatum(frist);
   // `announcement_is_undeliverable`: the sweep holds an application whose notice the provider would

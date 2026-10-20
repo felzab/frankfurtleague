@@ -325,7 +325,7 @@ async function sendeBestaetigungErneut({
   /** What the calling press cost where no message went out, in that press's own words. */
   ohneLink: string;
 }): Promise<Zustellung> {
-  let frist: string | null;
+  let frist: string;
 
   try {
     // Read AFTER the write: the deadline this message states is the one the re-send just set, and a
@@ -344,11 +344,6 @@ async function sendeBestaetigungErneut({
 
     return nichtVerschickt(ohneLink);
   }
-
-  // Thrown rather than refused: the endpoint writes this deadline in the same update that mints the
-  // token, so an application answering none afterwards is a broken contract and not a state an
-  // administrator has anything to do about.
-  if (frist === null) throw new Error("the re-send answered no Bestätigungsfrist for the application it had just written");
 
   const fristText = formatSpielDatum(frist);
   const origin = frontend_config.AUTH_URL;

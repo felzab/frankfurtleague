@@ -601,7 +601,7 @@ async def patch_saison_team(
         # From the PAYLOAD, not the pre-read above: the `$set` writes these wholesale, so the values
         # sent are the values now stored and the projection has nothing to widen for.
         trikot_farbe=saison_team_data.trikot_farbe,
-        kontakte=updated_raw.get("kontakte"),
+        kontakte=updated_raw["kontakte"],
         name=existing_raw["name"],
         shorthand=existing_raw["shorthand"],
     )
