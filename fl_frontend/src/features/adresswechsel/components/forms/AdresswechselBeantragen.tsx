@@ -39,9 +39,9 @@ import type { Key } from "@heroui/react/rac";
 export const LINK_AN_NEUE_ADRESSE = "Link an neue Adresse senden";
 
 /** The two ways an administrator starts a change: the address on file asked first, or a recorded reason and a waiting time. */
-export type Weg = "fragen" | "unerreichbar";
+type Weg = "fragen" | "unerreichbar";
 
-export const WEGE: readonly { id: Weg; label: string }[] = [
+const WEGE: readonly { id: Weg; label: string }[] = [
   { id: "fragen", label: "Die bisherige Adresse fragen" },
   { id: "unerreichbar", label: "Die bisherige Adresse ist nicht mehr erreichbar" },
 ];
@@ -58,7 +58,7 @@ export type AdresswechselEntwurf = { email: string; weg: Weg; grund: string };
 export const LEERER_ENTWURF: AdresswechselEntwurf = { email: "", weg: "fragen", grund: "" };
 
 /** The reason is sent only on the way that records one: the address on file is asked first exactly where it is null. */
-export const gesendeterGrund = ({ weg, grund }: AdresswechselEntwurf): string | null => (weg === "unerreichbar" ? grund : null);
+const gesendeterGrund = ({ weg, grund }: AdresswechselEntwurf): string | null => (weg === "unerreichbar" ? grund : null);
 
 type Fehler = { email?: string; grund?: string };
 
@@ -81,7 +81,7 @@ const MIT_GRUND = FLAdresswechselVerwaltungPayloadSchema.extend({ grund: Adressw
  * Whether the box holds an address its press would send: compared as the backend compares it, both sides on the
  * sign-in fold.
  */
-export const istAndereAdresse = (entwurf: string, gespeicherteAdresse: string): boolean =>
+const istAndereAdresse = (entwurf: string, gespeicherteAdresse: string): boolean =>
   entwurf.trim() !== "" && asSignInIdentifier(entwurf) !== asSignInIdentifier(gespeicherteAdresse);
 
 // `fl_frontend/src/features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx :: AdresseKorrigieren`'s box,

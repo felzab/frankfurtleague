@@ -6,10 +6,7 @@ import { ADRESSWECHSEL_EINTRAG } from "@/features/admin/constants";
 import { textLink } from "@/shared/components/ui/textLink";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 
-/** Where every editor sends its reader for an address: one tool, so a change pending for one record is seen from all of them. */
-const TOOL_PFAD = "/bereich/admin/adresswechsel";
-
-export const ZUR_AENDERUNG = "Zur Änderung";
+const ZUR_AENDERUNG = "Zur Änderung";
 
 /** The one line every editor shows under an address a change waits at, whichever record's page started it. */
 export function AdresswechselOffen({ adresswechselId }: { adresswechselId: string }) {
@@ -19,7 +16,7 @@ export function AdresswechselOffen({ adresswechselId }: { adresswechselId: strin
     <p className="fluid-sm text-pretty text-foreground">
       Eine neue Adresse wartet auf ihre Bestätigung.{" "}
       <Link
-        href={saisonHref(`${TOOL_PFAD}?adresswechsel=${adresswechselId}`)}
+        href={saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechselId}`)}
         prefetch={false}
         className={textLink()}>
         {ZUR_AENDERUNG}
@@ -30,7 +27,8 @@ export function AdresswechselOffen({ adresswechselId }: { adresswechselId: strin
 
 /**
  * Under a sign-in address on the pupil and referee editors, the same words on each: they read the address and the
- * change pending at it, and change neither.
+ * change pending at it, and change neither. One tool for every editor, so a change pending for one record is seen
+ * from all of them.
  */
 export function AdresswechselHinweis({ adresswechselId }: { adresswechselId: string | null }) {
   const saisonHref = useSaisonHref();
@@ -42,7 +40,7 @@ export function AdresswechselHinweis({ adresswechselId }: { adresswechselId: str
         Mit dieser Adresse meldet sich die Person an. Eine neue trägt sie selbst in ihrem Konto ein. Kann sie sich nicht mehr anmelden, ändert
         die Verwaltung sie unter{" "}
         <Link
-          href={saisonHref(TOOL_PFAD)}
+          href={saisonHref("/bereich/admin/adresswechsel")}
           prefetch={false}
           className={textLink()}>
           „{ADRESSWECHSEL_EINTRAG.label}“
