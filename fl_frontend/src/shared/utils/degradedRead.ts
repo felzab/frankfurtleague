@@ -55,10 +55,10 @@ export function nullUnlessContractBreak(error: unknown): null {
 }
 
 /**
- * An admin editor's label readout's rejection handler, logging a contract break under the error boundary's own code.
- * The editor is the operator's tool for repairing the record, so it stands where a person-facing page would not render.
+ * An admin editor's label readout's rejection handler, logging every failure that does not explain itself. The editor is
+ * the operator's tool for repairing the record, so it stands where a person-facing page would not render.
  */
-export function nullAfterLoggingContractBreak(error: unknown): null {
+export function nullAfterLoggingUnexplained(error: unknown): null {
   // A `redirect()` or `notFound()` the read threw is a navigation, never a failed read.
   unstable_rethrow(error);
   if (isContractBreak(error)) logger.error("Contract break absorbed by an admin readout", error, { error_code: "FE-RSC-001" });

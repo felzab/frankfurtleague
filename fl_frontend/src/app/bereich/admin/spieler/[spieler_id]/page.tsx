@@ -11,7 +11,7 @@ import { resolveSpielerId } from "@/features/spieler/resolvers";
 import { collectHeldRollen, countLiveSquadRows, squadIsFull } from "@/features/spieler/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
-import { nullAfterLoggingContractBreak } from "@/shared/utils/degradedRead";
+import { nullAfterLoggingUnexplained } from "@/shared/utils/degradedRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
@@ -66,7 +66,7 @@ async function AdminSpielerEditContent({
   // `null` where the registry's read failed or broke its contract, so the editor stands and says the
   // label went unchecked.
   const fassungBekannt = await runWithIncomingTrace(() => istFassungBekannt(spieler.einwilligung?.text_version ?? null)).catch(
-    nullAfterLoggingContractBreak,
+    nullAfterLoggingUnexplained,
   );
 
   const saison: SpielerSaisonMembership = {

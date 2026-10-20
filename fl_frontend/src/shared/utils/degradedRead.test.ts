@@ -13,7 +13,7 @@ const LOGGING = {
 
 registerDoubles({ modules: { "core/logging.ts": LOGGING } });
 
-const { nullAfterLoggingContractBreak, nullUnlessContractBreak } = await import("./degradedRead.ts");
+const { nullAfterLoggingUnexplained, nullUnlessContractBreak } = await import("./degradedRead.ts");
 const { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, ContractBreakError, UnreadGrantError } =
   await import("@/core/errors.ts");
 const { redirect } = await import("next/navigation");
@@ -128,8 +128,8 @@ describe("a page's degraded read's rejection handler", () => {
 describe("an admin editor's label readout's rejection handler", () => {
   /* The editor is the operator's tool for repairing the record, so it stands, and the line is the break's record. */
   it("logs a contract break and an answer off its schema under the error boundary's code and settles both to null", () => {
-    assert.equal(nullAfterLoggingContractBreak(new ContractBreakError("no label")), null);
-    assert.equal(nullAfterLoggingContractBreak(offSchema()), null);
+    assert.equal(nullAfterLoggingUnexplained(new ContractBreakError("no label")), null);
+    assert.equal(nullAfterLoggingUnexplained(offSchema()), null);
 
     assert.deepEqual(
       lines.map(({ message, meta }) => [message, meta?.error_code]),
@@ -141,7 +141,7 @@ describe("an admin editor's label readout's rejection handler", () => {
   });
 
   it("logs an untyped throw and settles it to null", () => {
-    assert.equal(nullAfterLoggingContractBreak(new TypeError("Cannot read properties of null (reading 'text_version')")), null);
+    assert.equal(nullAfterLoggingUnexplained(new TypeError("Cannot read properties of null (reading 'text_version')")), null);
 
     assert.deepEqual(
       lines.map(({ message, meta }) => [message, meta?.error_code]),
@@ -151,7 +151,7 @@ describe("an admin editor's label readout's rejection handler", () => {
 
   it("settles a read the network never answered, one never sent, and one a rule refused to null with no line", () => {
     for (const failure of [unanswered(), new ApiUnsentError("GET"), answeredWith(409, "REQ-EINWILLIGUNG-001")]) {
-      assert.equal(nullAfterLoggingContractBreak(failure), null, failure.name);
+      assert.equal(nullAfterLoggingUnexplained(failure), null, failure.name);
     }
 
     assert.deepEqual(lines, []);
@@ -161,7 +161,7 @@ describe("an admin editor's label readout's rejection handler", () => {
     const navigation = aRedirect();
 
     assert.throws(
-      () => nullAfterLoggingContractBreak(navigation),
+      () => nullAfterLoggingUnexplained(navigation),
       (thrown) => thrown === navigation,
     );
     assert.deepEqual(lines, []);
