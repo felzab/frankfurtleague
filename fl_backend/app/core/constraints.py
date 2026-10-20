@@ -1770,6 +1770,45 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("saison_id", ASCENDING),),
         "a season's reports, which the triage's read and a replace's or an undraw's removal filter on",
     ),
+    # A person's records by the fold every address payload stores (`docs/backend/spec.md :: I333`), one index per
+    # clause of each `$or`, for the registration's pair's reason.
+    *(
+        SupportIndex(
+            Collection.SAISON_TEAMS,
+            f"saison_teams_kontakte_{seat}_email",
+            ((f"kontakte.{seat}.email", ASCENDING),),
+            "a person's seats, which the subject lookup reads on every signed-in page",
+        )
+        for seat in _KONTAKTE_REQUIRED[:3]
+    ),
+    SupportIndex(
+        Collection.SCHIEDSRICHTER,
+        "schiedsrichter_kontakt_email",
+        (("kontakt.email", ASCENDING),),
+        "a person's referee rows, which the subject lookup reads on every signed-in page",
+    ),
+    *(
+        SupportIndex(
+            Collection.BEWERBUNGEN,
+            f"bewerbungen_kontakte_{seat}_email",
+            ((f"kontakte.{seat}.email", ASCENDING),),
+            "a person's applications, which every sign-in attempt and account page read",
+        )
+        for seat in _KONTAKTE_REQUIRED[:3]
+    ),
+    # Compound, so the sign-in's `status` term is read off the index; the erasure's read of every status walks its prefix.
+    SupportIndex(
+        Collection.REGISTRIERUNGEN,
+        "registrierungen_email_status",
+        (("email", ASCENDING), ("status", ASCENDING)),
+        "a person's registrations, which every sign-in attempt and account page read",
+    ),
+    SupportIndex(
+        Collection.ADRESSWECHSEL,
+        "adresswechsel_email",
+        (("email", ASCENDING),),
+        "the changes naming an address as their new one, which every erasure and its preview read",
+    ),
 )
 
 

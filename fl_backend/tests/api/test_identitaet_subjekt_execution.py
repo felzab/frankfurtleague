@@ -30,6 +30,7 @@ from tests.documents import (
     spieler_document,
     team_document,
 )
+from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -506,6 +507,42 @@ def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(mongo_r
         "berechtigt_seit": None,
         "inhaber_seit": None,
     }
+
+
+# Every collection a person's records sit in, each read by the address alone.
+ADDRESS_READS = frozenset(str(name) for name in (Collection.SAISON_TEAMS, Collection.SCHIEDSRICHTER, Collection.SPIELER))
+GATE_READS = frozenset(str(name) for name in (Collection.BEWERBUNGEN, Collection.REGISTRIERUNGEN))
+
+
+@pytest.mark.db
+class TestEveryAddressReadWalksAnIndex:
+    """Every signed-in page asks the lookup and every sign-in attempt the gate, so neither may scan a collection.
+
+    Each read the handler sends is explained by the server (`tests/plans.py`): a filter losing its index goes red here.
+    """
+
+    def test_the_lookup_and_the_gate_plan_an_index_scan_for_every_address_read(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase) -> list[tuple[str, str]]:
+            async def ask_both(watched: AsyncDatabase, _client: Any) -> None:
+                await call_subjekt(watched, IDENTIFIER)
+                await get_anmeldung(
+                    anmeldung_data=FLSubjektPayload(email=IDENTIFIER),
+                    records=record_collections(watched),
+                    sperrliste=ban_list(watched),
+                    berechtigungen_collection=watched[Collection.BERECHTIGUNGEN],
+                )
+
+            _, plans = await plans_of_sent_reads(
+                mongo_replica_set_url, database, ask_both, lambda collection, _command: collection in ADDRESS_READS | GATE_READS
+            )
+
+            return plans
+
+        plans = on_a_league(mongo_replica_set_url, body)
+
+        # The premise: a read the handlers never sent would pass the next line vacuously.
+        assert {collection for collection, _ in plans} == ADDRESS_READS | GATE_READS, plans
+        assert all("IXSCAN" in plan and "COLLSCAN" not in plan for _, plan in plans), plans
 
 
 @pytest.mark.db
