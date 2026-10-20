@@ -653,17 +653,3 @@ export const FLPatchSpielePaarungenResponseSchema = BaseAPIResponseSchema.extend
 });
 
 export type FLPatchSpielePaarungenResponse = z.infer<typeof FLPatchSpielePaarungenResponseSchema>;
-
-/**
- * `spiele` carries the filter's matches plus every match a fault names, so the client always holds
- * the document behind one. A fault joins by `spiel_id`, never `spiel_nr`, which is unique within one
- * season only.
- */
-export const FLSpieleActionRequiredResponseSchema = BaseAPIResponseSchema.extend({
-  // The ADMIN fixture, not the base tier's: a card on this page opens the modal that prints the
-  // referee's name, which the base tier serves reduced.
-  spiele: z.array(FLSpielAdminSchema),
-  bracket_faults: z.array(FLBracketFaultSchema),
-});
-
-export type FLSpieleActionRequiredResponse = z.infer<typeof FLSpieleActionRequiredResponseSchema>;

@@ -2,7 +2,7 @@ import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { FLSaisonPhaseSchema } from "@/features/saisons/schemas";
-import { FLSonderereignisSchema, FLSpielElfmeterschiessenSchema } from "@/features/spiele/schemas";
+import { FLBracketFaultSchema, FLSonderereignisSchema, FLSpielAdminSchema, FLSpielElfmeterschiessenSchema } from "@/features/spiele/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSchema } from "@/shared/schemas";
 
 import { SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH, SPIELBERICHT_EINTRAEGE_MAX } from "./constants";
@@ -286,3 +286,17 @@ export const FLSpielberichteSaisonResponseSchema = BaseAPIResponseSchema.extend(
   spielberichte: z.array(FLSpielberichtZustandEintragSchema),
 });
 export type FLSpielberichteSaisonResponse = z.infer<typeof FLSpielberichteSaisonResponseSchema>;
+
+/**
+ * Beside the reports' schemas, as its backend model is: it composes both slices' reads. A fault joins by `spiel_id`,
+ * never `spiel_nr`, unique within one season only; `spiele` carries every match a fault or an open report names.
+ */
+export const FLSpieleActionRequiredResponseSchema = BaseAPIResponseSchema.extend({
+  // The ADMIN fixture, not the base tier's: a card on this page opens the modal that prints the
+  // referee's name, which the base tier serves reduced.
+  spiele: z.array(FLSpielAdminSchema),
+  bracket_faults: z.array(FLBracketFaultSchema),
+  spielberichte: z.array(FLSpielberichtZustandEintragSchema),
+});
+
+export type FLSpieleActionRequiredResponse = z.infer<typeof FLSpieleActionRequiredResponseSchema>;
