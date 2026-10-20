@@ -129,7 +129,9 @@ def test_a_paged_filter_takes_the_shared_default_and_refuses_either_side_of_the_
     assert served[LIMIT] == LIST_LIMIT_DEFAULT, f"{label} pages a caller who asked for nothing at {served[LIMIT]}"
 
     for accepted in (LIMIT_FLOOR, LIST_LIMIT_MAX):
-        assert model.model_validate({**required, LIMIT: accepted}).model_dump()[LIMIT] == accepted, f"{label} refuses {accepted}, inside the shared bounds"
+        assert model.model_validate({**required, LIMIT: accepted}).model_dump()[LIMIT] == accepted, (
+            f"{label} refuses {accepted}, inside the shared bounds"
+        )
 
     for refused in (LIMIT_FLOOR - 1, LIST_LIMIT_MAX + 1):
         with pytest.raises(ValidationError):
