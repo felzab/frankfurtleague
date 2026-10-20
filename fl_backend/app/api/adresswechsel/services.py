@@ -262,12 +262,33 @@ def build_lapsed_terms(now: datetime) -> dict[str, Any]:
 
 
 def build_due_terms(now: datetime) -> dict[str, Any]:
-    """A confirmed change whose waiting time ended at or before `now`, its grant's move approved where it moves one."""
+    """A confirmed change with no waiting time left at `now`, an owed approval judged at the effect rather than here.
+
+    A grant ended since the confirmation, by any route, leaves nothing to approve (`docs/backend/spec.md :: I837`).
+    """
 
     return {
         **LIVE_TERMS,
-        "wirksam_ab": {"$type": "date", "$lte": now},
-        "$or": [{"genehmigung": {"$type": "null"}}, {"genehmigung.genehmigt_am": {"$type": "date"}}],
+        "bestaetigt_am": {"$type": "date"},
+        "$or": [{"wirksam_ab": {"$type": "null"}}, {"wirksam_ab": {"$type": "date", "$lte": now}}],
+    }
+
+
+# Where a `$lookup` of the address's grant row lands, the unique index serving it (`uniq_berechtigung_adresse`).
+GEHALTEN: Final = "_berechtigung"
+
+
+def build_parked_terms(now: datetime) -> dict[str, Any]:
+    """A confirmed change whose approval is owed while its address still holds a grant: waiting, neither due nor lapsed.
+
+    Read over a page `GEHALTEN` was joined onto; a lapse of the approval's week is no parking.
+    """
+
+    return {
+        "bestaetigt_am": {"$type": "date"},
+        "genehmigung.genehmigt_am": {"$type": "null"},
+        "genehmigung.bis": {"$type": "date", "$gt": now},
+        f"{GEHALTEN}.0": {"$exists": True},
     }
 
 

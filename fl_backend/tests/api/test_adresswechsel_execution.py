@@ -944,6 +944,45 @@ class TestTheContactsEditorsRead:
         assert ended is not None and (ended.trainer, ended.ansprechperson, ended.stellvertretung) == (None, None, None)
 
 
+class TestAGrantEndedBeforeTheApproval:
+    """The approval a confirmation left owed is owed only while the address holds the grant it would move (I837)."""
+
+    def test_the_pass_makes_the_change_take_effect_once_the_grant_is_gone(self, mongo_replica_set_url: str):
+        """Revoked after the confirmation: nobody is offered the approval, and the change took effect regardless."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            grant = await granted(database)
+            minted = await start(database, client)
+            confirmed = await answer(database, client, minted.token)
+            # Any route ending the grant, a revoke's, a tier change's or an erasure's, leaves no row at the address.
+            await database[Collection.BERECHTIGUNGEN].delete_one({"_id": grant})
+            swept = await sweep(database, client, germany_now=NOW + timedelta(hours=1))
+            return confirmed.genehmigung_offen, swept, await change(database, minted.id), await owed(database), await everything(database)
+
+        offen, swept, record, notices, after = on_a_person(mongo_replica_set_url, body)
+
+        assert offen is True
+        assert (swept.wirksam, swept.verbleibend) == (1, 0)
+        assert record["beendet"]["art"] == "wirksam"
+        assert [(notice["art"], notice["bisherige_email"], notice["email"]) for notice in notices] == [("wirksam", EMAIL, NEW_EMAIL)]
+        assert after["pupil"]["email"] == NEW_EMAIL
+
+    def test_a_change_whose_grant_stands_waits_and_is_no_remainder(self, mongo_replica_set_url: str):
+        """Parked on the approval: the pass leaves it standing and counts it neither as an effect nor as left behind."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            minted = await start(database, client)
+            await answer(database, client, minted.token)
+            swept = await sweep(database, client, germany_now=NOW + timedelta(hours=1))
+            return swept, await change(database, minted.id), await owed(database)
+
+        swept, record, notices = on_a_person(mongo_replica_set_url, body)
+
+        assert (swept.wirksam, swept.verworfen, swept.entfernt, swept.verbleibend) == (0, 0, 0, 0)
+        assert (record["beendet"], notices) == (None, [])
+
+
 class TestTheMovedGrant:
     def test_the_effect_revokes_the_grant_at_the_old_address_and_grants_it_at_the_new_under_the_approver(self, mongo_replica_set_url: str):
         """Announced as a revoke and a grant are, and dating from the move: no session older than it administers."""

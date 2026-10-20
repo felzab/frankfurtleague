@@ -722,7 +722,9 @@ seat, registration and grant the address holds, so one sign-in stays whole
 - **The address holds a grant of access.** The change also waits on another administrator's
   approval on the administrators page, an owner's for an owner's grant, within a week of its start;
   neither the changed address nor whoever started the change gives it
-  (`docs/backend/spec.md :: I817`, `:: I818`). The tool starts a grant holder's change for an owner
+  (`docs/backend/spec.md :: I817`, `:: I818`). Revoking the grant while a confirmed change waits needs
+  no approval after it: the next hourly pass makes the change take effect, the grant moving nowhere
+  (`docs/backend/spec.md :: I837`). The tool starts a grant holder's change for an owner
   alone (`REQ-PURGE-005`), and a last owner names another owner before changing their own address
   (`docs/backend/spec.md :: I819`). On the effect the grant moves to the new address under the
   approver, announced to every administrator as a revoke and a grant (`docs/backend/spec.md :: I820`).

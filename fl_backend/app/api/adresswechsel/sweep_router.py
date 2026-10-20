@@ -20,10 +20,18 @@ from app.api.adresswechsel.schemas import (
     FLAdresswechselZugestelltPayload,
     FLAdresswechselZugestelltResponse,
 )
-from app.api.adresswechsel.services import build_due_terms, build_lapsed_terms, compose_postausgang, ist_abgelaufen
+from app.api.adresswechsel.services import (
+    GEHALTEN,
+    build_due_terms,
+    build_lapsed_terms,
+    build_parked_terms,
+    compose_postausgang,
+    ist_abgelaufen,
+)
 from app.api.berechtigungen.services import BEANSPRUCHUNG_DAUER, VERSUCHE_HOECHSTENS
 from app.api.identitaet.lookup import RecordCollections, SubjektLookup
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, sperrliste_saison
+from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
@@ -77,6 +85,17 @@ def _pipeline(*, now: datetime, nach: Any, groesse: int) -> list[dict[str, Any]]
 
     return [
         {"$match": {"$or": [build_lapsed_terms(now), build_due_terms(now)]}},
+        # A change parked on an owed approval while its grant stands is neither due nor the pass's remainder.
+        {
+            "$lookup": {
+                "from": Collection.BERECHTIGUNGEN,
+                "localField": "adresse",
+                "foreignField": "adresse",
+                "pipeline": [{"$project": {"_id": 1}}],
+                "as": GEHALTEN,
+            }
+        },
+        {"$match": {"$nor": [build_parked_terms(now)]}},
         # What `ist_abgelaufen` labels a lapse by: a confirmed change whose approval's week passed holds a `wirksam_ab` too,
         # and is no due change for that (`docs/backend/spec.md :: I693`).
         {"$project": {"_id": 1, "gueltig_bis": 1, "genehmigung.bis": 1, "genehmigung.genehmigt_am": 1}},
@@ -142,7 +161,7 @@ async def _make_the_due_change_take_effect(
 ) -> FLAdresswechselPostausgangArt | None:
     """One due change in its own transaction, judged again as its confirmation was.
 
-    Answers which notice it queued, or `None` where its approval was taken off; `DocumentNotFoundException` where stopped,
+    Answers which notice it queued, or `None` where it waits on an approval; `DocumentNotFoundException` where stopped,
     discarded or replaced since the page was read.
     """
 
@@ -181,9 +200,9 @@ async def _make_the_due_change_take_effect(
         )
         if wirksam:
             return "wirksam"
-        # A due change's approval was given, the due terms reading it, and waits again only where it does not stand.
+        # Waits on an approval: one owed while its address holds a grant again since the page's read, or one given whose
+        # approver could not give it now, taken off.
         if urteil.wartet:
-            assert urteil.widerrufen
             return None
 
         # Every judgement the confirmation makes, at the end of the waiting time as at its start (`docs/backend/spec.md :: I795`).
@@ -252,9 +271,10 @@ async def sweep_adresswechsel(
 
     **A lapsed change** -- its link, the approval it asked of the address on file, or its grant's approval by another
     administrator -- ends as `abgelaufen`: its address and reason out of the record and every log image of it
-    (`entfernt`). **A due change**, one whose waiting time has ended and whose grant's move, where it moves one, was
-    approved, is judged again as its confirmation was: a ban on either address, another pupil signing in on the new one,
-    a grant its approval does not cover, a grant at the new address, or nothing left to move ends it discarded, and
+    (`entfernt`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still
+    holds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil
+    signing in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move
+    ends it discarded, and
     `verworfen` counts it, its new address queued to be told it did not take effect and never why; otherwise
     everything the replaced address holds moves, and `wirksam` counts it, its completion notice queued. The notices are
     `POST /adresswechsel/sweep/postausgang`'s to claim, queued in each change's own transaction, so none rides on this answer.
@@ -354,7 +374,7 @@ async def sweep_adresswechsel(
         if not row["faellig"]:
             entfernt += 1
         elif ergebnis is None:
-            # Its approval did not stand and was taken off, so it waits on another and is due no more.
+            # Waiting on an approval, as the pipeline parks one: neither an effect nor the remainder.
             uebersprungen += 1
         elif ergebnis == "verworfen":
             verworfen += 1
