@@ -9,7 +9,7 @@ import { textLink } from "@/shared/components/ui/textLink";
 
 import { SchiedsrichterAngaben } from "../ui/SchiedsrichterAngaben";
 
-import type { FLSpielberichtPersonEintrag } from "@/features/spielberichte/schemas";
+import type { SchiedsrichterSpielberichte } from "@/features/spielberichte/types";
 import type { FLSpielbestaetigungSelbst } from "@/features/spielbestaetigungen/schemas";
 import type { FLSchiedsrichterSelbst } from "../../schemas";
 
@@ -25,8 +25,7 @@ export function SchiedsrichterSelbstView({
 }: {
   schiedsrichter: readonly FLSchiedsrichterSelbst[];
   einsaetze: readonly FLSpielbestaetigungSelbst[];
-  /** The played fixtures a report is due for, `null` while `SPIELBERICHT_EINGABE` reads off. */
-  spielberichte: readonly FLSpielberichtPersonEintrag[] | null;
+  spielberichte: SchiedsrichterSpielberichte;
 }) {
   const panel = formPanel();
 

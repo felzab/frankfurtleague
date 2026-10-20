@@ -350,11 +350,13 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "One fixture's report: what the referee recorded of the match. Held true against nothing: it states what the "
             "referee proposed, which stays true however the fixture is corrected afterwards -- so it is in no boundary with "
             "`spiele`. The report writes no fixture; the administrator carries a proposal into the fixture by their own "
-            "save, and the state the report reads in is derived on every read from both. One fixture write reaches the "
-            "report: a save adopting it stamps the version it took, in the save's transaction and only while the report "
+            "save, and the state the report reads in is derived on every read from both. Three fixture writes reach the "
+            "report. A save adopting it stamps the version it took, in the save's transaction and only while the report "
             "still stands at that version and names the clubs the save leaves on the fixture, so the stamp records the "
             "adoption and holds no rule over the fixture, and a report corrected since, or written about other clubs, is "
-            "left unadopted rather than refusing the save. What is held is a rule over this "
+            "left unadopted rather than refusing the save; that save's undo puts the adoption it replaced back, in the "
+            "replay's transaction and only while the report still stands at the version stamped; and a confirmed replace "
+            "or an undraw removes the season's reports with its fixtures. What is held is a rule over this "
             "collection alone, `uniq_spielbericht_spiel_id`: one report per fixture."
         ),
     ),
@@ -693,6 +695,19 @@ REFERENCES: tuple[Reference, ...] = (
     ),
     Reference(
         source=Collection.SPIELBESTAETIGUNGEN,
+        fields=("saison_id",),
+        target=Collection.SAISONS,
+        on_reference_created=Action.NO_ACTION,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.RESTRICT,
+        note=(
+            "Copied off the fixture the sweep read, so a row names its fixture's own season; nothing is embedded. The "
+            "season's end clears what the rows hold of people (`app/api/spielbestaetigungen/crud.py :: strip_the_seasons_confirmations`). "
+            "No season delete exists."
+        ),
+    ),
+    Reference(
+        source=Collection.SPIELBESTAETIGUNGEN,
         fields=("partei.team_id",),
         target=Collection.TEAMS,
         on_reference_created=Action.NO_ACTION,
@@ -736,6 +751,33 @@ REFERENCES: tuple[Reference, ...] = (
             "(`app/api/spielberichte/crud.py :: stamp_the_adoption`). A fixture is removed only with its season's whole "
             "draw, by a confirmed replace or an undraw, which a submitted report refuses (`REQ-SPIELPLAN-007`); each removes "
             "the season's report documents in the same transaction (`app/api/saisons/admin_router.py :: undraw_spielplan`)."
+        ),
+    ),
+    Reference(
+        source=Collection.SPIELBERICHTE,
+        fields=("saison_id",),
+        target=Collection.SAISONS,
+        on_reference_created=Action.NO_ACTION,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.RESTRICT,
+        note=(
+            "Copied off the fixture the write read, never off a payload, so it names the fixture's own season; nothing is "
+            "embedded. The report's writes read the season's status, and after it has ended the referee writes no more "
+            "(`REQ-BERICHT-007`). No season delete exists."
+        ),
+    ),
+    Reference(
+        source=Collection.SPIELBERICHTE,
+        fields=("bericht.seiten.team1", "bericht.seiten.team2"),
+        target=Collection.TEAMS,
+        on_reference_created=Action.NO_ACTION,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.NO_ACTION,
+        note=(
+            "Stamped off the fixture's sides by every write, never off a payload, null on a slot then open. Nothing is "
+            "embedded: a club's name is read off the fixture. A fixture re-fielded since leaves the stamp naming the club "
+            "that left, which is what reads the report `teams_geaendert` until a write stamps it again. A club is retired "
+            "by a date and never deleted, so the reference stays resolvable."
         ),
     ),
     Reference(
@@ -1407,16 +1449,19 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SPIELBERICHTE,
         "bericht",
         Editability.CONDITIONAL,
-        "written whole by the booked referee or an administrator once the fixture is dated, its day has come and it was "
-        "not called off: a report is the account of a match that took place",
+        "written whole by the booked referee while the fixture's season runs, or by an administrator, once the fixture "
+        "is dated, its day has come and it was not called off: a report is the account of a match that took place, and "
+        "after its season the referee only reads it",
         "app.api.spielberichte.services.find_nicht_gespielt_refusal",
     ),
     FieldPolicy(
         Collection.SPIELBERICHTE,
         "bericht.version",
         Editability.COMPOSED,
-        "on no payload: every write of the block raises it by one, so an adoption recording the version it took reads "
-        "adopted exactly until the next write, whichever field it moves",
+        "on no payload: the referee's write and the administrator's raise it by one wherever they change the block, "
+        "whichever field they move, so an adoption recording the version it took reads adopted exactly until the next of "
+        "them; the season-end strip, a referee erasure's repoint and the adoption's own stamp and undo leave it, the strip "
+        "else turning every adopted report `abweichend`",
         "app.api.spielberichte.services.compose_bericht_update",
     ),
     FieldPolicy(
@@ -3278,6 +3323,36 @@ RULES: tuple[Rule, ...] = (
         ),
         implemented_by="app.api.spielberichte.services.find_bericht_stand_refusal",
         tested_by="tests/api/test_spielbericht_execution.py::TestAFormOpenedBeforeAnotherWrite",
+    ),
+    Rule(
+        code="REQ-BERICHT-007",
+        status=HTTPStatus.CONFLICT,
+        operation="PUT /spielberichte/{spiel_id}/bericht",
+        aggregate="Spielbericht",
+        summary="a referee writes a fixture's report while its season runs, and only reads it once the season has ended",
+        implemented_by="app.api.spielberichte.services.find_saison_beendet_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestTheRefereeWritesWhileTheSeasonRuns",
+    ),
+    Rule(
+        code="REQ-BERICHT-008",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",
+        aggregate="Spielbericht",
+        summary=(
+            "a yellow or a second yellow card names its reason, unless the stored report holds that card, by side, pupil "
+            "and colour, with its reason stripped at the season's end"
+        ),
+        implemented_by="app.api.spielberichte.services.find_grund_fehlt_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestOnlyANewCautionOwesItsReason",
+    ),
+    Rule(
+        code="REQ-BERICHT-009",
+        status=HTTPStatus.CONFLICT,
+        operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",
+        aggregate="Spielbericht",
+        summary="a report on a group-phase fixture proposes no shoot-out, which the fixture never keeps",
+        implemented_by="app.api.spielberichte.services.find_elfmeter_in_der_gruppe_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestAGroupFixtureTakesNoShootOut",
     ),
 )
 

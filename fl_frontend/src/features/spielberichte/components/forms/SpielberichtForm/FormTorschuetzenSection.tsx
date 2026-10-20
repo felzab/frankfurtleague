@@ -10,7 +10,7 @@ import { Switch } from "@/shared/components/ui/Switch";
 
 import { TORSCHUETZE_UNBEKANNT_LABEL } from "../../../constants";
 import { AuswahlSelect } from "./AuswahlSelect";
-import { EntfernenButton, HinzufuegenButton, MinuteField, ohneKader, personOptionen, seitenOptionen } from "./eintragFelder";
+import { EntfernenButton, GeleertHinweis, HinzufuegenButton, MinuteField, ohneKader, personOptionen, seitenOptionen } from "./eintragFelder";
 import { UNBEKANNT } from "./spielberichtDraft";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -28,6 +28,7 @@ export function FormTorschuetzenSection({
   onAdd,
   fieldErrors,
   onValidateFields,
+  geleert,
   istNichtantreten,
 }: {
   kontext: SpielberichtKontext;
@@ -36,6 +37,8 @@ export function FormTorschuetzenSection({
   onAdd: () => void;
   fieldErrors: FieldErrors;
   onValidateFields: (paths: readonly string[]) => void;
+  /** The entries whose person the form took out on opening (`eroeffnungOf`). */
+  geleert: ReadonlySet<number>;
   /** A no-show takes no scorer, so the section offers none rather than an entry its save refuses. */
   istNichtantreten: boolean;
 }) {
@@ -112,6 +115,7 @@ export function FormTorschuetzenSection({
                       error={fieldErrors[`${pfad}.spieler_id`]}
                     />
                   </div>
+                  {geleert.has(eintrag.key) && eintrag.spieler === "" && <GeleertHinweis />}
                   {ohneKader(kontext, eintrag.seite) && (
                     <p className="muted-hint">Für dieses Team ist kein Kader hinterlegt. Jedes Tor trägst Du dann als „unbekannt“ ein.</p>
                   )}

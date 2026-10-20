@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { spielberichtReadFixture } from "@/shared/testing/spielberichtFixtures.ts";
 import { toFieldErrors } from "@/shared/utils/validation.ts";
 
-const { FLSpielberichtAdminResponseSchema, FLSpielberichtPayloadSchema, FLSpielberichtSchiedsrichterResponseSchema } =
+const { FLSpielberichtAdminResponseSchema, FLSpielberichtPayloadSchema, FLSpielberichtSchiedsrichterResponseSchema, spielberichtFormSchema } =
   await import("./schemas.ts");
 
 const SPIELER = "68c1f0a2b3c4d5e6f7a8b9f1";
@@ -40,14 +40,19 @@ describe("what a report's mirror refuses before the backend does", () => {
     assert.deepEqual(fehler(bericht({ team1_tore: 2, team2_tore: 1 }, [tor, gegentor, { ...tor, spieler_id: null, minute: "90+3" }])), {});
   });
 
-  it("asks a yellow for its reason and leaves a red's optional", () => {
+  /* The form's own rule, the backend judging the wire against the stored report (`REQ-BERICHT-008`): the season's end
+     strips every reason, and a correction after it resends those cautions without one. */
+  it("asks a new yellow for its reason, and neither a red nor a caution stored stripped of it", () => {
     const karte = { seite: "team1", spieler_id: SPIELER, minute: "30", farbe: "gelb", grund: null };
+    const formFehler = (bestand: (typeof karte)[], karten: unknown[]) => {
+      const parsed = spielberichtFormSchema(bestand).safeParse(bericht({ team1_tore: 0, team2_tore: 0 }, [], karten));
+      return parsed.success ? {} : toFieldErrors(parsed.error);
+    };
 
-    assert.equal(
-      fehler(bericht({ team1_tore: 0, team2_tore: 0 }, [], [karte]))["bericht.karten.0.grund"],
-      "Bei Gelb und Gelb-Rot gehört ein Grund dazu.",
-    );
-    assert.deepEqual(fehler(bericht({ team1_tore: 0, team2_tore: 0 }, [], [{ ...karte, farbe: "rot" }])), {});
+    assert.equal(formFehler([], [karte])["bericht.karten.0.grund"], "Bei Gelb und Gelb-Rot gehört ein Grund dazu.");
+    assert.deepEqual(formFehler([], [{ ...karte, farbe: "rot" }]), {});
+    assert.deepEqual(formFehler([karte], [{ ...karte, minute: "31" }]), {}, "a stripped caution owes its reason again");
+    assert.ok(formFehler([karte], [{ ...karte, farbe: "gelb_rot" }])["bericht.karten.0.grund"], "another colour is a new card");
   });
 
   /* The season's end strips every card's reason and the remarks: the rule is a write's, so the read of a stripped report

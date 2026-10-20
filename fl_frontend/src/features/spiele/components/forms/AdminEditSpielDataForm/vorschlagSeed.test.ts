@@ -79,7 +79,7 @@ describe("carrying a report's proposal into the match editor", () => {
     render(editor());
     await user.type(screen.getByRole("textbox", { name: /Notiz zum Spiel/ }), "Nachholspiel");
 
-    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen" }));
+    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen: Spielbericht" }));
 
     assert.equal(screen.getByRole<HTMLInputElement>("textbox", { name: /Goethe-Gymnasium/ }).value, "1");
     assert.equal(screen.getByRole<HTMLInputElement>("textbox", { name: /Lessing-Gymnasium/ }).value, "0");
@@ -102,7 +102,7 @@ describe("carrying a report's proposal into the match editor", () => {
     const links = () => screen.queryAllByRole("link", { name: "Spielbericht bearbeiten" }).length;
     assert.equal(links(), 1, "a clean editor offers no correction");
 
-    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen" }));
+    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen: Spielbericht" }));
 
     assert.equal(links(), 0, "the correction link leaves a seeded draft unasked");
   });
@@ -112,7 +112,7 @@ describe("carrying a report's proposal into the match editor", () => {
   it("drops the seed with the rest of the draft on a discard", async () => {
     const user = userEvent.setup();
     render(editor());
-    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen" }));
+    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen: Spielbericht" }));
 
     await user.click(screen.getAllByRole("button", { name: "Abbrechen" })[0] ?? assert.fail("the editor offers no way out"));
     await user.click(screen.getByRole("button", { name: "Verwerfen" }));
@@ -133,7 +133,7 @@ describe("carrying a report's proposal into the match editor", () => {
       }),
     );
 
-    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen" }));
+    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen: Spielbericht" }));
 
     assert.equal(screen.getByRole<HTMLInputElement>("switch", { name: "Im Elfmeterschießen entschieden" }).checked, true);
     assert.deepEqual([wert("elfmeterschiessen.team1"), wert("elfmeterschiessen.team2")], ["4", "3"]);
@@ -144,7 +144,7 @@ describe("carrying a report's proposal into the match editor", () => {
     const user = userEvent.setup();
     render(editor(ohneErgebnis(), { team1_tore: null, team2_tore: null, elfmeterschiessen: null, sonderereignis: "nichtantreten_team2" }));
 
-    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen" }));
+    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen: Spielbericht" }));
 
     assert.equal(screen.getByRole<HTMLInputElement>("switch", { name: "Sonderereignis eintragen" }).checked, true);
     // The picker's own value: the panel beside it names the proposed event in its words whatever the draft holds.
@@ -187,12 +187,10 @@ describe("carrying a report's proposal into the match editor", () => {
       }),
     );
 
-    const press =
-      screen
-        .getAllByRole<HTMLButtonElement>("button", { name: /^Vorschlag übernehmen/ })
-        .find((button) => button.textContent === "Vorschlag übernehmen") ?? assert.fail("the panel renders no press");
-    assert.ok(press.disabled, "the press carries a report about Goethe onto Schiller");
-    assert.ok(screen.getAllByText(/Die Teams im Formular sind nicht die des Spielberichts/).length > 0, "the closed press names no reason");
+    const press = screen
+      .queryAllByRole<HTMLButtonElement>("button", { name: /^Vorschlag übernehmen/ })
+      .filter((button) => button.textContent === "Vorschlag übernehmen");
+    assert.equal(press.length, 0, "the panel offers to carry a report about Goethe onto Schiller");
     assert.ok(screen.getByText("Teams geändert"), "the panel names no state of its own");
     assert.ok(screen.getByText(/für andere Teams geschrieben/), "the panel does not say the report is about other teams");
   });
@@ -202,7 +200,7 @@ describe("carrying a report's proposal into the match editor", () => {
   it("withdraws the badge and says so once a newer report stands than the one the seed was taken from", async () => {
     const user = userEvent.setup();
     const { rerender } = render(editor());
-    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen" }));
+    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen: Spielbericht" }));
     assert.ok(screen.getByText("Eingesetzt"), "the premise: the seed took");
 
     const gelesen = spielberichtReadFixture();
@@ -228,7 +226,7 @@ describe("carrying a report's proposal into the match editor", () => {
   it("drops the adoption once a seeded field is edited by hand", async () => {
     const user = userEvent.setup();
     render(editor());
-    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen" }));
+    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen: Spielbericht" }));
 
     const tore = screen.getByRole<HTMLInputElement>("textbox", { name: /Goethe-Gymnasium/ });
     await user.clear(tore);

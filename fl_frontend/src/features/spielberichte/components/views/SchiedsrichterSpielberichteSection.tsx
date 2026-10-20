@@ -7,20 +7,20 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { benannt } from "@/shared/utils/benannt";
-import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
+import { formatSpielDatum, formatUhrzeit, nichtHinterlegt, PLACEHOLDER } from "@/shared/utils/format";
 
 import { SPIELBERICHT_GESCHLOSSEN } from "../../constants";
 import { SCHIEDSRICHTER_HREF } from "./SpielberichtZustandView";
 
-import type { FLSpielberichtPersonEintrag } from "../../schemas";
+import type { SchiedsrichterSpielberichte } from "../../types";
 
 const LEER = "Gerade steht kein Spiel für einen Spielbericht an.";
 
 /**
- * The referee panel's reports: one card per played fixture booked to the referee. `null` where the switch reads off,
- * the panel then saying why no fixture is offered rather than reading as an empty season.
+ * The referee panel's reports: one card per played fixture booked to the referee. Closed or unread, the panel says
+ * why no fixture is offered rather than reading as an empty season.
  */
-export function SchiedsrichterSpielberichteSection({ spiele }: { spiele: readonly FLSpielberichtPersonEintrag[] | null }) {
+export function SchiedsrichterSpielberichteSection({ spiele }: { spiele: SchiedsrichterSpielberichte }) {
   const panel = formPanel();
 
   return (
@@ -38,8 +38,10 @@ export function SchiedsrichterSpielberichteSection({ spiele }: { spiele: readonl
       </div>
 
       <div className={panel.body()}>
-        {spiele === null ? (
-          <p className="muted-hint">{`${SPIELBERICHT_GESCHLOSSEN.title}. ${SPIELBERICHT_GESCHLOSSEN.hint}`}</p>
+        {spiele === "geschlossen" ? (
+          <p className="muted-hint">{`${SPIELBERICHT_GESCHLOSSEN.title} ${SPIELBERICHT_GESCHLOSSEN.hint}`}</p>
+        ) : spiele === "unlesbar" ? (
+          <p className="muted-hint">Deine Spielberichte ließen sich gerade nicht lesen. Lade die Seite neu.</p>
         ) : spiele.length === 0 ? (
           <p className="muted-hint">{LEER}</p>
         ) : (
@@ -58,7 +60,9 @@ export function SchiedsrichterSpielberichteSection({ spiele }: { spiele: readonl
                   className={`${card()} flex w-full flex-col gap-3 p-4 sm:flex-row sm:items-center`}>
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <p className="fluid-sm font-bold text-pretty text-foreground">{paarung}</p>
-                    <span className="muted-meta">{`${datum}, ${formatUhrzeit(spiel.uhrzeit)} Uhr`}</span>
+                    <span className="muted-meta">
+                      {`${datum}, ${spiel.uhrzeit === null ? nichtHinterlegt("Anpfiff") : `${formatUhrzeit(spiel.uhrzeit)} Uhr`}`}
+                    </span>
                   </div>
                   <span className={labelBadge(gesendet ? "success" : "warning")}>{gesendet ? "Gesendet" : "Offen"}</span>
                   <Link

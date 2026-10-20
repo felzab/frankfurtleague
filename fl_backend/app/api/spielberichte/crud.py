@@ -72,12 +72,16 @@ VEREIN_FIELDS: Mapping[str, int] = {
 async def pull_bericht_lage(
     *,
     spiele_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
     saison_spieler_collection: AsyncCollection,
     saison_teams_collection: AsyncCollection,
     spiel_id: ObjectId,
     session: AsyncClientSession | None,
 ) -> BerichtLage:
-    """The fixture, both clubs' squads and season rows, under `session`; `DB-COMMON-001` for a fixture that does not exist."""
+    """The fixture, its season's status, both clubs' squads and season rows, under `session`.
+
+    `DB-COMMON-001` for a fixture that does not exist.
+    """
 
     spiel = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": spiel_id}, projection=dict(SPIEL_FIELDS), session=session)
     team_ids = [team_id for seite in SEITEN if (team_id := team_id_of(spiel, seite)) is not None]
@@ -96,7 +100,9 @@ async def pull_bericht_lage(
         session=session,
     )
 
-    return BerichtLage(spiel=spiel, kader=kader, vereine=vereine)
+    saison = await saisons_collection.find_one({"_id": saison_id}, projection={"_id": 0, "status": 1}, session=session)
+
+    return BerichtLage(spiel=spiel, kader=kader, vereine=vereine, saison_status=None if saison is None else saison.get("status"))
 
 
 async def pull_genannt(
@@ -107,16 +113,15 @@ async def pull_genannt(
     bericht: Mapping[str, Any] | None,
     session: AsyncClientSession | None,
 ) -> list[FLSpielberichtSpieler]:
-    """Every pupil the stored block names outside the squads served beside it, so an entry stored before keeps its name on the form.
+    """Every pupil the block names outside the squads served, so a stored entry keeps its name; every one where none is served.
 
-    Every pupil it names where no squad is served (`compose_ansicht`'s `kader_offen`).
+    An erased pupil comes nameless, read „anonym“ rather than as the id its entry keeps.
     """
 
     live = {row["spieler_id"] for seite in SEITEN for row in live_kader(lage, seite)} if kader_offen else set()
     ausserhalb = set().union(*genannte_ids(bericht).values()) - live
     zeilen = {row["spieler_id"]: row for row in lage.kader if row["spieler_id"] in ausserhalb}
     # A pupil of neither side's club, such as one of a club a knockout slot has since replaced: read off their record.
-    # An erased pupil's id finds none, and the entry stays unnamed.
     rest = ausserhalb - zeilen.keys()
     personen = (
         []
@@ -126,11 +131,18 @@ async def pull_genannt(
         )
     )
 
+    benannt = {person["_id"]: person for person in personen}
+
     return [
         *(FLSpielberichtSpieler.model_validate(zeile) for zeile in zeilen.values()),
         *(
-            FLSpielberichtSpieler(spieler_id=person["_id"], vorname=person.get("vorname"), nachname=person.get("nachname"), nummer=None)
-            for person in personen
+            FLSpielberichtSpieler(
+                spieler_id=spieler_id,
+                vorname=benannt.get(spieler_id, {}).get("vorname"),
+                nachname=benannt.get(spieler_id, {}).get("nachname"),
+                nummer=None,
+            )
+            for spieler_id in sorted(rest)
         ),
     ]
 
@@ -145,6 +157,12 @@ async def anchor_the_pupils_named(*, spieler_collection: AsyncCollection, spiele
     await anchor_in_db(collection=spieler_collection, db_filter={"_id": {"$in": ids}}, session=session)
 
 
+async def anchor_the_season_reported_in(*, saisons_collection: AsyncCollection, saison_id: str, session: AsyncClientSession) -> None:
+    """The season a report's first write and a draw's removal both write, so the two conflict (`docs/backend/spec.md :: I833`)."""
+
+    await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+
+
 async def write_bericht(
     *,
     spielberichte_collection: AsyncCollection,
@@ -155,7 +173,7 @@ async def write_bericht(
     now: datetime,
     session: AsyncClientSession,
 ) -> Mapping[str, Any]:
-    """The block written whole: created by its first writer, created on a line-up's document lacking it, or replaced.
+    """The block written whole: created by its first writer, set on a document holding none, or replaced.
 
     A block already saying what the payload says is left as stored; otherwise answers the document as written.
     """
@@ -178,29 +196,25 @@ async def write_bericht(
             },
             session=session,
         )
-    else:
-        update = (
-            {"$set": {"bericht": compose_neuer_bericht(payload, von=von, seiten=seiten, now=now)}}
-            if gespeichert.get("bericht") is None
-            else compose_bericht_update(payload, seiten=seiten, now=now)
-        )
-        await patch_one_in_db(
-            collection=spielberichte_collection,
-            db_filter={"_id": gespeichert["_id"]},
-            update=update,
-            session=session,
-            return_document=ReturnDocument.BEFORE,
-        )
+        return await pull_one_from_db(collection=spielberichte_collection, db_filter={"spiel_id": spiel_raw["_id"]}, session=session)
 
-    return await pull_one_from_db(collection=spielberichte_collection, db_filter={"spiel_id": spiel_raw["_id"]}, session=session)
+    update = (
+        {"$set": {"bericht": compose_neuer_bericht(payload, von=von, seiten=seiten, now=now)}}
+        if gespeichert.get("bericht") is None
+        else compose_bericht_update(payload, seiten=seiten, now=now)
+    )
+    # `AFTER`: inside the transaction the patch reads the document back for its log anyway.
+    return await patch_one_in_db(
+        collection=spielberichte_collection,
+        db_filter={"_id": gespeichert["_id"]},
+        update=update,
+        session=session,
+        return_document=ReturnDocument.AFTER,
+    )
 
 
 async def count_eingereichte_berichte(*, spielberichte_collection: AsyncCollection, saison_id: str, session: AsyncClientSession | None) -> int:
-    """How many of the season's standing fixtures hold a submitted report, under `session`.
-
-    Joined as the reads join: an orphan report would otherwise refuse every replace and undraw (`REQ-SPIELPLAN-007`)
-    while no read shows it.
-    """
+    """How many of the season's fixtures hold a submitted report, under `session`, joined as the reads join so the two agree."""
 
     counted = await aggregate_many_from_db(
         collection=spielberichte_collection,

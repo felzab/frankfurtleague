@@ -615,6 +615,7 @@ export function AdminEditSpielDataForm({
                 }
                 eingesetzt={eingesetztStand(uebernimmtBericht, spielbericht?.lesen.bericht?.version ?? null)}
                 hatEntwurf={isDirty}
+                today={today}
               />
             )}
 

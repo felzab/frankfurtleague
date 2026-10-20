@@ -349,8 +349,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **The booked referee reads both clubs' squads, every name and shirt number, for their own
   fixture's report, as part of officiating**, whatever a pupil answered about publication: nothing
   of it is published. The form serves the squads only from the match day and only while the fixture
-  takes a report (`fl_backend/app/api/spielberichte/services.py :: nimmt_einen_bericht`), and the
-  published notice says so. Ruled 2026-10-20.
+  takes a report (`fl_backend/app/api/spielberichte/services.py :: nimmt_einen_bericht`) and its
+  season runs; after the season the referee reads their report alone, its persons named and no
+  squad served, and writes it no more (`docs/backend/spec.md :: I832`). The published notice says so.
+  Ruled 2026-10-20, the season's bound the same day.
 - **A photograph, a video or an interview needs a consent of its own, and only a person of eighteen
   or over may give it, for the Datenschutzexperte.** The consent is separate from the name and
   answered as a yes or a no on a pupil's, a referee's and a contact person's confirmation page
@@ -402,7 +404,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   meets the deleted row and is refused as not found. Every erased referee's fixtures share that one
   row, so no set of fixtures singles a person out. Every match report the referee sent names the ghost
   as its sender too, and stands with its remarks and entries as the league's record of the match
-  (`docs/backend/spec.md :: I788`). No erasure reaches the ghost: each selects the
+  (`docs/backend/spec.md :: I788`). A pupil's erasure reaches no match report: each goal or card
+  naming them keeps the erased record's id, which no page shows but as „anonym“, and which ties their
+  entries together across reports ([`backend/spec.md`](backend/spec.md#4-known-open)). No erasure reaches the ghost: each selects the
   records an address holds, and the ghost holds none.
 - **The address route answers every request, because no write stores a pupil or referee row
   without an address.** A pupil row is created only by an admission, which gives it the
@@ -674,8 +678,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   a club's row only the season's end deletes it, and on a referee's row the referee's erasure takes
   it sooner with the row (`docs/backend/spec.md :: I761`); the reason box's hint asks for
   no names, nothing enforces it, and the published notice says a name may stand in the reason
-  (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19, the unchecked text 2026-10-20. A referee's
-  remarks on a match (`spielberichte.bericht.bemerkungen`) are refused, when written, every name either
+  (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19, the unchecked text 2026-10-20. A match
+  report's remarks (`spielberichte.bericht.bemerkungen`), the referee's or an administrator's who
+  wrote or corrected the report, are refused, when written, every name either
   club's three seats, the booked referee and either squad's pupils of the season hold, matched as the
   request below is (`fl_backend/app/api/spielberichte/services.py :: find_name_in_bemerkungen_refusal`);
   a name written otherwise, or a person outside the fixture, stays in them until the end of the season
@@ -846,7 +851,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   or given up**: an effect's row holds the replaced address, the new one and, where the address on
   file asked for or approved the change, the first name, a refusal's the new address alone. Each is
   written in the end's own transaction, so a lost answer loses no notice, and removed with no image
-  in the log once delivered or after 24 hand-outs (`docs/backend/spec.md :: I836`, `:: I480`); an
+  in the log once delivered or after 24 hand-outs (`docs/backend/spec.md :: I838`, `:: I480`); an
   erasure of either address removes it.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered where the address holds an account; an

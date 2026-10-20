@@ -31,6 +31,7 @@ const panel = (props: { stand: SpielberichtStand | null; hatEntwurf?: boolean })
         uebernahmeGesperrt: null,
         eingesetzt: null,
         hatEntwurf: props.hatEntwurf ?? false,
+        today: "2026-10-17",
       }),
       { search: "saison_id=2026" },
     ),
@@ -57,6 +58,47 @@ describe("the report panel on the match editor", () => {
     assert.equal(screen.queryAllByRole("button", { name: /Vorschlag übernehmen/ }).length, 0);
     assert.equal(korrekturLinks(), 0);
     assert.ok(screen.getByText("Abgesagt"));
+  });
+
+  /* Written about a club that has left team 2's slot: its score and its entries beside the clubs playing now would
+     credit them with what the departed club did. */
+  it("names neither the score nor the club now on a moved side of a report about clubs that left", () => {
+    panel({ stand: stand({ zustand: "teams_geaendert", seiten_geaendert: ["team2"] }) });
+
+    assert.equal(screen.queryAllByText(/^Vorschlag:/).length, 0, "the score proposed for the departed club is shown");
+    assert.equal(screen.queryAllByText("Lessing-Gymnasium").length, 0, "the card is listed under the club now on its side");
+    assert.ok(screen.getByText("früheres Team 2"));
+  });
+
+  /* The correction page offers no form on these fixtures. The state is the report's, so a fixture holding none reads
+     none of it: only the fixture says whether it takes a report. */
+  it("offers no correction on a fixture holding no report that takes none", () => {
+    const { spiel } = spielberichtReadFixture();
+    for (const fixture of [
+      { ...spiel, sonderereignis: "ausgefallen" },
+      { ...spiel, datum: "2026-10-18" },
+      { ...spiel, datum: null },
+    ]) {
+      cleanup();
+      panel({ stand: stand({ spiel: fixture, bericht: null, zustand: null }) });
+
+      assert.equal(korrekturLinks(), 0, JSON.stringify(fixture));
+    }
+  });
+
+  /* A pupil off both squads arrives in `genannt`, by name or, erased, by none: the entry holds a bare id either way. */
+  it("names each entry's pupil off the pupils the report names outside the squads, an erased one as „anonym“", () => {
+    const { kader } = spielberichtReadFixture();
+    panel({
+      stand: stand({
+        kader: { team1: [], team2: [] },
+        genannt: [kader.team1[0], { ...kader.team2[0], vorname: null, nachname: null, nummer: null }],
+      }),
+    });
+
+    assert.ok(screen.getByText("9 · Lina Berg"));
+    assert.ok(screen.getByText("anonym"));
+    assert.equal(screen.queryAllByText(/^[0-9a-f]{24}$/).length, 0, "an entry reads as its pupil's bare id");
   });
 
   /* Closed, the correction page writes nothing, and its sentence would be the closed state's. */

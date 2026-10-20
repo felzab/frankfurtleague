@@ -14,6 +14,7 @@ import { TextField } from "@/shared/components/ui/TextField";
 import { SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH } from "../../../constants";
 import { BEMERKUNGEN_PATH } from "../../../utils";
 
+import type { SpielberichtLeser } from "../../../utils";
 import type { SpielberichtFieldPath } from "./spielberichtDraft";
 
 /**
@@ -21,10 +22,13 @@ import type { SpielberichtFieldPath } from "./spielberichtDraft";
  * (`REQ-BERICHT-005`), so the hint asks for a shirt number before a press does.
  */
 export function FormBemerkungenSection({
+  leser,
   bemerkungen,
   onChange,
   onValidateFields,
 }: {
+  /** The administrator is the reader the remarks are for, so their hint does not tell them so. */
+  leser: SpielberichtLeser;
   bemerkungen: string;
   onChange: (next: string) => void;
   onValidateFields: (paths: readonly string[]) => void;
@@ -59,7 +63,7 @@ export function FormBemerkungenSection({
           {/* Under the box rather than behind a press: the reader it has to reach is the one already typing a name. */}
           <Hint
             mode="field"
-            text="Nur die Verwaltung liest sie. Schreib hier, was kein Feld oben erfasst, etwa einen Vorfall oder einen Protest. Den Grund einer Karte wählst Du bei der Karte. Nenne keine Namen, auch keinen Spielernamen: Eine Spielerin oder einen Spieler beschreibst Du mit der Rückennummer."
+            text={`${leser === "admin" ? "" : "Nur die Verwaltung liest sie. "}Schreib hier, was kein Feld oben erfasst, etwa einen Vorfall oder einen Protest. Den Grund einer Karte wählst Du bei der Karte. Nenne keine Namen, auch keinen Spielernamen: Eine Spielerin oder einen Spieler beschreibst Du mit der Rückennummer.`}
           />
         </TextField>
       </div>

@@ -9,6 +9,7 @@ import { SpielberichtForm } from "@/features/spielberichte/components/forms/Spie
 import { SpielberichtZustandView } from "@/features/spielberichte/components/views/SpielberichtZustandView";
 import { SPIELBERICHT_GESCHLOSSEN_ADMIN } from "@/features/spielberichte/constants";
 import { getAdminSpielbericht } from "@/features/spielberichte/queries";
+import { berichtSperre } from "@/features/spielberichte/utils";
 import { resolveSpielId } from "@/features/spiele/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -57,19 +58,20 @@ async function AdminSpielberichtContent({ params }: { params: NextPageProps<{ sp
   }
 
   // The write's refusals the fixture already shows, stated before a whole report is typed, as the referee's page does.
-  const { spiel } = lesen;
-  if (spiel.sonderereignis === "ausgefallen" || spiel.sonderereignis === "annulliert") {
+  const sperre = berichtSperre(lesen.spiel, getGermanTodayStr());
+  if (sperre === "abgesagt") {
     return (
       <SpielberichtZustandView
-        title="Das Spiel ist als ausgefallen oder annulliert eingetragen. Dafür gibt es keinen Spielbericht."
+        title="Das Spiel ist als ausgefallen oder annulliert eingetragen."
+        hint="Einen Spielbericht gibt es, sobald Du das Sonderereignis im Spiel entfernst."
         aktion={zumSpiel}
       />
     );
   }
-  if (spiel.datum === null || spiel.datum > getGermanTodayStr()) {
+  if (sperre !== null) {
     return (
       <SpielberichtZustandView
-        title={spiel.datum === null ? "Das Spiel hat noch kein Datum." : "Das Spiel hat noch nicht stattgefunden."}
+        title={sperre === "undatiert" ? "Das Spiel hat noch kein Datum." : "Das Spiel hat noch nicht stattgefunden."}
         hint="Einen Spielbericht gibt es ab dem Spieltag."
         aktion={zumSpiel}
       />
