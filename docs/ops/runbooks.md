@@ -1403,10 +1403,13 @@ environment and its startup rather than at the backend. `LOESCHUNG_SWEEP` holds 
 deletion alone, its hourly timer and the activation press both, and `BEWERBUNG_SWEEP` reaches
 neither.
 
-**One promise rests on `BEWERBUNG_SWEEP`**: the word that a lapsed pending address goes the day
-after its link lapses, the address-change mails' „am Tag nach Ablauf des Links“ and the privacy
-notice's „am Tag danach“. It is the hourly pass's to keep, so while `BEWERBUNG_SWEEP` is off it is
-not kept. **The activation press's message that the next hourly pass deletes what it left („Was noch
+**Two promises rest on `BEWERBUNG_SWEEP`**, both the address-change half's to keep
+(`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepAdresswechsel`): the privacy notice's word
+that a change whose step lapsed ends „innerhalb einer Stunde“, and the word, in the notice and in
+both mails the change sends (`fl_frontend/src/core/adresswechselEmail.ts`), that a change an
+administrator started with a reason takes effect its waiting time after its confirmation. While `BEWERBUNG_SWEEP` is off neither is kept: a lapsed change keeps
+its new address and its reason, and a change past its waiting time takes effect only where an
+approval it still owed is pressed after it. **The activation press's message that the next hourly pass deletes what it left („Was noch
 aussteht, löscht der nächste stündliche Durchlauf“) rests on `LOESCHUNG_SWEEP` alone**: the switch
 the press deletes under arms that pass, and with it the squad cache's drop after it.
 
