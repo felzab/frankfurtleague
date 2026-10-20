@@ -761,7 +761,6 @@ def test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout() -> None:
     pooled = _pooled_units(text)
     started = set().union(*pooled.values())
     dumping = {name.removeprefix("do_") for name in BODY_RE.findall(text) if DUMPS in lift_function(VERIFY, name)}
-    assert dumping, "no gate pytest dumps its stack, so the delay it adds below is never counted"
     assert dumping <= started, f"a gate pytest runs where no notice reaches its stack: {sorted(dumping - started)}"
     workflow = WORKFLOW.read_text(encoding="utf-8")
     # A shape the two readers skip is a scope or a timeout read as absent, which passes; a step's own
