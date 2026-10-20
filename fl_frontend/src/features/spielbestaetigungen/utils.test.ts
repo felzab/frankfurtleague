@@ -6,7 +6,7 @@ import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
-import { mapAnsetzungAnsichtRefusal, mapAnsetzungRefusal } from "./utils.ts";
+import { laufUeberfaellig, mapAnsetzungAnsichtRefusal, mapAnsetzungRefusal } from "./utils.ts";
 
 /** The link's read, and the answer the page posts; a status named below is one the case moves a code to. */
 const ANSICHT_OPERATION = "POST /spielbestaetigungen/ansicht";
@@ -64,5 +64,34 @@ describe("mapAnsetzungRefusal on a body the API refused", () => {
     const refused = refusedPayload([bodyField(["vorschlag", "datum"], "date_from_datetime_parsing")], "/spielbestaetigungen");
 
     assert.deepEqual(mapAnsetzungRefusal(refused), { fieldErrors: { "vorschlag.datum": FELD_ABGELEHNT }, unplacedError: ANTWORT_NEU_OEFFNEN });
+  });
+});
+
+describe("laufUeberfaellig", () => {
+  const TODAY = "2026-10-20";
+  const FAELLIG = { isSpielSweepOn: true, isActiveSaison: true, datum: "2026-10-25", gelaufenAm: null, today: TODAY };
+
+  it("warns where a pass was due for the fixture and none ran, or none since the day before yesterday", () => {
+    assert.equal(laufUeberfaellig(FAELLIG), true);
+    assert.equal(laufUeberfaellig({ ...FAELLIG, gelaufenAm: "2026-10-18" }), true);
+  });
+
+  // Yesterday's stamp is a healthy stack's: the hourly pass's last run may fall before midnight.
+  it("reads today's stamp and yesterday's as plain", () => {
+    assert.equal(laufUeberfaellig({ ...FAELLIG, gelaufenAm: TODAY }), false);
+    assert.equal(laufUeberfaellig({ ...FAELLIG, gelaufenAm: "2026-10-19" }), false);
+  });
+
+  // The three a line guarded on the stamp alone gets wrong, and most of the fixtures the site holds.
+  it("reads a fixture no pass visits as plain, whatever the stamp", () => {
+    for (const nie of [
+      { ...FAELLIG, isActiveSaison: false },
+      { ...FAELLIG, datum: TODAY },
+      { ...FAELLIG, datum: "2026-10-01" },
+      { ...FAELLIG, datum: null },
+      { ...FAELLIG, isSpielSweepOn: false },
+    ]) {
+      assert.equal(laufUeberfaellig(nie), false, JSON.stringify(nie));
+    }
   });
 });
