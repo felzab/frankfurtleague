@@ -27,6 +27,7 @@ from app.api.spiele.crud import (
 )
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_RECORDING_AN_ABSENCE,
+    SPIEL_PATCH_WRITTEN_FIELDS,
     FLPatchSpielDataPayload,
     FLPatchSpielDataResponse,
     FLPatchSpielePaarungenPayload,
@@ -56,6 +57,7 @@ from app.api.spiele.services import (
     find_clash_refusal,
     find_eligibility_refusal,
     find_fixture_date_refusal,
+    find_referee_stand_refusal,
     find_references_to_anchor,
     find_result_removal_refusal,
     find_state_refusal,
@@ -387,6 +389,10 @@ async def _write_spiel_data(
         # Before the clash: whether a ground exists at all is more basic than who else is on it.
         refuse(find_booking_refusal(spiel_id, spiel_data, season, resolved, saison_rules))
 
+        # Off the slice this transaction judges, so a save retried after a referee's decline conflicted with it meets the
+        # slot the decline left; after the booking refusal, which names an erased referee as its own case.
+        refuse(find_referee_stand_refusal(stored, spiel_data))
+
         # Read after every refusal but the one it feeds: it validates fixtures of every season, and a
         # hand-edited one raises, which would answer 500 for a save an earlier rule refuses.
         booked = await pull_booked_slots(
@@ -399,7 +405,7 @@ async def _write_spiel_data(
             verdict.releases,
             apply_payload_to_spiel(stored, spiel_data, saison_rules, resolved),
             # Returned rather than left to the caller to derive, so every transaction judging here
-            # anchors what the two rules above judged (`docs/backend/spec.md` §1.3 step 1l).
+            # anchors what the two rules above judged (`docs/backend/spec.md` §1.3 step 1m).
             find_references_to_anchor(stored, spiel_data, saison_rules),
         )
 
@@ -440,7 +446,7 @@ async def _write_spiel_data(
 
             # From the NORMALISED fixture, with keys off the PAYLOAD's field set: keys off the fixture
             # would put `saison_id`, `saison_phase`, `spiel_nr` and `spieltag_id` in the `$set`.
-            document = patched.model_dump(context={"keep_oid": True}, include={*FLPatchSpielDataPayload.model_fields, "ergebnis"})
+            document = patched.model_dump(context={"keep_oid": True}, include={*SPIEL_PATCH_WRITTEN_FIELDS, "ergebnis"})
 
             await patch_one_in_db(
                 collection=spiele_collection,

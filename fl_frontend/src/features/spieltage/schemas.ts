@@ -5,7 +5,7 @@ import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/sch
 
 import { SAISON_ID_LENGTH } from "../saisons/constants";
 import { FLSaisonPhaseSchema } from "../saisons/schemas";
-import { FLSpielSchema } from "../spiele/schemas";
+import { FLSpielAdminSchema, FLSpielSchema } from "../spiele/schemas";
 
 import type { FLSpiel } from "../spiele/schemas";
 
@@ -28,6 +28,8 @@ export const FLSpieltagSchema = z.object({
 export type FLSpieltag = z.infer<typeof FLSpieltagSchema>;
 
 export const FLSpieltagWithSpieleSchema = FLSpieltagSchema.extend({ spiele: z.array(FLSpielSchema) });
+// The admin tier's join, whose referee block carries the fee and no publication verdict: the base parse refuses it.
+export const FLSpieltagWithAdminSpieleSchema = FLSpieltagSchema.extend({ spiele: z.array(FLSpielAdminSchema) });
 // Either tier's fixtures, as `fl_frontend/src/features/spiele/schemas.ts :: FLSpiel` types them.
 export type FLSpieltagWithSpiele = Omit<z.infer<typeof FLSpieltagWithSpieleSchema>, "spiele"> & { spiele: FLSpiel[] };
 

@@ -84,7 +84,9 @@ describe("the account page", () => {
   });
 
   it("draws the address under a panel heading and carries no second h1", () => {
-    const html = renderTree(h(KontoPanel, { email: "pia@example.org", sicherheit: null, einwilligung: null, loeschung: null }));
+    const html = renderTree(
+      h(KontoPanel, { email: "pia@example.org", adresswechsel: null, sicherheit: null, einwilligung: null, loeschung: null }),
+    );
 
     assert.equal([...html.matchAll(/<h1/g)].length, 0, "the panel carries an h1 beside the bar's");
     // Headed „Anmeldung“: „Zugang“ names the administration grant alone.

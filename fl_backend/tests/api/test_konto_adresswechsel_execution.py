@@ -7,14 +7,16 @@ person's own in one write. Each lane's link and its refusals are `tests/api/test
 and `tests/api/test_schiedsrichter_adresswechsel_execution.py`'s.
 """
 
-from collections.abc import Awaitable, Mapping
+import asyncio
+import logging
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from pymongo import AsyncMongoClient
+from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
@@ -25,11 +27,14 @@ from app.api.konto.router import delete_adresswechsel, get_adresswechsel, post_a
 from app.api.konto.schemas import FLKontoAdresswechselPayload
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPayload
-from app.api.registrierungen.services import REGISTRIERUNG_TOKEN_UNKNOWN
+from app.api.registrierungen.services import REGISTRIERUNG_TOKEN_UNKNOWN, compose_ablehnung_update, erinnerung_is_due
+from app.api.schiedsrichter.admin_router import delete_adresswechsel as discard_for_a_referee
 from app.api.schiedsrichter.admin_router import post_adresswechsel as start_for_a_referee
 from app.api.schiedsrichter.schemas import FLAdresswechselSweepParams, FLSchiedsrichterAdresswechselPayload
 from app.api.schiedsrichter.services import SCHIEDSRICHTER_ADRESSE_UNVERAENDERT, SCHIEDSRICHTER_TOKEN_EXPIRED
 from app.api.schiedsrichter.sweep_router import sweep_adresswechsel
+from app.api.spielbestaetigungen.services import halter_of
+from app.api.spieler.admin_router import delete_adresswechsel as discard_for_a_pupil
 from app.api.spieler.admin_router import post_adresswechsel as start_for_a_pupil
 from app.api.spieler.adresswechsel_router import get_adresswechsel_ansicht, post_adresswechsel_antwort, post_adresswechsel_stopp
 from app.api.spieler.schemas import (
@@ -38,14 +43,26 @@ from app.api.spieler.schemas import (
     FLSpielerAdresswechselPayload,
     FLSpielerAdresswechselStoppPayload,
 )
-from app.api.spieler.services import SPIELER_ADRESSE_UNVERAENDERT, SPIELER_ADRESSWECHSEL_FELD, SPIELER_TOKEN_EXPIRED, SPIELER_TOKEN_UNKNOWN
+from app.api.spieler.services import (
+    SPIELER_ADRESSE_UNVERAENDERT,
+    SPIELER_ADRESSWECHSEL_FELD,
+    SPIELER_TOKEN_EXPIRED,
+    SPIELER_TOKEN_UNKNOWN,
+    build_spieler_filter,
+)
+from app.core.adressanker import adressanker_id
 from app.core.collections import Collection
+from app.core.crud import ANCHOR_FIELD, patch_one_in_db
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.journal import JOURNAL_TOKEN, parse_line
+from app.core.recording import PersonActor, actor_var
+from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.shared.schemas.bounds import ADRESSWECHSEL_WARTEZEIT_TAGE
 from tests import documents
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.holds import HeldCollection
 from tests.records import record_collections
 from tests.whole_database import where_held
 from tests.worker import worker_database
@@ -730,3 +747,257 @@ class TestTheWaitingTime:
         assert (swept.verworfen, swept.wirksam) == (1, [])
         assert (after["pupil"]["email"], SPIELER_ADRESSWECHSEL_FELD in after["pupil"]) == (EMAIL, False)
         assert held == {NEW_EMAIL: []}
+
+
+GRUND = "Postfach gelöscht, telefonisch bestätigt am 21.10.2026"
+
+
+async def _discarded_for_the_pupil(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await administrator_starts(database, client, grund=GRUND)
+    await discard_for_a_pupil(
+        spieler_id=SPIELER_OID,
+        spieler_collection=database[Collection.SPIELER],
+        aktionen_collection=database[Collection.AKTIONEN],
+        db=client,
+        config=build_test_config(),
+        germany_now=NOW,
+    )
+
+
+async def _started_for_the_referee(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await start_for_a_referee(
+        schiedsrichter_id=REFEREE_OID,
+        adresswechsel_data=FLSchiedsrichterAdresswechselPayload.model_validate({"email": NEW_EMAIL, "grund": GRUND}),
+        records=record_collections(database),
+        spieler_collection=database[Collection.SPIELER],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
+        aktionen_collection=database[Collection.AKTIONEN],
+        db=client,
+        germany_now=NOW,
+    )
+
+
+async def _discarded_for_the_referee(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await _started_for_the_referee(database, client)
+    await discard_for_a_referee(
+        schiedsrichter_id=REFEREE_OID,
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        aktionen_collection=database[Collection.AKTIONEN],
+        db=client,
+        config=build_test_config(),
+        germany_now=NOW,
+    )
+
+
+async def _replaced_by_the_person(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await _started_for_the_referee(database, client)
+    await start(database, client, email=FOREIGN_EMAIL)
+
+
+async def _replaced_by_an_administrator(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await start(database, client)
+    await administrator_starts(database, client, grund=None)
+
+
+async def _refused_at_its_due_date(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    started = await administrator_starts(database, client, grund=GRUND)
+    await answer(database, client, started.adresswechsel.token)
+    await ban_through_the_route(database, client, email=EMAIL, grund="Falschangaben", von="admin@frankfurtleague.de", today=TODAY)
+    await sweep(database, client, now=AFTER_THE_WAIT)
+
+
+# Every way a change ends that a restore could undo, and the row whose change it ended.
+ENDINGS: Mapping[str, tuple[Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[None]], Collection, ObjectId]] = {
+    "an administrator's discard of a pupil's": (_discarded_for_the_pupil, Collection.SPIELER, SPIELER_OID),
+    "an administrator's discard of a referee's": (_discarded_for_the_referee, Collection.SCHIEDSRICHTER, REFEREE_OID),
+    "the person's start ending an administrator's on another row": (_replaced_by_the_person, Collection.SCHIEDSRICHTER, REFEREE_OID),
+    "an administrator's start replacing the person's": (_replaced_by_an_administrator, Collection.SPIELER, SPIELER_OID),
+    "the pass refusing it at its due date": (_refused_at_its_due_date, Collection.SPIELER, SPIELER_OID),
+}
+
+
+class TestEveryEndingIsJournalled:
+    @pytest.mark.parametrize("ending", ENDINGS)
+    def test_it_writes_one_discard_line_naming_the_change_it_ended(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, ending: str
+    ):
+        """A restore bringing the change back would leave a confirmed one in its waiting time to take effect with nobody pressing."""
+        act, collection, record_id = ENDINGS[ending]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+            with caplog.at_level(logging.INFO):
+                await act(database, client)
+
+        on_a_person(mongo_replica_set_url, body)
+        lines = [parse_line(record.getMessage()) for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
+
+        assert [(line.collection, line.record_id, line.person_hash) for line in lines if line and line.art == "adresswechsel_verworfen"] == [
+            (collection, record_id, loeschung_journal_hash(NEW_EMAIL, schluessel=build_test_config().sperrliste_schluessel))
+        ]
+
+
+KEY = build_test_config().sperrliste_schluessel
+DECLINED_REG_OID = ObjectId("6890a1b2c3d4e5f607850053")
+ANSWERED_OID = ObjectId("6890a1b2c3d4e5f607850063")
+
+
+async def _confirmed_and_moved(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    minted = await start(database, client)
+    await answer(database, client, minted.token)
+
+
+class TestWhatTheEffectLeavesTheErasure:
+    """Everything of the person the replaced address keyed, within reach of an erasure of the new one."""
+
+    def test_a_registration_whose_reminder_went_out_is_owed_one_at_the_new_address(self, mongo_replica_set_url: str):
+        """The reminder alone mints a moved registration a link, and it is owed once: spent, the row waits for its sweep."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.REGISTRIERUNGEN].update_one({"_id": UNCONFIRMED_REG_OID}, {"$set": {"bestaetigung.erinnert_am": TODAY}})
+            await _confirmed_and_moved(database, client)
+            return await row(database, Collection.REGISTRIERUNGEN, UNCONFIRMED_REG_OID)
+
+        moved = on_a_person(mongo_replica_set_url, body)
+
+        assert (moved["email"], moved["bestaetigung"]["erinnert_am"]) == (NEW_EMAIL, None)
+        assert erinnerung_is_due(registrierung_raw=moved, today="2026-04-02")
+
+    def test_a_declined_registration_moves_too(self, mongo_replica_set_url: str):
+        """Left behind, it holds the pupil's name and data where an erasure of the new address never looks, until its month is out."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            declined = _registration(DECLINED_REG_OID, SECOND_TEAM_OID, confirmed=False, token="the-declined-registrations-link")
+            declined.update(compose_ablehnung_update(von="admin@frankfurtleague.de", grund=None, today=TODAY)["$set"])
+            await database[Collection.REGISTRIERUNGEN].insert_one(declined)
+            await _confirmed_and_moved(database, client)
+            return await row(database, Collection.REGISTRIERUNGEN, DECLINED_REG_OID)
+
+        assert on_a_person(mongo_replica_set_url, body)["email"] == NEW_EMAIL
+
+    def test_the_log_s_pseudonym_and_an_answer_s_holder_digest_follow_the_person(self, mongo_replica_set_url: str):
+        """Both are keyed on the address; left on the replaced one, an erasure of the new one never finds them."""
+
+        spiel = documents.spiel_document(
+            spiel_id=ObjectId(),
+            saison_id=SAISON_ID,
+            spiel_nr=2,
+            spieltag_id=None,
+            datum="2026-04-25",
+            uhrzeit="14:00:00",
+            team1={"team_id": TEAM_OID},
+            team2={"team_id": SECOND_TEAM_OID},
+        )
+        answered = documents.spielbestaetigung_document(
+            spiel,
+            partei={"art": "team", "team_id": TEAM_OID},
+            _id=ANSWERED_OID,
+            angefragt_am="2026-03-30",
+            antwort=documents.kontakt_antwort_document("ansprechperson", TYPED, begruendung="Wir sind auf Klassenfahrt"),
+        )
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(answered)
+            # A write of theirs while signed in, which files a log row under their pseudonym holding the answer's image.
+            token = actor_var.set(PersonActor(pseudonym=akteur_pseudonym(EMAIL, schluessel=KEY), funktion="kontakt"))
+            try:
+                await patch_one_in_db(
+                    collection=database[Collection.SPIELBESTAETIGUNGEN],
+                    db_filter={"_id": ANSWERED_OID},
+                    update={"$set": {"angefragt_am": "2026-03-31"}},
+                    return_document=ReturnDocument.BEFORE,
+                )
+            finally:
+                actor_var.reset(token)
+            await _confirmed_and_moved(database, client)
+
+            log = database[Collection.AKTIONEN]
+            return (
+                (await row(database, Collection.SPIELBESTAETIGUNGEN, ANSWERED_OID))["antwort"],
+                {
+                    address: (
+                        await log.count_documents({"actor.pseudonym": akteur_pseudonym(address, schluessel=KEY)}),
+                        await log.count_documents({"before.antwort.von.halter": halter_of(address, schluessel=KEY)}),
+                    )
+                    for address in (EMAIL, NEW_EMAIL)
+                },
+            )
+
+        antwort, log = on_a_person(mongo_replica_set_url, body)
+
+        assert (antwort["von"]["halter"], antwort["begruendung"]) == (halter_of(NEW_EMAIL, schluessel=KEY), "Wir sind auf Klassenfahrt")
+        assert log == {EMAIL: (0, 0), NEW_EMAIL: (1, 1)}
+
+    def test_it_anchors_the_address_it_replaces(self, mongo_replica_set_url: str):
+        """A registration submitted there while the effect runs meets it on the anchor, so the retry moves it rather than leaving it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await start(database, client)
+            anchor = {"_id": adressanker_id(EMAIL, schluessel=KEY)}
+            before = await database[Collection.ADRESSANKER].find_one(anchor)
+            await answer(database, client, minted.token)
+            after = await database[Collection.ADRESSANKER].find_one(anchor)
+            return (before or {}).get(ANCHOR_FIELD, 0), (after or {}).get(ANCHOR_FIELD, 0)
+
+        before, after = on_a_person(mongo_replica_set_url, body)
+
+        assert after == before + 1
+
+
+class _HeldAfterItsRead(HeldCollection):
+    """A start held after its first read of its carrier until a rival start has committed, counting its attempts."""
+
+    MISSED = "the start answered without reading its carrier, so nothing held it across the rival's commit"
+
+    def __init__(self, collection: Any, committed: asyncio.Event, *, read: Mapping[str, Any]) -> None:
+        super().__init__(collection, committed)
+        self._read = read
+        self.reads = 0
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        found = await self._collection.find_one(*args, **kwargs)
+        if kwargs.get("filter", args[0] if args else {}) == self._read:
+            self.reads += 1
+            await self.hold()
+
+        return found
+
+
+class TestTwoStartsAtOnce:
+    def test_starts_on_two_rows_of_one_address_leave_it_one_change(self, mongo_replica_set_url: str):
+        """Disjoint rows share no document but the address's anchor, so the start committing second runs again and ends the first's."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            committed = asyncio.Event()
+            held = _HeldAfterItsRead(database[Collection.SPIELER], committed, read=build_spieler_filter(SPIELER_OID))
+            pupils = start_for_a_pupil(
+                spieler_id=SPIELER_OID,
+                # Another new address than the rival's, so the two meet on the address on file's anchor alone.
+                adresswechsel_data=FLSpielerAdresswechselPayload.model_validate({"email": FOREIGN_EMAIL, "grund": GRUND}),
+                records=record_collections(database),
+                spieler_collection=cast(Any, held),
+                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                sperrliste=ban_list(database),
+                adressanker_collection=database[Collection.ADRESSANKER],
+                aktionen_collection=database[Collection.AKTIONEN],
+                db=client,
+                germany_now=NOW,
+            )
+            task = asyncio.ensure_future(pupils)
+            await held.until_held(task)
+            try:
+                await _started_for_the_referee(database, client)
+            except BaseException:
+                await held.abandon(task)
+                raise
+            committed.set()
+            await task
+
+            rows = await everything(database)
+            return held.reads, [name for name in ("pupil", "referee") if SPIELER_ADRESSWECHSEL_FELD in rows[name]]
+
+        reads, carrying = on_a_person(mongo_replica_set_url, body)
+
+        assert reads == 2
+        assert carrying == ["pupil"]

@@ -223,7 +223,8 @@ describe("the clubs' answers on the admin search's cards", () => {
   it("names each club's answer on the card it found", () => {
     renderView(`team=${ALPHA}`, { ...ADMIN, spiele: [ANGESETZT], bestaetigungen: [ZUSAGE] });
 
-    screen.getByText("FC Alpha: Zugesagt");
+    // The chip spells its name and its answer in two spans, so its own text is read whole.
+    screen.getByText((_, chip) => chip?.tagName === "LI" && chip.textContent === "FC Alpha: Zugesagt");
   });
 
   // An unread answer and an unasked fixture would read alike on the card, so the page says which it is.
@@ -231,5 +232,13 @@ describe("the clubs' answers on the admin search's cards", () => {
     renderView("", { ...ADMIN, bestaetigungen: null });
 
     screen.getByText("Die Spielbestätigungen ließen sich gerade nicht lesen");
+  });
+
+  // A cut read names what it cut, or the cards it shorted read as complete.
+  it("says the answers were cut, and what the cut can leave out", () => {
+    renderView("", { ...ADMIN, spiele: [ANGESETZT], bestaetigungen: [ZUSAGE], bestaetigungenVollstaendig: false });
+
+    screen.getByText("Die Spielbestätigungen sind unvollständig");
+    screen.getByText(/von den geschlossenen nur die neuesten/);
   });
 });

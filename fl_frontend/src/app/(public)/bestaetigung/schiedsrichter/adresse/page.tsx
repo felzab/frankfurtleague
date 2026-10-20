@@ -1,22 +1,22 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { startOf } from "@/features/schiedsrichter/adresswechselStart";
-import { SchiedsrichterAdresswechselView } from "@/features/schiedsrichter/components/views/SchiedsrichterAdresswechselView";
+import { startOf } from "@/features/konto/adresswechselLink";
+import { AdresswechselLinkView } from "@/features/konto/components/views/AdresswechselLinkView";
 import { getSchiedsrichterAdresswechselAnsicht } from "@/features/schiedsrichter/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { openGraphFor } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
-import type { SchiedsrichterAdresswechselStart } from "@/features/schiedsrichter/adresswechselStart";
+import type { AdresswechselStart } from "@/features/konto/adresswechselLink";
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
 /** `noindex` and `no-referrer` for the consent link page's reasons. */
 export const metadata: Metadata = {
   title: "Neue E-Mail-Adresse bestätigen",
-  description: "Bestätige die neue E-Mail-Adresse Deines Eintrags als Schiedsrichterin oder Schiedsrichter bei der Frankfurt League.",
+  description: "Bestätige die neue E-Mail-Adresse Deines Kontos bei der Frankfurt League, oder stoppe ihre Änderung.",
   robots: { index: false, follow: false },
   referrer: "no-referrer",
   openGraph: openGraphFor("/bestaetigung/schiedsrichter/adresse"),
@@ -37,16 +37,27 @@ async function SchiedsrichterAdresswechselContent(props: NextPageProps) {
   const { token } = await props.searchParams;
 
   // A missing or repeated parameter is no link at all and reads as the dead link.
-  if (typeof token !== "string" || token === "") return <SchiedsrichterAdresswechselView start={{ zustand: "ungueltig" }} />;
+  if (typeof token !== "string" || token === "")
+    return (
+      <AdresswechselLinkView
+        route="/api/bestaetigung/schiedsrichter/adresse"
+        start={{ zustand: "ungueltig" }}
+      />
+    );
 
   // A failed read is its own state, the dead-link panel calling a live link void. A broken contract is
   // no failed read: it reaches the error boundary, which logs it.
-  const start: SchiedsrichterAdresswechselStart = await runWithIncomingTrace(() =>
+  const start: AdresswechselStart = await runWithIncomingTrace(() =>
     getSchiedsrichterAdresswechselAnsicht(token).then(
       (gelesen) => startOf(gelesen, token),
-      (error: unknown): SchiedsrichterAdresswechselStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
+      (error: unknown): AdresswechselStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
     ),
   );
 
-  return <SchiedsrichterAdresswechselView start={start} />;
+  return (
+    <AdresswechselLinkView
+      route="/api/bestaetigung/schiedsrichter/adresse"
+      start={start}
+    />
+  );
 }

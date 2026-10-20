@@ -22,7 +22,7 @@ const { calls, answered } = doubleActions({
   modules: ["/src/features/spiele/actions.ts", "/src/features/spielorte/actions.ts", "/src/features/schiedsrichter/actions.ts"],
   answer: () => Promise.resolve({ success: true, message: "Gespeichert.", priorPaarungen: [], created_id: "6890a1b2c3d4e5f607800099" }),
 });
-doubleToasts();
+const { raised: toasts } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { AdminEditSpielDataForm } = await import("./AdminEditSpielDataForm.tsx");
@@ -195,7 +195,7 @@ describe("a create dialog the match editor opens", () => {
   });
 
   /* A referee just created is unconfirmed, and the save refuses an unconfirmed referee: booking it would offer a save
-     that cannot succeed. Listed rather than hidden, so the admin sees the create landed. */
+     that cannot succeed. Listed rather than hidden, and the toast says why the picker stays empty. */
   it("lists a referee it creates as not yet confirmed, and books none", async () => {
     const user = userEvent.setup();
     await renderEditor(user, { schiedsrichter: [REFEREE] });
@@ -206,6 +206,7 @@ describe("a create dialog the match editor opens", () => {
     await user.type(within(dialog).getByRole("textbox", { name: "E-Mail" }), "jonas.weber@example.org");
     await user.type(within(dialog).getByRole("textbox", { name: "Standard-Honorar" }), "20");
     calls.length = 0;
+    toasts.length = 0;
 
     await user.click(within(dialog).getByRole("button", { name: "Speichern" }));
 
@@ -216,6 +217,10 @@ describe("a create dialog the match editor opens", () => {
       .getAllByRole("option")
       .find((option) => option.textContent?.startsWith(CREATED_REFEREE) === true);
     assert.equal(row?.getAttribute("aria-disabled"), "true", "the created referee is not listed, or listed as pickable");
+    assert.deepEqual(
+      toasts.map(({ variant, title }) => [variant, title]),
+      [["success", "Angelegt. Einteilen kannst Du die Person, sobald sie ihren Eintrag bestätigt hat."]],
+    );
   });
 
   /* react-stately opens no select over an empty list, which left a league with no venue no way to its first. */
@@ -224,5 +229,31 @@ describe("a create dialog the match editor opens", () => {
     await renderEditor(user, { spielorte: [] });
 
     await openVenueDialog(user, /Jetzt anlegen/);
+  });
+});
+
+describe("the referee the match editor's save says it was served", () => {
+  /* The stand is the referee the editor loaded, never its pick: read off the draft, every booking would claim the
+     fixture already held the referee it picks, which the save refuses as the slot having moved (`REQ-BOOKING-003`). */
+  it("sends the stored slot beside the referee picked", async () => {
+    const user = userEvent.setup();
+    await renderEditor(user, { schiedsrichter: [REFEREE] });
+    await user.click(pickerTrigger("Schiedsrichter"));
+    const row = within(await screen.findByRole("listbox"))
+      .getAllByRole("option")
+      .find((option) => option.textContent?.startsWith("Erika Muster") === true);
+    await user.click(row ?? assert.fail("the confirmed referee is not offered"));
+    calls.length = 0;
+
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(async () => settled());
+    const confirm = screen.queryByRole("button", { name: "Trotzdem speichern" });
+    if (confirm !== null) await user.click(confirm);
+    await sent();
+
+    const saved = calls.filter((call) => call.action === "patchAdminSpielDataAction").map((call) => call.payload as Record<string, unknown>);
+    assert.equal(saved.length, 1, "the pick was never saved, so nothing below is judged");
+    const booked = saved[0]?.["schiedsrichter"] as { schiedsrichter_id?: string } | null;
+    assert.deepEqual([booked?.schiedsrichter_id, saved[0]?.["schiedsrichter_stand"]], [REFEREE.id, null]);
   });
 });

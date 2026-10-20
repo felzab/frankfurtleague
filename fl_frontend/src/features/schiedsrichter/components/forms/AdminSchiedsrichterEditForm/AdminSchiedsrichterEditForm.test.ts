@@ -148,23 +148,6 @@ describe("the undo a referee's save offers", () => {
     await act(answered);
   });
 
-  /* The undo says the new address still waits only for the save that left it, which no read after
-     the replay can tell from a save that moved only the fee. */
-  for (const gespeichert of [true, false]) {
-    it(`tells the undo whether the save left a new address waiting (${String(gespeichert)})`, async () => {
-      await saveAddressOver("anna.alt@schule.de", undefined, { success: true, message: "Gespeichert.", adresswechselGespeichert: gespeichert });
-      pressUndo();
-      await act(answered);
-
-      assert.deepEqual(
-        calls
-          .filter(({ action }) => action === "undoAdminSchiedsrichterEditAction")
-          .map(({ payload }) => (payload as { adresswechsel_gespeichert?: unknown }).adresswechsel_gespeichert),
-        [gespeichert],
-      );
-    });
-  }
-
   /* The undo moves an unanswered referee's address back, which mints as the save did: past the window
      the action refuses it, so the press asks first rather than dispatching a refusal. */
   it("asks for the passkey before an undo moving an unanswered referee's address back", async () => {

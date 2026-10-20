@@ -154,6 +154,7 @@ const M = {
   einladung: "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx",
   saison: "features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx",
   registrierungen: "features/registrierungen/components/collections/RegistrierungenList.tsx",
+  einsaetze: "features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx",
 };
 
 const C = {
@@ -181,6 +182,7 @@ const C = {
   einladung: await component(M.einladung, "FormEinladungSection"),
   saison: await component(M.saison, "FormSaisonSection"),
   registrierungen: await component(M.registrierungen, "RegistrierungenList"),
+  einsaetze: await component(M.einsaetze, "SchiedsrichterEinsaetzeSection"),
 };
 
 const einladungPanel = () =>
@@ -221,6 +223,24 @@ const registrierungenList = () =>
     }),
   );
 
+/** A referee's panel holding one open row of their own. */
+const einsaetzeSection = () =>
+  underNext(
+    el(C.einsaetze, {
+      einsaetze: [
+        {
+          id: "d".repeat(24),
+          spiel_id: "e".repeat(24),
+          schiedsrichter_id: "f".repeat(24),
+          ansetzung: { team1_name: "SG Alpha", team2_name: "SG Beta", datum: "2026-11-20", uhrzeit: "14:30:00", spielort: null },
+          zustand: "gueltig",
+          begruendung: null,
+          eingetragen: false,
+        },
+      ],
+    }),
+  );
+
 /** A fixture's confirmations panel holding one row of team 1's, about the Ansetzung `spielbestaetigungFields` names. */
 const spielbestaetigungPanel = (antwort: unknown) =>
   underNext(
@@ -231,10 +251,15 @@ const spielbestaetigungPanel = (antwort: unknown) =>
         datum: "2026-08-05",
         uhrzeit: "18:00:00",
         ort: null,
-        team1: { team_id: "6890a1b2c3d4e5f607182932", name: "SG Alpha" },
-        team2: { team_id: "6890a1b2c3d4e5f607182933", name: "SG Beta" },
+        team1: { team_id: "6890a1b2c3d4e5f607182932", name: "SG Alpha", tore: null },
+        team2: { team_id: "6890a1b2c3d4e5f607182933", name: "SG Beta", tore: null },
+        ergebnis: null,
+        elfmeterschiessen: null,
+        sonderereignis: null,
+        schiedsrichter: null,
       },
       parteien: { teams: [], schiedsrichter: [] },
+      austritte: new Map(),
       today: "2026-07-30",
       isSpielSweepOn: true,
       isActiveSaison: true,
@@ -629,6 +654,7 @@ const PANELS: Record<string, Arming[]> = {
     { render: registrierungenList, resting: "Aufnehmen: Lena Meier" },
     { render: registrierungenList, resting: "Ablehnen: Registrierung von Lena Meier" },
   ],
+  [M.einsaetze]: [{ render: einsaetzeSection, resting: "Zusagen: SG Alpha gegen SG Beta am 20.11.2026" }],
 };
 
 /** Every module rendering the shared row or reveal, read off its syntax tree. */
@@ -760,6 +786,7 @@ const NOT_ADMINISTRATORS: Readonly<Record<string, string>> = {
   [M.loeschung]:
     "the deletion link's interstitial, a person's own press on their own link, a grant holder's asking through the page's own window",
   [M.registrierungen]: "a seat holder's decision on the person lane, which holds no administrator's step-up window",
+  [M.einsaetze]: "a referee's own answer on the person lane, which holds no administrator's step-up window",
 };
 
 /** Every step-up write each administrator panel's armed presses have sent, filled by the cases below. */

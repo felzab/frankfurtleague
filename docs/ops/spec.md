@@ -395,9 +395,11 @@ operations the whole league shares. No page links to one, so a visit is one requ
 navigation's fan-out, which is what a zone at `location /` would refuse. **`/bestaetigung/` is a
 prefix because every page under it is a link page**, so a page added there is metered the day it
 exists; a link page added anywhere else needs an exact match and its twin, as `/registrierung` and
-`/loeschung` have. **`scripts/checks/check_public_routes.py :: LINK_ZONES` holds every page whose
-own module reads `token` from its search parameters to a location naming that pair, at its URL and
-at its twin's**; a page reading the token through another module goes unseen. Each block restates
+`/loeschung` have. **`scripts/checks/check_public_routes.py :: LINK_ZONES` holds every link page to a
+location naming that pair, at its URL and at its twin's, each zone on one `limit_req` line in every
+block naming it**: a link page is one whose own module reads `token` from its search parameters, or
+one a module under `fl_frontend/src` mints a `?token=` link to, so a page reading the token through
+another module is found by its minter, and a `?token=` the checker cannot place refuses the run. Each block restates
 `location /`'s ceiling and action pair and declares no `proxy_set_header`, `add_header` or
 `error_page`, each of which would replace an inherited set. `nginx/edge_test.sh` floods one link
 page past the burst, then fails any link page, twin, double slash, dot segment, percent-encoded

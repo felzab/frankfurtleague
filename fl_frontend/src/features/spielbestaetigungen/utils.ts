@@ -1,4 +1,5 @@
-import { ansetzungGeaendert } from "@/features/spiele/components/forms/AdminEditSpielDataForm/banners";
+import { hasTakenPlace } from "@/features/saisons/utils";
+import { ansetzungGeaendert, tageBis, wirdAngefragt } from "@/features/spiele/components/forms/AdminEditSpielDataForm/banners";
 import { CLASH_BUFFER_TEXT } from "@/features/spiele/constants";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
@@ -7,9 +8,16 @@ import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type { SpielBannerAnsetzung } from "@/features/spiele/components/forms/AdminEditSpielDataForm/banners";
+import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { AntwortStand } from "./constants";
-import type { FLSpielbestaetigung, FLSpielbestaetigungAnsichtResponse, FLSpielbestaetigungTermin, FLSpielbestaetigungVon } from "./schemas";
+import type {
+  FLSpielbestaetigung,
+  FLSpielbestaetigungAnsichtResponse,
+  FLSpielbestaetigungGrund,
+  FLSpielbestaetigungTermin,
+  FLSpielbestaetigungVon,
+} from "./schemas";
 
 /** Who answered, as a readout rather than a sentence: a seat's long label agrees with no one article. */
 export function beantwortetVon(von: FLSpielbestaetigungVon): string {
@@ -55,18 +63,85 @@ export function groupBestaetigungenBySpielId(
   return grouped;
 }
 
+/** What the pass judges a row against on its fixture: the Ansetzung's inputs, whether it is decided, and its referee. */
+export type BestaetigungsSpiel = {
+  id: string;
+  datum: string | null;
+  uhrzeit: string | null;
+  ort: { spielort_id: string } | null;
+  team1: { team_id: string; tore: number | null } | null;
+  team2: { team_id: string; tore: number | null } | null;
+  ergebnis: FLSpiel["ergebnis"];
+  elfmeterschiessen: FLSpiel["elfmeterschiessen"];
+  sonderereignis: FLSpiel["sonderereignis"];
+  schiedsrichter: { schiedsrichter_id: string } | null;
+};
+
+// `fl_backend/app/api/spielbestaetigungen/services.py :: GRUENDE_ENDING_AN_ANSWER`: a move never ends a discard.
+const GRUENDE_ENDING_AN_ANSWER: ReadonlySet<FLSpielbestaetigungGrund> = new Set([
+  "austritt",
+  "spiel_entschieden",
+  "abgesagt",
+  "spiel_vergangen",
+]);
+
+/** `grund_to_close`, in its order: the first reason the pass would shut an unclosed row for. */
+function grundZumSchliessen(
+  zeile: FLSpielbestaetigung,
+  spiel: BestaetigungsSpiel,
+  { austritte, today }: { austritte: ReadonlyMap<string, string>; today: string },
+): FLSpielbestaetigungGrund | null {
+  const { ansetzung, partei } = zeile;
+  if (hasTakenPlace(spiel)) return "spiel_entschieden";
+  if (spiel.sonderereignis !== null) return "abgesagt";
+
+  // On the fixture's day as it stands, or the row's where the fixture lost its date.
+  const tag = spiel.datum ?? ansetzung.datum;
+  const ausgetreten = [ansetzung.team1_id, ansetzung.team2_id].some((teamId) => {
+    const austritt = austritte.get(teamId);
+    return austritt !== undefined && austritt <= tag;
+  });
+  if (ausgetreten) return "austritt";
+
+  if (partei.art === "schiedsrichter" && spiel.schiedsrichter?.schiedsrichter_id !== partei.schiedsrichter_id)
+    return "schiedsrichter_gewechselt";
+  if (ansetzungGeaendert(zeilenAnsetzung(zeile), spielAnsetzung(spiel))) return "ansetzung_geaendert";
+
+  return ansetzung.datum < today ? "spiel_vergangen" : null;
+}
+
 /**
- * Unclosed, and about the Ansetzung the fixture holds: a row about one it left stays open until the next pass, and
- * counted it would chip and queue an answer to a date gone.
+ * `fl_backend/app/api/spielbestaetigungen/services.py :: grund_to_end` spelled again: why the next pass shuts a row
+ * still holding its party's question, or `null`. Both tiers run one table of it (`docs/frontend/spec.md :: I783`).
+ */
+export function grundZumEnde(
+  zeile: FLSpielbestaetigung,
+  spiel: BestaetigungsSpiel,
+  umstand: { austritte: ReadonlyMap<string, string>; today: string },
+): FLSpielbestaetigungGrund | null {
+  const grund = grundZumSchliessen(zeile, spiel, umstand);
+  if (zeile.geschlossen === null || (grund !== null && GRUENDE_ENDING_AN_ANSWER.has(grund))) return grund;
+
+  return zeile.ansetzung.datum < umstand.today ? "spiel_vergangen" : null;
+}
+
+/**
+ * The rows that still speak for the fixture as it stands (`docs/frontend/spec.md :: I783`): nothing the next pass ends,
+ * and about the Ansetzung it holds, as the public card reads a discard. Any other chips an answer the pass drops.
  */
 export function geltendeBestaetigungen(
   bestaetigungen: readonly FLSpielbestaetigung[],
-  spiel: AnsetzungsQuelle & { id: string },
+  spiel: BestaetigungsSpiel,
+  umstand: { austritte: ReadonlyMap<string, string>; today: string },
 ): FLSpielbestaetigung[] {
   const jetzt = spielAnsetzung(spiel);
 
   return bestaetigungen.filter(
-    (zeile) => zeile.spiel_id === spiel.id && zeile.geschlossen === null && !ansetzungGeaendert(zeilenAnsetzung(zeile), jetzt),
+    (zeile) =>
+      zeile.spiel_id === spiel.id &&
+      (zeile.geschlossen === null || zeile.geschlossen.grund === "verworfen") &&
+      !ansetzungGeaendert(zeilenAnsetzung(zeile), jetzt) &&
+      grundZumEnde(zeile, spiel, umstand) === null,
   );
 }
 
@@ -74,7 +149,7 @@ export function geltendeBestaetigungen(
 // until the match day rather than by the row's deadline, and their decline is a category of its own.
 
 export const istVorschlagOffen = (zeile: FLSpielbestaetigung): boolean =>
-  zeile.partei.art === "team" && zeile.antwort?.art === "abgelehnt" && zeile.antwort.vorschlag !== null;
+  zeile.partei.art === "team" && zeile.geschlossen === null && zeile.antwort?.art === "abgelehnt" && zeile.antwort.vorschlag !== null;
 
 export const istUeberfaellig = (zeile: FLSpielbestaetigung, today: string): boolean =>
   zeile.partei.art === "team" && zeile.antwort === null && zeile.frist < today;
@@ -105,34 +180,45 @@ export function schiedsrichterAbsage(
 }
 
 export function antwortStand(zeile: FLSpielbestaetigung, today: string): AntwortStand {
+  if (zeile.geschlossen?.grund === "verworfen") return "verworfen";
   if (zeile.antwort !== null) return zeile.antwort.art;
   return istUeberfaellig(zeile, today) ? "ueberfaellig" : "offen";
 }
 
-const MS_PER_DAY = 86_400_000;
-
 /**
- * Due and unrun: armed, the season running, the day ahead, and no stamp since yesterday (`docs/ops/runbooks.md` §9).
+ * Due and unrun: armed, a fixture the pass asks about, and no stamp since yesterday (`docs/ops/runbooks.md` §9).
  * Guarded on the stamp alone, it would warn on every fixture no pass ever visits.
  */
 export function laufUeberfaellig({
   isSpielSweepOn,
   isActiveSaison,
-  datum,
+  spiel,
+  austritte,
   gelaufenAm,
   today,
 }: {
   isSpielSweepOn: boolean;
   isActiveSaison: boolean;
-  datum: string | null;
+  spiel: BestaetigungsSpiel;
+  austritte: ReadonlyMap<string, string>;
   gelaufenAm: string | null;
   today: string;
 }): boolean {
-  if (!isSpielSweepOn || !isActiveSaison || datum === null || datum <= today) return false;
-  // `Date.parse` reads `YYYY-MM-DD` as a UTC midnight, so the day before is exact whatever the browser's zone.
-  const gestern = new Date(Date.parse(today) - MS_PER_DAY).toISOString().slice(0, 10);
+  const angefragt = wirdAngefragt(spielAnsetzung(spiel), {
+    isActiveSaison,
+    sonderereignis: spiel.sonderereignis,
+    hasAnyTore: (spiel.team1?.tore ?? null) !== null || (spiel.team2?.tore ?? null) !== null,
+    hasShootOut: spiel.elfmeterschiessen !== null,
+    austrittTage: [spiel.team1, spiel.team2].flatMap((seite) => {
+      const austritt = seite === null ? undefined : austritte.get(seite.team_id);
+      return austritt === undefined ? [] : [austritt];
+    }),
+    today,
+  });
+  if (!isSpielSweepOn || !angefragt) return false;
 
-  return gelaufenAm === null || gelaufenAm < gestern;
+  // Yesterday's stamp is a healthy stack's: the hourly pass's last run may fall before midnight.
+  return gelaufenAm === null || tageBis(gelaufenAm, today) < -1;
 }
 
 /**
@@ -273,7 +359,8 @@ export function mapSchiedsrichterAntwortRefusal(error: unknown): { error?: strin
     case "REQ-ANSETZUNG-015":
       return { error: `Für dieses Spiel bist Du nicht eingeteilt. ${NEU_LADEN}` };
     case "REQ-ANSETZUNG-002":
-      return { error: `Auf diese Einteilung hast Du schon geantwortet. ${NEU_LADEN}` };
+      // The league may have entered the Zusage for the referee, so the sentence names no one answerer.
+      return { error: `Diese Einteilung ist schon beantwortet, von Dir oder von der Verwaltung. ${NEU_LADEN}` };
     case "REQ-ANSETZUNG-009":
       return { error: `Diese Einteilung ist schon abgeschlossen. ${NEU_LADEN}` };
     case "REQ-ANSETZUNG-005":

@@ -26,10 +26,20 @@ const { answerWith, answered } = doubleActions({
 const { raised: toasts } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { ADRESSWECHSEL_ERNEUT, ADRESSWECHSEL_VERWERFEN, ADRESSWECHSEL_WARTET, FormAdresswechselSection } =
-  await import("./FormAdresswechselSection.tsx");
+const { ADRESSWECHSEL_ERNEUT_NAME: ADRESSWECHSEL_ERNEUT, FormAdresswechselSection } = await import("./FormAdresswechselSection.tsx");
+const { ADRESSWECHSEL_VERWERFEN, ADRESSWECHSEL_WARTET } = await import("@/features/konto/components/forms/AdresswechselWartet.tsx");
 
-const OFFEN: FLSchiedsrichterAdresswechsel = { email: "anna@neu.example", verschickt_am: "2026-10-01", frist: "2099-12-31", zustellung: null };
+const OFFEN: FLSchiedsrichterAdresswechsel = {
+  email: "anna@neu.example",
+  weg: "konto",
+  verschickt_am: "2026-10-01",
+  gueltig_bis: "2099-12-31T11:30:00Z",
+  freigegeben_am: null,
+  grund: null,
+  bestaetigt_am: null,
+  wirksam_ab: null,
+  zustellung: null,
+};
 
 const words = (adresswechsel: FLSchiedsrichterAdresswechsel, istAbgelaufen = false): string =>
   textOf(
@@ -50,7 +60,7 @@ describe("what the editor shows of a confirmed referee's waiting address", () =>
     assert.ok(shown.includes(ADRESSWECHSEL_WARTET), "the waiting state is not said");
     assert.match(shown, /anna@neu\.example/);
     assert.match(shown, /01\.10\.2026/);
-    assert.match(shown, /31\.12\.2099/);
+    assert.match(shown, /31\.12\.2099 um 12:30 Uhr/);
     assert.ok(shown.includes(ADRESSWECHSEL_VERWERFEN), "the discard is missing");
   });
 
@@ -75,19 +85,19 @@ describe("what the editor shows of a confirmed referee's waiting address", () =>
     assert.equal(erneut.textContent.trim(), "Link erneut senden");
   });
 
-  /* No clock removes a lapsed change, so a past date alone would read as a deadline still running. */
-  it("says a lapsed link is lapsed, beside its date", () => {
-    const shown = words({ ...OFFEN, frist: "2020-01-01" }, true);
+  /* The pass removes a lapsed change within the hour, so until then a past instant alone would read as a deadline still running. */
+  it("says a lapsed link is lapsed, beside its instant", () => {
+    const shown = words({ ...OFFEN, gueltig_bis: "2020-01-01T11:00:00Z" }, true);
 
     // Once, beside the date, as the consent link's panel marks its own.
     assert.equal(shown.split("abgelaufen").length - 1, 1, "the lapse is said other than once");
-    assert.match(shown, /01\.01\.2020 abgelaufen/);
+    assert.match(shown, /01\.01\.2020 um 12:00 Uhr abgelaufen/);
   });
 
   /* The read judges the deadline by the backend's own rule, so this browser's day decides nothing. */
   it("marks the lapse by the read's judgement alone, never by the date it shows", () => {
-    assert.doesNotMatch(words({ ...OFFEN, frist: "2020-01-01" }, false), /abgelaufen/);
-    assert.match(words({ ...OFFEN, frist: "2099-12-31" }, true), /abgelaufen/);
+    assert.doesNotMatch(words({ ...OFFEN, gueltig_bis: "2020-01-01T11:00:00Z" }, false), /abgelaufen/);
+    assert.match(words(OFFEN, true), /abgelaufen/);
   });
 
   it("wears the delivery register's own chip where the link's message was refused", () => {

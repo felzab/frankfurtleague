@@ -118,7 +118,7 @@ async def post_bestaetigung(
 
     The consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were
     shown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,
-    which the fixture list does not read yet, serving the name each fixture stores.
+    which the fixture list joins at read time to decide whether to publish the name each fixture stores.
 
     Refuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed
     (`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), any label but the referee

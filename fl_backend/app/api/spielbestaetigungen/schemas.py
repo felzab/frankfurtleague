@@ -187,7 +187,7 @@ class FLSpielbestaetigungenListResponse(BaseAPIResponse):
     spielbestaetigungen: list[FLSpielbestaetigung]
     # Null where no pass has run over the season, or no season has the id.
     spiel_sweep_gelaufen_am: CustomDateString | None
-    # False where more rows exist than one read serves, so a cut list is never read as the season whole.
+    # False where the cut left out rows not holding their question, so a cut list is never read as the season whole.
     vollstaendig: bool
 
 
@@ -308,6 +308,8 @@ class FLSpielbestaetigungSelbst(BaseModel):
     zustand: FLSpielbestaetigungSchiedsrichterZustand
     # The referee's own decline reason, null on every other row.
     begruendung: CustomNonEmptyString | None
+    # Whether the league recorded the answer for them, so the panel never shows it as their own; it names nobody.
+    eingetragen: bool
 
 
 class FLSpielbestaetigungenSelbstResponse(BaseAPIResponse):

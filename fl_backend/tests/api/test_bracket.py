@@ -6,9 +6,9 @@ from bson import ObjectId
 
 from app.api.spiele.crud import report_advancement, report_prior_paarungen
 from app.api.spiele.schemas import (
+    SPIEL_PATCH_WRITTEN_FIELDS,
     FLBracketFaultQuelle,
     FLBracketFaultSlot,
-    FLPatchSpielDataPayload,
     FLPatchSpielPaarungPayload,
     FLSonderereignis,
     FLSpiel,
@@ -890,5 +890,5 @@ class TestPuttingBackWhatTheResolutionDestroyed:
         paarung = set(FLPatchSpielPaarungPayload.model_fields) - {"other_fields", "spiel_id"}
         beyond = set(get_args(FLSpielRestorableField))
 
-        assert set(FLPatchSpielDataPayload.model_fields) == paarung | beyond
+        assert SPIEL_PATCH_WRITTEN_FIELDS == paarung | beyond
         assert set(FLSpielPriorOtherFields.model_fields) - {"replaced"} == beyond

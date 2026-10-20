@@ -162,8 +162,8 @@ export const FLSpielbestaetigungAntwortResponseSchema = BaseAPIResponseSchema.ex
 export type FLSpielbestaetigungAntwortResponse = z.infer<typeof FLSpielbestaetigungAntwortResponseSchema>;
 
 /**
- * A referee's own row's states. Never `gesperrt`, the binder refusing a barred person before the read, nor
- * `vorschlag`, a referee proposing no date; `abgelaufen` is a match day gone by, a referee's answer keeping no deadline.
+ * Never `gesperrt`, the binder refusing a barred person first, nor `vorschlag`: a referee proposes no date.
+ * `abgelaufen` is an unanswered row closed for good: its day gone, or its fixture decided, called off or left by a club.
  */
 export const FLSpielbestaetigungSchiedsrichterZustandSchema = z.enum(["gueltig", "zugesagt", "abgelehnt", "abgelaufen", "ungueltig"]);
 export type FLSpielbestaetigungSchiedsrichterZustand = z.infer<typeof FLSpielbestaetigungSchiedsrichterZustandSchema>;
@@ -177,6 +177,8 @@ export const FLSpielbestaetigungSelbstSchema = z.object({
   zustand: FLSpielbestaetigungSchiedsrichterZustandSchema,
   // The referee's own decline reason, null in every other state.
   begruendung: z.string().nullable(),
+  // Whether the league entered the answer for the referee, naming nobody: its Zusage counts as theirs would.
+  eingetragen: z.boolean(),
 });
 export type FLSpielbestaetigungSelbst = z.infer<typeof FLSpielbestaetigungSelbstSchema>;
 

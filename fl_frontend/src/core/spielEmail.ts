@@ -18,7 +18,7 @@ import {
   stuffSignatureDelimiter,
   textFooter,
 } from "./emailShell";
-import { DEIN_BEREICH_TITEL } from "./seitenNamen";
+import { DEIN_BEREICH_TITEL, EINSAETZE_TITEL } from "./seitenNamen";
 
 import type { Aktion } from "./emailShell";
 
@@ -244,7 +244,8 @@ export function buildSpielEinteilungEmail({ origin, ansetzung }: SpielEinteilung
   const site = mailOrigin(origin);
   const fakten = gefaltet(ansetzung);
   const panel = `${site}${SCHIEDSRICHTER_PANEL_PATH}`;
-  const label = "Zu Deinen Einsätzen";
+  // The heading the button opens on, read from its constant (`docs/frontend/spec.md` §1.12).
+  const label = EINSAETZE_TITEL;
 
   const eingeteilt = (markup: boolean): string =>
     `Hallo, die Verwaltung der ${BRAND_NAME} hat Dich als Schiedsrichterin oder Schiedsrichter für das Spiel ${paarung(fakten.team1, fakten.team2, markup)} eingeteilt.`;

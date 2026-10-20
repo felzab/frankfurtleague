@@ -44,13 +44,13 @@ from app.api.spiele.schemas import (
     is_unplayed,
     records_an_absence,
 )
-from app.api.spieler.services import NAME_IS_PUBLIC
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding, offered_gruppen
 from app.core.collections import Collection
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.shared.einwilligung import NAME_IS_PUBLIC
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -139,9 +139,9 @@ _TEAM_ZUGESTIMMT = "team_zugestimmt"
 
 
 def _confirmations_lookup() -> Mapping[str, Any]:
-    """Every unclosed row, marked on the five stored snapshot values, never on `ansetzung.stand`, which no aggregation recomputes.
+    """Every unclosed row and every referee's answer, marked on the five stored snapshot values, never on `ansetzung.stand`.
 
-    So an answer given before the fixture moved stops counting at the move, not at the hourly close
+    No aggregation recomputes the stand, so an answer stops counting at a move, not at the hourly close
     (`docs/backend/spec.md :: I763`).
     """
 
@@ -162,7 +162,12 @@ def _confirmations_lookup() -> Mapping[str, Any]:
                     "$match": {
                         # Answered rows too: `build_answerable_filter` would drop every agreement. And a club's
                         # discarded proposal, the league having kept the date: left out, the club reads as never asked.
-                        "$or": [build_closable_filter(), {"partei.art": "team", "geschlossen.grund": "verworfen"}],
+                        "$or": [
+                            build_closable_filter(),
+                            {"partei.art": "team", "geschlossen.grund": "verworfen"},
+                            # A referee's every answer, closed or not, so their own decline is told from an answer since.
+                            {"partei.art": "schiedsrichter", "antwort": {"$ne": None}},
+                        ],
                         "$expr": {
                             "$and": [
                                 # The two keys `spielbestaetigungen_saison_id_spiel_id` leads with: without
@@ -170,8 +175,8 @@ def _confirmations_lookup() -> Mapping[str, Any]:
                                 {"$eq": ["$saison_id", "$$spiel_saison_id"]},
                                 {"$eq": ["$spiel_id", "$$spiel_id"]},
                                 # A discard about an Ansetzung the fixture has left settles nothing, as the close
-                                # would have shut an unclosed row about it.
-                                {"$or": [{"$eq": ["$geschlossen", None]}, aktuell]},
+                                # would have shut an unclosed row about it; a referee's decline stands whatever moved since.
+                                {"$or": [{"$eq": ["$geschlossen", None]}, {"$ne": ["$partei.art", "team"]}, aktuell]},
                             ]
                         },
                     }
@@ -180,14 +185,14 @@ def _confirmations_lookup() -> Mapping[str, Any]:
                 # is the fixture's own side id, public already, and lets the verdict count clubs, not rows.
                 {
                     "$project": {
-                        "_id": 0,
                         "partei.art": 1,
                         "partei.team_id": 1,
-                        # The only closed rows the match admits are a club's discards.
+                        # A club's only closed rows the match admits are its discards.
                         _TEAM_ZUGESTIMMT: {"$or": [{"$eq": ["$antwort.art", "zugesagt"]}, {"$ne": ["$geschlossen", None]}]},
                         _AKTUELL: aktuell,
                         # The referee gate's own inputs: their id tells the booked referee's rows from a replaced
-                        # one's the next pass has not closed, and the close keeps a club's discard out of their count.
+                        # one's; the close tells their open rows from their closed answers, which the pass-minted id orders.
+                        "_id": 1,
                         "partei.schiedsrichter_id": 1,
                         "geschlossen": 1,
                         "antwort.art": 1,
@@ -256,9 +261,10 @@ def _referee_lookup() -> Mapping[str, Any]:
 
 
 def _einsatz_bestaetigt() -> Mapping[str, Any]:
-    """Three-valued as `_ansetzung_bestaetigt`: `None` where the booked referee holds no unclosed row, never asked or every row closed.
+    """Three-valued as `_ansetzung_bestaetigt`: `None` where the booked referee holds no unclosed row nor a latest decline.
 
-    A row about an Ansetzung the fixture has left counts as asked and not agreed, as a club's does.
+    A row about an Ansetzung the fixture left counts as not agreed, as a club's does; so does their decline until they
+    answer afresh.
     """
 
     own_rows = {
@@ -268,22 +274,31 @@ def _einsatz_bestaetigt() -> Mapping[str, Any]:
                 "$and": [
                     {"$eq": ["$$this.partei.art", "schiedsrichter"]},
                     {"$eq": ["$$this.partei.schiedsrichter_id", "$schiedsrichter.schiedsrichter_id"]},
-                    {"$eq": [{"$ifNull": ["$$this.geschlossen", None]}, None]},
                 ]
             },
         }
     }
+    open_rows = {"$filter": {"input": "$$own_rows", "cond": {"$eq": [{"$ifNull": ["$$this.geschlossen", None]}, None]}}}
+    answered = {"$filter": {"input": "$$own_rows", "cond": {"$ne": [{"$ifNull": ["$$this.antwort.art", None]}, None]}}}
     agreed = {"$and": [f"$$this.{_AKTUELL}", {"$eq": ["$$this.antwort.art", "zugesagt"]}]}
+
+    # Open rows first: the decline closes its own row, and a fresh one is minted only after, so an open row is newer.
+    judged = {
+        "$cond": [
+            {"$gt": [{"$size": "$$open_rows"}, 0]},
+            {"$allElementsTrue": [{"$map": {"input": "$$open_rows", "in": agreed}}]},
+            {"$cond": [{"$eq": [{"$ifNull": ["$$latest.antwort.art", None]}, "abgelehnt"]}, False, None]},
+        ]
+    }
 
     return {
         "$let": {
             "vars": {"own_rows": own_rows},
             "in": {
-                "$cond": [
-                    {"$eq": [{"$size": "$$own_rows"}, 0]},
-                    None,
-                    {"$allElementsTrue": [{"$map": {"input": "$$own_rows", "in": agreed}}]},
-                ]
+                "$let": {
+                    "vars": {"open_rows": open_rows, "latest": {"$last": {"$sortArray": {"input": answered, "sortBy": {"_id": 1}}}}},
+                    "in": judged,
+                }
             },
         }
     }
@@ -1119,6 +1134,10 @@ BOOKING_UNKNOWN_RESOURCE = "REQ-BOOKING-001"
 # address cannot open. A code of its own, the way out being the person's confirmation rather than a reactivation.
 BOOKING_UNCONFIRMED_REFEREE = "REQ-BOOKING-002"
 
+# A referee's own decline empties the slot outside this route, under an editor still showing them: a wholesale save
+# keeping them would book them again unasked, and the next pass mail them for the fixture they just declined.
+BOOKING_REFEREE_MOVED = "REQ-BOOKING-003"
+
 # A match plus its overrun, the changeover and the travel: the league plays several matches at one
 # ground, so this spaces them rather than banning the pairing.
 CLASH_BUFFER_MINUTES = 4 * 60
@@ -1201,6 +1220,23 @@ def find_new_bookings(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: 
     return BookedReferences(
         spielort_id=chosen.spielort_id if reopened or chosen.spielort_id != held.spielort_id else None,
         schiedsrichter_id=chosen.schiedsrichter_id if reopened or chosen.schiedsrichter_id != held.schiedsrichter_id else None,
+    )
+
+
+def find_referee_stand_refusal(stored: FLSpiel, payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
+    """`REQ-BOOKING-003`: the payload keeps the referee its editor was served, and the fixture books another or none since.
+
+    Never a payload naming another referee or none, a decision about the slot as it stands.
+    """
+
+    held = _chosen_references(stored).schiedsrichter_id
+    if held == payload.schiedsrichter_stand or _chosen_references(payload).schiedsrichter_id != payload.schiedsrichter_stand:
+        return None
+
+    return WriteRefusal(
+        error_code=BOOKING_REFEREE_MOVED,
+        status=HTTPStatus.CONFLICT,
+        message="the fixture's referee changed since this save was composed; re-read the fixture and send the change again",
     )
 
 

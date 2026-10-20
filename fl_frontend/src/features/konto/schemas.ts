@@ -4,6 +4,7 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
 import { FLSchiedsrichterKontextSchema, FLSchiedsrichterSelbstSchema } from "@/features/schiedsrichter/schemas";
 import {
+  FLAdresswechselWegSchema,
   FLEinwilligungSchema,
   FLEinwilligungStandSchema,
   FLSpielerKontextSchema,
@@ -12,7 +13,7 @@ import {
   FLSpielerStufeSchema,
 } from "@/features/spieler/schemas";
 import { FLKontaktKenntnisnahmeSchema } from "@/features/teams/schemas";
-import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
+import { CustomDateStringSchema, CustomObjectIdStringSchema, KontaktEmailSchema } from "@/shared/schemas";
 
 import { MedienMindestalterSchema } from "./einwilligung";
 
@@ -166,3 +167,59 @@ export const FLKontoEinwilligungenResponseSchema = BaseAPIResponseSchema.extend(
   registrierungen: z.array(FLKontoRegistrierungEinwilligungSchema),
 });
 export type FLKontoEinwilligungenResponse = z.infer<typeof FLKontoEinwilligungenResponseSchema>;
+
+/**
+ * Mirrors `FLKontoAdresswechselOffen`: the change pending at the signed-in address, and NEVER its new
+ * address. A change an administrator started with a reason may be a pretext whose target the holder of the
+ * address on file must not learn either.
+ */
+export const FLKontoAdresswechselOffenSchema = z.object({
+  weg: FLAdresswechselWegSchema,
+  wartet_auf: z.enum(["freigabe", "neue_adresse", "wartezeit"]),
+  gueltig_bis: z.string().nullable(),
+  wirksam_ab: z.string().nullable(),
+});
+export type FLKontoAdresswechselOffen = z.infer<typeof FLKontoAdresswechselOffenSchema>;
+
+/** Mirrors `FLKontoAdresswechselResponse`, the account page's read of its address control and the stop's answer. */
+export const FLKontoAdresswechselResponseSchema = BaseAPIResponseSchema.extend({
+  // Whether the address holds a record whose address the change moves: none holds no control.
+  moeglich: z.boolean(),
+  // A grant the change leaves at the address on file, which the page says before the start.
+  bleibt_verwaltung: z.boolean(),
+  offen: FLKontoAdresswechselOffenSchema.nullable(),
+});
+export type FLKontoAdresswechselResponse = z.infer<typeof FLKontoAdresswechselResponseSchema>;
+
+/** Mirrors `FLKontoAdresswechselPayload`: the new address alone; the signed-in address names the change. */
+export const FLKontoAdresswechselPayloadSchema = z.object({
+  email: KontaktEmailSchema,
+});
+export type FLKontoAdresswechselPayload = z.infer<typeof FLKontoAdresswechselPayloadSchema>;
+
+/**
+ * Mirrors `FLKontoAdresswechselMintResponse`: answered ONCE, its tokens for the two mails alone, so the
+ * action's own answer to the browser carries neither a token nor an address. `art` and `id` name the
+ * carrier, for the link's delivery tags and its page.
+ */
+export const FLKontoAdresswechselMintResponseSchema = BaseAPIResponseSchema.extend({
+  art: z.enum(["spieler", "schiedsrichter"]),
+  id: CustomObjectIdStringSchema,
+  token: z.string(),
+  stopp_token: z.string(),
+  gueltig_bis: z.string(),
+  email: z.string().nonempty(),
+  bisherige_email: z.string().nonempty(),
+  vorname: z.string(),
+});
+export type FLKontoAdresswechselMintResponse = z.infer<typeof FLKontoAdresswechselMintResponseSchema>;
+
+/** Mirrors `FLKontoAdresswechselFreigabeResponse`: the approval mints the new mailbox's link, for its mail alone. */
+export const FLKontoAdresswechselFreigabeResponseSchema = BaseAPIResponseSchema.extend({
+  art: z.enum(["spieler", "schiedsrichter"]),
+  id: CustomObjectIdStringSchema,
+  token: z.string(),
+  gueltig_bis: z.string(),
+  email: z.string().nonempty(),
+});
+export type FLKontoAdresswechselFreigabeResponse = z.infer<typeof FLKontoAdresswechselFreigabeResponseSchema>;

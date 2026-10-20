@@ -13,6 +13,7 @@ import { spielFields } from "@/shared/testing/fixtures.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { FLSpielberichtZustandEintrag } from "@/features/spielberichte/schemas.ts";
+import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { AdminSpieleActionRequiredView } = await import("./AdminSpieleActionRequiredView.tsx");
@@ -42,6 +43,23 @@ const triage = (spielberichte: readonly FLSpielberichtZustandEintrag[]) =>
     ),
   );
 
+/** The triage over no fixture, so the notice above the tabs is all its confirmation rows change. */
+const mitBestaetigungen = (bestaetigungen: readonly FLSpielbestaetigung[] | null, bestaetigungenVollstaendig = true) =>
+  render(
+    underNext(
+      h(AdminSpieleActionRequiredView, {
+        overviewSpiele: [],
+        bracketFaults: [],
+        bestaetigungen,
+        bestaetigungenVollstaendig,
+        spielberichte: [],
+        today: "2026-07-30",
+        isFinishedSaison: false,
+      }),
+      { search: "saison_id=2026" },
+    ),
+  );
+
 afterEach(cleanup);
 
 describe("the triage's reports", () => {
@@ -66,4 +84,26 @@ describe("the triage's reports", () => {
       );
     });
   }
+});
+
+// Each tab reading zero would say a category is clear, so a failed or cut read is said above them.
+describe("the triage's notice about the confirmation rows", () => {
+  it("says the rows could not be read, rather than showing their tabs as clear", () => {
+    mitBestaetigungen(null);
+
+    screen.getByText("Die Spielbestätigungen ließen sich gerade nicht lesen");
+  });
+
+  it("says the rows were cut, and which category the cut can leave short", () => {
+    mitBestaetigungen([], false);
+
+    screen.getByText("Die Spielbestätigungen sind unvollständig");
+    screen.getByText(/von den geschlossenen nur die neuesten\. „Schiedsrichter hat abgelehnt“ kann deshalb Spiele auslassen\./);
+  });
+
+  it("says nothing of a whole read", () => {
+    mitBestaetigungen([]);
+
+    assert.equal(screen.queryAllByText(/^Die Spielbestätigungen/).length, 0, "a whole read raised the notice");
+  });
 });

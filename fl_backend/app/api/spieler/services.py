@@ -18,7 +18,7 @@ from app.shared.adresswechsel import (
     build_token_terms,
     ist_abgelaufen,
 )
-from app.shared.einwilligung import is_confirmed
+from app.shared.einwilligung import NAME_IS_PUBLIC, is_confirmed
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
 
@@ -68,20 +68,6 @@ def name_is_public(einwilligung: Mapping[str, Any] | None) -> bool:
     # the shared predicate's to judge (`docs/backend/spec.md :: I387`), `""` included.
     return einwilligung.get("umfang") == "kader_oeffentlich" and is_confirmed(einwilligung)
 
-
-# `name_is_public`'s three inputs as a Mongo expression, over whichever person's document the stage
-# runs on. By `$type` rather than `$eq: null`, for `PUBLIC_NACHNAME`'s reason: an absent key and a
-# stored null are one state to a read.
-NAME_IS_PUBLIC: Mapping[str, Any] = {
-    "$and": [
-        {"$eq": [{"$type": "$einwilligung"}, "object"]},
-        {"$eq": ["$einwilligung.umfang", "kader_oeffentlich"]},
-        {"$eq": [{"$type": "$einwilligung.bestaetigt_am"}, "string"]},
-        # Beside the type test rather than instead of it: `$type` calls `""` a string, so an arm
-        # reading the type alone publishes a record nobody confirmed.
-        {"$ne": ["$einwilligung.bestaetigt_am", ""]},
-    ]
-}
 
 # The two NAME fields alone: a withheld row keeps its `nummer` and `position`, so a `$cond` reaching
 # further would withhold the squad slot rather than the name. The record is read here and projected

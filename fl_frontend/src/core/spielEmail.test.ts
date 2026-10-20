@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { registerDoubles } from "./exportingModule.ts";
 import { flat, readable } from "./mailText.ts";
-import { DEIN_BEREICH_TITEL } from "./seitenNamen.ts";
+import { DEIN_BEREICH_TITEL, EINSAETZE_TITEL } from "./seitenNamen.ts";
 
 registerDoubles();
 
@@ -162,7 +162,7 @@ describe("each message states the same facts in both parts", () => {
     const { html, text } = NACHRICHTEN.Einteilung;
 
     assert.ok(html.includes(`href="${ORIGIN}/bereich/schiedsrichter"`), "the card's control leads elsewhere");
-    assert.ok(text.includes(`Zu Deinen Einsätzen: ${ORIGIN}/bereich/schiedsrichter`), "the text part leads elsewhere");
+    assert.ok(text.includes(`${EINSAETZE_TITEL}: ${ORIGIN}/bereich/schiedsrichter`), "the text part leads elsewhere");
     assert.ok(!html.includes("token=") && !text.includes("token="), "the referee's message carries a token");
   });
 

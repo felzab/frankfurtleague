@@ -515,13 +515,107 @@ def test_a_link_page_whose_twin_another_pair_meters_is_a_finding():
     assert "/neu/ reaches `location = /neu/`" in details(findings)
 
 
-def test_the_repository_own_link_pages_are_on_the_link_pair():
-    """The resting state the red cases above are measured against; an empty population would pass every page unread."""
-    _, where, name = repository_own()
-    linked = routes.link_pages(routes.pages(routes.REPO_ROOT / routes.APP_ROUTER))
+MINTER = 'const NEU_PATH = "/neuhilfe";\nexport const neuLink = (origin: string, token: string) => `${origin}${NEU_PATH}?token=${token}`;\n'
 
-    assert linked
-    assert routes.unmetered_links(linked, where, routes.REPO_ROOT, name) == []
+
+def helper_read_page() -> Path:
+    """A tree whose page at `/neuhilfe` reads its token through a sibling module, and a module minting its link."""
+    app = link_page(
+        "/neuhilfe",
+        'import { linkSchluessel } from "./linkLesen";\nexport default async function Page(props) {\n  return linkSchluessel(props);\n}\n',
+    )
+    write(app, "neuhilfe/linkLesen.ts", "export const linkSchluessel = async (props) => (await props.searchParams).token;\n")
+    write(app.parent, "core/neuLink.ts", MINTER)
+    return app
+
+
+def test_a_link_page_reading_its_token_through_another_module_is_found_by_its_minter(monkeypatch, capsys):
+    """Through `main`, where the two listings are joined: the page's own module names neither word the reader matches."""
+    app = helper_read_page()
+    assert routes.link_pages(routes.pages(app)) == (), "the page names its token itself, so this case tests the reader instead"
+
+    assert run_main(app, "server {\n" + CATCH_ALL + "}\n", monkeypatch) == 1
+    assert "/neuhilfe reaches `location /`" in capsys.readouterr().out
+
+
+def test_a_link_minted_to_a_path_no_page_answers_is_a_finding(monkeypatch, capsys):
+    """Otherwise a minter pointing past its page drops out of the listing, and the page with it."""
+    app = link_page("/neuhilfe-alt", "export default function Page() {}\n")
+    write(app.parent, "core/neuLink.ts", MINTER)
+
+    assert run_main(app, "server {\n" + CATCH_ALL + "}\n", monkeypatch) == 1
+    assert "core/neuLink.ts mints a link to /neuhilfe, which no page" in capsys.readouterr().out
+
+
+RECORD_LINK = "export const neuLink = (origin: string, art: Art, token: string) => `${origin}${NEU_PFAD[art]}?token=${token}`;\n"
+
+
+def test_a_link_through_a_record_of_paths_mints_one_to_each_of_its_values():
+    """The key is a run-time value, so every value is a page some mail opens; a quoted key spells the same record."""
+    root = new_root("check-public-routes-")
+    record = 'const NEU_PFAD: Readonly<Record<Art, string>> = {\n  eins: "/neuhilfe",\n  "zwei": "/neuhilfe/zwei",\n};\n'
+    write(root, "core/neuLink.ts", record + RECORD_LINK)
+
+    assert [path for _, path in routes.minted(root)] == ["/neuhilfe", "/neuhilfe/zwei"]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "export const neuLink = (origin: string, token: string) => origin + `/neuhilfe?token=${token}`;\n",
+        "export const neuLink = (origin: string, token: string) => `${origin}${NEU_PATH}?token=${token}`;\n",
+        'const NEU_PFAD = { eins: "/neuhilfe", zwei: NEU_PATH };\n' + RECORD_LINK,
+        RECORD_LINK,
+    ],
+    ids=["no-origin-in-the-template", "a-path-constant-of-another-module", "a-record-value-no-literal-spells", "a-record-of-another-module"],
+)
+def test_a_minted_link_this_reader_cannot_place_refuses(monkeypatch, text):
+    """A minter it skipped would drop its page from the listing, which reads as a tree with one link page fewer.
+
+    A record is placed whole or not at all: dropping the value it cannot read drops that value's page.
+    """
+    app = link_page("/neuhilfe")
+    write(app.parent, "core/neuLink.ts", text)
+
+    assert run_main(app, "server {\n" + CATCH_ALL + "}\n", monkeypatch) == routes.EXIT_REFUSED
+
+
+@pytest.mark.parametrize("suffix", [".ts", ".tsx", ".js", ".jsx"])
+def test_a_test_file_holding_a_token_query_mints_nothing(suffix):
+    """Every extension the walk reads, for `.claude/rules/cross-surface.md`'s sweeps clause: a fixture is no minter."""
+    root = new_root("check-public-routes-")
+    write(root, f"core/neuLink.test{suffix}", "const fixture = `/neuhilfe?token=kein-echtes-token`;\n")
+
+    assert routes.minted(root) == ()
+
+
+def test_a_link_block_metering_the_link_zone_on_another_burst_is_a_finding():
+    """One above the shared burst, which a paired probe at the edge reads the same as a refill."""
+    uneven = LINK_PAIR.replace("burst=60 ", "burst=61 ")
+    where = served(block("location = /neu", LINK_PAIR, PASS), block("location = /neu/", uneven, PASS), CATCH_ALL)
+
+    findings = routes.uneven_links(where, SOURCE)
+
+    assert severities(findings) == ["fail"]
+    assert "`location = /neu/` meters linkseite with `limit_req zone=linkseite burst=61 nodelay`" in details(findings)
+
+
+def test_the_repository_own_link_pages_are_on_the_link_pair():
+    """The resting state the red cases are measured against, its count pinned.
+
+    Each listing finds the eight alone, so a page refactored to read its token elsewhere stays found by its minter.
+    """
+    _, where, name = repository_own()
+    app = routes.REPO_ROOT / routes.APP_ROUTER
+    paged = routes.pages(app)
+    opened, unopened = routes.minted_pages(routes.minted(app.parent), paged, routes.REPO_ROOT)
+    reading = routes.link_pages(paged)
+
+    assert unopened == []
+    assert len(opened) == 8
+    assert set(opened) == set(reading)
+    assert routes.unmetered_links(opened, where, routes.REPO_ROOT, name) == []
+    assert routes.uneven_links(where, name) == []
 
 
 def test_the_repository_own_exact_matches_all_name_something():
@@ -805,6 +899,16 @@ def test_an_unmetered_link_page_reaches_the_exit_contract(monkeypatch):
     app = link_page("/neu")
 
     assert run_main(app, "server {\n" + CATCH_ALL + "}\n", monkeypatch) == 1
+
+
+def test_an_uneven_link_burst_reaches_the_exit_contract(monkeypatch):
+    """The burst rule reaches a reader through `main` alone; every other rule passes this pair."""
+    app = link_page("/neu")
+    uneven = LINK_PAIR.replace("burst=60 ", "burst=61 ")
+    text = "server {\n" + block("location = /neu", LINK_PAIR, PASS) + block("location = /neu/", uneven, PASS) + CATCH_ALL + "}\n"
+
+    assert run_main(app, text, monkeypatch) == 1
+    assert run_main(app, text.replace("burst=61 ", "burst=60 "), monkeypatch) == 0
 
 
 def test_a_finding_exits_one(monkeypatch):

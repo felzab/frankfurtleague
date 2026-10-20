@@ -325,6 +325,13 @@ REPLACED_REFEREE = {"art": "schiedsrichter", "schiedsrichter_id": ObjectId("6890
 REFEREE_NAME = "Ada Kern"
 PUBLIC_REFEREE_NAME = "Ada K."
 
+# Two rows of the booked referee in the order the pass minted them, which their ids carry.
+EARLIER_ROW = ObjectId("6890a1b2c3d4e5f607250041")
+LATER_ROW = ObjectId("6890a1b2c3d4e5f607250042")
+DECLINED = {"art": "abgelehnt", "am": "2026-04-20", "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": "Verhindert"}
+CLOSED_BY_THE_DECLINE = {"am": "2026-04-20", "grund": "schiedsrichter_abgelehnt"}
+CLOSED_BY_A_MOVE = {"am": "2026-04-21", "grund": "ansetzung_geaendert"}
+
 
 def published() -> dict[str, Any]:
     return eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-04-01")
@@ -416,12 +423,45 @@ class TestTheRefereeIsServedOnceAskedAndAgreed:
         assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=fixture) is None
 
     def test_a_clubs_closed_row_never_counts_for_the_referee(self, mongo_url: str):
-        """The confirmations join may carry a club's closed row for the clubs' verdict; the referee's gate reads their own open rows."""
+        """The join carries a club's discard for the clubs' verdict, and the gate's party term keeps it out of the referee's."""
 
         fixture = a_refereed_fixture()
         rows = [a_row(fixture, VERDICT_HOME, antwort=zugesagt(), geschlossen={"am": "2026-04-21", "grund": "verworfen"})]
 
         assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=fixture) is None
+
+    @pytest.mark.parametrize("moved", [False, True], ids=["about the slot as it stands", "about a slot the fixture left since"])
+    def test_their_own_decline_as_their_latest_answer_withholds_them(self, mongo_url: str, moved: bool):
+        """Re-booked after declining, they hold no open row until the next pass asks: read as never asked, they would show."""
+
+        fixture = a_refereed_fixture()
+        rows = [
+            a_referee_row(fixture, _id=EARLIER_ROW, antwort={**zugesagt(), "von": {"art": "schiedsrichter"}}, geschlossen=CLOSED_BY_A_MOVE),
+            a_referee_row(fixture, _id=LATER_ROW, antwort=DECLINED, geschlossen=CLOSED_BY_THE_DECLINE),
+        ]
+
+        async def body(database: AsyncDatabase) -> bool | None:
+            if moved:
+                await database[Collection.SPIELE].update_one({"_id": VERDICT_SPIEL_ID}, {"$set": {"uhrzeit": "19:30:00"}})
+
+            return await einsatz(database)
+
+        assert on_a_refereed_fixture(mongo_url, rows, body, fixture=fixture) is False
+
+    @pytest.mark.parametrize(
+        ("geschlossen", "served"),
+        [pytest.param(None, True, id="open"), pytest.param(CLOSED_BY_A_MOVE, None, id="closed by a move since")],
+    )
+    def test_an_answer_after_their_decline_is_read_as_any_other(self, mongo_url: str, geschlossen: Any, served: bool | None):
+        """Ordered by the pass-minted id: an answer read regardless of order would leave the old decline withholding them."""
+
+        fixture = a_refereed_fixture()
+        rows = [
+            a_referee_row(fixture, _id=EARLIER_ROW, antwort=DECLINED, geschlossen=CLOSED_BY_THE_DECLINE),
+            a_referee_row(fixture, _id=LATER_ROW, antwort={**zugesagt(), "von": {"art": "schiedsrichter"}}, geschlossen=geschlossen),
+        ]
+
+        assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=fixture) is served
 
     def test_an_empty_slot_stays_null(self, mongo_url: str):
         """`$mergeObjects` onto a null slot builds an object: a booked referee with no id, which no reader can render."""

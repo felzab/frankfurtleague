@@ -9,7 +9,7 @@ import { SpielDetailsModal } from "../modals/SpielDetailsModal";
 import { SpielCard } from "../ui/SpielCard";
 
 import type { BerichtChip } from "@/features/spielberichte/utils";
-import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
+import type { SaisonBestaetigungen } from "@/features/spielbestaetigungen/types";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
 import type { FLSpiel } from "../../schemas";
 
@@ -36,7 +36,7 @@ export function SpielCardsList({
   today,
   isAdmin = false,
   notes,
-  bestaetigungenBySpielId,
+  bestaetigungen,
   berichtChipsBySpielId,
   isFinishedSaison,
 }: {
@@ -45,8 +45,8 @@ export function SpielCardsList({
   isFinishedSaison: boolean;
   isAdmin?: boolean;
   notes?: SpielCardNotes;
-  /** The season's confirmation rows by `spiel_id`, an administrator's read the card shows only beside its edit link. */
-  bestaetigungenBySpielId?: ReadonlyMap<string, readonly FLSpielbestaetigung[]>;
+  /** The season's confirmation rows, an administrator's read the card shows only beside its edit link. */
+  bestaetigungen?: SaisonBestaetigungen;
   /** Keyed by `spiel_id`, for the notes' reason: a report's state arrives beside the matches, never inside them. */
   berichtChipsBySpielId?: ReadonlyMap<string, BerichtChip>;
 }) {
@@ -67,7 +67,7 @@ export function SpielCardsList({
             onOpenInfoModal={() => setSelectedSpiel(spielData)}
             adminEditHref={isAdmin ? adminSpielEditHref(spielData.id, saisonId) : undefined}
             asListitem={!hasNotes}
-            bestaetigungen={bestaetigungenBySpielId?.get(spielData.id)}
+            bestaetigungen={bestaetigungen}
             berichtChip={berichtChipsBySpielId?.get(spielData.id)}
           />
         );

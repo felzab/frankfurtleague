@@ -25,6 +25,7 @@ from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
+    eigene_einwilligung_document,
     saison_document,
     saison_spieler_document,
     saison_team_document,
@@ -106,16 +107,16 @@ EARLIER_EVIDENCE = {
 SEVENTEEN_BIRTHDATE = "2008-10-04"
 
 
+# The instant each seeded record's own confirmation was pressed.
+CONFIRMED_AM = "2026-09-02T08:00:00+00:00"
+
+
 def _einwilligung(**fields: Any) -> dict[str, Any]:
-    return {
-        "umfang": "kader_oeffentlich",
-        "erteilt_von": "volljaehrig",
-        "datum": "2026-09-01",
-        "bestaetigt_am": "2026-09-02",
-        "text_version": CONFIRMATION_LABEL,
-        "medien": False,
-        **fields,
-    }
+    return eigene_einwilligung_document(text_version=CONFIRMATION_LABEL, bestaetigt_am="2026-09-02", am=CONFIRMED_AM, **fields)
+
+
+# What a page serves for a record seeded granting media, which the retired and the young pupil's are or become.
+MEDIEN_GRANTED_STAND = nachweis_stand_of(bloecke=[_einwilligung(medien=True)])
 
 
 # What a page served that record echoes.
@@ -135,13 +136,13 @@ def _running_label() -> str:
 def _payload(
     *, umfang: str = "kader_oeffentlich", medien: bool = False, text_version: str | None = None, stand: Mapping[str, Any] | None = None
 ) -> dict[str, Any]:
-    """A press from a page served the record as the suite seeds it, holding no evidence, unless `stand` says otherwise."""
+    """A press from a page served the record as the suite seeds it, unless `stand` says otherwise."""
 
     return {
         "umfang": umfang,
         "medien": medien,
         "text_version": text_version or _running_label(),
-        "nachweis_stand": dict(stand) if stand is not None else {"umfang": None, "medien": None},
+        "nachweis_stand": dict(stand) if stand is not None else nachweis_stand_of(bloecke=[_einwilligung()]),
     }
 
 
@@ -173,7 +174,8 @@ async def _seed(database: AsyncDatabase) -> None:
             pupil(YOUNG_OID, "Jonas", "Jungspund", YOUNG, geburtsdatum=SEVENTEEN_BIRTHDATE),
             pupil(UNDATED_OID, "Uta", "Ungeboren", UNDATED, geburtsdatum=None),
             pupil(RETIRED_OID, "Rudolf", "Ruhestand", RETIRED, inactive_since="2026-07-01", einwilligung=_einwilligung(medien=True)),
-            pupil(UNCONFIRMED_OID, "Ottilie", "Wartezeit", UNCONFIRMED, einwilligung=_einwilligung(bestaetigt_am=None)),
+            # Awaiting its confirmation, so nobody has answered it and it carries no evidence.
+            pupil(UNCONFIRMED_OID, "Ottilie", "Wartezeit", UNCONFIRMED, einwilligung={**_block(_einwilligung()), "bestaetigt_am": None}),
             pupil(BYSTANDER_OID, "Baldur", "Krautzberger", BYSTANDER),
         ]
     )
@@ -315,7 +317,7 @@ class TestTheTwoChoices:
         response, before, after, spiele = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(umfang="intern")))
 
         assert response.status_code == 200, response.text
-        assert _block(after[PUPIL_OID]["einwilligung"]) == {**before[PUPIL_OID]["einwilligung"], "umfang": "intern"}
+        assert _block(after[PUPIL_OID]["einwilligung"]) == {**_block(before[PUPIL_OID]["einwilligung"]), "umfang": "intern"}
         assert {key: value for key, value in after.items() if key != PUPIL_OID} == {
             key: value for key, value in before.items() if key != PUPIL_OID
         }
@@ -329,7 +331,7 @@ class TestTheTwoChoices:
         response, before, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(medien=True)))
 
         assert response.status_code == 200, response.text
-        assert _block(after[PUPIL_OID]["einwilligung"]) == {**before[PUPIL_OID]["einwilligung"], "medien": True}
+        assert _block(after[PUPIL_OID]["einwilligung"]) == {**_block(before[PUPIL_OID]["einwilligung"]), "medien": True}
 
     def test_an_address_spelled_otherwise_moves_the_same_record(self, mongo_replica_set_url: str):
         response, _, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER_SPELLED_OTHERWISE, _payload(umfang="intern")))
@@ -363,7 +365,9 @@ class TestARetiredRecord:
     """A withdrawal reaches every confirmed record the address holds (Art. 7(3) DSGVO); a grant only a live one."""
 
     def test_a_withdrawal_is_taken(self, mongo_replica_set_url: str):
-        response, _, after, _ = served(mongo_replica_set_url, _press(RETIRED, _payload(umfang="intern", medien=False)))
+        response, _, after, _ = served(
+            mongo_replica_set_url, _press(RETIRED, _payload(umfang="intern", medien=False, stand=MEDIEN_GRANTED_STAND))
+        )
 
         assert response.status_code == 200, response.text
         assert (after[RETIRED_OID]["einwilligung"]["umfang"], after[RETIRED_OID]["einwilligung"]["medien"]) == ("intern", False)
@@ -394,7 +398,8 @@ class TestTheMediaAge:
             await database[Collection.SPIELER].update_one({"_id": YOUNG_OID}, {"$set": {"einwilligung.medien": True}})
 
         response, _, after, _ = served(
-            mongo_replica_set_url, _press(YOUNG, _payload(umfang="intern", medien=True), before=granted_under_an_earlier_label)
+            mongo_replica_set_url,
+            _press(YOUNG, _payload(umfang="intern", medien=True, stand=MEDIEN_GRANTED_STAND), before=granted_under_an_earlier_label),
         )
 
         assert response.status_code == 200, response.text
@@ -462,7 +467,7 @@ class TestTheEvidence:
             "umfang": {"am": NOW_UTC, "text_version": _running_label()},
             "medien": EARLIER_EVIDENCE["medien"],
         }
-        assert _block(after[PUPIL_OID]["einwilligung"]) == _einwilligung()
+        assert _block(after[PUPIL_OID]["einwilligung"]) == _block(_einwilligung())
 
     def test_a_press_moving_nothing_restamps_nothing(self, mongo_replica_set_url: str):
         response, _, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(stand=EARLIER_STAND), before=self._earlier_evidence))

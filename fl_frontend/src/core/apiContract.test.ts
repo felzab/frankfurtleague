@@ -61,6 +61,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   PersonName: "a shared validator applied per field; the backend spells it as a Field pattern",
   KontaktEmail: "a shared validator applied per field; the backend spells it as the `CustomEmail` alias",
   LinkAntwortTextVersion: "a shared validator applied per field; the backend spells it as each link confirmation's `text_version` bounds",
+  AdresswechselGrund: "a shared validator applied per field; the backend spells it as the `CustomAdresswechselGrund` alias",
 
   FLGruppenNames: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSaisonPhase: "a Pydantic Literal alias, inlined as an enum at each use site",
@@ -84,6 +85,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSpielbestaetigungSeite: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielbestaetigungGrund: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielbestaetigungSchiedsrichterZustand: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLAdresswechselWeg: "a Pydantic Literal alias, inlined as an enum at each use site",
 
   // Both fields are path segments of `POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut`,
   // so the request carries no body for FastAPI to describe.
@@ -94,6 +96,7 @@ const FRONTEND_ONLY: Record<string, string> = {
 
   FLSpielplan: "composed client-side from separate responses; no endpoint returns it",
   FLSpieltagWithSpiele: "composed client-side from separate responses; no endpoint returns it",
+  FLSpieltagWithAdminSpiele: "composed client-side from separate admin-tier responses; no endpoint returns it",
 
   FLSpielTeamField: "no endpoint touches the stored side: a read serves FLSpielTeamFieldJoined and a write takes FLSpielTeamFieldPayload",
 
@@ -159,6 +162,7 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLPatchTeamPayload: ["id"],
   FLPatchSpielerPayload: ["id"],
   FLSpielerAdresswechselPayload: ["id"],
+  FLSchiedsrichterAdresswechselPayload: ["id"],
   FLPatchSaisonPayload: ["id"],
   FLPatchSpieltagPayload: ["id"],
   // The season is the resource acted on, so it is the path; the control still has to know which.
@@ -355,7 +359,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 396;
+const EXPECTED_PAIRS = 413;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

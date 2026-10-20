@@ -1,4 +1,4 @@
-"""SPIELER · the consent table every spelling of `READ-PUPIL-003` is joined against
+"""SPIELER · the consent table every spelling of `READ-PUPIL-003` and `READ-REFEREE-004` is joined against
 
 Hand-written rather than derived from either spelling: a table taken from one would compare that
 spelling with itself. One sheet rather than a table and two homes, so a spelling with no case

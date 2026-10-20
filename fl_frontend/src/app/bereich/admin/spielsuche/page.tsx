@@ -49,6 +49,12 @@ export default async function AdminSpielsuchePage(props: NextPageProps) {
       schiedsrichter={schiedsrichterRes.schiedsrichter.map((row) => ({ id: row.id, name: row.name }))}
       bestaetigungen={bestaetigungenRes?.spielbestaetigungen ?? null}
       bestaetigungenVollstaendig={bestaetigungenRes?.vollstaendig ?? true}
+      austritte={Object.fromEntries(
+        teamsRes.teams.flatMap((team) => {
+          const austritt = team.memberships.find((membership) => membership.saison_id === saison.id)?.austritt;
+          return austritt ? [[team.id, austritt.datum]] : [];
+        }),
+      )}
     />
   );
 }

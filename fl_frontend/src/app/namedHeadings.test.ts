@@ -5,11 +5,12 @@ import { describe, it } from "node:test";
 
 import ts from "typescript";
 
-import { JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
+import { ADRESSWECHSEL_STOPPEN, JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
 import {
   ABOUT_TITEL,
   DATENSCHUTZ_TITEL,
   DEIN_BEREICH_TITEL,
+  EINSAETZE_TITEL,
   IMPRESSUM_TITEL,
   KONTAKT_TITEL,
   ORGANISATION_TITEL,
@@ -67,10 +68,7 @@ const SAISON_FORM = "features/saisons/components/forms/AdminSaisonEditForm";
 const SAISONS_TABELLE = "features/saisons/components/collections/AdminSaisonsTable.tsx";
 const ADMIN = "features/admin/constants.ts";
 const ANTWORTEN = "core/adresswechselAntworten.ts";
-const ADRESSWECHSEL_SEITEN = [
-  "features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.tsx",
-  "features/spieler/components/views/SpielerAdresswechselView.tsx",
-];
+const ADRESSWECHSEL_SEITEN = ["features/konto/components/views/AdresswechselLinkView.tsx"];
 
 const TOP_NAV = "shared/components/layout/topnav/TopNav.tsx";
 const FOOTER = "shared/components/layout/footer/Footer.tsx";
@@ -133,6 +131,16 @@ const REGISTER: readonly Benannt[] = [
     konstante: "SPIELPLAN_ABSCHNITT",
     heim: "features/saisons/constants.ts",
     zeigen: [`${SAISON_FORM}/FormSpielplanSection.tsx`],
+  },
+  {
+    wort: EINSAETZE_TITEL,
+    konstante: "EINSAETZE_TITEL",
+    heim: "core/seitenNamen.ts",
+    zeigen: [
+      "features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx",
+      "core/spielEmail.ts",
+      "features/funktionen/utils.ts",
+    ],
   },
   seitenName("SAISONUEBERSICHT_TITEL", SAISONUEBERSICHT_TITEL, "/dashboard", [
     TOP_NAV,
@@ -213,11 +221,22 @@ const REGISTER: readonly Benannt[] = [
     wort: ADRESSE_AENDERN,
     konstante: "ADRESSE_AENDERN",
     heim: "features/spieler/constants.ts",
-    zeigen: [`${SPIELER_FORM}/FormAdresseSection.tsx`],
+    zeigen: [
+      `${SPIELER_FORM}/FormAdresseSection.tsx`,
+      "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormKontaktSection.tsx",
+    ],
     steuerung: true,
   },
   { wort: JA_MEINE_ADRESSE, konstante: "JA_MEINE_ADRESSE", heim: ANTWORTEN, zeigen: ADRESSWECHSEL_SEITEN, steuerung: true },
   { wort: NICHT_MEINE_ADRESSE, konstante: "NICHT_MEINE_ADRESSE", heim: ANTWORTEN, zeigen: ADRESSWECHSEL_SEITEN, steuerung: true },
+  // Named by the notice to the address on file, so offered under that word on the stop link's page and the account page.
+  {
+    wort: ADRESSWECHSEL_STOPPEN,
+    konstante: "ADRESSWECHSEL_STOPPEN",
+    heim: ANTWORTEN,
+    zeigen: [...ADRESSWECHSEL_SEITEN, "features/konto/components/forms/AdresswechselForm/AdresswechselPanel.tsx"],
+    steuerung: true,
+  },
   {
     wort: ADRESSE_KORRIGIEREN,
     konstante: "ADRESSE_KORRIGIEREN",

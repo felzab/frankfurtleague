@@ -32,9 +32,17 @@ from app.shared.schemas.custom import parse_object_id
 # follows (`scripts/ops/export_journal.sh :: JOURNAL_TOKEN`).
 JOURNAL_TOKEN: Final = "loeschung-journal"
 
-# An erasure, which an administrator runs again on its page, and what a person's own act changed, which the replay
-# writes again: three choices, a stopped address change, and a change taking effect.
-JournalArt = Literal["loeschung", "widerruf", "widerspruch", "adresswechsel_abgelehnt", "adresswechsel_gestoppt", "adresswechsel_wirksam"]
+# An erasure, which an administrator runs again on its page, and what an act changed that the replay writes again: three
+# choices, an address change stopped or discarded, and a change taking effect.
+JournalArt = Literal[
+    "loeschung",
+    "widerruf",
+    "widerspruch",
+    "adresswechsel_abgelehnt",
+    "adresswechsel_gestoppt",
+    "adresswechsel_verworfen",
+    "adresswechsel_wirksam",
+]
 
 # The collections each act is made on: a line naming any other is unreadable rather than replayed there.
 DATENSAETZE: Final[Mapping[JournalArt, frozenset[Collection]]] = {
@@ -45,6 +53,8 @@ DATENSAETZE: Final[Mapping[JournalArt, frozenset[Collection]]] = {
     "widerspruch": frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN}),
     "adresswechsel_abgelehnt": frozenset({Collection.SPIELER, Collection.SCHIEDSRICHTER}),
     "adresswechsel_gestoppt": frozenset({Collection.SPIELER, Collection.SCHIEDSRICHTER}),
+    # Ended by an administrator, by a start replacing it, or by the hourly pass refusing it at the end of its waiting time.
+    "adresswechsel_verworfen": frozenset({Collection.SPIELER, Collection.SCHIEDSRICHTER}),
     # The row that carried the change: the replay moves every record its restored address holds.
     "adresswechsel_wirksam": frozenset({Collection.SPIELER, Collection.SCHIEDSRICHTER}),
 }
@@ -81,6 +91,9 @@ class JournalLine:
     # An erasure's person as their fixture answers stored them (`app/api/spielbestaetigungen/services.py :: halter_of`), for
     # the pseudonym's reason: a restore brings their reasons back with no address beside them. Absent on an older line.
     halter: str | None = None
+    # The address a change taking effect replaced, by its journal hash: where an erasure of the new address follows, the
+    # restored database holds the moved records at this one.
+    zuvor: str | None = None
 
     def __post_init__(self) -> None:
         if not _HASH.fullmatch(self.person_hash):
@@ -89,6 +102,8 @@ class JournalLine:
             raise ValueError("an erasure's line alone names its person's log pseudonym")
         if self.halter is not None and (self.art != "loeschung" or not _HASH.fullmatch(self.halter)):
             raise ValueError("an erasure's line alone names its person's holder digest")
+        if (self.art == "adresswechsel_wirksam") != (self.zuvor is not None) or (self.zuvor is not None and not _HASH.fullmatch(self.zuvor)):
+            raise ValueError("a change taking effect, and only one, names the address it replaced by a journal hash")
 
         if self.art == "loeschung":
             if (
@@ -124,7 +139,11 @@ class JournalLine:
     def text(self) -> str:
         """The line as the stream carries it."""
 
-        keyed = [f"{name}={value}" for name, value in (("pseudonym", self.pseudonym), ("halter", self.halter)) if value is not None]
+        keyed = [
+            f"{name}={value}"
+            for name, value in (("pseudonym", self.pseudonym), ("halter", self.halter), ("zuvor", self.zuvor))
+            if value is not None
+        ]
 
         return " ".join([JOURNAL_TOKEN, self.person_hash, self.act(), *keyed])
 
@@ -185,7 +204,7 @@ def parse_line(message: str) -> JournalLine | None:
             wahlen[key] = _read_value(key, value)
         elif key == "sitze":
             fields["sitze"] = tuple(value.split(","))
-        elif key in ("am", "text_version", "pseudonym", "halter"):
+        elif key in ("am", "text_version", "pseudonym", "halter", "zuvor"):
             fields[key] = value
         else:
             raise ValueError("a journal line names a value no act carries")
