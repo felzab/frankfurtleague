@@ -895,11 +895,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   beside it with it (`fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison`). The consent text scopes
   itself to one season, and the clearing uses the mechanism the erasure already had. Ruled
   2026-09-02.
-- **A season's fixture confirmations keep the clubs' answers as the season's record, and lose at
-  that same clearing everything that tells the people apart.** Each of the season's
-  `spielbestaetigungen` team rows loses its reason, its holder digest, its seats' link hashes and their
-  delivery records with the contact block, on the rows and in the log's images
-  (`fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison`). Which way each club answered,
+- **A season's fixture confirmations keep the clubs' answers as the season's record, and lose from
+  that same clearing on everything that tells the people apart.** From the pass that clears the
+  contact blocks, every pass strips the season's `spielbestaetigungen` team rows of their reason, their
+  holder digest, their seats' link hashes and their delivery records, on the rows and in the log's
+  images, until nothing of them is left. The strip is a transaction of its own after the blocks'
+  share, so a failing strip holds back no block and is tried again on the next pass
+  (`fl_backend/app/api/bewerbungen/sweep_router.py :: strip_the_confirmations`,
+  `docs/backend/spec.md :: I778`). Which way each club answered,
   its day, the answering role and a proposed date stay, naming nobody, and the rows have no clock of
   their own, a season's fixtures being kept as the league's record. A person's erasure or
   Widerspruch takes their part sooner ([section 5](#5-erasure-reaches-everyone-who-asks)). A
