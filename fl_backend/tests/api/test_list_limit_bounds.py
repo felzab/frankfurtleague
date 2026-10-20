@@ -24,6 +24,10 @@ LIMIT_FLOOR = 1
 # The filter reaching no list: `GET /teams/{team_id}` is handed the id, so it has nothing to page.
 UNPAGED_BY_DECISION = frozenset({"FLTeamSingleFilterParams"})
 
+# What a paged filter cannot be asked without, given beside every `limit` asked of it: rows of every season would
+# answer for fixtures no list shows.
+REQUIRED_TERMS: dict[str, dict[str, object]] = {"FLSpielbestaetigungenFilterParams": {"saison_id": "2025"}}
+
 
 def _declared_models() -> list[type[BaseModel]]:
     """Every model the schema modules declare, the private bases among them, each read off the module that declares it."""
@@ -115,16 +119,23 @@ MINIMUM_EXPECTED_LIMIT_DECLARATIONS = 8
 def test_a_paged_filter_takes_the_shared_default_and_refuses_either_side_of_the_shared_bounds(label: str, model: type[BaseModel]):
     """Asked as a REQUEST, so a bound restated through `Annotated` or a validator is swept the same."""
 
-    served = model.model_validate({}).model_dump()
+    required = REQUIRED_TERMS.get(label, {})
+    if required:
+        with pytest.raises(ValidationError):
+            model.model_validate({})
+
+    served = model.model_validate(required).model_dump()
 
     assert served[LIMIT] == LIST_LIMIT_DEFAULT, f"{label} pages a caller who asked for nothing at {served[LIMIT]}"
 
     for accepted in (LIMIT_FLOOR, LIST_LIMIT_MAX):
-        assert model.model_validate({LIMIT: accepted}).model_dump()[LIMIT] == accepted, f"{label} refuses {accepted}, inside the shared bounds"
+        assert model.model_validate({**required, LIMIT: accepted}).model_dump()[LIMIT] == accepted, (
+            f"{label} refuses {accepted}, inside the shared bounds"
+        )
 
     for refused in (LIMIT_FLOOR - 1, LIST_LIMIT_MAX + 1):
         with pytest.raises(ValidationError):
-            model.model_validate({LIMIT: refused})
+            model.model_validate({**required, LIMIT: refused})
 
 
 @pytest.mark.parametrize("owner,call", LIMIT_DECLARATIONS, ids=[owner for owner, _ in LIMIT_DECLARATIONS])

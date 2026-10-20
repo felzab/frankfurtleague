@@ -2,7 +2,7 @@ import logging
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
-from typing import Any, cast
+from typing import Any, Literal, cast
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -41,6 +41,7 @@ from app.api.spielbestaetigungen.sweep_router import (
 )
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.schemas import FLPatchSpielDataPayload
+from app.api.spiele.services import ANSETZUNG_BESTAETIGT, build_spiele_pipeline
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
 from app.core.collections import Collection
@@ -492,6 +493,45 @@ class TestAFixtureCalledOffAndReinstatedIsAskedAgain:
         assert Counter((row["geschlossen"] or {}).get("grund") for row in stored) == {"abgesagt": 3, None: 3}
 
 
+def answered(antwort: Literal["zugesagt", "abgelehnt"]) -> dict[str, Any]:
+    """A seat's answer as its press stores it, a decline proposing the day after."""
+
+    return compose_antwort_update(
+        antwort=antwort,
+        seat="trainer",
+        adresse=None,
+        schluessel=build_test_config().sperrliste_schluessel,
+        vorschlag=FLSpielbestaetigungTermin(datum=days_after(day=NEXT_WEEK, days=1), uhrzeit="18:00:00") if antwort == "abgelehnt" else None,
+        begruendung="Klassenfahrt" if antwort == "abgelehnt" else None,
+        today=TODAY,
+    )
+
+
+async def discard(database: AsyncDatabase, team_id: ObjectId) -> None:
+    """The discard's write as it closes the declining club's own row, its decline standing."""
+
+    declined = {"$set": {**answered("abgelehnt")["$set"], **compose_closing_update(grund="verworfen", today=TODAY)["$set"]}}
+    await database[Collection.SPIELBESTAETIGUNGEN].update_one({"partei.team_id": team_id}, declined)
+
+
+async def verdict(database: AsyncDatabase) -> bool | None:
+    cursor = await database[Collection.SPIELE].aggregate(build_spiele_pipeline(db_filter={"_id": SPIEL}))
+    (document,) = await cursor.to_list()
+
+    return document[ANSETZUNG_BESTAETIGT]
+
+
+async def alphas_discard_beside_betas_agreement(database: AsyncDatabase, client: AsyncMongoClient) -> ObjectId:
+    """Every row asked and mailed, so a notice the close owed would be answered; the discarded row's id."""
+
+    await sweep(database, client)
+    await angefragt(database, client, [row["_id"] for row in await rows(database)])
+    await discard(database, ALPHA)
+    await database[Collection.SPIELBESTAETIGUNGEN].update_one({"partei.team_id": BETA}, answered("zugesagt"))
+
+    return row_of(await rows(database), team_id=ALPHA)["_id"]
+
+
 class TestADiscardedDeclineIsNotAskedAgain:
     """`docs/backend/spec.md :: I768`: a club declines once per Ansetzung, so the decline the administrator discarded is its answer."""
 
@@ -499,22 +539,7 @@ class TestADiscardedDeclineIsNotAskedAgain:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
             await angefragt(database, client, [row["_id"] for row in await rows(database)])
-            # The discard's write as it closes the declining club's own row, its decline standing.
-            declined = {
-                "$set": {
-                    **compose_antwort_update(
-                        antwort="abgelehnt",
-                        seat="trainer",
-                        adresse=None,
-                        schluessel=build_test_config().sperrliste_schluessel,
-                        vorschlag=FLSpielbestaetigungTermin(datum=days_after(day=NEXT_WEEK, days=1), uhrzeit="18:00:00"),
-                        begruendung="Klassenfahrt",
-                        today=TODAY,
-                    )["$set"],
-                    **compose_closing_update(grund="verworfen", today=TODAY)["$set"],
-                }
-            }
-            await database[Collection.SPIELBESTAETIGUNGEN].update_one({"partei.team_id": BETA}, declined)
+            await discard(database, BETA)
             discarded = await sweep(database, client)
             await move(database, client, SPIEL, uhrzeit="19:00:00")
             moved = await sweep(database, client)
@@ -525,6 +550,63 @@ class TestADiscardedDeclineIsNotAskedAgain:
 
         assert (discarded.anfragen, discarded.einteilungen) == ([], [])
         assert sorted(anfrage.seite for anfrage in moved.anfragen) == ["team1", "team2"]
+
+
+AUSTRITT_ON_THE_DAY = {"austritt": {"type": "rueckzug", "grund": "Schulwechsel", "datum": NEXT_WEEK}}
+
+
+class TestADiscardEndsWhereAnAgreementBesideItEnds:
+    """`docs/backend/spec.md :: I763`: the public verdict counts a discard as its club's agreement only while an agreement would count."""
+
+    @pytest.mark.parametrize(
+        ("saison_team", "spiel", "today", "grund"),
+        [
+            pytest.param(AUSTRITT_ON_THE_DAY, {}, TODAY, "austritt", id="the agreeing club gone by the day"),
+            pytest.param({}, {"team1.tore": 2}, TODAY, "spiel_entschieden", id="decided"),
+            pytest.param({}, {"sonderereignis": "ausgefallen"}, TODAY, "abgesagt", id="called off"),
+            pytest.param({}, {}, days_after(day=NEXT_WEEK, days=1), "spiel_vergangen", id="its day gone by"),
+        ],
+    )
+    def test_the_pass_closing_the_agreement_ends_the_discard_and_tells_nobody(
+        self, mongo_replica_set_url: str, saison_team: dict[str, Any], spiel: dict[str, Any], today: str, grund: str
+    ):
+        """Kept, the discard alone would read the fixture provisional where two agreements read null; ended, it owes no notice."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await alphas_discard_beside_betas_agreement(database, client)
+            if saison_team:
+                await database[Collection.SAISON_TEAMS].update_one({"team_id": BETA, "saison_id": SAISON_ID}, {"$set": saison_team})
+            if spiel:
+                await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": spiel})
+            before = await verdict(database)
+            answer = await sweep(database, client, today=today)
+
+            return before, answer, await verdict(database), await rows(database)
+
+        before, answer, after, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        assert (before, after) == (True, None)
+        # Both clubs' rows and the referee's, the discard among them.
+        assert (len(stored), {row["geschlossen"]["grund"] for row in stored}) == (3, {grund})
+        # The referee's notice among them: a club's ended discard is neither a move nor a referee change.
+        assert (answer.neue_ansetzungen, answer.schiedsrichter_neue_ansetzungen, answer.schiedsrichter_gewechselt) == ([], [], [])
+
+    def test_a_discard_about_an_ansetzung_the_fixture_left_ends_once_its_day_has_passed(self, mongo_replica_set_url: str):
+        """The move keeps it, the club's answer to that Ansetzung; kept past its day it would be read by every pass for good."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            discarded = await alphas_discard_beside_betas_agreement(database, client)
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
+            await sweep(database, client)
+            kept = await database[Collection.SPIELBESTAETIGUNGEN].find_one({"_id": discarded})
+            await sweep(database, client, today=days_after(day=NEXT_WEEK, days=1))
+            ended = await database[Collection.SPIELBESTAETIGUNGEN].find_one({"_id": discarded})
+
+            return kept, ended
+
+        kept, ended = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        assert (kept["geschlossen"]["grund"], ended["geschlossen"]["grund"]) == ("verworfen", "spiel_vergangen")
 
 
 class TestAMovedFixtureAsksAgain:

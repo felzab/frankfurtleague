@@ -1427,8 +1427,7 @@ const LANDINGS: Record<string, Landing> = {
   "a confirmation's settle, on the next open row's press": {
     before: () => bestaetigungPanel([OFFEN_TEAM1, OFFEN_TEAM2]),
     press: async (user) => {
-      const [box] = screen.getAllByRole("textbox", { name: "Begründung für die Zusage" });
-      await user.type(box ?? assert.fail("the first open row offers no reason box"), "Am Telefon zugesagt.");
+      await user.type(screen.getByRole("textbox", { name: "Begründung für die Zusage: SG Alpha" }), "Am Telefon zugesagt.");
       await pressTwice(user, { resting: "Auf Zusage setzen: SG Alpha", armed: "Ja, auf Zusage setzen" });
     },
     after: () => bestaetigungPanel([{ ...OFFEN_TEAM1, antwort: ZUSAGE_DER_VERWALTUNG }, OFFEN_TEAM2]),

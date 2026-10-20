@@ -232,13 +232,14 @@ async def the_address_change_request(database: AsyncDatabase, client: AsyncMongo
 
     return await post_adresswechsel(
         spieler_id=holder["_id"],
-        adresswechsel_data=FLSpielerAdresswechselPayload.model_validate({"email": "thessaly.neu@beispielschule.de"}),
+        adresswechsel_data=FLSpielerAdresswechselPayload.model_validate({"email": "thessaly.neu@beispielschule.de", "grund": None}),
+        records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
-        today=TODAY,
         germany_now=NOW,
     )
 

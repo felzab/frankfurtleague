@@ -2216,7 +2216,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}": {
       "get": {
         "summary": "One Schiedsrichter",
-        "description": "Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).\n\nDeactivated ones included -- a historical match references them by id. The ghost answers 404, as\ndoes an id whose referee has been erased: the document is gone\n(`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).\n\nAnswers whether each link's deadline has passed today, by the rule its own press refuses on, so the\neditor marks a lapsed link without reading a day of its own.",
+        "description": "Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).\n\nDeactivated ones included -- a historical match references them by id. The ghost answers 404, as\ndoes an id whose referee has been erased: the document is gone\n(`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).\n\nAnswers whether the consent link's deadline has passed today, and whether the address change's pending step has lapsed,\neach by the rule its own clock removes it on, so the editor marks a lapsed link without reading a clock of its own.",
         "operationId": "get_schiedsrichter_by_id_api_v0_schiedsrichter__schiedsrichter_id__get",
         "security": [
           {
@@ -2272,7 +2272,7 @@
       },
       "patch": {
         "summary": "Update a Schiedsrichter and fan the change out",
-        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one** in\n`bestaetigung`, for the caller to mail to the new address: the old link was posted to a mailbox\nnobody reads, and leaving it live is a credential in the wrong inbox.\n\n**A CONFIRMED referee's address does not move on this save.** The stored address stays in force,\nand the typed one is held as a pending change until its own mailbox confirms it, the save\nanswering `adresswechsel` with that link and the address it replaces, for the caller to mail the\nlink to the new address and a notice to the stored one. Retired or not: the record is theirs\neither way. A new pending change replaces an earlier one, whose link stops working, and where it\nnames another mailbox the earlier address goes from the action log as a decline's does\n(`docs/backend/spec.md :: I562`); a save leaving the address alone leaves a pending change\nstanding. Its consent is never asked again.\n\n**A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is\ncollected for a role nobody gives them. Their old link is retired all the same, and the\nreactivation mints the fresh one. Where either link is minted, a banned new address is refused\n`REQ-SCHIEDSRICHTER-007`. A save retiring or minting a link is refused `REQ-AUTH-009` from a\nsign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
+        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one** in\n`bestaetigung`, for the caller to mail to the new address: the old link was posted to a mailbox\nnobody reads, and leaving it live is a credential in the wrong inbox.\n\n**A CONFIRMED referee's address is refused here** (`REQ-SCHIEDSRICHTER-011`), retired or not: it is who signs in as the\nperson, and moves only through `POST /schiedsrichter/{schiedsrichter_id}/adresswechsel` or the person's own account page.\nA save keeping it lands, a pending change standing.\n\n**A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is\ncollected for a role nobody gives them. Their old link is retired all the same, and the\nreactivation mints the fresh one. Where a link is minted, a banned new address is refused\n`REQ-SCHIEDSRICHTER-007`. A save retiring or minting a link is refused `REQ-AUTH-009` from a\nsign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
         "operationId": "patch_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__patch",
         "security": [
           {
@@ -2316,7 +2316,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SCHIEDSRICHTER-007"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SCHIEDSRICHTER-007.REQ-SCHIEDSRICHTER-011"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -4402,7 +4402,7 @@
     "/api/v0/spieler/memberships": {
       "get": {
         "summary": "Every Spieler with their squad rows",
-        "description": "Every player, retired ones included, each with every squad row they hold.\n\n`GET /spieler` answers it at no setting: the junction join is strict with a `saison_id`, and\nwithout one a player with no live row has `nummer` and `position` null.\n\nA pending address change is served without its token hash, beside whether its link has lapsed today\nby the rule its confirmation refuses on, so the editor marks a lapsed link without reading a day of its own.",
+        "description": "Every player, retired ones included, each with every squad row they hold.\n\n`GET /spieler` answers it at no setting: the junction join is strict with a `saison_id`, and\nwithout one a player with no live row has `nummer` and `position` null.\n\nA pending address change is served without its hashes, beside whether the step it waits on has lapsed by the\nrule the hourly pass removes it on, so the editor marks a lapsed change without reading a clock of its own.",
         "operationId": "get_spieler_memberships_api_v0_spieler_memberships_get",
         "responses": {
           "200": {
@@ -4556,8 +4556,8 @@
     },
     "/api/v0/spieler/{spieler_id}/adresswechsel": {
       "post": {
-        "summary": "Ask a Spieler's new address to confirm itself",
-        "description": "Hold a new address for this pupil until its own mailbox confirms it, answering the link's raw token once with both addresses.\n\n**The stored address does not move here.** It stays in force, the sign-in and the account page keyed on it, until the\nholder of the new mailbox confirms through `POST /spieler/adresswechsel`; the caller mails the link to the new address and\na notice to the stored one. The whole pending block is written, so a change already pending is replaced and its link\nopens nothing, and where it named another mailbox that address goes from every image the action log holds of this pupil,\nas a decline's does.\n\nRefused where the pupil holds no address (`REQ-SPIELER-008`): this corrects an address and enters none. Refused where the\ntyped address is the stored one already (`REQ-SPIELER-007`), where the ban list holds it (`REQ-SPIELER-003`), and where\nanother pupil signs in on it (`REQ-SPIELER-006`). 404 for an id no pupil holds, the sentinel's included.",
+        "summary": "Start a Spieler's address change for a person who cannot sign in",
+        "description": "Start a change of the address this pupil signs in on, for a person who cannot sign in, answering its raw links once.\n\n**Nothing moves here.** Without a `grund` the change asks the address on file first: the caller mails it the request with\nits stop link, and nothing goes to the new mailbox until that address approves on its account page. With a `grund`,\nrecording how the administrator established who asks, the caller mails the new mailbox its link and the address on file a\nnotice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new mailbox confirms. A\nchange already pending on any record of this address is ended, its addresses out of the log images as a decline's are.\n`adresse_belegt` says whether the new address holds records of its own, which the confirmation would join to these.\n\nRefused where the pupil holds no address (`REQ-SPIELER-008`), where the typed address is the stored one already\n(`REQ-SPIELER-007`), where the ban list holds it (`REQ-SPIELER-003`), where another pupil signs in on it\n(`REQ-SPIELER-006`), and where the reason names a person of the records the change would move (`REQ-SPIELER-009`). 404 for\nan id no pupil holds, the sentinel's included.",
         "operationId": "post_adresswechsel_api_v0_spieler__spieler_id__adresswechsel_post",
         "security": [
           {
@@ -4601,7 +4601,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "422": {
-            "$ref": "#/components/responses/422.REQ-VAL-001"
+            "$ref": "#/components/responses/422.REQ-SPIELER-009.REQ-VAL-001"
           },
           "default": {
             "$ref": "#/components/responses/default"
@@ -4684,7 +4684,7 @@
     "/api/v0/spieler/{spieler_id}/adresswechsel/einladen": {
       "post": {
         "summary": "Send a Spieler's pending address a fresh link",
-        "description": "Mint a fresh link for this pupil's pending address, answering the raw token once with both addresses, for the caller to mail.\n\nIt replaces the whole pending block but its address, so the previous link stops working at once and the delivery state of\nthe message it went out in goes with it. The deadline restarts from today, and a deadline already passed is no refusal\nwhile the change stands, which is until the hourly pass the day after it removes the change (`docs/backend/spec.md :: I693`):\nafter that the new address is entered again.\n\nRefused where the pupil has come to hold no address (`REQ-SPIELER-008`), which leaves no address for the notice, where the ban\nlist holds the pending address (`REQ-SPIELER-003`) and where another pupil has come to sign in on it (`REQ-SPIELER-006`). 404\nwhere the pupil holds no pending change, and for an id no pupil holds, the sentinel's included.",
+        "description": "Mint the new mailbox a fresh link for this pupil's pending change, answering the raw token once, for the caller to mail.\n\nThe previous link stops working at once and the delivery state of the message it went out in goes with it; the deadline\nrestarts now. The stop link stays, so the address on file is mailed nothing again. A lapsed link is no refusal while\nthe change stands, which is until the next hourly pass removes it (`docs/backend/spec.md :: I693`).\n\nRefused where the pupil has come to hold no address (`REQ-SPIELER-008`), where the ban list holds the pending address\n(`REQ-SPIELER-003`) and where another pupil has come to sign in on it (`REQ-SPIELER-006`). 404 unless the change waits on\nthe new mailbox, a change awaiting its approval or confirmed and waiting having no link to re-send, and for an id no pupil\nholds, the sentinel's included.",
         "operationId": "einladen_adresswechsel_api_v0_spieler__spieler_id__adresswechsel_einladen_post",
         "security": [
           {
@@ -5766,11 +5766,11 @@
         "x-fl-tier": "admin"
       }
     },
-    "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": {
+    "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel": {
       "post": {
-        "summary": "Send a Schiedsrichter's pending address a fresh link",
-        "description": "Mint a fresh link for this referee's pending address change and answer the raw token once, with both addresses, for the caller to mail.\n\nIt replaces the whole pending block but its address, so the previous link stops working at once and the delivery state of\nthe message it went out in goes with it. The deadline restarts from today, and a deadline already passed is no refusal\nwhile the change stands, which is until the hourly pass the day after it removes the change (`docs/backend/spec.md :: I693`):\nafter that the new address is entered again.\n\nRefused where the pending address is on the ban list (`REQ-SCHIEDSRICHTER-007`). 404 where the referee holds no pending\nchange, and for an id no referee holds, the ghost's included.",
-        "operationId": "einladen_adresswechsel_api_v0_schiedsrichter__schiedsrichter_id__adresswechsel_einladen_post",
+        "summary": "Start a Schiedsrichter's address change for a person who cannot sign in",
+        "description": "Start a change of the address a CONFIRMED referee signs in on, for a person who cannot sign in, answering its raw links once.\n\nThe pupil's twin (`POST /spieler/{spieler_id}/adresswechsel`), its `grund`, its two ways and its answer alike: nothing\nmoves here, and a change already pending on any record of this address is ended.\n\nRefused where the typed address is the stored one already (`REQ-SCHIEDSRICHTER-012`), where the ban list holds it\n(`REQ-SCHIEDSRICHTER-007`), where the change would move this address's pupil row onto an address another pupil signs in on\n(`REQ-SPIELER-006`), and where the reason names a person of the records the change would move (`REQ-SCHIEDSRICHTER-013`).\nRefused where the referee has not confirmed (`REQ-SCHIEDSRICHTER-014`), whose address the editor's save corrects, and\nwhere the row holds no usable address (`REQ-SCHIEDSRICHTER-006`). 404 for an id no referee holds, the ghost's included.",
+        "operationId": "post_adresswechsel_api_v0_schiedsrichter__schiedsrichter_id__adresswechsel_post",
         "security": [
           {
             "HTTPBearer": []
@@ -5788,6 +5788,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSchiedsrichterAdresswechselPayload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5803,13 +5813,13 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "422": {
-            "$ref": "#/components/responses/422.REQ-VAL-001"
+            "$ref": "#/components/responses/422.REQ-SCHIEDSRICHTER-013.REQ-VAL-001"
           },
           "default": {
             "$ref": "#/components/responses/default"
           },
           "400": {
-            "$ref": "#/components/responses/400.REQ-AUTH-005"
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
@@ -5818,16 +5828,14 @@
             "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "409": {
-            "$ref": "#/components/responses/409.REQ-SCHIEDSRICHTER-007"
+            "$ref": "#/components/responses/409.REQ-SCHIEDSRICHTER-006.REQ-SCHIEDSRICHTER-007.REQ-SCHIEDSRICHTER-012.REQ-SCHIEDSRICHTER-014.REQ-SPIELER-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
         },
         "x-fl-tier": "admin"
-      }
-    },
-    "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel": {
+      },
       "delete": {
         "summary": "Discard a Schiedsrichter's pending address change",
         "description": "Discard this referee's pending address change: the block goes, its link opens nothing, and the stored address stays.\n\n**The address goes from the action log too** (`docs/backend/spec.md :: I562`): it is taken out of every image the log\nholds of this referee, since every write on the row while the change stood, a re-send or this discard included, filed one\ncarrying an address nobody proved; the rest of each image stays. Nothing is mailed. 404 where the referee holds no pending\nchange, and for an id no referee holds, the ghost's included.",
@@ -5877,6 +5885,67 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": {
+      "post": {
+        "summary": "Send a Schiedsrichter's pending address a fresh link",
+        "description": "Mint the new mailbox a fresh link for this referee's pending change, as `POST /spieler/{spieler_id}/adresswechsel/einladen` does.\n\nThe previous link stops working at once, its message's delivery state with it, and the deadline restarts now; the stop\nlink stays, so the address on file is mailed nothing again.\n\nRefused where the ban list holds the pending address (`REQ-SCHIEDSRICHTER-007`), and where the change would move this\naddress's pupil row onto an address another pupil has come to sign in on (`REQ-SPIELER-006`). 404 unless the change waits\non the new mailbox, and for an id no referee holds, the ghost's included.",
+        "operationId": "einladen_adresswechsel_api_v0_schiedsrichter__schiedsrichter_id__adresswechsel_einladen_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "schiedsrichter_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Schiedsrichter Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterAdresswechselMintResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-SCHIEDSRICHTER-007.REQ-SPIELER-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -7023,6 +7092,18 @@
               ],
               "title": "Spiel Id"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1024,
+              "minimum": 1,
+              "default": 1024,
+              "title": "Limit"
+            }
           }
         ],
         "responses": {
@@ -7059,7 +7140,7 @@
       },
       "post": {
         "summary": "Confirm a fixture's Ansetzung, or decline it proposing another date",
-        "description": "Record one club's answer about one Ansetzung, from whichever of its three seats presses first, and the seat it came from.\n\nThe first press binds: the write itself takes only a row neither answered nor closed, so two seats pressing at once\nare one answer and one `REQ-ANSETZUNG-002`. Writes no fixture: a proposal is the administrator's to act on.\n\nRefuses, in this order: a token no seat holds (`REQ-ANSETZUNG-001`); a link whose seat's address the ban list holds\nnow, whenever it was minted (`REQ-ANSETZUNG-011`); a row already answered, closed since or not\n(`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club\n(`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the link (`REQ-ANSETZUNG-004`), each\nas the confirmation pass's close judges the row; an answer after the deadline's day (`REQ-ANSETZUNG-003`); a\nproposal dated before today (`REQ-ANSETZUNG-007`); and a proposal the administrator's own save of that date would be\nrefused, judged on what it newly claims and in that save's order: on or after a club's exit\n(`REQ-ELIGIBILITY-001`), outside the matchday (`REQ-DATE-001`), or within four hours of the ground's or the referee's\nother fixture (`REQ-CLASH-001`). The reason is stored as typed. Every refusal after the ban's is asked again outside\nthe transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather\nthan letting it stand.",
+        "description": "Record one club's answer about one Ansetzung, from whichever of its three seats presses first, and the seat it came from.\n\nThe first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered\n(`REQ-ANSETZUNG-002`). Writes no fixture: a proposal is the administrator's to act on.\n\nRefuses, in this order: a token no seat holds (`REQ-ANSETZUNG-001`); a link whose seat's address the ban list holds\nnow, whenever it was minted (`REQ-ANSETZUNG-011`); a row already answered, closed since or not\n(`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club\n(`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the link (`REQ-ANSETZUNG-004`), each\nas the confirmation pass's close judges the row; an answer after the deadline's day (`REQ-ANSETZUNG-003`); a\nproposal dated before today (`REQ-ANSETZUNG-007`); and a proposal the administrator's own save of that date would be\nrefused, judged on what it newly claims and in that save's order: on or after a club's exit\n(`REQ-ELIGIBILITY-001`), outside the matchday (`REQ-DATE-001`), or within four hours of the ground's or the referee's\nother fixture (`REQ-CLASH-001`). The reason is stored as typed. Every refusal after the ban's is asked again outside\nthe transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather\nthan letting it stand.",
         "operationId": "post_spielbestaetigung_api_v0_spielbestaetigungen_post",
         "security": [
           {
@@ -7192,7 +7273,7 @@
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/verwerfen": {
       "post": {
         "summary": "Discard a club's proposed date",
-        "description": "Close a club's open decline that proposes another date, so the proposal stops asking the administrator to act.\n\nIRREVERSIBLE: the decline stays as the club gave it, and the row is closed `verworfen`, which is that club's one\nanswer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture\ncounts it as the club's agreement, the league having kept the date. Refused for any other row -- open, agreed,\ndeclined without a proposal, a referee's, or closed (`REQ-ANSETZUNG-014`).",
+        "description": "Close a club's open decline that proposes another date, so the proposal stops asking the administrator to act.\n\nIRREVERSIBLE: the decline stays as the club gave it, and the row is closed `verworfen`, which is that club's one\nanswer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture\ncounts it as the club's agreement, the league having kept the date, until a pass closes it again as it closes an\nagreement beside it. Refused for any other row -- open, agreed, declined without a proposal, a referee's, closed, or\nabout an Ansetzung the fixture has left, the fixture moving while this request runs included (`REQ-ANSETZUNG-014`):\nthe confirmation pass closes that row and tells its club of the move.",
         "operationId": "verwerfen_spielbestaetigung_api_v0_spielbestaetigungen__spielbestaetigung_id__verwerfen_post",
         "security": [
           {
@@ -8092,7 +8173,7 @@
     "/api/v0/schiedsrichter/adresswechsel/ansicht": {
       "post": {
         "summary": "What one Schiedsrichter address link opens",
-        "description": "Answer what this token opens: the link's state and its deadline.\n\n**Nothing else about the row** (`READ-REFEREE-003`): never a name, either address, the school, the fee or the id. The link\nwent to an address nobody has confirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a\nbody and never in a second URL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`), which an answered, replaced or discarded change is too: an\nanswer removes what the link opens. An expired link is SERVED in that state rather than refused, and the state is `gesperrt`,\nahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`), and\n`nicht_bestaetigbar`, behind the deadline, wherever it holds the address the change would replace (`REQ-SCHIEDSRICHTER-010`):\neach state the confirmation would be refused in.",
+        "description": "Answer what this token opens: the new mailbox's link, or the stop link the address on file was mailed.\n\n**Nothing else about the row** (`READ-REFEREE-003`): never a name, either address, the school, the fee or the id. The link\nwent to an address nobody has confirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a\nbody and never in a second URL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`), which an answered, stopped, replaced or discarded change\nis too. The new mailbox's side is served in a state: `gesperrt` ahead of every other wherever the ban list holds the address\nthe link was mailed to, then `abgelaufen`, then `nicht_bestaetigbar` wherever it holds the address the change would replace\nor another pupil signs in on the new one where the change moves a pupil row too. The stop side answers the step the change\nwaits on and until when, and never whether it could be confirmed: the stop is refused nothing.",
         "operationId": "get_adresswechsel_ansicht_api_v0_schiedsrichter_adresswechsel_ansicht_post",
         "requestBody": {
           "content": {
@@ -8146,13 +8227,13 @@
     "/api/v0/schiedsrichter/adresswechsel": {
       "post": {
         "summary": "Confirm or decline one Schiedsrichter's pending address",
-        "description": "Record whether the mailbox this link was sent to is the referee's: `bestaetigt` moves their address to it, `abgelehnt` discards the change.\n\nEither answer ends the change, so the link opens nothing afterwards. The confirmation asks no consent and writes none: the\nconsent record stands as the referee gave it, and only `kontakt.email` moves.\n\nRefuses a token no referee holds (`REQ-SCHIEDSRICHTER-002`), and, in this order, a CONFIRMATION through a link mailed to an\naddress the ban list holds now (`REQ-SCHIEDSRICHTER-009`), one whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), and one\nwhose change would replace an address the ban list holds now (`REQ-SCHIEDSRICHTER-010`), so a barred person cannot move their\nrecord off the address the ban keys on: the order the link's view ranks its states in. **A decline is refused\nneither**: it removes an address nobody proved, which a lapsed or barred link has no reason to keep, and it takes that address out\nof every image the action log holds of this referee, those of every write while the change stood, a re-send included. The rest of\neach image stays, the referee's own earlier states among it.",
+        "description": "Record whether the mailbox this link was sent to is the referee's: `bestaetigt` confirms it, `abgelehnt` discards the change.\n\n**A confirmation moves the person, not the row**, as the pupil's twin does (`POST /spieler/adresswechsel`): unless an\nadministrator started the change with a recorded reason it takes effect here, every pupil row, confirmed referee row,\nconfirmed contact seat and open registration the replaced address holds moving to the new one, and `mitteilung` naming\nwhom the caller's completion notice goes to; a change started with a reason is confirmed alone, answering `wirksam_ab`.\n\nRefuses a token no referee holds (`REQ-SCHIEDSRICHTER-002`), and, in this order, a CONFIRMATION through a link mailed to an\naddress the ban list holds now (`REQ-SCHIEDSRICHTER-009`), one past its deadline (`REQ-SCHIEDSRICHTER-003`), one whose change\nwould replace an address the ban list holds now (`REQ-SCHIEDSRICHTER-010`), and one that would move the replaced address's\npupil row onto an address another pupil signs in on (`REQ-SPIELER-006`): the order the link's view ranks its states in.\n**A decline is refused none of these**: it removes an address nobody proved, and takes it out of every image the action log\nholds of this referee. The rest of each image stays, the referee's own earlier states among it.",
         "operationId": "post_adresswechsel_api_v0_schiedsrichter_adresswechsel_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLSchiedsrichterAdresswechselPayload"
+                "$ref": "#/components/schemas/FLSchiedsrichterAdresswechselAntwortPayload"
               }
             }
           },
@@ -8164,10 +8245,16 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSchiedsrichterAdresswechselResponse"
+                  "$ref": "#/components/schemas/FLSchiedsrichterAdresswechselAntwortResponse"
                 }
               }
             }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001.REQ-SCHIEDSRICHTER-002"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SCHIEDSRICHTER-010.REQ-SPIELER-006"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -8184,14 +8271,61 @@
           "403": {
             "$ref": "#/components/responses/403.REQ-SCHIEDSRICHTER-009"
           },
-          "404": {
-            "$ref": "#/components/responses/404.REQ-SCHIEDSRICHTER-002"
-          },
-          "409": {
-            "$ref": "#/components/responses/409.REQ-SCHIEDSRICHTER-010"
-          },
           "410": {
             "$ref": "#/components/responses/410.REQ-SCHIEDSRICHTER-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base"
+      }
+    },
+    "/api/v0/schiedsrichter/adresswechsel/stopp": {
+      "post": {
+        "summary": "Stop one Schiedsrichter's pending address change",
+        "description": "Stop the change the address on file was told of: the block goes, its new address out of every log image of the referee.\n\n**Refused nothing but a token no referee holds** (`REQ-SCHIEDSRICHTER-002`), as the pupil's twin is\n(`POST /spieler/adresswechsel/stopp`): a stop hands nothing over, so it answers for as long as the change stands.",
+        "operationId": "post_adresswechsel_stopp_api_v0_schiedsrichter_adresswechsel_stopp_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSchiedsrichterAdresswechselStoppPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterAdresswechselStoppResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001.REQ-SCHIEDSRICHTER-002"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -8208,7 +8342,7 @@
     "/api/v0/spieler/adresswechsel/ansicht": {
       "post": {
         "summary": "What one Spieler address link opens",
-        "description": "Answer what this token opens: the link's state and its deadline.\n\n**Nothing else about the row** (`READ-PUPIL-005`): never a name, either address or the id. A POST that reads, so the token\ntravels in a body and never in a second URL.\n\nRefuses only a token no pupil holds (`REQ-SPIELER-001`), which an answered, replaced or discarded change is too: an answer\nremoves what the link opens. An expired link is SERVED in that state rather than refused. The state is `gesperrt`, ahead\nof every other, wherever the ban list holds the address the link was mailed to, and `nicht_bestaetigbar`, behind the\ndeadline, wherever it holds the address the change would replace, the pupil holds no address, or another pupil signs in on\nthe new one: each state the confirmation would be refused in. Those three read alike here, though the press answers each by\nits own code; what keeps the link's holder from telling them apart is the edge, where `nginx/shared/site.conf` routes no\npublic call to this service and the frontend's route handler for the link's page answers all three as this one state.",
+        "description": "Answer what this token opens: the new mailbox's link, or the stop link the address on file was mailed.\n\n**Nothing else about the row** (`READ-PUPIL-005`): never a name, either address or the id. A POST that reads, so the token\ntravels in a body and never in a second URL.\n\nRefuses only a token no pupil holds (`REQ-SPIELER-001`), which an answered, stopped, replaced or discarded change is too.\nThe new mailbox's side is served in a state: `gesperrt` ahead of every other wherever the ban list holds the address the\nlink was mailed to, then `abgelaufen`, then `nicht_bestaetigbar` wherever it holds the address the change would replace,\nthe pupil holds no address, or another pupil signs in on the new one, each a state the confirmation would be refused in.\nThose three read alike here, though the press answers each by its own code; what keeps the link's holder from telling\nthem apart is the edge, where `nginx/shared/site.conf` routes no public call to this service. The stop side answers the\nstep the change waits on and until when, and never whether it could be confirmed: the stop is refused nothing.",
         "operationId": "get_adresswechsel_ansicht_api_v0_spieler_adresswechsel_ansicht_post",
         "requestBody": {
           "content": {
@@ -8262,7 +8396,7 @@
     "/api/v0/spieler/adresswechsel": {
       "post": {
         "summary": "Confirm or decline one Spieler's pending address",
-        "description": "Record whether the mailbox this link was sent to is the pupil's: `bestaetigt` moves their address to it, `abgelehnt` discards the change.\n\nEither answer ends the change, so the link opens nothing afterwards. The confirmation stores the address as the sign-in\ncompares it, asks no consent and writes none: the consent record stands as it was, and only `email` moves.\n\nRefuses a token no pupil holds (`REQ-SPIELER-001`), and, in the order the link's view ranks its states, a CONFIRMATION through a\nlink mailed to an address the ban list holds now (`REQ-SPIELER-004`), one whose deadline has passed (`REQ-SPIELER-002`), one\nfor a pupil who has come to hold no address (`REQ-SPIELER-008`), which a change corrects and never enters, one whose change\nwould replace an address the ban list holds now (`REQ-SPIELER-005`), so a barred person cannot move their record off the address the ban\nkeys on, and one to an address another pupil has come to sign in on (`REQ-SPIELER-006`). **A decline is refused none of these**: it\nremoves an address nobody proved, and it takes that address out of every image the action log holds of this pupil, those of\nevery write while the change stood, a re-send included. The rest of each image stays.\n\nThe last three codes, and `DB-COMMON-002` for an address the erased pupils' sentinel was given by hand, tell a caller what\nthe view's `nicht_bestaetigbar` keeps alike. Only the edge keeps them from the link's holder: `nginx/shared/site.conf` routes no public\ncall to this service, and the frontend's route handler for the link's page answers all four as that one state.",
+        "description": "Record whether the mailbox this link was sent to is the pupil's: `bestaetigt` confirms it, `abgelehnt` discards the change.\n\n**A confirmation moves the person, not the row.** Unless an administrator started the change with a recorded reason, it takes\neffect in this transaction: every pupil row, confirmed referee row, confirmed contact seat and open registration the replaced\naddress holds moves to the new one, asking no consent and writing none, and `mitteilung` names the replaced address and the\nfirst name for the caller's completion notice. A change started with a reason is confirmed alone, answering `wirksam_ab`,\nfrom which the hourly pass makes it take effect. Either answer spends the link.\n\nRefuses a token no pupil holds (`REQ-SPIELER-001`), and, in the order the link's view ranks its states, a CONFIRMATION through\na link mailed to an address the ban list holds now (`REQ-SPIELER-004`), one past its deadline (`REQ-SPIELER-002`), one for a\npupil who has come to hold no address (`REQ-SPIELER-008`), one whose change would replace an address the ban list holds now\n(`REQ-SPIELER-005`), so a barred person cannot move their record off the address the ban keys on, and one to an address another\npupil has come to sign in on (`REQ-SPIELER-006`). **A decline is refused none of these**: it removes an address nobody proved,\nand it takes that address out of every image the action log holds of this pupil. The rest of each image stays.\n\nThe last three codes, and `DB-COMMON-002` for an address the erased pupils' sentinel was given by hand, tell a caller what\nthe view's `nicht_bestaetigbar` keeps alike. Only the edge keeps them from the link's holder: `nginx/shared/site.conf` routes\nno public call to this service, and the frontend's route handler answers all four as that one state.",
         "operationId": "post_adresswechsel_antwort_api_v0_spieler_adresswechsel_post",
         "requestBody": {
           "content": {
@@ -8285,6 +8419,9 @@
               }
             }
           },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001.REQ-SPIELER-001"
+          },
           "409": {
             "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SPIELER-005.REQ-SPIELER-006.REQ-SPIELER-008"
           },
@@ -8303,11 +8440,61 @@
           "403": {
             "$ref": "#/components/responses/403.REQ-SPIELER-004"
           },
-          "404": {
-            "$ref": "#/components/responses/404.REQ-SPIELER-001"
-          },
           "410": {
             "$ref": "#/components/responses/410.REQ-SPIELER-002"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base"
+      }
+    },
+    "/api/v0/spieler/adresswechsel/stopp": {
+      "post": {
+        "summary": "Stop one Spieler's pending address change",
+        "description": "Stop the change the address on file was told of: the block goes, its new address out of every log image of the pupil.\n\n**Refused nothing but a token no pupil holds** (`REQ-SPIELER-001`): a stop hands nothing over, so it answers past every\ndeadline, a barred address's holder too, for as long as the change stands, until it takes effect.",
+        "operationId": "post_adresswechsel_stopp_api_v0_spieler_adresswechsel_stopp_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielerAdresswechselStoppPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerAdresswechselStoppResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001.REQ-SPIELER-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -8412,7 +8599,7 @@
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's retention clocks",
-        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. A seat whose address the ban list holds is\nsent nothing and has nothing written: it stays due, so every pass asks the ban list for it again until its deadline, and\nreminds it once a lift comes first; each pass logs how many mailboxes it withheld, never which. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n\nOne call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline\nfirst; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transactions, so no later step\nof the same call can answer an error in their place; where the request's deadline cuts them after one has committed, the call\nanswers what committed and warns once.\n\nAn application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,\nis passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it\nagain and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks\npassed over: a day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.\n\n404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,\nthough it logs the count of withheld seats again.\n\nThe accepted clock and the contact block run once a later season has ended while this one is not `active`, the moment the\nseason-after rule stops keeping this season's pupils: a running season keeps both, and a later season planned and never run\nholds neither back. A season whose id is not a four-digit year fails the whole pass rather than running the four clocks\nthat need no later season, because a pass that skipped those two quietly would leave both stopped for ever with nothing\nanywhere saying so. From that moment every pass also strips the season's fixture confirmation team rows, on the rows and in\ntheir log images, of whatever is still left on them: every seat's link entry, each reason whoever gave it, and a contact's\nholder digest; which way each answer went, its day and the answering role stay as the season's record. The strip is a\ntransaction of its own after the blocks' share: one that fails is logged under the season's id and counted in\n`fehlgeschlagen`, and the blocks clear all the same.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
+        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. A seat whose address the ban list holds is\nsent nothing and has nothing written: it stays due, so every pass asks the ban list for it again until its deadline, and\nreminds it once a lift comes first; each pass logs how many mailboxes it withheld, never which. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n\nOne call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline\nfirst; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transactions, so no later step\nof the same call can answer an error in their place; where the request's deadline cuts them after one has committed, the call\nanswers what committed and warns once.\n\nAn application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,\nis passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it\nagain and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks\npassed over: a day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.\n\n404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,\nthough it logs the count of withheld seats again.\n\nThe accepted clock and the contact block run once a later season has ended while this one is not `active`, the moment the\nseason-after rule stops keeping this season's pupils: a running season keeps both, and a later season planned and never run\nholds neither back. A season whose id is not a four-digit year fails the whole pass rather than running the four clocks\nthat need no later season, because a pass that skipped those two quietly would leave both stopped for ever with nothing\nanywhere saying so. From that moment every pass also strips the season's fixture confirmation rows, referees' too, on\nthe rows and in their log images, of what is left on them: every seat's link entry, each reason whoever gave it, and a\ncontact's holder digest; which way each answer went, its day and the answering role stay as the season's record. The strip is a\ntransaction of its own after the blocks' share: one that fails is logged under the season's id and counted in\n`fehlgeschlagen`, and the blocks clear all the same.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
         "operationId": "sweep_saison_api_v0_bewerbungen_sweep__saison_id__post",
         "security": [
           {
@@ -9259,8 +9446,8 @@
     },
     "/api/v0/schiedsrichter/sweep/adresswechsel": {
       "post": {
-        "summary": "Remove the pending referee and pupil addresses whose link lapsed",
-        "description": "Remove a bounded share of the pending addresses whose link lapsed before today in Europe/Berlin, a confirmed referee's and a pupil's.\n\nThe day after a link's deadline, the pending address goes as an administrator's discard takes it: the block and its link,\nand the address out of every log image of that referee or pupil, the rest of each image standing. The row and the address\non file stand, a retired referee's or pupil's included. The deadline's own day still takes the link, so a change lapsing\ntoday is left. Nothing is mailed.\n\nEach change is removed in a transaction of its own that judges the lapse again, so a change confirmed, discarded or sent a\nfresh link since this call read it is left standing. **A pass is a run of calls, each handing the next the `nach` the last\nanswered**, the first naming none; it ends at the call answering `nach` null. A call reaches at most a fixed share of the\nlapsed changes after `nach`, the referees' and the pupils' in one `_id` order, and the pass holds no state on the server.\nA change whose removal fails, the database refusing it or anything else, is logged by its row's id and passed, so it holds\nback nobody behind it in the pass; it stays lapsed, and the next pass tries it again. Where the request's deadline cuts the\ncall, it stops at that change, warns once, and answers what it did. `verbleibend` counts the lapsed changes standing after\nthe call, so it is no stopping condition.",
+        "summary": "Remove the lapsed address changes, and make the due ones take effect",
+        "description": "Remove a bounded share of the pending changes whose waiting step lapsed, and make the due ones take effect, a referee's and a pupil's.\n\n**A lapsed change** -- its link, or the approval it asked of the address on file -- goes as an administrator's discard\ntakes it: the block, and its address out of every log image of that row, the rest of each image standing (`entfernt`).\n**A due change**, one an administrator started with a reason whose waiting time has ended, is judged again as its\nconfirmation was: a ban on either address, a replaced address held by nobody, or another pupil signing in on the new\none removes it as a lapse is (`verworfen`); otherwise every record of the replaced address moves, and `wirksam` names\nwhom the caller mails the completion notice, never the new address.\n\nEach change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or\nreplaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `nach` the last\nanswered**, the first naming none; it ends at the call answering `nach` null. A call reaches at most a fixed share of the\nchanges after `nach`, both lanes in one `_id` order, and the pass holds no state on the server. A change whose handling\nfails is logged by its row's id and passed, holding back nobody behind it; it stays due, and the next pass tries it\nagain. Where the request's deadline cuts the call, it stops at that change, warns once, and answers what it did.\n`verbleibend` counts the changes standing due after the call, so it is no stopping condition.",
         "operationId": "sweep_adresswechsel_api_v0_schiedsrichter_sweep_adresswechsel_post",
         "security": [
           {
@@ -9296,6 +9483,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -9350,7 +9540,7 @@
     "/api/v0/spielbestaetigungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's fixture confirmation pass",
-        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_vergangen`, so nobody is asked about a past date. A\nteam row closed for a move whose first request went out is answered in `neue_ansetzungen`, a referee's in\n`schiedsrichter_neue_ansetzungen`. A referee row closed because the fixture books another referee or none, whose\nEinteilung went out and whose day is today or later, is answered in `schiedsrichter_gewechselt` -- ahead of a move it\nshares a close with, and never for the referee's own decline, which closed its row as it was given.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `verworfen`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed.\nEach seat holding an address gets one link, a person holding two seats one link naming both, and the raw tokens are\nanswered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so a request that never went\nout shows as never asked. An open row's occupied seat holding no link -- its holder replaced,\nnewly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows are answered in\n`einteilungen`, with the referee's address and no token. A fixture holding rows about an Ansetzung it has left is asked\non the pass whose close shuts them, so the notice that their links are void goes out first.\n\nThe reminder mints a fresh link per seat on each team row whose deadline lies a reminder's count of days away\n(`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), appended beside the\nlinks already mailed so every one of them answers until the deadline, and stamps the day BEFORE answering: a failed send\ncosts one reminder, never a daily repeat. It passes over each seat whose last mail the provider refused, and reminds no\nrow this pass inserted nor one whose request was stamped today; where this pass's mint gave one of a row's seats a fresh\nlink, that request is the seat's message of the day and the row's other seats are reminded beside it.\n\nA row whose first request was never stamped as sent, inserted on an earlier pass, is asked again on every pass until a\nstamp lands or its deadline passes: a team row in `anfragen`, with a fresh link per seat appended the same way and each\nrefused seat passed over; a referee row in `einteilungen`, unless the provider refused the last mail recorded to the\nreferee's address. A row with nobody left to ask is not asked and stays unstamped, so it shows as never asked.\n\nA seat whose address the ban list holds is minted nothing and has nothing written, so it stays due and a later pass mints\nit once the ban is lifted; each pass logs how many seats it withheld, never which.\n\nEach step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has\ncommitted something owed a message, a later failure -- the stamp of the pass's day on this season included -- is logged\nand the call answers what committed. A row whose write or answer fails is passed over alone, logged by id and counted in\n`fehlgeschlagen`.\n\nA season that is not `active` is passed by whole -- nothing closed, minted, reminded or stamped, every list empty -- so a\nmistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.",
+        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_vergangen`, so nobody is asked about a past date. A\nclub's decline closed `verworfen` is closed again for each of those but a move and a referee change, in the pass\nthat closes an agreement beside it, and once the day it was about has passed: the public fixture then stops\ncounting it as that club's agreement. A team row closed for a move whose first request went out is answered in\n`neue_ansetzungen`, a referee's in `schiedsrichter_neue_ansetzungen`. A referee row closed because the fixture books\nanother referee or none, whose Einteilung went out and whose day is today or later, is answered in\n`schiedsrichter_gewechselt` -- ahead of a move it shares a close with, and never for the referee's own decline, which\nclosed its row as it was given.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `verworfen`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed.\nEach seat holding an address gets one link, a person holding two seats one link naming both, and the raw tokens are\nanswered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so a request that never went\nout shows as never asked. An open row's occupied seat holding no link -- its holder replaced,\nnewly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows are answered in\n`einteilungen`, with the referee's address and no token. A fixture holding rows about an Ansetzung it has left is asked\non the pass whose close shuts them, so the notice that their links are void goes out first.\n\nThe reminder mints a fresh link per seat on each team row whose deadline lies a reminder's count of days away\n(`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), appended beside the\nlinks already mailed so every one of them answers until the deadline, and stamps the day BEFORE answering: a failed send\ncosts one reminder, never a daily repeat. It passes over each seat whose last mail the provider refused, and reminds no\nrow this pass inserted nor one whose request was stamped today; where this pass's mint gave one of a row's seats a fresh\nlink, that request is the seat's message of the day and the row's other seats are reminded beside it.\n\nA row whose first request was never stamped as sent, inserted on an earlier pass, is asked again on every pass until a\nstamp lands or its deadline passes: a team row in `anfragen`, with a fresh link per seat appended the same way and each\nrefused seat passed over; a referee row in `einteilungen`, unless the provider refused the last mail recorded to the\nreferee's address. A row with nobody left to ask is not asked and stays unstamped, so it shows as never asked.\n\nA seat whose address the ban list holds is minted nothing and has nothing written, so it stays due and a later pass mints\nit once the ban is lifted; each pass logs how many seats it withheld, never which.\n\nEach step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has\ncommitted something owed a message, a later failure -- the stamp of the pass's day on this season included -- is logged\nand the call answers what committed. A row whose write or answer fails is passed over alone, logged by id and counted in\n`fehlgeschlagen`.\n\nA season that is not `active` is passed by whole -- nothing closed, minted, reminded or stamped, every list empty -- so a\nmistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.",
         "operationId": "sweep_spielbestaetigungen_api_v0_spielbestaetigungen_sweep__saison_id__post",
         "security": [
           {
@@ -10465,6 +10655,196 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/konto/adresswechsel": {
+      "get": {
+        "summary": "Whether a signed-in person may change their address",
+        "description": "Answer whether the signed-in address holds a record its own change moves, and the change pending on it.\n\nPERSON TIER. `moeglich` where the address holds a pupil row or a confirmed referee row; `bleibt_verwaltung` where it also\nholds an administrator's grant, which no change moves. **The pending address is never served**, here or to anyone on\nthe side of the address on file: a change an administrator started may be a pretext whose target its holder must not\nlearn either.",
+        "operationId": "get_adresswechsel_api_v0_konto_adresswechsel_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLKontoAdresswechselResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      },
+      "post": {
+        "summary": "Start a change of the signed-in person's address",
+        "description": "Start a change of the address the person signs in on, answering both raw links once, for the frontend's server to mail.\n\nThe new mailbox is mailed its link, and the address on file a notice with a stop link; **every record the address holds\nas its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. A change already\npending on any of those records is ended, an administrator's too: a sign-in at the address on file proves the mailbox is\nnot lost. **Nothing about the new address is judged here** -- the ban list, another pupil and every record it holds are\nthe confirmation's to judge -- so this start answers alike whatever the new address holds.\n\nRefused `REQ-AUTH-009` from a sign-in or confirmation, passkey or code, older than `ENROLMENT_WINDOW_MINUTES`;\n`REQ-FUNKTION-001` where the address holds no pupil row and no confirmed referee row; `REQ-SPIELER-007`, or\n`REQ-SCHIEDSRICHTER-012` where a referee row carries the change, where the typed address is the one signed in; and\n`REQ-DROSSELUNG-001` past the day's count of starts and approvals.",
+        "operationId": "post_adresswechsel_api_v0_konto_adresswechsel_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLKontoAdresswechselPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLKontoAdresswechselMintResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-SCHIEDSRICHTER-012.REQ-SPIELER-007"
+          },
+          "429": {
+            "$ref": "#/components/responses/429.REQ-DROSSELUNG-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      },
+      "delete": {
+        "summary": "Stop the address change pending on the signed-in person",
+        "description": "Stop the change pending on the signed-in address, the stop link's twin: its new address goes, out of every log image too.\n\nAsks no fresh confirmation and counts nothing: a stop hands nothing over. 404 where no change is pending on the address.",
+        "operationId": "delete_adresswechsel_api_v0_konto_adresswechsel_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLKontoAdresswechselResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/konto/adresswechsel/freigabe": {
+      "post": {
+        "summary": "Approve the address change an administrator asked of the signed-in person",
+        "description": "Approve a change an administrator started without a reason, minting the new mailbox's link once, for the frontend's server to mail.\n\n**Nothing reaches the new mailbox before this press** (`docs/backend/spec.md :: I794`). Nothing about the new address is\njudged here either: the approver is owed no answer about it, and the confirmation judges it.\n\nRefused `REQ-AUTH-009` as the start is; 404 where no such change awaits the address's approval; `REQ-SPIELER-002`, or\n`REQ-SCHIEDSRICHTER-003` where a referee row carries the change, past the approval's deadline; and `REQ-DROSSELUNG-001` as\nthe start is.",
+        "operationId": "post_adresswechsel_freigabe_api_v0_konto_adresswechsel_freigabe_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLKontoAdresswechselFreigabeResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008"
+          },
+          "410": {
+            "$ref": "#/components/responses/410.REQ-SCHIEDSRICHTER-003.REQ-SPIELER-002"
+          },
+          "429": {
+            "$ref": "#/components/responses/429.REQ-DROSSELUNG-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      }
+    },
     "/api/v0/identitaet/selbst/erasure": {
       "post": {
         "summary": "Erase every record the signed-in address holds",
@@ -11074,6 +11454,25 @@
           "stadt"
         ],
         "title": "FLAddressPayload"
+      },
+      "FLAdresswechselMitteilung": {
+        "properties": {
+          "bisherige_email": {
+            "type": "string",
+            "title": "Bisherige Email"
+          },
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bisherige_email",
+          "vorname"
+        ],
+        "title": "FLAdresswechselMitteilung",
+        "description": "Whom the completion notice goes to: the replaced address and the first name it greets."
       },
       "FLAktion": {
         "properties": {
@@ -17125,6 +17524,229 @@
         ],
         "title": "FLKontaktpersonPayload"
       },
+      "FLKontoAdresswechselFreigabeResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "art": {
+            "type": "string",
+            "enum": [
+              "spieler",
+              "schiedsrichter"
+            ],
+            "title": "Art"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "gueltig_bis": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Gueltig Bis"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art",
+          "id",
+          "token",
+          "gueltig_bis",
+          "email"
+        ],
+        "title": "FLKontoAdresswechselFreigabeResponse",
+        "description": "The approval, answered ONCE to the frontend's server, which mails the new mailbox its link."
+      },
+      "FLKontoAdresswechselMintResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "art": {
+            "type": "string",
+            "enum": [
+              "spieler",
+              "schiedsrichter"
+            ],
+            "title": "Art"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "stopp_token": {
+            "type": "string",
+            "title": "Stopp Token"
+          },
+          "gueltig_bis": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Gueltig Bis"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "bisherige_email": {
+            "type": "string",
+            "title": "Bisherige Email"
+          },
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art",
+          "id",
+          "token",
+          "stopp_token",
+          "gueltig_bis",
+          "email",
+          "bisherige_email",
+          "vorname"
+        ],
+        "title": "FLKontoAdresswechselMintResponse",
+        "description": "The person's start, answered ONCE to the frontend's server, which mails both links and answers the browser neither."
+      },
+      "FLKontoAdresswechselOffen": {
+        "properties": {
+          "weg": {
+            "type": "string",
+            "enum": [
+              "konto",
+              "freigabe",
+              "wartezeit"
+            ],
+            "title": "Weg"
+          },
+          "wartet_auf": {
+            "type": "string",
+            "enum": [
+              "freigabe",
+              "neue_adresse",
+              "wartezeit"
+            ],
+            "title": "Wartet Auf"
+          },
+          "gueltig_bis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gueltig Bis"
+          },
+          "wirksam_ab": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wirksam Ab"
+          }
+        },
+        "type": "object",
+        "required": [
+          "weg",
+          "wartet_auf",
+          "gueltig_bis",
+          "wirksam_ab"
+        ],
+        "title": "FLKontoAdresswechselOffen",
+        "description": "The address's pending change as its own account page reads it -- NEVER the pending address.\n\nAn administrator's change may be a pretext whose target the holder of the address on file must not learn either."
+      },
+      "FLKontoAdresswechselPayload": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "FLKontoAdresswechselPayload"
+      },
+      "FLKontoAdresswechselResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "moeglich": {
+            "type": "boolean",
+            "title": "Moeglich"
+          },
+          "bleibt_verwaltung": {
+            "type": "boolean",
+            "title": "Bleibt Verwaltung"
+          },
+          "offen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLKontoAdresswechselOffen"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "moeglich",
+          "bleibt_verwaltung",
+          "offen"
+        ],
+        "title": "FLKontoAdresswechselResponse",
+        "description": "Whether the signed-in address may change, and the change pending on it."
+      },
       "FLKontoBewerbungSitzEinwilligung": {
         "properties": {
           "bewerbung_id": {
@@ -18474,16 +19096,6 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/FLSchiedsrichterMint"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "adresswechsel": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSchiedsrichterAdresswechselMint"
               },
               {
                 "type": "null"
@@ -22365,15 +22977,78 @@
             "type": "string",
             "title": "Email"
           },
+          "weg": {
+            "type": "string",
+            "enum": [
+              "konto",
+              "freigabe",
+              "wartezeit"
+            ],
+            "title": "Weg"
+          },
           "verschickt_am": {
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Verschickt Am"
           },
-          "frist": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist"
+          "gueltig_bis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gueltig Bis"
+          },
+          "freigegeben_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freigegeben Am"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          },
+          "bestaetigt_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bestaetigt Am"
+          },
+          "wirksam_ab": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wirksam Ab"
           },
           "zustellung": {
             "anyOf": [
@@ -22389,11 +23064,99 @@
         "type": "object",
         "required": [
           "email",
+          "weg",
           "verschickt_am",
-          "frist"
+          "gueltig_bis",
+          "freigegeben_am",
+          "grund",
+          "bestaetigt_am",
+          "wirksam_ab"
         ],
         "title": "FLSchiedsrichterAdresswechsel",
-        "description": "A confirmed referee's address waiting on its own mailbox, as the editor reads it -- and NO `token_hash`.\n\nKept off the wire for `FLSchiedsrichterBestaetigung`'s reason."
+        "description": "A confirmed referee's address waiting on its change, as the editor reads it -- and NEITHER hash.\n\nKept off the wire for `FLSchiedsrichterBestaetigung`'s reason."
+      },
+      "FLSchiedsrichterAdresswechselAnsichtBisherig": {
+        "properties": {
+          "seite": {
+            "type": "string",
+            "const": "bisherig",
+            "title": "Seite"
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "freigabe_offen",
+              "offen",
+              "wartezeit"
+            ],
+            "title": "Zustand"
+          },
+          "gueltig_bis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gueltig Bis"
+          },
+          "wirksam_ab": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wirksam Ab"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seite",
+          "zustand",
+          "gueltig_bis",
+          "wirksam_ab"
+        ],
+        "title": "FLSchiedsrichterAdresswechselAnsichtBisherig",
+        "description": "What the address on file's stop link opens: the step the change waits on, never whether it could be confirmed."
+      },
+      "FLSchiedsrichterAdresswechselAnsichtNeu": {
+        "properties": {
+          "seite": {
+            "type": "string",
+            "const": "neu",
+            "title": "Seite"
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "gueltig",
+              "abgelaufen",
+              "gesperrt",
+              "nicht_bestaetigbar"
+            ],
+            "title": "Zustand"
+          },
+          "gueltig_bis": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Gueltig Bis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seite",
+          "zustand",
+          "gueltig_bis"
+        ],
+        "title": "FLSchiedsrichterAdresswechselAnsichtNeu",
+        "description": "What the new mailbox's link opens: its state and its deadline."
       },
       "FLSchiedsrichterAdresswechselAnsichtPayload": {
         "properties": {
@@ -22422,91 +23185,33 @@
             "title": "Acknowledged",
             "default": 1
           },
-          "zustand": {
-            "type": "string",
-            "enum": [
-              "gueltig",
-              "abgelaufen",
-              "gesperrt",
-              "nicht_bestaetigbar"
-            ],
-            "title": "Zustand"
-          },
-          "frist": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist"
-          }
-        },
-        "type": "object",
-        "required": [
-          "zustand",
-          "frist"
-        ],
-        "title": "FLSchiedsrichterAdresswechselAnsichtResponse",
-        "description": "What one address link opens, and nothing a leaked one should not learn (`READ-REFEREE-003`).\n\nA state and a deadline: never a name, either address, the school, the fee or the id."
-      },
-      "FLSchiedsrichterAdresswechselMint": {
-        "properties": {
-          "token": {
-            "type": "string",
-            "title": "Token"
-          },
-          "frist": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist"
-          },
-          "email": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Email"
-          },
-          "bisherige_email": {
-            "anyOf": [
+          "ansicht": {
+            "oneOf": [
               {
-                "type": "string"
+                "$ref": "#/components/schemas/FLSchiedsrichterAdresswechselAnsichtNeu"
               },
               {
-                "type": "null"
+                "$ref": "#/components/schemas/FLSchiedsrichterAdresswechselAnsichtBisherig"
               }
             ],
-            "title": "Bisherige Email"
+            "title": "Ansicht",
+            "discriminator": {
+              "propertyName": "seite",
+              "mapping": {
+                "bisherig": "#/components/schemas/FLSchiedsrichterAdresswechselAnsichtBisherig",
+                "neu": "#/components/schemas/FLSchiedsrichterAdresswechselAnsichtNeu"
+              }
+            }
           }
         },
         "type": "object",
         "required": [
-          "token",
-          "frist",
-          "email",
-          "bisherige_email"
+          "ansicht"
         ],
-        "title": "FLSchiedsrichterAdresswechselMint",
-        "description": "A freshly minted address link, answered once, with the address the change was asked from.\n\nThe caller tells the stored address that a change was asked, so a change nobody wanted is\nnoticed by the person still holding the record."
+        "title": "FLSchiedsrichterAdresswechselAnsichtResponse",
+        "description": "What one address link opens, and nothing a leaked one should not learn (`READ-REFEREE-003`).\n\nA side, a state and its instants: never a name, either address, the school, the fee or the id."
       },
-      "FLSchiedsrichterAdresswechselMintResponse": {
-        "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
-          "adresswechsel": {
-            "$ref": "#/components/schemas/FLSchiedsrichterAdresswechselMint"
-          }
-        },
-        "type": "object",
-        "required": [
-          "adresswechsel"
-        ],
-        "title": "FLSchiedsrichterAdresswechselMintResponse",
-        "description": "The address link's re-send answer. Never null: where no change is pending a 404 answers instead."
-      },
-      "FLSchiedsrichterAdresswechselPayload": {
+      "FLSchiedsrichterAdresswechselAntwortPayload": {
         "properties": {
           "token": {
             "type": "string",
@@ -22529,9 +23234,9 @@
           "token",
           "antwort"
         ],
-        "title": "FLSchiedsrichterAdresswechselPayload"
+        "title": "FLSchiedsrichterAdresswechselAntwortPayload"
       },
-      "FLSchiedsrichterAdresswechselResponse": {
+      "FLSchiedsrichterAdresswechselAntwortResponse": {
         "properties": {
           "acknowledged": {
             "type": "integer",
@@ -22549,14 +23254,201 @@
               "abgelehnt"
             ],
             "title": "Antwort"
+          },
+          "wirksam_ab": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wirksam Ab"
+          },
+          "mitteilung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAdresswechselMitteilung"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
         "required": [
-          "antwort"
+          "antwort",
+          "wirksam_ab",
+          "mitteilung"
         ],
-        "title": "FLSchiedsrichterAdresswechselResponse",
-        "description": "The answer recorded, and nothing of the row: a leaked link learns only what it posted."
+        "title": "FLSchiedsrichterAdresswechselAntwortResponse",
+        "description": "The pupil's `FLSpielerAdresswechselAntwortResponse`, for its reasons, on this lane."
+      },
+      "FLSchiedsrichterAdresswechselMint": {
+        "properties": {
+          "weg": {
+            "type": "string",
+            "enum": [
+              "konto",
+              "freigabe",
+              "wartezeit"
+            ],
+            "title": "Weg"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
+          },
+          "stopp_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stopp Token"
+          },
+          "gueltig_bis": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Gueltig Bis"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Email"
+          },
+          "bisherige_email": {
+            "type": "string",
+            "title": "Bisherige Email"
+          },
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          },
+          "adresse_belegt": {
+            "type": "boolean",
+            "title": "Adresse Belegt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "weg",
+          "token",
+          "stopp_token",
+          "gueltig_bis",
+          "email",
+          "bisherige_email",
+          "vorname",
+          "adresse_belegt"
+        ],
+        "title": "FLSchiedsrichterAdresswechselMint",
+        "description": "The pupil's `FLSpielerAdresswechselMint`, for its reasons, on this lane."
+      },
+      "FLSchiedsrichterAdresswechselMintResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "adresswechsel": {
+            "$ref": "#/components/schemas/FLSchiedsrichterAdresswechselMint"
+          }
+        },
+        "type": "object",
+        "required": [
+          "adresswechsel"
+        ],
+        "title": "FLSchiedsrichterAdresswechselMintResponse",
+        "description": "The start's and the re-send's answer. Never null: where no link may be minted a refusal answers instead."
+      },
+      "FLSchiedsrichterAdresswechselPayload": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1,
+                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email",
+          "grund"
+        ],
+        "title": "FLSchiedsrichterAdresswechselPayload",
+        "description": "The pupil's `FLSpielerAdresswechselPayload`, for a confirmed referee's address. The path names the referee."
+      },
+      "FLSchiedsrichterAdresswechselStoppPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "FLSchiedsrichterAdresswechselStoppPayload"
+      },
+      "FLSchiedsrichterAdresswechselStoppResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "gestoppt": {
+            "type": "boolean",
+            "const": true,
+            "title": "Gestoppt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gestoppt"
+        ],
+        "title": "FLSchiedsrichterAdresswechselStoppResponse"
       },
       "FLSchiedsrichterAdresswechselSweepResponse": {
         "properties": {
@@ -22572,6 +23464,17 @@
           "entfernt": {
             "type": "integer",
             "title": "Entfernt"
+          },
+          "verworfen": {
+            "type": "integer",
+            "title": "Verworfen"
+          },
+          "wirksam": {
+            "items": {
+              "$ref": "#/components/schemas/FLAdresswechselMitteilung"
+            },
+            "type": "array",
+            "title": "Wirksam"
           },
           "verbleibend": {
             "type": "integer",
@@ -22593,11 +23496,13 @@
         "type": "object",
         "required": [
           "entfernt",
+          "verworfen",
+          "wirksam",
           "verbleibend",
           "nach"
         ],
         "title": "FLSchiedsrichterAdresswechselSweepResponse",
-        "description": "One call's share of the pending addresses whose link lapsed, a referee's or a pupil's: how many went, and how many are still due."
+        "description": "One call's share of the pending changes whose step lapsed or whose waiting time ended, a referee's or a pupil's."
       },
       "FLSchiedsrichterBestaetigung": {
         "properties": {
@@ -27257,15 +28162,78 @@
             "type": "string",
             "title": "Email"
           },
+          "weg": {
+            "type": "string",
+            "enum": [
+              "konto",
+              "freigabe",
+              "wartezeit"
+            ],
+            "title": "Weg"
+          },
           "verschickt_am": {
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Verschickt Am"
           },
-          "frist": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist"
+          "gueltig_bis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gueltig Bis"
+          },
+          "freigegeben_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freigegeben Am"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          },
+          "bestaetigt_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bestaetigt Am"
+          },
+          "wirksam_ab": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wirksam Ab"
           },
           "zustellung": {
             "anyOf": [
@@ -27281,11 +28249,99 @@
         "type": "object",
         "required": [
           "email",
+          "weg",
           "verschickt_am",
-          "frist"
+          "gueltig_bis",
+          "freigegeben_am",
+          "grund",
+          "bestaetigt_am",
+          "wirksam_ab"
         ],
         "title": "FLSpielerAdresswechsel",
-        "description": "A pupil's new address waiting on its own mailbox, as the editor reads it -- and NO `token_hash`.\n\nThe hash is the whole credential, and the link's lookup alone reads it."
+        "description": "A pupil's new address waiting on its change, as the editor reads it -- and NEITHER hash.\n\nEach hash is a whole credential, and its link's lookup alone reads it."
+      },
+      "FLSpielerAdresswechselAnsichtBisherig": {
+        "properties": {
+          "seite": {
+            "type": "string",
+            "const": "bisherig",
+            "title": "Seite"
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "freigabe_offen",
+              "offen",
+              "wartezeit"
+            ],
+            "title": "Zustand"
+          },
+          "gueltig_bis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gueltig Bis"
+          },
+          "wirksam_ab": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wirksam Ab"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seite",
+          "zustand",
+          "gueltig_bis",
+          "wirksam_ab"
+        ],
+        "title": "FLSpielerAdresswechselAnsichtBisherig",
+        "description": "What the address on file's stop link opens: the step the change waits on, never whether it could be confirmed."
+      },
+      "FLSpielerAdresswechselAnsichtNeu": {
+        "properties": {
+          "seite": {
+            "type": "string",
+            "const": "neu",
+            "title": "Seite"
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "gueltig",
+              "abgelaufen",
+              "gesperrt",
+              "nicht_bestaetigbar"
+            ],
+            "title": "Zustand"
+          },
+          "gueltig_bis": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Gueltig Bis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seite",
+          "zustand",
+          "gueltig_bis"
+        ],
+        "title": "FLSpielerAdresswechselAnsichtNeu",
+        "description": "What the new mailbox's link opens: its state and its deadline."
       },
       "FLSpielerAdresswechselAnsichtPayload": {
         "properties": {
@@ -27314,26 +28370,28 @@
             "title": "Acknowledged",
             "default": 1
           },
-          "zustand": {
-            "type": "string",
-            "enum": [
-              "gueltig",
-              "abgelaufen",
-              "gesperrt",
-              "nicht_bestaetigbar"
+          "ansicht": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielerAdresswechselAnsichtNeu"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielerAdresswechselAnsichtBisherig"
+              }
             ],
-            "title": "Zustand"
-          },
-          "frist": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist"
+            "title": "Ansicht",
+            "discriminator": {
+              "propertyName": "seite",
+              "mapping": {
+                "bisherig": "#/components/schemas/FLSpielerAdresswechselAnsichtBisherig",
+                "neu": "#/components/schemas/FLSpielerAdresswechselAnsichtNeu"
+              }
+            }
           }
         },
         "type": "object",
         "required": [
-          "zustand",
-          "frist"
+          "ansicht"
         ],
         "title": "FLSpielerAdresswechselAnsichtResponse",
         "description": "What one address link opens, declared from nothing (`READ-PUPIL-005`): never a name, either address or the id."
@@ -27381,25 +28439,76 @@
               "abgelehnt"
             ],
             "title": "Antwort"
+          },
+          "wirksam_ab": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wirksam Ab"
+          },
+          "mitteilung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAdresswechselMitteilung"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
         "required": [
-          "antwort"
+          "antwort",
+          "wirksam_ab",
+          "mitteilung"
         ],
         "title": "FLSpielerAdresswechselAntwortResponse",
-        "description": "The answer recorded, and nothing of the row: a leaked link learns only what it posted."
+        "description": "The answer recorded, and nothing of the row beyond what the frontend's server mails and strips."
       },
       "FLSpielerAdresswechselMint": {
         "properties": {
-          "token": {
+          "weg": {
             "type": "string",
+            "enum": [
+              "konto",
+              "freigabe",
+              "wartezeit"
+            ],
+            "title": "Weg"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Token"
           },
-          "frist": {
+          "stopp_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stopp Token"
+          },
+          "gueltig_bis": {
             "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist"
+            "format": "date-time",
+            "title": "Gueltig Bis"
           },
           "email": {
             "type": "string",
@@ -27413,18 +28522,25 @@
           "vorname": {
             "type": "string",
             "title": "Vorname"
+          },
+          "adresse_belegt": {
+            "type": "boolean",
+            "title": "Adresse Belegt"
           }
         },
         "type": "object",
         "required": [
+          "weg",
           "token",
-          "frist",
+          "stopp_token",
+          "gueltig_bis",
           "email",
           "bisherige_email",
-          "vorname"
+          "vorname",
+          "adresse_belegt"
         ],
         "title": "FLSpielerAdresswechselMint",
-        "description": "A freshly minted address link, answered ONCE and stored nowhere, admin-tier whole.\n\nThe raw token exists here and in the new mailbox; the database holds its hash."
+        "description": "A freshly started or re-sent change's raw links, answered ONCE and stored nowhere, admin-tier whole.\n\nEach raw token exists here and in its mailbox; the database holds its hash."
       },
       "FLSpielerAdresswechselMintResponse": {
         "properties": {
@@ -27446,7 +28562,7 @@
           "adresswechsel"
         ],
         "title": "FLSpielerAdresswechselMintResponse",
-        "description": "The request's and the re-send's answer. Never null: where no link may be minted a refusal answers instead."
+        "description": "The start's and the re-send's answer. Never null: where no link may be minted a refusal answers instead."
       },
       "FLSpielerAdresswechselPayload": {
         "properties": {
@@ -27455,15 +28571,69 @@
             "maxLength": 254,
             "format": "email",
             "title": "Email"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1,
+                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "email"
+          "email",
+          "grund"
         ],
         "title": "FLSpielerAdresswechselPayload",
-        "description": "The address an administrator asks a pupil's link to go to. The path names the pupil."
+        "description": "The address an administrator asks a pupil's change to go to, and the reason where the address on file is gone."
+      },
+      "FLSpielerAdresswechselStoppPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "FLSpielerAdresswechselStoppPayload"
+      },
+      "FLSpielerAdresswechselStoppResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "gestoppt": {
+            "type": "boolean",
+            "const": true,
+            "title": "Gestoppt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gestoppt"
+        ],
+        "title": "FLSpielerAdresswechselStoppResponse"
       },
       "FLSpielerKontext": {
         "properties": {
@@ -30358,6 +31528,54 @@
           }
         }
       },
+      "404.DB-COMMON-001.REQ-SCHIEDSRICHTER-002": {
+        "description": "Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-001",
+                        "REQ-SCHIEDSRICHTER-002"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "404.DB-COMMON-001.REQ-SPIELER-001": {
+        "description": "Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-001",
+                        "REQ-SPIELER-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "404.REQ-ANSETZUNG-001": {
         "description": "Not Found",
         "content": {
@@ -30866,6 +32084,56 @@
                       "enum": [
                         "DB-COMMON-002",
                         "REQ-SCHIEDSRICHTER-007"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.DB-COMMON-002.REQ-SCHIEDSRICHTER-007.REQ-SCHIEDSRICHTER-011": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-SCHIEDSRICHTER-007",
+                        "REQ-SCHIEDSRICHTER-011"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.DB-COMMON-002.REQ-SCHIEDSRICHTER-010.REQ-SPIELER-006": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-SCHIEDSRICHTER-010",
+                        "REQ-SPIELER-006"
                       ]
                     }
                   }
@@ -31529,6 +32797,33 @@
           }
         }
       },
+      "409.REQ-SCHIEDSRICHTER-006.REQ-SCHIEDSRICHTER-007.REQ-SCHIEDSRICHTER-012.REQ-SCHIEDSRICHTER-014.REQ-SPIELER-006": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SCHIEDSRICHTER-006",
+                        "REQ-SCHIEDSRICHTER-007",
+                        "REQ-SCHIEDSRICHTER-012",
+                        "REQ-SCHIEDSRICHTER-014",
+                        "REQ-SPIELER-006"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "409.REQ-SCHIEDSRICHTER-007": {
         "description": "Conflict",
         "content": {
@@ -31552,7 +32847,7 @@
           }
         }
       },
-      "409.REQ-SCHIEDSRICHTER-010": {
+      "409.REQ-SCHIEDSRICHTER-007.REQ-SPIELER-006": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -31565,7 +32860,32 @@
                   "properties": {
                     "error_code": {
                       "enum": [
-                        "REQ-SCHIEDSRICHTER-010"
+                        "REQ-SCHIEDSRICHTER-007",
+                        "REQ-SPIELER-006"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-SCHIEDSRICHTER-012.REQ-SPIELER-007": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SCHIEDSRICHTER-012",
+                        "REQ-SPIELER-007"
                       ]
                     }
                   }
@@ -31815,6 +33135,30 @@
                     "error_code": {
                       "enum": [
                         "REQ-SCHIEDSRICHTER-003"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "410.REQ-SCHIEDSRICHTER-003.REQ-SPIELER-002": {
+        "description": "Gone",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SCHIEDSRICHTER-003",
+                        "REQ-SPIELER-002"
                       ]
                     }
                   }
@@ -32147,6 +33491,30 @@
           }
         }
       },
+      "422.REQ-SCHIEDSRICHTER-013.REQ-VAL-001": {
+        "description": "Unprocessable Content",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SCHIEDSRICHTER-013",
+                        "REQ-VAL-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "422.REQ-SPERRLISTE-004.REQ-VAL-001": {
         "description": "Unprocessable Content",
         "content": {
@@ -32161,6 +33529,30 @@
                     "error_code": {
                       "enum": [
                         "REQ-SPERRLISTE-004",
+                        "REQ-VAL-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "422.REQ-SPIELER-009.REQ-VAL-001": {
+        "description": "Unprocessable Content",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SPIELER-009",
                         "REQ-VAL-001"
                       ]
                     }

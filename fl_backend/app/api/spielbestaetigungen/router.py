@@ -163,8 +163,8 @@ async def post_spielbestaetigung(
     """
     Record one club's answer about one Ansetzung, from whichever of its three seats presses first, and the seat it came from.
 
-    The first press binds: the write itself takes only a row neither answered nor closed, so two seats pressing at once
-    are one answer and one `REQ-ANSETZUNG-002`. Writes no fixture: a proposal is the administrator's to act on.
+    The first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered
+    (`REQ-ANSETZUNG-002`). Writes no fixture: a proposal is the administrator's to act on.
 
     Refuses, in this order: a token no seat holds (`REQ-ANSETZUNG-001`); a link whose seat's address the ban list holds
     now, whenever it was minted (`REQ-ANSETZUNG-011`); a row already answered, closed since or not
@@ -262,7 +262,8 @@ async def post_spielbestaetigung(
                 return_document=ReturnDocument.BEFORE,
             )
         except DocumentNotFoundException:
-            # The filter is the judgement: a row another seat answered under this press matches nothing.
+            # Never a seat answering under this press, which conflicts with the write and meets the retry's judgement:
+            # the filter repeats that judgement on the write (`docs/backend/spec.md :: I755`).
             refuse(first_press_refusal())
 
         # Nothing judged is written here, so a move, a club's exit, a renamed seat, a re-dated matchday or a rival booking

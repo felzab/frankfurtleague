@@ -89,8 +89,8 @@ def compose_ansetzung(spiel: Mapping[str, Any]) -> dict[str, Any]:
 def build_answerable_filter() -> dict[str, Any]:
     """A row the answer may write: neither answered nor closed, the reach of `uniq_spielbestaetigung_offen`.
 
-    The first press binds because this filter rides on the write itself, so two seats pressing at once
-    are one answer.
+    Repeated on the write after the read's judgement; a rival answer committing between them conflicts, and the retry
+    judges (`docs/backend/spec.md :: I755`).
     """
 
     return {"antwort": None, "geschlossen": None}
@@ -500,7 +500,7 @@ def compose_antwort_update(
 
 
 # --- The ADMINISTRATOR's settle and discard. Each check judges the row read in-session and its write's filter
-# says the same again, so a party's answer committing between the two leaves the row as that party wrote it.
+# says the same again; a party's answer committing between the two conflicts with the write, whose retry refuses.
 
 ANSETZUNG_NICHT_EINTRAGBAR = "REQ-ANSETZUNG-013"
 ANSETZUNG_NICHT_VERWERFBAR = "REQ-ANSETZUNG-014"
@@ -550,7 +550,7 @@ def verwerfen_refusal() -> WriteRefusal:
     return WriteRefusal(
         error_code=ANSETZUNG_NICHT_VERWERFBAR,
         status=HTTPStatus.CONFLICT,
-        message="only an open club decline carrying a proposed date can be discarded",
+        message="only an open club decline carrying a proposed date, about the fixture's current Ansetzung, can be discarded",
     )
 
 
@@ -573,8 +573,8 @@ def build_triage_rows_filter(*, saison_id: str, today: str) -> dict[str, Any]:
     }
 
 
-def find_verwerfen_refusal(*, spielbestaetigung_raw: Mapping[str, Any]) -> WriteRefusal | None:
-    """`build_verwerfbar_filter` asked of the row read."""
+def find_verwerfen_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> WriteRefusal | None:
+    """`build_verwerfbar_filter` asked of the row read, and the row about the fixture as it stands (`docs/backend/spec.md :: I799`)."""
 
     partei, antwort = spielbestaetigung_raw.get("partei") or {}, spielbestaetigung_raw.get("antwort") or {}
     if (
@@ -582,6 +582,7 @@ def find_verwerfen_refusal(*, spielbestaetigung_raw: Mapping[str, Any]) -> Write
         and antwort.get("art") == "abgelehnt"
         and antwort.get("vorschlag") is not None
         and spielbestaetigung_raw.get("geschlossen") is None
+        and ansetzung_stand_of(spiel) == spielbestaetigung_raw["ansetzung"]["stand"]
     ):
         return None
 
@@ -692,18 +693,24 @@ def build_anfrage_filter(*, saison_id: str, today: str) -> dict[str, Any]:
 # needs a new stand, which only a move mints (`docs/backend/spec.md :: I768`).
 GRUENDE_ANSWERED_FOR_THE_STAND: Final = frozenset({"verworfen"})
 
+# What ends a discard as it ends an agreement beside it: every reason of `grund_to_close` but a move, which leaves the
+# discard its club's answer to the Ansetzung left (`docs/backend/spec.md :: I768`), and a referee change, never a club's.
+GRUENDE_ENDING_AN_ANSWER: Final = frozenset({"austritt", "spiel_entschieden", "abgesagt", "spiel_vergangen"})
 
-def build_held_filter(*, saison_id: str, spiel_ids: Sequence[Any]) -> dict[str, Any]:
-    """These fixtures' rows that hold their party's question about their Ansetzung: unclosed, or closed as answered.
+
+def build_holding_filter() -> dict[str, Any]:
+    """A row holding its party's question about its Ansetzung: unclosed, or closed as answered.
 
     Every other closing ends the question, so a fixture reinstated or moved back to its old slot is asked afresh.
     """
 
-    return {
-        "saison_id": saison_id,
-        "spiel_id": {"$in": list(spiel_ids)},
-        "$or": [build_closable_filter(), {"geschlossen.grund": {"$in": sorted(GRUENDE_ANSWERED_FOR_THE_STAND)}}],
-    }
+    return {"$or": [build_closable_filter(), {"geschlossen.grund": {"$in": sorted(GRUENDE_ANSWERED_FOR_THE_STAND)}}]}
+
+
+def build_held_filter(*, saison_id: str, spiel_ids: Sequence[Any]) -> dict[str, Any]:
+    """These fixtures' rows holding their party's question about their Ansetzung."""
+
+    return {"saison_id": saison_id, "spiel_id": {"$in": list(spiel_ids)}, **build_holding_filter()}
 
 
 def _side_id(spiel: Mapping[str, Any], side: str) -> Any:
@@ -746,10 +753,27 @@ def grund_to_close(
 
     # Last, so a move to or from a past day is still announced. Kept open, a row whose day went by unplayed would ask
     # about a past date for good, at the front of the close's oldest-first page.
-    if ansetzung["datum"] < today:
+    if _day_passed(ansetzung=ansetzung, today=today):
         return "spiel_vergangen"
 
     return None
+
+
+def _day_passed(*, ansetzung: Mapping[str, Any], today: str) -> bool:
+    return bool(ansetzung["datum"] < today)
+
+
+def grund_to_end(
+    *, row: Mapping[str, Any], spiel: Mapping[str, Any], austritte: Mapping[Any, str], today: str
+) -> FLSpielbestaetigungGrund | None:
+    """Why the pass's close shuts a row holding its party's question, or `None` (`docs/backend/spec.md :: I798`)."""
+
+    grund = grund_to_close(row=row, spiel=spiel, austritte=austritte, today=today)
+    if row.get("geschlossen") is None or grund in GRUENDE_ENDING_AN_ANSWER:
+        return grund
+
+    # Its own day, though the fixture moved: kept, a discard about an Ansetzung left would fill every pass's page.
+    return "spiel_vergangen" if _day_passed(ansetzung=row["ansetzung"], today=today) else None
 
 
 def anfrage_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], today: str) -> bool:
