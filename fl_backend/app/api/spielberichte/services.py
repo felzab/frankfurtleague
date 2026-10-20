@@ -570,12 +570,13 @@ def season_end_report_image_edits(image: Mapping[str, Any], saison_id: str) -> d
     if image.get("saison_id") != saison_id or not isinstance(bericht, Mapping):
         return {}
 
-    edits: dict[str, None] = {"bericht.bemerkungen": None} if bericht.get("bemerkungen") is not None else {}
-    for index, karte in enumerate(bericht.get("karten") or []):
-        if isinstance(karte, Mapping) and karte.get("grund") is not None:
-            edits[f"bericht.karten.{index}.grund"] = None
+    holds_a_reason = any(isinstance(karte, Mapping) and karte.get("grund") is not None for karte in bericht.get("karten") or [])
+    if bericht.get("bemerkungen") is None and not holds_a_reason:
+        return {}
 
-    return edits
+    # Both paths whatever the image holds, every reason by `$[]`: one update then serves every single image, where a
+    # set per card index would cost the sweep's worst call a command each against its deadline.
+    return {"bericht.bemerkungen": None, "bericht.karten.$[].grund": None}
 
 
 # --- The REFEREE'S ERASURE: the reports they sent, and the log images of them.

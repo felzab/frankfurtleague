@@ -1638,11 +1638,15 @@ rather than by the handler remembering to conceal one.
   judge again outside their transaction just before answering (I118), and write nothing a call-off,
   a re-date, a booking, a referee's retirement, a squad row, a seat holder's rename or an undraw
   writes, so one of those committing between that judgement and the report's commit stands beside
-  it: remarks naming a seat holder renamed in that instant, a report on a fixture called off in it,
-  which then reads `abgesagt`, or a report outliving an undraw, which no read shows and no draw
-  counts (`fl_backend/app/api/spielberichte/services.py :: build_eingereichte_pipeline`). Closing it
-  takes an anchor on every document judged, a write on each rival's path, for a window of one round
-  trip.
+  it: remarks naming a seat holder renamed in that instant, or a report on a fixture called off in
+  it, which then reads `abgesagt`. A report's first write crossing a confirmed replace or an undraw
+  is the same window seen from the draw's side: each counts the season's reports again outside its
+  own transaction (`REQ-SPIELPLAN-007`), and an insert neither can see joins no write set they share,
+  so where both second readings land before either commit the referee is answered 201 and the report
+  outlives its fixture, read by nothing and counted by no draw
+  (`fl_backend/app/api/spielberichte/services.py :: build_eingereichte_pipeline`). Closing it takes an
+  anchor on every document judged, a write on each rival's path, for a window of one round trip; a
+  draw being allowed only on a `future` season holding no fact narrows the last one further.
 - **An Einteilung can reach a referee who declined meanwhile.** The pass commits before the frontend
   mails, and a request told again writes no referee row, anchoring only the referee's record
   (`fl_backend/app/api/spielbestaetigungen/crud.py :: anchor_the_referees_told`), which a decline does
@@ -1650,11 +1654,16 @@ rather than by the handler remembering to conceal one.
   leads to the referee's panel, which shows the row as their own decline (I779), and books nobody:
   one stale message. Closing it takes a read of the row at the send, as
   `fl_frontend/src/core/mailGate.ts` reads the ban there, for a message the panel already corrects.
-- **The confirmation log's image reads examine every confirmation log row.** An erasure's and a
-  Widerspruch's reads of the images of a person's seats and reasons
+- **The confirmation and report log's image reads examine every log row of their collection.** An
+  erasure's and a Widerspruch's reads of the images of a person's seats and reasons
   (`fl_backend/app/api/spielbestaetigungen/services.py :: build_seat_entry_images_filter`,
-  `:: build_contact_reason_images_filter`) and the season-end strip's (`:: build_season_images_filter`)
+  `:: build_contact_reason_images_filter`) and the season-end strip's (`:: build_season_images_filter`),
+  and a referee erasure's and the season-end strip's reads of the reports' images
+  (`fl_backend/app/api/spielberichte/services.py :: build_referee_report_images_filter`,
+  `:: build_season_report_images_filter`, the latter once per ended season on every pass),
   select inside `before`, which no `aktionen` index keys, so each uses the `collection` prefix alone.
   Over 10,000 confirmation log rows beside 10,000 of another collection, each examined those 10,000
-  and took 13 to 34 ms, measured 2026-10-20 on a development machine other work shared. An index
+  and took 13 to 34 ms, measured 2026-10-20 on a development machine other work shared; the report
+  reads, which select the same way over a collection of one row per played fixture, were not
+  measured. An index
   keyed inside `before` would serve these reads and cost every log write.

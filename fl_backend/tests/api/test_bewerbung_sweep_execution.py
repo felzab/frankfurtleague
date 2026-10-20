@@ -1899,6 +1899,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
             )
             await database[Collection.SPIELBESTAETIGUNGEN].insert_many([open_confirmation(CLUB_OID), open_confirmation(numbered(2))])
             await images_of_every_strip_edit_set(database, client)
+            await report_images_of_every_shape(database, client)
 
             return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
 
@@ -2067,6 +2068,34 @@ async def images_of_every_strip_edit_set(database: AsyncDatabase, client: AsyncM
         await session.with_transaction(
             lambda session: delete_many_from_db(
                 collection=confirmations, db_filter={"_id": {"$in": [row["_id"] for row in undrawn]}}, session=session
+            )
+        )
+
+
+async def report_images_of_every_shape(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    """Report images whose reasons sit at different card positions, remarks or none, and an undraw's list of two.
+
+    One update serves every single image: a set per card index would grow the call with the data.
+    """
+
+    berichte = database[Collection.SPIELBERICHTE]
+    singles = [a_report(SAISON_ID), a_report(SAISON_ID, bemerkungen=None), a_report(SAISON_ID, rot_grund=None)]
+    singles[1]["bericht"]["karten"].reverse()
+    for report in singles:
+        await berichte.insert_one(report)
+        await patch_one_in_db(
+            collection=berichte,
+            db_filter={"_id": report["_id"]},
+            update={"$inc": {"bericht.version": 1}},
+            return_document=ReturnDocument.BEFORE,
+        )
+
+    undrawn = [a_report(SAISON_ID), a_report(SAISON_ID, bemerkungen=None)]
+    await berichte.insert_many(undrawn)
+    async with client.start_session() as session:
+        await session.with_transaction(
+            lambda session: delete_many_from_db(
+                collection=berichte, db_filter={"_id": {"$in": [row["_id"] for row in undrawn]}}, session=session
             )
         )
 

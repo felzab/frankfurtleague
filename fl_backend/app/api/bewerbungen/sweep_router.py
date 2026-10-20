@@ -81,13 +81,13 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Both shares at three commands a row beside the worst call's other 80
+# Both shares at three commands a row beside the worst call's other 83
 # (`tests/api/test_bewerbung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
-# 263 commands at 36 ms plus 1.38 ms take 9.83 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`, a row and a command short.
+# 266 commands at 36 ms plus 1.38 ms take 9.94 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`, a command short.
 REMINDERS_PER_PASS: Final = 39
 
 # Below the reminders', which owe a deadline a block's deletion does not: a season at capacity takes more passes, and
-# the season's end strips write per image edit set, so 24 would make 269, 10.06 s.
+# the season's end strips write per image edit set, so 24 would make 272, 10.17 s.
 BLOCKS_CLEARED_PER_PASS: Final = 22
 
 
