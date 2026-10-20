@@ -99,14 +99,21 @@ export const SCHIEDSRICHTER_ADRESSWECHSEL_HINWEIS =
 export const SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE = "Trage zuerst eine E-Mail-Adresse ein und speichere.";
 export const SCHIEDSRICHTER_EINLADEN_STILLGELEGT = "Reaktiviere den Eintrag, bevor Du einen Link sendest.";
 
+/** A booked referee as a fixture serves one: the public tier adds whether the name may stand, the admin tier nothing. */
+type GebuchterSchiedsrichter = { schiedsrichter_id: string; name: string | null; name_is_public?: boolean };
+
 /**
- * **The id decides, never the null name alone**: one nameless booking is the ghost and the other a
- * person still in the league, and one word for both reports a teacher as deleted.
+ * **The id and the verdict decide, never the null name alone**: the ghost and a withheld name name nobody, a
+ * nameless row a person still in the league, and one word for all three reports a teacher as deleted.
  */
-export function bookedSchiedsrichterName({ schiedsrichter_id, name }: { schiedsrichter_id: string; name: string | null }): string {
+export function bookedSchiedsrichterName({ schiedsrichter_id, name, name_is_public }: GebuchterSchiedsrichter): string {
   if (name !== null) return name;
 
-  return schiedsrichter_id === GHOST_SCHIEDSRICHTER_ID ? SCHIEDSRICHTER_ANONYM_LABEL : SCHIEDSRICHTER_OHNE_NAMEN_LABEL;
+  // Only an explicit `false`: the admin tier serves no verdict, and its absence read as withheld turns every
+  // referee the editor shows „anonym“.
+  return schiedsrichter_id === GHOST_SCHIEDSRICHTER_ID || name_is_public === false
+    ? SCHIEDSRICHTER_ANONYM_LABEL
+    : SCHIEDSRICHTER_OHNE_NAMEN_LABEL;
 }
 
 /**
@@ -127,6 +134,6 @@ export function schiedsrichterVorname(name: string | null): string | null {
  * `schiedsrichter?.name ?? PLACEHOLDER.entity` — which falls through to the no-referee placeholder for
  * a fixture that does hold one.
  */
-export function spielSchiedsrichterAnzeige(schiedsrichter: { schiedsrichter_id: string; name: string | null } | null): string {
+export function spielSchiedsrichterAnzeige(schiedsrichter: GebuchterSchiedsrichter | null): string {
   return schiedsrichter === null ? PLACEHOLDER.entity : bookedSchiedsrichterName(schiedsrichter);
 }

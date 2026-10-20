@@ -1,0 +1,275 @@
+"use client";
+
+import { startTransition, useState, useTransition } from "react";
+
+import ChevronsDownWide from "@gravity-ui/icons/ChevronsDownWide";
+import CircleCheck from "@gravity-ui/icons/CircleCheck";
+
+import { Button } from "@heroui/react/button";
+import { Disclosure } from "@heroui/react/disclosure";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+
+import { absagenSpielbestaetigungAction, zusagenSpielbestaetigungAction } from "@/features/spielbestaetigungen/personActions";
+import { SchiedsrichterAbsageSchema } from "@/features/spielbestaetigungen/schemas";
+import {
+  ABSAGE_GESPEICHERT,
+  ABSAGE_NICHT_GESPEICHERT,
+  ZUSAGE_GESPEICHERT,
+  ZUSAGE_NICHT_GESPEICHERT,
+} from "@/features/spielbestaetigungen/utils";
+import { SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH } from "@/features/spiele/constants";
+import { Angabe, Leer } from "@/shared/components/ui/Angabe";
+import { labelBadge } from "@/shared/components/ui/badges";
+import { card } from "@/shared/components/ui/card";
+import { Form } from "@/shared/components/ui/Form";
+import { formButton } from "@/shared/components/ui/formButtons";
+import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES, FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
+import { formPanel } from "@/shared/components/ui/formPanel";
+import { Hint } from "@/shared/components/ui/Hint";
+import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { TextField } from "@/shared/components/ui/TextField";
+import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { unansweredAction } from "@/shared/utils/actionError";
+import { appToast } from "@/shared/utils/appToast";
+import { benannt } from "@/shared/utils/benannt";
+import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
+import { formatSpielDatum, formatUhrzeit } from "@/shared/utils/format";
+
+import type { FLSpielbestaetigungSchiedsrichterZustand, FLSpielbestaetigungSelbst } from "@/features/spielbestaetigungen/schemas";
+
+/** The section's heading, which the Einteilung's button „Zu Deinen Einsätzen“ leads to. */
+const EINSAETZE_TITEL = "Deine Einsätze";
+
+export const EINSAETZE_LEER = "Du bist zurzeit für kein Spiel eingeteilt.";
+
+/** The place each answer's control holds in every open row, so an answered row hands the focus to the same control in the next. */
+const ZUSAGEN = "zusagen";
+const ABSAGEN = "absagen";
+
+/** What a spent row says in place of its controls. */
+const ERLEDIGT: Record<Exclude<FLSpielbestaetigungSchiedsrichterZustand, "gueltig">, { text: string; ton: "success" | "danger" | null }> = {
+  zugesagt: { text: "Zugesagt", ton: "success" },
+  abgelehnt: { text: "Abgesagt", ton: "danger" },
+  abgelaufen: { text: "Keine Antwort mehr möglich", ton: null },
+  ungueltig: { text: "Nicht mehr gültig: Termin oder Einteilung haben sich geändert", ton: null },
+};
+
+/**
+ * The Einteilung's mail leads here. Its own empty state stands beside the referee's data, and its heading stays when
+ * the last open row is answered, so the focus has somewhere to land (`docs/frontend/spec.md :: I536`).
+ */
+export function SchiedsrichterEinsaetzeSection({ einsaetze }: { einsaetze: readonly FLSpielbestaetigungSelbst[] }) {
+  const panel = formPanel();
+
+  return (
+    <section
+      className={panel.root()}
+      {...focusSection("einsaetze")}>
+      <div className={panel.header()}>
+        <PanelHeading
+          className={panel.heading()}
+          title={EINSAETZE_TITEL}>
+          <Hint
+            mode="reveal"
+            label="Hinweis zu Deinen Einsätzen"
+            body={{
+              lead: "Die Spiele, für die Dich die Verwaltung der Liga als Schiedsrichterin oder Schiedsrichter eingeteilt hat. Sag zu jedem Spiel zu oder ab.",
+              points: [
+                { text: "Hat die Verwaltung Dich zu einem Spiel gefragt, steht es erst mit Dir im Spielplan, wenn Du zugesagt hast." },
+                { text: "Sagst Du ab, teilt die Verwaltung jemand anderen ein." },
+              ],
+            }}
+          />
+        </PanelHeading>
+      </div>
+
+      <div className={panel.body()}>
+        {einsaetze.length === 0 ? (
+          <p className="muted-hint">{EINSAETZE_LEER}</p>
+        ) : (
+          <ul
+            aria-label="Liste Deiner Einsätze"
+            className="flex w-full flex-col gap-3">
+            {einsaetze.map((einsatz) => (
+              <EinsatzKarte
+                key={einsatz.id}
+                einsatz={einsatz}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/** One row's card. Its own component so each card holds its own reason draft and pending press. */
+function EinsatzKarte({ einsatz }: { einsatz: FLSpielbestaetigungSelbst }) {
+  const { ansetzung } = einsatz;
+  const paarung = `${ansetzung.team1_name} gegen ${ansetzung.team2_name}`;
+  const datum = formatSpielDatum(ansetzung.datum);
+
+  return (
+    <li
+      className={`${card()} flex w-full flex-col gap-4 p-4`}
+      {...focusRow(einsatz.id)}>
+      <div className="flex flex-col gap-y-2">
+        <p className="fluid-sm font-bold text-pretty text-foreground">{paarung}</p>
+        {einsatz.zustand !== "gueltig" && <Erledigt einsatz={einsatz} />}
+      </div>
+
+      <dl className={FIELD_PAIR_CLASSES}>
+        <Angabe label="Termin">{`${datum}, ${formatUhrzeit(ansetzung.uhrzeit)} Uhr`}</Angabe>
+        <Angabe label="Ort">{ansetzung.spielort?.name ?? <Leer />}</Angabe>
+        {einsatz.zustand === "abgelehnt" && <Angabe label="Begründung">{einsatz.begruendung ?? <Leer />}</Angabe>}
+      </dl>
+
+      {einsatz.zustand === "gueltig" && (
+        <Antwort
+          spielbestaetigungId={einsatz.id}
+          // The words first, which speech input says, then what tells the rows' controls apart (WCAG 2.5.3).
+          wofuer={`${paarung} am ${datum}`}
+        />
+      )}
+    </li>
+  );
+}
+
+function Erledigt({ einsatz }: { einsatz: FLSpielbestaetigungSelbst }) {
+  if (einsatz.zustand === "gueltig") return null;
+  const { text, ton } = ERLEDIGT[einsatz.zustand];
+
+  return ton === null ? <Leer>{text}</Leer> : <span className={`${labelBadge(ton)} w-fit`}>{text}</span>;
+}
+
+/**
+ * The two answers to one open row: a Zusage in one press, a decline behind the disclosure, which takes no answer
+ * without its reason. Each is one write, after which the row reads its answer.
+ */
+function Antwort({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string; wofuer: string }) {
+  const [isPending, startSending] = useTransition();
+  // Both presses wait on the one write, but only the one pressed reads as sending, as the link pages' second press does.
+  const [gedrueckt, setGedrueckt] = useState<"zusage" | "absage">("zusage");
+  const [begruendung, setBegruendung] = useState("");
+
+  // The payload the action parses, judging the draft too: a second schema here would refuse at rules the action does not.
+  const { reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } = useDraftFieldErrors({
+    schemas: { absage: SchiedsrichterAbsageSchema },
+    failureTitle: ABSAGE_NICHT_GESPEICHERT,
+  });
+
+  const absage = { begruendung: begruendung };
+  useForgiveFixed({ absage: absage });
+
+  const sendeZusage = () => {
+    const landing = focusAfterWrite();
+    setGedrueckt("zusage");
+    startSending(async () => {
+      // A rejected action may still have written, and uncaught here it takes the page down with it.
+      const res = await zusagenSpielbestaetigungAction(spielbestaetigungId).catch(unansweredAction);
+
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited.
+      startTransition(() => {
+        if (!res.success) {
+          appToast.failure(ZUSAGE_NICHT_GESPEICHERT, res);
+          return;
+        }
+        landing.landed();
+        appToast.success(ZUSAGE_GESPEICHERT);
+      });
+    });
+  };
+
+  // The form's own submit is the decline's, so an Enter in the reason box never sends a Zusage.
+  const sendeAbsage = () => {
+    guardSubmit({ absage: absage }, () => {
+      const landing = focusAfterWrite();
+      setGedrueckt("absage");
+      startSending(async () => {
+        const res = await absagenSpielbestaetigungAction(spielbestaetigungId, absage).catch(unansweredAction);
+
+        startTransition(() => {
+          if (!res.success) {
+            // The hook owns the press's one toast: none where the box shows the refusal.
+            reportSubmitFailure(res, { absage: absage }, { raise: (shown) => appToast.failure(ABSAGE_NICHT_GESPEICHERT, shown) });
+            return;
+          }
+          landing.landed();
+          appToast.success(ABSAGE_GESPEICHERT);
+        });
+      });
+    });
+  };
+
+  return (
+    <Form
+      wiring={formWiring}
+      data-required-marks="on"
+      className="flex w-full flex-col gap-4"
+      onSubmit={sendeAbsage}>
+      <div
+        className="flex w-full flex-col items-stretch sm:flex-row sm:justify-end"
+        {...focusSlot(ZUSAGEN)}>
+        <Button
+          type="button"
+          isPending={isPending}
+          onPress={sendeZusage}
+          aria-label={benannt(isPending && gedrueckt === "zusage" ? "Sendet..." : "Zusagen", wofuer)}
+          className={formButton({ intent: "submit", stacks: true })}>
+          <CircleCheck
+            className="size-4.5"
+            aria-hidden="true"
+          />
+          {isPending && gedrueckt === "zusage" ? "Sendet..." : "Zusagen"}
+        </Button>
+      </div>
+
+      <Disclosure>
+        <Disclosure.Heading level={3}>
+          <Disclosure.Trigger
+            aria-label={benannt("Absagen", wofuer)}
+            className="flex w-fit items-center gap-x-2 fluid-sm font-bold text-foreground"
+            {...focusSlot(ABSAGEN)}>
+            Absagen
+            <Disclosure.Indicator className="shrink-0 text-foreground-muted">
+              <ChevronsDownWide
+                aria-hidden="true"
+                className="size-5"
+              />
+            </Disclosure.Indicator>
+          </Disclosure.Trigger>
+        </Disclosure.Heading>
+        <Disclosure.Content>
+          <Disclosure.Body className="flex flex-col gap-y-4 pt-3">
+            {/* One line, as the endpoint stores it: a line break is refused rather than kept. */}
+            <TextField
+              name="begruendung"
+              value={begruendung}
+              onChange={setBegruendung}
+              onBlur={() => validatePaths("absage", absage, ["begruendung"])}
+              maxLength={SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH}>
+              <Label className={FIELD_LABEL_CLASSES}>Begründung</Label>
+              <Input className={FIELD_INPUT_CLASSES} />
+              <FieldError className={FIELD_ERROR_CLASSES} />
+              <Hint
+                mode="field"
+                text="Nur die Verwaltung der Liga liest sie. Nenne darin keine Namen."
+              />
+            </TextField>
+
+            <div className="flex w-full flex-col items-stretch sm:flex-row sm:justify-end">
+              <Button
+                type="submit"
+                isPending={isPending}
+                className={formButton({ intent: "submit", stacks: true })}>
+                {isPending && gedrueckt === "absage" ? "Sendet..." : "Absage senden"}
+              </Button>
+            </div>
+          </Disclosure.Body>
+        </Disclosure.Content>
+      </Disclosure>
+    </Form>
+  );
+}

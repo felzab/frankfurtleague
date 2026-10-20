@@ -4,6 +4,7 @@ import {
   FLSpielbestaetigungAnsichtResponseSchema,
   FLSpielbestaetigungAntwortResponseSchema,
   FLSpielbestaetigungEintragenResponseSchema,
+  FLSpielbestaetigungSchiedsrichterAntwortResponseSchema,
   FLSpielbestaetigungSweepAngefragtResponseSchema,
   FLSpielbestaetigungSweepResponseSchema,
   FLSpielbestaetigungSweepSaisonsResponseSchema,
@@ -17,6 +18,8 @@ import type {
   FLSpielbestaetigungAntwortResponse,
   FLSpielbestaetigungEintragenPayload,
   FLSpielbestaetigungEintragenResponse,
+  FLSpielbestaetigungSchiedsrichterAntwortPayload,
+  FLSpielbestaetigungSchiedsrichterAntwortResponse,
   FLSpielbestaetigungSweepAngefragtPayload,
   FLSpielbestaetigungSweepAngefragtResponse,
   FLSpielbestaetigungSweepResponse,
@@ -45,6 +48,22 @@ export async function postSpielbestaetigung(payload: FLSpielbestaetigungAntwortP
     authType: "base",
     body: JSON.stringify(payload),
   });
+}
+
+/** A referee's answer to a row of their own, on the person lane: the signed-in address is what the backend authorises. */
+export async function postSpielbestaetigungAntwort(
+  spielbestaetigungId: string,
+  payload: FLSpielbestaetigungSchiedsrichterAntwortPayload,
+): Promise<FLSpielbestaetigungSchiedsrichterAntwortResponse> {
+  return apiClient<FLSpielbestaetigungSchiedsrichterAntwortResponse>(
+    `/spielbestaetigungen/${spielbestaetigungId}/antwort`,
+    FLSpielbestaetigungSchiedsrichterAntwortResponseSchema,
+    {
+      method: "POST",
+      authType: "admin",
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
 /**

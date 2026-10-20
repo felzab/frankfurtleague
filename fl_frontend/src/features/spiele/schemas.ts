@@ -105,6 +105,8 @@ export const FLSpielSchiedsrichterFieldPublicSchema = z.object({
   // list over one erased person; what a reader is shown instead is
   // `fl_frontend/src/features/schiedsrichter/constants.ts :: bookedSchiedsrichterName`.
   name: z.string().nonempty().nullable(),
+  // Whether the referee's own consent lets the name stand; the name is null where it does not.
+  name_is_public: z.boolean(),
 });
 export type FLSpielSchiedsrichterFieldPublic = z.infer<typeof FLSpielSchiedsrichterFieldPublicSchema>;
 
@@ -225,7 +227,14 @@ export const FLSpielSchema = z.object({
   // today, and only `false` is provisional (`docs/backend/spec.md :: I763`).
   ansetzung_bestaetigt: z.boolean().nullable(),
 });
-export type FLSpiel = z.infer<typeof FLSpielSchema>;
+/**
+ * A fixture of either tier, as every reader taking one types it: the referee's `name_is_public` is the base tier's
+ * alone, so it is optional here where the parse requires it, and its absence reads as the admin tier's.
+ */
+export type FLSpiel = Omit<z.infer<typeof FLSpielSchema>, "schiedsrichter"> & {
+  schiedsrichter:
+    (Omit<FLSpielSchiedsrichterFieldPublic, "name_is_public"> & Partial<Pick<FLSpielSchiedsrichterFieldPublic, "name_is_public">>) | null;
+};
 
 /**
  * The same fixture for the admin editor, carrying the two figures the base tier withholds. A second

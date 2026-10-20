@@ -250,7 +250,10 @@ const REGISTER: readonly Benannt[] = [
     wort: SCHIEDSRICHTER_ANONYM_LABEL,
     konstante: "SCHIEDSRICHTER_ANONYM_LABEL",
     heim: "features/schiedsrichter/constants.ts",
-    zeigen: [],
+    zeigen: [
+      "features/meta/components/views/DatenschutzView.tsx",
+      "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
+    ],
   },
 ];
 

@@ -7,8 +7,13 @@ import { DEIN_BEREICH_TITEL } from "./seitenNamen.ts";
 
 registerDoubles();
 
-const { buildSpielAnfrageEmail, buildSpielEinteilungEmail, buildSpielErinnerungEmail, buildSpielNeueAnsetzungEmail } =
-  await import("./spielEmail.ts");
+const {
+  buildSpielAnfrageEmail,
+  buildSpielEinteilungAufgehobenEmail,
+  buildSpielEinteilungEmail,
+  buildSpielErinnerungEmail,
+  buildSpielNeueAnsetzungEmail,
+} = await import("./spielEmail.ts");
 const { KONTAKT_EMAIL } = await import("./brand.ts");
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
@@ -39,13 +44,14 @@ const beideTeile = (mail: { html: string; text: string }): readonly (readonly [s
   ["text", flat(mail.text)],
 ];
 
-/** The four messages, each built once from the fixtures above, a moved fixture's notice once per reader. */
+/** Every message, each built once from the fixtures above, a moved fixture's notice once per reader. */
 const NACHRICHTEN = {
   Anfrage: buildSpielAnfrageEmail(anfrage),
   Erinnerung: buildSpielErinnerungEmail(anfrage),
   Einteilung: buildSpielEinteilungEmail({ origin: ORIGIN, ansetzung: ANSETZUNG }),
   "Neue Ansetzung an ein Team": buildSpielNeueAnsetzungEmail({ ...neu, empfaenger: "team" }),
   "Neue Ansetzung an die Schiedsrichterin oder den Schiedsrichter": buildSpielNeueAnsetzungEmail({ ...neu, empfaenger: "schiedsrichter" }),
+  "Aufgehobene Einteilung": buildSpielEinteilungAufgehobenEmail(neu),
 } as const;
 
 /* The request's heading, its button and the page the button opens name one act in one phrase, as the other link
@@ -102,6 +108,10 @@ describe("each message states the same facts in both parts", () => {
       "Deine Einteilung zum bisherigen Termin gilt nicht mehr.",
       "Bleibst Du für das Spiel eingeteilt, bekommst Du für einen neuen Termin nach dem heutigen Tag eine neue Einteilung.",
     ],
+    "Aufgehobene Einteilung": [
+      "für das Spiel Ernst-Reuter-Schule gegen Goethe-Gymnasium am 20.11.2026 um 14:30 Uhr bist Du nicht mehr als Schiedsrichterin oder Schiedsrichter eingeteilt.",
+      "Deine Einteilung zu diesem Spiel gilt nicht mehr. Du musst nichts tun.",
+    ],
   };
 
   for (const [name, mail] of Object.entries(NACHRICHTEN) as [keyof typeof NACHRICHTEN, (typeof NACHRICHTEN)[keyof typeof NACHRICHTEN]][]) {
@@ -141,6 +151,7 @@ describe("each message states the same facts in both parts", () => {
         "Eingeteilt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 20.11.2026",
         "Neu angesetzt: Ernst-Reuter-Schule gegen Goethe-Gymnasium",
         "Neu angesetzt: Ernst-Reuter-Schule gegen Goethe-Gymnasium",
+        "Nicht mehr eingeteilt: Ernst-Reuter-Schule gegen Goethe-Gymnasium",
       ],
     );
   });
@@ -155,11 +166,13 @@ describe("each message states the same facts in both parts", () => {
     assert.ok(!html.includes("token=") && !text.includes("token="), "the referee's message carries a token");
   });
 
-  /* A moved fixture's notice offers nothing to press: the link it voids is the one it is about. */
-  it("offers no control on a moved fixture's notice", () => {
+  /* A moved fixture's notice offers nothing to press: the link it voids is the one it is about. Neither does the
+     notice that a referee's Einteilung is lifted, which leaves them nothing to answer. */
+  it("offers no control on a moved fixture's notice or on a lifted Einteilung", () => {
     for (const mail of [
       NACHRICHTEN["Neue Ansetzung an ein Team"],
       NACHRICHTEN["Neue Ansetzung an die Schiedsrichterin oder den Schiedsrichter"],
+      NACHRICHTEN["Aufgehobene Einteilung"],
     ]) {
       assert.ok(!mail.html.includes('<a href="http://localhost:3000/bestaetigung'), "the notice links a confirmation page");
       assert.ok(!mail.html.includes(`class="fl-actions"`), "the notice draws a control");
@@ -208,6 +221,10 @@ describe("no value can open a line of its own in the text part", () => {
         mail: buildSpielNeueAnsetzungEmail({ ...neu, empfaenger, [feld]: wert }),
       })),
     ),
+    ...(["team1", "team2", "altDatumText", "altUhrzeitText"] as const).map((feld) => ({
+      name: `the lifted Einteilung's ${feld}`,
+      mail: buildSpielEinteilungAufgehobenEmail({ ...neu, [feld]: wert }),
+    })),
   ];
 
   it("folds every value the messages print onto one line, in the text part and the subject", () => {

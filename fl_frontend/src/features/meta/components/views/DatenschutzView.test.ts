@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "20. Oktober 2026", digest: "ac2d4d690bdccd591b2c49da30af928dd44c7de2291dd35b6a1d37b5bba7390b" } as const;
+const FASSUNG = { stand: "21. Oktober 2026", digest: "2eaeb234d049b832bb07cafeb100e5a4a4774f55c5a52da5531d455240684fb5" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -226,6 +226,18 @@ describe("the privacy notice's retention table", () => {
       "Solange der Eintrag besteht: Die Angaben gehen mit dem Eintrag. Der Link gilt " +
         `${inWorten(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage ab dem Versand, wird durch jeden neuen Link ersetzt und mit dem ` +
         "Eintrag gelöscht",
+    );
+  });
+
+  /* The reason is free text that may name somebody, so it goes with its season's contacts; the answer goes with the entry. */
+  it("gives a referee's answer to an Einteilung its retention, the reason's apart from the answer's", () => {
+    assert.equal(
+      ANGABEN.get(
+        "Antwort einer Schiedsrichterin oder eines Schiedsrichters auf eine Einteilung: Zusage oder Absage mit Datum, bei einer " +
+          "Absage dazu eine Begründung als freier Text, in dem auch der Name einer Person stehen kann",
+      ),
+      "Die Begründung bis zum Ende der Saison, die auf die Saison des Spiels folgt. Zusage oder Absage und Datum bleiben, solange " +
+        "der Eintrag besteht, und gehen mit ihm",
     );
   });
 
@@ -692,14 +704,24 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
-  it("publishes a referee's name on the participation basis and a pupil's only on consent", () => {
+  it("publishes neither a pupil's nor a referee's name on the participation basis, only on their consent", () => {
     rendert(
       "Rechtsgrundlage für die Daten, die wir für Deine Teilnahme brauchen, ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes " +
         "Interesse ist, den Spielbetrieb der Liga durchzuführen: Kader und Schiedsrichtereinsätze zu führen, das Mindestalter zu " +
-        "prüfen und Dich zu erreichen. Weil viele, die mitspielen oder pfeifen, noch minderjährig sind, veröffentlichen wir von " +
-        "Spielerinnen und Spielern auf dieser Grundlage nichts: Dein Name im Kader erscheint nur mit Deiner Einwilligung (Abschnitt " +
-        "9). Den Namen einer Schiedsrichterin oder eines Schiedsrichters an einem Spiel veröffentlichen wir auf dieser Grundlage, wie " +
-        "Abschnitt 9 es beschreibt. Du kannst jederzeit widersprechen oder die Löschung verlangen (Abschnitt 14).",
+        "prüfen und Dich zu erreichen. Weil viele, die mitspielen oder pfeifen, noch minderjährig sind, veröffentlichen wir auf " +
+        "dieser Grundlage keine Namen: Dein Name im Kader und Dein Name an einem Spiel, das Du pfeifst, erscheinen nur mit Deiner " +
+        "Einwilligung (Abschnitt 9). Du kannst jederzeit widersprechen oder die Löschung verlangen (Abschnitt 14).",
+    );
+  });
+
+  /* The fixture read withholds a referee's name the referee has not agreed to, so the row's basis is that consent. */
+  it("publishes a referee's name at a fixture on the referee's own consent", () => {
+    assert.equal(
+      ANGABEN.get(
+        "Schiedsrichterinnen und Schiedsrichter an einem Spiel: erster Namensteil und, wenn ein weiterer eingetragen ist, dessen " +
+          "Anfangsbuchstabe, sofern die Person dafür eine Einwilligung erteilt hat",
+      ),
+      "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklicher Einwilligung",
     );
   });
 
