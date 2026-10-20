@@ -134,7 +134,8 @@ describe("carrying a report's proposal into the match editor", () => {
     await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen" }));
 
     assert.equal(screen.getByRole<HTMLInputElement>("switch", { name: "Sonderereignis eintragen" }).checked, true);
-    assert.ok(screen.getAllByText("Nichtantreten Team 2").length > 0, "the seeded event is not picked");
+    // The picker's own value: the panel beside it names the proposed event in its words whatever the draft holds.
+    assert.equal(document.querySelector<HTMLSelectElement>('select[name="sonderereignis"]')?.value, "nichtantreten_team2");
     assert.equal(screen.getByRole<HTMLInputElement>("textbox", { name: /Goethe-Gymnasium/ }).value, "");
   });
 
