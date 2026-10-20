@@ -29,6 +29,7 @@ import { skeletonBlock } from "@/shared/components/ui/skeleton";
 import { TextField } from "@/shared/components/ui/TextField";
 import { KontaktEmailSchema } from "@/shared/schemas";
 import { unansweredRead } from "@/shared/utils/actionError";
+import { focusSection } from "@/shared/utils/focusAfterWrite";
 
 import type { AdresswechselEntwurf } from "@/features/adresswechsel/components/forms/AdresswechselBeantragen";
 import type { VerwaltungAnsichtGelesen } from "@/features/adresswechsel/queries";
@@ -120,7 +121,10 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
   };
 
   return (
-    <section className={panel.root()}>
+    // Where a write that takes the change's own panel away lands: the tool's heading, which stays.
+    <section
+      className={panel.root()}
+      {...focusSection("adresse")}>
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}
