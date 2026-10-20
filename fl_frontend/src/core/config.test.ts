@@ -574,6 +574,22 @@ describe("the switch the fixture confirmations are armed by", () => {
   });
 });
 
+/* The default is what keeps a deploy from opening the report form before the pupils' reset. */
+describe("the switch the match reports are opened by", () => {
+  it("leaves the reports closed where the server sets nothing", async () => {
+    assert.equal((await bootWith({ SPIELBERICHT_EINGABE: undefined })).frontend_config.SPIELBERICHT_EINGABE, "off");
+  });
+
+  it("reads on in either case", async () => {
+    assert.equal((await bootWith({ SPIELBERICHT_EINGABE: "on" })).frontend_config.SPIELBERICHT_EINGABE, "on");
+    assert.equal((await bootWith({ SPIELBERICHT_EINGABE: "ON" })).frontend_config.SPIELBERICHT_EINGABE, "on");
+  });
+
+  it("refuses anything else by name, rather than reading it as one side or the other", async () => {
+    assert.equal(await refusedNames({ SPIELBERICHT_EINGABE: "false" }), "SPIELBERICHT_EINGABE");
+  });
+});
+
 /* One row per clause of the two installed regexes, each keyed by the clause it drives: a clause with
    no row here is drift the agreement case cannot see, and a row nothing drives is a row to delete. */
 const ADDRESS_TABLE: [clause: string, address: string][] = [

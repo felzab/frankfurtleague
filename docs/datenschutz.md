@@ -937,7 +937,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   contact blocks, every pass strips the season's `spielberichte` of the referee's remarks and every
   card's reason, on the reports and in the log's images, in a transaction of its own after the
   confirmations' strip (`fl_backend/app/api/bewerbungen/sweep_router.py :: strip_the_reports`,
-  `docs/backend/spec.md :: I798`). The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`).
+  `docs/backend/spec.md :: I803`). The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`).
   Ruled 2026-10-20.
 - **Timers in the frontend process are what turn those clocks from an intention into a mechanism**
   (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, calling

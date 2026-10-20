@@ -53,7 +53,7 @@ export const FLSpielbestaetigungZustandSchema = z.enum([
 export type FLSpielbestaetigungZustand = z.infer<typeof FLSpielbestaetigungZustandSchema>;
 
 /** Which side of the fixture the reader's club plays, so the page can name the opponent. */
-export const FLSpielbestaetigungSeiteSchema = z.enum(["team1", "team2"]);
+export const FLSpielbestaetigungSeiteSchema = z.enum(["team1", "team2"], { error: "Bitte wähle das Team." });
 export type FLSpielbestaetigungSeite = z.infer<typeof FLSpielbestaetigungSeiteSchema>;
 
 /** A date and an hour without a ground: a club's proposal, and the slot a moved fixture left. */

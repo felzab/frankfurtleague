@@ -135,6 +135,35 @@ describe("where a field's required mark comes from", () => {
     assert.equal(requiredBy([schule], "schule.full_name", ""), true);
   });
 
+  it("reaches a leaf inside a list's entry by its index, through a list the payload may leave out", () => {
+    const tore = z.object({
+      tore: z
+        .array(z.object({ minute: z.string().nonempty(), notiz: z.string() }))
+        .max(3)
+        .nullable(),
+    });
+
+    assert.equal(requiredBy([tore], "tore.0.minute", ""), true, "an entry's refused field is unmarked");
+    assert.equal(requiredBy([tore], "tore.0.notiz", ""), false, "an entry's optional field is marked");
+    assert.equal(requiredBy([tore], "tore.minute", ""), false, "a list is read as an object by a key naming no index");
+  });
+
+  it("reaches a leaf through a section the payload fills with a default", () => {
+    const schule = z.object({ schule: z.object({ full_name: z.string().nonempty() }).default({ full_name: "Lessing-Kolleg" }) });
+
+    assert.equal(requiredBy([schule], "schule.full_name", ""), true);
+  });
+
+  /* A transform pipes its schema in first, a preprocess last: the form writes the payload's input side either way. */
+  it("reaches a leaf through a section piped into a transform, or out of a preprocess", () => {
+    const section = z.object({ full_name: z.string().nonempty() });
+    const transformiert = z.object({ schule: section.transform((schule) => schule.full_name) });
+    const vorverarbeitet = z.object({ schule: z.preprocess((value) => value, section) });
+
+    assert.equal(requiredBy([transformiert], "schule.full_name", ""), true, "a section piped into a transform is unmarked");
+    assert.equal(requiredBy([vorverarbeitet], "schule.full_name", ""), true, "a section out of a preprocess is unmarked");
+  });
+
   it("marks no path the schemas do not carry, and a path any one of them refuses", () => {
     const withName = z.object({ name: z.string().nonempty() });
 
