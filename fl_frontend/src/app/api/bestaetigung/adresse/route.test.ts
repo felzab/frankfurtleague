@@ -32,17 +32,22 @@ const claim = () => {
   return { acknowledged: 1, beanspruchung: mitteilungen.length > 0 ? "claim-1" : null, beansprucht_bis: null, mitteilungen: mitteilungen };
 };
 
+const ABGLEICH = "/berechtigungen/abgleich";
+const NOTHING_ANNOUNCED = { acknowledged: 1, beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
+
 const calls = doubleApiClient(({ endpoint }, schema) => {
   const antwort =
-    endpoint === STOPP
-      ? stoppt()
-      : endpoint === ANSICHT
-        ? liest()
-        : endpoint === CLAIM
-          ? claim()
-          : endpoint === STAMP
-            ? { acknowledged: 1, zugestellt: 1, ignoriert: 0 }
-            : antwortet();
+    endpoint === ABGLEICH
+      ? NOTHING_ANNOUNCED
+      : endpoint === STOPP
+        ? stoppt()
+        : endpoint === ANSICHT
+          ? liest()
+          : endpoint === CLAIM
+            ? claim()
+            : endpoint === STAMP
+              ? { acknowledged: 1, zugestellt: 1, ignoriert: 0 }
+              : antwortet();
   if (antwort instanceof Error) throw antwort;
   return schema.parse(antwort);
 });
@@ -117,6 +122,11 @@ describe("the address page's handler", () => {
       [BISHER],
     );
     assert.deepEqual(stamped(), [{ beanspruchung: "claim-1", ids: [OWED_ID] }]);
+    // A grant the effect moved is announced behind the answer too, not at the next five-minute pass.
+    assert.ok(
+      calls.some(({ endpoint }) => endpoint === ABGLEICH),
+      "the confirmation left a moved grant's announcement to the next pass",
+    );
   });
 
   /* The change stands whatever the provider answered; the notice waits for the next claim once this one's lease lapses. */
