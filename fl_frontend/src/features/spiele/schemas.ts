@@ -592,7 +592,8 @@ export type FLSpielPriorPaarung = z.infer<typeof FLSpielPriorPaarungSchema>;
 export const FLPatchSpielPaarungPayloadSchema = FLSpielPriorPaarungSchema;
 export type FLPatchSpielPaarungPayload = z.infer<typeof FLPatchSpielPaarungPayloadSchema>;
 
-export const FLSpielPriorBerichtVonSchema = z.object({ art: z.literal("admin") });
+// German though no person types these: the undo answers a body it cannot read with its own sentence.
+export const FLSpielPriorBerichtVonSchema = z.object({ art: z.literal("admin", { error: "Die Übernahme nennt keinen gültigen Urheber." }) });
 
 /**
  * The Spielbericht adoption a save stamped over, as the save answers it and its undo sends it back untouched. The
@@ -600,10 +601,13 @@ export const FLSpielPriorBerichtVonSchema = z.object({ art: z.literal("admin") }
  */
 export const FLSpielPriorBerichtSchema = z.object({
   spiel_id: CustomObjectIdStringSchema,
-  version: z.int().min(1),
+  version: z.int({ error: "Der Stand des Spielberichts fehlt." }).min(1, { error: "Der Stand des Spielberichts fehlt." }),
   uebernommen_am: z.string().nullable(),
   uebernommen_von: FLSpielPriorBerichtVonSchema.nullable(),
-  uebernommene_version: z.int().min(1).nullable(),
+  uebernommene_version: z
+    .int({ error: "Die frühere Übernahme nennt keinen Stand." })
+    .min(1, { error: "Die frühere Übernahme nennt keinen Stand." })
+    .nullable(),
 });
 export type FLSpielPriorBericht = z.infer<typeof FLSpielPriorBerichtSchema>;
 
