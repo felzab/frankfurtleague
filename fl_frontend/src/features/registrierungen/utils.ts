@@ -291,7 +291,7 @@ export function mapAufnahmeRefusal(error: unknown): string | null {
         reason: "Diese Stufe ist in dieser Saison nicht zugelassen",
         repair: "Lehne die Registrierung ab oder wende Dich an die Liga",
       });
-    // The page sends exactly the person the read resolved or proposed, so this is a page older than
+    // The page sends exactly the person the read resolved, so this is a page older than
     // the stored person it names.
     case "REQ-REGISTRIERUNG-014":
       return buildRefusal({

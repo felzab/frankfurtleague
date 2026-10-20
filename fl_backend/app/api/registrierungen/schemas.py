@@ -412,17 +412,6 @@ class FLRegistrierungPerson(BaseModel):
     weicht_ab: bool
 
 
-class FLRegistrierungVorschlag(BaseModel):
-    """The one stored person holding no address whose name is the registration's: proposed, never resolved.
-
-    "A typed name is a weaker key than a shorthand", so a name only ever proposes.
-    """
-
-    spieler_id: CustomObjectId
-    vorname: CustomNonEmptyString
-    nachname: str | None
-
-
 class FLOffeneRegistrierung(BaseModel):
     """One pending registration as the team deciding it reads it."""
 
@@ -436,12 +425,9 @@ class FLOffeneRegistrierung(BaseModel):
     # Whether the pupil answered their own link, which is what makes the row one the team may admit.
     aufnehmbar: bool
     nummer_doppelt: bool
-    # Both empty on an unconfirmed row: its address is unproven, and resolving it would show the team
+    # Empty on an unconfirmed row: its address is unproven, and resolving it would show the team
     # whoever stands behind an address anybody typed into the form.
     person: FLRegistrierungPerson | None
-    # One or none, never a list: no birthdate is served, so two namesakes read identically and the
-    # team would be guessing between them.
-    vorschlag: FLRegistrierungVorschlag | None
 
 
 class FLOffeneRegistrierungenResponse(BaseAPIResponse):

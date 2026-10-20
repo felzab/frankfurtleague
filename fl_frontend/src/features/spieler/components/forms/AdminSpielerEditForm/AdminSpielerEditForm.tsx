@@ -55,7 +55,6 @@ type SpielerUndoPayloads = {
 
 type AdminSpielerEditFormProps = {
   spieler: AdminSpielerStored;
-  /** `null` for a person stored before consent was collected. */
   einwilligung: FLEinwilligung;
   /** Whether the registry holds the stored label. */
   istFassungBekannt: boolean | null;

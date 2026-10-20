@@ -89,7 +89,7 @@ export type FLBewerbungSchule = z.infer<typeof FLBewerbungSchuleSchema>;
  */
 export const FLBewerbungTrikotSchema = z.object({
   vorhandener_satz: z.string(),
-  wunschfarbe: FLTrikotFarbeSchema.nullable(),
+  wunschfarbe: FLTrikotFarbeSchema,
 });
 export type FLBewerbungTrikot = z.infer<typeof FLBewerbungTrikotSchema>;
 
@@ -475,9 +475,6 @@ export const FLBewerbungTrikotPayloadSchema = z.object({
     .max(BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH, {
       error: `Die Beschreibung darf höchstens ${String(BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH)} Zeichen lang sein.`,
     }),
-  // Answered, unlike the stored field this becomes: a wish is one of the offered colours and the
-  // school has one. `FLBewerbungTrikot` stays nullable, where an unanswered older record still reads and
-  // where the administrator's assignment is a different field.
   wunschfarbe: FLTrikotFarbeSchema,
 });
 export type FLBewerbungTrikotPayload = z.infer<typeof FLBewerbungTrikotPayloadSchema>;

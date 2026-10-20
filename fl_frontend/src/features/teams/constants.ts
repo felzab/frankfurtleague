@@ -215,12 +215,9 @@ export const EINGETRAGEN_VON_OPTIONS: readonly EingetragenVonOption[] = [
   { value: "liga", label: "Von der Liga eingetragen" },
 ];
 
-/**
- * The Herkunft every surface renders for a contact seat: who seated the person. Never guessed for a seat
- * stored before the field, which says so instead.
- */
+/** The Herkunft every surface renders for a contact seat: who seated the person. */
 export function eingetragenVonLabel(von: FLKontaktKenntnisnahme["eingetragen_von"]): string {
-  return EINGETRAGEN_VON_OPTIONS.find((option) => option.value === von)?.label ?? nichtHinterlegt("Herkunft");
+  return EINGETRAGEN_VON_OPTIONS.find((option) => option.value === von)?.label ?? "";
 }
 
 /**

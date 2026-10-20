@@ -147,7 +147,7 @@ describe("the pupil's confirmation handler", () => {
     assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: null, umfang: null, medien: null });
   });
 
-  /* A page whose person's stored birthdate was set or cleared since it opened meets this, or a drifted
+  /* A page whose person at the address was admitted or erased since it opened meets this, or a drifted
      client; the mail's link reopens the page as it stands. */
   it("answers the refusal of answers the page does not ask with the sentence that reopens the link", async () => {
     schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-REGISTRIERUNG-017");

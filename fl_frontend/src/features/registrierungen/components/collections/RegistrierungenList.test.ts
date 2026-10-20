@@ -35,7 +35,6 @@ const OFFEN_ENDPOINT = `/registrierungen/kader/${TEAM_A}/${SITZ.saison_id}`;
 const LENA = "68c1f0a2b3c4d5e6f7a8b941";
 const MIA = "68c1f0a2b3c4d5e6f7a8b942";
 const STORED = "68c1f0a2b3c4d5e6f7a8b951";
-const VORSCHLAG = "68c1f0a2b3c4d5e6f7a8b952";
 
 /** One pending registration as the backend serves it to a seat holder. */
 const zeile = (registrierung_id: string, vorname: string, nachname: string, fields: Record<string, unknown> = {}) => ({
@@ -49,7 +48,6 @@ const zeile = (registrierung_id: string, vorname: string, nachname: string, fiel
   aufnehmbar: true,
   nummer_doppelt: false,
   person: null,
-  vorschlag: null,
   ...fields,
 });
 
@@ -271,30 +269,9 @@ describe("deciding a registration", () => {
     assert.deepEqual(calls, [{ action: "ablehnenRegistrierungAction", payload: { ...ZIEL, grund: "andere_person" } }]);
   });
 
-  /* A name alone is the weaker key, so the armed primary makes a new person and the proposed record
-     is the secondary, each named by its effect. */
-  it("admits as a new person on the armed primary, and into a proposed person on its own control", async () => {
-    viewWith({ vorschlag: { spieler_id: VORSCHLAG, vorname: "Lena", nachname: "Meier" } });
-    await armedThen(userEvent.setup(), "Als neue Person aufnehmen", () => {
-      assert.equal(primaryName(), "Als neue Person aufnehmen", "a new person is not the armed primary");
-    });
-    assert.deepEqual(calls.at(-1), { action: "aufnehmenRegistrierungAction", payload: { ...ZIEL, spieler_id: null } });
-
-    await armedThen(userEvent.setup(), "Als Lena Meier aufnehmen");
-    assert.deepEqual(calls.at(-1), { action: "aufnehmenRegistrierungAction", payload: { ...ZIEL, spieler_id: VORSCHLAG } });
-  });
-
-  /* A stored pupil may hold no surname, so every name the row gives a stored or proposed person is
-     the squad's own full name, never the two fields joined. */
-  it("names a proposed or a differing stored person holding no surname by the first name alone", async () => {
-    const vorgeschlagen = viewWith({ vorschlag: { spieler_id: VORSCHLAG, vorname: "Lena", nachname: null } });
-    await armedThen(userEvent.setup(), "Als Lena aufnehmen", () => {
-      const shown = screen.getByRole("alert").textContent;
-      assert.ok(shown.includes("Ist das dieselbe Person wie Lena?"), shown);
-    });
-    assert.deepEqual(calls.at(-1), { action: "aufnehmenRegistrierungAction", payload: { ...ZIEL, spieler_id: VORSCHLAG } });
-    vorgeschlagen.unmount();
-
+  /* A stored pupil may hold no surname, so the name the row gives a stored person is the squad's own
+     full name, never the two fields joined. */
+  it("names a differing stored person holding no surname by the first name alone", async () => {
     viewWith({ person: { spieler_id: STORED, vorname: "Lena", nachname: null, weicht_ab: true } });
     await pressTwice(userEvent.setup(), {
       resting: "Aufnehmen: Lena Meier",

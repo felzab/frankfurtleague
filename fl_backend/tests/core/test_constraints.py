@@ -386,7 +386,7 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # Nullable for `teams.schulform`'s reason on the one, and because a school may state no wish on
     # the other: the null is a real answer rather than a field nobody filled in.
     (Collection.BEWERBUNGEN, ("schule",), "schulform", get_args(FLSchulform), True),
-    (Collection.BEWERBUNGEN, ("trikot",), "wunschfarbe", get_args(FLTrikotFarbe), True),
+    (Collection.BEWERBUNGEN, ("trikot",), "wunschfarbe", get_args(FLTrikotFarbe), False),
     # One row per person, because the validator declares the block three times over: a sub-schema
     # shared in Python is still three separate paths to the drift walk.
     (
