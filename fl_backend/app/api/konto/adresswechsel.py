@@ -46,7 +46,8 @@ from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.shared.adresswechsel import ADRESSWECHSEL_FELD, neue_adresse_of
 from app.shared.folding import sign_in_identifier
 
-# Which lane carries a change: the pupil row where the address holds one, else a confirmed referee row.
+# Which lane carries a change: the person's own start, the pupil row where the address holds one, else the lowest
+# confirmed referee row; an administrator's start, the row its path names.
 Art = Literal["spieler", "schiedsrichter"]
 
 ART_OF: Mapping[Collection, Art] = {Collection.SPIELER: "spieler", Collection.SCHIEDSRICHTER: "schiedsrichter"}
