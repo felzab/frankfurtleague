@@ -157,10 +157,15 @@ async def anchor_the_pupils_named(*, spieler_collection: AsyncCollection, spiele
     await anchor_in_db(collection=spieler_collection, db_filter={"_id": {"$in": ids}}, session=session)
 
 
+async def anchor_the_season_reported_in(*, saisons_collection: AsyncCollection, saison_id: str, session: AsyncClientSession) -> None:
+    """The season a report's first write and a draw's removal both write, so the two conflict (`docs/backend/spec.md :: I833`)."""
+
+    await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+
+
 async def write_bericht(
     *,
     spielberichte_collection: AsyncCollection,
-    saisons_collection: AsyncCollection,
     spiel_raw: Mapping[str, Any],
     gespeichert: Mapping[str, Any] | None,
     payload: FLSpielberichtBerichtPayload,
@@ -191,9 +196,6 @@ async def write_bericht(
             },
             session=session,
         )
-        # The season a replace and an undraw write, deleting reports this insert is invisible to: one of the two retries
-        # and meets the other (`docs/backend/spec.md :: I833`). After the insert, so a rival first write meets it there.
-        await anchor_in_db(collection=saisons_collection, db_filter={"_id": spiel_raw["saison_id"]}, session=session)
         return await pull_one_from_db(collection=spielberichte_collection, db_filter={"spiel_id": spiel_raw["_id"]}, session=session)
 
     update = (

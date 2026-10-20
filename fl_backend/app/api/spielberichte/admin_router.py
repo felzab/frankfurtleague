@@ -5,9 +5,11 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_current_saison_id
 from app.api.spielberichte.crud import (
     anchor_the_pupils_named,
+    anchor_the_season_reported_in,
     pull_bericht_lage,
     pull_genannt,
     pull_zustaende,
@@ -202,7 +204,6 @@ async def patch_spielbericht(
         von: FLSpielberichtVon = FLSpielberichtVonAdmin(art="admin")
         dokument = await write_bericht(
             spielberichte_collection=spielberichte_collection,
-            saisons_collection=saisons_collection,
             spiel_raw=lage.spiel,
             gespeichert=gespeichert,
             payload=payload,
@@ -210,6 +211,9 @@ async def patch_spielbericht(
             now=now,
             session=session,
         )
+        if gespeichert is None:
+            # After the insert, so a rival first write meets it there rather than blocking on the season.
+            await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=lage.spiel["saison_id"], session=session)
         genannt = await pull_genannt(
             spieler_collection=spieler_collection, lage=lage, kader_offen=True, bericht=dokument.get("bericht"), session=session
         )
@@ -227,5 +231,7 @@ async def patch_spielbericht(
 
         return _admin_ansicht(lage, genannt=genannt, dokument=dokument)
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(write_the_report)
+    # A first write anchors the season, a season write the cache serves (`docs/backend/spec.md :: I131`).
+    with dropping_the_saison_cache():
+        async with transaction_session(db) as session:
+            return await session.with_transaction(write_the_report)

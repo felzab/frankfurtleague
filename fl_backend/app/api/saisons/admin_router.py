@@ -63,7 +63,7 @@ from app.api.saisons.services import (
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
-from app.api.spielberichte.crud import count_eingereichte_berichte
+from app.api.spielberichte.crud import anchor_the_season_reported_in, count_eingereichte_berichte
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import (
@@ -75,7 +75,6 @@ from app.api.teams.services import (
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
-    anchor_in_db,
     build_query,
     build_sort,
     delete_many_from_db,
@@ -968,7 +967,7 @@ async def generate_spielplan(
         if spielplan_data.replace:
             # The season a report's first write anchors, so the two conflict: the watermark's `$set` below can change
             # nothing on a same-day redraw, and the report's insert meets no delete here (`docs/backend/spec.md :: I833`).
-            await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+            await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
             # NOT extracted, though `undraw_spielplan` repeats it: two sites are no pattern yet
             # (`.claude/CLAUDE.md` §3).
             await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)

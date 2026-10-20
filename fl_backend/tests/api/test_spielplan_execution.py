@@ -34,7 +34,7 @@ from app.api.saisons.services import (
     SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
     SPIELPLAN_SAISON_FINISHED,
 )
-from app.api.spielberichte.crud import write_bericht
+from app.api.spielberichte.crud import anchor_the_season_reported_in, write_bericht
 from app.api.spielberichte.schemas import FLSpielberichtBerichtPayload, FLSpielberichtVonAdmin
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpiel
 from app.api.spieltage.schemas import FLSpieltag
@@ -1078,7 +1078,6 @@ class TestAFirstReportCrossingAReplaceMeetsItOnTheSeason:
                 stand = await pull_one_from_db(collection=database[Collection.SPIELE], db_filter={"_id": spiel["_id"]}, session=session)
                 await write_bericht(
                     spielberichte_collection=database[Collection.SPIELBERICHTE],
-                    saisons_collection=database[Collection.SAISONS],
                     spiel_raw=stand,
                     gespeichert=None,
                     payload=NULL_NULL,
@@ -1086,6 +1085,7 @@ class TestAFirstReportCrossingAReplaceMeetsItOnTheSeason:
                     now=datetime(2026, 8, 22, 12, tzinfo=UTC),
                     session=session,
                 )
+                await anchor_the_season_reported_in(saisons_collection=database[Collection.SAISONS], saison_id=SAISON_ID, session=session)
 
             async def report() -> str:
                 await held_until(watermark_written)

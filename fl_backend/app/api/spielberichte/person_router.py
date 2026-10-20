@@ -8,9 +8,11 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.identitaet.crud import funktionen_of
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.konto.services import find_eigener_eintrag_refusal
+from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.spielberichte.crud import (
     anchor_the_pupils_named,
+    anchor_the_season_reported_in,
     pull_bericht_lage,
     pull_genannt,
     write_bericht,
@@ -279,7 +281,6 @@ async def put_spielbericht_bericht(
         await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*neu.values()), session=session)
         dokument = await write_bericht(
             spielberichte_collection=spielberichte_collection,
-            saisons_collection=saisons_collection,
             spiel_raw=lage.spiel,
             gespeichert=gespeichert,
             payload=payload,
@@ -287,6 +288,9 @@ async def put_spielbericht_bericht(
             now=now,
             session=session,
         )
+        if gespeichert is None:
+            # After the insert, so a rival first write meets it there rather than blocking on the season.
+            await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=lage.spiel["saison_id"], session=session)
         genannt = await pull_genannt(
             spieler_collection=spieler_collection, lage=lage, kader_offen=True, bericht=dokument.get("bericht"), session=session
         )
@@ -318,8 +322,10 @@ async def put_spielbericht_bericht(
 
         return FLSpielberichtSchiedsrichterResponse.model_validate(ansicht), angelegt
 
-    async with transaction_session(db) as session:
-        answer, angelegt = await session.with_transaction(write_the_report)
+    # A first write anchors the season, a season write the cache serves (`docs/backend/spec.md :: I131`).
+    with dropping_the_saison_cache():
+        async with transaction_session(db) as session:
+            answer, angelegt = await session.with_transaction(write_the_report)
 
     # RFC 9110's PUT: a write creating the report says so.
     if angelegt:
