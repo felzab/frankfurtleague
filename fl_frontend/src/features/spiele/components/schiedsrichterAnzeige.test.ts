@@ -3,7 +3,12 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { GHOST_SCHIEDSRICHTER_ID, SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
+import {
+  GHOST_SCHIEDSRICHTER_ID,
+  SCHIEDSRICHTER_ANONYM_LABEL,
+  SCHIEDSRICHTER_OHNE_NAMEN_LABEL,
+  spielSchiedsrichterAnzeige,
+} from "@/features/schiedsrichter/constants.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
@@ -173,5 +178,28 @@ describe("which word the picker's OFFERED nameless row takes", () => {
 
     assert.ok(listed.includes(SCHIEDSRICHTER_OHNE_NAMEN_LABEL), `the offered row renders no stand-in name: ${listed}`);
     assert.ok(!listed.includes(SCHIEDSRICHTER_ANONYM_LABEL), "an offered row claims an erasure the list never serves");
+  });
+});
+
+describe("which word the public card gives a referee the fixture read serves no name for", () => {
+  /* The verdict decides beside the id: a withheld name on a real id reads as the ghost's does, where a nameless
+     row the referee's consent publishes keeps the unfinished-entry word. Read off the name, all three would agree. */
+  it("reads a withheld name and the ghost as „anonym“, and a published nameless row as an unfinished entry", () => {
+    assert.equal(spielSchiedsrichterAnzeige({ schiedsrichter_id: REFEREE_ID, name: null, name_is_public: false }), SCHIEDSRICHTER_ANONYM_LABEL);
+    assert.equal(
+      spielSchiedsrichterAnzeige({ schiedsrichter_id: GHOST_SCHIEDSRICHTER_ID, name: null, name_is_public: false }),
+      SCHIEDSRICHTER_ANONYM_LABEL,
+    );
+    assert.equal(
+      spielSchiedsrichterAnzeige({ schiedsrichter_id: NAMELESS_ID, name: null, name_is_public: true }),
+      SCHIEDSRICHTER_OHNE_NAMEN_LABEL,
+    );
+  });
+
+  /* The admin tier serves no verdict: its absence read as withheld turns every referee the editor, the draft preview
+     and the referee facet show „anonym“. */
+  it("reads a call carrying no verdict as the admin tier does, by the name and the id alone", () => {
+    assert.equal(spielSchiedsrichterAnzeige({ schiedsrichter_id: NAMELESS_ID, name: null }), SCHIEDSRICHTER_OHNE_NAMEN_LABEL);
+    assert.equal(spielSchiedsrichterAnzeige({ schiedsrichter_id: REFEREE_ID, name: "Anna Körner" }), "Anna Körner");
   });
 });

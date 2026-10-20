@@ -31,6 +31,7 @@ import {
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import {
+  SCHIEDSRICHTER_ANONYM_LABEL,
   SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
   SCHIEDSRICHTER_UMFANG_FRAGE,
   SCHIEDSRICHTER_UMFANG_WERTE,
@@ -525,9 +526,15 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
           <GespeicherteAngaben
             zeilen={[
               { label: "Geburtsdatum", wert: formatSpielDatum(stand.geburtsdatum) },
-              // The answer as a permission, as the media row reads one, never what the schedule
-              // shows: the public fixture read consults no consent record, and serves the name either way.
-              { label: "Name im Spielplan", wert: stand.umfang === "kader_oeffentlich" ? "erlaubt" : "nicht erlaubt" },
+              // What the schedule shows, which the fixture read decides by this answer: a permission
+              // word would leave the reader to guess what stands there instead.
+              {
+                label: "Name im Spielplan",
+                wert:
+                  stand.umfang === "kader_oeffentlich"
+                    ? "Dein erster Namensteil und der Anfangsbuchstabe des nächsten"
+                    : SCHIEDSRICHTER_ANONYM_LABEL,
+              },
               medienZeile(stand.medien),
             ]}
           />

@@ -13,7 +13,7 @@ import {
   VERTRETUNG_MIN_ALTER,
 } from "@/features/bewerbungen/constants";
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants";
-import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants";
+import { SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants";
 import { SPIELER_ADRESSWECHSEL_FRIST_TAGE, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants";
 import { Angabe } from "@/shared/components/ui/Angabe";
 import { card } from "@/shared/components/ui/card";
@@ -131,8 +131,8 @@ const VEROEFFENTLICHT = [
     grundlage: "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklicher Einwilligung",
   },
   {
-    was: "Schiedsrichterinnen und Schiedsrichter an einem Spiel: erster Namensteil und, wenn ein weiterer eingetragen ist, dessen Anfangsbuchstabe",
-    grundlage: "Art. 6 Abs. 1 lit. f DSGVO, Durchführung und Darstellung des Spielbetriebs der Liga",
+    was: "Schiedsrichterinnen und Schiedsrichter an einem Spiel: erster Namensteil und, wenn ein weiterer eingetragen ist, dessen Anfangsbuchstabe, sofern die Person dafür eine Einwilligung erteilt hat",
+    grundlage: "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklicher Einwilligung",
   },
   {
     was: `Vornamen der Organisatorinnen und Organisatoren auf der Seite „${ORGANISATION_TITEL}“`,
@@ -179,6 +179,18 @@ const FRISTEN = [
     daten: "Registrierungslink eines Teams: der Link als unlesbarer Schlüssel, dazu das Datum und die anlegende Person aus der Verwaltung",
     frist:
       "Kein eigener Zeitraum: Der Link endet mit der Registrierungsfrist der Saison, für die er gilt, oder sobald die Verwaltung ihn zurückzieht oder durch einen neuen ersetzt. Der Eintrag dazu enthält den Link nur als unlesbaren Schlüssel, nennt keine Spielerin und keinen Spieler und bleibt mit dem Datum und der E-Mail-Adresse der Person aus der Verwaltung, die ihn angelegt hat, bestehen. Werden die Daten dieser Person gelöscht, steht dort statt ihrer Adresse ein Vermerk, der niemanden nennt",
+  },
+  {
+    daten:
+      "Antwort einer Schiedsrichterin oder eines Schiedsrichters auf eine Einteilung: Zusage oder Absage mit Datum, bei einer Absage dazu eine Begründung als freier Text, in dem auch der Name einer Person stehen kann",
+    frist:
+      "Die Begründung bis zum Ende der Saison, die auf die Saison des Spiels folgt. Zusage oder Absage und Datum bleiben, solange der Eintrag besteht, und gehen mit ihm",
+  },
+  {
+    daten:
+      "Zusage, die die Verwaltung auf eine Spielbestätigung für ein Team, eine Schiedsrichterin oder einen Schiedsrichter einträgt: Datum und eine Begründung als freier Text, in dem auch der Name einer Person stehen kann",
+    frist:
+      "Die Begründung bis zum Ende der Saison, die auf die Saison des Spiels folgt. Zusage und Datum bleiben so lange wie die Antwort, für die die Verwaltung sie einträgt",
   },
   { daten: "Geburtsdatum einer Kontaktperson", frist: "Entsteht erst mit ihrer Bestätigung, dann dieselbe Frist wie die Bewerbung" },
   {
@@ -594,9 +606,8 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>
             Rechtsgrundlage für die Daten, die wir für Deine Teilnahme brauchen, ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse
             ist, den Spielbetrieb der Liga durchzuführen: Kader und Schiedsrichtereinsätze zu führen, das Mindestalter zu prüfen und Dich zu
-            erreichen. Weil viele, die mitspielen oder pfeifen, noch minderjährig sind, veröffentlichen wir von Spielerinnen und Spielern auf
-            dieser Grundlage nichts: Dein Name im Kader erscheint nur mit Deiner Einwilligung (Abschnitt 9). Den Namen einer Schiedsrichterin
-            oder eines Schiedsrichters an einem Spiel veröffentlichen wir auf dieser Grundlage, wie Abschnitt 9 es beschreibt. Du kannst
+            erreichen. Weil viele, die mitspielen oder pfeifen, noch minderjährig sind, veröffentlichen wir auf dieser Grundlage keine Namen:
+            Dein Name im Kader und Dein Name an einem Spiel, das Du pfeifst, erscheinen nur mit Deiner Einwilligung (Abschnitt 9). Du kannst
             jederzeit widersprechen oder die Löschung verlangen (Abschnitt 14).
           </p>
           <p className={ABSATZ_CLASSES}>
@@ -606,10 +617,11 @@ export function DatenschutzView() {
             Registrierung im Kader standen, kann die Verwaltung das Geburtsdatum nachtragen.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Bei Schiedsrichterinnen und Schiedsrichtern wird der Name als ein Feld erfasst, und an einem Spiel steht davon der erste Namensteil
-            und vom nächsten nur der Anfangsbuchstabe. Bei einem Namenszusatz wie „van“ ist das dessen Buchstabe und nicht der des Nachnamens,
-            und ist nur ein einzelner Name eingetragen, steht dieser ganz da. Die Kontaktdaten und die Schule bleiben in der Verwaltung der
-            Liga.
+            Bei Schiedsrichterinnen und Schiedsrichtern wird der Name als ein Feld erfasst. Hast Du der Veröffentlichung zugestimmt, steht an
+            einem Spiel davon der erste Namensteil und vom nächsten nur der Anfangsbuchstabe, sonst steht dort „{SCHIEDSRICHTER_ANONYM_LABEL}“.
+            Hat die Verwaltung Dich zu einem Spiel gefragt, steht es erst mit Dir im Spielplan, wenn Du zugesagt hast. Bei einem Namenszusatz
+            wie „van“ ist das dessen Buchstabe und nicht der des Nachnamens, und ist nur ein einzelner Name eingetragen, steht dieser ganz da.
+            Die Kontaktdaten und die Schule bleiben in der Verwaltung der Liga.
           </p>
           <p className={ABSATZ_CLASSES}>
             Bei Schiedsrichterinnen und Schiedsrichtern trägt die Verwaltung Name und Kontaktdaten ein, dazu die Schule, wenn es eine gibt, so
@@ -758,11 +770,12 @@ export function DatenschutzView() {
             </li>
             <li className={ABSATZ_CLASSES}>
               Widerruf einer Einwilligung, jederzeit und mit Wirkung für die Zukunft (Art. 7 Abs. 3 DSGVO). Das betrifft den Namen einer
-              Spielerin oder eines Spielers in den Kaderlisten, die Erlaubnis für Fotos, Videos und Interviews, die Vornamen der
-              Organisatorinnen und Organisatoren auf der Seite „{ORGANISATION_TITEL}“ und den freiwilligen Schalter für WhatsApp. Ein Vorname
-              auf der Seite „{ORGANISATION_TITEL}“ steht auch im öffentlich einsehbaren Quellcode dieser Website: Ein Widerruf nimmt ihn von der
-              Website und aus der aktuellen Fassung des Quellcodes, frühere Fassungen bleiben in dessen öffentlicher Versionsgeschichte
-              erhalten. Was bis zum Widerruf geschah, bleibt rechtmäßig.
+              Spielerin oder eines Spielers in den Kaderlisten, den Namen einer Schiedsrichterin oder eines Schiedsrichters an einem Spiel, die
+              Erlaubnis für Fotos, Videos und Interviews, die Vornamen der Organisatorinnen und Organisatoren auf der Seite „
+              {ORGANISATION_TITEL}“ und den freiwilligen Schalter für WhatsApp. Ein Vorname auf der Seite „{ORGANISATION_TITEL}“ steht auch im
+              öffentlich einsehbaren Quellcode dieser Website: Ein Widerruf nimmt ihn von der Website und aus der aktuellen Fassung des
+              Quellcodes, frühere Fassungen bleiben in dessen öffentlicher Versionsgeschichte erhalten. Was bis zum Widerruf geschah, bleibt
+              rechtmäßig.
             </li>
           </ul>
           <p className={ABSATZ_CLASSES}>

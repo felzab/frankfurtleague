@@ -159,8 +159,8 @@ describe("the referee's confirmation handler", () => {
     assert.equal(JSON.parse(geschrieben?.body ?? "{}").medien, false);
   });
 
-  /* `{ expire: 0 }` and never `updateTag`, which throws here (`docs/frontend/spec.md :: I14`), ahead
-     of the fixture read joining the referee's record. */
+  /* `{ expire: 0 }` and never `updateTag`, which throws here (`docs/frontend/spec.md :: I14`): the
+     fixture read serves the referee's name by this record. */
   it("drops the fixture cache with no staleness tolerated", async () => {
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
