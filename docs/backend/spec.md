@@ -1629,6 +1629,15 @@ rather than by the handler remembering to conceal one.
   where the fixture's new date is inside the answer window, one request more. Any other leaves a
   proposal stored that its judges would now refuse, which the administrator's save of that date
   judges again (I754): a proposal is advice.
+- **A report can commit beside a rival that landed after its second judgement.** Both report writes
+  judge again outside their transaction just before answering (I118), and write nothing a call-off,
+  a re-date, a booking, a referee's retirement, a squad row, a seat holder's rename or an undraw
+  writes, so one of those committing between that judgement and the report's commit stands beside
+  it: remarks naming a seat holder renamed in that instant, a report on a fixture called off in it,
+  which then reads `abgesagt`, or a report outliving an undraw, which no read shows and no draw
+  counts (`fl_backend/app/api/spielberichte/services.py :: build_eingereichte_pipeline`). Closing it
+  takes an anchor on every document judged, a write on each rival's path, for a window of one round
+  trip.
 - **An Einteilung can reach a referee who declined meanwhile.** The pass commits before the frontend
   mails, and a request told again writes no referee row, anchoring only the referee's record
   (`fl_backend/app/api/spielbestaetigungen/crud.py :: anchor_the_referees_told`), which a decline does

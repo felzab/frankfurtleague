@@ -245,9 +245,10 @@ async def put_spielbericht_bericht(
     did (`REQ-BERICHT-003`); a yellow or second yellow card naming no reason (`REQ-BERICHT-008`); and remarks naming a
     seat holder of either club, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal
     after the first but `REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's
-    records included, so a write landing mid-press on what was judged refuses the report rather than letting it stand; a
-    write of the report itself landing mid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first
-    writes at once are two forms opened on no report: the later is refused.
+    records included, so a write landing on what was judged before that second asking refuses the report rather than
+    letting it stand, and one landing after it stands beside the report; a write of the report itself landing mid-press
+    conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two forms opened on no
+    report: the later is refused.
     """
 
     payload = bericht_data.bericht

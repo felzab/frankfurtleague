@@ -184,21 +184,21 @@ async def write_bericht(
             },
             session=session,
         )
-    else:
-        update = (
-            {"$set": {"bericht": compose_neuer_bericht(payload, von=von, seiten=seiten, now=now)}}
-            if gespeichert.get("bericht") is None
-            else compose_bericht_update(payload, seiten=seiten, now=now)
-        )
-        await patch_one_in_db(
-            collection=spielberichte_collection,
-            db_filter={"_id": gespeichert["_id"]},
-            update=update,
-            session=session,
-            return_document=ReturnDocument.BEFORE,
-        )
+        return await pull_one_from_db(collection=spielberichte_collection, db_filter={"spiel_id": spiel_raw["_id"]}, session=session)
 
-    return await pull_one_from_db(collection=spielberichte_collection, db_filter={"spiel_id": spiel_raw["_id"]}, session=session)
+    update = (
+        {"$set": {"bericht": compose_neuer_bericht(payload, von=von, seiten=seiten, now=now)}}
+        if gespeichert.get("bericht") is None
+        else compose_bericht_update(payload, seiten=seiten, now=now)
+    )
+    # `AFTER`: inside the transaction the patch reads the document back for its log anyway.
+    return await patch_one_in_db(
+        collection=spielberichte_collection,
+        db_filter={"_id": gespeichert["_id"]},
+        update=update,
+        session=session,
+        return_document=ReturnDocument.AFTER,
+    )
 
 
 async def count_eingereichte_berichte(*, spielberichte_collection: AsyncCollection, saison_id: str, session: AsyncClientSession | None) -> int:
