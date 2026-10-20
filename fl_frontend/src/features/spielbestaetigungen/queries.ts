@@ -1,11 +1,26 @@
+import { apiClient } from "@/core/api";
 import { ContractBreakError } from "@/core/errors";
+import { runAdminRead } from "@/shared/utils/adminRead";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { postSpielbestaetigungAnsicht } from "./mutations";
+import { FLSpielbestaetigungenListResponseSchema } from "./schemas";
 import { mapAnsetzungAnsichtRefusal } from "./utils";
 
+import type { FLSpielbestaetigungenListResponse } from "./schemas";
+import type { FLSpielbestaetigungenFilterParams } from "./types";
 import type { SpielbestaetigungAnsicht } from "./utils";
+
+/** Uncached, as every admin-tier read is: `"use cache"` keys on the arguments, never on the administrator asking. */
+export async function getSpielbestaetigungen(filters: FLSpielbestaetigungenFilterParams): Promise<FLSpielbestaetigungenListResponse> {
+  return runAdminRead(() =>
+    apiClient<FLSpielbestaetigungenListResponse>("/spielbestaetigungen", FLSpielbestaetigungenListResponseSchema, {
+      authType: "admin",
+      params: filters,
+    }),
+  );
+}
 
 /**
  * One link's standing, read on every open and stored nowhere: a GET records nothing, not even a

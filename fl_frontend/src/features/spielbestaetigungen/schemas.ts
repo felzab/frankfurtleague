@@ -5,7 +5,13 @@ import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
 import { SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH } from "@/features/spiele/constants";
 import { FLSpielOrtFieldPublicSchema } from "@/features/spiele/schemas";
-import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSchema, einzeiligerName } from "@/shared/schemas";
+import {
+  CustomDateStringSchema,
+  CustomObjectIdStringSchema,
+  CustomTimeStringSchema,
+  einzeiligerName,
+  FLBewerbungZustellungSchema,
+} from "@/shared/schemas";
 
 /** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
 const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link aus Deiner E-Mail erneut.";
@@ -247,3 +253,125 @@ export const FLSpielbestaetigungSweepAngefragtResponseSchema = BaseAPIResponseSc
   fehlgeschlagen: z.int().nonnegative(),
 });
 export type FLSpielbestaetigungSweepAngefragtResponse = z.infer<typeof FLSpielbestaetigungSweepAngefragtResponseSchema>;
+
+// --- The administrator's read, settle and discard (`fl_backend/app/api/spielbestaetigungen/admin_router.py`).
+
+export const FLSpielbestaetigungParteiTeamSchema = z.object({
+  art: z.literal("team"),
+  team_id: CustomObjectIdStringSchema,
+});
+
+export const FLSpielbestaetigungParteiSchiedsrichterSchema = z.object({
+  art: z.literal("schiedsrichter"),
+  schiedsrichter_id: CustomObjectIdStringSchema,
+});
+
+export const FLSpielbestaetigungParteiSchema = z.discriminatedUnion("art", [
+  FLSpielbestaetigungParteiTeamSchema,
+  FLSpielbestaetigungParteiSchiedsrichterSchema,
+]);
+export type FLSpielbestaetigungPartei = z.infer<typeof FLSpielbestaetigungParteiSchema>;
+
+/** The Ansetzung a row answers about, as the fixture stood when it was asked, in the fixture's own spelling. */
+export const FLSpielbestaetigungAnsetzungSchema = z.object({
+  datum: CustomDateStringSchema,
+  uhrzeit: CustomTimeStringSchema,
+  spielort_id: CustomObjectIdStringSchema.nullable(),
+  team1_id: CustomObjectIdStringSchema,
+  team2_id: CustomObjectIdStringSchema,
+  stand: z.string(),
+});
+
+/** One seat's link as an administrator reads it: what became of its last message, and never a hash. */
+export const FLSpielbestaetigungSitzSchema = z.object({
+  zustellung: FLBewerbungZustellungSchema.nullable(),
+});
+
+export const FLSpielbestaetigungKontakteSchema = z.object({
+  trainer: FLSpielbestaetigungSitzSchema.nullable(),
+  ansprechperson: FLSpielbestaetigungSitzSchema.nullable(),
+  stellvertretung: FLSpielbestaetigungSitzSchema.nullable(),
+});
+
+export const FLSpielbestaetigungAntwortSchema = z.object({
+  art: FLSpielbestaetigungAntwortArtSchema,
+  am: CustomDateStringSchema,
+  von: FLSpielbestaetigungVonSchema,
+  vorschlag: FLSpielbestaetigungTerminSchema.nullable(),
+  begruendung: z.string().nonempty().nullable(),
+});
+
+export const FLSpielbestaetigungGrundSchema = z.enum([
+  "ansetzung_geaendert",
+  "austritt",
+  "spiel_entschieden",
+  "abgesagt",
+  "schiedsrichter_gewechselt",
+  "verworfen",
+  "spiel_vergangen",
+]);
+export type FLSpielbestaetigungGrund = z.infer<typeof FLSpielbestaetigungGrundSchema>;
+
+export const FLSpielbestaetigungGeschlossenSchema = z.object({
+  am: CustomDateStringSchema,
+  grund: FLSpielbestaetigungGrundSchema,
+});
+
+export const FLSpielbestaetigungSchema = z.object({
+  id: CustomObjectIdStringSchema,
+  saison_id: z.string(),
+  spiel_id: CustomObjectIdStringSchema,
+  partei: FLSpielbestaetigungParteiSchema,
+  ansetzung: FLSpielbestaetigungAnsetzungSchema,
+  frist: CustomDateStringSchema,
+  angefragt_am: CustomDateStringSchema.nullable(),
+  erinnert_am: z.array(CustomDateStringSchema),
+  // Null on a referee row, whose referee answers signed in rather than by a link.
+  kontakte: FLSpielbestaetigungKontakteSchema.nullable(),
+  antwort: FLSpielbestaetigungAntwortSchema.nullable(),
+  geschlossen: FLSpielbestaetigungGeschlossenSchema.nullable(),
+});
+export type FLSpielbestaetigung = z.infer<typeof FLSpielbestaetigungSchema>;
+
+export const FLSpielbestaetigungenListResponseSchema = BaseAPIResponseSchema.extend({
+  spielbestaetigungen: z.array(FLSpielbestaetigungSchema),
+  // The named season's own last pass, null where none ran or no such season exists.
+  spiel_sweep_gelaufen_am: CustomDateStringSchema.nullable(),
+  /** False where the endpoint's cap cut the answer short, which every reading of the rows is then blind to. */
+  vollstaendig: z.boolean(),
+});
+export type FLSpielbestaetigungenListResponse = z.infer<typeof FLSpielbestaetigungenListResponseSchema>;
+
+/**
+ * The settle: a Zusage recorded on the party's behalf, with the reason the league's record of it carries. The reason
+ * takes no name check, as a club's own does not, and goes at the season's end.
+ */
+export const FLSpielbestaetigungEintragenPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+  begruendung: einzeiligerName(
+    z
+      .string()
+      .trim()
+      .nonempty({ error: "Bitte gib eine Begründung an." })
+      .max(SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH, {
+        error: `Die Begründung darf höchstens ${String(SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH)} Zeichen lang sein.`,
+      }),
+    "Die Begründung",
+  ),
+});
+export type FLSpielbestaetigungEintragenPayload = z.infer<typeof FLSpielbestaetigungEintragenPayloadSchema>;
+
+export const FLSpielbestaetigungEintragenResponseSchema = BaseAPIResponseSchema.extend({
+  updated_document: FLSpielbestaetigungSchema,
+});
+export type FLSpielbestaetigungEintragenResponse = z.infer<typeof FLSpielbestaetigungEintragenResponseSchema>;
+
+export const FLSpielbestaetigungVerwerfenPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+});
+export type FLSpielbestaetigungVerwerfenPayload = z.infer<typeof FLSpielbestaetigungVerwerfenPayloadSchema>;
+
+export const FLSpielbestaetigungVerwerfenResponseSchema = BaseAPIResponseSchema.extend({
+  updated_document: FLSpielbestaetigungSchema,
+});
+export type FLSpielbestaetigungVerwerfenResponse = z.infer<typeof FLSpielbestaetigungVerwerfenResponseSchema>;

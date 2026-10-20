@@ -15,7 +15,7 @@ import {
   useLinkSeite,
   ZurLiga,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
-import { KONTAKT_ROLLEN } from "@/features/teams/constants";
+import { beantwortetVon, terminText } from "@/features/spielbestaetigungen/utils";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { formatSpielDatum, formatUhrzeit, NICHT_HINTERLEGT } from "@/shared/utils/format";
 
@@ -59,21 +59,11 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   unlesbar: LINK_UNLESBAR_TITEL,
 };
 
-/** Who answered, as a readout rather than a sentence: a seat's long label agrees with no one article. */
-function beantwortetVon(von: FLSpielbestaetigungVon): string {
-  if (von.art === "admin") return "Verwaltung der Liga";
-  // A referee's row carries no seat a link reaches, so a club's page meets this arm only on a broken contract.
-  if (von.art === "schiedsrichter") return "Schiedsrichterin oder Schiedsrichter";
-  return KONTAKT_ROLLEN.find((eintrag) => eintrag.value === von.rolle)?.langform ?? NICHT_HINTERLEGT;
-}
-
 /** The two clubs, ours first: the page is the reader's club's answer about its own fixture. */
 function vereine(ansicht: FLSpielbestaetigungAnsichtResponse): { eigenes: string; anderes: string } {
   const { team1_name, team2_name } = ansicht.ansetzung;
   return ansicht.seite === "team1" ? { eigenes: team1_name, anderes: team2_name } : { eigenes: team2_name, anderes: team1_name };
 }
-
-const terminText = (termin: FLSpielbestaetigungTermin): string => `${formatSpielDatum(termin.datum)} um ${formatUhrzeit(termin.uhrzeit)} Uhr`;
 
 /** The fixture as the mail led with it, in the mail's own panel. */
 function Ansetzung({ ansicht }: { ansicht: FLSpielbestaetigungAnsichtResponse }) {

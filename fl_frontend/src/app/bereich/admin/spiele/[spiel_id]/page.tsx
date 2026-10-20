@@ -5,11 +5,14 @@ import { connection } from "next/server";
 import { frontend_config } from "@/core/config";
 import { AdminContextWrapper } from "@/features/admin/components/providers/AdminContextWrapper";
 import { AdminSpielEditView } from "@/features/admin/components/views/AdminSpielEditView";
+import { getSpielbestaetigungen } from "@/features/spielbestaetigungen/queries";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { resolveSpielId } from "@/features/spiele/resolvers";
 import { spielStateKey } from "@/features/spiele/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
+import { nullAfterLoggingUnexplained } from "@/shared/utils/degradedRead";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { NextPageProps } from "@/shared/types/types";
 
@@ -41,6 +44,12 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
     notFound();
   }
 
+  // Behind `connection()` with the fixture's, so a prefetch carries neither. Degraded rather than awaited whole: the
+  // editor is how a fixture is repaired, and stands when its confirmations cannot be read.
+  const bestaetigungenRes = await runWithIncomingTrace(() =>
+    getSpielbestaetigungen({ saison_id: spielRes.spiel.saison_id, spiel_id: spielRes.spiel.id }).catch(nullAfterLoggingUnexplained),
+  );
+
   return (
     // The fixture's OWN season, not the current one: the pickers must offer the teams and feeder
     // matches of the season being edited, which may be a past one.
@@ -54,6 +63,11 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
         today={getGermanTodayStr()}
         // The comparison the timer is armed on, so the near-date warning never announces a request no pass sends.
         isSpielSweepOn={frontend_config.SPIEL_SWEEP === "on"}
+        bestaetigungen={
+          bestaetigungenRes === null
+            ? null
+            : { zeilen: bestaetigungenRes.spielbestaetigungen, gelaufenAm: bestaetigungenRes.spiel_sweep_gelaufen_am }
+        }
       />
     </AdminContextWrapper>
   );

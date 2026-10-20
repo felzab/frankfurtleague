@@ -3,9 +3,11 @@ import { apiClient } from "@/core/api";
 import {
   FLSpielbestaetigungAnsichtResponseSchema,
   FLSpielbestaetigungAntwortResponseSchema,
+  FLSpielbestaetigungEintragenResponseSchema,
   FLSpielbestaetigungSweepAngefragtResponseSchema,
   FLSpielbestaetigungSweepResponseSchema,
   FLSpielbestaetigungSweepSaisonsResponseSchema,
+  FLSpielbestaetigungVerwerfenResponseSchema,
 } from "./schemas";
 
 import type {
@@ -13,10 +15,14 @@ import type {
   FLSpielbestaetigungAnsichtResponse,
   FLSpielbestaetigungAntwortPayload,
   FLSpielbestaetigungAntwortResponse,
+  FLSpielbestaetigungEintragenPayload,
+  FLSpielbestaetigungEintragenResponse,
   FLSpielbestaetigungSweepAngefragtPayload,
   FLSpielbestaetigungSweepAngefragtResponse,
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungSweepSaisonsResponse,
+  FLSpielbestaetigungVerwerfenPayload,
+  FLSpielbestaetigungVerwerfenResponse,
 } from "./schemas";
 
 /**
@@ -78,4 +84,22 @@ export async function postSpielbestaetigungSweepAngefragt(
       body: JSON.stringify(payload),
     },
   );
+}
+
+export async function eintragenSpielbestaetigung({
+  id,
+  ...fields
+}: FLSpielbestaetigungEintragenPayload): Promise<FLSpielbestaetigungEintragenResponse> {
+  return apiClient<FLSpielbestaetigungEintragenResponse>(`/spielbestaetigungen/${id}/eintragen`, FLSpielbestaetigungEintragenResponseSchema, {
+    method: "POST",
+    authType: "admin",
+    body: JSON.stringify(fields),
+  });
+}
+
+export async function verwerfenSpielbestaetigung({ id }: FLSpielbestaetigungVerwerfenPayload): Promise<FLSpielbestaetigungVerwerfenResponse> {
+  return apiClient<FLSpielbestaetigungVerwerfenResponse>(`/spielbestaetigungen/${id}/verwerfen`, FLSpielbestaetigungVerwerfenResponseSchema, {
+    method: "POST",
+    authType: "admin",
+  });
 }

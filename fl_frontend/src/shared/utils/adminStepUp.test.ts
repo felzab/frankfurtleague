@@ -555,6 +555,7 @@ const GRANT_ID = "6890a1b2c3d4e5f6071b0001";
 const BEWERBUNG_ID = "6890a1b2c3d4e5f6071c0001";
 const SPERRE_ID = "6890a1b2c3d4e5f6071d0001";
 const SPIELER_ID = "6890a1b2c3d4e5f6071e0001";
+const SPIELBESTAETIGUNG_ID = "6890a1b2c3d4e5f6071f0001";
 const INCOMING_TEAM_ID = "6890a1b2c3d4e5f607182933";
 
 /** A season both the create's schema and the backend's take, as the season suite's own fixture is. */
@@ -638,6 +639,14 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   "DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel": { name: "verwirfAdresswechselAction", payload: { id: REFEREE_ID } },
   "POST /sperrliste": { name: "postSperreAction", payload: { email: "zorbanax@beispielschule.de", grund: "Falsches Geburtsdatum angegeben" } },
   "DELETE /sperrliste/{sperrliste_id}": { name: "deleteSperreAction", payload: { id: SPERRE_ID } },
+  "POST /spielbestaetigungen/{spielbestaetigung_id}/eintragen": {
+    name: "eintragenSpielbestaetigungAction",
+    payload: { id: SPIELBESTAETIGUNG_ID, begruendung: "Die Trainerin hat am Telefon zugesagt." },
+  },
+  "POST /spielbestaetigungen/{spielbestaetigung_id}/verwerfen": {
+    name: "verwerfenSpielbestaetigungAction",
+    payload: { id: SPIELBESTAETIGUNG_ID },
+  },
   "POST /spieler/{spieler_id}/adresswechsel": {
     name: "beantrageSpielerAdresswechselAction",
     payload: { id: SPIELER_ID, email: "lena@neu.example" },
