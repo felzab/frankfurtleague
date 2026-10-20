@@ -54,7 +54,7 @@ const {
 const { buildCodeEmail } = await import("./authEmail.ts");
 const { buildBerechtigungEmail } = await import("./berechtigungEmail.ts");
 const { buildEinladungEmail } = await import("./einladungEmail.ts");
-const { buildKontaktBestaetigungEmail } = await import("./kontaktEmail.ts");
+const { buildKontaktAbgangEmail, buildKontaktBestaetigungEmail } = await import("./kontaktEmail.ts");
 const { buildLoeschungEmail } = await import("./loeschungEmail.ts");
 const { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } = await import("./passkeyEmail.ts");
 const {
@@ -215,6 +215,8 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       fristText: "05.10.2026",
       zeile: "offen",
     }),
+  buildKontaktAbgangEmail: (origin) =>
+    buildKontaktAbgangEmail({ origin: origin, rollenText: "Ansprechperson", schule: "Ernst-Reuter-Schule", saisonId: "2627" }),
   buildCodeEmail: (origin) => buildCodeEmail("048213", origin),
   buildLoeschungEmail: (origin) => buildLoeschungEmail({ origin: origin, token: "beispiel-sieben" }),
   buildPasskeyHinzugefuegtEmail: (origin) =>

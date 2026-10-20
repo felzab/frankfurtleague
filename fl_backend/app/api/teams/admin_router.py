@@ -65,6 +65,7 @@ from app.api.teams.services import (
     compose_bestaetigungen_nach,
     compose_kontakt_bestaetigung,
     compose_kontakte_herkunft,
+    departing_holders,
     find_club_entry_refusal,
     find_gruppe_move_refusal,
     find_kontakt_sitz_gesperrt_refusal,
@@ -624,6 +625,9 @@ async def patch_saison_team_kontakte(
     or handing on a seat, or voiding a link its person could still answer, is refused `REQ-AUTH-009` as the clearing
     is; a save doing none of these is not.
 
+    **Each mailbox the save takes off the row is answered in `abgaenge`** for the caller to tell, with the seats it
+    held: a mailbox the save still seats on any seat of the row is not one, whatever name it now stands under.
+
     **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
     or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
     person's own write grants one. Such a seat's label must be the application form's running one
@@ -743,6 +747,8 @@ async def patch_saison_team_kontakte(
             # its token is the precondition an undo of this save replays against.
             kontakte=updated_raw["kontakte"],
             bestaetigungen=links,
+            # Off the block read in this transaction, as the void is: a retry after a conflict tells whom the winner's block seated.
+            abgaenge=departing_holders(stored=stored.get("kontakte"), kontakte=kontakte, schule=str(stored.get("name") or "")),
         )
 
     # `with_transaction`, not a bare `start_transaction`: the callback re-reads the block it judges,

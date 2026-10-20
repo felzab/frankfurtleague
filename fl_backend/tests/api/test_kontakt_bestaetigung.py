@@ -1594,3 +1594,35 @@ class TestTheReplacementTakesThemOffTheApplication:
         assert application["kontakte"]["trainer"] is None
         assert log, "the clearing filed no image, so the log's assertion below proves nothing"
         assert "ida@example.com" not in str(log)
+
+
+class TestTheSaveAnswersWhomItTookOff:
+    def test_a_seat_handed_on_answers_the_mailbox_it_held_and_saving_again_answers_nobody(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await save(database, THREE)
+            handed = await save(database, {**THREE, "ansprechperson": person("Lea")})
+
+            return handed, await save(database, {**THREE, "ansprechperson": person("Lea")})
+
+        handed, again = on_a_league(mongo_replica_set_url, body)
+
+        assert [(abgang.rollen, abgang.email, abgang.schule) for abgang in handed.abgaenge] == [
+            (["ansprechperson"], "jonas@example.com", TEAM_NAME)
+        ]
+        assert again.abgaenge == []
+
+    def test_a_confirmed_person_moved_to_a_new_mailbox_is_linked_there_and_the_old_one_is_answered(self, mongo_replica_set_url: str):
+        """The league's route for a person holding contact seats alone: the new mailbox confirms afresh, and the old one hears it left."""
+
+        confirmed = {**STORED_UNCONFIRMED, "trainer": stored("Ida", bestaetigt_am="2026-03-20")}
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            response = await save(database, {**THREE, "trainer": {**person("Ida"), "email": "ida@neu.example.com"}})
+
+            return response, await row_now(database)
+
+        response, row = on_a_league(mongo_replica_set_url, body, kontakte=confirmed)
+
+        assert [(mint.rollen, mint.email) for mint in response.bestaetigungen] == [(["trainer"], "ida@neu.example.com")]
+        assert [(abgang.rollen, abgang.email) for abgang in response.abgaenge] == [(["trainer"], "ida@example.com")]
+        assert row["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] is None

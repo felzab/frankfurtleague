@@ -252,6 +252,7 @@ async def discard(database: AsyncDatabase, client: AsyncMongoClient, *, schiedsr
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
+        config=CONFIG,
         germany_now=NOW,
     )
 
@@ -671,6 +672,20 @@ class TestTheConfirmation:
             )
 
         assert on_a_league(mongo_replica_set_url, body) == ("nicht_bestaetigbar", SPIELER_ADRESSE_VERGEBEN)
+
+    def test_a_referee_a_hand_edit_took_out_of_its_address_s_records_is_discarded(self, mongo_replica_set_url: str):
+        """Its consent stamp removed by hand: no record of the address carries the change, so the press discards it as the hourly pass would."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await start(database, client, email=NEW_EMAIL)
+            await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER_OID}, {"$set": {EINWILLIGUNG_FELD: None}})
+
+            return await refused_code(answer(database, client, minted.token, "bestaetigt")), await stored(database)
+
+        code, row = on_a_league(mongo_replica_set_url, body)
+
+        assert code == SCHIEDSRICHTER_TOKEN_UNKNOWN
+        assert (row["kontakt"]["email"], ADRESSWECHSEL_FELD in row) == (EMAIL, False)
 
 
 class TestAChangeReplacingABarredAddress:

@@ -18,6 +18,7 @@ from app.api.teams.schemas import (
     FLGruppen,
     FLGruppenNames,
     FLGruppenTeam,
+    FLKontaktAbgang,
     FLKontaktMint,
     FLKontaktRolle,
     FLKontaktZeile,
@@ -1188,6 +1189,27 @@ def seats_changing_holder(*, stored: Any, kontakte: Any) -> tuple[FLKontaktRolle
         if isinstance(held := stored_block.get(slot), Mapping)
         and (not isinstance(seat := block.get(slot), Mapping) or _seat_held_by(held, seat=seat) is None)
     )
+
+
+def departing_holders(*, stored: Any, kontakte: Any, schule: str) -> list[FLKontaktAbgang]:
+    """By mailbox on the sign-in fold, never `_seat_held_by`'s identity.
+
+    One re-seated under another name is mailed a new link, which a leaving notice would contradict.
+    """
+
+    stored_block = stored if isinstance(stored, Mapping) else {}
+    block = kontakte if isinstance(kontakte, Mapping) else {}
+    staying = {sign_in_identifier(str(seat["email"])) for slot in KONTAKT_ROLLEN if isinstance(seat := block.get(slot), Mapping)}
+    leaving: dict[str, FLKontaktAbgang] = {}
+
+    for slot in KONTAKT_ROLLEN:
+        held = stored_block.get(slot)
+        if not isinstance(held, Mapping) or (folded := sign_in_identifier(str(held["email"]))) in staying:
+            continue
+        # One notice per mailbox, the Trainer's second seat beside the first.
+        leaving.setdefault(folded, FLKontaktAbgang(rollen=[], email=str(held["email"]), schule=schule)).rollen.append(slot)
+
+    return list(leaving.values())
 
 
 def voids_a_live_link(*, stored_kontakte: Any, kontakte: Any, stored_bestaetigungen: Any, bestaetigungen: Any, today: str) -> bool:

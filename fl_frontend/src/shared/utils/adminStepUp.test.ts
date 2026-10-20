@@ -111,6 +111,7 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
     kontakte: null,
     kontakte_stand: "a1b2",
     bestaetigungen: [],
+    abgaenge: [],
     gesperrt: [],
   };
 }

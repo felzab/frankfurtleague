@@ -697,6 +697,8 @@ export function AdminEditSpielDataForm({
           onCreated={(referee) => {
             setCreatedSchiedsrichter((previous) => [...previous, referee]);
           }}
+          // The picker stays empty under the toast, so the title says why nobody was booked.
+          successMessage="Angelegt. Einteilen kannst Du die Person, sobald sie ihren Eintrag bestätigt hat."
         />
       </FormModal>
     </DraftStatusProvider>

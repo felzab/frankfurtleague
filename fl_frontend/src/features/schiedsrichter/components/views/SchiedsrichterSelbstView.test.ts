@@ -13,6 +13,7 @@ import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.
 import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { schiedsrichterSelbst } from "@/shared/testing/selbstFixtures.ts";
+import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import type { FLSpielberichtPersonEintrag } from "@/features/spielberichte/schemas.ts";
 import type { FLSpielbestaetigungSelbst } from "@/features/spielbestaetigungen/schemas.ts";
@@ -42,6 +43,7 @@ const EINSATZ: FLSpielbestaetigungSelbst = {
   ansetzung: { team1_name: "Ernst-Reuter-Schule", team2_name: "Goethe-Gymnasium", datum: "2026-11-20", uhrzeit: "14:30:00", spielort: null },
   zustand: "gueltig",
   begruendung: null,
+  eingetragen: false,
 };
 
 const GELEITET: FLSpielberichtPersonEintrag = {
@@ -171,6 +173,20 @@ describe("a referee's fixtures on their own page", () => {
     }
   });
 
+  /* The league may enter a referee's Zusage, which puts them on the schedule as their own does: the panel says whose it
+     is, or the referee reads an agreement they never gave as theirs. */
+  it("marks a Zusage the league entered as the league's, and the referee's own as theirs", () => {
+    renderView([SCHIEDSRICHTERIN], {
+      einsaetze: [
+        { ...EINSATZ, zustand: "zugesagt", eingetragen: true },
+        { ...EINSATZ, id: "6890a1b2c3d4e5f607390052", zustand: "zugesagt" },
+      ],
+    });
+
+    assert.equal(screen.getAllByText("Zusage von der Verwaltung eingetragen").length, 1);
+    assert.equal(screen.getAllByText("Zugesagt").length, 1);
+  });
+
   /* The endpoint takes no decline without its reason, so the form sends none: the box says why instead. */
   it("sends a decline with its reason, and none without one", async () => {
     const user = userEvent.setup();
@@ -189,12 +205,17 @@ describe("a referee's fixtures on their own page", () => {
     assert.deepEqual(calls, [{ action: "absagenSpielbestaetigungAction", payload: [EINSATZ.id, { begruendung: "Klassenfahrt" }] }]);
   });
 
-  it("sends an acceptance for the row pressed", async () => {
+  /* The first answer binds and the panel offers no way back, so a press on the wrong row of a list must not commit. */
+  it("arms an acceptance on the first press and sends it for the row pressed on the second", async () => {
     const user = userEvent.setup();
     renderView([SCHIEDSRICHTERIN], { einsaetze: [EINSATZ] });
     calls.length = 0;
 
-    await user.click(screen.getByRole("button", { name: /^Zusagen/ }));
+    await pressTwice(user, {
+      resting: /^Zusagen/,
+      armed: "Ja, zusagen",
+      whileArmed: () => assert.deepEqual(calls, [], "the first press sent the acceptance"),
+    });
     await act(answered);
     assert.deepEqual(calls, [{ action: "zusagenSpielbestaetigungAction", payload: [EINSATZ.id] }]);
   });

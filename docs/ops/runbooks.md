@@ -690,7 +690,7 @@ season's matches, a referee not being season-scoped.
 
 **An email address is not an ordinary rectification: it is who can sign in as the person.** A
 change of a pupil's or a confirmed referee's address moves, in one step, every pupil row, confirmed
-referee row, confirmed contact seat and open registration the address holds, so one sign-in stays
+referee row, confirmed contact seat and registration the address holds, so one sign-in stays
 whole; a grant stays where it is (`docs/backend/spec.md :: I793`).
 
 - **The person can still sign in.** Point them to their account page, `/bereich/konto`, „E-Mail-Adresse
@@ -719,6 +719,11 @@ whole; a grant stays where it is (`docs/backend/spec.md :: I793`).
   effect seven days later, judged again then; until then the address on file, should it still be
   read, stops it by link or on its account page (`docs/backend/spec.md :: I795`). A stopped change
   means the mailbox is not gone: talk to the person before starting again.
+- **The mailbox has passed to somebody else**, a school account given to a new pupil say. Whoever
+  holds the address on file can sign in as the person, stop every change started here and start one
+  of their own, and no administrator's route overrides them. The remedy is outside the site: settle
+  it with the school or provider that reassigned the mailbox, and with the person through a channel
+  the league already holds.
 - **What refuses an administrator's start**: the ban list (`REQ-SPIELER-003`,
   `REQ-SCHIEDSRICHTER-007`), another pupil signing in on the new address where a pupil row moves
   (`docs/backend/spec.md :: I702`), and a pupil holding no address, whose address arrives with their
@@ -1184,7 +1189,7 @@ x /var/log/frankfurtleague/nginx
 `/var/log/frankfurtleague/<day>-erasure-journal.log`, by a pair of units of their own.** Every
 erasure a person or an administrator asks for leaves one line in the backend's stream, and so does
 every consent a person withdraws on their own record, every Widerspruch made through a seat's link,
-every address change declined or stopped and every one taking effect
+every address change declined, stopped or discarded and every one taking effect
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706); a restore runs each erasure
 again and replays each of those choices from those lines (§13). The stream loses them at the next recreate, or sooner once its size cap
 rotates them away; the day files keep them for this directory's thirty days, counted from each
@@ -1693,7 +1698,8 @@ again.
 Everything written between the snapshot and the restore is gone, the log's own rows about it
 included. Every erasure a person or an administrator asked for left one line in the backend's
 stream, and so did every consent a person withdrew, every Widerspruch made through a seat's link,
-every address change declined or stopped and every one taking effect, each naming its person by a keyed hash and never
+every address change declined, stopped or discarded (by an administrator, by a later start replacing it, or by the
+hourly pass refusing it when due) and every one taking effect, each naming its person by a keyed hash and never
 by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by and by
 the digest their fixture answers carry, whether its commit landed or lost its answer
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706). §7's day files keep those lines outside the database for thirty days. **Once the restore has
@@ -1746,6 +1752,10 @@ the export wrote no file for. Each line is listed by its act and its record, nev
   which a restore brings back with the snapshot, the listing says how many, with the log rows' ids,
   and reads `to replay` ([`../backend/spec.md`](../backend/spec.md#2-invariants) I731); a line naming
   neither a pseudonym nor a holder digest reads `nothing to run`.
+- **An address change that took effect before its person's erasure**, where the restored database
+  holds the new address nowhere, is listed as an erasure, at the address it replaced: a snapshot from
+  before the change holds the person's records there
+  ([`../backend/spec.md`](../backend/spec.md#2-invariants) I808).
 - **A choice** reads `to replay`; `already done` where the restored record already stands as the
   choice left it, or the restored site set it since: the choice granted again by evidence later than
   the line, the seat sent a link or the address a change on a day after the snapshot's; `left for

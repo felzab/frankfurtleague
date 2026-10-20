@@ -44,7 +44,7 @@ const MINT = {
 };
 
 /** The replay's answer as the backend sends it: the row's block, and the token the replay left. */
-const replayed = (acknowledged: 0 | 1, bestaetigungen: unknown[] = []) => ({
+const replayed = (acknowledged: 0 | 1, bestaetigungen: unknown[] = [], abgaenge: unknown[] = []) => ({
   acknowledged,
   team_id: BODY.team_id,
   saison_id: BODY.saison_id,
@@ -52,6 +52,7 @@ const replayed = (acknowledged: 0 | 1, bestaetigungen: unknown[] = []) => ({
   kontakte: null,
   kontakte_stand: "a1b2",
   bestaetigungen,
+  abgaenge,
 });
 
 /* The real action, the save's own mutation and the link mailer, called: the request it runs in, the
@@ -213,6 +214,31 @@ describe("the contacts save's undo", () => {
       [["ada@example.org", "kontakt", "ansprechperson"]],
     );
     assert.match(JSON.stringify(answer), /Der Bestätigungslink ging an ada@example\.org\./);
+  });
+
+  /* The person the undone save seated loses the seat the replay hands back, and is told as any save's leaver is. */
+  it("tells the mailbox a replay took off the row that it left, on the lane no record holds", async () => {
+    answerWith(({ endpoint }) =>
+      Promise.resolve(
+        endpoint.startsWith("/zustellung/")
+          ? { acknowledged: 1, angewendet: true }
+          : endpoint === "/teams/memberships"
+            ? NO_CLUB
+            : replayed(1, [MINT], [{ rollen: ["ansprechperson"], email: "grace@example.org", schule: "Lessing-Kolleg" }]),
+      ),
+    );
+
+    const answer = await undoAdminKontakteEditAction(ZURUECK);
+
+    assert.equal(answer.success, true, JSON.stringify(answer));
+    assert.deepEqual(
+      mail.sent.map(({ to, tags }) => [to, tags?.kontakt_abgang ?? tags?.ziel]),
+      [
+        ["grace@example.org", "hinweis"],
+        ["ada@example.org", "kontakt"],
+      ],
+    );
+    assert.doesNotMatch(JSON.stringify(answer), /grace@/);
   });
 
   /* A replay seating somebody on a season that is over mints a link taking the Widerspruch alone, so
