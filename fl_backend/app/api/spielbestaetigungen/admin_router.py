@@ -32,7 +32,6 @@ from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -69,7 +68,7 @@ async def get_spielbestaetigungen(
     read = await pull_many_from_db(
         collection=spielbestaetigungen_collection,
         db_filter=db_filter,
-        limit=LIST_LIMIT_MAX + 1,
+        limit=filters.limit + 1,
         # Rows carry no creation stamp; an ObjectId's leading bytes are its insert time.
         sort_by=[("_id", -1)],
         projection=ADMIN_FIELDS,
@@ -77,9 +76,9 @@ async def get_spielbestaetigungen(
     saison = await saisons_collection.find_one({"_id": filters.saison_id}, {"spiel_sweep_gelaufen_am": 1})
 
     return FLSpielbestaetigungenListResponse(
-        spielbestaetigungen=[FLSpielbestaetigung.model_validate(row) for row in read[:LIST_LIMIT_MAX]],
+        spielbestaetigungen=[FLSpielbestaetigung.model_validate(row) for row in read[: filters.limit]],
         spiel_sweep_gelaufen_am=(saison or {}).get("spiel_sweep_gelaufen_am"),
-        vollstaendig=len(read) <= LIST_LIMIT_MAX,
+        vollstaendig=len(read) <= filters.limit,
     )
 
 

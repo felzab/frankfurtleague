@@ -4,7 +4,7 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstr
 
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
 from app.api.teams.schemas import FLKontaktRolle
-from app.shared.schemas.bounds import BEWERBUNG_TOKEN_MAX_LENGTH, SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH
+from app.shared.schemas.bounds import BEWERBUNG_TOKEN_MAX_LENGTH, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH
 from app.shared.schemas.custom import (
     SINGLE_LINE_PATTERN,
     CustomDateString,
@@ -170,6 +170,7 @@ class FLSpielbestaetigungenFilterParams(BaseModel):
 
     saison_id: str
     spiel_id: CustomObjectId | None = None
+    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
 
 
 class FLSpielbestaetigungenListResponse(BaseAPIResponse):

@@ -47,7 +47,7 @@ from app.api.spiele.services import ELIGIBILITY_DISQUALIFIED, FIXTURE_DOUBLE_BOO
 from app.api.teams.admin_router import replace_saison_team
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLReplaceSaisonTeamPayload
 from app.core.collections import Collection
-from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
@@ -984,12 +984,12 @@ async def verwerfen(
 
 
 async def lesen(
-    database: AsyncDatabase, *, spiel_id: ObjectId | None = None, spielbestaetigungen: Any = None
+    database: AsyncDatabase, *, spiel_id: ObjectId | None = None, spielbestaetigungen: Any = None, limit: int = LIST_LIMIT_DEFAULT
 ) -> FLSpielbestaetigungenListResponse:
     return await get_spielbestaetigungen(
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
         saisons_collection=database[Collection.SAISONS],
-        filters=FLSpielbestaetigungenFilterParams(saison_id=SAISON_ID, spiel_id=spiel_id),
+        filters=FLSpielbestaetigungenFilterParams(saison_id=SAISON_ID, spiel_id=spiel_id, limit=limit),
     )
 
 
@@ -1124,17 +1124,17 @@ class TestWhatTheAdministratorsReadServes:
         assert [row.id for row in one_fixture.spielbestaetigungen] == [NEIGHBOURS_ROW]
 
     def test_a_season_holding_more_rows_than_one_read_serves_says_so(self, mongo_replica_set_url: str):
-        """Cut in silence, a full season's newest rows would read as the whole of it."""
+        """Cut in silence, a full season's newest rows would read as the whole of it. The page is the caller's, so two of three rows cut it."""
 
         closed = {"geschlossen": {"am": TODAY, "grund": "ansetzung_geaendert"}}
-        rows = [confirmation(ObjectId(f"6890a1b2c3d4e5f6{index:08x}"), TEAM1, hashes={}, **closed) for index in range(LIST_LIMIT_MAX + 1)]
+        rows = [confirmation(ObjectId(f"6890a1b2c3d4e5f6{index:08x}"), TEAM1, hashes={}, **closed) for index in range(3)]
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> FLSpielbestaetigungenListResponse:
-            return await lesen(database)
+            return await lesen(database, limit=2)
 
         served = on_a_fixture(mongo_replica_set_url, body, rows=rows)
 
-        assert (len(served.spielbestaetigungen), served.vollstaendig, served.spiel_sweep_gelaufen_am) == (LIST_LIMIT_MAX, False, None)
+        assert (len(served.spielbestaetigungen), served.vollstaendig, served.spiel_sweep_gelaufen_am) == (2, False, None)
         # The oldest is the one left out.
         assert rows[0]["_id"] not in {row.id for row in served.spielbestaetigungen}
 

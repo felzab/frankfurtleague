@@ -7023,6 +7023,18 @@
               ],
               "title": "Spiel Id"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1024,
+              "minimum": 1,
+              "default": 1024,
+              "title": "Limit"
+            }
           }
         ],
         "responses": {
