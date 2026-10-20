@@ -51,8 +51,8 @@ function filesUnder(relative) {
  * Hashing all three into `settings` puts them inside eslint's own key. `pnpm-lock.yaml` stands in for
  * the third: every version this tree resolves is in it, and nothing else names them all.
  *
- * Every stylesheet under `src/`, not the entry point alone: `admin.css` carries an `@reference` to
- * globals.css, and a set defined by a walk cannot fall behind a file someone adds.
+ * Every stylesheet under `src/`, not the entry point alone: `globals.css` imports the season scheme,
+ * and a set defined by a walk cannot fall behind a file someone adds.
  *
  * GROW THIS when a rule gains a cross-file input that is none of the three. The cache is a local
  * accelerator and never an authority: CI restores the pnpm store and never `node_modules`, where this

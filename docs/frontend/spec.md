@@ -1445,43 +1445,34 @@ to pay rather than a copy of anything.
 
 ### 1.11 Adding a HeroUI component
 
-Importing the component in TSX is half the change. The other half, and **there are two stylesheets to
-check, not one**: `fl_frontend/src/app/globals.css` loads everywhere,
-`fl_frontend/src/app/bereich/admin/admin.css` loads only under `/bereich/admin`. A third stylesheet in that tree takes
+Importing the component in TSX is half the change. The other half is its stylesheet entry in
+`fl_frontend/src/app/globals.css`, which loads on every route. A second stylesheet in that tree takes
 no entry at all: `globals.css` imports the season scheme under `fl_frontend/src/app/schemes/` after
 HeroUI's own run, so an entry there would sit outside the load-bearing order below.
 
-1. **Decide which file it belongs in.** It goes in `admin.css` only if no public route can reach it —
-   established from the import graph, following dynamic imports, not from folder names. `Select`,
-   `ListBox`, `Autocomplete`, `DatePicker` and `CloseButton` all look admin-shaped and are not. **When in doubt, `globals.css`**: the
-   cost of guessing wrong that way is a few KB, the other way it is an unstyled admin form.
-2. Add `@import "@heroui/styles/components/<name>.css" layer(components);` **at the position it occupies
+1. Add `@import "@heroui/styles/components/<name>.css" layer(components);` **at the position it occupies
    in `node_modules/@heroui/styles/dist/components/index.css`** — not at the end. HeroUI's file states
    the order is load-bearing: shared primitives first, then the components that compose them.
-3. Check what the component renders _underneath_ it. A picker is a popover plus a listbox plus a button,
+2. Check what the component renders _underneath_ it. A picker is a popover plus a listbox plus a button,
    and each has its own stylesheet. The quickest check is to render it and read `[data-slot]` in the DOM:
-   any slot whose CSS is missing shows up as an unstyled box. **Sub-components can be public even when
-   the parent is not** — that is why `close-button` and `list-box` sit in `globals.css`. **A parent
-   needs every sheet its parts render beside its own**, as `date-picker` does there: any one of them
-   in the other file renders an unstyled box inside a styled one.
-4. **Grep both files before you finish.** A component in neither renders unstyled; a component in both
-   ships to visitors who never see it.
-5. **Its entrance and exit scale do not come with it.** Whatever `zoom-in-*` or `zoom-out-*` the
+   any slot whose CSS is missing shows up as an unstyled box. **A parent needs every sheet its parts
+   render beside its own**, as `date-picker` does: one part missing renders an unstyled box inside a
+   styled one.
+3. **Its entrance and exit scale do not come with it.** Whatever `zoom-in-*` or `zoom-out-*` the
    vendored stylesheet declares is pinned to `1` document-wide
    (`fl_frontend/src/app/globals.css :: No scale in the arrival language`), so the component arrives
    and leaves without growing or shrinking, and nothing reports that it was overridden. **A component
    that scales through a property of its own is out of that pin's reach**: grep its stylesheet for
    `scale`, and hold each entrance or exit value at its resting one where the component is composed,
    as `fl_frontend/src/core/providers/AppToaster.tsx :: toastCard` holds the toast's `--toast-scale`.
-6. Verify in the browser, not by reading the diff. Computed styles are the evidence — a border-radius, a
-   padding and a background that are not the browser defaults. For an `admin.css` entry that means
-   signing in and opening the admin page, because no public route will show the mistake.
+4. Verify in the browser, not by reading the diff. Computed styles are the evidence — a border-radius, a
+   padding and a background that are not the browser defaults.
 
-**A stylesheet keeps its `@reference` even when nothing of ours is left in it.** HeroUI's own vendored
-sheets carry `@apply` — `textarea.css` opens with one — so `@reference "../globals.css"` is what resolves
-them against the theme without emitting it a second time, and a file holding nothing but imports still
-needs it. What makes this worth a step is how it fails: removing it breaks `next build` alone, and the
-comment at `fl_frontend/src/app/bereich/admin/admin.css :: @reference` records that nothing else does.
+**A stylesheet loaded on fewer routes than `globals.css` takes a component only where the import
+graph, dynamic imports followed, proves no other route reaches it** — never by folder name: a wrong
+guess costs an unstyled form, where a component kept in `globals.css` costs a few KB. Such a sheet
+opens with `@reference` to `globals.css` even with no rule of its own, since HeroUI's sheets carry
+`@apply` — `textarea.css` opens with one — and removing that line fails `next build` alone.
 
 **Restyling one you already have: reach for the component's own composition API before a stylesheet.**
 Several HeroUI components take a render function or per-slot `className`, and anything expressed that
@@ -2284,7 +2275,7 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | I26  | **`saisons.status` reaches no payload, no draft atom and no descriptor row**                                                                                                                                                                       | absence from every payload schema in `fl_frontend/src/features/saisons/schemas.ts` — the read model declares it — and from `fl_frontend/src/features/saisons/saisonDraftStatus.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | I27  | **A matchday's order is the API's and no frontend surface re-sorts it**: a filtered or reordered list labels each matchday the same way                                                                                                            | `fl_frontend/src/features/spieltage/utils.ts :: orderRoundsByWiring`, which consumes the arrival order rather than re-deriving it                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | I28  | **No `generateStaticParams` on a dynamic segment**                                                                                                                                                                                                 | Unenforced — no check would notice one arriving, and nothing in `fl_frontend/src` declares one today; I22 names the shape a reader has to look for                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| I29  | **The document root is never a containing block**: `<html>` and `<body>` carry `position: static` and nothing CSS makes one for an absolutely positioned descendant (§1.15)                                                                        | review — `fl_frontend/src/app/layout.tsx` holds both class lists; an `html` or `body` selector in `fl_frontend/src/app/globals.css`, `fl_frontend/src/app/bereich/admin/admin.css` or `fl_frontend/src/app/schemes/` reaches them too                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| I29  | **The document root is never a containing block**: `<html>` and `<body>` carry `position: static` and nothing CSS makes one for an absolutely positioned descendant (§1.15)                                                                        | review — `fl_frontend/src/app/layout.tsx` holds both class lists; an `html` or `body` selector in `fl_frontend/src/app/globals.css` or `fl_frontend/src/app/schemes/` reaches them too                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | I30  | **A picker trigger's readout never replays a list row carrying a badge**: it comes from the prop, or a `Value` render prop returning a string                                                                                                      | `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx :: FormTeamPicker`, the one trigger rendering a pill today                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | I31  | **A clear or dismiss control is spread from `dismissControl`**, whose label names in German what goes; a bare HeroUI dismiss control is the violation                                                                                              | `fl_frontend/src/core/dismissControl.ts :: dismissControl`, and every site rendering a HeroUI `ClearButton`, `CloseTrigger` or `CloseButton`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | I32  | **A form whose fields are React state submits through the shared `Form`, never through a function `action`.**                                                                                                                                      | `fl_frontend/src/shared/components/ui/Form.tsx :: Form`, whose props carry no `action`, typechecked by `fl_frontend/src/shared/components/ui/Form.test.ts`; a native `<form>` is linted out                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
