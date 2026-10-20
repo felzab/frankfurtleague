@@ -1385,6 +1385,23 @@ class TestOnlyALandedSaveStamps:
         assert stamped["uebernommen_am"].replace(tzinfo=UTC) == ADOPTED_AT
         assert after[HALBFINALE] == before[HALBFINALE], "a save stamped a report of a fixture it did not write"
 
+    def test_a_save_leaving_the_fixture_as_stored_still_stamps(self, mongo_replica_set_url: str):
+        """A proposal the stored result already equals: the adoption is the save's whole effect, or the report stays open."""
+
+        spiele, reports = a_bracket_with_reports(quarter_final_at=SEEDED_VERSION)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELBERICHTE].insert_many(reports)
+            before = await spiele_now(database)
+            await call_patch(database, client, VIERTELFINALE, await payload_for(database, VIERTELFINALE), uebernimmt_bericht=SEEDED_VERSION)
+
+            return before, await spiele_now(database), await reports_now(database)
+
+        before, spiele_after, after = on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
+
+        assert spiele_after[VIERTELFINALE_NR] == before[VIERTELFINALE_NR], "the premise: this save changes nothing on the fixture"
+        assert after[VIERTELFINALE]["uebernommene_version"] == SEEDED_VERSION, "a save changing nothing on the fixture adopted nothing"
+
     @pytest.mark.parametrize("dry_run", [pytest.param(False, id="refused-REQ-DATE-001"), pytest.param(True, id="dry-run")])
     def test_a_refused_save_and_a_preview_stamp_nothing(self, mongo_replica_set_url: str, dry_run: bool):
         """The same seed and version as the accepted save; a refused commit is `fl_backend/tests/api/test_erasure_commit_fail_points.py`'s."""
