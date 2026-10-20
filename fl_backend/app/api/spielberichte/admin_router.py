@@ -168,13 +168,14 @@ async def patch_spielbericht(
     write.
 
     Refuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); a `bericht_stand`
-    other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day
-    is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a pupil newly named on a
-    side outside that side's live squad of the season (`REQ-BERICHT-003`); and remarks naming a seat holder of either
-    club, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each but `REQ-BERICHT-006` is asked
-    again outside the transaction just before answering; a write of the report landing mid-press conflicts with this
-    one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two pages opened on no report: the later is
-    refused.
+    other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day is
+    still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a pupil newly named on a side
+    outside that side's live squad of the season (`REQ-BERICHT-003`); a yellow or second yellow card naming no reason,
+    unless the stored report holds that card, by side, pupil and colour, stripped of its reason at the season's end
+    (`REQ-BERICHT-008`); and remarks naming a seat holder of either club, the booked referee or a pupil of either squad
+    (`REQ-BERICHT-005`), last. Each but `REQ-BERICHT-006` is asked again outside the transaction just before answering;
+    a write of the report landing mid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first
+    writes at once are two pages opened on no report: the later is refused.
     """
 
     payload = bericht_data.bericht
@@ -194,7 +195,7 @@ async def patch_spielbericht(
         block = None if gespeichert is None else gespeichert.get("bericht")
         neu = neu_genannt(payload, block, lage.spiel)
         refuse(find_bericht_stand_refusal(stand=bericht_data.bericht_stand, gespeichert=block))
-        judge_bericht(lage=lage, payload=payload, neu=neu, today=today)
+        judge_bericht(lage=lage, payload=payload, gespeichert=block, neu=neu, today=today)
 
         await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*neu.values()), session=session)
         von: FLSpielberichtVon = FLSpielberichtVonAdmin(art="admin")
@@ -220,7 +221,7 @@ async def patch_spielbericht(
             spiel_id=spiel_id,
             session=None,
         )
-        judge_bericht(lage=jetzt, payload=payload, neu=neu, today=today)
+        judge_bericht(lage=jetzt, payload=payload, gespeichert=block, neu=neu, today=today)
 
         return _admin_ansicht(lage, genannt=genannt, dokument=dokument)
 

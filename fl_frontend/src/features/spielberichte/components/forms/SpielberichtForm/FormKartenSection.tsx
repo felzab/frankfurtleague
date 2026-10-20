@@ -7,6 +7,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import { KARTEN_FARBE_LABELS, KARTEN_GRUND_LABELS } from "../../../constants";
+import { grundGestrippt } from "../../../schemas";
 import { AuswahlSelect } from "./AuswahlSelect";
 import { EntfernenButton, GeleertHinweis, HinzufuegenButton, MinuteField, ohneKader, personOptionen, seitenOptionen } from "./eintragFelder";
 
@@ -27,6 +28,7 @@ export function FormKartenSection({
   fieldErrors,
   onValidateFields,
   geleert,
+  bestand,
 }: {
   kontext: SpielberichtKontext;
   eintraege: readonly KarteDraft[];
@@ -36,6 +38,8 @@ export function FormKartenSection({
   onValidateFields: (paths: readonly string[]) => void;
   /** The entries whose person the form took out on opening (`eroeffnungOf`). */
   geleert: ReadonlySet<number>;
+  /** The stored report's cards, whose stripped cautions owe no reason again. */
+  bestand: Parameters<typeof grundGestrippt>[0];
 }) {
   const panel = formPanel();
 
@@ -133,8 +137,12 @@ export function FormKartenSection({
                     onChange={(grund) => update(karte.key, { grund: grund === KEIN_GRUND ? null : grund })}
                     error={fieldErrors[`${pfad}.grund`]}
                     // Marked by hand: a caution's reason is refused empty by the card's refinement
-                    // (`fl_frontend/src/features/spielberichte/schemas.ts :: kartePayload`), the leaf taking `null` for a red.
-                    isRequired={karte.farbe === "gelb" || karte.farbe === "gelb_rot"}
+                    // (`fl_frontend/src/features/spielberichte/schemas.ts :: kartePayload`), the leaf taking `null` for a red
+                    // and for a caution the season's end stripped.
+                    isRequired={
+                      (karte.farbe === "gelb" || karte.farbe === "gelb_rot") &&
+                      !grundGestrippt(bestand, { ...karte, spieler_id: karte.spieler })
+                    }
                   />
                 </li>
               );

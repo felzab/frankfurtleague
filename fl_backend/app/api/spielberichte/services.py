@@ -1,3 +1,4 @@
+from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from http import HTTPStatus
@@ -31,6 +32,7 @@ BERICHT_NAME_IN_BEMERKUNGEN: Final = "REQ-BERICHT-005"
 # Both writes replace the whole block, so a form opened before another write would put back what that write changed.
 BERICHT_INZWISCHEN_GEAENDERT: Final = "REQ-BERICHT-006"
 BERICHT_SAISON_BEENDET: Final = "REQ-BERICHT-007"
+BERICHT_GRUND_FEHLT: Final = "REQ-BERICHT-008"
 
 SEITEN: Final[tuple[FLSpielberichtSeite, ...]] = ("team1", "team2")
 
@@ -300,6 +302,38 @@ def find_nicht_im_kader_refusal(*, lage: BerichtLage, neu: Mapping[FLSpielberich
     return None
 
 
+def find_grund_fehlt_refusal(*, payload: FLSpielberichtBerichtPayload, gespeichert: Mapping[str, Any] | None) -> WriteRefusal | None:
+    """`REQ-BERICHT-008`: a caution names its reason unless the stored block holds it stripped, which a correction would otherwise invent.
+
+    A card has no id: the same side, pupil and colour is the same card, its minute correctable.
+    """
+
+    def schluessel(karte: Mapping[str, Any]) -> tuple[Any, ...]:
+        return karte["seite"], karte["spieler_id"], karte["farbe"]
+
+    gestrippt = Counter(
+        schluessel(karte)
+        for karte in ([] if gespeichert is None else gespeichert["karten"])
+        if karte["farbe"] != "rot" and karte["grund"] is None
+    )
+    for karte in payload.model_dump(context={"keep_oid": True})["karten"]:
+        if karte["farbe"] == "rot" or karte["grund"] is not None:
+            continue
+        if gestrippt[schluessel(karte)] > 0:
+            gestrippt[schluessel(karte)] -= 1
+            continue
+
+        return WriteRefusal(
+            error_code=BERICHT_GRUND_FEHLT,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            message="a yellow or a second yellow card the stored report does not hold names no reason",
+            # The list, a refusal's field being a literal: the form refuses the card itself before any press.
+            fields=(("bericht", "karten"),),
+        )
+
+    return None
+
+
 def bericht_namen(lage: BerichtLage) -> frozenset[str]:
     """Every name the people of this fixture hold: both clubs' three seats, the booked referee, and every pupil of both squads.
 
@@ -340,7 +374,12 @@ def find_name_in_bemerkungen_refusal(*, bemerkungen: str | None, names: Iterable
 
 
 def judge_bericht(
-    *, lage: BerichtLage, payload: FLSpielberichtBerichtPayload, neu: Mapping[FLSpielberichtSeite, set[ObjectId]], today: str
+    *,
+    lage: BerichtLage,
+    payload: FLSpielberichtBerichtPayload,
+    gespeichert: Mapping[str, Any] | None,
+    neu: Mapping[FLSpielberichtSeite, set[ObjectId]],
+    today: str,
 ) -> None:
     """Every refusal both writers of a report owe, in order.
 
@@ -350,6 +389,7 @@ def judge_bericht(
     refuse(find_nicht_gespielt_refusal(datum=lage.spiel.get("datum"), today=today))
     refuse(find_abgesagt_refusal(sonderereignis=lage.spiel.get("sonderereignis")))
     refuse(find_nicht_im_kader_refusal(lage=lage, neu=neu))
+    refuse(find_grund_fehlt_refusal(payload=payload, gespeichert=gespeichert))
     refuse(find_name_in_bemerkungen_refusal(bemerkungen=payload.bemerkungen, names=bericht_namen(lage)))
 
 

@@ -3277,6 +3277,18 @@ RULES: tuple[Rule, ...] = (
         implemented_by="app.api.spielberichte.services.find_saison_beendet_refusal",
         tested_by="tests/api/test_spielbericht_shapes.py::TestTheRefereeWritesWhileTheSeasonRuns",
     ),
+    Rule(
+        code="REQ-BERICHT-008",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",
+        aggregate="Spielbericht",
+        summary=(
+            "a yellow or a second yellow card names its reason, unless the stored report holds that card, by side, pupil "
+            "and colour, with its reason stripped at the season's end"
+        ),
+        implemented_by="app.api.spielberichte.services.find_grund_fehlt_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestOnlyANewCautionOwesItsReason",
+    ),
 )
 
 

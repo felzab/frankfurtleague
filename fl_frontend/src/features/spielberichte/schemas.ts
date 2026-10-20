@@ -80,9 +80,29 @@ const karte = <T extends z.ZodType<string>>(spieler: T) =>
     grund: FLKartenGrundSchema.nullable(),
   });
 
-/** A card as a write sends it. The caution's reason is a write's rule alone: the season's end strips every stored one. */
-const kartePayload = <T extends z.ZodType<string>>(spieler: T) =>
-  karte(spieler).refine((eintrag) => eintrag.farbe === "rot" || eintrag.grund !== null, {
+/** A card as the caution rule matches it: by side, person and colour, a card having no id. */
+type KartenSchluessel = { readonly seite: string | null; readonly spieler_id: string; readonly farbe: string | null };
+
+/**
+ * Whether the stored report holds this card stripped of its reason at the season's end, which excuses a caution its
+ * reason (`REQ-BERICHT-008`). By presence, where the backend counts: a second equal caution passes here, refused there.
+ */
+export const grundGestrippt = (
+  bestand: readonly (KartenSchluessel & { readonly grund: string | null })[],
+  eintrag: KartenSchluessel,
+): boolean =>
+  eintrag.farbe !== "rot" &&
+  bestand.some(
+    (gespeichert) =>
+      gespeichert.grund === null &&
+      gespeichert.seite === eintrag.seite &&
+      gespeichert.spieler_id === eintrag.spieler_id &&
+      gespeichert.farbe === eintrag.farbe,
+  );
+
+/** A card as the form judges it, by its picker's value: a caution names its reason unless `grundGestrippt` excuses it. */
+const kartePayload = (spieler: z.ZodString, bestand: Parameters<typeof grundGestrippt>[0]) =>
+  karte(spieler).refine((eintrag) => eintrag.farbe === "rot" || eintrag.grund !== null || grundGestrippt(bestand, eintrag), {
     error: "Bei Gelb und Gelb-Rot gehört ein Grund dazu.",
     path: ["grund"],
   });
@@ -94,7 +114,8 @@ export type FLSpielberichtTorschuetze = z.infer<typeof FLSpielberichtTorschuetze
 export const FLSpielberichtKarteSchema = karte(CustomObjectIdStringSchema);
 export type FLSpielberichtKarte = z.infer<typeof FLSpielberichtKarteSchema>;
 
-export const FLSpielberichtKartePayloadSchema = kartePayload(CustomObjectIdStringSchema);
+/** A card as a write sends it: its caution's reason is judged against the stored report (`REQ-BERICHT-008`). */
+export const FLSpielberichtKartePayloadSchema = karte(CustomObjectIdStringSchema);
 
 export const FLSpielberichtVonSchiedsrichterSchema = z.object({
   art: z.literal("schiedsrichter"),
@@ -121,7 +142,7 @@ export const credits = (eintrag: { seite: FLSpielberichtSeite; eigentor: boolean
 // Each rule the backend's `every_goal_has_one_entry` raises, in its words, placed on the field that repairs it.
 const berichtPayload = <TTor extends z.ZodType<string | null>, TKarte extends z.ZodType>(spieler: {
   torschuetze: TTor;
-  /** A whole card entry: its person schema is the caller's, its caution rule `kartePayload`'s. */
+  /** A whole card entry: its person schema is the caller's, and the form's adds `kartePayload`'s caution rule. */
   karte: TKarte;
 }) =>
   z
@@ -185,13 +206,14 @@ export type FLSpielberichtPayload = z.infer<typeof FLSpielberichtPayloadSchema>;
 
 /**
  * The form's own parse of its draft, every path the wire's: a picker's value rather than an id, an untouched one
- * being `""`. The action parses the wire's shape again.
+ * being `""`. The action parses the wire's shape again. `bestand` is the stored report's cards, which excuse a caution
+ * they hold stripped of its reason.
  */
-export function spielberichtFormSchema() {
+export function spielberichtFormSchema(bestand: Parameters<typeof grundGestrippt>[0]) {
   return z.object({
     bericht: berichtPayload({
       torschuetze: z.string().nonempty({ error: "Bitte wähle, wer getroffen hat, oder „unbekannt“." }),
-      karte: kartePayload(z.string().nonempty({ error: "Bitte wähle die Person." })),
+      karte: kartePayload(z.string().nonempty({ error: "Bitte wähle die Person." }), bestand),
     }),
   });
 }

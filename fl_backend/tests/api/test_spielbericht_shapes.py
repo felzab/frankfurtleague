@@ -9,12 +9,12 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
     FLSpielberichtKarte,
-    FLSpielberichtKartePayload,
     FLSpielberichtSeite,
     FLSpielberichtVonSchiedsrichter,
 )
 from app.api.spielberichte.services import (
     BERICHT_ABGESAGT,
+    BERICHT_GRUND_FEHLT,
     BERICHT_NAME_IN_BEMERKUNGEN,
     BERICHT_NICHT_GELEITET,
     BERICHT_NICHT_GESPIELT,
@@ -27,6 +27,7 @@ from app.api.spielberichte.services import (
     compose_bericht_update,
     compose_neuer_bericht,
     find_abgesagt_refusal,
+    find_grund_fehlt_refusal,
     find_name_in_bemerkungen_refusal,
     find_nicht_geleitet_refusal,
     find_nicht_gespielt_refusal,
@@ -110,18 +111,51 @@ def refused_with(code: str, refusal: Any) -> bool:
     return refusal is not None and refusal.error_code == code
 
 
-class TestAYellowCardCarriesItsReason:
+def karte(farbe: str, grund: str | None, *, minute: str = "12", spieler_id: ObjectId = LIVE1) -> dict[str, Any]:
+    return {"seite": "team1", "spieler_id": spieler_id, "minute": minute, "farbe": farbe, "grund": grund}
+
+
+def mit_karten(*karten: dict[str, Any]) -> FLSpielberichtBerichtPayload:
+    return FLSpielberichtBerichtPayload.model_validate(payload(0, 0, [], karten=list(karten)))
+
+
+class TestOnlyANewCautionOwesItsReason:
+    """A season's end strips every card's reason, and a correction after it resends the cautions it stripped."""
+
     @pytest.mark.parametrize("farbe", ["gelb", "gelb_rot"])
-    def test_a_caution_without_a_reason_is_refused(self, farbe: str):
-        with pytest.raises(ValidationError, match="Grund"):
-            FLSpielberichtKartePayload.model_validate({"seite": "team1", "spieler_id": LIVE1, "minute": "12", "farbe": farbe, "grund": None})
+    def test_a_caution_without_a_reason_is_refused_at_its_box(self, farbe: str):
+        refusal = find_grund_fehlt_refusal(payload=mit_karten(karte("rot", None), karte(farbe, None)), gespeichert=None)
+
+        assert refused_with(BERICHT_GRUND_FEHLT, refusal)
+        assert refusal is not None and refusal.fields == (("bericht", "karten"),)
 
     def test_a_red_card_may_stand_without_one(self):
-        karte = FLSpielberichtKartePayload.model_validate(
-            {"seite": "team1", "spieler_id": LIVE1, "minute": "90+2", "farbe": "rot", "grund": None}
-        )
+        assert find_grund_fehlt_refusal(payload=mit_karten(karte("rot", None)), gespeichert=None) is None
 
-        assert karte.grund is None
+    @pytest.mark.parametrize("minute", ["12", "14"], ids=["resent-as-stored", "its-minute-corrected"])
+    def test_a_caution_stored_stripped_is_resent_without_one(self, minute: str):
+        stripped = {"karten": [karte("gelb", None)]}
+
+        assert find_grund_fehlt_refusal(payload=mit_karten(karte("gelb", None, minute=minute)), gespeichert=stripped) is None
+
+    @pytest.mark.parametrize(
+        "neu",
+        [
+            pytest.param(karte("gelb_rot", None), id="another-colour"),
+            pytest.param(karte("gelb", None, spieler_id=AUSGETRAGEN1), id="another-pupil"),
+        ],
+    )
+    def test_any_other_caution_is_refused(self, neu: dict[str, Any]):
+        stripped = {"karten": [karte("gelb", None)]}
+
+        assert refused_with(BERICHT_GRUND_FEHLT, find_grund_fehlt_refusal(payload=mit_karten(neu), gespeichert=stripped))
+
+    def test_each_stripped_card_excuses_one_caution(self):
+        stripped = {"karten": [karte("gelb", None)]}
+
+        refusal = find_grund_fehlt_refusal(payload=mit_karten(karte("gelb", None), karte("gelb", None, minute="80")), gespeichert=stripped)
+
+        assert refused_with(BERICHT_GRUND_FEHLT, refusal)
 
     def test_a_stored_caution_reads_without_one(self):
         """A season's end strips every card's reason, and the reads serve the report after it."""

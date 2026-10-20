@@ -455,6 +455,18 @@ class TestEachRefusalWritesNothing:
 
         assert on_the_league(mongo_replica_set_url, run) == (BERICHT_ABGESAGT, [])
 
+    def test_a_correction_after_the_season_s_strip_resends_its_cautions_without_their_reasons(self, mongo_replica_set_url: str):
+        """The strip deleted the yellow's reason; the administrator corrects the scorer's minute, and adds no caution."""
+
+        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await put(database, client, bericht())
+            await database[Collection.SPIELBERICHTE].update_one({"spiel_id": SPIEL}, {"$set": {"bericht.karten.$[].grund": None}})
+            korrektur = bericht(torschuetzen=[tor("team1", LINA, "24")], stand=1)
+            korrektur["bericht"]["karten"][0]["grund"] = None
+            return await outcome_of(patch(database, client, korrektur))
+
+        assert on_the_league(mongo_replica_set_url, run) == COMMITTED
+
     def test_a_correction_keeps_a_scorer_ausgetragen_since_the_match(self, mongo_replica_set_url: str):
         """Only a pupil the write newly names is judged against the live squad."""
 

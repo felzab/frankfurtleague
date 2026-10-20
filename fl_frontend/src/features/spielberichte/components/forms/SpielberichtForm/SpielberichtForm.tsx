@@ -78,7 +78,7 @@ export function SpielberichtForm({
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
     // The success's own words negated, per reader: the referee sends a report, the administrator saves a correction.
     useDraftFieldErrors({
-      schemas: { spielbericht: spielberichtFormSchema() },
+      schemas: { spielbericht: spielberichtFormSchema(stored?.karten ?? []) },
       failureTitle: leser === "admin" ? "Spielbericht nicht gespeichert" : "Spielbericht nicht gesendet",
     });
 
@@ -185,6 +185,7 @@ export function SpielberichtForm({
               fieldErrors={fieldErrors}
               onValidateFields={validateFields}
               geleert={eroeffnung.geleert.karten}
+              bestand={stored?.karten ?? []}
             />
 
             <FormBemerkungenSection

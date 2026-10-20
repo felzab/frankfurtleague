@@ -87,18 +87,13 @@ class FLSpielberichtKarte(BaseModel):
 
 
 class FLSpielberichtKartePayload(FLSpielberichtKarte):
-    """One card as a write sends it."""
+    """One card as a write sends it.
+
+    A caution's reason is judged against the stored block, never here: a correction after the season's end resends the
+    cautions whose reasons it stripped (`app/api/spielberichte/services.py :: find_grund_fehlt_refusal`).
+    """
 
     model_config = ConfigDict(extra="forbid")
-
-    @model_validator(mode="after")
-    def a_caution_names_its_reason(self) -> Self:
-        """A yellow and a second yellow are shown for a reason the list holds; a red may stand alone."""
-
-        if self.farbe != "rot" and self.grund is None:
-            raise ValueError("Bei Gelb und Gelb-Rot gehört ein Grund dazu.")
-
-        return self
 
 
 class FLSpielberichtVonSchiedsrichter(BaseModel):

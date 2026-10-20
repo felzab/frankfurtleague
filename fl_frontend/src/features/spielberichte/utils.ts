@@ -121,6 +121,13 @@ export const BEMERKUNGEN_PATH = "bericht.bemerkungen";
 // The box's hint already asks for a shirt number, so the message names the fault alone (`docs/frontend/spec.md` §1.12).
 const NAME_IN_BEMERKUNGEN = "In den Bemerkungen steht ein Name.";
 
+// The form refuses a caution without its reason before the press, so this arrives only where the stored report moved
+// under the page: a reload draws the cards it holds now.
+const GRUND_FEHLT = buildRefusal({
+  reason: "Bei einer gelben oder gelb-roten Karte fehlt der Grund",
+  repair: "Lade die Seite neu und wähle ihn",
+});
+
 // The reload draws the form anew from the report standing now, so the change the press carried has to be entered again.
 const NEU_EINTRAGEN = "Lade die Seite neu und trage Deine Änderung dort erneut ein";
 
@@ -135,6 +142,7 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
       repair: "Lade die Seite neu und wähle neu",
     }),
     "REQ-BERICHT-004": "Dieses Spiel ist ausgefallen oder annulliert. Dafür gibt es keinen Spielbericht.",
+    "REQ-BERICHT-008": GRUND_FEHLT,
     "REQ-BERICHT-007": buildRefusal({
       reason: "Die Saison dieses Spiels ist vorbei, und den Spielbericht kannst Du nicht mehr ändern",
       repair: LADE_DIE_SEITE_NEU,
@@ -154,6 +162,7 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
       repair: "Lade die Seite neu und wähle neu",
     }),
     "REQ-BERICHT-004": "Das Spiel ist als ausgefallen oder annulliert eingetragen. Dafür gibt es keinen Spielbericht.",
+    "REQ-BERICHT-008": GRUND_FEHLT,
     "REQ-BERICHT-006": buildRefusal({
       reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Schiedsrichterin oder dem Schiedsrichter",
       repair: NEU_EINTRAGEN,
