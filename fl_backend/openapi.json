@@ -5268,7 +5268,7 @@
     "/api/v0/saisons/{saison_id}/spielplan": {
       "post": {
         "summary": "Draw this Saison's Spielplan",
-        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, every fixture's confirmations and referee's report with them, inside\n`REQ-SPIELPLAN-005`'s window, and is refused `REQ-AUTH-009` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`: nothing writes the removed rows back.",
+        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, every fixture's confirmations with them, inside `REQ-SPIELPLAN-005`'s\nwindow and on a season holding no submitted match report (`REQ-SPIELPLAN-007`), and is refused\n`REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`: nothing writes\nthe removed rows back.",
         "operationId": "generate_spielplan_api_v0_saisons__saison_id__spielplan_post",
         "security": [
           {
@@ -5310,7 +5310,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-DATE-009.REQ-RULES-014.REQ-RULES-015.REQ-RULES-016.REQ-RULES-017.REQ-RULES-018.REQ-SPIELPLAN-001.REQ-SPIELPLAN-002.REQ-SPIELPLAN-003.REQ-SPIELPLAN-004.REQ-SPIELPLAN-005"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-DATE-009.REQ-RULES-014.REQ-RULES-015.REQ-RULES-016.REQ-RULES-017.REQ-RULES-018.REQ-SPIELPLAN-001.REQ-SPIELPLAN-002.REQ-SPIELPLAN-003.REQ-SPIELPLAN-004.REQ-SPIELPLAN-005.REQ-SPIELPLAN-007"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-RULES-001.REQ-RULES-007.REQ-RULES-013.REQ-VAL-001"
@@ -5335,7 +5335,7 @@
       },
       "delete": {
         "summary": "Undraw this Saison's Spielplan",
-        "description": "Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.\n\nEvery fixture's confirmations and referee's report go with it.\n\nThe replace's window bounds it (`REQ-SPIELPLAN-006`). Undoing the draw is what reopens the shape\nrules to `PATCH` and the groups to an entry.",
+        "description": "Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.\n\nEvery fixture's confirmations go with it.\n\nThe replace's window bounds it (`REQ-SPIELPLAN-006`), and a submitted match report refuses it\n(`REQ-SPIELPLAN-007`). Undoing the draw is what reopens the shape rules to `PATCH` and the groups to\nan entry.",
         "operationId": "undraw_spielplan_api_v0_saisons__saison_id__spielplan_delete",
         "security": [
           {
@@ -5383,7 +5383,7 @@
             "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "409": {
-            "$ref": "#/components/responses/409.REQ-SPIELPLAN-006"
+            "$ref": "#/components/responses/409.REQ-SPIELPLAN-006.REQ-SPIELPLAN-007"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -7456,7 +7456,7 @@
     "/api/v0/spielberichte/{spiel_id}": {
       "patch": {
         "summary": "Write one fixture's report as an administrator",
-        "description": "Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.\n\nEvery write raises its `version`, so a report adopted before reads `abweichend` until it is adopted again. Who first\nwrote the report stays recorded; a report an administrator writes first records an administrator, naming nobody.\n\nRefuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); one undated or whose\nday is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a pupil newly named on\na side outside that side's live squad of the season (`REQ-BERICHT-003`); and remarks naming a seat holder of either\nclub, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each is asked again outside the\ntransaction just before answering. Two first writes at once are one report and one `DB-COMMON-002`.",
+        "description": "Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.\n\nEvery write changing it raises its `version`, so a report adopted before reads `abweichend` until it is adopted\nagain, and a write changing nothing writes nothing. Who first wrote the report stays recorded; a report an\nadministrator writes first records an administrator, naming nobody.\n\nRefuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); one undated or whose\nday is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a pupil newly named on\na side outside that side's live squad of the season (`REQ-BERICHT-003`); and remarks naming a seat holder of either\nclub, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each is asked again outside the\ntransaction just before answering. Two first writes at once are one report: the later is written over the earlier,\nas a correction is.",
         "operationId": "patch_spielbericht_api_v0_spielberichte__spiel_id__patch",
         "security": [
           {
@@ -8599,7 +8599,7 @@
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's retention clocks",
-        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. A seat whose address the ban list holds is\nsent nothing and has nothing written: it stays due, so every pass asks the ban list for it again until its deadline, and\nreminds it once a lift comes first; each pass logs how many mailboxes it withheld, never which. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n\nOne call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline\nfirst; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transactions, so no later step\nof the same call can answer an error in their place; where the request's deadline cuts them after one has committed, the call\nanswers what committed and warns once.\n\nAn application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,\nis passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it\nagain and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks\npassed over: a day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.\n\n404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,\nthough it logs the count of withheld seats again.\n\nThe accepted clock and the contact block run once a later season has ended while this one is not `active`, the moment the\nseason-after rule stops keeping this season's pupils: a running season keeps both, and a later season planned and never run\nholds neither back. A season whose id is not a four-digit year fails the whole pass rather than running the four clocks\nthat need no later season, because a pass that skipped those two quietly would leave both stopped for ever with nothing\nanywhere saying so. From that moment every pass also strips the season's fixture confirmation rows, referees' too, on\nthe rows and in their log images, of what is left on them: every seat's link entry, each reason whoever gave it, and a\ncontact's holder digest; which way each answer went, its day and the answering role stay as the season's record. The strip is a\ntransaction of its own after the blocks' share: one that fails is logged under the season's id and counted in\n`fehlgeschlagen`, and the blocks clear all the same.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
+        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. A seat whose address the ban list holds is\nsent nothing and has nothing written: it stays due, so every pass asks the ban list for it again until its deadline, and\nreminds it once a lift comes first; each pass logs how many mailboxes it withheld, never which. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n\nOne call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline\nfirst; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transactions, so no later step\nof the same call can answer an error in their place; where the request's deadline cuts them after one has committed, the call\nanswers what committed and warns once.\n\nAn application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,\nis passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it\nagain and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks\npassed over: a day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.\n\n404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,\nthough it logs the count of withheld seats again.\n\nThe accepted clock and the contact block run once a later season has ended while this one is not `active`, the moment the\nseason-after rule stops keeping this season's pupils: a running season keeps both, and a later season planned and never run\nholds neither back. A season whose id is not a four-digit year fails the whole pass rather than running the four clocks\nthat need no later season, because a pass that skipped those two quietly would leave both stopped for ever with nothing\nanywhere saying so. From that moment every pass also strips, on the rows and in their log images, the season's fixture\nconfirmation rows of every seat's link entry, each reason and a contact's holder digest, and its match\nreports of their remarks and every card's reason; the answers' way, day and role and the reports' scorers, cards and\nresult stay as the record. Each strip is its own transaction after the blocks' share: one that fails is\nlogged under the season's id and counted in `fehlgeschlagen`, and the blocks clear all the same.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
         "operationId": "sweep_saison_api_v0_bewerbungen_sweep__saison_id__post",
         "security": [
           {
@@ -11085,7 +11085,7 @@
     "/api/v0/spielberichte/{spiel_id}/bericht": {
       "get": {
         "summary": "One fixture's report as its referee reads it",
-        "description": "What the booked referee's report form reads.\n\nThe fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored\nreport, its remarks and card reasons included, or null.\n\nServed for a fixture still to come or called off too, whose page says why it takes no report. Refused\n`REQ-FUNKTION-001` where the address holds no confirmed, live referee record, and `REQ-BERICHT-002` where the fixture\nis booked to none of its records; `DB-COMMON-001` for a fixture that does not exist.",
+        "description": "What the booked referee's report form reads.\n\nThe fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored\nreport, its remarks and card reasons included, or null.\n\nServed for a fixture still to come or called off too, whose page says why it takes no report, with both squads\nempty: the pupils the stored report names are then all in `genannt`. Refused\n`REQ-FUNKTION-001` where the address holds no confirmed, live referee record, and `REQ-BERICHT-002` where the fixture\nis booked to none of its records; `DB-COMMON-001` for a fixture that does not exist.",
         "operationId": "get_spielbericht_bericht_api_v0_spielberichte__spiel_id__bericht_get",
         "security": [
           {
@@ -11141,7 +11141,7 @@
       },
       "put": {
         "summary": "Write one fixture's report as its referee",
-        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe proposed result, the scorers, the cards and the remarks. The first write creates it; every write raises its\n`version`, so a report the\nadministrator adopted reads `abweichend` again until it is adopted anew. Writes no fixture: the result is the\nadministrator's to save.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records\n(`REQ-BERICHT-002`); one undated or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out\n(`REQ-BERICHT-004`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil\nthe report already named on that side staying (`REQ-BERICHT-003`); and remarks naming a seat holder of either club,\nthe booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal after the first is asked\nagain outside the transaction just before answering, so a write landing mid-press on what was judged refuses the\nreport rather than letting it stand. Two first writes at once are one report and one `DB-COMMON-002`.",
+        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every\nwrite changing it raises its `version`, so a report the administrator adopted reads `abweichend` again until it\nis adopted anew, and a write changing nothing writes nothing. Writes no fixture: the result is the administrator's\nto save.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records\n(`REQ-BERICHT-002`); one undated or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out\n(`REQ-BERICHT-004`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil\nthe report already named on that side staying (`REQ-BERICHT-003`); and remarks naming a seat holder of either club,\nthe booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal after the first is asked\nagain outside the transaction just before answering, the referee's records included, so a write landing mid-press\non what was judged refuses the report rather than letting it stand. Two first writes at once are one report: the\nlater is written over the earlier, as a correction is.",
         "operationId": "put_spielbericht_bericht_api_v0_spielberichte__spiel_id__bericht_put",
         "security": [
           {
@@ -11173,6 +11173,16 @@
         "responses": {
           "200": {
             "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielberichtSchiedsrichterResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "The report did not stand before, and this write created it",
             "content": {
               "application/json": {
                 "schema": {
@@ -25725,7 +25735,8 @@
                 "enum": [
                   "vorgeschlagen",
                   "uebernommen",
-                  "abweichend"
+                  "abweichend",
+                  "abgesagt"
                 ]
               },
               {
@@ -25875,7 +25886,7 @@
           },
           "karten": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielberichtKarte"
+              "$ref": "#/components/schemas/FLSpielberichtKartePayload"
             },
             "type": "array",
             "maxItems": 60,
@@ -25991,7 +26002,73 @@
           "farbe",
           "grund"
         ],
-        "title": "FLSpielberichtKarte"
+        "title": "FLSpielberichtKarte",
+        "description": "One card as stored, its reason null on a red card and on every card once its season's end strips the reasons."
+      },
+      "FLSpielberichtKartePayload": {
+        "properties": {
+          "seite": {
+            "type": "string",
+            "enum": [
+              "team1",
+              "team2"
+            ],
+            "title": "Seite"
+          },
+          "spieler_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spieler Id"
+          },
+          "minute": {
+            "type": "string",
+            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
+            "title": "Minute"
+          },
+          "farbe": {
+            "type": "string",
+            "enum": [
+              "gelb",
+              "gelb_rot",
+              "rot"
+            ],
+            "title": "Farbe"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "foulspiel",
+                  "unsportlichkeit",
+                  "handspiel",
+                  "meckern",
+                  "spielverzoegerung",
+                  "wiederholtes_foulspiel",
+                  "grobes_foulspiel",
+                  "taetlichkeit",
+                  "beleidigung",
+                  "notbremse"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "seite",
+          "spieler_id",
+          "minute",
+          "farbe",
+          "grund"
+        ],
+        "title": "FLSpielberichtKartePayload",
+        "description": "One card as a write sends it."
       },
       "FLSpielberichtPayload": {
         "properties": {
@@ -26271,7 +26348,7 @@
           "nummer"
         ],
         "title": "FLSpielberichtSpieler",
-        "description": "A pupil a report may name or names. Both names null on the erased pupils' sentinel alone."
+        "description": "A pupil a report may name or names, with the names their record holds."
       },
       "FLSpielberichtTeam": {
         "properties": {
@@ -26332,7 +26409,7 @@
           "eigentor"
         ],
         "title": "FLSpielberichtTorschuetze",
-        "description": "One goal. A null `spieler_id` is a scorer nobody named, never an erased one, whose entry names the sentinel."
+        "description": "One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one."
       },
       "FLSpielberichtUebernommenVon": {
         "properties": {
@@ -26458,7 +26535,8 @@
             "enum": [
               "vorgeschlagen",
               "uebernommen",
-              "abweichend"
+              "abweichend",
+              "abgesagt"
             ],
             "title": "Zustand"
           },
@@ -31876,7 +31954,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-DATE-009.REQ-RULES-014.REQ-RULES-015.REQ-RULES-016.REQ-RULES-017.REQ-RULES-018.REQ-SPIELPLAN-001.REQ-SPIELPLAN-002.REQ-SPIELPLAN-003.REQ-SPIELPLAN-004.REQ-SPIELPLAN-005": {
+      "409.DB-COMMON-002.REQ-DATE-009.REQ-RULES-014.REQ-RULES-015.REQ-RULES-016.REQ-RULES-017.REQ-RULES-018.REQ-SPIELPLAN-001.REQ-SPIELPLAN-002.REQ-SPIELPLAN-003.REQ-SPIELPLAN-004.REQ-SPIELPLAN-005.REQ-SPIELPLAN-007": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -31900,7 +31978,8 @@
                         "REQ-SPIELPLAN-002",
                         "REQ-SPIELPLAN-003",
                         "REQ-SPIELPLAN-004",
-                        "REQ-SPIELPLAN-005"
+                        "REQ-SPIELPLAN-005",
+                        "REQ-SPIELPLAN-007"
                       ]
                     }
                   }
@@ -32946,7 +33025,7 @@
           }
         }
       },
-      "409.REQ-SPIELPLAN-006": {
+      "409.REQ-SPIELPLAN-006.REQ-SPIELPLAN-007": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -32959,7 +33038,8 @@
                   "properties": {
                     "error_code": {
                       "enum": [
-                        "REQ-SPIELPLAN-006"
+                        "REQ-SPIELPLAN-006",
+                        "REQ-SPIELPLAN-007"
                       ]
                     }
                   }

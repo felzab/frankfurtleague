@@ -694,6 +694,24 @@ def find_spielplan_refusal(
 SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW = "REQ-SPIELPLAN-006"
 
 
+# A code of its own beside the window's: a report is no field of a fixture, and the window's sentence counts fixtures.
+SPIELPLAN_BERICHTE_EINGEREICHT = "REQ-SPIELPLAN-007"
+
+
+def find_berichte_refusal(*, berichte: int) -> WriteRefusal | None:
+    """Why a replace or an undraw must be refused for the referees' reports it would delete with the fixtures, or `None`."""
+
+    if berichte == 0:
+        return None
+
+    return WriteRefusal(
+        error_code=SPIELPLAN_BERICHTE_EINGEREICHT,
+        status=HTTPStatus.CONFLICT,
+        message=f"the season holds {berichte} submitted match report(s), which removing its fixtures would delete; a report "
+        "is the league's record of a match, so its Spielplan is neither replaced nor removed while one stands",
+    )
+
+
 def find_undraw_refusal(*, saison_status: str, recorded_fixtures: int) -> WriteRefusal | None:
     """Why removing this season's Spielplan must be refused, or `None`.
 

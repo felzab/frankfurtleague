@@ -19,16 +19,20 @@ from app.api.spielberichte.services import (
     SEITEN,
     SPIEL_FIELDS,
     BerichtLage,
+    bericht_unveraendert,
     bericht_zustand_of,
     build_bericht_kader_pipeline,
     build_referee_report_images_filter,
     build_referee_reports_filter,
+    build_season_report_images_filter,
+    build_season_report_texts_filter,
     build_zustand_pipeline,
     compose_bericht_update,
     compose_neuer_bericht,
     genannte_ids,
     live_kader,
     referee_report_image_edits,
+    season_end_report_image_edits,
     team_id_of,
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN
@@ -84,14 +88,23 @@ async def pull_bericht_lage(
 
 
 async def pull_genannt(
-    *, spieler_collection: AsyncCollection, lage: BerichtLage, bericht: Mapping[str, Any] | None, session: AsyncClientSession | None
+    *,
+    spieler_collection: AsyncCollection,
+    lage: BerichtLage,
+    kader_offen: bool,
+    bericht: Mapping[str, Any] | None,
+    session: AsyncClientSession | None,
 ) -> list[FLSpielberichtSpieler]:
-    """Every pupil the stored block names outside both live squads, so an entry stored before keeps its name on the form."""
+    """Every pupil the stored block names outside the squads served beside it, so an entry stored before keeps its name on the form.
 
-    live = {row["spieler_id"] for seite in SEITEN for row in live_kader(lage, seite)}
+    Every pupil it names where no squad is served (`compose_ansicht`'s `kader_offen`).
+    """
+
+    live = {row["spieler_id"] for seite in SEITEN for row in live_kader(lage, seite)} if kader_offen else set()
     ausserhalb = set().union(*genannte_ids(bericht).values()) - live
     zeilen = {row["spieler_id"]: row for row in lage.kader if row["spieler_id"] in ausserhalb}
-    # A pupil holding no squad row of either club: the erased pupils' sentinel, whose names are null.
+    # A pupil of neither side's club, such as one of a club a knockout slot has since replaced: read off their record.
+    # An erased pupil's id finds none, and the entry stays unnamed.
     rest = ausserhalb - zeilen.keys()
     personen = (
         []
@@ -130,13 +143,17 @@ async def write_bericht(
     now: datetime,
     session: AsyncClientSession,
 ) -> Mapping[str, Any]:
-    """The block written whole: the document created by its first writer, a block a line-up's document lacked created, or the block replaced.
+    """The block written whole: created by its first writer, created on a line-up's document lacking it, or replaced.
 
-    Answers the document as written, read back under `session`.
+    A block already saying what the payload says is left as stored; otherwise answers the document as written.
     """
 
+    if gespeichert is not None and bericht_unveraendert(payload, gespeichert.get("bericht")):
+        return gespeichert
+
     if gespeichert is None:
-        # An insert, so two first writes meet `uniq_spielbericht_spiel_id` (`DB-COMMON-002`) rather than both standing.
+        # A first write committing while this one runs conflicts with it, and the retry writes this one over it as a
+        # correction; `uniq_spielbericht_spiel_id` stands behind both.
         await post_one_to_db(
             collection=spielberichte_collection,
             document={
@@ -163,6 +180,12 @@ async def write_bericht(
     return await pull_one_from_db(collection=spielberichte_collection, db_filter={"spiel_id": spiel_raw["_id"]}, session=session)
 
 
+async def count_eingereichte_berichte(*, spielberichte_collection: AsyncCollection, saison_id: str, session: AsyncClientSession | None) -> int:
+    """How many of the season's report documents hold a submitted report, under `session`."""
+
+    return await spielberichte_collection.count_documents({"saison_id": saison_id, "bericht": {"$ne": None}}, session=session)
+
+
 async def pull_zustaende(*, spielberichte_collection: AsyncCollection, saison_id: str) -> list[FLSpielberichtZustandEintrag]:
     """Every report of one season holding a block, each with its state against its fixture as stored now."""
 
@@ -178,6 +201,34 @@ async def pull_zustaende(*, spielberichte_collection: AsyncCollection, saison_id
         )
 
     return eintraege
+
+
+async def strip_the_seasons_reports(
+    *,
+    spielberichte_collection: AsyncCollection,
+    aktionen_collection: AsyncCollection,
+    saison_id: str,
+    stamp: str,
+    # REQUIRED: the season's end judged in the same snapshot, so an activation since the caller's read keeps them.
+    session: AsyncClientSession,
+) -> int:
+    """At the season's end, every report's remarks and card reasons, on the reports and in their log images."""
+
+    await patch_many_in_db(
+        collection=spielberichte_collection,
+        db_filter=build_season_report_texts_filter(saison_id),
+        # Every card's reason by `$[]`: the cards stand.
+        update={"$set": {"bericht.bemerkungen": None, "bericht.karten.$[].grund": None}},
+        session=session,
+    )
+
+    return await redact_images_in_session(
+        aktionen_collection=aktionen_collection,
+        db_filter=build_season_report_images_filter(saison_id),
+        judge=lambda image: season_end_report_image_edits(image, saison_id),
+        stamp=stamp,
+        session=session,
+    )
 
 
 async def repoint_referee_reports_in_session(

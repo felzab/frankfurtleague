@@ -26,6 +26,7 @@ from app.api.saisons.services import (
     RULES_SHAPE_AFTER_DRAW,
     SAISON_SPAN_BELOW_SCHEDULE_AS_STORED,
     SPIELPLAN_ALREADY_DRAWN,
+    SPIELPLAN_BERICHTE_EINGEREICHT,
     SPIELPLAN_GRUPPEN_OFF_RULES,
     SPIELPLAN_MATCHDAYS_HELD,
     SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
@@ -43,6 +44,7 @@ from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.isolation import InterleavedCollection, outcome_of
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -207,6 +209,7 @@ async def call_draw(
     replace: bool = False,
     today: str = TODAY,
     shape: FLSpielplanShape | None = None,
+    spielberichte_collection: Any = None,
 ) -> FLGenerateSpielplanResponse:
     return await generate_spielplan(
         saison_id=saison_id,
@@ -215,7 +218,7 @@ async def call_draw(
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        spielberichte_collection=database[Collection.SPIELBERICHTE],
+        spielberichte_collection=database[Collection.SPIELBERICHTE] if spielberichte_collection is None else spielberichte_collection,
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(replace=replace, shape=shape),
         today=today,
@@ -937,15 +940,22 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
     return documents.spielbestaetigung_document(fixture, partei={"art": "team", "team_id": home})
 
 
+def a_report(saison_id: str, *, bericht: bool = True) -> dict[str, Any]:
+    """A fixture's report document, submitted or holding no report; the fixture itself need not exist for the removal's filter."""
+
+    return documents.spielbericht_document({"_id": ObjectId(), "saison_id": saison_id}, **({} if bericht else {"bericht": None}))
+
+
 class TestAReplaceTakesTheSeasonsReports:
     def test_the_seasons_reports_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
-        """Drop the replace's report delete and this fails: a report would name a fixture the replace removed."""
+        """Drop the replace's report delete and this fails: a report document would name a fixture the replace removed.
+
+        The season's holds no submitted report, which would refuse the replace; the neighbour's does.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
             await call_draw(database, client)
-            await database[Collection.SPIELBERICHTE].insert_many(
-                [documents.spielbericht_document({"_id": ObjectId(), "saison_id": saison_id}) for saison_id in (SAISON_ID, NEIGHBOUR_SAISON_ID)]
-            )
+            await database[Collection.SPIELBERICHTE].insert_many([a_report(SAISON_ID, bericht=False), a_report(NEIGHBOUR_SAISON_ID)])
             await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
 
             berichte = database[Collection.SPIELBERICHTE]
@@ -955,6 +965,46 @@ class TestAReplaceTakesTheSeasonsReports:
             )
 
         assert on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
+
+
+class BerichteRunningARivalBeforeTheirRemoval(InterleavedCollection):
+    async def delete_many(self, *args: Any, **kwargs: Any) -> Any:
+        await self.run_the_rival()
+        return await self._collection.delete_many(*args, **kwargs)
+
+
+class TestASubmittedReportKeepsTheSpielplanFromAReplace:
+    """`REQ-SPIELPLAN-007` wired: the replace counts the season's submitted reports in its transaction and again outside it."""
+
+    def test_the_replace_is_refused_and_removes_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            drawn = await call_draw(database, client)
+            await database[Collection.SPIELBERICHTE].insert_one(a_report(SAISON_ID))
+            outcome = await outcome_of(call_draw(database, client, replace=True, today=REDRAWN_TODAY))
+
+            return drawn, outcome, await watermark_now(database)
+
+        drawn, outcome, watermark = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert outcome == SPIELPLAN_BERICHTE_EINGEREICHT
+        assert watermark is not None and watermark["generiert_am"] == drawn.generiert_am
+
+    def test_a_report_submitted_mid_replace_is_counted_again_outside_it(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            drawn = await call_draw(database, client)
+            berichte = BerichteRunningARivalBeforeTheirRemoval(
+                database[Collection.SPIELBERICHTE], lambda: database[Collection.SPIELBERICHTE].insert_one(a_report(SAISON_ID))
+            )
+            outcome = await outcome_of(call_draw(database, client, replace=True, today=REDRAWN_TODAY, spielberichte_collection=berichte))
+            berichte.assert_landed_inside(serially=0)
+
+            return drawn, outcome, await watermark_now(database), berichte.passes
+
+        drawn, outcome, watermark, passes = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert outcome == SPIELPLAN_BERICHTE_EINGEREICHT
+        assert watermark is not None and watermark["generiert_am"] == drawn.generiert_am
+        assert passes == 1
 
 
 class TestAReplaceTakesTheSeasonsConfirmations:

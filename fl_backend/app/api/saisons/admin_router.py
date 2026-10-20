@@ -52,6 +52,7 @@ from app.api.saisons.services import (
     RECORDED_FACT_FIELDS,
     as_the_draw_answers,
     find_activation_refusal,
+    find_berichte_refusal,
     find_rules_refusal,
     find_saison_span_refusal,
     find_spielplan_refusal,
@@ -62,6 +63,7 @@ from app.api.saisons.services import (
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
+from app.api.spielberichte.crud import count_eingereichte_berichte
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import (
@@ -816,9 +818,10 @@ async def generate_spielplan(
     Draw the whole season at once: every matchday and every fixture, undated, in one transaction.
 
     `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
-    deletes both lists first, every fixture's confirmations and referee's report with them, inside
-    `REQ-SPIELPLAN-005`'s window, and is refused `REQ-AUTH-009` from a sign-in or confirmation older than
-    `STEP_UP_WINDOW_HOURS`: nothing writes the removed rows back.
+    deletes both lists first, every fixture's confirmations with them, inside `REQ-SPIELPLAN-005`'s
+    window and on a season holding no submitted match report (`REQ-SPIELPLAN-007`), and is refused
+    `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`: nothing writes
+    the removed rows back.
     """
 
     if spielplan_data.replace:
@@ -895,6 +898,14 @@ async def generate_spielplan(
                 recorded_fixtures=sum(1 for spiel in stored_spiele if holds_a_recorded_fact(spiel)),
             )
         )
+        if spielplan_data.replace:
+            refuse(
+                find_berichte_refusal(
+                    berichte=await count_eingereichte_berichte(
+                        spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session
+                    )
+                )
+            )
 
         # `stored=None` is the create's reading, and the one this wants: every rule judging the
         # numbers alone fires on the payload's own, and every rule judging a standing fixture is
@@ -976,6 +987,17 @@ async def generate_spielplan(
         shape = spielplan_data.shape
         shape_written = {} if shape is None else {f"rules.{rule}": value for rule, value in shape.model_dump().items()}
 
+        if spielplan_data.replace:
+            # A report's write reads the fixture and never writes it, so one landing mid-replace conflicts with nothing
+            # here: counted again outside the transaction (`docs/backend/spec.md :: I118`).
+            refuse(
+                find_berichte_refusal(
+                    berichte=await count_eingereichte_berichte(
+                        spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None
+                    )
+                )
+            )
+
         watermark = FLSaisonSpielplan(generiert_am=today, spieltage=len(drawn.spieltage), spiele=len(drawn.spiele))
         # ONE `$set` inside the transaction: the shape and the draw it produced are one fact, so one
         # write carries one pre-image -- the season before either moved. Two would log a `before`
@@ -1028,10 +1050,11 @@ async def undraw_spielplan(
     """
     Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.
 
-    Every fixture's confirmations and referee's report go with it.
+    Every fixture's confirmations go with it.
 
-    The replace's window bounds it (`REQ-SPIELPLAN-006`). Undoing the draw is what reopens the shape
-    rules to `PATCH` and the groups to an entry.
+    The replace's window bounds it (`REQ-SPIELPLAN-006`), and a submitted match report refuses it
+    (`REQ-SPIELPLAN-007`). Undoing the draw is what reopens the shape rules to `PATCH` and the groups to
+    an entry.
     """
 
     async def undraw_the_whole_season(session: AsyncClientSession) -> FLUndrawSpielplanResponse:
@@ -1065,6 +1088,13 @@ async def undraw_spielplan(
                 recorded_fixtures=sum(1 for spiel in stored_spiele if holds_a_recorded_fact(spiel)),
             )
         )
+        refuse(
+            find_berichte_refusal(
+                berichte=await count_eingereichte_berichte(
+                    spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session
+                )
+            )
+        )
 
         # Fixtures first, the reverse of the draw's write order: neither the log's rows nor a restore
         # replaying them then holds a fixture whose matchday is already gone. Confirmations and reports
@@ -1083,6 +1113,13 @@ async def undraw_spielplan(
             update={"$unset": {"spielplan": ""}},
             session=session,
             return_document=ReturnDocument.BEFORE,
+        )
+
+        # The replace's reason (`docs/backend/spec.md :: I118`).
+        refuse(
+            find_berichte_refusal(
+                berichte=await count_eingereichte_berichte(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None)
+            )
         )
 
         return FLUndrawSpielplanResponse(
