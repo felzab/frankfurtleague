@@ -98,8 +98,6 @@ REGISTRIERUNG_UNCONFIRMED = ObjectId("6890a1b2c3d4e5f607860132")
 REGISTRIERUNG_DECLINED = ObjectId("6890a1b2c3d4e5f607860133")
 REGISTRIERUNG_RETURNING = ObjectId("6890a1b2c3d4e5f607860134")
 REGISTRIERUNG_KAETHE = ObjectId("6890a1b2c3d4e5f607860135")
-# Another mailbox by the fold, which lowercases ASCII alone, and one a case-insensitive pattern still admits.
-REGISTRIERUNG_KAETHE_UPPER = ObjectId("6890a1b2c3d4e5f607860136")
 
 EXPECTED: dict[str, set[tuple[str, str]]] = {
     WILTRUDIS: {
@@ -194,7 +192,7 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
-            _referee(REFEREE_LIVE, "Wiltrudis.Ehrenpreis@Schule.de", "Wiltrudis Ehrenpreis"),
+            _referee(REFEREE_LIVE, WILTRUDIS, "Wiltrudis Ehrenpreis"),
             _referee(REFEREE_RETIRED, WILTRUDIS, "Wiltrudis E.", inactive_since="2026-07-01"),
             _referee(REFEREE_UNCONFIRMED, WILTRUDIS, "W. Ehrenpreis", einwilligung=None),
             _referee(REFEREE_KAETHE, "käthe@xn--mller-kva.de", "Käthe Müller"),
@@ -204,7 +202,7 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SAISON_TEAMS].insert_many(
         [
-            saison_team_document(PAST, TEAMS[0], "Schule0", "S0", kontakte=_kontakte(trainer=_seat("Wiltrudis.Ehrenpreis@Schule.DE"))),
+            saison_team_document(PAST, TEAMS[0], "Schule0", "S0", kontakte=_kontakte(trainer=_seat(WILTRUDIS))),
             saison_team_document(
                 ACTIVE,
                 TEAMS[1],
@@ -228,13 +226,12 @@ async def _seed(database: AsyncDatabase) -> None:
     declined.update(compose_ablehnung_update(von="verwaltung@schule.de", grund=None, today="2026-09-22")["$set"])
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
-            _registrierung(REGISTRIERUNG_NEW, "Wiltrudis.Ehrenpreis@SCHULE.de"),
+            _registrierung(REGISTRIERUNG_NEW, WILTRUDIS),
             _registrierung(REGISTRIERUNG_UNCONFIRMED, WILTRUDIS, seite=None),
             declined,
             # A returning pupil's: no choice on it, their own record standing.
             _registrierung(REGISTRIERUNG_RETURNING, WILTRUDIS, seite="bestaetigung_spieler_wiederkehrend"),
-            _registrierung(REGISTRIERUNG_KAETHE, "Käthe@XN--MLLER-KVA.DE", vorname="Käthe"),
-            _registrierung(REGISTRIERUNG_KAETHE_UPPER, "KÄTHE@xn--mller-kva.de", vorname="Käthe"),
+            _registrierung(REGISTRIERUNG_KAETHE, "käthe@xn--mller-kva.de", vorname="Käthe"),
         ]
     )
 

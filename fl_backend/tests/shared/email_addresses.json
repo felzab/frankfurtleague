@@ -8,7 +8,7 @@
   {
     "case": "capitals on both sides of the at sign",
     "typed": "Anna.Mueller@Schule.DE",
-    "stored": "Anna.Mueller@schule.de",
+    "stored": "anna.mueller@schule.de",
     "folded": "anna.mueller@schule.de"
   },
   {
@@ -62,7 +62,7 @@
   {
     "case": "the punycode in capitals",
     "typed": "Anna@XN--MLLER-KVA.DE",
-    "stored": "Anna@xn--mller-kva.de",
+    "stored": "anna@xn--mller-kva.de",
     "folded": "anna@xn--mller-kva.de"
   },
   {

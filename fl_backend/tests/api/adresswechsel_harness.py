@@ -54,7 +54,7 @@ AFTER_THE_DEADLINE = NOW + timedelta(hours=25)
 AFTER_THE_WEEK = NOW + timedelta(days=7, hours=1)
 AFTER_THE_WAIT = NOW + timedelta(days=ADRESSWECHSEL_WARTEZEIT_TAGE, hours=2)
 
-# One person holding a pupil row, a confirmed referee row, seats and registrations, each record in its own spelling.
+# One person holding a pupil row, a confirmed referee row, seats and registrations, each stored folded; and a spelling they may type.
 EMAIL = "lenore.quastenbach@schule.example"
 TYPED = "Lenore.Quastenbach@Schule.example"
 NEW_EMAIL = "lenore.q@neupost.example.org"
@@ -93,7 +93,7 @@ def _seat(email: str, *, confirmed: bool) -> dict[str, Any]:
 def registration(registrierung_id: ObjectId, team_id: ObjectId, *, confirmed: bool, token: str) -> dict[str, Any]:
     return documents.registrierung_document(
         registrierung_id,
-        TYPED,
+        EMAIL,
         saison_id=SAISON_ID,
         team_id=team_id,
         vorname="Lenore",
@@ -131,7 +131,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
         [
             documents.schiedsrichter_document(
                 REFEREE_OID,
-                email=TYPED,
+                email=EMAIL,
                 name="Lenore Quastenbach",
                 default_payment=20,
                 einwilligung=documents.eigene_einwilligung_document(text_version=REFEREE_LABEL, bestaetigt_am="2026-03-02"),
@@ -155,7 +155,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 "Zorbanax",
                 "ZO",
                 kontakte=documents.kontakte_document(
-                    ansprechperson=_seat(TYPED, confirmed=True), stellvertretung=_seat(EMAIL, confirmed=False)
+                    ansprechperson=_seat(EMAIL, confirmed=True), stellvertretung=_seat(EMAIL, confirmed=False)
                 ),
             ),
             "_id": ROW_OID,
@@ -197,7 +197,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 PENDING_OID,
                 SAISON_ID,
                 "eingereicht",
-                kontakte=documents.kontakte_document(trainer=_seat(TYPED, confirmed=True)),
+                kontakte=documents.kontakte_document(trainer=_seat(EMAIL, confirmed=True)),
                 eingereicht_am="2026-03-10",
                 bestaetigungsfrist="2026-04-15",
                 team_id=SECOND_TEAM_OID,
@@ -206,7 +206,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 ACCEPTED_OID,
                 SAISON_ID,
                 "angenommen",
-                kontakte=documents.kontakte_document(ansprechperson=_seat(TYPED, confirmed=True)),
+                kontakte=documents.kontakte_document(ansprechperson=_seat(EMAIL, confirmed=True)),
                 eingereicht_am="2026-02-10",
                 team_id=TEAM_OID,
             ),

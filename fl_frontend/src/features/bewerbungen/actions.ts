@@ -503,9 +503,9 @@ export async function kontaktEmailKorrigierenAction(
         operation: "kontaktEmailKorrigierenAction",
         bewerbungId: validated.data.id,
         saisonId: bewerbung.saison_id,
-        // The address the write just stored, never the one the read still holds: the message the
-        // administrator asked for is the one going to the corrected mailbox.
-        person: { vorname: person.vorname, email: validated.data.email },
+        // The address the write just stored, never the one the read still holds nor the one typed: the message the
+        // administrator asked for is the one going to the corrected mailbox, in the form its delivery events name.
+        person: { vorname: person.vorname, email: korrekturOperation.email },
         benanntesTeam: benanntesTeam,
         sitze: gepaarteSitze(bewerbung, validated.data.rolle),
         token: korrekturOperation.token,
@@ -572,7 +572,8 @@ export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSit
         operation: "besetzeKontaktSitzAction",
         bewerbungId: validated.data.id,
         saisonId: gelesen.bewerbung.saison_id,
-        person: { vorname: validated.data.vorname, email: validated.data.email },
+        // As stored, never as typed: the form its delivery events name.
+        person: { vorname: validated.data.vorname, email: sitzOperation.email },
         benanntesTeam: benanntesTeam,
         // The WRITE's own answer, never `gepaarteSitze`: that helper mirrors `paired_seat`, which
         // drops an emptied seat from the pair, and every seat this write filled was emptied.

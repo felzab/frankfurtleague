@@ -83,9 +83,8 @@ JOURNALLED = datetime(2026, 10, 3, 10, 0, 1, tzinfo=UTC)
 SAISON_ID = "2026"
 ADULT = "1990-05-09"
 
-# One person holding a pupil row, a referee row and two seats, stored in the spellings each record keeps.
+# One person holding a pupil row, a referee row and two seats, each stored folded as every record keeps an address.
 PERSON = "ortrud.zwiebelmayer@schule.de"
-PERSON_TYPED = "Ortrud.Zwiebelmayer@Schule.de"
 REGISTRANT = "jonas.jungspund@schule.de"
 NEW_ADDRESS = "neu.postfach@anderswo.de"
 # `kontaktperson_document`'s address for a seat named so.
@@ -135,7 +134,7 @@ def _seat(email: str, *, confirmed: bool = True) -> dict[str, Any]:
 SERVED_STAND: dict[Seite, dict[str, str | None]] = {
     "konto_spieler": nachweis_stand_of(bloecke=[_own()]),
     "konto_schiedsrichter": nachweis_stand_of(bloecke=[_own()]),
-    "konto_kontakt": nachweis_stand_of(bloecke=[_seat(PERSON_TYPED)["einwilligung"]]),
+    "konto_kontakt": nachweis_stand_of(bloecke=[_seat(PERSON)["einwilligung"]]),
 }
 
 
@@ -149,7 +148,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 TEAM_OID,
                 "Helmholtz",
                 "HE",
-                kontakte=kontakte_document(trainer=_seat(PERSON_TYPED), stellvertretung=_seat(DECLINER, confirmed=False)),
+                kontakte=kontakte_document(trainer=_seat(PERSON), stellvertretung=_seat(DECLINER, confirmed=False)),
             ),
             "_id": ROW_OID,
             # An administrator seated the Stellvertretung, whose link is still unanswered.
@@ -166,7 +165,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 APPLICATION_OID,
                 SAISON_ID,
                 "eingereicht",
-                kontakte=kontakte_document(trainer=_seat(PERSON_TYPED)),
+                kontakte=kontakte_document(trainer=_seat(PERSON)),
                 eingereicht_am="2026-09-01",
                 bestaetigungsfrist="2026-10-15",
                 team_id=TEAM_OID,
@@ -193,7 +192,7 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
             schiedsrichter_document(
-                REFEREE_OID, email=PERSON_TYPED, name="Ortrud Zwiebelmayer", default_payment=20, einwilligung=_own(), geburtsdatum=ADULT
+                REFEREE_OID, email=PERSON, name="Ortrud Zwiebelmayer", default_payment=20, einwilligung=_own(), geburtsdatum=ADULT
             ),
             schiedsrichter_document(
                 MOVING_REFEREE_OID,

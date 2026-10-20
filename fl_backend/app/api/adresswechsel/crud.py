@@ -42,8 +42,8 @@ from app.api.berechtigungen.erasure import carry_authorship_in_session, carry_de
 from app.api.berechtigungen.services import genehmigung_steht, lebendige_adresse
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import RecordCollections
-from app.api.identitaet.services import eigene_sitze, folds_to, ist_eigener_schiedsrichter, namen_aus
-from app.api.kontakte.services import rows_possibly_naming, same_address
+from app.api.identitaet.services import eigene_sitze, ist_eigener_schiedsrichter, namen_aus
+from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_ist_bestaetigt
 from app.api.schiedsrichter.services import build_selbst_referee_filter, vorname_of
 from app.api.sperrliste.lookup import BanList, Saison, adressen_gesperrt
@@ -162,13 +162,13 @@ async def read_the_bestand(
     )
     seat_rows = await aggregate_many_from_db(
         collection=records.saison_teams_collection,
-        pipeline=[{"$match": rows_possibly_naming(identifier)}, {"$project": dict(_SITZ_FIELDS)}, {"$sort": {"_id": 1}}],
+        pipeline=[{"$match": rows_seating(identifier)}, {"$project": dict(_SITZ_FIELDS)}, {"$sort": {"_id": 1}}],
         session=session,
     )
     # Every status: an accepted application keeps its seats, and the erasure of the new address reaches them only there.
     bewerbung_rows = await aggregate_many_from_db(
         collection=records.bewerbungen_collection,
-        pipeline=[{"$match": rows_possibly_naming(identifier)}, {"$project": {"kontakte": 1, "bestaetigungen": 1}}, {"$sort": {"_id": 1}}],
+        pipeline=[{"$match": rows_seating(identifier)}, {"$project": {"kontakte": 1, "bestaetigungen": 1}}, {"$sort": {"_id": 1}}],
         session=session,
     )
     registrierungen = await aggregate_many_from_db(
@@ -183,7 +183,7 @@ async def read_the_bestand(
         schiedsrichter=[row for row in referees if ist_eigener_schiedsrichter(row, identifier)],
         sitze=[(row, tuple(slots)) for row in seat_rows if (slots := eigene_sitze(row, identifier))],
         bewerbungssitze=[(row, tuple(slots)) for row in bewerbung_rows if (slots := eigene_sitze(row, identifier))],
-        registrierungen=[row for row in registrierungen if folds_to(row.get("email"), identifier)],
+        registrierungen=registrierungen,
         berechtigung=await live_grant_of(identifier, berechtigungen_collection=berechtigungen_collection, session=session),
     )
 
@@ -685,23 +685,24 @@ async def move_the_address_in_session(
     # An earlier effect's notice still queued carries its account to where the person is now, and an erasure there finds it.
     queued = await aggregate_many_from_db(
         collection=adresswechsel_postausgang_collection,
-        pipeline=[{"$match": {"email": same_address(alt)}}, {"$project": {"email": 1}}],
+        pipeline=[{"$match": {"email": alt}}, {"$project": {"_id": 1}}],
         session=session,
     )
-    if earlier := [row["_id"] for row in queued if folds_to(row.get("email"), alt)]:
+    if queued:
         await patch_many_in_db(
             collection=adresswechsel_postausgang_collection,
-            db_filter={"_id": {"$in": earlier}},
-            update={"$set": {"email": neue}},
+            db_filter={"_id": {"$in": [row["_id"] for row in queued]}},
+            update={"$set": {"email": neu}},
             session=session,
         )
-    # In this transaction, so a commit whose answer was lost still owes its notice (`docs/backend/spec.md :: I835`).
+    # In this transaction, so a commit whose answer was lost still owes its notice (`docs/backend/spec.md :: I835`). Both
+    # addresses folded, as every stored address is, so an erasure's equality finds the row.
     await post_one_to_db(
         collection=adresswechsel_postausgang_collection,
         document=compose_postausgang(
             art="wirksam",
             bisherige_email=alt,
-            email=neue,
+            email=neu,
             # Greeting nobody on the lost-mailbox way: that mailbox may have passed to a stranger.
             vorname=None if record["weg"] == "wartezeit" else bestand.vorname,
             weg=record["weg"],
@@ -840,17 +841,16 @@ def _registrierung_move(row: Mapping[str, Any], neue: str) -> dict[str, Any]:
 
 
 def build_erasure_adresswechsel_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every live change whose address on file, or whose new address, may be this one; `changes_naming` decides on the fold."""
+    """Every live change whose address on file, or whose new address, is this one, each stored folded."""
 
+    folded = sign_in_identifier(identifier)
+
+    # Each clause its index's, or the `$or` scans the collection: the key's type stated for `build_address_filter`'s reason.
     return [
-        {"$match": {**LIVE_TERMS, "$or": [{"adresse": identifier}, {"email": same_address(identifier)}]}},
+        {"$match": {**LIVE_TERMS, "$or": [{"adresse": {"$eq": folded, "$type": "string"}}, {"email": folded}]}},
         {"$project": {"adresse": 1, "email": 1}},
         {"$sort": {"_id": 1}},
     ]
-
-
-def changes_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Mapping[str, Any]]:
-    return [row for row in rows if row.get("adresse") == identifier or folds_to(row.get("email"), identifier)]
 
 
 def others_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Mapping[str, Any]]:
@@ -894,17 +894,17 @@ async def end_the_address_changes_in_session(
     # Read after the endings, which took the approval off every change they ended.
     await _reattribute_the_changes(adresswechsel_collection, identifier, ERASED_ACTOR_MARKER, session=session)
 
-    # A notice still owed to the erased person goes undelivered: by id, imageless, as a delivered one is removed.
+    # A notice still owed to the erased person goes undelivered: by id, imageless, as a delivered one is removed. Every
+    # address the outbox stores is folded, so an equality finds them.
     owed = await aggregate_many_from_db(
         collection=adresswechsel_postausgang_collection,
-        pipeline=[
-            {"$match": {"$or": [{"bisherige_email": same_address(identifier)}, {"email": same_address(identifier)}]}},
-            {"$project": {"bisherige_email": 1, "email": 1}},
-        ],
+        pipeline=[{"$match": {"$or": [{"bisherige_email": identifier}, {"email": identifier}]}}, {"$project": {"_id": 1}}],
         session=session,
     )
-    if ids := [row["_id"] for row in owed if folds_to(row.get("bisherige_email"), identifier) or folds_to(row.get("email"), identifier)]:
-        await erase_many_from_db(collection=adresswechsel_postausgang_collection, db_filter={"_id": {"$in": ids}}, session=session)
+    if owed:
+        await erase_many_from_db(
+            collection=adresswechsel_postausgang_collection, db_filter={"_id": {"$in": [row["_id"] for row in owed]}}, session=session
+        )
 
     return len(rows)
 
@@ -912,20 +912,22 @@ async def end_the_address_changes_in_session(
 async def _reattribute_the_changes(
     adresswechsel_collection: AsyncCollection, identifier: str, value: str, *, session: AsyncClientSession
 ) -> None:
-    """Put `value` where this folded administrator started or approved a live change: the erasure's marker, or their new address."""
+    """Put `value` where this folded administrator started or approved a live change: the erasure's marker, or their new address.
+
+    Read, then written by id: a fan-out's filter is kept as text by the log, which would keep the address it names.
+    """
 
     for path in _GENEHMIGUNG_AKTEURE:
-        candidates = await aggregate_many_from_db(
+        # Folded, as `app/core/security.py :: bind_actor` stores every administrator's address.
+        named = await aggregate_many_from_db(
             collection=adresswechsel_collection,
-            pipeline=[{"$match": {**LIVE_TERMS, path: same_address(identifier)}}, {"$project": {path: 1}}],
+            pipeline=[{"$match": {**LIVE_TERMS, path: sign_in_identifier(identifier)}}, {"$project": {"_id": 1}}],
             session=session,
         )
-        head, tail = path.split(".")
-        ids = [row["_id"] for row in candidates if folds_to((row.get(head) or {}).get(tail), identifier)]
-        if ids:
+        if named:
             await patch_many_in_db(
                 collection=adresswechsel_collection,
-                db_filter={"_id": {"$in": ids}},
+                db_filter={"_id": {"$in": [row["_id"] for row in named]}},
                 update={"$set": {path: value}},
                 session=session,
             )

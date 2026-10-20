@@ -1,22 +1,18 @@
 "use server";
 
 import { headers } from "next/headers";
-import { unstable_rethrow } from "next/navigation";
-
-import { APIError } from "better-auth/api";
 
 import { afterTheResponse } from "@/core/afterResponse";
-import { sendSignInCode, signOutHere } from "@/core/auth";
+import { sendSignInCode } from "@/core/auth";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
 import { turnstileRefusal } from "@/core/turnstile";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
-import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import type { FormState, SignOutResult } from "@/shared/types/types";
+import type { FormState } from "@/shared/types/types";
 
 // Deliberately identical whether or not the send gate admits the address: this action is public, so a
 // distinguishable "not authorized" is a membership oracle.
@@ -93,26 +89,5 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
     // The one exit both outcomes take. A second `return` above it is how the two become
     // distinguishable, which is the membership oracle this action exists to withhold.
     return neutralResult(email);
-  });
-}
-
-export async function signOutAction(): Promise<SignOutResult> {
-  return runWithIncomingTrace(async () => {
-    try {
-      await signOutHere(await headers());
-
-      return { success: true };
-    } catch (error) {
-      // Keeps a framework redirect from being reported as a failed sign-out.
-      unstable_rethrow(error);
-
-      // Narrowed rather than caught whole: anything the library did not raise is a defect here,
-      // and answering it with a retry sentence is how one goes unseen.
-      if (error instanceof APIError) {
-        return { success: false, error: VERSUCHE_ES_ERNEUT_SATZ };
-      }
-
-      throw error;
-    }
   });
 }

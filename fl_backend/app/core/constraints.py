@@ -1248,9 +1248,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "status": {"bsonType": "string", "enum": _REGISTRIERUNG_STATUS},
                 "vorname": {"bsonType": "string"},
                 "nachname": {"bsonType": "string"},
-                # Unfolded, as the address rule stores it (`docs/backend/spec.md :: I332`). This is the
-                # address the confirmation link was mailed to, and `spieler.email` holds the folded
-                # form the sign-in seam joins on.
+                # Folded, as every address payload stores it (`docs/backend/spec.md :: I332`): a row
+                # typed otherwise matches no read, each an equality.
                 "email": {"bsonType": "string"},
                 "position": {"bsonType": _STRING_OR_NULL, "enum": [*_POSITIONEN, None]},
                 # A STRING, not an int, as a squad row's is. Squad numbers are worn, not counted.
@@ -1801,6 +1800,45 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "spielberichte_saison_id",
         (("saison_id", ASCENDING),),
         "a season's reports, which the triage's read and a replace's or an undraw's removal filter on",
+    ),
+    # A person's records by the fold every address payload stores (`docs/backend/spec.md :: I333`), one index per
+    # clause of each `$or`, for the registration's pair's reason.
+    *(
+        SupportIndex(
+            Collection.SAISON_TEAMS,
+            f"saison_teams_kontakte_{seat}_email",
+            ((f"kontakte.{seat}.email", ASCENDING),),
+            "a person's seats, which the subject lookup reads on every signed-in page",
+        )
+        for seat in _KONTAKTE_REQUIRED[:3]
+    ),
+    SupportIndex(
+        Collection.SCHIEDSRICHTER,
+        "schiedsrichter_kontakt_email",
+        (("kontakt.email", ASCENDING),),
+        "a person's referee rows, which the subject lookup reads on every signed-in page",
+    ),
+    *(
+        SupportIndex(
+            Collection.BEWERBUNGEN,
+            f"bewerbungen_kontakte_{seat}_email",
+            ((f"kontakte.{seat}.email", ASCENDING),),
+            "a person's applications, which every sign-in attempt and account page read",
+        )
+        for seat in _KONTAKTE_REQUIRED[:3]
+    ),
+    # Compound, so the sign-in's `status` term is read off the index; the erasure's read of every status walks its prefix.
+    SupportIndex(
+        Collection.REGISTRIERUNGEN,
+        "registrierungen_email_status",
+        (("email", ASCENDING), ("status", ASCENDING)),
+        "a person's registrations, which every sign-in attempt and account page read",
+    ),
+    SupportIndex(
+        Collection.ADRESSWECHSEL,
+        "adresswechsel_email",
+        (("email", ASCENDING),),
+        "the changes naming an address as their new one, which every erasure and its preview read",
     ),
 )
 

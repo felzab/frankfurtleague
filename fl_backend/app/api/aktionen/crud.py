@@ -19,7 +19,6 @@ from app.api.aktionen.services import (
     build_address_images_filter,
     carried_by_the_effect,
 )
-from app.api.kontakte.services import same_address
 from app.core.collections import Collection as DbCollection
 from app.core.crud import aggregate_many_from_db, patch_many_in_db
 from app.core.recording import ERASED_ACTOR_MARKER, ImageEdits, build_image_redactions
@@ -89,9 +88,8 @@ async def redact_address_in_images(
     standing role keeps its own.
     """
 
-    # Folded again, the fold being idempotent: an unfolded spelling passes the pre-filter, which reads the
-    # local part in any case and any domain, and matches nothing on the fold, so the erasure would commit
-    # having removed nothing.
+    # Folded again, the fold being idempotent: an unfolded spelling matches no stored image, and the
+    # erasure would commit having removed nothing.
     identifier = sign_in_identifier(identifier)
 
     changed = 0
@@ -115,18 +113,21 @@ async def reattribute_administrator_in_session(
     The erasure's marker, or the address an effect moved the administrator to (`docs/backend/spec.md :: I834`).
     """
 
-    # Read then judged on the fold, as every stored address is: the pre-filter reads every mailbox sharing the local part.
+    # Read first and written by id, so the update walks the `_id` index: nothing indexes `actor.email`, which every
+    # recorded write would pay for. Folded, as `app/core/security.py :: bind_actor` stores every actor's address.
     candidates = await aggregate_many_from_db(
         collection=aktionen_collection,
-        pipeline=[{"$match": {"actor.email": same_address(identifier)}}, {"$project": {"actor.email": 1}}],
+        pipeline=[{"$match": {"actor.email": sign_in_identifier(identifier)}}, {"$project": {"_id": 1}}],
         session=session,
     )
-    ids = [row["_id"] for row in candidates if isinstance(email := row["actor"].get("email"), str) and sign_in_identifier(email) == identifier]
-    if not ids:
+    if not candidates:
         return 0
 
     marked = await patch_many_in_db(
-        collection=aktionen_collection, db_filter={"_id": {"$in": ids}}, update={"$set": {"actor.email": value}}, session=session
+        collection=aktionen_collection,
+        db_filter={"_id": {"$in": [row["_id"] for row in candidates]}},
+        update={"$set": {"actor.email": value}},
+        session=session,
     )
 
     return marked.modified_count

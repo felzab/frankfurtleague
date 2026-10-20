@@ -40,21 +40,23 @@ export function useSignOut(onSignOut: () => Promise<SignOutResult>) {
   // A success raises no toast, as a sign-in raises none: the start page replaces this document before
   // one could be read.
   const signOutNow = async () => {
-    try {
-      const result = await onSignOut();
+    const result = await onSignOut().catch(() => null);
 
-      if (!result.success) {
-        appToast.danger("Nicht abgemeldet", { description: result.error });
-        return;
-      }
-
-      // A full document load, as Next's guide advises for a sign-out: a soft navigation keeps every route
-      // the router hid, with its rows and what was typed into it.
-      leaveDocumentFor("/");
-    } catch {
-      // A cut request may have ended the session or not, so neither answer above is true of it.
+    // A request cut or answered by something in front of this application may have ended the session or
+    // not, so neither answer below is true of it.
+    if (result === null || (!result.success && result.outcome === "unknown")) {
       appToast.danger("Abmeldung unklar", { description: "Lade die Seite neu, um zu sehen, ob Du noch angemeldet bist." });
+      return;
     }
+
+    if (!result.success) {
+      appToast.danger("Nicht abgemeldet", { description: result.error });
+      return;
+    }
+
+    // A full document load, as Next's guide advises for a sign-out: a soft navigation keeps every hidden route
+    // with its rows and typed text, and a refresh runs an area's guard against the ended session.
+    leaveDocumentFor("/");
   };
 
   return {

@@ -11,7 +11,7 @@ const unanswered = (stored: Stored): boolean => (stored.einwilligung?.bestaetigt
 /**
  * A save moving any referee's address, a consent link or an address link alike, over
  * `fl_backend/app/api/schiedsrichter/services.py :: compose_korrektur_update`. Raw strings where the
- * backend compares mailboxes: a case-only difference asks, harmlessly.
+ * backend compares the folds it stores: a case-only difference asks, harmlessly.
  */
 export function saveMayMint(stored: Stored, email: string | null): boolean {
   return email !== stored.kontakt.email;

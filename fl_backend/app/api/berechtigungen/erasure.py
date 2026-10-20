@@ -1,8 +1,9 @@
 """
 API · the erasure's grants step: a person's grants, and their address on every record they made
 
-Every match is the sign-in fold's, the pattern only narrowing the read: a Playground paste, or an
-actor stored before `app/core/security.py :: bind_actor` folded it, keeps the case it was typed in.
+Every match is the sign-in fold's, the pattern only narrowing the read: a Playground paste keeps the
+case it was typed in, and is the one writer of a grant no fold reaches, so this step alone keeps a
+case-blind read where every other record is read by equality.
 """
 
 from collections.abc import Mapping, Sequence

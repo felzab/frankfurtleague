@@ -12,7 +12,6 @@ from pymongo.errors import PyMongoError
 
 from app.api.adresswechsel.crud import (
     build_erasure_adresswechsel_pipeline,
-    changes_naming,
     end_an_emptied_change_in_session,
     end_the_address_changes_in_session,
 )
@@ -61,7 +60,6 @@ from app.api.identitaet.services import (
     unreferenced,
 )
 from app.api.kontakte.crud import erase_kontaktperson_in_session
-from app.api.kontakte.services import rows_naming
 from app.api.registrierungen.crud import erase_registrierungen_in_session
 from app.api.registrierungen.services import build_eigene_registrierung_filter
 from app.api.saisons.schemas import FLSaisonStatus
@@ -92,7 +90,7 @@ async def _statuses_of(
 ) -> Mapping[str, FLSaisonStatus]:
     """One read of `saisons` for every season the seats sit in, the junction row carrying no copy of its season's `status`.
 
-    Made after the fold has judged, so a row the pre-filter alone reached is never read for.
+    Made after the live seats are judged, so a withdrawn team's season is never read for.
     """
 
     # No seat, no read: an empty `$in` answers nothing, and it would cost a mailbox holding no seat a
@@ -280,7 +278,7 @@ async def funktionen_of(
     """
 
     # Folded whatever arrived: a header spelled otherwise than the store would otherwise authorise
-    # nothing, the fold judging each stored address against this exact spelling.
+    # nothing, every read matching the stored fold by equality.
     folded = sign_in_identifier(identifier)
 
     # Raised rather than answered: a person's binder refuses a malformed actor before any handler
@@ -414,33 +412,20 @@ async def resolve_subject(
         return await aggregate_many_from_db(collection=collection, pipeline=pipeline, session=session)
 
     seats = _runs(erase_kontaktperson_in_session, scope)
-    saison_teams = rows_naming(await read(saison_teams_collection, build_erasure_seat_pipeline(identifier)), identifier) if seats else None
-    bewerbungen = rows_naming(await read(bewerbungen_collection, build_erasure_seat_pipeline(identifier)), identifier) if seats else None
+    saison_teams = await read(saison_teams_collection, build_erasure_seat_pipeline(identifier)) if seats else None
+    bewerbungen = await read(bewerbungen_collection, build_erasure_seat_pipeline(identifier)) if seats else None
     schiedsrichter = (
-        [
-            row
-            for row in await read(schiedsrichter_collection, build_erasure_referee_pipeline(identifier))
-            if folds_to((row.get("kontakt") or {}).get("email"), identifier)
-        ]
-        if _runs(erase_referee_in_session, scope)
-        else None
+        await read(schiedsrichter_collection, build_erasure_referee_pipeline(identifier)) if _runs(erase_referee_in_session, scope) else None
     )
     spieler = await read(spieler_collection, build_erasure_pupil_pipeline(identifier)) if _runs(erase_person_in_session, scope) else None
     registrierungen = (
-        [
-            row
-            for row in await read(registrierungen_collection, build_erasure_registrierung_pipeline(identifier))
-            if folds_to(row.get("email"), identifier)
-        ]
+        await read(registrierungen_collection, build_erasure_registrierung_pipeline(identifier))
         if _runs(erase_registrierungen_in_session, scope)
         else None
     )
     adresswechsel = (
-        changes_naming(
-            # On the subject's own database, a read alone: the ban's reveal reads the subject too and holds no change's collection.
-            await read(spieler_collection.database[Collection.ADRESSWECHSEL], build_erasure_adresswechsel_pipeline(identifier)),
-            identifier,
-        )
+        # On the subject's own database, a read alone: the ban's reveal reads the subject too and holds no change's collection.
+        await read(spieler_collection.database[Collection.ADRESSWECHSEL], build_erasure_adresswechsel_pipeline(identifier))
         if _runs(end_the_address_changes_in_session, scope)
         else None
     )
@@ -888,7 +873,7 @@ async def unreferenced_of(identifiers: Sequence[str], records: RecordCollections
 
     folded = sorted({sign_in_identifier(identifier) for identifier in identifiers})
 
-    # No address, no read: an empty `$or` is a query the server refuses.
+    # No address, no read.
     if not folded:
         return []
 

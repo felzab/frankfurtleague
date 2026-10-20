@@ -120,12 +120,16 @@ EFFECT_IMAGE_COLLECTIONS: Final = (DbCollection.ADRESSWECHSEL, DbCollection.BERE
 
 
 def build_address_images_filter(collection: DbCollection, identifier: str) -> Mapping[str, Any]:
-    """The log rows of one collection whose images may hold this address; `address_image_edits` decides on the fold."""
+    """The log rows of one collection whose images hold this address; `address_image_edits` decides which field."""
+
+    # A grant's images by pattern, as its rows are read (`app/api/berechtigungen/erasure.py`): a pasted row keeps its
+    # typed spelling into the image its revoke files. Every other image holds a fold a write stored.
+    matched = same_address(identifier) if collection == DbCollection.BERECHTIGUNGEN else sign_in_identifier(identifier)
 
     return {
         # `collection` first, the half `aktionen_target` serves: nothing indexes inside `before`.
         "collection": str(collection),
-        "$or": [{f"before.{address.path}": same_address(identifier)} for address in IMAGE_ADDRESSES[collection]],
+        "$or": [{f"before.{address.path}": matched} for address in IMAGE_ADDRESSES[collection]],
     }
 
 
