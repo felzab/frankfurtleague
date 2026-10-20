@@ -398,8 +398,8 @@ describe("buildActionRequiredSections", () => {
     assert.doesNotMatch(`${name} ${desc}`, /Aufstellung/);
   });
 
-  // Declaration order is render order, so a category declared out of its urgency renders out of it.
-  // Declaration order is the tabs' order, so a move within one urgency reorders them as surely as one across.
+  // Declaration order is render order and the tabs' order: a category declared out of its urgency renders out of it,
+  // and a move within one urgency reorders the tabs as surely as one across.
   it("runs from the blocking categories to the cancellations in the planned order", () => {
     assert.deepEqual(Object.keys(ACTION_REQUIRED_LABELS), [
       "bracket_fault",

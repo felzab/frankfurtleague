@@ -84,8 +84,8 @@ def _seat_paths(block: str, *leaves: str) -> set[str]:
 ANSICHT_RESOLVES = frozenset(
     _seat_paths("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am")
     | _seat_paths("kontakte", "email", "einwilligung.bestaetigt_am")
-    | _seat_paths("kontakte", "einwilligung.eingetragen_von", "einwilligung.datum")
-    | {"kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist", "schule.team_name", "team_id", "eingereicht_am"}
+    | _seat_paths("kontakte", "einwilligung.eingetragen_von")
+    | {"kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist", "schule.team_name", "team_id"}
 )
 
 # `_id` is here and not in the view's, whose own line says why
@@ -93,8 +93,8 @@ ANSICHT_RESOLVES = frozenset(
 ANTWORT_RESOLVES = frozenset(
     _seat_paths("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am")
     | _seat_paths("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.umfang", "einwilligung.medien")
-    | _seat_paths("kontakte", "einwilligung.nachweis", "einwilligung.eingetragen_von", "einwilligung.datum")
-    | {"_id", "kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist", "eingereicht_am"}
+    | _seat_paths("kontakte", "einwilligung.nachweis", "einwilligung.eingetragen_von")
+    | {"_id", "kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist"}
 )
 
 
@@ -488,14 +488,10 @@ class TestThePageALinkOpens:
         [
             pytest.param(eingetragen("bewerbung"), BEWERBER_SEITE, id="named by the applicant"),
             pytest.param(eingetragen("liga", datum="2026-03-27"), VERWALTUNG_SEITE, id="reseated by an administrator"),
-            pytest.param(bewerbung_document(), BEWERBER_SEITE, id="stored before the field, dated the submission's day"),
         ],
     )
     def test_the_view_answers_the_label_of_the_page_the_seat_opens(self, mongo_replica_set_url: str, seeded: dict[str, Any], fassung: str):
-        """The wiring alone, by the field and by the day; which outranks which is the unit table's.
-
-        That table is `tests/api/test_bewerbung_einwilligung_refusal.py :: TestWhichPageASeatOpens`.
-        """
+        """The wiring alone; the unit table is `tests/api/test_bewerbung_einwilligung_refusal.py :: TestWhichPageASeatOpens`."""
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW["trainer"]), documents=[seeded])
 

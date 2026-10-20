@@ -27,12 +27,17 @@ describe("the stored label a consent readout shows", () => {
 });
 
 describe("the act a consent readout shows under a choice", () => {
-  it("names the choice's own act, and claims none where its person has not answered", () => {
+  it("names the choice's own act, else the confirmation's, and claims none where its person has not confirmed", () => {
     const eigener = renderMarkup(Beleg, {
       nachweis: { am: "2026-10-04T08:00:00Z", text_version: "2026-10-konto-spieler", erteilt_zuvor: null },
+      bestaetigung: { am: "2026-03-14", textVersion: "1" },
     });
 
     assert.equal(textOf(eigener), "seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-spieler");
-    assert.equal(textOf(renderMarkup(Beleg, { nachweis: null })), "Nicht bestätigt");
+    assert.equal(
+      textOf(renderMarkup(Beleg, { nachweis: null, bestaetigung: { am: "2026-03-14", textVersion: "1" } })),
+      "seit der Bestätigung am 14.03.2026, Fassung 1",
+    );
+    assert.equal(textOf(renderMarkup(Beleg, { nachweis: null, bestaetigung: null })), "Nicht bestätigt");
   });
 });

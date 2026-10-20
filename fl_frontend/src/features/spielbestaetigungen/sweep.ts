@@ -14,6 +14,7 @@ import {
   buildSpielNeueAnsetzungEmail,
 } from "@/core/spielEmail";
 import { SPIELLEITUNG_HINWEIS, SPIELLEITUNG_TAG } from "@/core/spielleitungTag";
+import { HOUR_MS } from "@/core/timeUnits";
 import { versandAusfallOf } from "@/core/versandAusfall";
 import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -34,7 +35,7 @@ import type {
 } from "./schemas";
 
 /** One hour, as the other sweeps': every clock here selects on a date, so a shorter interval only asks the backend more often. */
-const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
+const SWEEP_INTERVAL_MS = HOUR_MS;
 
 /**
  * A minute after start rather than at once: a deploy recreates this container before the backend

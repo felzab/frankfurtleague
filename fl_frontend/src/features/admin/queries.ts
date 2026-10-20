@@ -1,9 +1,9 @@
 import { apiClient } from "@/core/api";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import { FLSpieleActionRequiredResponseSchema } from "../spiele/schemas";
+import { FLSpieleActionRequiredResponseSchema } from "../spielberichte/schemas";
 
-import type { FLSpieleActionRequiredResponse } from "../spiele/schemas";
+import type { FLSpieleActionRequiredResponse } from "../spielberichte/schemas";
 
 /**
  * Uncached deliberately, as every admin-authed read is — `docs/frontend/spec.md`. Being uncached is

@@ -51,6 +51,7 @@ export const FLKontaktAbgangSchema = z.object({
   rollen: z.array(FLKontaktRolleSchema),
   email: z.string(),
   schule: z.string(),
+  bleibt_als: z.array(FLKontaktRolleSchema),
 });
 export type FLKontaktAbgang = z.infer<typeof FLKontaktAbgangSchema>;
 

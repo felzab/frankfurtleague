@@ -715,7 +715,7 @@ class TestTheTriageFindsEveryReportAwaitingTheAdministrator:
         """Neither fixture is on the list by its own fields: dated, timed, booked, played today, then holding a result."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def triage() -> set[ObjectId]:
+            async def triage() -> tuple[set[ObjectId], list[tuple[ObjectId, str]]]:
                 listed = await get_spiele_action_required(
                     spiele_collection=database[Collection.SPIELE],
                     teams_collection=database[Collection.TEAMS],
@@ -727,7 +727,7 @@ class TestTheTriageFindsEveryReportAwaitingTheAdministrator:
                     saison_id=SAISON_ID,
                     today=TODAY,
                 )
-                return {spiel.id for spiel in listed.spiele}
+                return {spiel.id for spiel in listed.spiele}, [(eintrag.spiel_id, eintrag.zustand) for eintrag in listed.spielberichte]
 
             unreported = await triage()
             await put(database, client, bericht())
@@ -744,12 +744,14 @@ class TestTheTriageFindsEveryReportAwaitingTheAdministrator:
 
         unreported, proposed, differing, typed, adopted = on_the_league(mongo_replica_set_url, body)
 
-        assert SPIEL not in unreported
-        assert SPIEL in proposed
-        assert SPIEL in differing
-        assert SPIEL in typed
+        assert SPIEL not in unreported[0]
+        assert SPIEL in proposed[0]
+        assert SPIEL in differing[0]
+        assert SPIEL in typed[0]
         # Adopted as it stands: awaiting nothing.
-        assert SPIEL not in adopted
+        assert SPIEL not in adopted[0]
+        # Each state served beside the list it was judged on, so the page reads no second snapshot.
+        assert [unreported[1], proposed[1], adopted[1]] == [[], [(SPIEL, "vorgeschlagen")], [(SPIEL, "uebernommen")]]
 
 
 def save_handles(database: AsyncDatabase, client: AsyncMongoClient) -> dict[str, Any]:

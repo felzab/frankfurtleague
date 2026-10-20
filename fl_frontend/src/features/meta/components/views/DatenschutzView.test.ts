@@ -75,7 +75,7 @@ function inWorten(zahl: number): string {
 
 /* A count of days whole weeks long, which German states in weeks; the case's own table, as `ZAHLWORT` is, so a wrong
    word in `core/adresswechsel.ts`'s map fails rather than agreeing with itself. */
-const WOCHEN: Readonly<Record<number, string>> = { 7: "eine Woche", 14: "zwei Wochen" };
+const WOCHEN: Readonly<Record<number, string>> = { 7: "eine Woche" };
 
 function inWochen(tage: number): string {
   const wort = WOCHEN[tage];

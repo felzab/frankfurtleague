@@ -28,7 +28,7 @@ export async function getAdminSpielbericht(spielId: string): Promise<FLSpielberi
   );
 }
 
-/** Every report of a season holding a block, each with its state: what the triage and the cards read. */
+/** Every report of a season holding a block, each with its state: what the season editor counts. */
 export async function getSpielberichteZustaende(filters: { saison_id?: string } = {}): Promise<FLSpielberichteSaisonResponse> {
   return runAdminRead(() =>
     apiClient<FLSpielberichteSaisonResponse>("/spielberichte", FLSpielberichteSaisonResponseSchema, { authType: "admin", params: filters }),

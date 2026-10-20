@@ -8,6 +8,7 @@ import { buildKontaktAbgangEmail, buildKontaktBestaetigungEmail } from "@/core/k
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
+import { runAnsweringOwnCut } from "@/core/requestScope";
 import { versandAusfallOf } from "@/core/versandAusfall";
 import { rollenText } from "@/features/bewerbungen/notifications";
 import { describeLinkMail } from "@/features/schiedsrichter/notifications";
@@ -79,19 +80,23 @@ export async function mailKontaktAbgang({
   abgang: FLKontaktAbgang;
 }): Promise<void> {
   try {
-    await sendMail({
-      to: abgang.email,
-      ...buildKontaktAbgangEmail({
-        origin: frontend_config.AUTH_URL,
-        rollenText: rollenText(abgang.rollen),
-        schule: abgang.schule,
-        saisonId: saisonId,
+    // A cut or a lost answer here is this notice's own doubt, never the saved write's (`docs/frontend/spec.md :: I372`).
+    await runAnsweringOwnCut(() =>
+      sendMail({
+        to: abgang.email,
+        ...buildKontaktAbgangEmail({
+          origin: frontend_config.AUTH_URL,
+          rollenText: rollenText(abgang.rollen),
+          bleibtText: abgang.bleibt_als.length === 0 ? null : rollenText(abgang.bleibt_als),
+          schule: abgang.schule,
+          saisonId: saisonId,
+        }),
+        tags: { [KONTAKT_ABGANG_TAG]: KONTAKT_ABGANG_HINWEIS },
+        // Minted per call, which `deliver`'s retries reuse: a key held for the provider's 24 hours over the row and the day
+        // would swallow the same removal undone and saved again.
+        idempotencyKey: mailIdempotencyKey([KONTAKT_ABGANG_TAG, randomUUID()], abgang.email),
       }),
-      tags: { [KONTAKT_ABGANG_TAG]: KONTAKT_ABGANG_HINWEIS },
-      // Minted per call, which `deliver`'s retries reuse: a key held for the provider's 24 hours over the row and the day
-      // would swallow the same removal undone and saved again.
-      idempotencyKey: mailIdempotencyKey([KONTAKT_ABGANG_TAG, randomUUID()], abgang.email),
-    });
+    );
   } catch (error) {
     // A barred or a withheld message is the mailer's own line, as on every lane.
     const ausfall = versandAusfallOf(error);
