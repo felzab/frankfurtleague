@@ -531,7 +531,7 @@ const PANELS: Record<string, Arming[]> = {
     {
       render: () => spielbestaetigungPanel(null),
       // The settle's reason first, as its closed press asks.
-      reach: (user) => user.type(screen.getByRole("textbox", { name: "Begründung für die Zusage" }), "Am Telefon zugesagt."),
+      reach: (user) => user.type(screen.getByRole("textbox", { name: "Begründung für die Zusage: SG Alpha" }), "Am Telefon zugesagt."),
       resting: "Auf Zusage setzen: SG Alpha",
     },
     {

@@ -28,6 +28,7 @@ from app.api.spielbestaetigungen.services import (
     find_verwerfen_refusal,
     find_vorschlag_vergangen_refusal,
     grund_to_close,
+    grund_to_end,
     proposal_payload,
     seat_adresse,
     zustand_of,
@@ -112,6 +113,12 @@ def zeile(**overrides: Any) -> dict[str, Any]:
 
 
 ANSWERED = {"art": "zugesagt", "am": TODAY, "von": {"art": "kontakt", "rolle": "trainer"}, "vorschlag": None, "begruendung": None}
+DISCARDED_DECLINE = {
+    **ANSWERED,
+    "art": "abgelehnt",
+    "vorschlag": {"datum": AFTER_THE_DAY, "uhrzeit": "18:30:00"},
+    "begruendung": "Halle belegt",
+}
 
 
 class TestATokenNoSeatHolds:
@@ -368,6 +375,21 @@ class TestTheLinkAndTheCloseReadOneVerdict:
 
         assert before == after
 
+    @pytest.mark.parametrize(("situation", "today"), SITUATIONS)
+    def test_a_discard_shows_the_same_state_once_the_close_ends_it(self, situation: dict[str, Any], today: str):
+        """A move among them: ended by it, the discard would read `ungueltig` where its club's link read `abgelehnt`."""
+
+        situated = lage(**situation)
+        austritte = {} if "austritt" not in situation else {TEAM1: situation["austritt"]}
+        discarded = zeile(antwort=DISCARDED_DECLINE, geschlossen={"am": TODAY, "grund": "verworfen"})
+        grund = grund_to_end(row=discarded, spiel=situated.spiel, austritte=austritte, today=today)
+        ended = {**discarded, "geschlossen": discarded["geschlossen"] if grund is None else {"am": today, "grund": grund}}
+
+        before = zustand_of(spielbestaetigung_raw=discarded, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
+        after = zustand_of(spielbestaetigung_raw=ended, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
+
+        assert before == after == "abgelehnt"
+
 
 class TestWhatTheViewStatesOfTheFixture:
     def test_a_fixture_that_lost_its_day_is_stated_as_the_row_asked_about_it_and_never_half_of_each(self):
@@ -404,6 +426,8 @@ class TestAProposalBeforeToday:
 DECLINED = {**ANSWERED, "art": "abgelehnt", "vorschlag": {"datum": "2027-05-15", "uhrzeit": "17:00:00"}, "begruendung": "Halle belegt"}
 REFEREE_ROW = {"partei": {"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}}
 CLOSED = {"geschlossen": {"am": TODAY, "grund": "ansetzung_geaendert"}}
+# The Ansetzung `spiel()` stood at before its hour moved.
+LEFT = compose_ansetzung(spiel(uhrzeit="17:00:00"))
 
 
 class TestWhatTheAdministratorMaySettleAndDiscard:
@@ -420,11 +444,12 @@ class TestWhatTheAdministratorMaySettleAndDiscard:
             pytest.param({**REFEREE_ROW, "antwort": DECLINED}, False, False, id="a-referees-decline"),
             pytest.param({**CLOSED, "antwort": DECLINED}, False, False, id="a-decline-closed-since"),
             pytest.param(CLOSED, False, False, id="closed-unanswered"),
+            pytest.param({"antwort": DECLINED, "ansetzung": LEFT}, False, False, id="a-decline-about-an-ansetzung-left"),
         ],
     )
     def test_each_row_state_meets_its_code(self, row: dict[str, Any], settles: bool, discards: bool):
         eintragen = find_eintragen_refusal(spielbestaetigung_raw=zeile(**row))
-        verwerfen = find_verwerfen_refusal(spielbestaetigung_raw=zeile(**row))
+        verwerfen = find_verwerfen_refusal(spielbestaetigung_raw=zeile(**row), spiel=spiel())
 
         assert (eintragen is None, verwerfen is None) == (settles, discards)
         assert eintragen is None or (eintragen.error_code, eintragen.status) == (ANSETZUNG_NICHT_EINTRAGBAR, HTTPStatus.CONFLICT)
