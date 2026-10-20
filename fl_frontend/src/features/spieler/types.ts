@@ -96,7 +96,7 @@ export type AdminSpielerStored = {
   nachname: string | null;
   inactive_since: string | null;
   geburtsdatum: string;
-  email: string | null;
+  email: string;
   adresswechsel_id: string | null;
 };
 

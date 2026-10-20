@@ -1198,7 +1198,9 @@ def test_the_values_a_list_refuses_are_counted_where_the_validators_store_them(m
         bestaetigung = {**valid_documents()["registrierungen"]["bestaetigung"], "frist": "2026-02-31"}
         await database.registrierungen.insert_one(valid_document("registrierungen", vorname="", bestaetigung=bestaetigung))
         # A null forename is `NAMELESS_PERSON_RULE`'s, so this report leaves it.
-        await database.spieler.insert_many([valid_document("spieler"), valid_document("spieler", _id=ObjectId(), vorname=None)])
+        await database.spieler.insert_many(
+            [valid_document("spieler"), valid_document("spieler", _id=ObjectId(), vorname=None, email="zweite@schule.example")]
+        )
         await database.adresswechsel.insert_one(valid_document("adresswechsel", verschickt_am="2026-02-31"))
         await database.saison_spieler.insert_one(valid_document("saison_spieler", inactive_since="2026-13-01"))
 

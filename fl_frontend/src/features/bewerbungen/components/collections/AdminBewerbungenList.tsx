@@ -48,8 +48,6 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
 /** What an application naming no team at all reads as — the one `REQ-BEWERBUNG-002` refuses to accept. */
 const NO_TEAM = nichtHinterlegt("Team");
 
-/** What an application predating the confirmation flow reads as, in the register the admin uses for an absent value. */
-
 /** The eyebrow over each fact, one cell of the card's grid. */
 const FACT_LABEL_CLASSES = "fluid-xxs font-extrabold tracking-widest text-foreground-muted uppercase";
 

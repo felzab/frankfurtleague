@@ -257,7 +257,7 @@ const FORMS: Record<string, FormCase> = {
         nachname: "Meier",
         inactive_since: null,
         geburtsdatum: "2009-05-04",
-        email: null,
+        email: "lena.meier@example.com",
         adresswechsel_id: null,
       };
       const membership = {

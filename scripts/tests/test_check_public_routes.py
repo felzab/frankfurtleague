@@ -603,7 +603,7 @@ def test_a_link_block_metering_the_link_zone_on_another_burst_is_a_finding():
 def test_the_repository_own_link_pages_are_on_the_link_pair():
     """The resting state the red cases are measured against, its count pinned.
 
-    Each listing finds the eight alone, so a page refactored to read its token elsewhere stays found by its minter.
+    Each listing finds the seven alone, so a page refactored to read its token elsewhere stays found by its minter.
     """
     _, where, name = repository_own()
     app = routes.REPO_ROOT / routes.APP_ROUTER
@@ -612,7 +612,7 @@ def test_the_repository_own_link_pages_are_on_the_link_pair():
     reading = routes.link_pages(paged)
 
     assert unopened == []
-    assert len(opened) == 8
+    assert len(opened) == 7
     assert set(opened) == set(reading)
     assert routes.unmetered_links(opened, where, routes.REPO_ROOT, name) == []
     assert routes.uneven_links(where, name) == []
