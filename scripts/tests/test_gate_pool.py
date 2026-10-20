@@ -763,10 +763,18 @@ def test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout() -> None:
     dumping = {name.removeprefix("do_") for name in BODY_RE.findall(text) if DUMPS in lift_function(VERIFY, name)}
     assert dumping, "no gate pytest dumps its stack, so the delay it adds below is never counted"
     assert dumping <= started, f"a gate pytest runs where no notice reaches its stack: {sorted(dumping - started)}"
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    # A shape the two readers skip is a scope or a timeout read as absent, which passes; a step's own
+    # timeout ends the job naming no unit, earlier than the job's.
+    code = [line for line in workflow.splitlines() if not line.lstrip().startswith("#")]
+    runs = [line.strip() for line in code if "verify.sh" in line and not SCOPE_RUN_RE.match(line)]
+    assert not runs, f"the gate runs in a shape this case cannot read, so its scope's timeout goes unchecked: {runs}"
+    timeouts = [line.strip() for line in code if "timeout-minutes" in line and not TIMEOUT_RE.match(line)]
+    assert not timeouts, f"a timeout this case cannot read, which may end a job before its stall is named: {timeouts}"
     rows = committed()
     held: set[str] = set()
     late: list[str] = []
-    for job, body in job_bodies(WORKFLOW.read_text(encoding="utf-8")).items():
+    for job, body in job_bodies(workflow).items():
         for scope in (scope for scope in SCOPE_RUN_RE.findall(body) if scope in pooled):
             timeout = TIMEOUT_RE.search(body)
             assert timeout is not None, f"`{job}` sets no timeout-minutes of its own, so this case cannot read when GitHub ends it"
