@@ -261,7 +261,8 @@ describe("a club's answer to a fixture confirmation link", () => {
     assert.deepEqual(tags, []);
     assert.ok(
       errors.some(
-        (logged) => logged.includes("read broke its contract after a refusal: postSpielbestaetigung") && logged.includes("FE-API-002"),
+        (logged) =>
+          logged.includes("read broke its contract after its write was answered: postSpielbestaetigung") && logged.includes("FE-API-002"),
       ),
       "the contract break left no line",
     );
@@ -278,7 +279,8 @@ describe("a club's answer to a fixture confirmation link", () => {
     assert.deepEqual(answer.body, { success: false, zustand: "ungueltig" });
     assert.ok(
       errors.some(
-        (logged) => logged.includes("read broke its contract after a refusal: postSpielbestaetigung") && logged.includes("FE-ACT-001"),
+        (logged) =>
+          logged.includes("read broke its contract after its write was answered: postSpielbestaetigung") && logged.includes("FE-ACT-001"),
       ),
       "the contract break left no line of its own",
     );
@@ -325,11 +327,15 @@ describe("a club's answer to a fixture confirmation link", () => {
       leseAntwort = lesen;
 
       const answer = await bodyOf(aRequest(vorschlagKoerper));
-      const zeilen = errors.filter((logged) => logged.includes("after a refusal: postSpielbestaetigung"));
+      const zeilen = errors.filter((logged) => logged.includes("after its write was answered: postSpielbestaetigung"));
 
       assert.deepEqual(answer.body, { success: false, zustand: "ungueltig" });
       if (code === null) assert.deepEqual(zeilen, [], "a read that explains itself was logged");
-      else assert.ok(zeilen.length === 1 && zeilen[0]!.includes("read failed after a refusal") && zeilen[0]!.includes(code), zeilen.join("\n"));
+      else
+        assert.ok(
+          zeilen.length === 1 && zeilen[0]!.includes("read failed after its write was answered") && zeilen[0]!.includes(code),
+          zeilen.join("\n"),
+        );
     });
   }
 

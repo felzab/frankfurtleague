@@ -2,7 +2,6 @@ import { buildBewerbungBestaetigungEmail, buildBewerbungEingangOffenEmail } from
 import { frontend_config } from "@/core/config";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
-import { runAnsweringOwnCut } from "@/core/requestScope";
 import { turnstileRefusal } from "@/core/turnstile";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken";
 import { BEWERBUNG_SEATS } from "@/features/bewerbungen/constants";
@@ -19,11 +18,13 @@ import { FLPostBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
 import { BEWERBUNG_VERALTET, empfangsSitze, mapBewerbungSubmitRefusal } from "@/features/bewerbungen/utils";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { handlePublicRequest } from "@/shared/utils/publicRoute";
+import { handlePublicRequest, readAfterAnsweredWrite } from "@/shared/utils/publicRoute";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
 import type { NextRequest } from "next/server";
+
+const ROUTE_NAME = "postBewerbung";
 
 /** The record's own id stays off the page. */
 const EINGEGANGEN = "Deine Bewerbung ist bei uns eingegangen.";
@@ -35,7 +36,7 @@ const EINGEGANGEN = "Deine Bewerbung ist bei uns eingegangen.";
  */
 export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {
-    routeName: "postBewerbung",
+    routeName: ROUTE_NAME,
     run: async () => {
       // First, before the body is read: nothing an unverified sender posted is parsed, and the write, which
       // mails three addresses the payload names, is never reached past a refusal.
@@ -85,11 +86,9 @@ export async function POST(request: NextRequest) {
       // Read rather than taken from the payload, which names a picked club by id alone. A failed or cut
       // read names no school, which beats no message: the application is stored, so the cut leaves no
       // outcome unknown.
-      const schule =
-        parsed.data.schule?.team_name ??
-        (await runAnsweringOwnCut(() => getBewerbungSchulen())
-          .then(({ schulen }) => schulen.find((option) => option.id === parsed.data.team_id)?.name ?? "")
-          .catch(() => ""));
+      const neueSchule = parsed.data.schule?.team_name;
+      const schulen = neueSchule === undefined ? await readAfterAnsweredWrite(ROUTE_NAME, () => getBewerbungSchulen()) : null;
+      const schule = neueSchule ?? schulen?.schulen.find((option) => option.id === parsed.data.team_id)?.name ?? "";
 
       const imEmpfang = empfangsSitze(kontakte.trainer_ist_zugleich);
 

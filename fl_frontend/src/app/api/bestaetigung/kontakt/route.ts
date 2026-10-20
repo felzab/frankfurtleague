@@ -8,7 +8,7 @@ import { FLBewerbungEinwilligungAntwortPayloadSchema } from "@/features/bewerbun
 import { mapEinwilligungRefusal } from "@/features/bewerbungen/utils";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { handlePublicRequest, readAfterRefusal } from "@/shared/utils/publicRoute";
+import { handlePublicRequest, readAfterAnsweredWrite } from "@/shared/utils/publicRoute";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type { FLBewerbungEinwilligungAntwortResponse } from "@/features/bewerbungen/schemas";
@@ -21,7 +21,7 @@ const ROUTE_NAME = "postEinwilligung";
 // naming one state alone.
 /** This link's own view, for the refusals that name a floor or a state the view tells apart. A failed read is `null`. */
 async function ansichtFuerToken(token: string): Promise<EinwilligungAnsicht | null> {
-  return readAfterRefusal(ROUTE_NAME, () => getEinwilligungAnsicht(token));
+  return readAfterAnsweredWrite(ROUTE_NAME, () => getEinwilligungAnsicht(token));
 }
 
 /**

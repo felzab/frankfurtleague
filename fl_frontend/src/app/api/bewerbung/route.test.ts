@@ -45,6 +45,7 @@ const { rollenText } = await import("@/features/bewerbungen/notifications.ts");
 const { formatSpielDatum } = await import("@/shared/utils/format.ts");
 const { TURNSTILE_HEADER } = await import("@/core/turnstileToken.ts");
 const { markOutcomeUnknown } = await import("@/core/requestScope.ts");
+const { APIMalformedDataError } = await import("@/core/errors.ts");
 
 /** The label the application form runs, off the registry the backend generated. */
 const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
@@ -375,6 +376,34 @@ describe("what the application handler answers", () => {
 
     assert.deepEqual(answer.body, received);
     assert.equal((answer.body as { success: boolean }).success, true);
+  });
+
+  /* A school list answered off its schema is the deploy's fault: the stored application is still answered as received,
+     and the break is logged for whoever can repair it, never swallowed. */
+  it("logs a school read answered off its schema and answers a stored application as received", async () => {
+    const received = (await bodyOf(aRequest())).body;
+    logs.length = 0;
+    schulenAntwort = async () => {
+      throw new APIMalformedDataError({
+        message: "Response failed schema.",
+        url: "http://localhost/bewerbungen/schulen",
+        statusCode: 200,
+        endpoint: "/bewerbungen/schulen",
+        method: "GET",
+        readOnly: true,
+        traceId: "0",
+      });
+    };
+
+    const answer = await bodyOf(aRequest());
+
+    assert.deepEqual(answer.body, received);
+    assert.ok(
+      logs.some(
+        (logged) => logged.includes("read broke its contract after its write was answered: postBewerbung") && logged.includes("FE-API-002"),
+      ),
+      "the contract break left no line",
+    );
   });
 
   /* POST alone: a mail scanner fetches every link in a message, and a second method would be one it

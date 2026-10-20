@@ -4,7 +4,7 @@ import { FLSpielbestaetigungAntwortPayloadSchema } from "@/features/spielbestaet
 import { mapAnsetzungRefusal } from "@/features/spielbestaetigungen/utils";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { invalidatesOnWrite } from "@/shared/utils/adminMutation";
-import { handlePublicRequest, readAfterRefusal } from "@/shared/utils/publicRoute";
+import { handlePublicRequest, readAfterAnsweredWrite } from "@/shared/utils/publicRoute";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type { SpielbestaetigungAnsicht } from "@/features/spielbestaetigungen/utils";
@@ -15,7 +15,7 @@ const ROUTE_NAME = "postSpielbestaetigung";
 /** What the link reads as now, its answer's way and seat or its closing's panel, read after the backend refused the write. */
 async function beantworteterStand(token: string): Promise<Exclude<SpielbestaetigungAnsicht, { zustand: "gueltig" | "vorschlag" }>> {
   // Its failure answered here: a doubt reaching the spine would also drop the fixture list for a write that never stood.
-  const gelesen = await readAfterRefusal(ROUTE_NAME, () => getSpielbestaetigungAnsicht(token));
+  const gelesen = await readAfterAnsweredWrite(ROUTE_NAME, () => getSpielbestaetigungAnsicht(token));
 
   // An open link is the write's refusal and this read disagreeing, and an unread one says nothing either way: the
   // panel naming nothing is the one answer that claims nothing about a row.

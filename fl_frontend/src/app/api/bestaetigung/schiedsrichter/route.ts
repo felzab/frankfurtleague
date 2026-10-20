@@ -3,7 +3,7 @@ import { getSchiedsrichterBestaetigungAnsicht, mapSchiedsrichterBestaetigungRefu
 import { FLSchiedsrichterBestaetigungPayloadSchema } from "@/features/schiedsrichter/schemas";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { invalidatesOnWrite } from "@/shared/utils/adminMutation";
-import { handlePublicRequest, readAfterRefusal } from "@/shared/utils/publicRoute";
+import { handlePublicRequest, readAfterAnsweredWrite } from "@/shared/utils/publicRoute";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type { GelesenerSchiedsrichterLink } from "@/features/schiedsrichter/queries";
@@ -15,7 +15,7 @@ const ROUTE_NAME = "postSchiedsrichterBestaetigung";
 // every refusal naming one state alone.
 /** This link's own view, for the refusals that name a floor or a state the view tells apart. A failed read is `null`. */
 async function ansichtFuerToken(token: string): Promise<GelesenerSchiedsrichterLink | null> {
-  return readAfterRefusal(ROUTE_NAME, () => getSchiedsrichterBestaetigungAnsicht(token));
+  return readAfterAnsweredWrite(ROUTE_NAME, () => getSchiedsrichterBestaetigungAnsicht(token));
 }
 
 // A route handler and not a server action, for the reason `docs/frontend/spec.md` §1.3 gives.

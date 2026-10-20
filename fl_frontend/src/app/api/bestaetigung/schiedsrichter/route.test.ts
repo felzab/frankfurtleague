@@ -229,7 +229,9 @@ describe("the referee's confirmation handler", () => {
     assert.deepEqual(tags, []);
     assert.ok(
       errors.some(
-        (logged) => logged.includes("read broke its contract after a refusal: postSchiedsrichterBestaetigung") && logged.includes("FE-API-002"),
+        (logged) =>
+          logged.includes("read broke its contract after its write was answered: postSchiedsrichterBestaetigung") &&
+          logged.includes("FE-API-002"),
       ),
       "the contract break left no line",
     );
