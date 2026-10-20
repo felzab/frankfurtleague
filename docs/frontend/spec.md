@@ -1493,12 +1493,6 @@ HeroUI's own run, so an entry there would sit outside the load-bearing order bel
 4. Verify in the browser, not by reading the diff. Computed styles are the evidence — a border-radius, a
    padding and a background that are not the browser defaults.
 
-**A stylesheet loaded on fewer routes than `globals.css` takes a component only where the import
-graph, dynamic imports followed, proves no other route reaches it** — never by folder name: a wrong
-guess costs an unstyled form, where a component kept in `globals.css` costs a few KB. Such a sheet
-opens with `@reference` to `globals.css` even with no rule of its own, since HeroUI's sheets carry
-`@apply` — `textarea.css` opens with one — and removing that line fails `next build` alone.
-
 **Restyling one you already have: reach for the component's own composition API before a stylesheet.**
 Several HeroUI components take a render function or per-slot `className`, and anything expressed that
 way is type-checked, linted and covered by `better-tailwindcss/no-unknown-classes`. A
