@@ -235,6 +235,7 @@ def saved_in_the_editor(stored: dict[str, Any], **overrides: Any) -> Write:
             spieltage_collection=handles[Collection.SPIELTAGE],
             spielorte_collection=handles[Collection.SPIELORTE],
             schiedsrichter_collection=handles[Collection.SCHIEDSRICHTER],
+            spielberichte_collection=handles[Collection.SPIELBERICHTE],
             dry_run=False,
         )
 
@@ -264,6 +265,7 @@ def restored(other_fields: dict[str, Any] | None) -> Write:
             spieltage_collection=handles[Collection.SPIELTAGE],
             spielorte_collection=handles[Collection.SPIELORTE],
             schiedsrichter_collection=handles[Collection.SCHIEDSRICHTER],
+            spielberichte_collection=handles[Collection.SPIELBERICHTE],
         )
 
     return write
