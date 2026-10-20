@@ -4,6 +4,10 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { runAsTestFile } from "./childTestRun.ts";
+import { replicaSetContainer, startJudged } from "./expiredTransactions.ts";
+
+// mongod refuses an option it does not know as it parses its command line, and only its log names it.
+const REFUSED_OPTION = "--refusedAtStart";
 
 /** Kept outside `src`, where no sweep over db suites can take its text for this file's own. */
 const LEFT_TO_EXPIRE = path.resolve(import.meta.dirname, "..", "..", "scripts", "fixtures", "expiredTransactionLeft.mjs.txt");
@@ -26,5 +30,18 @@ describe("a db file's replica set, started through the helper", () => {
     assert.equal(run.status, 1, run.output);
     // Any count: a later pass meeting an interrupted write still running counts its transaction again.
     assert.match(run.output, /this file's teardown: this file's replica set's expiry pass counted [1-9]\d* kill\(s\)/, run.output);
+  });
+});
+
+describe("a db file's replica set whose mongod exits at start", () => {
+  it("fails its start naming the container's last log lines", async () => {
+    // The image's own entrypoint, which hands the option to mongod ahead of the replica set's command.
+    const refusing = replicaSetContainer().withEntrypoint(["docker-entrypoint.sh", REFUSED_OPTION]);
+
+    await assert.rejects(startJudged(refusing), (failure) => {
+      assert.ok(failure instanceof Error, String(failure));
+      assert.ok(failure.message.includes(REFUSED_OPTION), `the container's log never reached the failure: ${failure.message}`);
+      return true;
+    });
   });
 });
