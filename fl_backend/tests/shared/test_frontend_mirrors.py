@@ -20,6 +20,7 @@ from app.api.identitaet.schemas import ADRESSE_UNTER_INVALID, ANLASS_HOLDS_AN_AD
 from app.api.identitaet.services import grants_a_panel
 from app.api.saisons.schemas import FLSaisonStatus, TeamsPerGroup
 from app.api.spielberichte.schemas import MINUTE_PATTERN
+from app.api.spielberichte.services import BERICHT_ZUSTAENDE_OFFEN
 from app.api.spielbestaetigungen.services import ANSETZUNG_QUELLEN, anfrage_is_due, compose_ansetzung, grund_to_end
 from app.api.spiele.schemas import MAX_QUALIFIERS
 from app.api.spiele.services import CLASH_BUFFER_MINUTES
@@ -747,6 +748,18 @@ def test_the_frontend_names_seats_on_exactly_the_kinds_this_package_does():
     assert set(named) == zustellung_schemas.ZIELE_JE_SITZ, (
         f"{name} names seats on {sorted(named)}, where this package names them on {sorted(zustellung_schemas.ZIELE_JE_SITZ)}"
     )
+
+
+# The frontend's copy of the report states awaiting the administrator. A state on this end alone unions its fixture
+# into the triage under no section; one on the frontend's alone files a section the triage never fills.
+OFFENE_BERICHTE: Final = ("features/spielberichte/constants.ts", "ZUSTAENDE_OFFEN")
+
+
+def test_the_frontend_files_a_report_under_the_triage_in_exactly_the_states_this_package_unions_in():
+    module, name = OFFENE_BERICHTE
+    named = _declared_members(module, name, exported=False)
+
+    assert set(named) == BERICHT_ZUSTAENDE_OFFEN, f"{name} names {sorted(named)}, where this package names {sorted(BERICHT_ZUSTAENDE_OFFEN)}"
 
 
 # The frontend's copy of the special-use names the address rule refuses through `email_validator`. A

@@ -94,18 +94,13 @@ class FLSpielberichtKarte(BaseModel):
 
 
 class FLSpielberichtKartePayload(FLSpielberichtKarte):
-    """One card as a write sends it."""
+    """One card as a write sends it.
+
+    A caution's reason is judged against the stored block, never here: a correction after the season's end resends the
+    cautions whose reasons it stripped (`app/api/spielberichte/services.py :: find_grund_fehlt_refusal`).
+    """
 
     model_config = ConfigDict(extra="forbid")
-
-    @model_validator(mode="after")
-    def a_caution_names_its_reason(self) -> Self:
-        """A yellow and a second yellow are shown for a reason the list holds; a red may stand alone."""
-
-        if self.farbe != "rot" and self.grund is None:
-            raise ValueError("Bei Gelb und Gelb-Rot gehört ein Grund dazu.")
-
-        return self
 
 
 class FLSpielberichtVonSchiedsrichter(BaseModel):
@@ -137,10 +132,10 @@ class FLSpielberichtSeiten(BaseModel):
 
 
 class FLSpielberichtBericht(BaseModel):
-    """The referee's account of one match, one proposal: a correction returns all of it to proposed.
+    """The referee's account of one match, one proposal, a correction after its adoption reading `abweichend`.
 
-    `version` rises with every write and the adoption records the one it took, so adopted means the two are equal,
-    whatever a clock says.
+    `version` rises with each write of the content and the adoption records the one it took: adopted means equal, never
+    a clock.
     """
 
     ergebnis_vorschlag: FLSpielberichtVorschlag
@@ -159,7 +154,7 @@ class FLSpielberichtBericht(BaseModel):
 
 
 class FLSpielbericht(BaseModel):
-    """One fixture's report document, as stored. `bericht` is null on a document a club's line-up created first."""
+    """One fixture's report document, as stored. A document with a null `bericht` holds no report, and every read says so."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     saison_id: str
@@ -253,7 +248,7 @@ class FLSpielberichtSpiel(BaseModel):
 
 
 class FLSpielberichtSpieler(BaseModel):
-    """A pupil a report may name or names, with the names their record holds."""
+    """A pupil a report may name or names, with the names their record holds, both null where an erasure took the record."""
 
     spieler_id: CustomObjectId
     vorname: str | None
@@ -276,10 +271,15 @@ class _SpielberichtAnsicht(BaseAPIResponse):
     # knockout slot has since replaced -- so an entry stored before keeps its name.
     genannt: list[FLSpielberichtSpieler]
     bericht: FLSpielberichtBericht | None
+    # The sides fielding another club than the report's last write found there, which reads `teams_geaendert`.
+    seiten_geaendert: list[FLSpielberichtSeite]
 
 
 class FLSpielberichtSchiedsrichterResponse(_SpielberichtAnsicht):
-    """The booked referee's form: the remarks and the card reasons included, no derived state."""
+    """The booked referee's form: the remarks and the card reasons included, and no `zustand`."""
+
+    # The fixture's season has ended: the page shows the report and offers no write (`REQ-BERICHT-007`).
+    abgeschlossen: bool
 
 
 class FLSpielberichtAdminResponse(_SpielberichtAnsicht):

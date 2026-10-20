@@ -1,4 +1,5 @@
 import { SONDEREREIGNIS_LABELS } from "@/features/spiele/constants";
+import { IM_ELFMETERSCHIESSEN } from "@/features/spiele/utils";
 import { kaderName, NUMMER_NICHT_HINTERLEGT, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
@@ -7,7 +8,13 @@ import { SPIELBERICHT_ZUSTAENDE_OFFEN, SPIELBERICHT_ZUSTAND_TONE } from "./const
 
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLSpielberichtSeiten, FLSpielberichtSpieler, FLSpielberichtVorschlag, FLSpielberichtZustandEintrag } from "./schemas";
+import type {
+  FLSpielberichtSeiten,
+  FLSpielberichtSpiel,
+  FLSpielberichtSpieler,
+  FLSpielberichtVorschlag,
+  FLSpielberichtZustandEintrag,
+} from "./schemas";
 import type { Eingesetzt } from "./types";
 
 /** A fixture card's word on its report, worn in its state's tone. */
@@ -21,7 +28,7 @@ export function vorschlagText(vorschlag: FLSpielberichtVorschlag): string {
   const elfmeter =
     vorschlag.elfmeterschiessen === null
       ? ""
-      : ` (${String(vorschlag.elfmeterschiessen.team1)}:${String(vorschlag.elfmeterschiessen.team2)} i. E.)`;
+      : ` (${String(vorschlag.elfmeterschiessen.team1)}:${String(vorschlag.elfmeterschiessen.team2)} ${IM_ELFMETERSCHIESSEN})`;
   return `${String(vorschlag.team1_tore)}:${String(vorschlag.team2_tore)}${elfmeter}${ereignis === null ? "" : `, ${ereignis}`}`;
 }
 
@@ -88,7 +95,7 @@ export function eingesetztStand(seedVersion: number | null, berichtVersion: numb
   return seedVersion === berichtVersion ? "aktuell" : "veraltet";
 }
 
-/** A pupil as a report's reader sees them: shirt number and name, and the erased pupils' sentinel as „anonym“. */
+/** A pupil as a report's reader sees them: shirt number and name, and a pupil an erasure took as „anonym“. */
 export function spielerLabel(spieler: FLSpielberichtSpieler): string {
   if (spieler.vorname === null) return SPIELER_ANONYM_LABEL;
 
@@ -112,6 +119,15 @@ export function berlinZeitpunkt(stamp: string): string {
   return Number.isNaN(instant.getTime()) ? stamp : `${BERLIN_ZEITPUNKT.format(instant)} Uhr`;
 }
 
+/** Why a fixture takes no report today, `null` where it takes one, as `REQ-BERICHT-001` and `REQ-BERICHT-004` judge a write. */
+export type BerichtSperre = "abgesagt" | "undatiert" | "kuenftig";
+
+export function berichtSperre(spiel: Pick<FLSpielberichtSpiel, "datum" | "sonderereignis">, today: string): BerichtSperre | null {
+  if (spiel.sonderereignis === "ausgefallen" || spiel.sonderereignis === "annulliert") return "abgesagt";
+  if (spiel.datum === null) return "undatiert";
+  return spiel.datum > today ? "kuenftig" : null;
+}
+
 /** Who reads the sentence: the booked referee on their panel, or an administrator correcting the report. */
 export type SpielberichtLeser = "schiedsrichter" | "admin";
 
@@ -120,6 +136,16 @@ export const BEMERKUNGEN_PATH = "bericht.bemerkungen";
 
 // The box's hint already asks for a shirt number, so the message names the fault alone (`docs/frontend/spec.md` §1.12).
 const NAME_IN_BEMERKUNGEN = "In den Bemerkungen steht ein Name.";
+
+// The form offers no shoot-out on a group fixture, so this arrives only from a request no page composed.
+const ELFMETER_IN_DER_GRUPPE = buildRefusal({ reason: "Ein Spiel der Gruppenphase hat kein Elfmeterschießen", repair: LADE_DIE_SEITE_NEU });
+
+// The form refuses a caution without its reason before the press, so this arrives only where the stored report moved
+// under the page: a reload draws the cards it holds now.
+const GRUND_FEHLT = buildRefusal({
+  reason: "Bei einer gelben oder gelb-roten Karte fehlt der Grund",
+  repair: "Lade die Seite neu und wähle ihn",
+});
 
 // The reload draws the form anew from the report standing now, so the change the press carried has to be entered again.
 const NEU_EINTRAGEN = "Lade die Seite neu und trage Deine Änderung dort erneut ein";
@@ -135,11 +161,17 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
       repair: "Lade die Seite neu und wähle neu",
     }),
     "REQ-BERICHT-004": "Dieses Spiel ist ausgefallen oder annulliert. Dafür gibt es keinen Spielbericht.",
+    "REQ-BERICHT-008": GRUND_FEHLT,
+    "REQ-BERICHT-009": ELFMETER_IN_DER_GRUPPE,
+    "REQ-BERICHT-007": buildRefusal({
+      reason: "Die Saison dieses Spiels ist vorbei, und den Spielbericht kannst Du nicht mehr ändern",
+      repair: LADE_DIE_SEITE_NEU,
+    }),
     "REQ-BERICHT-006": buildRefusal({
       reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Verwaltung oder von Dir in einem anderen Fenster",
       repair: NEU_EINTRAGEN,
     }),
-    "DB-COMMON-002": buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: LADE_DIE_SEITE_NEU }),
+    "DB-COMMON-002": buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: NEU_EINTRAGEN }),
   },
   admin: {
     // A reload, no date to enter: the correction page states an undated or future fixture before any press, so this
@@ -149,12 +181,17 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
       reason: "Eine gewählte Person steht nicht im Kader ihres Teams",
       repair: "Lade die Seite neu und wähle neu",
     }),
-    "REQ-BERICHT-004": "Das Spiel ist als ausgefallen oder annulliert eingetragen. Dafür gibt es keinen Spielbericht.",
+    "REQ-BERICHT-004": buildRefusal({
+      reason: "Das Spiel ist als ausgefallen oder annulliert eingetragen",
+      repair: "Entferne das Sonderereignis im Spiel, um den Spielbericht zu bearbeiten",
+    }),
+    "REQ-BERICHT-008": GRUND_FEHLT,
+    "REQ-BERICHT-009": ELFMETER_IN_DER_GRUPPE,
     "REQ-BERICHT-006": buildRefusal({
       reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Schiedsrichterin oder dem Schiedsrichter",
       repair: NEU_EINTRAGEN,
     }),
-    "DB-COMMON-002": buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: LADE_DIE_SEITE_NEU }),
+    "DB-COMMON-002": buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: NEU_EINTRAGEN }),
   },
 };
 

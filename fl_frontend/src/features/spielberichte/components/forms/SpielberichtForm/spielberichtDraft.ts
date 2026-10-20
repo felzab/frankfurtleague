@@ -11,9 +11,9 @@ import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   FLKartenFarbe,
   FLKartenGrund,
+  FLSpielberichtAnsicht,
   FLSpielberichtBerichtPayload,
   FLSpielberichtPayload,
-  FLSpielberichtSchiedsrichterResponse,
   FLSpielberichtSeite,
   FLSpielberichtSonderereignis,
   FLSpielberichtSpieler,
@@ -30,6 +30,8 @@ export type SpielberichtKontext = {
   readonly kader: Readonly<Record<FLSpielberichtSeite, readonly KaderOption[]>>;
   /** The pupils the stored block names outside both live squads, so an older entry keeps its name. */
   readonly genannt: readonly KaderOption[];
+  /** The sides fielding another club than the report's last write found there. */
+  readonly seitenGeaendert: ReadonlySet<FLSpielberichtSeite>;
 };
 
 /**
@@ -63,6 +65,8 @@ export type SpielberichtDraft = {
   readonly torschuetzen: readonly TorschuetzeDraft[];
   readonly karten: readonly KarteDraft[];
   readonly bemerkungen: string;
+  /** Whom the block is about: the clubs the report's last write found, or those the fixture fields now, which a save stamps. */
+  readonly fuerTeams: "bericht" | "spiel";
 };
 
 const kaderOptionOf = (spieler: FLSpielberichtSpieler): KaderOption => ({ id: spieler.spieler_id, label: spielerLabel(spieler) });
@@ -70,7 +74,16 @@ const kaderOptionOf = (spieler: FLSpielberichtSpieler): KaderOption => ({ id: sp
 /** The stored block as the form's draft; entry keys count from zero, the form's own counter continuing past them. */
 export function draftOf(stored: FLSpielberichtBerichtPayload | null): SpielberichtDraft {
   if (stored === null) {
-    return { team1Tore: null, team2Tore: null, elfmeterschiessen: null, sonderereignis: null, torschuetzen: [], karten: [], bemerkungen: "" };
+    return {
+      team1Tore: null,
+      team2Tore: null,
+      elfmeterschiessen: null,
+      sonderereignis: null,
+      torschuetzen: [],
+      karten: [],
+      bemerkungen: "",
+      fuerTeams: "spiel",
+    };
   }
 
   return {
@@ -94,6 +107,47 @@ export function draftOf(stored: FLSpielberichtBerichtPayload | null): Spielberic
       grund: karte.grund,
     })),
     bemerkungen: stored.bemerkungen ?? "",
+    fuerTeams: "spiel",
+  };
+}
+
+/** What a form opens on: the stored block it compares against, the draft it edits, and the entries that draft emptied. */
+export type Eroeffnung = {
+  readonly gespeichert: SpielberichtDraft;
+  readonly entwurf: SpielberichtDraft;
+  /** Per list, the keys of the entries whose person the draft took out, which the form marks until one is picked. */
+  readonly geleert: { readonly torschuetzen: ReadonlySet<number>; readonly karten: ReadonlySet<number> };
+};
+
+/**
+ * On a side fielding another club since the report's last write, the departed club's pupils leave their entries, a
+ * save naming them being refused; the draft is written for the clubs playing now, so an otherwise unchanged save
+ * stamps them.
+ */
+export function eroeffnungOf(stored: FLSpielberichtBerichtPayload | null, kontext: SpielberichtKontext): Eroeffnung {
+  const block = draftOf(stored);
+  if (kontext.seitenGeaendert.size === 0)
+    return { gespeichert: block, entwurf: block, geleert: { torschuetzen: new Set(), karten: new Set() } };
+
+  const veraltet = (seite: FLSpielberichtSeite | null, spieler: string): boolean =>
+    seite !== null &&
+    kontext.seitenGeaendert.has(seite) &&
+    spieler !== "" &&
+    spieler !== UNBEKANNT &&
+    !kontext.kader[seite].some((option) => option.id === spieler);
+  const geleert = {
+    torschuetzen: new Set(block.torschuetzen.filter((eintrag) => veraltet(eintrag.seite, eintrag.spieler)).map((eintrag) => eintrag.key)),
+    karten: new Set(block.karten.filter((karte) => veraltet(karte.seite, karte.spieler)).map((karte) => karte.key)),
+  };
+
+  return {
+    gespeichert: { ...block, fuerTeams: "bericht" },
+    entwurf: {
+      ...block,
+      torschuetzen: block.torschuetzen.map((eintrag) => (geleert.torschuetzen.has(eintrag.key) ? { ...eintrag, spieler: "" } : eintrag)),
+      karten: block.karten.map((karte) => (geleert.karten.has(karte.key) ? { ...karte, spieler: "" } : karte)),
+    },
+    geleert,
   };
 }
 
@@ -155,16 +209,17 @@ export type SpielberichtFieldPath =
   | "bericht.ergebnis_vorschlag.sonderereignis"
   | "bericht.torschuetzen"
   | "bericht.karten"
-  | "bericht.bemerkungen";
+  | "bericht.bemerkungen"
+  | "bericht.seiten";
 
 /** What the change list says of a value still to enter, in words: a lone dash would do a word's job. */
 const OFFEN = "offen";
 
 /**
- * A whole list is one row: an entry has no path of its own that survives the one before it being removed. Parted by a
- * middle dot, never a semicolon (`docs/frontend/spec.md` §1.12): an entry holds commas.
+ * A whole list is one row: an entry has no path surviving the one before it being removed. Parted by a slash, never a
+ * semicolon (`docs/frontend/spec.md` §1.12): an entry holds commas, and its pupil a middle dot.
  */
-const listText = (eintraege: readonly string[]): string | null => (eintraege.length === 0 ? null : eintraege.join(" · "));
+const listText = (eintraege: readonly string[]): string | null => (eintraege.length === 0 ? null : eintraege.join(" / "));
 
 const minuteText = (minute: string): string => (minute === "" ? OFFEN : `${minute}.`);
 
@@ -213,7 +268,7 @@ function descriptorsFor(
     },
     {
       path: "bericht.ergebnis_vorschlag.sonderereignis",
-      label: "Besonderes Ereignis",
+      label: "Sonderereignis",
       group: "Spielbericht",
       read: ({ sonderereignis }) => (sonderereignis === null ? null : SONDEREREIGNIS_LABELS[sonderereignis]),
     },
@@ -242,6 +297,13 @@ function descriptorsFor(
         ),
     },
     { path: "bericht.bemerkungen", label: "Bemerkungen", group: "Spielbericht", read: (draft) => emptyAsNull(draft.bemerkungen) },
+    {
+      // No control writes it: the save stamps the clubs playing now, and the row says the report moves to them.
+      path: "bericht.seiten",
+      label: "Teams",
+      group: "Spielbericht",
+      read: ({ fuerTeams }) => (fuerTeams === "bericht" ? "andere Teams" : `${kontext.team1Name} gegen ${kontext.team2Name}`),
+    },
   ];
 }
 
@@ -260,12 +322,13 @@ export function deriveSpielberichtDraftStatus({
 }
 
 /** The form's view of a report read, either reader's: a side not yet filled is named as the cards name it. */
-export function kontextOf(read: Pick<FLSpielberichtSchiedsrichterResponse, "spiel" | "kader" | "genannt">): SpielberichtKontext {
+export function kontextOf(read: Pick<FLSpielberichtAnsicht, "spiel" | "kader" | "genannt" | "seiten_geaendert">): SpielberichtKontext {
   return {
     team1Name: read.spiel.team1?.name ?? PLACEHOLDER.slot,
     team2Name: read.spiel.team2?.name ?? PLACEHOLDER.slot,
     saisonPhase: read.spiel.saison_phase,
     kader: { team1: read.kader.team1.map(kaderOptionOf), team2: read.kader.team2.map(kaderOptionOf) },
     genannt: read.genannt.map(kaderOptionOf),
+    seitenGeaendert: new Set(read.seiten_geaendert),
   };
 }

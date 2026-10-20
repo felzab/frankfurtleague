@@ -22,6 +22,7 @@ import { SPIELBERICHT_SONDEREREIGNIS_OPTIONS } from "../../../constants";
 import { AuswahlSelect } from "./AuswahlSelect";
 
 import type { FLSpielberichtSonderereignis } from "../../../schemas";
+import type { SpielberichtLeser } from "../../../utils";
 import type { SpielberichtDraft, SpielberichtFieldPath, SpielberichtKontext } from "./spielberichtDraft";
 
 const TORE_PATHS = ["bericht.ergebnis_vorschlag.team1_tore", "bericht.ergebnis_vorschlag.team2_tore"] as const;
@@ -37,11 +38,14 @@ const KEINES = "keines";
 const seiteMitToren = (tore: number | null) => ({ team_id: "", name: "", shorthand: "", tore });
 
 export function FormVorschlagSection({
+  leser,
   kontext,
   draft,
   onChange,
   onValidateFields,
 }: {
+  /** Whose count the hint speaks of: the referee's own, or the report's to the administrator correcting it. */
+  leser: SpielberichtLeser;
   kontext: SpielberichtKontext;
   draft: SpielberichtDraft;
   onChange: (next: Partial<SpielberichtDraft>) => void;
@@ -85,7 +89,12 @@ export function FormVorschlagSection({
           <Hint
             mode="reveal"
             label="Hinweis zum Ergebnis"
-            body={{ lead: "Die Tore beider Teams, wie Du sie gezählt hast." }}
+            body={{
+              lead:
+                leser === "admin"
+                  ? "Die Tore beider Teams, wie der Spielbericht sie vorschlägt."
+                  : "Die Tore beider Teams, wie Du sie gezählt hast.",
+            }}
           />
         </PanelHeading>
       </div>
@@ -93,7 +102,7 @@ export function FormVorschlagSection({
       <div className={panel.body()}>
         <AuswahlSelect<FLSpielberichtSonderereignis | typeof KEINES>
           name="bericht.ergebnis_vorschlag.sonderereignis"
-          label="Besonderes Ereignis"
+          label="Sonderereignis"
           placeholder="Keines"
           value={draft.sonderereignis ?? KEINES}
           options={[
@@ -102,7 +111,7 @@ export function FormVorschlagSection({
           ]}
           onChange={setEreignis}
           error={ereignisStatus?.error ?? undefined}
-          ownLabel={<FieldLabel<SpielberichtFieldPath> path="bericht.ergebnis_vorschlag.sonderereignis">Besonderes Ereignis</FieldLabel>}
+          ownLabel={<FieldLabel<SpielberichtFieldPath> path="bericht.ergebnis_vorschlag.sonderereignis">Sonderereignis</FieldLabel>}
         />
 
         {istNichtantreten ? (
@@ -125,7 +134,8 @@ export function FormVorschlagSection({
                 value={value}
                 onChange={setTore(slot)}
                 onBlur={() => onValidateFields(TORE_PATHS)}>
-                <FieldLabel<SpielberichtFieldPath> path={path}>Tore {name}</FieldLabel>
+                {/* The team's name alone, as the match editor's: the panel's title already says these are goals. */}
+                <FieldLabel<SpielberichtFieldPath> path={path}>{name}</FieldLabel>
                 <NumberField.Group className={FIELD_GROUP_CLASSES}>
                   <NumberField.DecrementButton />
                   <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />

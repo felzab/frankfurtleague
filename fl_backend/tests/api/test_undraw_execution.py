@@ -651,10 +651,7 @@ class TestASubmittedReportKeepsTheSpielplan:
         assert (counts, berichte) == ((drawn.spieltage, drawn.spiele), 1)
 
     def test_a_report_whose_fixture_is_gone_refuses_nothing(self, mongo_replica_set_url: str):
-        """A report write crossing an earlier undraw can outlive its fixture (`docs/backend/spec.md :: I118`).
-
-        Counted, it would refuse every later undraw of the season while no read shows it.
-        """
+        """A report standing on no fixture, which only a hand edit leaves: counted, it would refuse every undraw while no read shows it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
@@ -670,7 +667,7 @@ class TestASubmittedReportKeepsTheSpielplan:
         assert (counts, berichte) == ((0, 0), 0)
 
     def test_a_report_submitted_mid_undraw_is_counted_again_outside_it(self, mongo_replica_set_url: str):
-        """A report's write reads the fixture and never writes it, so it conflicts with nothing the undraw writes."""
+        """A document inserted with no write's anchor meets nothing the undraw writes: the count outside its transaction refuses it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             drawn = await call_draw(database, client)

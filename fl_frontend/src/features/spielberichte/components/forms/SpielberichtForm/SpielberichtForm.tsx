@@ -24,15 +24,26 @@ import { FormBemerkungenSection } from "./FormBemerkungenSection";
 import { FormKartenSection } from "./FormKartenSection";
 import { FormTorschuetzenSection } from "./FormTorschuetzenSection";
 import { FormVorschlagSection } from "./FormVorschlagSection";
-import { deriveSpielberichtDraftStatus, draftOf, formPayloadOf, wirePayloadOf } from "./spielberichtDraft";
+import { deriveSpielberichtDraftStatus, eroeffnungOf, formPayloadOf, wirePayloadOf } from "./spielberichtDraft";
 
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
+import type { RailBanner } from "@/shared/components/ui/railBanner";
 import type { FLSpielberichtBericht } from "../../../schemas";
 import type { SpielberichtLeser } from "../../../utils";
 import type { SpielberichtDraft, SpielberichtKontext } from "./spielberichtDraft";
 
 /** The block as the form edits it, and its counter, which the write names as the version it was composed on. */
 type GespeicherterBericht = Pick<FLSpielberichtBericht, "ergebnis_vorschlag" | "torschuetzen" | "karten" | "bemerkungen" | "version">;
+
+/** The report about other clubs than the fixture fields now, which a save moves to them (`seiten_geaendert`). */
+const TEAMS_GEAENDERT: RailBanner = {
+  id: "spielbericht.teams-geaendert",
+  severity: "warning",
+  raisedBy: "state",
+  title: "Im Spiel stehen inzwischen andere Teams",
+  body: "Personen der Teams, die nicht mehr spielen, sind aus ihren Einträgen genommen. Wähle sie neu und speichere den Bericht für die Teams, die jetzt spielen.",
+  inline: null,
+};
 
 /**
  * The whole report, one editor for both readers: the booked referee's PUT and the administrator's step-up PATCH
@@ -57,17 +68,19 @@ export function SpielberichtForm({
   const [isPending, startSaving] = useTransition();
   const stepUp = useStepUp();
 
-  const gespeichert = draftOf(stored);
-  const [draft, setDraft] = useState<SpielberichtDraft>(gespeichert);
+  const eroeffnung = eroeffnungOf(stored, kontext);
+  const { gespeichert } = eroeffnung;
+  const [draft, setDraft] = useState<SpielberichtDraft>(eroeffnung.entwurf);
   const [hasSaved, setHasSaved] = useState(false);
   // Past every stored entry's key, so an added entry never reuses one React still holds.
   const nextKey = useRef(Math.max(gespeichert.torschuetzen.length, gespeichert.karten.length));
 
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
-    // The success's own words negated, per reader: the referee sends a report, the administrator saves a correction.
+    // The success's own words negated, the press reading „Speichern“; never „nicht gesendet“, which `docs/frontend/spec.md`
+    // §1.12 keeps for a press refused before anything went out.
     useDraftFieldErrors({
-      schemas: { spielbericht: spielberichtFormSchema() },
-      failureTitle: leser === "admin" ? "Spielbericht nicht gespeichert" : "Spielbericht nicht gesendet",
+      schemas: { spielbericht: spielberichtFormSchema(stored?.karten ?? []) },
+      failureTitle: "Spielbericht nicht gespeichert",
     });
 
   const status = deriveSpielberichtDraftStatus({ kontext, stored: gespeichert, draft, fieldErrors });
@@ -117,7 +130,7 @@ export function SpielberichtForm({
 
           setSubmitFieldErrors({}, {});
           setHasSaved(true);
-          appToast.success(res.message ?? "Spielbericht gesendet");
+          appToast.success(res.message ?? "Spielbericht gespeichert");
           resetDraftToStored();
           leavePage();
         });
@@ -139,11 +152,12 @@ export function SpielberichtForm({
             isDirty={isDirty}
             rail={
               <DraftRail
-                banners={[]}
+                banners={kontext.seitenGeaendert.size === 0 ? [] : [TEAMS_GEAENDERT]}
                 nomen="Spielbericht"
               />
             }>
             <FormVorschlagSection
+              leser={leser}
               kontext={kontext}
               draft={draft}
               onChange={change}
@@ -159,6 +173,7 @@ export function SpielberichtForm({
               }
               fieldErrors={fieldErrors}
               onValidateFields={validateFields}
+              geleert={eroeffnung.geleert.torschuetzen}
               istNichtantreten={draft.sonderereignis === "nichtantreten_team1" || draft.sonderereignis === "nichtantreten_team2"}
             />
 
@@ -171,9 +186,12 @@ export function SpielberichtForm({
               }
               fieldErrors={fieldErrors}
               onValidateFields={validateFields}
+              geleert={eroeffnung.geleert.karten}
+              bestand={stored?.karten ?? []}
             />
 
             <FormBemerkungenSection
+              leser={leser}
               bemerkungen={draft.bemerkungen}
               onChange={(bemerkungen) => change({ bemerkungen })}
               onValidateFields={validateFields}

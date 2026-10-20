@@ -44,6 +44,11 @@ export function personOptionen(kontext: SpielberichtKontext, seite: FLSpielberic
 export const ohneKader = (kontext: SpielberichtKontext, seite: FLSpielberichtSeite | null): boolean =>
   seite !== null && kontext.kader[seite].length === 0;
 
+/** Marks an entry whose stored person played for a club that has left the fixture, until another is picked. */
+export function GeleertHinweis() {
+  return <p className="muted-hint">Die eingetragene Person spielt nicht für dieses Team. Wähle die Person neu.</p>;
+}
+
 /** The minute box, its refusals arriving by `name` through the form's `validationErrors`. */
 export function MinuteField({
   name,
@@ -62,7 +67,8 @@ export function MinuteField({
       value={value}
       onChange={onChange}
       onBlur={onBlur}
-      inputMode="numeric"
+      // No `inputMode`: `numeric` asks for digits alone, a keypad for PIN entry (WHATWG HTML, „input modalities“, read
+      // 2026-10-20), and stoppage time needs its „+“, which only the full keyboard is certain to carry.
       className="flex w-full flex-col gap-y-1">
       <Label className={FIELD_LABEL_CLASSES}>Minute</Label>
       <Input

@@ -9,29 +9,37 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
     FLSpielberichtKarte,
-    FLSpielberichtKartePayload,
     FLSpielberichtSeite,
     FLSpielberichtVonSchiedsrichter,
 )
 from app.api.spielberichte.services import (
     BERICHT_ABGESAGT,
+    BERICHT_ELFMETER_IN_DER_GRUPPE,
+    BERICHT_GRUND_FEHLT,
     BERICHT_NAME_IN_BEMERKUNGEN,
     BERICHT_NICHT_GELEITET,
     BERICHT_NICHT_GESPIELT,
     BERICHT_NICHT_IM_KADER,
+    BERICHT_SAISON_BEENDET,
     BerichtLage,
     bericht_namen,
     bericht_zustand_of,
+    compose_ansicht,
     compose_bericht_update,
     compose_neuer_bericht,
     find_abgesagt_refusal,
+    find_grund_fehlt_refusal,
     find_name_in_bemerkungen_refusal,
     find_nicht_geleitet_refusal,
     find_nicht_gespielt_refusal,
     find_nicht_im_kader_refusal,
+    find_saison_beendet_refusal,
+    judge_bericht,
     neu_genannt,
+    nimmt_einen_bericht,
 )
 from app.api.spiele.schemas import FLPatchSpielePaarungenPayload
+from app.core.exceptions import WriteRefusalException
 from tests.documents import bericht_document
 
 TEAM1 = ObjectId("650000000000000000000201")
@@ -78,8 +86,9 @@ def spiel(**fields: Any) -> dict[str, Any]:
     }
 
 
-def lage(**spiel_fields: Any) -> BerichtLage:
+def lage(*, saison_status: str = "active", **spiel_fields: Any) -> BerichtLage:
     return BerichtLage(
+        saison_status=saison_status,
         spiel=spiel(**spiel_fields),
         kader=[
             {"spieler_id": LIVE1, "team_id": TEAM1, "vorname": "Lina", "nachname": "Krause", "nummer": "7", "inactive_since": None},
@@ -106,18 +115,51 @@ def refused_with(code: str, refusal: Any) -> bool:
     return refusal is not None and refusal.error_code == code
 
 
-class TestAYellowCardCarriesItsReason:
+def karte(farbe: str, grund: str | None, *, minute: str = "12", spieler_id: ObjectId = LIVE1) -> dict[str, Any]:
+    return {"seite": "team1", "spieler_id": spieler_id, "minute": minute, "farbe": farbe, "grund": grund}
+
+
+def mit_karten(*karten: dict[str, Any]) -> FLSpielberichtBerichtPayload:
+    return FLSpielberichtBerichtPayload.model_validate(payload(0, 0, [], karten=list(karten)))
+
+
+class TestOnlyANewCautionOwesItsReason:
+    """A season's end strips every card's reason, and a correction after it resends the cautions it stripped."""
+
     @pytest.mark.parametrize("farbe", ["gelb", "gelb_rot"])
-    def test_a_caution_without_a_reason_is_refused(self, farbe: str):
-        with pytest.raises(ValidationError, match="Grund"):
-            FLSpielberichtKartePayload.model_validate({"seite": "team1", "spieler_id": LIVE1, "minute": "12", "farbe": farbe, "grund": None})
+    def test_a_caution_without_a_reason_is_refused_at_its_box(self, farbe: str):
+        refusal = find_grund_fehlt_refusal(payload=mit_karten(karte("rot", None), karte(farbe, None)), gespeichert=None)
+
+        assert refused_with(BERICHT_GRUND_FEHLT, refusal)
+        assert refusal is not None and refusal.fields == (("bericht", "karten"),)
 
     def test_a_red_card_may_stand_without_one(self):
-        karte = FLSpielberichtKartePayload.model_validate(
-            {"seite": "team1", "spieler_id": LIVE1, "minute": "90+2", "farbe": "rot", "grund": None}
-        )
+        assert find_grund_fehlt_refusal(payload=mit_karten(karte("rot", None)), gespeichert=None) is None
 
-        assert karte.grund is None
+    @pytest.mark.parametrize("minute", ["12", "14"], ids=["resent-as-stored", "its-minute-corrected"])
+    def test_a_caution_stored_stripped_is_resent_without_one(self, minute: str):
+        stripped = {"karten": [karte("gelb", None)]}
+
+        assert find_grund_fehlt_refusal(payload=mit_karten(karte("gelb", None, minute=minute)), gespeichert=stripped) is None
+
+    @pytest.mark.parametrize(
+        "neu",
+        [
+            pytest.param(karte("gelb_rot", None), id="another-colour"),
+            pytest.param(karte("gelb", None, spieler_id=AUSGETRAGEN1), id="another-pupil"),
+        ],
+    )
+    def test_any_other_caution_is_refused(self, neu: dict[str, Any]):
+        stripped = {"karten": [karte("gelb", None)]}
+
+        assert refused_with(BERICHT_GRUND_FEHLT, find_grund_fehlt_refusal(payload=mit_karten(neu), gespeichert=stripped))
+
+    def test_each_stripped_card_excuses_one_caution(self):
+        stripped = {"karten": [karte("gelb", None)]}
+
+        refusal = find_grund_fehlt_refusal(payload=mit_karten(karte("gelb", None), karte("gelb", None, minute="80")), gespeichert=stripped)
+
+        assert refused_with(BERICHT_GRUND_FEHLT, refusal)
 
     def test_a_stored_caution_reads_without_one(self):
         """A season's end strips every card's reason, and the reads serve the report after it."""
@@ -197,6 +239,30 @@ class TestOnlyTheBookedRefereeReports:
         assert refused_with(
             BERICHT_NICHT_GELEITET, find_nicht_geleitet_refusal(spiel_raw=spiel(schiedsrichter=booked), schiedsrichter_ids=[SCHIEDSRICHTER])
         )
+
+
+class TestAFixtureTakesAReportOncePlayedAndNotCalledOff:
+    @pytest.mark.parametrize(
+        ("fields", "nimmt"),
+        [
+            pytest.param({}, True, id="played-today"),
+            pytest.param({"datum": "2027-05-15"}, False, id="tomorrow"),
+            pytest.param({"datum": None}, False, id="undated"),
+            pytest.param({"sonderereignis": "ausgefallen"}, False, id="called-off"),
+            pytest.param({"sonderereignis": "abgebrochen"}, True, id="abandoned"),
+        ],
+    )
+    def test_whether_the_form_serves_its_squads(self, fields: dict[str, Any], nimmt: bool):
+        assert nimmt_einen_bericht(spiel(**fields), today=TODAY) is nimmt
+
+
+class TestTheRefereeWritesWhileTheSeasonRuns:
+    @pytest.mark.parametrize("saison_status", ["active", "future"])
+    def test_a_season_not_yet_over_takes_their_write(self, saison_status: str):
+        assert find_saison_beendet_refusal(lage(saison_status=saison_status)) is None
+
+    def test_a_season_over_is_refused(self):
+        assert refused_with(BERICHT_SAISON_BEENDET, find_saison_beendet_refusal(lage(saison_status="past")))
 
 
 class TestANewlyNamedPupilIsInTheSquad:
@@ -344,6 +410,14 @@ class TestAReportAboutOtherClubsReadsItsOwnState:
     def test_a_fixture_called_off_reads_abgesagt_first(self):
         assert bericht_zustand_of(gespeichert(seiten={**SEITEN, "team1": ObjectId()}), spiel(sonderereignis="ausgefallen")) == "abgesagt"
 
+    def test_both_forms_are_served_the_sides_that_moved(self):
+        """The referee's read carries no `zustand`, so this is what its form marks a moved side's entries by."""
+
+        dokument = {"bericht": bericht_document(seiten={**SEITEN, "team2": ObjectId()})}
+
+        assert compose_ansicht(lage(), kader_offen=True, genannt=[], dokument=dokument)["seiten_geaendert"] == ["team2"]
+        assert compose_ansicht(lage(), kader_offen=True, genannt=[], dokument=None)["seiten_geaendert"] == []
+
 
 def level(team1: int, team2: int, elfmeterschiessen: dict[str, int] | None) -> FLSpielberichtBericht:
     """An adopted 1:1 proposal, with or without a shoot-out."""
@@ -373,8 +447,26 @@ class TestAShootOutIsComparedWhereTheFixtureKeepsOne:
 
         assert bericht_zustand_of(level(1, 1, None), fixture) == "abweichend"
 
-    def test_a_group_fixture_discards_the_proposed_shoot_out(self):
-        assert bericht_zustand_of(level(1, 1, {"team1": 4, "team2": 3}), gespielt(1, 1)) == "uebernommen"
+
+class TestAGroupFixtureTakesNoShootOut:
+    def test_a_group_draw_proposing_one_is_refused(self):
+        vorschlag = FLSpielberichtBerichtPayload.model_validate(
+            payload(
+                0,
+                0,
+                [],
+                ergebnis_vorschlag={"team1_tore": 0, "team2_tore": 0, "elfmeterschiessen": {"team1": 4, "team2": 3}, "sonderereignis": None},
+            )
+        )
+
+        keine: dict[FLSpielberichtSeite, set[ObjectId]] = {"team1": set(), "team2": set()}
+
+        # Through the judgement both writes ask, so the rule is held where it is called as well as where it is written.
+        with pytest.raises(WriteRefusalException) as refused:
+            judge_bericht(lage=lage(), payload=vorschlag, gespeichert=None, neu=keine, today=TODAY)
+        judge_bericht(lage=lage(saison_phase="achtelfinale"), payload=vorschlag, gespeichert=None, neu=keine, today=TODAY)
+
+        assert refused.value.error_code == BERICHT_ELFMETER_IN_DER_GRUPPE
 
 
 class TestALaterWriteRaisesTheVersionAndKeepsTheAdoption:

@@ -34,8 +34,8 @@ export const KARTEN_GRUND_LABELS: Record<FLKartenGrund, string> = {
 };
 
 /**
- * A scorer nobody was named for: a null id, resolved without a lookup. Lower case, and never the erased pupil's
- * „anonym“, which reads a name withheld where this reads a name never entered.
+ * A scorer nobody was named for: a null id, resolved without a lookup. Lower case, and never „anonym“, which an
+ * erased pupil's entry reads: a name withheld, where this reads a name never entered.
  */
 export const TORSCHUETZE_UNBEKANNT_LABEL = "unbekannt";
 
@@ -49,7 +49,7 @@ export const SPIELBERICHT_SONDEREREIGNIS_OPTIONS: readonly FLSpielberichtSondere
 export const SPIELBERICHT_ZUSTAND_LABELS: Record<FLSpielberichtZustand, string> = {
   vorgeschlagen: "Vorgeschlagen",
   uebernommen: "Übernommen",
-  abweichend: "Abweichend",
+  abweichend: "Nicht übernommen",
   abgesagt: "Abgesagt",
   teams_geaendert: "Teams geändert",
 };
@@ -64,25 +64,27 @@ export const SPIELBERICHT_ZUSTAND_TONE: Record<FLSpielberichtZustand, PillTone> 
 };
 
 /**
- * The states awaiting the administrator, named rather than read off the others, as the backend's
- * `BERICHT_ZUSTAENDE_OFFEN` names them: a state added later awaits nobody until it is named here.
+ * The states awaiting the administrator, named rather than read off the others: a state added later awaits nobody
+ * until it is named here. Mirrors `fl_backend/app/api/spielberichte/services.py :: BERICHT_ZUSTAENDE_OFFEN`, which
+ * decides the fixtures the triage unions in; `fl_backend/tests/shared/test_frontend_mirrors.py` holds the two equal.
  */
-export const SPIELBERICHT_ZUSTAENDE_OFFEN: ReadonlySet<FLSpielberichtZustand> = new Set(["vorgeschlagen", "abweichend", "teams_geaendert"]);
+const ZUSTAENDE_OFFEN = ["vorgeschlagen", "abweichend", "teams_geaendert"] as const satisfies readonly FLSpielberichtZustand[];
+export const SPIELBERICHT_ZUSTAENDE_OFFEN: ReadonlySet<FLSpielberichtZustand> = new Set(ZUSTAENDE_OFFEN);
 
 /**
  * What every report surface says while `SPIELBERICHT_EINGABE` reads off. Never „noch nicht“: the switch can go off again
  * after the league opened it.
  */
 export const SPIELBERICHT_GESCHLOSSEN = {
-  title: "Der Spielbericht ist gerade nicht freigeschaltet",
-  hint: "Sobald die Liga ihn freigibt, trägst Du hier das Ergebnis, die Torschützen und die Karten ein.",
+  title: "Der Spielbericht ist gerade nicht freigeschaltet.",
+  hint: "Sobald die Liga ihn freigibt, trägst Du ihn hier ein.",
 } as const;
 
 /**
  * What the administrator's correction page says while the switch reads off. Never „noch nicht“: the switch can go off
  * again after the league opened it, and a report then standing still leads the administrator here.
  */
-export const SPIELBERICHT_GESCHLOSSEN_ADMIN = "Spielberichte sind gerade nicht freigeschaltet";
+export const SPIELBERICHT_GESCHLOSSEN_ADMIN = "Spielberichte sind gerade nicht freigeschaltet.";
 
 /**
  * The closed refusal an action answers with no request sent: the page that offered the press is older than the
