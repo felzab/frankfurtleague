@@ -1,5 +1,5 @@
 """
-API · a commit refused or its answer lost: the journal of the erasures and of a person's press, and each sweep's unanswered line
+API · a commit refused or its answer lost: the erasures' and a press's journal, each sweep's unanswered line, an adoption's stamp
 
 Every case configuring `failCommand` lives in this module: the fail point is one setting the server holds for all
 workers, so a second module configuring it on another worker would replace this one's configuration, and either case's
@@ -30,6 +30,7 @@ from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from tests.whole_database import where_held
 
 from . import test_spielbestaetigung_sweep_execution as confirmations
+from . import test_spiele_write_execution as fixture_saves
 from .test_erasure_auf_anfrage import CONFIG as REQUEST_CONFIG
 from .test_erasure_auf_anfrage import erased_by_the_handler as erased_on_request
 from .test_erasure_auf_anfrage import journal_lines
@@ -462,3 +463,55 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
             row["_id"] for row in standing if row["partei"]["art"] == "schiedsrichter"
         ]
         assert {len(entry["token_hashes"]) for row in asked if row["kontakte"] is not None for entry in row["kontakte"].values()} == {2}
+
+
+# The server's code for a transaction it does not hold, sent without the transient label the server adds, so nothing reruns it.
+NO_SUCH_TRANSACTION = 251
+
+
+@pytest.mark.db
+class TestAFixtureSaveRefusedAtItsCommit:
+    def test_takes_the_adoption_stamp_back_with_the_fixture(self, mongo_replica_set_url: str):
+        """Catches a stamp written off the save's session: every rule passes, so only the commit can refuse this save."""
+
+        spiele, reports = fixture_saves.a_bracket_with_reports(quarter_final_at=fixture_saves.SEEDED_VERSION)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await fixture_saves.with_reports(database, reports)
+            spiel_data = await fixture_saves.payload_for(
+                database,
+                fixture_saves.VIERTELFINALE,
+                team1=fixture_saves.side(fixture_saves.ALPHA, 3),
+                team2=fixture_saves.side(fixture_saves.BETA, 1),
+            )
+            commits = _Commits()
+            refusing = AsyncMongoClient(
+                mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP, event_listeners=[commits]
+            )
+            refusal = {
+                "failCommands": ["commitTransaction"],
+                "appName": REFUSED_COMMIT_APP,
+                "errorCode": NO_SUCH_TRANSACTION,
+                "errorLabels": [],
+            }
+            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
+            try:
+                with pytest.raises(PyMongoError):
+                    await fixture_saves.call_patch(
+                        refusing[database.name],
+                        refusing,
+                        fixture_saves.VIERTELFINALE,
+                        spiel_data,
+                        uebernimmt_bericht=fixture_saves.SEEDED_VERSION,
+                    )
+            finally:
+                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
+                await refusing.close()
+
+            return commits.answered, await fixture_saves.spiele_now(database), before, await fixture_saves.reports_now(database)
+
+        commits, spiele, before, after = fixture_saves.on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
+
+        # The premise first: one commit, refused, and the fixture it carried not written.
+        assert (commits, spiele[fixture_saves.VIERTELFINALE_NR]["ergebnis"]) == ([NO_SUCH_TRANSACTION], "1:3")
+        assert after[fixture_saves.VIERTELFINALE] == before[fixture_saves.VIERTELFINALE], "a save that never committed adopted the report"

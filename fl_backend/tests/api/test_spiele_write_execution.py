@@ -1,6 +1,8 @@
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
@@ -418,6 +420,7 @@ async def call_patch(
     spiel_data: FLPatchSpielDataPayload,
     *,
     dry_run: bool = False,
+    uebernimmt_bericht: int | None = None,
 ) -> FLPatchSpielDataResponse:
     return await patch_spiel_data(
         spiel_id=spiel_id,
@@ -430,6 +433,9 @@ async def call_patch(
         spieltage_collection=database[Collection.SPIELTAGE],
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
+        uebernimmt_bericht=uebernimmt_bericht,
+        now=ADOPTED_AT,
         dry_run=dry_run,
     )
 
@@ -1289,3 +1295,112 @@ class TestTheQueueReadsTheHoldersTheRefusalReads:
             (CLAIMED_ACROSS_SEASONS, SAISON_ID, HOLDER_IN_ANOTHER_SEASON, ANOTHER_SAISON_ID),
             (CLAIMED_AFTER_MIDNIGHT, SAISON_ID, HOLDER_THE_EVENING_BEFORE, ANOTHER_SAISON_ID),
         ]
+
+
+# The adoption stamp: a save carrying `uebernimmt_bericht` stamps the fixture's report, in its own transaction.
+
+# As `get_germany_now` answers, so the stored instant is compared as the moment it is rather than as a wall-clock reading.
+ADOPTED_AT = datetime(2026, 5, 2, 18, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+# Past the first write, so a stamp copying a constant rather than the seed cannot pass.
+SEEDED_VERSION = 2
+
+
+def a_report_on(spiel: dict[str, Any], *, version: int) -> dict[str, Any]:
+    return documents.spielbericht_document(spiel, bericht=documents.bericht_document(version=version))
+
+
+async def reports_now(database: AsyncDatabase) -> dict[ObjectId, dict[str, Any]]:
+    """Each report's block, keyed by its fixture."""
+
+    rows = await database[Collection.SPIELBERICHTE].find({}).to_list(length=None)
+
+    return {row["spiel_id"]: row["bericht"] for row in rows}
+
+
+async def with_reports(database: AsyncDatabase, reports: list[dict[str, Any]]) -> dict[ObjectId, dict[str, Any]]:
+    """`reports` stored, and each block as read back: a stored instant returns without the zone it was written with."""
+
+    await database[Collection.SPIELBERICHTE].insert_many(reports)
+
+    return await reports_now(database)
+
+
+def a_bracket_with_reports(*, quarter_final_at: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """The bracket season, its quarter-final's report at `quarter_final_at` and the semi-final's at the seeded version."""
+
+    spiele = bracket_season()
+    quarter, semi = spiele
+
+    return spiele, [a_report_on(quarter, version=quarter_final_at), a_report_on(semi, version=SEEDED_VERSION)]
+
+
+class TestOnlyALandedSaveStamps:
+    def test_an_accepted_save_stamps_its_own_fixtures_report_at_the_seeded_version(self, mongo_replica_set_url: str):
+        """The semi-final's report stands at the same version, so a stamp not keyed on the fixture shows on it."""
+
+        spiele, reports = a_bracket_with_reports(quarter_final_at=SEEDED_VERSION)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await with_reports(database, reports)
+            spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1))
+            await call_patch(database, client, VIERTELFINALE, spiel_data, uebernimmt_bericht=SEEDED_VERSION)
+
+            return await spiele_now(database), before, await reports_now(database)
+
+        spiele_after, before, after = on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
+
+        assert spiele_after[VIERTELFINALE_NR]["ergebnis"] == "3:1"
+        stamped = after[VIERTELFINALE]
+        assert (stamped["uebernommene_version"], stamped["version"], stamped["uebernommen_von"]) == (
+            SEEDED_VERSION,
+            SEEDED_VERSION,
+            {"art": "admin"},
+        )
+        assert stamped["uebernommen_am"].replace(tzinfo=UTC) == ADOPTED_AT
+        assert after[HALBFINALE] == before[HALBFINALE], "a save stamped a report of a fixture it did not write"
+
+    @pytest.mark.parametrize("dry_run", [pytest.param(False, id="refused-REQ-DATE-001"), pytest.param(True, id="dry-run")])
+    def test_a_refused_save_and_a_preview_stamp_nothing(self, mongo_replica_set_url: str, dry_run: bool):
+        """The same seed and version as the accepted save; a refused commit is `fl_backend/tests/api/test_erasure_commit_fail_points.py`'s."""
+
+        spiele, reports = a_bracket_with_reports(quarter_final_at=SEEDED_VERSION)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await with_reports(database, reports)
+            # A day off its matchday's span on the save, so the refusal is `REQ-DATE-001`; the preview carries the result alone.
+            datum = None if dry_run else "2026-05-02"
+            spiel_data = await payload_for(
+                database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1), **({} if datum is None else {"datum": datum})
+            )
+            refusal = None
+            try:
+                await call_patch(database, client, VIERTELFINALE, spiel_data, dry_run=dry_run, uebernimmt_bericht=SEEDED_VERSION)
+            except WriteRefusalException as refused:
+                refusal = refused.error_code
+
+            return refusal, await spiele_now(database), before, await reports_now(database)
+
+        refusal, spiele_after, before, after = on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
+
+        # The premise first: the save was refused, or the preview ran, and neither wrote the fixture.
+        assert (refusal, spiele_after[VIERTELFINALE_NR]["ergebnis"]) == (None if dry_run else FIXTURE_OUTSIDE_SPIELTAG, "1:3")
+        assert after[VIERTELFINALE] == before[VIERTELFINALE]
+
+
+class TestAStaleSeedIsNotAdopted:
+    def test_a_report_corrected_since_the_seed_stays_unstamped_and_the_save_lands(self, mongo_replica_set_url: str):
+        """The referee corrected the report after the editor read it, so the save carries a version the report has left."""
+
+        spiele, reports = a_bracket_with_reports(quarter_final_at=SEEDED_VERSION + 1)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await with_reports(database, reports)
+            spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1))
+            await call_patch(database, client, VIERTELFINALE, spiel_data, uebernimmt_bericht=SEEDED_VERSION)
+
+            return await spiele_now(database), before, await reports_now(database)
+
+        spiele_after, before, after = on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
+
+        assert spiele_after[VIERTELFINALE_NR]["ergebnis"] == "3:1", "a stale seed cost the administrator the result they saved"
+        assert after[VIERTELFINALE] == before[VIERTELFINALE], "a report corrected since the seed was adopted unread"

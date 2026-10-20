@@ -1,5 +1,6 @@
 from collections.abc import Sequence
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, NamedTuple
 
 from fastapi import APIRouter, Body, Depends, Query
 from pymongo import AsyncMongoClient, ReturnDocument
@@ -8,6 +9,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.crud import pull_current_saison_id, pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.spielberichte.crud import stamp_the_adoption
 from app.api.spiele.crud import (
     advance_bracket_winners,
     anchor_a_booked_referee,
@@ -67,11 +69,13 @@ from app.core.dependencies import (
     SaisonsCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
+    SpielberichteCollection,
     SpieleCollection,
     SpielorteCollection,
     SpieltageCollection,
     TeamsCollection,
     get_german_date_str,
+    get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, stores_nothing_when
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
@@ -230,6 +234,14 @@ async def get_spiel_for_admin(spiel_id: CustomRouteObjectId, spiele_collection: 
     return FLSpieleAdminSingleResponse(spiel=FLSpielJoinedAdmin.model_validate(spiele_raw[0]))
 
 
+class Adoption(NamedTuple):
+    """The report version the editor seeded one fixture's save from, to be stamped adopted where the report still stands at it."""
+
+    spiel_id: CustomObjectId
+    version: int
+    now: datetime
+
+
 async def _write_spiel_data(
     entries: Sequence[tuple[CustomObjectId, FLPatchSpielDataPayload | FLPatchSpielPaarungPayload]],
     db: AsyncMongoClient,
@@ -240,7 +252,9 @@ async def _write_spiel_data(
     spieltage_collection: AsyncCollection,
     spielorte_collection: AsyncCollection,
     schiedsrichter_collection: AsyncCollection,
+    spielberichte_collection: AsyncCollection,
     dry_run: bool,
+    adoption: Adoption | None,
 ) -> list[FLPatchSpielDataResponse]:
     """One implementation behind every write route, so a narrowed restore meets every rule a wholesale save does.
 
@@ -445,6 +459,16 @@ async def _write_spiel_data(
                 )
             )
 
+        # Here and with the session, never after the commit or off it: a save refused or rolled back stamps nothing.
+        if adoption is not None:
+            await stamp_the_adoption(
+                spielberichte_collection=spielberichte_collection,
+                spiel_id=adoption.spiel_id,
+                version=adoption.version,
+                now=adoption.now,
+                session=session,
+            )
+
         return reports
 
     # `with_transaction` rather than a bare `start_transaction`: two saves in one season can
@@ -478,6 +502,12 @@ async def patch_spiel_data(
     spieltage_collection: SpieltageCollection,
     spielorte_collection: SpielorteCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
+    spielberichte_collection: SpielberichteCollection,
+    uebernimmt_bericht: Annotated[
+        int | None,
+        Query(ge=1, description="The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
+    ] = None,
+    now: datetime = Depends(get_germany_now),
     dry_run: Annotated[bool, Depends(previewing)] = False,
 ) -> FLPatchSpielDataResponse:
     """
@@ -487,6 +517,10 @@ async def patch_spiel_data(
     composed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,
     and every fixture this call changed arrives in `prior_paarungen` as it stood before it — this one
     leading the list, and carrying the fields beyond its Paarung that this payload replaced.
+
+    With `uebernimmt_bericht`, the save also stamps the fixture's Spielbericht adopted at that version, in the same
+    transaction. A report corrected since that version is left unstamped, and the save lands all the same: nothing is
+    refused for it. A `dry_run` stamps nothing.
     """
 
     written = await _write_spiel_data(
@@ -499,7 +533,9 @@ async def patch_spiel_data(
         spieltage_collection=spieltage_collection,
         spielorte_collection=spielorte_collection,
         schiedsrichter_collection=schiedsrichter_collection,
+        spielberichte_collection=spielberichte_collection,
         dry_run=dry_run,
+        adoption=None if uebernimmt_bericht is None else Adoption(spiel_id=spiel_id, version=uebernimmt_bericht, now=now),
     )
 
     return written[0]
@@ -523,6 +559,7 @@ async def patch_spiele_paarungen(
     spieltage_collection: SpieltageCollection,
     spielorte_collection: SpielorteCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
+    spielberichte_collection: SpielberichteCollection,
 ) -> FLPatchSpielePaarungenResponse:
     """
     Put every fixture one save moved back as it stood, in ONE transaction, and resolve the bracket again.
@@ -556,7 +593,10 @@ async def patch_spiele_paarungen(
         spieltage_collection=spieltage_collection,
         spielorte_collection=spielorte_collection,
         schiedsrichter_collection=schiedsrichter_collection,
+        spielberichte_collection=spielberichte_collection,
         dry_run=False,
+        # An undo restores fixtures and stamps no report: a report's state is derived against whatever result it restores.
+        adoption=None,
     )
 
     # Where each fixture sits in the replay, which is what tells a rewrite this list repairs further

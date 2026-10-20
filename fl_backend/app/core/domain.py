@@ -1371,6 +1371,29 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "changed referee, or whose day went by without any of those, and an administrator discarding a proposal stamps "
         "it on the declining row, each composing the reason itself",
     ),
+    FieldPolicy(
+        Collection.SPIELBERICHTE,
+        "bericht.uebernommene_version",
+        Editability.CONTROL_ONLY,
+        "on no payload: the fixture save carrying `uebernimmt_bericht` writes it inside its own transaction, and only on a "
+        "report still at that version, so a report corrected since the editor read it is left unadopted rather than "
+        "adopted unread",
+        "app.api.spielberichte.crud.stamp_the_adoption",
+    ),
+    FieldPolicy(
+        Collection.SPIELBERICHTE,
+        "bericht.uebernommen_am",
+        Editability.CONTROL_ONLY,
+        "on no payload: written beside `bericht.uebernommene_version`, by the same stamp",
+        "app.api.spielberichte.crud.stamp_the_adoption",
+    ),
+    FieldPolicy(
+        Collection.SPIELBERICHTE,
+        "bericht.uebernommen_von",
+        Editability.CONTROL_ONLY,
+        "on no payload: written beside `bericht.uebernommene_version`, by the same stamp",
+        "app.api.spielberichte.crud.stamp_the_adoption",
+    ),
 )
 
 
