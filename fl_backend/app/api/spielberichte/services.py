@@ -90,8 +90,12 @@ def build_bericht_kader_pipeline(*, saison_id: str, team_ids: Sequence[ObjectId]
     ]
 
 
-def build_zustand_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
-    """A season's reports holding a block, each beside its fixture's result fields."""
+def build_eingereichte_pipeline(*, saison_id: str, spiel_fields: Mapping[str, int]) -> list[Mapping[str, Any]]:
+    """A season's reports holding a block, each joined to `spiel_fields` of a fixture that stands.
+
+    A report write crossing an undraw can outlive its fixture (`docs/backend/spec.md :: I118`), and is then neither read
+    nor counted.
+    """
 
     return [
         {"$match": {"saison_id": saison_id, "bericht": {"$ne": None}}},
@@ -100,24 +104,29 @@ def build_zustand_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
                 "from": Collection.SPIELE,
                 "localField": "spiel_id",
                 "foreignField": "_id",
-                "pipeline": [
-                    {
-                        "$project": {
-                            "_id": 0,
-                            "saison_phase": 1,
-                            "team1.tore": 1,
-                            "team2.tore": 1,
-                            "ergebnis": 1,
-                            "sonderereignis": 1,
-                            "elfmeterschiessen": 1,
-                        }
-                    }
-                ],
+                "pipeline": [{"$project": {"_id": 0, **spiel_fields}}],
                 "as": "spiel",
             }
         },
-        # A replace or an undraw removes a season's reports with its fixtures, so every report finds its fixture.
         {"$unwind": "$spiel"},
+    ]
+
+
+def build_zustand_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
+    """A season's reports holding a block, each beside its fixture's result fields."""
+
+    return [
+        *build_eingereichte_pipeline(
+            saison_id=saison_id,
+            spiel_fields={
+                "saison_phase": 1,
+                "team1.tore": 1,
+                "team2.tore": 1,
+                "ergebnis": 1,
+                "sonderereignis": 1,
+                "elfmeterschiessen": 1,
+            },
+        ),
         {"$project": {"_id": 0, "spiel_id": 1, "bericht": 1, "spiel": 1}},
     ]
 

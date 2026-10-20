@@ -22,6 +22,7 @@ from app.api.spielberichte.services import (
     bericht_unveraendert,
     bericht_zustand_of,
     build_bericht_kader_pipeline,
+    build_eingereichte_pipeline,
     build_referee_report_images_filter,
     build_referee_reports_filter,
     build_season_report_images_filter,
@@ -181,9 +182,19 @@ async def write_bericht(
 
 
 async def count_eingereichte_berichte(*, spielberichte_collection: AsyncCollection, saison_id: str, session: AsyncClientSession | None) -> int:
-    """How many of the season's report documents hold a submitted report, under `session`."""
+    """How many of the season's standing fixtures hold a submitted report, under `session`.
 
-    return await spielberichte_collection.count_documents({"saison_id": saison_id, "bericht": {"$ne": None}}, session=session)
+    Joined as the reads join: an orphan report would otherwise refuse every replace and undraw (`REQ-SPIELPLAN-007`)
+    while no read shows it.
+    """
+
+    counted = await aggregate_many_from_db(
+        collection=spielberichte_collection,
+        pipeline=[*build_eingereichte_pipeline(saison_id=saison_id, spiel_fields={"_id": 1}), {"$count": "berichte"}],
+        session=session,
+    )
+
+    return counted[0]["berichte"] if counted else 0
 
 
 async def pull_zustaende(*, spielberichte_collection: AsyncCollection, saison_id: str) -> list[FLSpielberichtZustandEintrag]:
