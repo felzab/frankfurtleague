@@ -19,8 +19,8 @@ from app.shared.folding import is_stored_identifier, sign_in_identifier
 
 BERECHTIGUNG_VORHANDEN = "REQ-BERECHTIGUNG-001"
 
-# No route removes an `owner` row: an owner is demoted by another owner, or steps down, before a
-# revoke reaches the row, so the tier stays out of an administrator's reach (`docs/backend/spec.md :: I436`).
+# A revoke never removes an `owner` row: an owner is demoted by another owner, or steps down, first, so the tier stays
+# out of an administrator's reach; only an erasure and an address change's move remove one (`docs/backend/spec.md :: I436`).
 BERECHTIGUNG_INHABER = "REQ-BERECHTIGUNG-002"
 
 BERECHTIGUNG_GESPERRT = "REQ-BERECHTIGUNG-003"
