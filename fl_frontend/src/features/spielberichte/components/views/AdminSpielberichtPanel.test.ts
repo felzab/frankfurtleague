@@ -31,6 +31,7 @@ const panel = (props: { stand: SpielberichtStand | null; hatEntwurf?: boolean })
         uebernahmeGesperrt: null,
         eingesetzt: null,
         hatEntwurf: props.hatEntwurf ?? false,
+        today: "2026-10-17",
       }),
       { search: "saison_id=2026" },
     ),
@@ -67,6 +68,22 @@ describe("the report panel on the match editor", () => {
     assert.equal(screen.queryAllByText(/^Vorschlag:/).length, 0, "the score proposed for the departed club is shown");
     assert.equal(screen.queryAllByText("Lessing-Gymnasium").length, 0, "the card is listed under the club now on its side");
     assert.ok(screen.getByText("früheres Team 2"));
+  });
+
+  /* The correction page states these fixtures' refusals and offers no form, so a link to it leads nowhere. The state is
+     the report's, so a fixture with no report reads none of it: only the fixture says whether it takes one. */
+  it("offers no correction on a fixture holding no report that takes none", () => {
+    const { spiel } = spielberichtReadFixture();
+    for (const fixture of [
+      { ...spiel, sonderereignis: "ausgefallen" },
+      { ...spiel, datum: "2026-10-18" },
+      { ...spiel, datum: null },
+    ]) {
+      cleanup();
+      panel({ stand: stand({ spiel: fixture, bericht: null, zustand: null }) });
+
+      assert.equal(korrekturLinks(), 0, JSON.stringify(fixture));
+    }
   });
 
   /* Closed, the correction page writes nothing, and its sentence would be the closed state's. */

@@ -12,15 +12,15 @@ import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/for
 import { SPIELBERICHT_GESCHLOSSEN } from "../../constants";
 import { SCHIEDSRICHTER_HREF } from "./SpielberichtZustandView";
 
-import type { FLSpielberichtPersonEintrag } from "../../schemas";
+import type { SchiedsrichterSpielberichte } from "../../types";
 
 const LEER = "Gerade steht kein Spiel für einen Spielbericht an.";
 
 /**
- * The referee panel's reports: one card per played fixture booked to the referee. `null` where the switch reads off,
- * the panel then saying why no fixture is offered rather than reading as an empty season.
+ * The referee panel's reports: one card per played fixture booked to the referee. Closed or unread, the panel says
+ * why no fixture is offered rather than reading as an empty season.
  */
-export function SchiedsrichterSpielberichteSection({ spiele }: { spiele: readonly FLSpielberichtPersonEintrag[] | null }) {
+export function SchiedsrichterSpielberichteSection({ spiele }: { spiele: SchiedsrichterSpielberichte }) {
   const panel = formPanel();
 
   return (
@@ -38,8 +38,10 @@ export function SchiedsrichterSpielberichteSection({ spiele }: { spiele: readonl
       </div>
 
       <div className={panel.body()}>
-        {spiele === null ? (
+        {spiele === "geschlossen" ? (
           <p className="muted-hint">{`${SPIELBERICHT_GESCHLOSSEN.title}. ${SPIELBERICHT_GESCHLOSSEN.hint}`}</p>
+        ) : spiele === "unlesbar" ? (
+          <p className="muted-hint">Deine Spielberichte ließen sich gerade nicht lesen. Lade die Seite neu.</p>
         ) : spiele.length === 0 ? (
           <p className="muted-hint">{LEER}</p>
         ) : (

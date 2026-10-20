@@ -12,6 +12,7 @@ import { SpielberichtLesenView } from "@/features/spielberichte/components/views
 import { SCHIEDSRICHTER_HREF, SpielberichtZustandView } from "@/features/spielberichte/components/views/SpielberichtZustandView";
 import { SPIELBERICHT_GESCHLOSSEN } from "@/features/spielberichte/constants";
 import { getSchiedsrichterSpielbericht } from "@/features/spielberichte/queries";
+import { berichtSperre } from "@/features/spielberichte/utils";
 import { isFunktionLost, isRefusal } from "@/shared/utils/actionError";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -59,13 +60,14 @@ export default async function SchiedsrichterSpielberichtPage({ params }: NextPag
 
   const { spiel } = read;
   // The backend's two refusals a page can foresee from the fixture it serves, stated before any press meets them.
-  if (spiel.sonderereignis === "ausgefallen" || spiel.sonderereignis === "annulliert") {
+  const sperre = berichtSperre(spiel, getGermanTodayStr());
+  if (sperre === "abgesagt") {
     return <SpielberichtZustandView title="Dieses Spiel ist ausgefallen oder annulliert. Dafür gibt es keinen Spielbericht." />;
   }
-  if (spiel.datum === null || spiel.datum > getGermanTodayStr()) {
+  if (sperre !== null) {
     return (
       <SpielberichtZustandView
-        title="Dieses Spiel hat noch nicht stattgefunden."
+        title={sperre === "undatiert" ? "Dieses Spiel hat noch kein Datum." : "Dieses Spiel hat noch nicht stattgefunden."}
         hint="Den Spielbericht trägst Du ab dem Spieltag ein."
       />
     );

@@ -12,7 +12,7 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 
 import { SPIELBERICHT_ZUSTAND_LABELS, SPIELBERICHT_ZUSTAND_TONE } from "../../constants";
-import { berlinZeitpunkt, vorschlagText } from "../../utils";
+import { berichtSperre, berlinZeitpunkt, vorschlagText } from "../../utils";
 import { BerichtEintraege } from "./BerichtEintraege";
 
 import type { FLSpielberichtBericht } from "../../schemas";
@@ -30,6 +30,7 @@ export function AdminSpielberichtPanel({
   uebernahmeGesperrt,
   eingesetzt,
   hatEntwurf,
+  today,
 }: {
   /** `null` where the read failed, which the panel says rather than reading as a fixture with no report. */
   stand: SpielberichtStand | null;
@@ -41,6 +42,8 @@ export function AdminSpielberichtPanel({
   eingesetzt: Eingesetzt;
   /** The editor holds unsaved changes, which the correction page's client-side navigation would drop unasked. */
   hatEntwurf: boolean;
+  /** The German day the editor was served on, which decides whether the stored fixture takes a report. */
+  today: string;
 }) {
   const panel = formPanel();
   const zustand = stand?.lesen.zustand ?? null;
@@ -65,6 +68,7 @@ export function AdminSpielberichtPanel({
             uebernahmeGesperrt={uebernahmeGesperrt}
             eingesetzt={eingesetzt}
             hatEntwurf={hatEntwurf}
+            today={today}
           />
         )}
       </div>
@@ -78,12 +82,14 @@ function BerichtInhalt({
   uebernahmeGesperrt,
   eingesetzt,
   hatEntwurf,
+  today,
 }: {
   stand: SpielberichtStand;
   onUebernehmen: (bericht: FLSpielberichtBericht) => void;
   uebernahmeGesperrt: string | null;
   eingesetzt: Eingesetzt;
   hatEntwurf: boolean;
+  today: string;
 }) {
   const saisonHref = useSaisonHref();
   const { lesen, korrigierbar } = stand;
@@ -165,9 +171,10 @@ function BerichtInhalt({
         </>
       )}
 
-      {/* The correction page writes only while the switch reads on, and a client-side navigation passes the editor's
-          unsaved-changes guard, so a draft seeded from the proposal would go unasked. */}
-      {!istAbgesagt &&
+      {/* The correction page writes only while the switch reads on and the stored fixture takes a report, whose
+          refusals it would otherwise state alone; a client-side navigation passes the editor's unsaved-changes guard, so a
+          draft seeded from the proposal would go unasked. */}
+      {berichtSperre(spiel, today) === null &&
         (!korrigierbar ? (
           <p className="muted-hint">Solange Spielberichte nicht freigeschaltet sind, lässt sich der Bericht nicht bearbeiten.</p>
         ) : hatEntwurf ? (

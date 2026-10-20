@@ -10,6 +10,10 @@ import { getSchiedsrichterSelbst } from "@/features/schiedsrichter/queries";
 import { getSchiedsrichterSpielberichte } from "@/features/spielberichte/queries";
 import { getEigeneSpielbestaetigungen } from "@/features/spielbestaetigungen/queries";
 import { isFunktionLost } from "@/shared/utils/actionError";
+import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
+
+import type { SchiedsrichterSpielberichte } from "@/features/spielberichte/types";
 
 export default async function PersoenlichSchiedsrichterPage() {
   await connection();
@@ -25,11 +29,19 @@ export default async function PersoenlichSchiedsrichterPage() {
   let selbst, einsaetze, spielberichte;
   try {
     // Side by side: no read waits on another, and each answers the same lost record alike. Nothing is read while the
-    // reports are closed: their section then says why it offers no fixture.
+    // reports are closed: their section then says why it offers no fixture. A failed report read is its section's own
+    // state, so the answers to an Einteilung stand; a lost record still lands through the two reads beside it.
     [selbst, einsaetze, spielberichte] = await Promise.all([
       getSchiedsrichterSelbst(),
       getEigeneSpielbestaetigungen(),
-      frontend_config.SPIELBERICHT_EINGABE === "on" ? getSchiedsrichterSpielberichte() : null,
+      frontend_config.SPIELBERICHT_EINGABE === "on"
+        ? runWithIncomingTrace(() =>
+            getSchiedsrichterSpielberichte().then(
+              (gelesen): SchiedsrichterSpielberichte => gelesen.spiele,
+              (error: unknown): SchiedsrichterSpielberichte => nullUnlessContractBreak(error) ?? "unlesbar",
+            ),
+          )
+        : ("geschlossen" as const),
     ]);
   } catch (error) {
     // The row went between the page's own check and the backend's, which is the check above failing
@@ -42,7 +54,7 @@ export default async function PersoenlichSchiedsrichterPage() {
     <SchiedsrichterSelbstView
       schiedsrichter={selbst.schiedsrichter}
       einsaetze={einsaetze.spielbestaetigungen}
-      spielberichte={spielberichte?.spiele ?? null}
+      spielberichte={spielberichte}
     />
   );
 }

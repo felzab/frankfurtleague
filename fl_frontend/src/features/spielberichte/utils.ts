@@ -7,7 +7,13 @@ import { SPIELBERICHT_ZUSTAENDE_OFFEN, SPIELBERICHT_ZUSTAND_TONE } from "./const
 
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLSpielberichtSeiten, FLSpielberichtSpieler, FLSpielberichtVorschlag, FLSpielberichtZustandEintrag } from "./schemas";
+import type {
+  FLSpielberichtSeiten,
+  FLSpielberichtSpiel,
+  FLSpielberichtSpieler,
+  FLSpielberichtVorschlag,
+  FLSpielberichtZustandEintrag,
+} from "./schemas";
 import type { Eingesetzt } from "./types";
 
 /** A fixture card's word on its report, worn in its state's tone. */
@@ -110,6 +116,15 @@ const BERLIN_ZEITPUNKT = new Intl.DateTimeFormat("de-DE", {
 export function berlinZeitpunkt(stamp: string): string {
   const instant = new Date(stamp);
   return Number.isNaN(instant.getTime()) ? stamp : `${BERLIN_ZEITPUNKT.format(instant)} Uhr`;
+}
+
+/** Why a fixture takes no report today, `null` where it takes one, as `REQ-BERICHT-001` and `REQ-BERICHT-004` judge a write. */
+export type BerichtSperre = "abgesagt" | "undatiert" | "kuenftig";
+
+export function berichtSperre(spiel: Pick<FLSpielberichtSpiel, "datum" | "sonderereignis">, today: string): BerichtSperre | null {
+  if (spiel.sonderereignis === "ausgefallen" || spiel.sonderereignis === "annulliert") return "abgesagt";
+  if (spiel.datum === null) return "undatiert";
+  return spiel.datum > today ? "kuenftig" : null;
 }
 
 /** Who reads the sentence: the booked referee on their panel, or an administrator correcting the report. */

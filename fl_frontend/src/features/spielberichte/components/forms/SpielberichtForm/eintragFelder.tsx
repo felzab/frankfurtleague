@@ -67,7 +67,8 @@ export function MinuteField({
       value={value}
       onChange={onChange}
       onBlur={onBlur}
-      inputMode="numeric"
+      // No `inputMode`: `numeric` asks for digits alone, a keypad for PIN entry (WHATWG HTML, „input modalities“, read
+      // 2026-10-20), and stoppage time needs its „+“, which only the full keyboard is certain to carry.
       className="flex w-full flex-col gap-y-1">
       <Label className={FIELD_LABEL_CLASSES}>Minute</Label>
       <Input

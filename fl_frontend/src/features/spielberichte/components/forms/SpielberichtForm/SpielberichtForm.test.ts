@@ -128,6 +128,15 @@ describe("the referee's report form", () => {
     assert.equal(Reflect.get(Object(calls[0]?.payload), "bericht_stand"), 4);
   });
 
+  /* „45+2“ needs a „+“, which a digits keypad may not carry on the phone a referee fills the report in on. */
+  it("asks for no digits-only keyboard in the minute box", async () => {
+    const user = userEvent.setup();
+    render(leer());
+    await user.click(screen.getByRole("button", { name: "Tor hinzufügen" }));
+
+    assert.equal(screen.getByRole("textbox", { name: "Minute" }).getAttribute("inputmode"), null);
+  });
+
   /* A no-show takes no scorer: an entry left standing would ride into a save the backend refuses, unseen. */
   it("drops the scorers with a no-show and offers none", async () => {
     const user = userEvent.setup();
