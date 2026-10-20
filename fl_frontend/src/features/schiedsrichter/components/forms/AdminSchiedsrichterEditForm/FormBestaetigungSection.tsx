@@ -81,23 +81,13 @@ function EinwilligungStand({
     <dl className={FIELD_PAIR_CLASSES}>
       <Angabe label="Veröffentlichung">
         {SCHIEDSRICHTER_UMFANG_LABELS[einwilligung.umfang]}
-        <Beleg
-          nachweis={einwilligung.nachweis.umfang}
-          bestaetigtAm={einwilligung.bestaetigt_am}
-          textVersion={einwilligung.text_version}
-        />
+        <Beleg nachweis={einwilligung.nachweis.umfang} />
       </Angabe>
       <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
         {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
-        <Beleg
-          nachweis={einwilligung.nachweis.medien}
-          bestaetigtAm={einwilligung.bestaetigt_am}
-          textVersion={einwilligung.text_version}
-        />
+        <Beleg nachweis={einwilligung.nachweis.medien} />
       </Angabe>
-      <Angabe label="Bestätigt am">
-        {einwilligung.bestaetigt_am === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.bestaetigt_am)}
-      </Angabe>
+      <Angabe label="Bestätigt am">{formatSpielDatum(einwilligung.bestaetigt_am)}</Angabe>
       {/* The key rather than a German gloss of it, which would be a second name for one wording. */}
       <Angabe label={EINWILLIGUNG_FASSUNG_FRAGE}>
         <Fassung
@@ -147,7 +137,7 @@ export function FormBestaetigungSection({
   const stepUp = useStepUp();
   const panel = formPanel();
 
-  const istBestaetigt = einwilligung?.bestaetigt_am != null;
+  const istBestaetigt = einwilligung !== null;
   const sendeLabel = bestaetigung === null ? "Bestätigungslink senden" : "Link erneut senden";
   const sendeName = bestaetigung === null ? sendeLabel : BESTAETIGUNG_ERNEUT;
 

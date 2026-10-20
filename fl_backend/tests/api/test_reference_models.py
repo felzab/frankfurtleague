@@ -264,7 +264,7 @@ class TestEinwilligung:
 
         assert einwilligung is not None and einwilligung.umfang == "kader_oeffentlich"
 
-    @pytest.mark.parametrize("field", ["umfang", "datum", "bestaetigt_am"])
+    @pytest.mark.parametrize("field", ["umfang", "datum", "bestaetigt_am", "text_version", "medien", "nachweis"])
     def test_requires_every_key(self, einwilligung, field, assert_rejects):
         """The keys in the validator's `required` tuple, so a model accepting one fewer would read back a row the database refuses to store."""
 
@@ -272,17 +272,6 @@ class TestEinwilligung:
         del incomplete[field]
 
         assert_rejects(FLEinwilligung, incomplete, field)
-
-    def test_a_record_predating_the_two_optional_keys_reads_back(self, einwilligung):
-        """The whole stored population: a model requiring either would 500 a list over every person the league already holds."""
-
-        record = einwilligung()
-        del record["text_version"], record["medien"]
-
-        parsed = FLEinwilligung.model_validate(record)
-
-        assert parsed.text_version is None
-        assert parsed.medien is False
 
     def test_a_media_consent_is_read_beside_the_publication_scope_and_not_inside_it(self, einwilligung):
         """Two independent answers: a reader asking `umfang` whether a photo may be published gets the wrong question's answer."""
@@ -297,19 +286,6 @@ class TestEinwilligung:
         """No write names who answered any longer, so every record written from now on reads without one."""
 
         assert FLEinwilligung.model_validate(einwilligung()).erteilt_von is None
-
-    def test_a_carried_over_record_says_so_and_carries_no_dates(self, einwilligung):
-        """`bestandsuebernahme` is the point of the third member: nobody was asked, so there is no day and no confirmation."""
-
-        parsed = FLEinwilligung.model_validate(einwilligung(erteilt_von="bestandsuebernahme", datum=None, bestaetigt_am=None))
-
-        assert parsed.erteilt_von == "bestandsuebernahme"
-        assert parsed.datum is None
-
-    def test_an_unconfirmed_record_is_null_rather_than_absent(self, einwilligung):
-        """A null `bestaetigt_am` is the state a publication gate reads; omitting the key would make it indistinguishable from a bad row."""
-
-        assert FLEinwilligung.model_validate(einwilligung(bestaetigt_am=None)).bestaetigt_am is None
 
     @pytest.mark.parametrize(
         ("field", "value"),
@@ -336,11 +312,7 @@ class TestEinwilligung:
 
 @pytest.mark.db
 class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
-    """What the Pydantic defaults claim, judged by `$jsonSchema` instead.
-
-    A model's default is a READ; `required` is what a write meets, and the two are declared in
-    different files.
-    """
+    """The record the registration flow writes, judged by `$jsonSchema` rather than by the model declared in another file."""
 
     def _written(self, url: str, einwilligung: dict[str, Any]) -> dict[str, Any]:
         async def body() -> Any:
@@ -359,23 +331,7 @@ class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
 
         return on_the_seed_loop(body())
 
-    def test_a_four_key_record_is_stored_and_reads_back_at_the_models_defaults(self, mongo_url: str, einwilligung):
-        """The whole stored population, past the validator rather than past Pydantic.
-
-        A `required` tuple holding either new key refuses every record the league already holds.
-        """
-
-        stored = self._written(mongo_url, einwilligung())
-
-        assert set(stored["einwilligung"]) == {"umfang", "erteilt_von", "datum", "bestaetigt_am"}
-
-        parsed = FLSpielerWithMemberships.model_validate({**stored, "adresswechsel_abgelaufen": False, "memberships": []})
-
-        assert parsed.einwilligung is not None
-        assert (parsed.einwilligung.text_version, parsed.einwilligung.medien) == (None, False)
-
-    def test_a_six_key_record_is_stored_and_reads_back_carrying_both_answers(self, mongo_url: str, einwilligung):
-        """The other direction: a validator declaring neither key would refuse the record the registration flow is built to write."""
+    def test_a_confirmed_record_is_stored_and_reads_back_carrying_both_answers(self, mongo_url: str, einwilligung):
 
         stored = self._written(mongo_url, einwilligung(text_version="liga-2026-03", medien=True))
         parsed = FLSpielerWithMemberships.model_validate({**stored, "adresswechsel_abgelaufen": False, "memberships": []})

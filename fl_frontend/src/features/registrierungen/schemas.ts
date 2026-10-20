@@ -358,6 +358,7 @@ export type FLRegistrierungAblehnungResponse = z.infer<typeof FLRegistrierungAbl
  */
 export const FLRegistrierungEinwilligungSchema = FLEinwilligungSchema.extend({
   umfang: FLEinwilligungSchema.shape.umfang.nullable(),
+  datum: FLEinwilligungSchema.shape.datum.nullable(),
   // Null where nobody was asked, never `false`: a returning pupil's media answer stands on their own record.
   medien: z.boolean().nullable(),
 });

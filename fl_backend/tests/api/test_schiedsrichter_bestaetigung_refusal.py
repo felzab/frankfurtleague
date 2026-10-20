@@ -151,7 +151,11 @@ class TestTheRecordTheConfirmationWrites:
     def test_the_record_carries_every_key_the_validator_requires(self):
         declared = COLLECTION_VALIDATORS[Collection.SCHIEDSRICHTER]["$jsonSchema"]["properties"][EINWILLIGUNG_FELD]
 
-        assert set(declared["required"]) <= set(compose_einwilligung(umfang="intern", medien=False, text_version="v1", today=TODAY))
+        update = compose_confirmation_update(
+            geburtsdatum=AN_ADULTS_BIRTHDATE, umfang="intern", medien=False, text_version="v1", today=TODAY, am=CONFIRMED_AT
+        )
+
+        assert set(declared["required"]) <= set(update["$set"][EINWILLIGUNG_FELD])
 
 
 class TestWhatALeakedLinkLearns:

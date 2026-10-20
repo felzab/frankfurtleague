@@ -141,7 +141,7 @@ function SchiedsrichterEditForm({
   const [schule, setSchule] = useState(schiedsrichter.schule);
   const [kontakt, setKontakt] = useState<FLKontakt>(schiedsrichter.kontakt);
   const [defaultPayment, setDefaultPayment] = useState<number | null>(schiedsrichter.default_payment);
-  const bestaetigt = schiedsrichter.einwilligung?.bestaetigt_am != null && schiedsrichter.kontakt.email !== null;
+  const bestaetigt = schiedsrichter.einwilligung !== null && schiedsrichter.kontakt.email !== null;
 
   // Over the STORED address: null, or the placeholder a row without one is given, is somewhere no
   // link can go and no undo may write back.

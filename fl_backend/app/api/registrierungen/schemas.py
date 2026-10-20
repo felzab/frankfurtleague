@@ -24,7 +24,7 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomOptionalDateString,
 )
-from app.shared.schemas.einwilligung import FLEinwilligungStand
+from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -96,6 +96,8 @@ class FLRegistrierungEinwilligung(FLEinwilligung):
     datum: CustomOptionalDateString = None
     # Null where nobody was asked, never `False`: a returning pupil's media answer stands on their own record.
     medien: bool | None = None
+    # Empty on a returning pupil's record, which evidences no choice it never asked.
+    nachweis: FLEinwilligungNachweise = Field(default_factory=FLEinwilligungNachweise)
 
 
 class FLRegistrierung(BaseModel):

@@ -9,7 +9,7 @@ import {
   EINWILLIGUNG_UMFANG_LABELS,
   EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS,
 } from "@/features/spieler/constants";
-import { Angabe, Leer } from "@/shared/components/ui/Angabe";
+import { Angabe } from "@/shared/components/ui/Angabe";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -62,31 +62,18 @@ export function FormEinwilligungSection({
             <dl className={FIELD_PAIR_CLASSES}>
               <Angabe label="Umfang">
                 {EINWILLIGUNG_UMFANG_LABELS[einwilligung.umfang]}
-                <Beleg
-                  nachweis={einwilligung.nachweis.umfang}
-                  bestaetigtAm={einwilligung.bestaetigt_am}
-                  textVersion={einwilligung.text_version}
-                />
+                <Beleg nachweis={einwilligung.nachweis.umfang} />
               </Angabe>
               {/* A word and never a switch: this panel reads a record back, and a control here would
                   offer an administrator the answer that is the person's alone. */}
               <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
                 {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
-                <Beleg
-                  nachweis={einwilligung.nachweis.medien}
-                  bestaetigtAm={einwilligung.bestaetigt_am}
-                  textVersion={einwilligung.text_version}
-                />
+                <Beleg nachweis={einwilligung.nachweis.medien} />
               </Angabe>
               {/* A stored record's alone: nothing names who answered since, the person being the only one who may. */}
               {einwilligung.erteilt_von !== null && <Angabe label="Herkunft">{EINWILLIGUNG_HERKUNFT_LABELS[einwilligung.erteilt_von]}</Angabe>}
-              {/* Never `fl_frontend/src/shared/utils/format.ts :: PLACEHOLDER`'s „Termin offen“: it promises a
-                  day that is coming, and nobody was asked for this one. */}
-              <Angabe label="Erteilt am">{einwilligung.datum === null ? <Leer /> : formatSpielDatum(einwilligung.datum)}</Angabe>
-              {/* A state rather than a gap: an unconfirmed record is not one whose day went missing. */}
-              <Angabe label="Bestätigt am">
-                {einwilligung.bestaetigt_am === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.bestaetigt_am)}
-              </Angabe>
+              <Angabe label="Erteilt am">{formatSpielDatum(einwilligung.datum)}</Angabe>
+              <Angabe label="Bestätigt am">{formatSpielDatum(einwilligung.bestaetigt_am)}</Angabe>
               {/* The key rather than a German gloss of it, which would be a second name for one
                   wording. */}
               <Angabe label={EINWILLIGUNG_FASSUNG_FRAGE}>

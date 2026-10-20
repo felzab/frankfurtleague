@@ -6,7 +6,7 @@ import type { FLSchiedsrichter } from "./schemas";
 
 type Stored = Pick<FLSchiedsrichter, "einwilligung" | "kontakt">;
 
-const unanswered = (stored: Stored): boolean => (stored.einwilligung?.bestaetigt_am ?? null) === null;
+const unanswered = (stored: Stored): boolean => stored.einwilligung === null;
 
 /**
  * A save moving any referee's address, a consent link or an address link alike, over

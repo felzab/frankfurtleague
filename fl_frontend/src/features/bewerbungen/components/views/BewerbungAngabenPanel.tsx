@@ -234,19 +234,11 @@ export function BewerbungAngabenPanel({
                       <>
                         <Angabe label={KONTAKT_WHATSAPP_FRAGE}>
                           {KONTAKT_WHATSAPP_LABELS[person.einwilligung.umfang]}
-                          <Beleg
-                            nachweis={person.einwilligung.nachweis.umfang}
-                            bestaetigtAm={person.einwilligung.bestaetigt_am}
-                            textVersion={person.einwilligung.text_version}
-                          />
+                          <Beleg nachweis={person.einwilligung.nachweis.umfang} />
                         </Angabe>
                         <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
                           {person.einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
-                          <Beleg
-                            nachweis={person.einwilligung.nachweis.medien}
-                            bestaetigtAm={person.einwilligung.bestaetigt_am}
-                            textVersion={person.einwilligung.text_version}
-                          />
+                          <Beleg nachweis={person.einwilligung.nachweis.medien} />
                         </Angabe>
                       </>
                     )}

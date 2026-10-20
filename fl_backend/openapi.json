@@ -15841,44 +15841,22 @@
             "title": "Erteilt Von"
           },
           "datum": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Datum"
           },
           "bestaetigt_am": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Bestaetigt Am"
           },
           "text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Text Version"
           },
           "medien": {
             "type": "boolean",
-            "title": "Medien",
-            "default": false
+            "title": "Medien"
           },
           "nachweis": {
             "$ref": "#/components/schemas/FLEinwilligungNachweise"
@@ -15888,7 +15866,10 @@
         "required": [
           "umfang",
           "datum",
-          "bestaetigt_am"
+          "bestaetigt_am",
+          "text_version",
+          "medien",
+          "nachweis"
         ],
         "title": "FLEinwilligung",
         "description": "What this person agreed may be published about them.\n\nThe keys the validator requires stand TOGETHER, as `FLAustritt` does: a scope with no\nconfirmation date claims somebody consented, and no surface can tell that from one somebody gave."
@@ -21401,26 +21382,12 @@
             "title": "Datum"
           },
           "bestaetigt_am": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Bestaetigt Am"
           },
           "text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Text Version"
           },
           "medien": {
@@ -21440,7 +21407,8 @@
         },
         "type": "object",
         "required": [
-          "bestaetigt_am"
+          "bestaetigt_am",
+          "text_version"
         ],
         "title": "FLRegistrierungEinwilligung",
         "description": "A pending registration's consent record, each choice and `datum` optional here alone.\n\nA returning pupil's page asks no choice (`docs/backend/spec.md :: I557`)."

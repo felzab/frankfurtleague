@@ -5,7 +5,6 @@ import pytest
 
 from app.api.bewerbungen.services import compose_einwilligung
 from app.api.registrierungen.services import compose_person_update
-from app.api.spieler.schemas import FLEinwilligung
 from app.api.teams.schemas import FLKontaktKenntnisnahme
 from app.shared.einwilligung_nachweis import (
     compose_beleg,
@@ -326,11 +325,6 @@ class TestTheStandAPressEchoes:
 
 class TestARecordStoredBeforeItsEvidence:
     """No migration: every record stored before the field reads as one no person has answered."""
-
-    def test_a_persons_record_reads_empty_evidence(self):
-        nachweis = FLEinwilligung.model_validate(AS_PRESSED).nachweis
-
-        assert (nachweis.umfang, nachweis.medien) == (None, None)
 
     def test_a_seat_reads_empty_evidence_and_no_media_consent(self):
         read = FLKontaktKenntnisnahme.model_validate(SEAT_BEFORE_MEDIEN)

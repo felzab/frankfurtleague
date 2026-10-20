@@ -234,35 +234,35 @@ _NACHWEIS_WAHL = _object(
 _NACHWEIS = _object(required=(), properties={"umfang": _NACHWEIS_WAHL, "medien": _NACHWEIS_WAHL})
 
 
-# Required TOGETHER: the required keys are always present, and a null `bestaetigt_am` is what says
-# the consent is UNCONFIRMED rather than absent. Spread into the registration's own below, so
-# widening `umfang` here widens it on all three collections.
+# Required TOGETHER: a record is born whole of its person's own confirmation, so a key missing is a
+# record nobody gave. Spread into the registration's own below, so widening `umfang` here widens it
+# on all three collections.
 _EINWILLIGUNG = _object(
-    required=("umfang", "datum", "bestaetigt_am"),
+    required=("umfang", "datum", "bestaetigt_am", "text_version", "medien", "nachweis"),
     properties={
         "umfang": {"bsonType": "string", "enum": _EINWILLIGUNG_UMFANG},
         # Out of `required` and still closed: stored records carry it, and no write sets it.
         "erteilt_von": {"bsonType": _STRING_OR_NULL, "enum": [*_EINWILLIGUNG_QUELLEN, None]},
-        "datum": {"bsonType": _STRING_OR_NULL},
-        "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
-        # Both out of `required` for `saisons.spielplan`'s reason: every stored consent record
-        # predates them. A media consent is a scope of its own and never an `_EINWILLIGUNG_UMFANG`
-        # member, so a record can be withdrawn from one and stand in the other.
-        "text_version": {"bsonType": _STRING_OR_NULL},
+        "datum": {"bsonType": "string"},
+        "bestaetigt_am": {"bsonType": "string"},
+        "text_version": {"bsonType": "string"},
+        # A media consent is a scope of its own and never an `_EINWILLIGUNG_UMFANG` member, so a
+        # record can be withdrawn from one and stand in the other.
         "medien": {"bsonType": "bool"},
         "nachweis": _NACHWEIS,
     },
 )
 
-# A pending registration's: `bestaetigt_am` alone required and both choices nullable, a returning
-# pupil's page asking none. Never a widened `_EINWILLIGUNG`, which a person's record would then
-# pass without a scope.
+# A pending registration's: its stamp and label alone required and both choices nullable, a
+# returning pupil's page asking none. Never a widened `_EINWILLIGUNG`, which a person's record would
+# then pass without a scope.
 _REGISTRIERUNG_EINWILLIGUNG = _object(
     nullable=True,
-    required=("bestaetigt_am",),
+    required=("bestaetigt_am", "text_version"),
     properties={
         **_EINWILLIGUNG["properties"],
         "umfang": {"bsonType": _STRING_OR_NULL, "enum": [*_EINWILLIGUNG_UMFANG, None]},
+        "datum": {"bsonType": _STRING_OR_NULL},
         "medien": {"bsonType": ["bool", "null"]},
     },
 )
@@ -2208,7 +2208,7 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "email": _NON_EMPTY,
         "geburtsdatum": _OPTIONAL_DAY,
         "einwilligung.datum": _OPTIONAL_DAY,
-        "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "einwilligung.bestaetigt_am": _DAY,
         "bestaetigung.verschickt_am": _DAY,
         "bestaetigung.erinnert_am": _OPTIONAL_DAY,
         "bestaetigung.frist": _DAY,
@@ -2275,8 +2275,8 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "bestaetigung.verschickt_am": _DAY,
         "bestaetigung.erinnert_am": _OPTIONAL_DAY,
         "bestaetigung.frist": _DAY,
-        "einwilligung.datum": _OPTIONAL_DAY,
-        "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "einwilligung.datum": _DAY,
+        "einwilligung.bestaetigt_am": _DAY,
         "adresswechsel.verschickt_am": _DAY,
     },
     Collection.SPERRLISTE: {
@@ -2333,8 +2333,8 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "bericht.bemerkungen": _NON_EMPTY_OR_NULL,
     },
     Collection.SPIELER: {
-        "einwilligung.datum": _OPTIONAL_DAY,
-        "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "einwilligung.datum": _DAY,
+        "einwilligung.bestaetigt_am": _DAY,
         # Null is the sentinel's, and `NAMELESS_PERSON_RULE`'s anywhere else.
         "vorname": _NON_EMPTY_OR_NULL,
         "inactive_since": _OPTIONAL_DAY,

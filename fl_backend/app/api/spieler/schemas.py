@@ -108,22 +108,20 @@ class FLEinwilligung(BaseModel):
     umfang: FLEinwilligungUmfang
     # Read off stored records alone, so defaulted: a record written from now on names no speaker.
     erteilt_von: FLEinwilligungQuelle | None = None
-    # The day consent was given, and `None` for a carry-over: nobody was asked, so no day exists.
-    datum: CustomOptionalDateString
-    # `None` means UNCONFIRMED, which is not the same as absent: the admin membership read serves
-    # this so a carried-over record shows as awaiting a confirmation rather than merely dateless.
-    bestaetigt_am: CustomOptionalDateString
+    # The day consent was given. A record is born of its person's own confirmation, so it is that day.
+    datum: CustomDateString
+    # The day its person confirmed it, which every record has: nobody but that person writes one.
+    bestaetigt_am: CustomDateString
     # A label of `fl_backend/app/shared/einwilligung.py :: FASSUNGEN` and never the words, as
     # `app/api/teams/schemas.py :: FLKontaktKenntnisnahme` holds one: a rewording must not change what
-    # a stored record claims. Defaulted, every stored record predating it.
-    text_version: str | None = None
+    # a stored record claims.
+    text_version: str
     # A SECOND consent under one record rather than a third `umfang` member: publication and media
-    # are independent answers, so withdrawing one leaves the other standing. Defaulted for
-    # `text_version`'s reason.
-    medien: bool = False
-    # Each choice's evidence (`app/shared/einwilligung_nachweis.py`), empty on a record no person has
-    # answered. Never null: a choice's evidence is set dotted, and MongoDB sets no field under a null.
-    nachweis: FLEinwilligungNachweise = Field(default_factory=FLEinwilligungNachweise)
+    # are independent answers, so withdrawing one leaves the other standing.
+    medien: bool
+    # Each choice's evidence (`app/shared/einwilligung_nachweis.py`). Never null: a choice's evidence
+    # is set dotted, and MongoDB sets no field under a null.
+    nachweis: FLEinwilligungNachweise
 
 
 class _SpielerPerson(BaseModel):

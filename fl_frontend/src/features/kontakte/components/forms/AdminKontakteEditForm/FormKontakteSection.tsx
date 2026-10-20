@@ -555,11 +555,7 @@ function KontaktpersonInputs({
               <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{KONTAKT_WHATSAPP_FRAGE}</FieldLabel>
               <Input className={FIELD_INPUT_CLASSES} />
             </TextField>
-            <Beleg
-              nachweis={person.einwilligung.nachweis.umfang}
-              bestaetigtAm={person.einwilligung.bestaetigt_am}
-              textVersion={person.einwilligung.text_version}
-            />
+            <Beleg nachweis={person.einwilligung.nachweis.umfang} />
           </div>
 
           <div className="flex flex-col gap-y-1">
@@ -570,11 +566,7 @@ function KontaktpersonInputs({
               <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{EINWILLIGUNG_MEDIEN_FRAGE}</FieldLabel>
               <Input className={FIELD_INPUT_CLASSES} />
             </TextField>
-            <Beleg
-              nachweis={person.einwilligung.nachweis.medien}
-              bestaetigtAm={person.einwilligung.bestaetigt_am}
-              textVersion={person.einwilligung.text_version}
-            />
+            <Beleg nachweis={person.einwilligung.nachweis.medien} />
           </div>
         </div>
       </div>

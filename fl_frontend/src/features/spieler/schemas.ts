@@ -77,17 +77,16 @@ export type FLEinwilligungStandPayload = z.infer<typeof FLEinwilligungStandPaylo
  * Mirrors `FLEinwilligung` — what may be published about this person.
  *
  * `bestandsuebernahme` marks a backfilled record, which must stay distinguishable from consent
- * somebody actually gave. A null `bestaetigt_am` is UNCONFIRMED.
+ * somebody actually gave.
  */
 export const FLEinwilligungSchema = z.object({
   umfang: z.enum(["kader_oeffentlich", "intern"]),
   // Who answered, on a record stored before no write named one; null on every record since.
   erteilt_von: z.enum(["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]).nullable(),
-  datum: CustomDateStringSchema.nullable(),
-  bestaetigt_am: CustomDateStringSchema.nullable(),
-  // A label of the backend's consent registry and never the words; null on every record stored
-  // before the registration flow stamped one.
-  text_version: z.string().nullable(),
+  datum: CustomDateStringSchema,
+  bestaetigt_am: CustomDateStringSchema,
+  // A label of the backend's consent registry and never the words.
+  text_version: z.string(),
   // A second consent under one record: `umfang` and this are independent answers, so a reader
   // deciding whether a photo may be published asks this one and never that one.
   medien: z.boolean(),

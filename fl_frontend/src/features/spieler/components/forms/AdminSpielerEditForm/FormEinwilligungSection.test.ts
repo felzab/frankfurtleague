@@ -2,9 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { readEinwilligungDocument } from "@/core/einwilligungDocument.ts";
-import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
-import { PLACEHOLDER } from "@/shared/utils/format";
 
 import {
   EINWILLIGUNG_HERKUNFT_LABELS,
@@ -25,16 +23,8 @@ const FASSUNG = "2026-09-bestaetigung-3";
 /** A label it answers with nothing — what a record stamped under a wording since removed would carry. */
 const UNBEKANNTE_FASSUNG = "liga-2019-01-erfunden";
 
-/** A record carried over with the data rather than asked for, which is what every stored pupil holds. */
-const UEBERNOMMEN: FLEinwilligung = {
-  umfang: "kader_oeffentlich",
-  erteilt_von: "bestandsuebernahme",
-  datum: null,
-  bestaetigt_am: null,
-  text_version: null,
-  medien: false,
-  nachweis: { umfang: null, medien: null },
-};
+/** Each choice as its person's own confirmation evidences it, at that press under its label. */
+const BESTAETIGUNG = { am: "2026-03-04T09:00:00Z", text_version: FASSUNG, erteilt_zuvor: null };
 
 /** A consent the registration flow collected: dated, confirmed, and citing the wording its person was shown. */
 const ERTEILT: FLEinwilligung = {
@@ -44,8 +34,11 @@ const ERTEILT: FLEinwilligung = {
   bestaetigt_am: "2026-03-04",
   text_version: FASSUNG,
   medien: true,
-  nachweis: { umfang: null, medien: null },
+  nachweis: { umfang: BESTAETIGUNG, medien: BESTAETIGUNG },
 };
+
+/** A record naming the carry-over as its origin, which the enum still holds. */
+const UEBERNOMMEN: FLEinwilligung = { ...ERTEILT, erteilt_von: "bestandsuebernahme", medien: false };
 
 /** The panel as the page hands it over, which resolves the stored label through the words read. */
 const markup = (einwilligung: FLEinwilligung | null, istFassungBekannt: boolean | null = true): string =>
@@ -96,21 +89,11 @@ describe("the stored consent panel", () => {
     assert.doesNotMatch(html, /<h1\b/, "the section gives the shell page a second h1");
   });
 
-  it("leaves an unasked consent undated without borrowing the fixture placeholder", () => {
-    const text = words(UEBERNOMMEN);
-    assert.ok(!text.includes(PLACEHOLDER.datum), "an absent day promises a day that is coming");
-    assert.match(text, /Erteilt am\s*Nicht hinterlegt/, "an absent day renders as blank rather than as an absence");
-    assertLeerMarkup(markup(UEBERNOMMEN), "Nicht hinterlegt");
-  });
-
-  it("shows the wording a record cites, and says in words where it cites none", () => {
+  it("shows the wording a record cites", () => {
     // Floored on the registry, because the fixture's own label is what the assertion under it
     // greps for: a key the registry stopped answering would take the resolving branch with it.
     assert.ok(Object.hasOwn(readEinwilligungDocument().fassungen, FASSUNG), "the fixture cites a label the registry does not hold");
     assert.ok(words(ERTEILT).includes(FASSUNG), "the stored wording label is not shown");
-    // The label is the registry key rather than a sentence, so an absent one renders as blank
-    // unless the panel words it — and a blank cell reads as a record nobody has finished filling.
-    assert.ok(words(UEBERNOMMEN).includes("Nicht hinterlegt"), "a record citing no wording renders an empty cell");
   });
 
   it("marks a label the wording registry answers with nothing, beside the key itself", () => {
@@ -156,7 +139,7 @@ describe("the stored consent panel", () => {
       ...ERTEILT,
       medien: false,
       nachweis: {
-        umfang: null,
+        umfang: BESTAETIGUNG,
         medien: {
           am: "2026-10-04T08:00:00Z",
           text_version: "2026-10-konto-spieler",
@@ -168,15 +151,14 @@ describe("the stored consent panel", () => {
 
     assert.ok(text.includes("seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-spieler"), "the media choice reads without its own act");
     assert.ok(text.includes("zuvor erteilt am 04.03.2026, 10:00 Uhr"), "the withdrawal hides the grant it ended");
-    assert.ok(
-      text.includes(`seit der Bestätigung am 04.03.2026, Fassung ${FASSUNG}`),
-      "a choice never moved does not stand on its confirmation",
-    );
+    assert.ok(text.includes(`seit 04.03.2026, 10:00 Uhr, Fassung ${FASSUNG}`), "a choice never moved does not stand on its confirmation's act");
   });
 
-  it("reads an unconfirmed record as a state rather than a missing day", () => {
-    assert.ok(words(UEBERNOMMEN).includes("Nicht bestätigt"), "an unconfirmed consent reads as a gap");
-    assert.ok(words(ERTEILT).includes("04.03.2026"), "a confirmed consent does not show the day it was confirmed");
+  it("shows the day the record was given and the day it was confirmed", () => {
+    const text = words({ ...ERTEILT, datum: "2026-03-02" });
+
+    assert.match(text, /Erteilt am\s*02\.03\.2026/, "the day the consent was given is not shown");
+    assert.match(text, /Bestätigt am\s*04\.03\.2026/, "the day the consent was confirmed is not shown");
   });
 
   it("says so where the person carries no record at all, and that none is entered here", () => {
