@@ -119,6 +119,10 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/teams/list/admin": f"clubs and their contact seats, {_PERSON_RECORDS}",
     "/api/v0/teams/memberships": "clubs and their seasons",
     "/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/person/sitze": "one team's seat holders by name, as the seat holders read them",
+    "/api/v0/spielberichte": "a season's reports by state, naming nobody",
+    "/api/v0/spielberichte/{spiel_id:objectid}/admin": "one fixture's report, its administrator named by kind alone",
+    "/api/v0/spielberichte/{spiel_id:objectid}/bericht": "one fixture's report as its referee reads it, its administrator named by kind",
+    "/api/v0/spielberichte/person": "the signed-in referee's played fixtures, naming nobody",
 }
 
 

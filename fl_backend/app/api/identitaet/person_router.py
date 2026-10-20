@@ -33,6 +33,7 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SperrlisteCollection,
+    SpielberichteCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
     SpielerCollection,
@@ -72,6 +73,7 @@ async def erase_selbst(
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    spielberichte_collection: SpielberichteCollection,
     registrierungen_collection: RegistrierungenCollection,
     drosselung_collection: Annotated[AsyncCollection, Depends(get_drosselung_collection)],
     aktionen_collection: AktionenCollection,
@@ -104,7 +106,9 @@ async def erase_selbst(
     ended; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an
     application of any status, the row and its other seats standing, an emptied seat's links on its team's open match
     confirmations stopping to answer. Every reason the person typed answering a match confirmation, from any seat they held,
-    goes from its row and its log images, the answer standing. Every record the person made as an administrator or
+    goes from its row and its log images, the answer standing. Every match report the referee record sent stands, its
+    remarks and entries included, naming the row that holds no person in its place, in its log images too. Every record
+    the person made as an administrator or
     decided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's decision -- and every
     log row they wrote name a fixed marker in their place, this erasure's own rows included. The log images of the removed
     records are emptied, and every other image holding the address loses it, the people beside them keeping theirs.
@@ -139,6 +143,7 @@ async def erase_selbst(
             schiedsrichter_collection=schiedsrichter_collection,
             spiele_collection=spiele_collection,
             spielbestaetigungen_collection=spielbestaetigungen_collection,
+            spielberichte_collection=spielberichte_collection,
             registrierungen_collection=registrierungen_collection,
             drosselung_collection=drosselung_collection,
             aktionen_collection=aktionen_collection,
@@ -194,6 +199,7 @@ async def get_erasure_ansicht(
     named, that row not being this address's until the change is confirmed. Reached and not named: the fixtures booking
     their referee record, which move onto the ghost, and their name in each of those fixtures' log images, which goes; the
     confirmations their referee record was asked for, which go, and its id and reason in a removed season's log images;
+    the match reports their referee record sent, which stand naming the ghost, in their log images too;
     the links their contact seats were mailed on their teams' match confirmations, answered and closed ones too, which stop
     answering, and those links and their mails' delivery records in the confirmations' log images, which go; every reason
     they typed answering a match confirmation, from any seat they held, which goes from its row and its log images, the

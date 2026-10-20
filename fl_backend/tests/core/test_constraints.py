@@ -21,6 +21,7 @@ from app.api.berechtigungen.schemas import (
     FLBerechtigungUrheber,
     FLBerechtigungVorenthalten,
     FLVerwaltung,
+    as_utc,
 )
 from app.api.bewerbungen.schemas import (
     FLBewerbung,
@@ -54,6 +55,20 @@ from app.api.saisons.schemas import (
 )
 from app.api.schiedsrichter.schemas import FLSchiedsrichter, FLSchiedsrichterAdresswechsel, FLSchiedsrichterBestaetigung
 from app.api.sperrliste.schemas import FLSperrlisteEintrag
+from app.api.spielberichte.schemas import (
+    FLKartenFarbe,
+    FLKartenGrund,
+    FLSpielbericht,
+    FLSpielberichtBericht,
+    FLSpielberichtKarte,
+    FLSpielberichtSeite,
+    FLSpielberichtSonderereignis,
+    FLSpielberichtTorschuetze,
+    FLSpielberichtUebernommenVon,
+    FLSpielberichtVonAdmin,
+    FLSpielberichtVonSchiedsrichter,
+    FLSpielberichtVorschlag,
+)
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigung,
     FLSpielbestaetigungAnsetzung,
@@ -285,6 +300,15 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     ),
     (Collection.SPIELBESTAETIGUNGEN, ("antwort", "vorschlag"), FLSpielbestaetigungTermin, frozenset()),
     (Collection.SPIELBESTAETIGUNGEN, ("geschlossen",), FLSpielbestaetigungGeschlossen, frozenset()),
+    # One fixture's report, every nested model at its path; an array's path lands on its members.
+    (Collection.SPIELBERICHTE, (), FLSpielbericht, frozenset()),
+    (Collection.SPIELBERICHTE, ("bericht",), FLSpielberichtBericht, frozenset()),
+    (Collection.SPIELBERICHTE, ("bericht", "ergebnis_vorschlag"), FLSpielberichtVorschlag, frozenset()),
+    (Collection.SPIELBERICHTE, ("bericht", "ergebnis_vorschlag", "elfmeterschiessen"), FLSpielElfmeterschiessen, frozenset()),
+    (Collection.SPIELBERICHTE, ("bericht", "torschuetzen"), FLSpielberichtTorschuetze, frozenset()),
+    (Collection.SPIELBERICHTE, ("bericht", "karten"), FLSpielberichtKarte, frozenset()),
+    (Collection.SPIELBERICHTE, ("bericht", "eingereicht_von"), (FLSpielberichtVonSchiedsrichter, FLSpielberichtVonAdmin), frozenset()),
+    (Collection.SPIELBERICHTE, ("bericht", "uebernommen_von"), FLSpielberichtUebernommenVon, frozenset()),
     # The junction's declared shape; nothing validates a stored row through it.
     (Collection.SAISON_SPIELER, (), FLSaisonSpielerRow, frozenset()),
     (Collection.SPERRLISTE, (), FLSperrlisteEintrag, frozenset()),
@@ -535,6 +559,27 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     *(
         (Collection.SPIELBESTAETIGUNGEN, ("kontakte", seat, "zustellung"), "stand", get_args(FLBewerbungZustellstand), False)
         for seat in KONTAKT_ROLLEN
+    ),
+    (Collection.SPIELBERICHTE, ("bericht", "ergebnis_vorschlag"), "sonderereignis", get_args(FLSpielberichtSonderereignis), True),
+    (Collection.SPIELBERICHTE, ("bericht", "torschuetzen"), "seite", get_args(FLSpielberichtSeite), False),
+    (Collection.SPIELBERICHTE, ("bericht", "karten"), "seite", get_args(FLSpielberichtSeite), False),
+    (Collection.SPIELBERICHTE, ("bericht", "karten"), "farbe", get_args(FLKartenFarbe), False),
+    # Nullable because a red card may stand without a reason.
+    (Collection.SPIELBERICHTE, ("bericht", "karten"), "grund", get_args(FLKartenGrund), True),
+    (
+        Collection.SPIELBERICHTE,
+        ("bericht", "eingereicht_von"),
+        "art",
+        get_args(FLSpielberichtVonSchiedsrichter.model_fields["art"].annotation)
+        + get_args(FLSpielberichtVonAdmin.model_fields["art"].annotation),
+        False,
+    ),
+    (
+        Collection.SPIELBERICHTE,
+        ("bericht", "uebernommen_von"),
+        "art",
+        get_args(FLSpielberichtUebernommenVon.model_fields["art"].annotation),
+        False,
     ),
     # Who seated the person, at every seat's home: the page its link opens is read off it.
     *((collection, block, "eingetragen_von", get_args(FLKontaktEingetragenVon), True) for collection, block in SEAT_RECORD_HOMES),
@@ -946,6 +991,8 @@ RESHAPING_FUNCTIONS: frozenset[Any] = frozenset(
     {
         parse_empty_string_to_none,
         _served_prefix,
+        # Marks a stored instant as the UTC it is, refusing nothing.
+        as_utc,
         FLAktion._as_text.__func__,
         FLAktion._judge_the_stored_image.__func__,
         FLAktionMitStand._json_safe.__func__,

@@ -74,6 +74,7 @@ REFEREE = ObjectId("6890a1b2c3d4e5f607930021")
 NOT_IN_THE_SQUAD = ObjectId("6890a1b2c3d4e5f607930099")
 ANY_REGISTRIERUNG = ObjectId("6890a1b2c3d4e5f607930098")
 ANY_SPIELBESTAETIGUNG = ObjectId("6890a1b2c3d4e5f607930097")
+ANY_SPIEL = ObjectId("6890a1b2c3d4e5f607930096")
 
 # One mailbox writing as all three kinds of person, so a count is seen to be the kind's and not the mailbox's.
 PERSON = "anna.drossel@schule.de"
@@ -89,6 +90,14 @@ YOUNG_BIRTHDATE = "2110-05-09"
 API = f"/api/v{API_VERSION}"
 KADER_ROW = f"{API}/spieler/kader/{TEAM_A}/{ACTIVE_SAISON}/{NOT_IN_THE_SQUAD}"
 KADER_EDIT = {"nummer": "11", "position": "Tor", "stufe": "Q1", "rolle": None}
+SPIELBERICHT = {
+    "bericht": {
+        "ergebnis_vorschlag": {"team1_tore": 0, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
+        "torschuetzen": [],
+        "karten": [],
+        "bemerkungen": None,
+    }
+}
 
 CEILING_LINE = "A person reached their daily write ceiling"
 
@@ -321,6 +330,7 @@ COUNTED_ON_EVERY_CALL = [
         "schiedsrichter",
         id="a referee's answer",
     ),
+    pytest.param("PUT", f"{API}/spielberichte/{ANY_SPIEL}/bericht", SPIELBERICHT, "schiedsrichter", id="a referee's report"),
 ]
 
 

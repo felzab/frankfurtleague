@@ -322,7 +322,9 @@ class TestTheRouterAnswersInTheEnvelope:
                 if re.fullmatch(template_pattern(document, other), url)
                 for method in operations
             }
-            response = client().put(url)
+            # A method the target serves under no template, which a probe always sending one method meets on some path.
+            unserved = next(method for method in ("PUT", "DELETE", "PATCH", "POST") if method not in expected)
+            response = client().request(unserved, url)
             answered = set(response.headers.get("allow", "").split(", "))
             if response.status_code != 405 or answered != expected:
                 short[url] = (response.status_code, sorted(answered), sorted(expected))

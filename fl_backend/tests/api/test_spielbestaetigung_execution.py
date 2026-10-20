@@ -1200,6 +1200,7 @@ class TestTheQueueListsAFixtureItsConfirmationsPutThere:
                 spielorte_collection=database[Collection.SPIELORTE],
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                spielberichte_collection=database[Collection.SPIELBERICHTE],
                 saison_id=SAISON_ID,
                 today=today,
             )

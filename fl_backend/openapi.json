@@ -3117,7 +3117,7 @@
     "/api/v0/spiele/action_required": {
       "get": {
         "summary": "Spiele needing attention",
-        "description": "List Spiele needing attention, and the bracket faults among them.\n\nQualifying: cancelled, missing a date, time, venue or referee, past with no result, or a\nknockout side with neither team nor `quelle`. Scoped to `saison_id`, the active season when none\nis named, which answers 404 while no season is active.\n\nAlso every fixture a club's unclosed confirmation about its Ansetzung as it stands puts before the\nadministrator: a decline proposing another date, a deadline passed unanswered, or a deadline of\ntoday on a request sent today or never. The rows themselves are not served: `GET /spielbestaetigungen`\nfor the same season serves them, read separately, so a row reaching one of those states between\nthe two reads shows its fixture on the next.\n\nThe faults include a fixture still to be played that is booked onto a retired venue or referee,\nand one whose venue or referee another fixture of any season claims less than four hours away.",
+        "description": "List Spiele needing attention, and the bracket faults among them.\n\nQualifying: cancelled, missing a date, time, venue or referee, past with no result, a\nknockout side with neither team nor `quelle`, or holding a referee's report the administrator has\nnot adopted as it stands (`GET /spielberichte` serves its state). Scoped to `saison_id`, the active season when none\nis named, which answers 404 while no season is active.\n\nAlso every fixture a club's unclosed confirmation about its Ansetzung as it stands puts before the\nadministrator: a decline proposing another date, a deadline passed unanswered, or a deadline of\ntoday on a request sent today or never. The rows themselves are not served: `GET /spielbestaetigungen`\nfor the same season serves them, read separately, so a row reaching one of those states between\nthe two reads shows its fixture on the next.\n\nThe faults include a fixture still to be played that is booked onto a retired venue or referee,\nand one whose venue or referee another fixture of any season claims less than four hours away.",
         "operationId": "get_spiele_action_required_api_v0_spiele_action_required_get",
         "security": [
           {
@@ -5268,7 +5268,7 @@
     "/api/v0/saisons/{saison_id}/spielplan": {
       "post": {
         "summary": "Draw this Saison's Spielplan",
-        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, inside `REQ-SPIELPLAN-005`'s window, and is refused `REQ-AUTH-009` from a sign-in or confirmation\nolder than `STEP_UP_WINDOW_HOURS`: nothing writes the removed rows back.",
+        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, every fixture's confirmations and referee's report with them, inside\n`REQ-SPIELPLAN-005`'s window, and is refused `REQ-AUTH-009` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`: nothing writes the removed rows back.",
         "operationId": "generate_spielplan_api_v0_saisons__saison_id__spielplan_post",
         "security": [
           {
@@ -5335,7 +5335,7 @@
       },
       "delete": {
         "summary": "Undraw this Saison's Spielplan",
-        "description": "Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.\n\nThe replace's window bounds it (`REQ-SPIELPLAN-006`). Undoing the draw is what reopens the shape\nrules to `PATCH` and the groups to an entry.",
+        "description": "Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.\n\nEvery fixture's confirmations and referee's report go with it.\n\nThe replace's window bounds it (`REQ-SPIELPLAN-006`). Undoing the draw is what reopens the shape\nrules to `PATCH` and the groups to an entry.",
         "operationId": "undraw_spielplan_api_v0_saisons__saison_id__spielplan_delete",
         "security": [
           {
@@ -6448,7 +6448,7 @@
     "/api/v0/identitaet/erasure/ansicht": {
       "post": {
         "summary": "Show what an erasure of an address would remove",
-        "description": "Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names\nevery one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,\nand no other. Another address's referee or pupil row holding a pending change to this address is named by its id, the\nchange going and the row standing. A squad row and a referee row each carry the day it was retired, null while live,\nand a referee row every season holding a fixture still to be played that it is booked on, as `REQ-RETIRE-004` judges\none. Reached and not named: the fixtures booking a referee row, which move onto the ghost, and the referee's name in\neach of those fixtures' log images, which goes; the confirmations a referee row was asked for, which go, and its id\nand reason in a removed season's log images; the links its contact seats were mailed on their teams' open match\nconfirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,\nwhich goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for\nothers, which name a marker in its place; its day counts; its rows in the log; every log image of a record the\nerasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;\na dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the\naddress under another grant's id; and the address in every notice still queued, withheld. Written besides: the\nnotice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.\n`verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the\naddress, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless\nthe administrator holds an owner's power (`REQ-PURGE-005`), and with a 422 before any read, an address under the reserved\n`invalid` domain, where every referee row stored without an address shares one placeholder.",
+        "description": "Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names\nevery one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,\nand no other. Another address's referee or pupil row holding a pending change to this address is named by its id, the\nchange going and the row standing. A squad row and a referee row each carry the day it was retired, null while live,\nand a referee row every season holding a fixture still to be played that it is booked on, as `REQ-RETIRE-004` judges\none. Reached and not named: the fixtures booking a referee row, which move onto the ghost, and the referee's name in\neach of those fixtures' log images, which goes; the match reports a referee row sent, which stand naming the ghost, in\ntheir log images too; the confirmations a referee row was asked for, which go, and its id\nand reason in a removed season's log images; the links its contact seats were mailed on their teams' open match\nconfirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,\nwhich goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for\nothers, which name a marker in its place; its day counts; its rows in the log; every log image of a record the\nerasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;\na dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the\naddress under another grant's id; and the address in every notice still queued, withheld. Written besides: the\nnotice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.\n`verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the\naddress, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless\nthe administrator holds an owner's power (`REQ-PURGE-005`), and with a 422 before any read, an address under the reserved\n`invalid` domain, where every referee row stored without an address shares one placeholder.",
         "operationId": "get_erasure_ansicht_auf_anfrage_api_v0_identitaet_erasure_ansicht_post",
         "requestBody": {
           "content": {
@@ -7242,6 +7242,199 @@
           },
           "409": {
             "$ref": "#/components/responses/409.REQ-ANSETZUNG-014"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/spielberichte": {
+      "get": {
+        "summary": "Every report of a season and the state it reads in",
+        "description": "Every report of one season holding a block, each with its state against its fixture and what it proposes.\n\nFor the triage. Scoped to `saison_id`, the active season when none is named, which answers 404 while no season is\nactive.",
+        "operationId": "get_spielberichte_api_v0_spielberichte_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielberichteSaisonResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/spielberichte/{spiel_id}/admin": {
+      "get": {
+        "summary": "One fixture's report, whole, for an administrator",
+        "description": "One fixture's report as the editor's panel reads it, whole, with the state it reads in.\n\nBeside it the fixture, both clubs' live squads of the season and the pupils the report names outside them. The\nreport and its state are null where no report stands; `DB-COMMON-001` only for a fixture that does not exist.",
+        "operationId": "get_spielbericht_admin_api_v0_spielberichte__spiel_id__admin_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spiel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spiel Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielberichtAdminResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/spielberichte/{spiel_id}": {
+      "patch": {
+        "summary": "Write one fixture's report as an administrator",
+        "description": "Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.\n\nEvery write raises its `version`, so a report adopted before reads `abweichend` until it is adopted again. Who first\nwrote the report stays recorded; a report an administrator writes first records an administrator, naming nobody.\n\nRefuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); one undated or whose\nday is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a pupil newly named on\na side outside that side's live squad of the season (`REQ-BERICHT-003`); and remarks naming a seat holder of either\nclub, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each is asked again outside the\ntransaction just before answering. Two first writes at once are one report and one `DB-COMMON-002`.",
+        "operationId": "patch_spielbericht_api_v0_spielberichte__spiel_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spiel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spiel Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielberichtPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielberichtAdminResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERICHT-001.REQ-BERICHT-003.REQ-BERICHT-004"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-BERICHT-005.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -10275,7 +10468,7 @@
     "/api/v0/identitaet/selbst/erasure": {
       "post": {
         "summary": "Erase every record the signed-in address holds",
-        "description": "Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.\n\nPERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one\n(`REQ-PURGE-004`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest\nfrom a passkey sign-in `ENROLMENT_WINDOW_MINUTES` old at most, as a revoke asks, else `REQ-AUTH-009`. No other\nprecondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still\nto be played included. Nothing is counted against the person's day.\n\nRemoved: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every\nfixture it was booked on moving to the one row that holds no person and keeping its own fee, and every confirmation it\nwas asked for, answered or not; every registration at the\naddress, pending or declined; another referee's or pupil's pending address change naming this address, that row itself\nstanding; every grant the address holds, an `owner` grant and the last two among them, every administrator being told it\nended; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an\napplication of any status, the row and its other seats standing, an emptied seat's links on its team's open match\nconfirmations stopping to answer. Every reason the person typed answering a match confirmation, from any seat they held,\ngoes from its row and its log images, the answer standing. Every record the person made as an administrator or\ndecided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's decision -- and every\nlog row they wrote name a fixed marker in their place, this erasure's own rows included. The log images of the removed\nrecords are emptied, and every other image holding the address loses it, the people beside them keeping theirs.\n\nAn address holding nothing is answered with every count zero rather than refused. The 409 answers only a database\nchanged by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by\nid, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not\ntouched here: deleting it is the caller's, once this has answered.",
+        "description": "Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.\n\nPERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one\n(`REQ-PURGE-004`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest\nfrom a passkey sign-in `ENROLMENT_WINDOW_MINUTES` old at most, as a revoke asks, else `REQ-AUTH-009`. No other\nprecondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still\nto be played included. Nothing is counted against the person's day.\n\nRemoved: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every\nfixture it was booked on moving to the one row that holds no person and keeping its own fee, and every confirmation it\nwas asked for, answered or not; every registration at the\naddress, pending or declined; another referee's or pupil's pending address change naming this address, that row itself\nstanding; every grant the address holds, an `owner` grant and the last two among them, every administrator being told it\nended; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an\napplication of any status, the row and its other seats standing, an emptied seat's links on its team's open match\nconfirmations stopping to answer. Every reason the person typed answering a match confirmation, from any seat they held,\ngoes from its row and its log images, the answer standing. Every match report the referee record sent stands, its\nremarks and entries included, naming the row that holds no person in its place, in its log images too. Every record\nthe person made as an administrator or\ndecided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's decision -- and every\nlog row they wrote name a fixed marker in their place, this erasure's own rows included. The log images of the removed\nrecords are emptied, and every other image holding the address loses it, the people beside them keeping theirs.\n\nAn address holding nothing is answered with every count zero rather than refused. The 409 answers only a database\nchanged by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by\nid, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not\ntouched here: deleting it is the caller's, once this has answered.",
         "operationId": "erase_selbst_api_v0_identitaet_selbst_erasure_post",
         "responses": {
           "200": {
@@ -10321,7 +10514,7 @@
     "/api/v0/identitaet/selbst/erasure/ansicht": {
       "get": {
         "summary": "Show what an erasure of the signed-in address would remove",
-        "description": "Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.\n\nRead through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure\nremoves or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address\nand no birthdate is answered. A pending address change on another address's referee or pupil row is counted and not\nnamed, that row not being this address's until the change is confirmed. Reached and not named: the fixtures booking\ntheir referee record, which move onto the ghost, and their name in each of those fixtures' log images, which goes; the\nconfirmations their referee record was asked for, which go, and its id and reason in a removed season's log images;\nthe links their contact seats were mailed on their teams' match confirmations, answered and closed ones too, which stop\nanswering, and those links and their mails' delivery records in the confirmations' log images, which go; every reason\nthey typed answering a match confirmation, from any seat they held, which goes from its row and its log images, the\nanswer standing; what the person made or decided for others, which names a marker in their place; their day counts; their rows in the\nlog; every log image of a record the erasure removes, emptied whole whether or not it holds the address, and every\nother log image holding the address; each grant's announced row, and an announced row holding the address under\nanother grant's id; and the address in every notice still queued, withheld. Written besides: the notice that their\ngrant ended, which every administrator is sent. `verwaltung` is the tier of the live grant the address holds, or\nnull; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.\n\n`letzter_inhaber` says whether the press would be refused `REQ-PURGE-004` as the grants stand at this read: the address\nholds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;\nthe press judges again, and its answer alone decides.",
+        "description": "Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.\n\nRead through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure\nremoves or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address\nand no birthdate is answered. A pending address change on another address's referee or pupil row is counted and not\nnamed, that row not being this address's until the change is confirmed. Reached and not named: the fixtures booking\ntheir referee record, which move onto the ghost, and their name in each of those fixtures' log images, which goes; the\nconfirmations their referee record was asked for, which go, and its id and reason in a removed season's log images;\nthe match reports their referee record sent, which stand naming the ghost, in their log images too;\nthe links their contact seats were mailed on their teams' match confirmations, answered and closed ones too, which stop\nanswering, and those links and their mails' delivery records in the confirmations' log images, which go; every reason\nthey typed answering a match confirmation, from any seat they held, which goes from its row and its log images, the\nanswer standing; what the person made or decided for others, which names a marker in their place; their day counts; their rows in the\nlog; every log image of a record the erasure removes, emptied whole whether or not it holds the address, and every\nother log image holding the address; each grant's announced row, and an announced row holding the address under\nanother grant's id; and the address in every notice still queued, withheld. Written besides: the notice that their\ngrant ended, which every administrator is sent. `verwaltung` is the tier of the live grant the address holds, or\nnull; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.\n\n`letzter_inhaber` says whether the press would be refused `REQ-PURGE-004` as the grants stand at this read: the address\nholds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;\nthe press judges again, and its answer alone decides.",
         "operationId": "get_erasure_ansicht_api_v0_identitaet_selbst_erasure_ansicht_get",
         "responses": {
           "200": {
@@ -10458,6 +10651,176 @@
           },
           "410": {
             "$ref": "#/components/responses/410.REQ-ANSETZUNG-002.REQ-ANSETZUNG-003.REQ-ANSETZUNG-004.REQ-ANSETZUNG-005.REQ-ANSETZUNG-009"
+          },
+          "429": {
+            "$ref": "#/components/responses/429.REQ-DROSSELUNG-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/spielberichte/person": {
+      "get": {
+        "summary": "The fixtures a signed-in referee reports on",
+        "description": "The `active` season's fixtures booked to the signed-in referee whose day has come, newest first.\n\nBooked to any confirmed, live referee record of the address, each with when its report was first sent, null where\nnone stands.\n\nA fixture called off or struck out is left out, having no report. Empty while no season is `active`. Refused\n`REQ-FUNKTION-001` where the address holds no confirmed, live referee record.",
+        "operationId": "get_spielberichte_person_api_v0_spielberichte_person_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielberichtePersonResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/spielberichte/{spiel_id}/bericht": {
+      "get": {
+        "summary": "One fixture's report as its referee reads it",
+        "description": "What the booked referee's report form reads.\n\nThe fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored\nreport, its remarks and card reasons included, or null.\n\nServed for a fixture still to come or called off too, whose page says why it takes no report. Refused\n`REQ-FUNKTION-001` where the address holds no confirmed, live referee record, and `REQ-BERICHT-002` where the fixture\nis booked to none of its records; `DB-COMMON-001` for a fixture that does not exist.",
+        "operationId": "get_spielbericht_bericht_api_v0_spielberichte__spiel_id__bericht_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spiel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spiel Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielberichtSchiedsrichterResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-BERICHT-002.REQ-FUNKTION-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      },
+      "put": {
+        "summary": "Write one fixture's report as its referee",
+        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe proposed result, the scorers, the cards and the remarks. The first write creates it; every write raises its\n`version`, so a report the\nadministrator adopted reads `abweichend` again until it is adopted anew. Writes no fixture: the result is the\nadministrator's to save.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records\n(`REQ-BERICHT-002`); one undated or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out\n(`REQ-BERICHT-004`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil\nthe report already named on that side staying (`REQ-BERICHT-003`); and remarks naming a seat holder of either club,\nthe booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal after the first is asked\nagain outside the transaction just before answering, so a write landing mid-press on what was judged refuses the\nreport rather than letting it stand. Two first writes at once are one report and one `DB-COMMON-002`.",
+        "operationId": "put_spielbericht_bericht_api_v0_spielberichte__spiel_id__bericht_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spiel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spiel Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielberichtPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielberichtSchiedsrichterResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERICHT-001.REQ-BERICHT-003.REQ-BERICHT-004"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-BERICHT-005.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-BERICHT-002.REQ-FUNKTION-001"
           },
           "429": {
             "$ref": "#/components/responses/429.REQ-DROSSELUNG-001"
@@ -24416,6 +24779,848 @@
         "title": "FLSpielTeamFieldPayload",
         "description": "One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the server composes them from the season's `saison_teams` row\n(`docs/backend/spec.md :: I3`). A submitted copy is IGNORED rather than refused, as\n`docs/backend/spec.md :: I114` allows."
       },
+      "FLSpielberichtAdminResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spiel": {
+            "$ref": "#/components/schemas/FLSpielberichtSpiel"
+          },
+          "kader": {
+            "$ref": "#/components/schemas/FLSpielberichtKader"
+          },
+          "genannt": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtSpieler"
+            },
+            "type": "array",
+            "title": "Genannt"
+          },
+          "bericht": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielberichtBericht"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "zustand": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "vorgeschlagen",
+                  "uebernommen",
+                  "abweichend"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zustand"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel",
+          "kader",
+          "genannt",
+          "bericht",
+          "zustand"
+        ],
+        "title": "FLSpielberichtAdminResponse",
+        "description": "The administrator's panel, with the state the report reads in. Null exactly where no block stands."
+      },
+      "FLSpielberichtBericht": {
+        "properties": {
+          "ergebnis_vorschlag": {
+            "$ref": "#/components/schemas/FLSpielberichtVorschlag"
+          },
+          "torschuetzen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtTorschuetze"
+            },
+            "type": "array",
+            "title": "Torschuetzen"
+          },
+          "karten": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtKarte"
+            },
+            "type": "array",
+            "title": "Karten"
+          },
+          "bemerkungen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bemerkungen"
+          },
+          "eingereicht_am": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Eingereicht Am"
+          },
+          "eingereicht_von": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielberichtVonSchiedsrichter"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielberichtVonAdmin"
+              }
+            ],
+            "title": "Eingereicht Von",
+            "discriminator": {
+              "propertyName": "art",
+              "mapping": {
+                "admin": "#/components/schemas/FLSpielberichtVonAdmin",
+                "schiedsrichter": "#/components/schemas/FLSpielberichtVonSchiedsrichter"
+              }
+            }
+          },
+          "geaendert_am": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Geaendert Am"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "uebernommen_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uebernommen Am"
+          },
+          "uebernommen_von": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielberichtUebernommenVon"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "uebernommene_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uebernommene Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ergebnis_vorschlag",
+          "torschuetzen",
+          "karten",
+          "bemerkungen",
+          "eingereicht_am",
+          "eingereicht_von",
+          "geaendert_am",
+          "version",
+          "uebernommen_am",
+          "uebernommen_von",
+          "uebernommene_version"
+        ],
+        "title": "FLSpielberichtBericht",
+        "description": "The referee's account of one match, one proposal: a correction returns all of it to proposed.\n\n`version` rises with every write and the adoption records the one it took, so adopted means the two are equal,\nwhatever a clock says."
+      },
+      "FLSpielberichtBerichtPayload": {
+        "properties": {
+          "ergebnis_vorschlag": {
+            "$ref": "#/components/schemas/FLSpielberichtVorschlag"
+          },
+          "torschuetzen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtTorschuetze"
+            },
+            "type": "array",
+            "maxItems": 60,
+            "title": "Torschuetzen"
+          },
+          "karten": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtKarte"
+            },
+            "type": "array",
+            "maxItems": 60,
+            "title": "Karten"
+          },
+          "bemerkungen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bemerkungen"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ergebnis_vorschlag",
+          "torschuetzen",
+          "karten",
+          "bemerkungen"
+        ],
+        "title": "FLSpielberichtBerichtPayload"
+      },
+      "FLSpielberichtKader": {
+        "properties": {
+          "team1": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtSpieler"
+            },
+            "type": "array",
+            "title": "Team1"
+          },
+          "team2": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtSpieler"
+            },
+            "type": "array",
+            "title": "Team2"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team1",
+          "team2"
+        ],
+        "title": "FLSpielberichtKader",
+        "description": "Each side's live squad of the season, the pupils a new entry may name."
+      },
+      "FLSpielberichtKarte": {
+        "properties": {
+          "seite": {
+            "type": "string",
+            "enum": [
+              "team1",
+              "team2"
+            ],
+            "title": "Seite"
+          },
+          "spieler_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spieler Id"
+          },
+          "minute": {
+            "type": "string",
+            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
+            "title": "Minute"
+          },
+          "farbe": {
+            "type": "string",
+            "enum": [
+              "gelb",
+              "gelb_rot",
+              "rot"
+            ],
+            "title": "Farbe"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "foulspiel",
+                  "unsportlichkeit",
+                  "handspiel",
+                  "meckern",
+                  "spielverzoegerung",
+                  "wiederholtes_foulspiel",
+                  "grobes_foulspiel",
+                  "taetlichkeit",
+                  "beleidigung",
+                  "notbremse"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seite",
+          "spieler_id",
+          "minute",
+          "farbe",
+          "grund"
+        ],
+        "title": "FLSpielberichtKarte"
+      },
+      "FLSpielberichtPayload": {
+        "properties": {
+          "bericht": {
+            "$ref": "#/components/schemas/FLSpielberichtBerichtPayload"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bericht"
+        ],
+        "title": "FLSpielberichtPayload",
+        "description": "The whole `bericht` block, written wholesale by the referee's PUT and the administrator's PATCH alike."
+      },
+      "FLSpielberichtPersonEintrag": {
+        "properties": {
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "datum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum"
+          },
+          "uhrzeit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uhrzeit"
+          },
+          "team1_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team1 Name"
+          },
+          "team2_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team2 Name"
+          },
+          "eingereicht_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eingereicht Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_id",
+          "datum",
+          "uhrzeit",
+          "team1_name",
+          "team2_name",
+          "eingereicht_am"
+        ],
+        "title": "FLSpielberichtPersonEintrag",
+        "description": "One played fixture booked to the signed-in referee, and whether their report stands."
+      },
+      "FLSpielberichtSchiedsrichterResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spiel": {
+            "$ref": "#/components/schemas/FLSpielberichtSpiel"
+          },
+          "kader": {
+            "$ref": "#/components/schemas/FLSpielberichtKader"
+          },
+          "genannt": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtSpieler"
+            },
+            "type": "array",
+            "title": "Genannt"
+          },
+          "bericht": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielberichtBericht"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel",
+          "kader",
+          "genannt",
+          "bericht"
+        ],
+        "title": "FLSpielberichtSchiedsrichterResponse",
+        "description": "The booked referee's form: the remarks and the card reasons included, no derived state."
+      },
+      "FLSpielberichtSpiel": {
+        "properties": {
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "saison_phase": {
+            "type": "string",
+            "enum": [
+              "gruppenphase",
+              "achtelfinale",
+              "viertelfinale",
+              "halbfinale",
+              "finale"
+            ],
+            "title": "Saison Phase"
+          },
+          "datum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datum"
+          },
+          "uhrzeit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uhrzeit"
+          },
+          "team1": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielberichtTeam"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team2": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielberichtTeam"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ausgefallen",
+                  "nichtantreten_team1",
+                  "nichtantreten_team2",
+                  "abgebrochen",
+                  "annulliert"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sonderereignis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_id",
+          "saison_id",
+          "saison_phase",
+          "datum",
+          "uhrzeit",
+          "team1",
+          "team2",
+          "sonderereignis"
+        ],
+        "title": "FLSpielberichtSpiel",
+        "description": "The fixture a report is about, as its form states it: no money, no booking, no result."
+      },
+      "FLSpielberichtSpieler": {
+        "properties": {
+          "spieler_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spieler Id"
+          },
+          "vorname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vorname"
+          },
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler_id",
+          "vorname",
+          "nachname",
+          "nummer"
+        ],
+        "title": "FLSpielberichtSpieler",
+        "description": "A pupil a report may name or names. Both names null on the erased pupils' sentinel alone."
+      },
+      "FLSpielberichtTeam": {
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "name"
+        ],
+        "title": "FLSpielberichtTeam"
+      },
+      "FLSpielberichtTorschuetze": {
+        "properties": {
+          "seite": {
+            "type": "string",
+            "enum": [
+              "team1",
+              "team2"
+            ],
+            "title": "Seite"
+          },
+          "spieler_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{24}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spieler Id"
+          },
+          "minute": {
+            "type": "string",
+            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
+            "title": "Minute"
+          },
+          "eigentor": {
+            "type": "boolean",
+            "title": "Eigentor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seite",
+          "spieler_id",
+          "minute",
+          "eigentor"
+        ],
+        "title": "FLSpielberichtTorschuetze",
+        "description": "One goal. A null `spieler_id` is a scorer nobody named, never an erased one, whose entry names the sentinel."
+      },
+      "FLSpielberichtUebernommenVon": {
+        "properties": {
+          "art": {
+            "type": "string",
+            "const": "admin",
+            "title": "Art"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art"
+        ],
+        "title": "FLSpielberichtUebernommenVon"
+      },
+      "FLSpielberichtVonAdmin": {
+        "properties": {
+          "art": {
+            "type": "string",
+            "const": "admin",
+            "title": "Art"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art"
+        ],
+        "title": "FLSpielberichtVonAdmin",
+        "description": "An administrator who wrote the block first, naming nobody, as an administrator's settle does."
+      },
+      "FLSpielberichtVonSchiedsrichter": {
+        "properties": {
+          "art": {
+            "type": "string",
+            "const": "schiedsrichter",
+            "title": "Art"
+          },
+          "schiedsrichter_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Schiedsrichter Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art",
+          "schiedsrichter_id"
+        ],
+        "title": "FLSpielberichtVonSchiedsrichter"
+      },
+      "FLSpielberichtVorschlag": {
+        "properties": {
+          "team1_tore": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team1 Tore"
+          },
+          "team2_tore": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team2 Tore"
+          },
+          "elfmeterschiessen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielElfmeterschiessen"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "abgebrochen",
+                  "nichtantreten_team1",
+                  "nichtantreten_team2"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sonderereignis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team1_tore",
+          "team2_tore",
+          "elfmeterschiessen",
+          "sonderereignis"
+        ],
+        "title": "FLSpielberichtVorschlag",
+        "description": "The referee's proposed result, which only the administrator's own save applies.\n\nBoth counts null on a no-show alone: the save composes its goals from the season's forfeit, which typed goals\ncould never equal."
+      },
+      "FLSpielberichtZustandEintrag": {
+        "properties": {
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "vorgeschlagen",
+              "uebernommen",
+              "abweichend"
+            ],
+            "title": "Zustand"
+          },
+          "ergebnis_vorschlag": {
+            "$ref": "#/components/schemas/FLSpielberichtVorschlag"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_id",
+          "zustand",
+          "ergebnis_vorschlag"
+        ],
+        "title": "FLSpielberichtZustandEintrag",
+        "description": "One fixture's report as the triage reads it: its state and what it proposes."
+      },
+      "FLSpielberichtePersonResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spiele": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtPersonEintrag"
+            },
+            "type": "array",
+            "title": "Spiele"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiele"
+        ],
+        "title": "FLSpielberichtePersonResponse"
+      },
+      "FLSpielberichteSaisonResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spielberichte": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtZustandEintrag"
+            },
+            "type": "array",
+            "title": "Spielberichte"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielberichte"
+        ],
+        "title": "FLSpielberichteSaisonResponse",
+        "description": "Every report of one season that holds a block, each with its state."
+      },
       "FLSpielbestaetigung": {
         "properties": {
           "id": {
@@ -28845,6 +30050,31 @@
           }
         }
       },
+      "403.REQ-AUTH-008.REQ-BERICHT-002.REQ-FUNKTION-001": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-AUTH-008",
+                        "REQ-BERICHT-002",
+                        "REQ-FUNKTION-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "403.REQ-AUTH-008.REQ-EINWILLIGUNG-004.REQ-FUNKTION-001": {
         "description": "Forbidden",
         "content": {
@@ -29334,6 +30564,32 @@
                         "DB-COMMON-002",
                         "REQ-BERECHTIGUNG-003",
                         "REQ-BERECHTIGUNG-007"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.DB-COMMON-002.REQ-BERICHT-001.REQ-BERICHT-003.REQ-BERICHT-004": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-BERICHT-001",
+                        "REQ-BERICHT-003",
+                        "REQ-BERICHT-004"
                       ]
                     }
                   }
@@ -30605,6 +31861,30 @@
                     "error_code": {
                       "enum": [
                         "REQ-ANSETZUNG-007",
+                        "REQ-VAL-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "422.REQ-BERICHT-005.REQ-VAL-001": {
+        "description": "Unprocessable Content",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-BERICHT-005",
                         "REQ-VAL-001"
                       ]
                     }

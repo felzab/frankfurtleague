@@ -84,6 +84,7 @@ SERVICE_PACKAGES: frozenset[str] = frozenset(
         "schiedsrichter",
         "sperrliste",
         "spielbestaetigungen",
+        "spielberichte",
         "spiele",
         "spieler",
         "spielorte",
@@ -320,6 +321,7 @@ class TestWhatARemovalFilterMayName:
             str(Collection.EINLADUNGEN),
             str(Collection.REGISTRIERUNGEN),
             str(Collection.SPIELBESTAETIGUNGEN),
+            str(Collection.SPIELBERICHTE),
         }
 
     def test_every_removal_is_keyed_on_a_field_compared_to_a_value(self):
@@ -685,6 +687,9 @@ HANDED_OUTSIDE_THE_TRANSACTION: Mapping[str, tuple[str, ...]] = {
     "app/api/spielbestaetigungen/router.py :: answer_for_the_seat hands judge": ("session", "None"),
     # The fixture a referee accepts, which the acceptance reads and never writes.
     "app/api/spielbestaetigungen/person_router.py :: answer hands pull_ansetzung_lage": ("session", "None"),
+    # The fixture, squads and season rows a report is judged against, which its write never writes.
+    "app/api/spielberichte/admin_router.py :: write_the_report hands pull_bericht_lage": ("session", "None"),
+    "app/api/spielberichte/person_router.py :: write_the_report hands pull_bericht_lage": ("session", "None"),
 }
 
 
