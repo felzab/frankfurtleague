@@ -1611,10 +1611,6 @@ so nothing survives this to say what the removed writes held. Take the snapshot'
 first ([section 13](#13-after-a-restore-from-a-snapshot)). Erasing every `aktionen` row is run by
 hand as a MongoDB Playground paste, as every migration here is (§2).
 
-**The player half is what lets the old late-entry key go**: once it has run, no stored squad row
-carries the marker under its old spelling, and the leniency that reads it is removed in one change
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I303).
-
 **The referee rows standing today go at a different moment, not at this season's end**: immediately
 before the deploy whose fixture read first consults a referee's own consent record, so that read
 never meets a live row nobody asked
