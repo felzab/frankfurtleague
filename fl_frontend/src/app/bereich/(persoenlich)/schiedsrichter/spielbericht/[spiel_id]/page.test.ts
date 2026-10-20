@@ -5,7 +5,7 @@ import { createElement as h } from "react";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { person } from "@/core/subjectFixtures.ts";
-import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { doubleEveryAction, doubleSubjectLookup } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import {
   answerReadsWith,
@@ -39,7 +39,7 @@ registerDoubles({
 });
 
 const SCHIEDSRICHTER_ID = "68c1f0a2b3c4d5e6f7a8b9d1";
-const { setSubject } = doubleActionRequest({ session: null, subject: person({ schiedsrichter: [{ schiedsrichter_id: SCHIEDSRICHTER_ID }] }) });
+const { setSubject } = doubleSubjectLookup(person({ schiedsrichter: [{ schiedsrichter_id: SCHIEDSRICHTER_ID }] }));
 doubleEveryAction();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
