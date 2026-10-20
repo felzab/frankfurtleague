@@ -178,6 +178,8 @@ export const FLSpielbestaetigungSelbstSchema = z.object({
   zustand: FLSpielbestaetigungSchiedsrichterZustandSchema,
   // The referee's own decline reason, null in every other state.
   begruendung: z.string().nullable(),
+  // Whether the league entered the answer for the referee, naming nobody: its Zusage counts as theirs would.
+  eingetragen: z.boolean(),
 });
 export type FLSpielbestaetigungSelbst = z.infer<typeof FLSpielbestaetigungSelbstSchema>;
 

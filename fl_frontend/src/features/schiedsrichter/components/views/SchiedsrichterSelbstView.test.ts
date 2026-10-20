@@ -42,6 +42,7 @@ const EINSATZ: FLSpielbestaetigungSelbst = {
   ansetzung: { team1_name: "Ernst-Reuter-Schule", team2_name: "Goethe-Gymnasium", datum: "2026-11-20", uhrzeit: "14:30:00", spielort: null },
   zustand: "gueltig",
   begruendung: null,
+  eingetragen: false,
 };
 
 const renderView = (
@@ -135,6 +136,21 @@ describe("a referee's fixtures on their own page", () => {
     for (const wort of ["Zugesagt", "Abgesagt", "Klassenfahrt", "Nicht mehr gültig: Termin oder Einteilung haben sich geändert"]) {
       assert.ok(screen.getByText(wort), `the spent rows do not show „${wort}“`);
     }
+  });
+
+  /* The league may enter a referee's Zusage, which puts them on the schedule as their own does: the panel says whose it
+     is, or the referee reads an agreement they never gave as theirs. */
+  it("marks a Zusage the league entered as the league's, and the referee's own as theirs", () => {
+    renderView(
+      [SCHIEDSRICHTERIN],
+      [
+        { ...EINSATZ, zustand: "zugesagt", eingetragen: true },
+        { ...EINSATZ, id: "6890a1b2c3d4e5f607390052", zustand: "zugesagt" },
+      ],
+    );
+
+    assert.equal(screen.getAllByText("Zusage von der Verwaltung eingetragen").length, 1);
+    assert.equal(screen.getAllByText("Zugesagt").length, 1);
   });
 
   /* The endpoint takes no decline without its reason, so the form sends none: the box says why instead. */

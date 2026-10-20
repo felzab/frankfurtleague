@@ -235,6 +235,7 @@ const einsaetzeSection = () =>
           ansetzung: { team1_name: "SG Alpha", team2_name: "SG Beta", datum: "2026-11-20", uhrzeit: "14:30:00", spielort: null },
           zustand: "gueltig",
           begruendung: null,
+          eingetragen: false,
         },
       ],
     }),

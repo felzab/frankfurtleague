@@ -59,6 +59,9 @@ const ERLEDIGT: Record<Exclude<FLSpielbestaetigungSchiedsrichterZustand, "guelti
   ungueltig: { text: "Nicht mehr gültig: Termin oder Einteilung haben sich geändert", ton: null },
 };
 
+/** A Zusage the league entered, which puts the referee on the schedule as their own would: never read as theirs. */
+const EINGETRAGEN = { text: "Zusage von der Verwaltung eingetragen", ton: "success" } as const;
+
 /**
  * The Einteilung's mail leads here. Its own empty state stands beside the referee's data, and its heading stays when
  * the last open row is answered, so the focus has somewhere to land (`docs/frontend/spec.md :: I536`).
@@ -144,7 +147,7 @@ function EinsatzKarte({ einsatz }: { einsatz: FLSpielbestaetigungSelbst }) {
 
 function Erledigt({ einsatz }: { einsatz: FLSpielbestaetigungSelbst }) {
   if (einsatz.zustand === "gueltig") return null;
-  const { text, ton } = ERLEDIGT[einsatz.zustand];
+  const { text, ton } = einsatz.zustand === "zugesagt" && einsatz.eingetragen ? EINGETRAGEN : ERLEDIGT[einsatz.zustand];
 
   return ton === null ? <Leer>{text}</Leer> : <span className={`${labelBadge(ton)} w-fit`}>{text}</span>;
 }

@@ -670,6 +670,7 @@ const einsatz = (id: string, team2_name: string, zustand: "gueltig" | "zugesagt"
   ansetzung: { team1_name: "SG Alpha", team2_name, datum: "2026-11-20", uhrzeit: "14:30:00", spielort: null },
   zustand,
   begruendung: null,
+  eingetragen: false,
 });
 
 const EINSATZ_BETA = "68c1f0a2b3c4d5e6f7a8b9f1";
