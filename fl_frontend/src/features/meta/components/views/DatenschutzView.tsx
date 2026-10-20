@@ -171,7 +171,7 @@ const FRISTEN = [
   { daten: "Kontaktdaten der Kontaktpersonen einer Saison", frist: "Dieselbe Frist wie die angenommene Bewerbung" },
   {
     daten:
-      "Antwort eines Teams auf eine Spielbestätigung: Zusage oder Absage mit Datum und Rolle, dazu eine Begründung, ein vorgeschlagener Termin, ein unlesbarer Schlüssel der antwortenden Person, die Bestätigungslinks als unlesbare Schlüssel und der Zustellstand ihrer E-Mails",
+      "Antwort eines Teams auf eine Spielbestätigung: Zusage oder Absage mit Datum und Rolle, dazu eine Begründung als freier Text, in dem auch der Name einer Person stehen kann, ein vorgeschlagener Termin, ein unlesbarer Schlüssel der antwortenden Person, die Bestätigungslinks als unlesbare Schlüssel und der Zustellstand ihrer E-Mails",
     frist:
       "Begründung, Schlüssel, Links und Zustellstand bis zum Ende der Saison, die auf die Saison des Spiels folgt, zusammen mit den Kontaktdaten dieser Saison. Zusage oder Absage, Datum, Rolle und vorgeschlagener Termin bleiben als Chronik der Saison bestehen. Wechselt die Person auf einem Platz, gilt ihr Link nicht mehr. Wird eine Kontaktperson auf Wunsch gelöscht, löschen wir auch die Begründungen, die sie geschrieben hat",
   },

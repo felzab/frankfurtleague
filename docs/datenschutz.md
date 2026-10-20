@@ -657,7 +657,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   with its own writer's erasure (above), so a person it names, a squad pupil most likely, stays in it
   past their own erasure until it is deleted with the season's contact data
   ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)); the reason box's hint asks for
-  no names, and nothing enforces it. Ruled 2026-10-19, the unchecked text 2026-10-20. The request an
+  no names, nothing enforces it, and the published notice says a name may stand in the reason
+  (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19, the unchecked text 2026-10-20. The request an
   administrator's erasure answers
   (`aktionen.anlass`) stands on every log row that erasure files, for the log's twelve months
   (`docs/backend/spec.md :: I683`, `:: I119`). It is refused where it holds an address

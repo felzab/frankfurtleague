@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "20. Oktober 2026", digest: "ac5ebb3b4c43a80346c8d012d98d3be761c2b2369ac3d6ca913ef7a988b98cd9" } as const;
+const FASSUNG = { stand: "20. Oktober 2026", digest: "ac2d4d690bdccd591b2c49da30af928dd44c7de2291dd35b6a1d37b5bba7390b" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -185,13 +185,14 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
-  /* The season-end strip clears what tells the people apart with the season's contact data, and keeps the answer
-     (`docs/datenschutz.md` §6): the row says when, and that a seat's handover and an erasure come sooner. */
-  it("gives a club's fixture answer the season-end clock its reasons, keys, links and delivery state go on", () => {
+  /* The season-end strip clears with the contact data what tells the people apart, keeping the answer
+     (`docs/datenschutz.md` §6), and no reason is checked for names (§5): the row says both, and that a handover or an
+     erasure comes sooner. */
+  it("gives a club's fixture answer the season-end clock its reasons, keys, links and delivery state go on, a name in a reason included", () => {
     assert.equal(
       ANGABEN.get(
-        "Antwort eines Teams auf eine Spielbestätigung: Zusage oder Absage mit Datum und Rolle, dazu eine Begründung, ein " +
-          "vorgeschlagener Termin, ein unlesbarer Schlüssel der antwortenden Person, die Bestätigungslinks als unlesbare Schlüssel " +
+        "Antwort eines Teams auf eine Spielbestätigung: Zusage oder Absage mit Datum und Rolle, dazu eine Begründung als freier " +
+          "Text, in dem auch der Name einer Person stehen kann, ein vorgeschlagener Termin, ein unlesbarer Schlüssel der antwortenden Person, die Bestätigungslinks als unlesbare Schlüssel " +
           "und der Zustellstand ihrer E-Mails",
       ),
       "Begründung, Schlüssel, Links und Zustellstand bis zum Ende der Saison, die auf die Saison des Spiels folgt, zusammen mit " +
