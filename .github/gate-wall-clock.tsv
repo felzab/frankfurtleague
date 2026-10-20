@@ -994,6 +994,13 @@
 # against 4.9 s. The stop's own cost moves by less than its spread; the module's added seconds are
 # the hidden-window case and five cases under 2 s each.
 #
+# The pools' registry cases, measured on the same machine later on 2026-10-20 at 9-38 percent CPU
+# beside other agent sessions, three interleaved rounds of each module alone with them and without:
+# `scripts/tests/test_gate_pool.py` 33.3-33.6 s against 32.1-32.6 s, its racing-pools case 0.8-1.5 s;
+# `scripts/tests/test_gate_stop.py` 28.2-29.8 s against 28.3-29.3 s, its two removal cases under 0.2 s
+# each, inside the spread. Both modules ran well under the bullets above in this window, which no
+# change here explains: compare figures only within one window.
+#
 # Each module is one chunk under `--dist loadfile`, shorter than the suite's longest; the row carries
 # `-` for its reference, so they move no figure and answer to the budget alone.
 #
