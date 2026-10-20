@@ -5,6 +5,8 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
 
+import type { FLRegistrierungBestaetigungAnsichtResponse } from "@/features/registrierungen/schemas.ts";
+
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
 // Silent: each refusal a case drives would otherwise print an ERROR line into a passing run.
@@ -38,13 +40,13 @@ const LAUFEND = publishedLaufendeFassung("bestaetigung_spieler").text_version;
 
 const TOKEN = "abc123";
 
-const ANSICHT = {
+const ANSICHT: FLRegistrierungBestaetigungAnsichtResponse = {
   acknowledged: 1,
-  zustand: "gueltig" as const,
+  zustand: "gueltig",
   team: "Lessing-Kolleg",
   schule: "Lessing-Kolleg Oberstufengymnasium",
   saison_id: "2026",
-  seite: "bestaetigung_spieler" as const,
+  seite: "bestaetigung_spieler",
   mindestalter: 16,
   medien_mindestalter: 18,
   geburtsdatum_gespeichert: false,

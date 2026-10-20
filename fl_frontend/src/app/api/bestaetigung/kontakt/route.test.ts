@@ -6,6 +6,7 @@ import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
 
+import type { FLBewerbungEinwilligungAnsichtResponse } from "@/features/bewerbungen/schemas.ts";
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
@@ -59,9 +60,9 @@ const LAUFEND = publishedLaufendeFassung("bestaetigung_kontakt").text_version;
 const ANSICHT_ENDPOINT = "/bewerbungen/einwilligung/ansicht";
 
 /** The link's own view, open, at a floor above the league's own so a case can tell whose it states. */
-const ANSICHT = {
+const ANSICHT: FLBewerbungEinwilligungAnsichtResponse = {
   acknowledged: 1,
-  zustand: "gueltig" as const,
+  zustand: "gueltig",
   quelle: "bewerbung",
   zeile: null,
   saison_id: "2026",

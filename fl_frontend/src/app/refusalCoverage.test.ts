@@ -12,6 +12,8 @@ import { publishedOperations } from "@/core/openapiDocument.ts";
 import { serverActionModules } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
+import type { FLBewerbungEinwilligungAnsichtResponse } from "@/features/bewerbungen/schemas.ts";
+
 /* The request the public mappers' reads and the undo actions load in, doubled before the `await import`s below. */
 doubleActionRequest();
 
@@ -81,7 +83,7 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
         laufende_fassung: "bestaetigung_kontakt",
         mindestalter: BEWERBUNG_MIN_ALTER,
         medien_mindestalter: MEDIEN_MIN_ALTER,
-      },
+      } satisfies FLBewerbungEinwilligungAnsichtResponse,
     })),
   "POST /bewerbungen/einwilligung/ansicht": bewerbungUtils.mapEinwilligungAnsichtRefusal,
   "POST /bewerbungen/{bewerbung_id}/annehmen": (error) => bewerbungen.mapTriageRefusal(error, "neue_schule"),

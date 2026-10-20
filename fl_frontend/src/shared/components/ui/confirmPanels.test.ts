@@ -12,6 +12,7 @@ import { act, createElement as h, useState } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import ts from "typescript";
+import { z } from "zod";
 
 import { overridingModule, registerDoubles } from "@/core/exportingModule.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
@@ -50,6 +51,7 @@ const { EinladungLinkHolder } = await import("@/features/einladungen/components/
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 const { StepUpContext, STEP_UP_LABEL } = await import("@/shared/components/ui/stepUp.ts");
 const { DOUBLE_PRESS_MS } = await import("@/shared/hooks/useTwoPressConfirm.ts");
+const { FLBewerbungEinwilligungAnsichtResponseSchema } = await import("@/features/bewerbungen/schemas.ts");
 
 type User = ReturnType<typeof userEvent.setup>;
 
@@ -274,7 +276,8 @@ const PANELS: Record<string, Arming[]> = {
     {
       render: () =>
         el(C.saisonVorbei, {
-          ansicht: {
+          // Strict, since `el` hands its props on unread: a field the view does not declare fails the parse.
+          ansicht: z.strictObject(FLBewerbungEinwilligungAnsichtResponseSchema.shape).parse({
             acknowledged: 1,
             zustand: "saison_vorbei",
             quelle: "saison",
@@ -283,11 +286,10 @@ const PANELS: Record<string, Arming[]> = {
             schule: "Lessing-Kolleg",
             rolle: "ansprechperson",
             zugleich_rolle: null,
-            text_version: laufendeKontaktFassung().textVersion,
             laufende_fassung: laufendeKontaktFassung().textVersion,
             mindestalter: 18,
             medien_mindestalter: 18,
-          },
+          }),
           token: "kein-echtes-token",
           onAbschluss: () => undefined,
         }),

@@ -8,6 +8,7 @@ import { answerReadsWith, backendUnreachable, EDGE_TRACE_ID, EMPTIEST_ANSWER, pa
 
 import type { ReactElement } from "react";
 import type { SchiedsrichterBestaetigungStart } from "./components/views/SchiedsrichterBestaetigungView.tsx";
+import type { FLSchiedsrichterBestaetigungAnsichtResponse } from "./schemas.ts";
 
 doubleLogger();
 
@@ -19,11 +20,10 @@ const WORTE = laufendeSchiedsrichterFassung();
 const GEOEFFNET = {
   acknowledged: 1,
   zustand: "gueltig",
-  text_version: WORTE.textVersion,
   mindestalter: 16,
   medien_mindestalter: 18,
   frist: "2026-10-05",
-} as const;
+} as const satisfies FLSchiedsrichterBestaetigungAnsichtResponse;
 
 /**
  * The page's start as the backend's reads answer it, `laufend` being what it runs on this page, `seiten`
