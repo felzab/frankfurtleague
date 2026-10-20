@@ -835,21 +835,7 @@ by mail instead has two answers, and which one you give is the person's to choos
 - **They want their name withheld and their place kept.** Answer by pointing them to the control
   on their account page, `/bereich/konto`, which they reach by signing in with the address their
   record holds. **Nobody edits a consent block by hand**, in the console or anywhere else: a choice
-  the person did not make is not their consent (`docs/backend/spec.md :: I613`). **A pupil whose
-  record holds no address cannot sign in**, and the one route the code leaves to keep their place
-  takes two writes by their team, in this order. A seat holder first takes the pupil's squad row of
-  the season out, since a live row there refuses any admission (`REQ-REGISTRIERUNG-015`); the pupil
-  then registers again through the team's link while the season's registration window is open,
-  choosing the narrower publication, and a seat holder admits that registration onto the stored
-  record the pending list proposes by name (`docs/backend/spec.md :: I581`). The admission writes the address, rewrites the retired
-  squad row rather than writing a second (`docs/backend/spec.md :: I583`) and renews the choice from
-  the pupil's own answer
-  (`fl_backend/app/api/registrierungen/services.py :: compose_person_update`). Where the window is
-  shut, no route keeps their place with the name withheld, and „Löschung auf Anfrage“ reaches no
-  record holding no address: theirs goes with this season's pupil reset
-  ([section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)), which may
-  fall after the month Art. 12(3) gives for answering
-  ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)). Either write that
+  the person did not make is not their consent (`docs/backend/spec.md :: I613`). The write that
   withholds the name drops the cached
   squad list, and the next read serves the row as a nameless slot
   (`docs/backend/spec.md :: READ-PUPIL-003`); check the public squad page before you answer.

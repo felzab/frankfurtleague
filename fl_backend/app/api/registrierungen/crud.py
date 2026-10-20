@@ -104,22 +104,6 @@ async def persons_at(
     )
 
 
-async def persons_without_an_address(*, spieler_collection: AsyncCollection, session: AsyncClientSession | None) -> list[Mapping[str, Any]]:
-    """Every stored person holding no address, whom a name may be proposed for.
-
-    Unbounded and unindexed on purpose: every person the admission makes or matches takes an address,
-    so this set only shrinks.
-    """
-
-    # Never the sentinel, the one other row holding no address: proposed and confirmed, it would take a
-    # name onto every erased pupil's entry.
-    return await aggregate_many_from_db(
-        collection=spieler_collection,
-        pipeline=[{"$match": build_real_spieler_filter({"email": None})}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
-        session=session,
-    )
-
-
 async def nummern_rows(
     *, saison_spieler_collection: AsyncCollection, saison_id: str, team_id: Any, session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:

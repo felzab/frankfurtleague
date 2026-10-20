@@ -29,7 +29,6 @@ from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand, 
 # The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
 # month and read a provider's verdict the same way, and a second spelling would drift from it.
 from app.api.sperrliste.services import withheld_actor
-from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
@@ -500,10 +499,7 @@ PERSON_IDENTITY_FIELDS: tuple[str, ...] = ("vorname", "nachname")
 
 
 def person_name(raw: Mapping[str, Any]) -> tuple[str, ...] | None:
-    """`None` where either half is blank, a blank name being nobody's (`app/api/kontakte/services.py :: seat_name`).
-
-    Compared equal, two hand-edited blanks would propose one blank-named pupil as the other's namesake.
-    """
+    """`None` where either half is blank, a blank name being nobody's (`app/api/kontakte/services.py :: seat_name`)."""
 
     # The seat editor's fold (`app/api/teams/services.py :: _identity_of`), so „Weiß“ and „Weiss“ at
     # one shared mailbox are two pupils and neither is shown the other's record.
@@ -867,27 +863,10 @@ def person_weicht_ab(*, registrierung_raw: Mapping[str, Any], spieler_raw: Mappi
     return spieler_raw.get("geburtsdatum") != registrierung_raw.get("geburtsdatum")
 
 
-def ist_vorschlag(*, spieler_raw: Mapping[str, Any], registrierung_raw: Mapping[str, Any]) -> bool:
-    """Whether a stored person may be proposed: no address, the registration's name, no other birthdate.
-
-    A person holding ANOTHER address never is: a yes would hand their record to whoever controls the
-    registering mailbox.
-    """
-
-    return spieler_raw.get("email") is None and not person_weicht_ab(registrierung_raw=registrierung_raw, spieler_raw=spieler_raw)
-
-
-def sole_vorschlag(*, registrierung_raw: Mapping[str, Any], ohne_adresse: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None:
-    """The one addressless namesake, or `None` where there is none or there are several (`sole_person`'s reason)."""
-
-    return sole_person([row for row in ohne_adresse if ist_vorschlag(spieler_raw=row, registrierung_raw=registrierung_raw)])
-
-
 def find_person_fehlt_refusal(*, registrierung_raw: Mapping[str, Any], adresse_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
     """`REQ-REGISTRIERUNG-018`: a returning pupil's registration whose person its address holds nobody for.
 
-    It carries no choice, so it can neither create a person nor stand on a namesake's record;
-    registering again asks them.
+    It carries no choice, so it cannot create a person; registering again asks them.
     """
 
     if adresse_raw is not None or traegt_wahlen(registrierung_raw.get("einwilligung")):
@@ -904,13 +883,12 @@ def find_person_refusal(
     *,
     registrierung_raw: Mapping[str, Any],
     adresse_raw: Mapping[str, Any] | None,
-    benannt_raw: Mapping[str, Any] | None,
     spieler_id: Any,
 ) -> WriteRefusal | None:
     """`REQ-REGISTRIERUNG-014`: the body names nobody this registration may be admitted into.
 
     A resolved address IS the person: the body only confirms it, and must where name or birthdate
-    differ. Otherwise it names nobody or a person `ist_vorschlag` admits.
+    differ. Otherwise it names nobody, for a new person.
     """
 
     if adresse_raw is not None:
@@ -918,9 +896,7 @@ def find_person_refusal(
             spieler_id is None and not person_weicht_ab(registrierung_raw=registrierung_raw, spieler_raw=adresse_raw)
         )
     else:
-        answered = spieler_id is None or (
-            benannt_raw is not None and ist_vorschlag(spieler_raw=benannt_raw, registrierung_raw=registrierung_raw)
-        )
+        answered = spieler_id is None
 
     if answered:
         return None
@@ -1016,23 +992,6 @@ def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: 
     )
 
     return {"$set": {**fields, **erneuert}}
-
-
-def beendeter_adresswechsel(*, person_raw: Mapping[str, Any], adresse: str) -> str | None:
-    """The pending address an admission writing `adresse` ends, or `None`.
-
-    A change asked over the address in force stands, its notice reached the mailbox proved again here; ending every change
-    would kill a live one at each season's registration.
-    """
-
-    wechsel = person_raw.get(SPIELER_ADRESSWECHSEL_FELD)
-    neue = wechsel.get("email") if isinstance(wechsel, Mapping) else None
-
-    return neue if isinstance(neue, str) and person_raw.get("email") != adresse else None
-
-
-def ohne_adresswechsel(update: Mapping[str, Any]) -> Mapping[str, Any]:
-    return {**update, "$unset": {**update.get("$unset", {}), SPIELER_ADRESSWECHSEL_FELD: ""}}
 
 
 def compose_person(*, spieler_id: Any, registrierung_raw: Mapping[str, Any], adresse: str) -> dict[str, Any]:

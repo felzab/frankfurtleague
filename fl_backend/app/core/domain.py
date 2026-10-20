@@ -2981,7 +2981,7 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation="POST /registrierungen/{registrierung_id}/aufnehmen",
         aggregate="Registrierung",
-        summary="an admission names the person its address resolves to, confirmed where name or birthdate differ, or else a proposal",
+        summary="an admission names the person its address resolves to, confirmed where name or birthdate differ, or nobody for a new one",
         implemented_by="app.api.registrierungen.services.find_person_refusal",
         tested_by="tests/api/test_registrierung_aufnahme.py::TestThePersonAnAdmissionNames",
     ),

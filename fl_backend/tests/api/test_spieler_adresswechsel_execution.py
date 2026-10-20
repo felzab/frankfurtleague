@@ -99,8 +99,6 @@ NEW_EMAIL = "lenore.q@neupost.example.org"
 NEW_AS_TYPED = "Lenore.Q@NeuPost.Example.org"
 THIRD_EMAIL = "quastenbach.lenore@drittpost.example.net"
 OTHER_EMAIL = "jonte.wirbelauer@schule.example"
-# The address the pupil's own registration carries where it is not the one on file.
-REGISTERED_EMAIL = "lenore@zweitpost.example"
 # How an administrator checked who asks, naming nobody.
 GRUND = "Postfach von der Schule gelöscht, bestätigt durch die Ansprechperson am 21.10.2026"
 
@@ -1266,26 +1264,6 @@ class TestTheEditorsRead:
 
 class TestAnAdmissionMeanwhile:
     """The pupil's own registration admitted while a change waits, the other writer of `email` (`docs/backend/spec.md :: I265`)."""
-
-    def test_one_entering_another_address_ends_the_change_and_leaves_its_address_nowhere(self, mongo_replica_set_url: str):
-        """Only a hand edit leaves a pupil holding a change and no address, the one a registration carrying another may enter.
-
-        Left standing, the change's link would then move the address just proved to a mailbox its notice never reached.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await start(database, client, email=NEW_AS_TYPED)
-            token = (await resend(database, client)).adresswechsel.token
-            await remove_the_address_by_hand(database)
-            await admit(database, client, email=REGISTERED_EMAIL, spieler_id=SPIELER_OID)
-
-            return await stored(database), await refused_code(view(database, token)), await where_held(database, NEW_EMAIL, folded=True)
-
-        row, link, held = on_a_league(mongo_replica_set_url, body)
-
-        assert (SPIELER_ADRESSWECHSEL_FELD in row, row["email"]) == (False, REGISTERED_EMAIL)
-        assert link == SPIELER_TOKEN_UNKNOWN
-        assert held == {NEW_EMAIL: []}
 
     def test_one_at_the_address_in_force_leaves_the_change_to_its_link(self, mongo_replica_set_url: str):
         """The change was asked over this address and its notice reached it, so the registration proving it again ends nothing."""

@@ -257,17 +257,6 @@ export const FLRegistrierungPersonSchema = z.object({
 });
 export type FLRegistrierungPerson = z.infer<typeof FLRegistrierungPersonSchema>;
 
-/**
- * The one stored person holding no address whose name matches: proposed, never resolved, a typed name
- * being a weaker key than an address. Two namesakes propose neither, the read serving nothing to tell them apart.
- */
-export const FLRegistrierungVorschlagSchema = z.object({
-  spieler_id: CustomObjectIdStringSchema,
-  vorname: z.string(),
-  nachname: z.string().nullable(),
-});
-export type FLRegistrierungVorschlag = z.infer<typeof FLRegistrierungVorschlagSchema>;
-
 /** One pending registration as a team's seat reads it: no address, no birthdate and no consent at any depth. */
 export const FLOffeneRegistrierungSchema = z.object({
   registrierung_id: CustomObjectIdStringSchema,
@@ -282,7 +271,6 @@ export const FLOffeneRegistrierungSchema = z.object({
   aufnehmbar: z.boolean(),
   nummer_doppelt: z.boolean(),
   person: FLRegistrierungPersonSchema.nullable(),
-  vorschlag: FLRegistrierungVorschlagSchema.nullable(),
 });
 export type FLOffeneRegistrierung = z.infer<typeof FLOffeneRegistrierungSchema>;
 
@@ -297,7 +285,7 @@ export type FLOffeneRegistrierungenResponse = z.infer<typeof FLOffeneRegistrieru
 
 /**
  * Whom the registration is admitted into: `null` makes a new person or takes the one its address
- * resolves to under the same name, an id is the representative's yes to that person or to a proposal.
+ * resolves to under the same name, an id is the representative's yes to that person where its details differ.
  */
 export const FLRegistrierungAufnehmenPayloadSchema = z.object({
   spieler_id: CustomObjectIdStringSchema.nullable(),
