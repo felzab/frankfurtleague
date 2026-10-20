@@ -464,6 +464,17 @@ def test_a_pool_naming_itself_after_a_stop_starts_no_unit(tmp_path: Path) -> Non
     assert not started.exists(), "a pool the stop never read started a unit"
 
 
+def test_a_pool_whose_registry_is_gone_starts_no_unit(tmp_path: Path) -> None:
+    """Only the gate's end removes the registry, so a pool starting after it would run units for nobody, unnamed by any stop."""
+    named = f"os.environ[gate_pool.POOLS] = {str(tmp_path / 'removed')!r}"
+    started = tmp_path / "started"
+    result = _drive((*STALLING, named, f"run_pool(('unit', (sys.executable, '-c', {MARKS!r}, {str(started)!r})))"), tmp_path)
+    assert result.returncode == int(declared(KERNEL, "EXIT_INTERRUPTED")), result.stderr
+    assert [(row[0], row[1]) for row in _rows(tmp_path)] == [("unit", str(declared(POOL, "NOT_STARTED")))]
+    assert not started.exists(), "a pool whose gate had ended started a unit"
+    assert not (tmp_path / "removed").exists(), "naming itself made the removed registry again"
+
+
 # One process standing for many pools: each `announce` takes a pid of its own, as that many pools would.
 RACER: Final = """import os, sys, time
 sys.path.insert(0, sys.argv[1])
