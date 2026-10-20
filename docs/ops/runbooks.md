@@ -1426,7 +1426,8 @@ recreating the frontend service ends:
 
     docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_
 
-**Turn the confirmations on once, on a day you choose: the first armed passes are a burst.**
+**Turn the confirmations on once, on a day you choose after this season's player records are reset
+(§12), in the same edit as the report form's switch below: the first armed passes are a burst.**
 `SPIEL_SWEEP` ships off, so a deploy mails no team. Armed, the passes ask about every dated fixture
 of the running season inside the answer window
 (`fl_backend/app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE` plus
@@ -1434,8 +1435,8 @@ of the running season inside the answer window
 referee, spread over as many hourly passes as the per-pass share needs, and a fixture inside the
 deadline's own days is due the day it is asked.
 
-1. Add `SPIEL_SWEEP=on` to the server's `fl_frontend/.env` and deploy (§1). The frontend reads it
-   once as it boots.
+1. Add `SPIEL_SWEEP=on` and `SPIELBERICHT_EINGABE=on` to the server's `fl_frontend/.env` and
+   deploy (§1). The frontend reads both once as it boots.
 2. The next day, read `spiel_sweep_gelaufen_am` with the call above, and the pass lines.
 
 **Switching it off is that line set to `off`, and a deploy**, and it stops every season's fixture
