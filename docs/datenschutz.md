@@ -656,7 +656,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`spielbestaetigungen.antwort.begruendung`) may name anyone, no name in it being checked; it goes
   with its own writer's erasure (above), so a person it names, a squad pupil most likely, stays in it
   past their own erasure until it is deleted with the season's contact data
-  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)); the reason box's hint asks for
+  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)). The reason an administrator
+  types when recording a party's agreement on its behalf is the same field, unchecked too, and is
+  keyed on no address at all, so no erasure reaches it and only the season's end deletes it
+  (`docs/backend/spec.md :: I775`); the reason box's hint asks for
   no names, nothing enforces it, and the published notice says a name may stand in the reason
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19, the unchecked text 2026-10-20. The request an
   administrator's erasure answers
@@ -897,9 +900,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   2026-09-02.
 - **A season's fixture confirmations keep the clubs' answers as the season's record, and lose from
   that same clearing on everything that tells the people apart.** From the pass that clears the
-  contact blocks, every pass strips the season's `spielbestaetigungen` team rows of their reason, their
-  holder digest, their seats' link hashes and their delivery records, on the rows and in the log's
-  images, until nothing of them is left. The strip is a transaction of its own after the blocks'
+  contact blocks, every pass strips the season's `spielbestaetigungen` rows of their reason, a
+  referee's row and an administrator's answer included, and the team rows of their holder digest,
+  their seats' link hashes and their delivery records, on the rows and in the log's images, until
+  nothing of them is left. The strip is a transaction of its own after the blocks'
   share, so a failing strip holds back no block and is tried again on the next pass
   (`fl_backend/app/api/bewerbungen/sweep_router.py :: strip_the_confirmations`,
   `docs/backend/spec.md :: I757`). Which way each club answered,

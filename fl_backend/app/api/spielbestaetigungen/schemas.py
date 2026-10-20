@@ -22,8 +22,8 @@ from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 FLSpielbestaetigungAntwortArt = Literal["zugesagt", "abgelehnt"]
 
-# Why a row stopped applying. `verworfen` closes an answered row alone: the decline stands as the
-# record, and what is discarded is the administrator's obligation to act on its proposal.
+# Why a row stopped applying. `verworfen` closes an open decline carrying a proposal alone: the decline stands
+# as the record, and what is discarded is the administrator's obligation to act on its proposal.
 FLSpielbestaetigungGrund = Literal[
     "ansetzung_geaendert", "austritt", "spiel_entschieden", "abgesagt", "schiedsrichter_gewechselt", "verworfen", "spiel_vergangen"
 ]
@@ -160,6 +160,46 @@ class FLSpielbestaetigung(BaseModel):
     kontakte: FLSpielbestaetigungKontakte | None
     antwort: FLSpielbestaetigungAntwort | None
     geschlossen: FLSpielbestaetigungGeschlossen | None
+
+
+# --- The ADMINISTRATOR: the season's rows read, a row settled on its party's behalf, a proposal discarded.
+
+
+class FLSpielbestaetigungenFilterParams(BaseModel):
+    """A season's rows, or one fixture's among them. The season is required: rows of every season would answer for fixtures no list shows."""
+
+    saison_id: str
+    spiel_id: CustomObjectId | None = None
+
+
+class FLSpielbestaetigungenListResponse(BaseAPIResponse):
+    """The rows newest first, closed ones included, and the named season's own last pass."""
+
+    spielbestaetigungen: list[FLSpielbestaetigung]
+    # Null where no pass has run over the season, or no season has the id.
+    spiel_sweep_gelaufen_am: CustomDateString | None
+    # False where more rows exist than one read serves, so a cut list is never read as the season whole.
+    vollstaendig: bool
+
+
+class FLSpielbestaetigungEintragenPayload(BaseModel):
+    """The administrator's Zusage for a party that answered elsewhere, and how it was given.
+
+    No way to choose: the one press records a Zusage, and a decline without a proposal would sit in no queue.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Required: the row is the league's record of how a date was agreed, and the reason is the part no field holds.
+    begruendung: CustomSpielbestaetigungBegruendung
+
+
+class FLSpielbestaetigungEintragenResponse(BaseAPIResponse):
+    updated_document: FLSpielbestaetigung
+
+
+class FLSpielbestaetigungVerwerfenResponse(BaseAPIResponse):
+    updated_document: FLSpielbestaetigung
 
 
 # --- The LINK. The token is the whole credential, so both endpoints are base-tier and every payload

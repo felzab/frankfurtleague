@@ -131,8 +131,10 @@ SPIELBESTAETIGUNGEN_AS_NAME = "spielbestaetigungen_rows"
 ANSETZUNG_BESTAETIGT = "ansetzung_bestaetigt"
 
 
-# Each joined row's mark: whether it is about the Ansetzung the fixture stands at now.
+# Each joined row's marks: whether it is about the Ansetzung the fixture stands at now, and whether the team
+# verdict counts it as its club's agreement.
 _AKTUELL = "aktuell"
+_TEAM_ZUGESTIMMT = "team_zugestimmt"
 
 
 def _confirmations_lookup() -> Mapping[str, Any]:
@@ -141,6 +143,8 @@ def _confirmations_lookup() -> Mapping[str, Any]:
     So an answer given before the fixture moved stops counting at the move, not at the hourly close
     (`docs/backend/spec.md :: I763`).
     """
+
+    aktuell = {"$and": [{"$eq": [f"$ansetzung.{key}", f"$${key}"]} for key in ANSETZUNG_QUELLEN]}
 
     return {
         "$lookup": {
@@ -155,14 +159,18 @@ def _confirmations_lookup() -> Mapping[str, Any]:
             "pipeline": [
                 {
                     "$match": {
-                        # Answered rows too: `build_answerable_filter` would drop every agreement.
-                        **build_closable_filter(),
+                        # Answered rows too: `build_answerable_filter` would drop every agreement. And a club's
+                        # discarded proposal, the league having kept the date: left out, the club reads as never asked.
+                        "$or": [build_closable_filter(), {"partei.art": "team", "geschlossen.grund": "verworfen"}],
                         "$expr": {
                             "$and": [
                                 # The two keys `spielbestaetigungen_saison_id_spiel_id` leads with: without
                                 # them every fixture of the most-read endpoint scans the collection.
                                 {"$eq": ["$saison_id", "$$spiel_saison_id"]},
                                 {"$eq": ["$spiel_id", "$$spiel_id"]},
+                                # A discard about an Ansetzung the fixture has left settles nothing, as the close
+                                # would have shut an unclosed row about it.
+                                {"$or": [{"$eq": ["$geschlossen", None]}, aktuell]},
                             ]
                         },
                     }
@@ -174,8 +182,9 @@ def _confirmations_lookup() -> Mapping[str, Any]:
                         "_id": 0,
                         "partei.art": 1,
                         "partei.team_id": 1,
-                        "antwort.art": 1,
-                        _AKTUELL: {"$and": [{"$eq": [f"$ansetzung.{key}", f"$${key}"]} for key in ANSETZUNG_QUELLEN]},
+                        # The only closed rows the match admits are a club's discards.
+                        _TEAM_ZUGESTIMMT: {"$or": [{"$eq": ["$antwort.art", "zugesagt"]}, {"$ne": ["$geschlossen", None]}]},
+                        _AKTUELL: aktuell,
                     }
                 },
             ],
@@ -187,12 +196,13 @@ def _confirmations_lookup() -> Mapping[str, Any]:
 def _ansetzung_bestaetigt() -> Mapping[str, Any]:
     """Three-valued, `None` never folding into `False`, which marks the card provisional (`docs/backend/spec.md :: I763`).
 
-    A row about an Ansetzung the fixture has left counts towards asked; a referee's row towards neither.
+    A row about an Ansetzung the fixture has left counts towards asked; a referee's row towards neither; a discarded
+    proposal as its club's agreement.
     """
 
     team_rows = {"$filter": {"input": f"${SPIELBESTAETIGUNGEN_AS_NAME}", "cond": {"$eq": ["$$this.partei.art", "team"]}}}
     current_rows = {"$filter": {"input": "$$team_rows", "cond": f"$$this.{_AKTUELL}"}}
-    all_agreed = {"$allElementsTrue": [{"$map": {"input": "$$current_rows", "in": {"$eq": ["$$this.antwort.art", "zugesagt"]}}}]}
+    all_agreed = {"$allElementsTrue": [{"$map": {"input": "$$current_rows", "in": f"$$this.{_TEAM_ZUGESTIMMT}"}}]}
     # `$ifNull` for the side lookup's reason; a null side matches no row's snapshot, so it never confirms.
     sides = [{"$ifNull": [f"${ANSETZUNG_QUELLEN[key]}", None]} for key in ("team1_id", "team2_id")]
     # The agreeing CLUBS are the two sides, never merely two rows: two answers of one club leave the
