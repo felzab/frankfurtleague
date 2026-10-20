@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
-import { readable } from "@/core/mailText.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 
@@ -14,10 +12,12 @@ import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
    client and the mailer are the doubles. */
 doubleActionRequest();
 const mail = doubleSendMail();
-registerDoubles({ modules: { "core/config.ts": { frontend_config: { AUTH_URL: "http://localhost:3000" } } } });
+const AUTH_URL = "http://localhost:3000";
+registerDoubles({ modules: { "core/config.ts": { frontend_config: { AUTH_URL: AUTH_URL } } } });
 
 type Answer = () => unknown;
 let save: Answer;
+let start: Answer;
 let resend: Answer;
 let discard: Answer;
 
@@ -30,16 +30,17 @@ const client = doubleApiAnswers(async ({ endpoint, method }: ApiCall) => {
         ? resend()
         : method === "DELETE"
           ? discard()
-          : save();
+          : endpoint.endsWith("/adresswechsel")
+            ? start()
+            : save();
   if (answer instanceof Error) throw answer;
   return answer;
 });
 
-const { einladeAdresswechselAction, patchSchiedsrichterAction, verwirfAdresswechselAction } = await import("./actions.ts");
-const { describeAdresswechselMail } = await import("./notifications.ts");
+const { beantrageSchiedsrichterAdresswechselAction, einladeAdresswechselAction, patchSchiedsrichterAction, verwirfAdresswechselAction } =
+  await import("./actions.ts");
 const { mapSchiedsrichterAdresswechselRefusal } = await import("./queries.ts");
-const { buildSchiedsrichterAdresswechselEmail, buildSchiedsrichterAdresswechselHinweisEmail, SCHIEDSRICHTER_ADRESSWECHSEL_PATH } =
-  await import("@/core/schiedsrichterEmail.ts");
+const { adresswechselLink } = await import("@/core/adresswechselEmail.ts");
 const { SPERRLISTE_ADRESSE_GESPERRT } = await import("@/features/sperrliste/constants.ts");
 const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { refusedOn, unpublishedOn } = await import("@/shared/testing/publishedRefusals.ts");
@@ -49,12 +50,12 @@ const BISHER = "anna@alt.example";
 const NEU = "anna@neu.example";
 
 const ANSWER_OPERATION = "POST /schiedsrichter/adresswechsel";
+const SAVE_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
+const START_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel";
 const RESEND_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen";
 const DISCARD_OPERATION = "DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel";
 
-const PENDING = { email: NEU, verschickt_am: "2026-10-01", frist: "2026-10-15", zustellung: null };
-
-/** A confirmed referee as the backend stores it, the new address waiting beside the one in force. */
+/** A confirmed referee as the backend stores it, no change pending. */
 const stored = () => ({
   id: SCHIEDSRICHTER_ID,
   name: "Anna Meier",
@@ -73,10 +74,20 @@ const stored = () => ({
     nachweis: { umfang: null, medien: null },
   },
   bestaetigung: null,
-  adresswechsel: PENDING,
+  adresswechsel: null,
 });
 
-const wechselMint = { token: "neu-token", frist: "2026-10-15", email: NEU, bisherige_email: BISHER };
+/** The start without a reason: the address on file is asked first, so the mint carries no link token. */
+const freigabe = {
+  weg: "freigabe",
+  token: null,
+  stopp_token: "stopp-token",
+  gueltig_bis: "2026-10-21T11:30:00Z",
+  email: NEU,
+  bisherige_email: BISHER,
+  vorname: "Anna",
+  adresse_belegt: false,
+};
 
 const ENTWURF = { id: SCHIEDSRICHTER_ID, name: "Anna Meier", schule: null, default_payment: 20, kontakt: { email: NEU, telefon: null } };
 
@@ -86,101 +97,74 @@ beforeEach(() => {
   mail.sent.length = 0;
   client.calls.length = 0;
   mail.answerWith(() => "accepted");
-  save = () => ({ acknowledged: 1, updated_document: stored(), fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: wechselMint });
-  resend = () => ({ acknowledged: 1, adresswechsel: wechselMint });
-  discard = () => ({ acknowledged: 1, updated_document: { ...stored(), adresswechsel: null } });
+  save = () => ({ acknowledged: 1, updated_document: stored(), fanned_out_to_spiele: 0, bestaetigung: null });
+  start = () => ({ acknowledged: 1, adresswechsel: freigabe });
+  resend = () => ({ acknowledged: 1, adresswechsel: { ...freigabe, weg: "wartezeit", token: "neu-token", stopp_token: null } });
+  discard = () => ({ acknowledged: 1, updated_document: stored() });
 });
 
 describe("the save moving a confirmed referee's address", () => {
-  it("mails the link to the new address and the notice to the one in force, and says the old one still holds", async () => {
-    const res = await patchSchiedsrichterAction(ENTWURF);
-
-    assert.equal(res.success, true);
-    assert.deepEqual(mailedTo().sort(), [BISHER, NEU].sort());
-    assert.match(res.success ? (res.versandSatz ?? "") : "", /ging an anna@neu\.example\. Bis zur Bestätigung gilt die bisherige/);
-  });
-
-  /* The notice names no new address: the change may be somebody's mistake, and the stored mailbox is
-     owed the word, never the other mailbox's name. */
-  it("names the new address in the link and never in the notice", async () => {
-    await patchSchiedsrichterAction(ENTWURF);
-
-    const link = mail.sent.find(({ to }) => to === NEU);
-    const hinweis = mail.sent.find(({ to }) => to === BISHER);
-    assert.ok(link?.text.includes(`${SCHIEDSRICHTER_ADRESSWECHSEL_PATH}?token=neu-token`), "the link mail carries no address link");
-    assert.ok(hinweis !== undefined && !hinweis.text.includes(NEU) && !hinweis.html.includes(NEU), "the notice names the new address");
-  });
-
-  /* Through the mail gate like every message: a barred stored address is told nothing, and the link
-     to the new one still goes. */
-  it("tells a barred stored address nothing, mails the link all the same and reports no failure", async () => {
-    mail.answerWith(({ to }) => (to === BISHER ? "barred" : "accepted"));
+  /* The address moves only through its own start now: a save carrying it lands nothing and mails nothing. */
+  it("is refused with the way to the start, and mails nobody", async () => {
+    save = () => refusedOn(SAVE_OPERATION, "REQ-SCHIEDSRICHTER-011");
 
     const res = await patchSchiedsrichterAction(ENTWURF);
 
+    assert.equal(res.success, false);
+    assert.match(res.success ? "" : (res.error ?? ""), /ändert sich nur über „Adresse ändern“/);
+    assert.deepEqual(mailedTo(), []);
+  });
+});
+
+describe("an administrator's start of a confirmed referee's change", () => {
+  it("sends the address and the reason to its own endpoint, and mails the stored address the request with its stop link", async () => {
+    const res = await beantrageSchiedsrichterAdresswechselAction({ id: SCHIEDSRICHTER_ID, email: NEU, grund: null });
+
     assert.equal(res.success, true);
-    assert.equal(res.success && res.versand, "gesendet");
-    assert.doesNotMatch(res.success ? (res.versandSatz ?? "") : "", /Hinweis an die bisherige Adresse/);
-  });
-
-  /* The undo tells its action whether this save left a change waiting, which no read after the replay
-     can tell from a save that moved only the fee: the answer's mint is the one witness. */
-  it("reports a change left waiting only where the save's answer minted one", async () => {
-    const minted = await patchSchiedsrichterAction(ENTWURF);
-    save = () => ({ acknowledged: 1, updated_document: stored(), fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null });
-    const feeOnly = await patchSchiedsrichterAction({ ...ENTWURF, default_payment: 25, kontakt: { email: BISHER, telefon: null } });
-
-    assert.equal(minted.success && minted.adresswechselGespeichert, true, "a save that minted a change reports none waiting");
-    assert.equal(feeOnly.success && feeOnly.adresswechselGespeichert, false, "a fee-only save reports a change waiting");
-  });
-
-  it("files the link's delivery under the address change and never under the consent link", async () => {
-    await patchSchiedsrichterAction(ENTWURF);
-
-    const meldungen = requestsOf(client.calls).filter(({ endpoint }) => endpoint.startsWith("/zustellung/"));
     assert.deepEqual(
-      meldungen.map(({ body }) => (body as { ziel: string }).ziel),
-      ["schiedsrichter_adresswechsel"],
+      requestsOf(client.calls)
+        .filter(({ endpoint }) => !endpoint.startsWith("/zustellung/"))
+        .map(({ endpoint, method, body }) => [method, endpoint, body]),
+      [["POST", `/schiedsrichter/${SCHIEDSRICHTER_ID}/adresswechsel`, { email: NEU, grund: null }]],
     );
-  });
-
-  /* The editor grades its toast on it (`docs/frontend/spec.md :: I679`): the sentence asks the administrator to tell the
-     person, which a clean save would contradict. */
-  it("reports a notice to the address in force that did not leave, beside a link that did", async () => {
-    mail.answerWith(({ to }) => (to === BISHER ? "refused" : "accepted"));
-
-    const res = await patchSchiedsrichterAction(ENTWURF);
-
-    assert.deepEqual(res.success ? [res.versand, res.hinweis] : [], ["gesendet", "fehlgeschlagen"]);
-    assert.match(res.success ? (res.versandSatz ?? "") : "", /Sag der Person selbst Bescheid/);
-  });
-
-  /* A courtesy beside a saved write words its own doubt (`docs/frontend/spec.md :: I372`): the save and its link stand,
-     so the press is never answered as of unknown outcome for the notice alone. */
-  it("reports a notice whose send broke off unanswered as unclear, beside the save and its link", async () => {
-    mail.answerWith(({ to }) => (to === BISHER ? "lost" : "accepted"));
-
-    const res = await patchSchiedsrichterAction(ENTWURF);
-
-    assert.deepEqual(res.success ? [res.versand, res.hinweis] : [res], ["gesendet", "ungewiss"]);
-    assert.match(
-      res.success ? (res.versandSatz ?? "") : "",
-      /Ob der Hinweis an die bisherige Adresse angekommen ist, ist unklar\. Sag der Person selbst Bescheid\./,
+    assert.deepEqual(mailedTo(), [BISHER]);
+    const request = mail.sent[0];
+    assert.ok(
+      request?.text.includes(adresswechselLink(AUTH_URL, "schiedsrichter", "stopp-token")),
+      "the request carries no stop link on the referee's page",
     );
+    assert.ok(request !== undefined && !request.text.includes(NEU), "the request names the new address");
   });
 
-  it("reports a link that did not leave as failed, and says to reach the person", async () => {
-    mail.answerWith(({ to }) => (to === NEU ? "refused" : "accepted"));
+  for (const [code, satz] of [
+    ["REQ-SCHIEDSRICHTER-007", SPERRLISTE_ADRESSE_GESPERRT],
+    [
+      "REQ-SCHIEDSRICHTER-014",
+      "Diese Person hat ihren Eintrag noch nicht bestätigt, deshalb änderst Du ihre Adresse im Feld oben und speicherst. Lade die Seite neu.",
+    ],
+  ] as const) {
+    it(`words ${code}, and mails nobody`, async () => {
+      start = () => refusedOn(START_OPERATION, code);
 
-    const res = await patchSchiedsrichterAction(ENTWURF);
+      const res = await beantrageSchiedsrichterAdresswechselAction({ id: SCHIEDSRICHTER_ID, email: NEU, grund: null });
 
-    assert.equal(res.success && res.versand, "fehlgeschlagen");
-    assert.match(res.success ? (res.versandSatz ?? "") : "", /Melde Dich selbst bei der Person/);
+      assert.equal(res.success ? "" : res.error, satz);
+      assert.deepEqual(mailedTo(), []);
+    });
+  }
+
+  it("puts a name in the reason on the reason's box", async () => {
+    start = () => refusedOn(START_OPERATION, "REQ-SCHIEDSRICHTER-013");
+
+    const res = await beantrageSchiedsrichterAdresswechselAction({ id: SCHIEDSRICHTER_ID, email: NEU, grund: "Anna hat angerufen" });
+
+    assert.equal(res.success ? undefined : res.fieldErrors?.grund, "Der Grund enthält ein Wort, das einem Namen der Person gleicht.");
   });
 });
 
 describe("the pending address change's two controls", () => {
-  it("re-sends once to the pending address, notices the one in force, and says the earlier link is dead", async () => {
+  /* The stop link in the stored mailbox keeps working, so a fresh notice would only kill the one its holder may be pressing. */
+  it("re-sends to the pending address alone and says the earlier link is dead", async () => {
     const res = await einladeAdresswechselAction({ id: SCHIEDSRICHTER_ID });
 
     assert.equal(res.success, true);
@@ -189,8 +173,19 @@ describe("the pending address change's two controls", () => {
       geschrieben.map(({ endpoint }) => endpoint),
       [`/schiedsrichter/${SCHIEDSRICHTER_ID}/adresswechsel/einladen`],
     );
-    assert.deepEqual(mailedTo().sort(), [BISHER, NEU].sort());
+    assert.deepEqual(mailedTo(), [NEU]);
     assert.match(res.success ? (res.message ?? "") : "", /Der vorherige Link gilt nicht mehr\./);
+  });
+
+  it("files the link's delivery under the address change and never under the consent link", async () => {
+    await einladeAdresswechselAction({ id: SCHIEDSRICHTER_ID });
+
+    assert.deepEqual(
+      requestsOf(client.calls)
+        .filter(({ endpoint }) => endpoint.startsWith("/zustellung/"))
+        .map(({ body }) => (body as { ziel: string }).ziel),
+      ["schiedsrichter_adresswechsel"],
+    );
   });
 
   /* As the pupil's re-send reports it: a barred link is filed rather than failed (`docs/frontend/spec.md :: I542`). */
@@ -203,26 +198,7 @@ describe("the pending address change's two controls", () => {
     assert.equal(refused.success && refused.versand, "fehlgeschlagen");
     assert.match(refused.success ? (refused.message ?? "") : "", /Melde Dich selbst bei der Person/);
     assert.equal(barred.success && barred.versand, "gesperrt");
-  });
-
-  it("reports a re-send's notice to the address in force that did not leave", async () => {
-    mail.answerWith(({ to }) => (to === BISHER ? "refused" : "accepted"));
-
-    const res = await einladeAdresswechselAction({ id: SCHIEDSRICHTER_ID });
-
-    assert.deepEqual(res.success ? [res.versand, res.hinweis] : [], ["gesendet", "fehlgeschlagen"]);
-  });
-
-  it("reports a re-send's notice whose send broke off unanswered as unclear, beside the link that went", async () => {
-    mail.answerWith(({ to }) => (to === BISHER ? "lost" : "accepted"));
-
-    const res = await einladeAdresswechselAction({ id: SCHIEDSRICHTER_ID });
-
-    assert.deepEqual(res.success ? [res.versand, res.hinweis] : [res], ["gesendet", "ungewiss"]);
-    assert.match(
-      res.success ? (res.message ?? "") : "",
-      /Ob der Hinweis an die bisherige Adresse angekommen ist, ist unklar\. Sag der Person selbst Bescheid\./,
-    );
+    assert.doesNotMatch(barred.success ? (barred.message ?? "") : "", /@/);
   });
 
   it("answers a barred pending address in the ban list's words and mails nothing", async () => {
@@ -259,79 +235,17 @@ describe("the pending address change's two controls", () => {
   });
 });
 
-describe("what the administrator is told about an address change's messages", () => {
-  it("names the new address on the link and asks for a second route only where the notice failed", () => {
-    assert.match(describeAdresswechselMail(NEU, { link: "gesendet", hinweis: "gesendet" }), /ging an anna@neu\.example/);
-    assert.doesNotMatch(describeAdresswechselMail(NEU, { link: "gesendet", hinweis: "gesperrt" }), /Hinweis/);
-    assert.match(describeAdresswechselMail(NEU, { link: "gesendet", hinweis: "fehlgeschlagen" }), /Sag der Person selbst Bescheid/);
-  });
-
-  /* Naming no address, for the consent link's barred send's reason (`docs/frontend/spec.md :: I542`). */
-  it("names no address where the ban list kept the link back", () => {
-    assert.doesNotMatch(describeAdresswechselMail(NEU, { link: "gesperrt", hinweis: null }), /@/);
-  });
-});
-
-describe("the two messages an address change sends", () => {
-  it("puts the link to the address page, carrying the token, on the link mail's one control and in its text", () => {
-    const mailNeu = buildSchiedsrichterAdresswechselEmail({
-      origin: "https://fl.example",
-      token: "t-1",
-      fristText: "15.10.2026",
-    });
-
-    assert.ok(mailNeu.html.includes(`https://fl.example${SCHIEDSRICHTER_ADRESSWECHSEL_PATH}?token=t-1`));
-    assert.ok(mailNeu.text.includes(`https://fl.example${SCHIEDSRICHTER_ADRESSWECHSEL_PATH}?token=t-1`));
-    assert.ok(mailNeu.text.includes("15.10.2026") && mailNeu.html.includes("15.10.2026"), "the deadline is missing from a part");
-  });
-
-  /* Ignoring the mail leaves the address stored until the day after the lapse, when the hourly pass removes it with
-     the block that carried the decline, so the mail promises no decline past the deadline and says when it goes. */
-  it("tells the holder of a mistyped address to decline, and that an ignored address goes the day after the link lapses", () => {
-    const mailNeu = buildSchiedsrichterAdresswechselEmail({
-      origin: "https://fl.example",
-      token: "t-1",
-      fristText: "15.10.2026",
-    });
-
-    for (const teil of [mailNeu.text, mailNeu.html]) {
-      assert.ok(teil.includes(`„${NICHT_MEINE_ADRESSE}“`), "a part names a decline the address page does not offer");
-      assert.match(teil, /Tust Du nichts, löschen wir sie am Tag nach Ablauf des Links\./);
-      assert.doesNotMatch(teil, /abgelaufen ist/);
-      assert.doesNotMatch(teil, /ignorier/);
-    }
-  });
-
-  /* The new mailbox has proved nothing, and after a typo it is a stranger's: the referee's first name goes to the stored one alone. */
-  it("greets the new mailbox by no name, and the stored one by the referee's", () => {
-    const mailNeu = buildSchiedsrichterAdresswechselEmail({ origin: "https://fl.example", token: "t-1", fristText: "15.10.2026" });
-    const hinweis = buildSchiedsrichterAdresswechselHinweisEmail({ origin: "https://fl.example", vorname: "Anna" });
-
-    for (const teil of [mailNeu.text, mailNeu.html]) {
-      assert.ok(teil.includes("Hallo, die Verwaltung"), "a part of the link mail greets otherwise");
-    }
-    for (const teil of [readable(hinweis.html), hinweis.text]) {
-      assert.match(teil, /Hallo Anna,/, "a part of the notice greets the stored mailbox otherwise");
-    }
-  });
-
-  it("gives the notice no control, the stored mailbox having nothing to press", () => {
-    const hinweis = buildSchiedsrichterAdresswechselHinweisEmail({ origin: "https://fl.example", vorname: "Anna" });
-
-    assert.doesNotMatch(hinweis.html, /token=/);
-    assert.match(hinweis.text, /Bis dahin bleibt diese Adresse in Kraft/);
-  });
-});
-
 describe("what one refused answer asks the address page to show", () => {
   for (const [code, zustand] of [
     ["REQ-SCHIEDSRICHTER-002", "ungueltig"],
     ["REQ-SCHIEDSRICHTER-003", "abgelaufen"],
     ["REQ-SCHIEDSRICHTER-009", "gesperrt"],
     ["REQ-SCHIEDSRICHTER-010", "nicht_bestaetigbar"],
+    // A pupil row at the replaced address would move onto an address another pupil signs in on.
+    ["REQ-SPIELER-006", "nicht_bestaetigbar"],
+    ["DB-COMMON-002", "nicht_bestaetigbar"],
   ] as const) {
-    it(`answers ${code} as the ${zustand} panel, at any status`, () => {
-      assert.deepEqual(mapSchiedsrichterAdresswechselRefusal(refusedOn(ANSWER_OPERATION, code, 409)), { zustand: zustand });
+    it(`answers ${code} as the ${zustand} panel`, () => {
       assert.deepEqual(mapSchiedsrichterAdresswechselRefusal(refusedOn(ANSWER_OPERATION, code)), { zustand: zustand });
     });
   }

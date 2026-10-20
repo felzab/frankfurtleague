@@ -26,12 +26,24 @@ const { answerWith, answered, calls } = doubleActions({
 const { raised: toasts } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { ADRESSWECHSEL_ERNEUT, ADRESSWECHSEL_VERWERFEN, ADRESSWECHSEL_WARTET, FormAdresswechselSection } =
-  await import("./FormAdresswechselSection.tsx");
+const { FormAdresswechselSection } = await import("./FormAdresswechselSection.tsx");
+const { ADRESSWECHSEL_ERNEUT, ADRESSWECHSEL_VERWERFEN, ADRESSWECHSEL_WARTET } =
+  await import("@/features/konto/components/forms/AdresswechselWartet.tsx");
 
 const SPIELER_ID = "6890a1b2c3d4e5f607800002";
 
-const OFFEN: FLSpielerAdresswechsel = { email: "lena@neu.example", verschickt_am: "2026-10-01", frist: "2099-12-31", zustellung: null };
+/** A change with a reason, its new mailbox asked: the state that offers both controls. */
+const OFFEN: FLSpielerAdresswechsel = {
+  email: "lena@neu.example",
+  weg: "wartezeit",
+  verschickt_am: "2026-10-01",
+  gueltig_bis: "2099-12-31T11:30:00Z",
+  freigegeben_am: null,
+  grund: "Postfach von der Schule gelöscht",
+  bestaetigt_am: null,
+  wirksam_ab: null,
+  zustellung: null,
+};
 
 const panel = (adresswechsel: FLSpielerAdresswechsel, istAbgelaufen = false, router = nextRouter()) =>
   underNext(h(FormAdresswechselSection, { spielerId: SPIELER_ID, adresswechsel, istAbgelaufen, isDirty: false }), { router });
@@ -42,24 +54,45 @@ const words = (adresswechsel: FLSpielerAdresswechsel, istAbgelaufen = false): st
     .trim();
 
 describe("what the editor shows of a pupil's waiting address", () => {
-  it("names the waiting address, the day its link went and its deadline, with both controls", () => {
+  it("names the waiting address, its way and reason, the day its link went and its deadline to the minute, with both controls", () => {
     const shown = words(OFFEN);
 
     assert.ok(shown.includes(ADRESSWECHSEL_WARTET), "the waiting state is not said");
     assert.match(shown, /lena@neu\.example/);
+    assert.match(shown, /Ohne die bisherige Adresse/);
+    assert.match(shown, /Postfach von der Schule gelöscht/);
     assert.match(shown, /01\.10\.2026/);
-    assert.match(shown, /31\.12\.2099/);
+    // 12:30 in Berlin in December: an instant stated in UTC would read 11:30.
+    assert.match(shown, /31\.12\.2099 um 12:30 Uhr/);
     assert.ok(shown.includes(ADRESSWECHSEL_ERNEUT) && shown.includes(ADRESSWECHSEL_VERWERFEN), "a control is missing");
   });
 
-  /* The lapse sweep removes the address the day after, so until then a past date alone would read as a deadline still running. */
-  it("says a lapsed link is lapsed, once and beside its date, by the read's judgement alone", () => {
-    const lapsed = words({ ...OFFEN, frist: "2020-01-01" }, true);
+  /* The pass removes a lapsed change within the hour, so until then a past instant alone would read as a deadline still running. */
+  it("says a lapsed link is lapsed, once and beside its instant, by the read's judgement alone", () => {
+    const lapsed = words({ ...OFFEN, gueltig_bis: "2020-01-01T11:00:00Z" }, true);
 
     assert.equal(lapsed.split("abgelaufen").length - 1, 1, "the lapse is said other than once");
-    assert.match(lapsed, /01\.01\.2020 abgelaufen/);
-    assert.doesNotMatch(words({ ...OFFEN, frist: "2020-01-01" }, false), /abgelaufen/);
+    assert.match(lapsed, /01\.01\.2020 um 12:00 Uhr abgelaufen/);
+    assert.doesNotMatch(words({ ...OFFEN, gueltig_bis: "2020-01-01T11:00:00Z" }, false), /abgelaufen/);
   });
+
+  /* No link exists to send before the approval, nor once confirmed: the discard is the one control left. */
+  for (const [stufe, wechsel, gesagt] of [
+    ["awaiting the approval of the address on file", { ...OFFEN, weg: "freigabe", grund: null }, /Neue Adresse wartet auf Freigabe/],
+    [
+      "confirmed and waiting out its time",
+      { ...OFFEN, gueltig_bis: null, bestaetigt_am: "2026-10-20T11:30:00Z", wirksam_ab: "2026-10-27T11:30:00Z" },
+      /Neue Adresse gilt ab 27\.10\.2026 um 12:30 Uhr/,
+    ],
+  ] as const) {
+    it(`offers the discard alone on a change ${stufe}, and says which`, () => {
+      const shown = words(wechsel);
+
+      assert.match(shown, gesagt);
+      assert.ok(!shown.includes(ADRESSWECHSEL_ERNEUT), "a change with no link to send offers a re-send");
+      assert.ok(shown.includes(ADRESSWECHSEL_VERWERFEN), "the discard is missing");
+    });
+  }
 
   it("wears the delivery register's own chip where the link's message was refused", () => {
     const shown = words({ ...OFFEN, zustellung: { nachricht_id: "m1", stand: "unzustellbar", grund: null, am: "2026-10-01T10:00:00Z" } });

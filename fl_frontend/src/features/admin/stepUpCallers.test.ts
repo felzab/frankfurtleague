@@ -222,7 +222,17 @@ const adresswechselPanel = () =>
   underNext(
     h(FormAdresswechselSection, {
       schiedsrichterId: REFEREE_ID,
-      adresswechsel: { email: "anna@neu.example", verschickt_am: "2026-09-01", frist: "2099-12-31", zustellung: null },
+      adresswechsel: {
+        email: "anna@neu.example",
+        weg: "konto",
+        verschickt_am: "2026-09-01",
+        gueltig_bis: "2099-12-31T11:30:00Z",
+        freigegeben_am: null,
+        grund: null,
+        bestaetigt_am: null,
+        wirksam_ab: null,
+        zustellung: null,
+      },
       istAbgelaufen: false,
       isDirty: false,
     }),
@@ -244,7 +254,17 @@ const spielerAdresswechselPanel = () =>
   underNext(
     h(SpielerAdresswechselSection, {
       spielerId: SPIELER_ID,
-      adresswechsel: { email: "lena@neu.example", verschickt_am: "2026-09-01", frist: "2099-12-31", zustellung: null },
+      adresswechsel: {
+        email: "lena@neu.example",
+        weg: "konto",
+        verschickt_am: "2026-09-01",
+        gueltig_bis: "2099-12-31T11:30:00Z",
+        freigegeben_am: null,
+        grund: null,
+        bestaetigt_am: null,
+        wirksam_ab: null,
+        zustellung: null,
+      },
       istAbgelaufen: false,
       isDirty: false,
     }),
@@ -424,10 +444,12 @@ const DRIVES: Record<string, Drive[]> = {
     },
   ],
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm.tsx :: patchSchiedsrichterAction": [
-    // A moved address mints on either side of the referee's answer: a consent link before it, an address link after.
+    // A moved address mints a consent link before the referee's answer; after it, the address moves by its own start.
     { render: () => refereeEditor(false), reach: moveAddress, press: "Speichern", asks: true },
-    { render: () => refereeEditor(true), reach: moveAddress, press: "Speichern", asks: true },
     { render: () => refereeEditor(true), reach: retype("Telefon", "069 7654321"), press: "Speichern", asks: false },
+  ],
+  "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormKontaktSection.tsx :: beantrageSchiedsrichterAdresswechselAction": [
+    { render: () => refereeEditor(true), reach: requestAddress, press: "Link an neue Adresse senden", asks: true },
   ],
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAdresswechselSection.tsx :: einladeAdresswechselAction": [
     { render: () => adresswechselPanel(), press: "Link erneut senden: Neue E-Mail-Adresse", asks: true },

@@ -85,14 +85,6 @@ export const SCHIEDSRICHTER_KORREKTUR_HINWEIS =
   "automatisch ein neuer Link an die neue Adresse, und der bisherige gilt nicht mehr.";
 
 /**
- * The confirmed referee's twin, for the same reason: the save keeps the address on file, and an
- * administrator expecting it to move at once reads the unchanged box as a save that failed.
- */
-export const SCHIEDSRICHTER_ADRESSWECHSEL_HINWEIS =
-  "Eine geänderte E-Mail-Adresse gilt erst, wenn die Person sie über den Link bestätigt, der beim Speichern an die neue Adresse geht. " +
-  "Bis dahin bleibt die bisherige, und die bisherige Adresse erfährt von der Änderung.";
-
-/**
  * The two states that close the send, worded for the administrator at the control rather than left
  * to the round trip that `REQ-SCHIEDSRICHTER-001` and `-006` answer with.
  */
@@ -107,17 +99,6 @@ export function bookedSchiedsrichterName({ schiedsrichter_id, name }: { schiedsr
   if (name !== null) return name;
 
   return schiedsrichter_id === GHOST_SCHIEDSRICHTER_ID ? SCHIEDSRICHTER_ANONYM_LABEL : SCHIEDSRICHTER_OHNE_NAMEN_LABEL;
-}
-
-/**
- * The forename the address change's notice greets a referee by, cut here because the mint answers none. It splits
- * as `fl_backend/app/api/schiedsrichter/services.py :: vorname_of` does for the account page, so one person is never
- * called by two names.
- */
-export function schiedsrichterVorname(name: string | null): string | null {
-  const erster = (name ?? "").trim().split(/\s+/u)[0] ?? "";
-
-  return erster === "" ? null : erster;
 }
 
 /**

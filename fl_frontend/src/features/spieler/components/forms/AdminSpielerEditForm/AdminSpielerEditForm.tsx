@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { istAndereAdresse } from "@/features/konto/components/forms/AdresswechselBeantragen";
 import { patchSaisonSpielerAction, patchSpielerAction, undoAdminSpielerEditAction } from "@/features/spieler/actions";
 import { KADER_ABSCHNITT, rolleLabel } from "@/features/spieler/constants";
 import { FLPatchSaisonSpielerPayloadSchema, FLPatchSpielerPayloadSchema } from "@/features/spieler/schemas";
@@ -27,7 +28,7 @@ import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSpielerBanners } from "./banners";
-import { FormAdresseSection, istAndereAdresse } from "./FormAdresseSection";
+import { FormAdresseSection } from "./FormAdresseSection";
 import { FormAdresswechselSection } from "./FormAdresswechselSection";
 import { FormAustragenSection } from "./FormAustragenSection";
 import { FormEinwilligungSection } from "./FormEinwilligungSection";
