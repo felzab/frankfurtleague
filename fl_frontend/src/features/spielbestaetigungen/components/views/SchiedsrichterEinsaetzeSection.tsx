@@ -80,7 +80,9 @@ export function SchiedsrichterEinsaetzeSection({ einsaetze }: { einsaetze: reado
             body={{
               lead: "Die Spiele, für die Dich die Verwaltung der Liga als Schiedsrichterin oder Schiedsrichter eingeteilt hat. Sag zu jedem Spiel zu oder ab.",
               points: [
-                { text: "Hat die Verwaltung Dich zu einem Spiel gefragt, steht es erst mit Dir im Spielplan, wenn Du zugesagt hast." },
+                {
+                  text: "Hat die Verwaltung Dich zu einem Spiel gefragt, steht es erst mit Dir im Spielplan, wenn Du zugesagt hast oder die Verwaltung Deine Zusage eingetragen hat.",
+                },
                 { text: "Sagst Du ab, teilt die Verwaltung jemand anderen ein." },
               ],
             }}
