@@ -522,7 +522,7 @@ async def plan_replay(
             return await _plan_widerruf(line, database, schluessel=schluessel, session=session)
         case "widerspruch":
             return await _plan_widerspruch(line, database, schluessel=schluessel, session=session, now=now, window=window)
-        case "adresswechsel_abgelehnt" | "adresswechsel_gestoppt":
+        case "adresswechsel_abgelehnt" | "adresswechsel_gestoppt" | "adresswechsel_verworfen":
             return await _plan_adresswechsel(line, database, schluessel=schluessel, session=session, now=now, window=window)
         case "adresswechsel_wirksam":
             return await _plan_adresswechsel_wirksam(line, database, schluessel=schluessel, session=session)
@@ -585,10 +585,18 @@ async def run_replay(
 
     window = Window(since=since, until=until)
     read, unreadable = read_day_files(lines, since=since, until=until)
-    erased = {entry.line.person_hash for entry in read if entry.line.art == "loeschung"}
-    held = await where_held(database, erased, schluessel=schluessel)
+    # Each person's last erasure, the read being oldest first.
+    erased_at = {entry.line.person_hash: entry.timestamp for entry in read if entry.line.art == "loeschung"}
+    replaced = {entry.line.zuvor for entry in read if entry.line.zuvor is not None}
+    held = await where_held(database, set(erased_at) | replaced, schluessel=schluessel)
     # A person whose erasure has run again: their own choices' records went with it, and nothing of theirs is left to replay.
-    gone = {person_hash for person_hash in erased if not held[person_hash]}
+    gone = {person_hash for person_hash in erased_at if not held[person_hash]}
+    # An effect before its person's erasure left their records at the replaced address in a snapshot from before it
+    # (`docs/backend/spec.md :: I800`). Newest first, so a chain of changes reaches the earliest address still held.
+    for entry in reversed(read):
+        if _erased_after(entry, gone, erased_at) and entry.line.zuvor is not None and not held[entry.line.zuvor]:
+            gone.add(entry.line.zuvor)
+            erased_at[entry.line.zuvor] = max(erased_at[entry.line.person_hash], erased_at.get(entry.line.zuvor, entry.timestamp))
     print(f"Journal lines written after {since.isoformat()} and no later than {until.isoformat()}: {len(read)}.", file=out)
 
     left = {"erasures to run": 0, "lines to replay": 0, "records to review": 0, "replays that failed": 0}
@@ -597,16 +605,16 @@ async def run_replay(
         print(f"\n{entry.timestamp.isoformat()}  {line.act()}", file=out)
 
         if line.art == "loeschung" and held[line.person_hash]:
-            places = held[line.person_hash]
             left["erasures to run"] += 1
-            for collection in sorted({place[0] for place in places}):
-                found = [place for place in places if place[0] == collection]
-                shown = ", ".join(f"{document_id} {path}" for _, document_id, path in found[:3])
-                print(f"    held in {collection}: {len(found)} field(s), {shown}{', …' if len(found) > 3 else ''}", file=out)
-            print(f"    run it again on „{LOESCHUNG_SEITE}“ with the address one of those records shows", file=out)
+            _print_held(held[line.person_hash], out)
             continue
         if line.art == "loeschung" and line.pseudonym is None and line.halter is None:
             print("    its address is held nowhere in the restored database: nothing to run", file=out)
+            continue
+        if _erased_after(entry, gone, erased_at) and line.zuvor is not None and held[line.zuvor]:
+            left["erasures to run"] += 1
+            print("    its person's erasure followed it, and the address it replaced holds their records again", file=out)
+            _print_held(held[line.zuvor], out)
             continue
         if line.art != "loeschung" and line.person_hash in gone:
             print("    its person's erasure has run: nothing to replay", file=out)
@@ -637,6 +645,22 @@ async def run_replay(
     print(f"\nLeft: {', '.join(f'{count} {what}' for what, count in left.items())}.", file=out)
 
     return 1 if any(left.values()) else 0
+
+
+def _erased_after(entry: Read, gone: set[str], erased_at: Mapping[str, datetime]) -> bool:
+    """Whether the line's person, held nowhere, was erased after the line was written."""
+
+    return entry.line.person_hash in gone and erased_at[entry.line.person_hash] > entry.timestamp
+
+
+def _print_held(places: list[tuple[str, Any, str]], out: TextIO) -> None:
+    """Where an erasure to run finds its address, by collection, document and field, and where it is run."""
+
+    for collection in sorted({place[0] for place in places}):
+        found = [place for place in places if place[0] == collection]
+        shown = ", ".join(f"{document_id} {path}" for _, document_id, path in found[:3])
+        print(f"    held in {collection}: {len(found)} field(s), {shown}{', …' if len(found) > 3 else ''}", file=out)
+    print(f"    run it again on „{LOESCHUNG_SEITE}“ with the address one of those records shows", file=out)
 
 
 def _instant(parser: argparse.ArgumentParser, flag: str, spelled: str) -> datetime:

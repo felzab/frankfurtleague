@@ -1692,7 +1692,8 @@ again.
 Everything written between the snapshot and the restore is gone, the log's own rows about it
 included. Every erasure a person or an administrator asked for left one line in the backend's
 stream, and so did every consent a person withdrew, every Widerspruch made through a seat's link,
-every address change declined or stopped and every one taking effect, each naming its person by a keyed hash and never
+every address change declined, stopped or discarded (by an administrator, by a later start replacing it, or by the
+hourly pass refusing it when due) and every one taking effect, each naming its person by a keyed hash and never
 by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by and by
 the digest their fixture answers carry, whether its commit landed or lost its answer
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706). §7's day files keep those lines outside the database for thirty days. **Once the restore has
@@ -1745,6 +1746,10 @@ the export wrote no file for. Each line is listed by its act and its record, nev
   which a restore brings back with the snapshot, the listing says how many, with the log rows' ids,
   and reads `to replay` ([`../backend/spec.md`](../backend/spec.md#2-invariants) I731); a line naming
   neither a pseudonym nor a holder digest reads `nothing to run`.
+- **An address change that took effect before its person's erasure**, where the restored database
+  holds the new address nowhere, is listed as an erasure, at the address it replaced: a snapshot from
+  before the change holds the person's records there
+  ([`../backend/spec.md`](../backend/spec.md#2-invariants) I800).
 - **A choice** reads `to replay`; `already done` where the restored record already stands as the
   choice left it, or the restored site set it since: the choice granted again by evidence later than
   the line, the seat sent a link or the address a change on a day after the snapshot's; `left for

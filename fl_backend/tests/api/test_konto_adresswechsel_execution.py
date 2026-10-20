@@ -7,7 +7,8 @@ person's own in one write. Each lane's link and its refusals are `tests/api/test
 and `tests/api/test_schiedsrichter_adresswechsel_execution.py`'s.
 """
 
-from collections.abc import Awaitable, Mapping
+import logging
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -26,10 +27,12 @@ from app.api.konto.schemas import FLKontoAdresswechselPayload
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPayload
 from app.api.registrierungen.services import REGISTRIERUNG_TOKEN_UNKNOWN
+from app.api.schiedsrichter.admin_router import delete_adresswechsel as discard_for_a_referee
 from app.api.schiedsrichter.admin_router import post_adresswechsel as start_for_a_referee
 from app.api.schiedsrichter.schemas import FLAdresswechselSweepParams, FLSchiedsrichterAdresswechselPayload
 from app.api.schiedsrichter.services import SCHIEDSRICHTER_ADRESSE_UNVERAENDERT, SCHIEDSRICHTER_TOKEN_EXPIRED
 from app.api.schiedsrichter.sweep_router import sweep_adresswechsel
+from app.api.spieler.admin_router import delete_adresswechsel as discard_for_a_pupil
 from app.api.spieler.admin_router import post_adresswechsel as start_for_a_pupil
 from app.api.spieler.adresswechsel_router import get_adresswechsel_ansicht, post_adresswechsel_antwort, post_adresswechsel_stopp
 from app.api.spieler.schemas import (
@@ -41,6 +44,8 @@ from app.api.spieler.schemas import (
 from app.api.spieler.services import SPIELER_ADRESSE_UNVERAENDERT, SPIELER_ADRESSWECHSEL_FELD, SPIELER_TOKEN_EXPIRED, SPIELER_TOKEN_UNKNOWN
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.journal import JOURNAL_TOKEN, parse_line
+from app.core.security import loeschung_journal_hash
 from app.shared.schemas.bounds import ADRESSWECHSEL_WARTEZEIT_TAGE
 from tests import documents
 from tests.bans import ban_list, ban_through_the_route
@@ -730,3 +735,92 @@ class TestTheWaitingTime:
         assert (swept.verworfen, swept.wirksam) == (1, [])
         assert (after["pupil"]["email"], SPIELER_ADRESSWECHSEL_FELD in after["pupil"]) == (EMAIL, False)
         assert held == {NEW_EMAIL: []}
+
+
+GRUND = "Postfach gelöscht, telefonisch bestätigt am 21.10.2026"
+
+
+async def _discarded_for_the_pupil(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await administrator_starts(database, client, grund=GRUND)
+    await discard_for_a_pupil(
+        spieler_id=SPIELER_OID,
+        spieler_collection=database[Collection.SPIELER],
+        aktionen_collection=database[Collection.AKTIONEN],
+        db=client,
+        config=build_test_config(),
+        germany_now=NOW,
+    )
+
+
+async def _started_for_the_referee(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await start_for_a_referee(
+        schiedsrichter_id=REFEREE_OID,
+        adresswechsel_data=FLSchiedsrichterAdresswechselPayload.model_validate({"email": NEW_EMAIL, "grund": GRUND}),
+        records=record_collections(database),
+        spieler_collection=database[Collection.SPIELER],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
+        aktionen_collection=database[Collection.AKTIONEN],
+        db=client,
+        germany_now=NOW,
+    )
+
+
+async def _discarded_for_the_referee(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await _started_for_the_referee(database, client)
+    await discard_for_a_referee(
+        schiedsrichter_id=REFEREE_OID,
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        aktionen_collection=database[Collection.AKTIONEN],
+        db=client,
+        config=build_test_config(),
+        germany_now=NOW,
+    )
+
+
+async def _replaced_by_the_person(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await _started_for_the_referee(database, client)
+    await start(database, client, email=FOREIGN_EMAIL)
+
+
+async def _replaced_by_an_administrator(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await start(database, client)
+    await administrator_starts(database, client, grund=None)
+
+
+async def _refused_at_its_due_date(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    started = await administrator_starts(database, client, grund=GRUND)
+    await answer(database, client, started.adresswechsel.token)
+    await ban_through_the_route(database, client, email=EMAIL, grund="Falschangaben", von="admin@frankfurtleague.de", today=TODAY)
+    await sweep(database, client, now=AFTER_THE_WAIT)
+
+
+# Every way a change ends that a restore could undo, and the row whose change it ended.
+ENDINGS: Mapping[str, tuple[Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[None]], Collection, ObjectId]] = {
+    "an administrator's discard of a pupil's": (_discarded_for_the_pupil, Collection.SPIELER, SPIELER_OID),
+    "an administrator's discard of a referee's": (_discarded_for_the_referee, Collection.SCHIEDSRICHTER, REFEREE_OID),
+    "the person's start ending an administrator's on another row": (_replaced_by_the_person, Collection.SCHIEDSRICHTER, REFEREE_OID),
+    "an administrator's start replacing the person's": (_replaced_by_an_administrator, Collection.SPIELER, SPIELER_OID),
+    "the pass refusing it at its due date": (_refused_at_its_due_date, Collection.SPIELER, SPIELER_OID),
+}
+
+
+class TestEveryEndingIsJournalled:
+    @pytest.mark.parametrize("ending", ENDINGS)
+    def test_it_writes_one_discard_line_naming_the_change_it_ended(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, ending: str
+    ):
+        """A restore bringing the change back would leave a confirmed one in its waiting time to take effect with nobody pressing."""
+        act, collection, record_id = ENDINGS[ending]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+            with caplog.at_level(logging.INFO):
+                await act(database, client)
+
+        on_a_person(mongo_replica_set_url, body)
+        lines = [parse_line(record.getMessage()) for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
+
+        assert [(line.collection, line.record_id, line.person_hash) for line in lines if line and line.art == "adresswechsel_verworfen"] == [
+            (collection, record_id, loeschung_journal_hash(NEW_EMAIL, schluessel=build_test_config().sperrliste_schluessel))
+        ]

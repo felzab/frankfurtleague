@@ -4626,7 +4626,7 @@
       },
       "delete": {
         "summary": "Discard a Spieler's pending address change",
-        "description": "Discard this pupil's pending address change: the block goes, its link opens nothing, and the stored address stays.\n\n**The address goes from the action log too** (`docs/backend/spec.md :: I704`): it is taken out of every image the log holds\nof this pupil, since every write on the row while the change stood, a re-send or this discard included, filed one carrying\nan address nobody proved; the rest of each image stays. Nothing is mailed. 404 where the pupil holds no pending change, and\nfor an id no pupil holds, the sentinel's included.",
+        "description": "Discard this pupil's pending address change: the block goes, its link opens nothing, and the stored address stays.\n\n**The address goes from the action log too** (`docs/backend/spec.md :: I704`): it is taken out of every image the log holds\nof this pupil, since every write on the row while the change stood, a re-send or this discard included, filed one carrying\nan address nobody proved; the rest of each image stays. Journalled as the stop is, so a restore does not bring back a\nchange confirmed in its waiting time to take effect. Nothing is mailed. 404 where the pupil holds no pending change, and\nfor an id no pupil holds, the sentinel's included.",
         "operationId": "delete_adresswechsel_api_v0_spieler__spieler_id__adresswechsel_delete",
         "security": [
           {
@@ -5838,7 +5838,7 @@
       },
       "delete": {
         "summary": "Discard a Schiedsrichter's pending address change",
-        "description": "Discard this referee's pending address change: the block goes, its link opens nothing, and the stored address stays.\n\n**The address goes from the action log too** (`docs/backend/spec.md :: I562`): it is taken out of every image the log\nholds of this referee, since every write on the row while the change stood, a re-send or this discard included, filed one\ncarrying an address nobody proved; the rest of each image stays. Nothing is mailed. 404 where the referee holds no pending\nchange, and for an id no referee holds, the ghost's included.",
+        "description": "Discard this referee's pending address change: the block goes, its link opens nothing, and the stored address stays.\n\n**The address goes from the action log too** (`docs/backend/spec.md :: I562`): it is taken out of every image the log\nholds of this referee, since every write on the row while the change stood, a re-send or this discard included, filed one\ncarrying an address nobody proved; the rest of each image stays. Journalled as the pupil's twin is\n(`DELETE /spieler/{spieler_id}/adresswechsel`). Nothing is mailed. 404 where the referee holds no pending change, and for\nan id no referee holds, the ghost's included.",
         "operationId": "delete_adresswechsel_api_v0_schiedsrichter__schiedsrichter_id__adresswechsel_delete",
         "security": [
           {

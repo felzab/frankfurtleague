@@ -194,6 +194,7 @@ async def discard(database: AsyncDatabase, client: AsyncMongoClient, *, spieler_
         spieler_collection=spieler if spieler is not None else database[Collection.SPIELER],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
+        config=build_test_config(),
         germany_now=NOW,
     )
 

@@ -10,7 +10,14 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
 from app.api.identitaet.lookup import RecordCollections, SubjektLookup
-from app.api.konto.adresswechsel import Mitteilung, discard_the_change_in_session, move_the_address_in_session, read_the_bestand, wirksam_line
+from app.api.konto.adresswechsel import (
+    Mitteilung,
+    discard_the_change_in_session,
+    ending_line,
+    move_the_address_in_session,
+    read_the_bestand,
+    wirksam_line,
+)
 from app.api.schiedsrichter.schemas import FLAdresswechselSweepParams, FLSchiedsrichterAdresswechselSweepResponse
 from app.api.schiedsrichter.services import adresswechsel_adressen, build_due_adresswechsel_filter, build_lapsed_adresswechsel_filter
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, sperrliste_saison
@@ -186,6 +193,13 @@ async def _make_the_due_change_take_effect(
                 db_filter=db_filter,
                 stamp=stamp,
                 session=session,
+            )
+            # Journalled, as an administrator's discard is: the ban or the other pupil refusing it may postdate a snapshot a
+            # restore brings the change back from, due.
+            journal.note(
+                ending_line(
+                    art="adresswechsel_verworfen", neue=neue, collection=collection, record_id=row["_id"], am=stamp, schluessel=schluessel
+                )
             )
             return None
 

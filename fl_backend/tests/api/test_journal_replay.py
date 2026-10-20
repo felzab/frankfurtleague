@@ -26,6 +26,7 @@ from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.wiederherstellung import REPLAY_METHOD, Read, Window, plan_replay, replay_line, run_replay
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
 from app.api.spielbestaetigungen.services import halter_of
+from app.api.spieler.admin_router import delete_adresswechsel as discard_for_a_pupil
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -846,3 +847,88 @@ class TestAnErasedPersonsReasons:
         assert after == {**removed, "art": "abgelehnt"}
         for output in (listed, applied, again):
             assert halter_of(PERSON, schluessel=KEY) not in output
+
+
+class TestAnErasureAfterAChangeTookEffect:
+    @pytest.mark.parametrize(
+        ("erased", "code", "listed_line", "absent"),
+        [
+            pytest.param("2026-10-03T10:00:02+00:00", 1, "held in spieler: 1 field(s), ", "nothing to replay", id="erased after the effect"),
+            pytest.param(
+                "2026-10-03T10:00:00+00:00",
+                0,
+                "its person's erasure has run: nothing to replay",
+                "held in spieler",
+                id="an earlier erasure of the address it moved to",
+            ),
+        ],
+    )
+    def test_a_restore_from_before_the_start_lists_it_at_the_replaced_address(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, erased: str, code: int, listed_line: str, absent: str
+    ):
+        """A snapshot from before the start holds the person's records at the address they left, which an erasure already run leaves standing.
+
+        An erasure older than the effect is somebody else's, and lists nothing against the person who moved.
+        """
+
+        async def steps(http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            snapshot = await _record(database, Collection.SPIELER, MOVING_PUPIL_OID)
+            del snapshot[ADRESSWECHSEL_FELD]
+            with caplog.at_level(logging.INFO):
+                moved = await PRESSES["a pupil's address that took effect"][0](http, database)
+                gone = await http.post(ERASURE, headers=_person(NEW_ADDRESS))
+            assert (moved.status_code, gone.status_code) == (200, 200), gone.text
+            effect, erasure = journalled(caplog)
+
+            # The restore: the pupil as the snapshot held it, before the change was started.
+            await database[Collection.SPIELER].replace_one({"_id": MOVING_PUPIL_OID}, snapshot, upsert=True)
+            day = _day_file(("2026-10-03T10:00:01+00:00", effect), (erased, erasure))
+            return await _listed(day, client, database, apply=False)
+
+        exited, listed = served(mongo_replica_set_url, steps)
+
+        assert exited == code, listed
+        assert listed_line in listed and absent not in listed
+        assert "@" not in listed and loeschung_journal_hash(NEW_ADDRESS, schluessel=KEY) not in listed
+
+
+class TestADiscardedChange:
+    def test_a_confirmed_change_in_its_waiting_time_stays_discarded_after_a_restore_from_inside_the_hold(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
+        """Brought back confirmed and due, the hourly pass would make it take effect with nobody pressing anything."""
+
+        waiting = {
+            **documents.adresswechsel_document(email=NEW_ADDRESS, token_hash=hash_token(PUPIL_ADDRESS_LINK), day=TODAY, weg="wartezeit"),
+            "token_hash": None,
+            "gueltig_bis": None,
+            "grund": "Postfach gelöscht, telefonisch bestätigt",
+            "bestaetigt_am": datetime(2026, 10, 3, 9, 30, tzinfo=UTC),
+            "wirksam_ab": datetime(2026, 10, 10, 9, 30, tzinfo=UTC),
+        }
+
+        async def steps(_http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELER].update_one({"_id": MOVING_PUPIL_OID}, {"$set": {ADRESSWECHSEL_FELD: waiting}})
+            snapshot = await _record(database, Collection.SPIELER, MOVING_PUPIL_OID)
+            with caplog.at_level(logging.INFO):
+                await discard_for_a_pupil(
+                    spieler_id=MOVING_PUPIL_OID,
+                    spieler_collection=database[Collection.SPIELER],
+                    aktionen_collection=database[Collection.AKTIONEN],
+                    db=client,
+                    config=CONFIG,
+                    germany_now=NOW,
+                )
+            [line] = journalled(caplog)
+
+            await database[Collection.SPIELER].replace_one({"_id": MOVING_PUPIL_OID}, snapshot)
+            planned = await replay_line(_entry(line), client, database, schluessel=KEY, now=REPLAY_NOW, window=WINDOW)
+            return parse_line(line), planned.stand, await _record(database, Collection.SPIELER, MOVING_PUPIL_OID)
+
+        line, stand, after = served(mongo_replica_set_url, steps)
+
+        assert line is not None
+        assert (line.art, line.collection, line.record_id) == ("adresswechsel_verworfen", Collection.SPIELER, MOVING_PUPIL_OID)
+        assert line.person_hash == loeschung_journal_hash(NEW_ADDRESS, schluessel=KEY)
+        assert stand == "replayed"
+        assert ADRESSWECHSEL_FELD not in after

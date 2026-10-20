@@ -16,7 +16,7 @@ from app.api.konto.adresswechsel import (
     Bestand,
     Zeile,
     discard_the_change_in_session,
-    gestoppt_line,
+    ending_line,
     read_the_bestand,
     start_the_change_in_session,
 )
@@ -280,7 +280,9 @@ async def post_adresswechsel(
     email = adresswechsel_data.email
     raw_token, token_hash = mint_token()
     raw_stopp, stopp_hash = mint_token()
+    journal = Journal()
 
+    @journal.attempted
     async def start_the_change(session: AsyncClientSession) -> tuple[Zeile, datetime]:
         bestand = await read_the_bestand(identifier, records=records, session=session)
         traeger = bestand.traeger
@@ -302,13 +304,15 @@ async def post_adresswechsel(
             adressanker_collection=adressanker_collection,
             schluessel=config.sperrliste_schluessel,
             stamp=log_stamp(germany_now),
+            journal=journal,
             session=session,
         )
 
         return traeger, block["gueltig_bis"]
 
-    async with transaction_session(db) as session:
-        traeger, gueltig_bis = await session.with_transaction(start_the_change)
+    async with journal:
+        async with transaction_session(db) as session:
+            traeger, gueltig_bis = await session.with_transaction(start_the_change)
 
     return FLKontoAdresswechselMintResponse(
         art=traeger.art,
@@ -428,11 +432,12 @@ async def delete_adresswechsel(
             session=session,
         )
         journal.note(
-            gestoppt_line(
+            ending_line(
+                art="adresswechsel_gestoppt",
                 neue=str(zeile.block["email"]),
                 collection=zeile.collection,
                 record_id=zeile.row["_id"],
-                now=germany_now,
+                am=log_stamp(germany_now),
                 schluessel=config.sperrliste_schluessel,
             )
         )

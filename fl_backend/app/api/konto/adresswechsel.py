@@ -34,7 +34,7 @@ from app.api.teams.crud import void_moved_seats
 from app.core.adressanker import anchor_the_addresses
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, patch_one_in_db
-from app.core.journal import JournalLine
+from app.core.journal import Journal, JournalLine
 from app.core.recording import build_redaction_filter, log_stamp
 from app.core.security import loeschung_journal_hash
 from app.shared.adresswechsel import ADRESSWECHSEL_FELD, neue_adresse_of
@@ -227,12 +227,28 @@ async def start_the_change_in_session(
     adressanker_collection: AsyncCollection,
     schluessel: SecretStr,
     stamp: str,
+    journal: Journal,
     session: AsyncClientSession,
 ) -> None:
-    """End every other change pending on the set's rows, then write the carrier's block whole (`docs/backend/spec.md :: I792`)."""
+    """End every other change pending on the set's rows, then write the carrier's block whole (`docs/backend/spec.md :: I792`).
+
+    Each change ended, the carrier's own included, is journalled as discarded: restored, a confirmed one would take effect unpressed.
+    """
 
     for zeile in bestand.zeilen:
-        if zeile.block is None or (zeile.collection, zeile.row["_id"]) == (traeger.collection, traeger.row["_id"]):
+        if zeile.block is None:
+            continue
+        journal.note(
+            ending_line(
+                art="adresswechsel_verworfen",
+                neue=str(zeile.block["email"]),
+                collection=zeile.collection,
+                record_id=zeile.row["_id"],
+                am=stamp,
+                schluessel=schluessel,
+            )
+        )
+        if (zeile.collection, zeile.row["_id"]) == (traeger.collection, traeger.row["_id"]):
             continue
         await discard_the_change_in_session(
             collection=zeile.collection,
@@ -397,7 +413,10 @@ def _registrierung_move(row: Mapping[str, Any], neue: str) -> dict[str, Any]:
 
 
 def wirksam_line(*, neue: str, traeger: Zeile, now: datetime, schluessel: SecretStr) -> JournalLine:
-    """The effect's journal line, so a restore from a snapshot taken while the change stood is listed rather than silently undone."""
+    """The effect's journal line, so a restore from a snapshot taken while the change stood is listed rather than silently undone.
+
+    The replaced address's hash too, where a later erasure finds the records a snapshot from before the start holds.
+    """
 
     return JournalLine(
         person_hash=loeschung_journal_hash(neue, schluessel=schluessel),
@@ -405,16 +424,16 @@ def wirksam_line(*, neue: str, traeger: Zeile, now: datetime, schluessel: Secret
         collection=traeger.collection,
         record_id=traeger.row["_id"],
         am=log_stamp(now),
+        zuvor=loeschung_journal_hash(traeger.adresse, schluessel=schluessel),
     )
 
 
-def gestoppt_line(*, neue: str, collection: Collection, record_id: Any, now: datetime, schluessel: SecretStr) -> JournalLine:
-    """A stop's line, as a decline's, so a restore does not bring the change back with a live link (`docs/backend/spec.md :: I706`)."""
+EndingArt = Literal["adresswechsel_gestoppt", "adresswechsel_verworfen"]
+
+
+def ending_line(*, art: EndingArt, neue: str, collection: Collection, record_id: Any, am: str, schluessel: SecretStr) -> JournalLine:
+    """A stop's or a discard's line, as a decline's, so a restore does not bring the change back to act (`docs/backend/spec.md :: I706`)."""
 
     return JournalLine(
-        person_hash=loeschung_journal_hash(neue, schluessel=schluessel),
-        art="adresswechsel_gestoppt",
-        collection=collection,
-        record_id=record_id,
-        am=log_stamp(now),
+        person_hash=loeschung_journal_hash(neue, schluessel=schluessel), art=art, collection=collection, record_id=record_id, am=am
     )

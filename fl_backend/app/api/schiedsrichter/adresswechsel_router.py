@@ -11,7 +11,7 @@ from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.konto.adresswechsel import (
     discard_the_change_in_session,
-    gestoppt_line,
+    ending_line,
     move_the_address_in_session,
     read_the_bestand,
     wirksam_line,
@@ -326,11 +326,12 @@ async def post_adresswechsel_stopp(
             session=session,
         )
         journal.note(
-            gestoppt_line(
+            ending_line(
+                art="adresswechsel_gestoppt",
                 neue=str(raw[ADRESSWECHSEL_FELD]["email"]),
                 collection=Collection.SCHIEDSRICHTER,
                 record_id=raw["_id"],
-                now=germany_now,
+                am=log_stamp(germany_now),
                 schluessel=config.sperrliste_schluessel,
             )
         )

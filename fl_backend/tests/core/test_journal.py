@@ -23,6 +23,7 @@ from app.core.transactions import UNKNOWN_COMMIT_RESULT
 PERSON = "a" * 64
 PSEUDONYM = "c" * 64
 HALTER = "d" * 64
+ZUVOR = "e" * 64
 RECORD = ObjectId("6890a1b2c3d4e5f607860001")
 AM = "2026-10-15T10:00:00+00:00"
 JOURNAL_LOGGER = f"{FL_LOGGER_NAME}.{JOURNAL_LOGGER_SUFFIX}"
@@ -48,6 +49,12 @@ LINES = {
     "a declined address change": JournalLine(
         person_hash=PERSON, art="adresswechsel_abgelehnt", collection=Collection.SCHIEDSRICHTER, record_id=RECORD, am=AM
     ),
+    "a discarded address change": JournalLine(
+        person_hash=PERSON, art="adresswechsel_verworfen", collection=Collection.SPIELER, record_id=RECORD, am=AM
+    ),
+    "an address change taking effect": JournalLine(
+        person_hash=PERSON, art="adresswechsel_wirksam", collection=Collection.SPIELER, record_id=RECORD, am=AM, zuvor=ZUVOR
+    ),
 }
 
 
@@ -58,6 +65,10 @@ def test_an_erasure_is_spelled_as_the_export_and_the_restore_read_it():
     assert LINES["an older erasure"].text() == f"{JOURNAL_TOKEN} {PERSON} loeschung"
     assert LINES["a withdrawal"].text() == (
         f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version=2026-10-konto-spieler umfang=intern medien=false"
+    )
+    assert (
+        LINES["an address change taking effect"].text()
+        == f"{JOURNAL_TOKEN} {PERSON} adresswechsel_wirksam spieler/{RECORD} am={AM} zuvor={ZUVOR}"
     )
 
 
@@ -70,7 +81,7 @@ def test_every_act_reads_back_as_it_was_written(line: JournalLine):
 def test_the_replay_names_a_line_by_its_act_alone(line: JournalLine):
     """The log outlives the day files by eleven months, so a replay's row names no keyed hash; nor the token, which reads as an erasure."""
     assert line.act().startswith(line.art)
-    assert PERSON not in line.act() and PSEUDONYM not in line.act() and HALTER not in line.act() and JOURNAL_TOKEN not in line.act()
+    assert all(keyed not in line.act() for keyed in (PERSON, PSEUDONYM, HALTER, ZUVOR, JOURNAL_TOKEN))
 
 
 def test_a_message_of_another_kind_is_no_line():
@@ -108,6 +119,15 @@ def test_a_message_of_another_kind_is_no_line():
         ),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} loeschung halter=anna@example.com", id="an address for the holder digest"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt spieler/{RECORD} am={AM} wer=ich", id="a value no act carries"),
+        pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_wirksam spieler/{RECORD} am={AM}", id="an effect naming no replaced address"),
+        pytest.param(
+            f"{JOURNAL_TOKEN} {PERSON} adresswechsel_verworfen spieler/{RECORD} am={AM} zuvor={ZUVOR}", id="a discard naming a replaced address"
+        ),
+        pytest.param(f"{JOURNAL_TOKEN} {PERSON} loeschung zuvor={ZUVOR}", id="an erasure naming a replaced address"),
+        pytest.param(
+            f"{JOURNAL_TOKEN} {PERSON} adresswechsel_wirksam spieler/{RECORD} am={AM} zuvor=anna@example.com",
+            id="an address for the replaced one",
+        ),
     ],
 )
 def test_a_line_nothing_could_replay_is_refused_rather_than_read(message: str):

@@ -252,6 +252,7 @@ async def discard(database: AsyncDatabase, client: AsyncMongoClient, *, schiedsr
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
+        config=CONFIG,
         germany_now=NOW,
     )
 
