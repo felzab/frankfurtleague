@@ -12,6 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final
 
+import pytest
 from conftest import lift_function, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parents[1]
@@ -28,9 +29,42 @@ ALIGNED: Final = 'aligned()   { printf "%s" "$1";  }'
 # longer ends on it.
 COMMENTED: Final = 'commented() { printf "%s" "$1"; } # why it reads so'
 
-# The one-liner ahead of the block, which is the arrangement a walk mis-reads: with no closing line
+# Each ended on its own line by what follows the brace -- an `&`, a redirection, a `;` -- so a reader
+# keyed to a line ending on the brace walks on to the block below.
+BACKGROUNDED: Final = "backgrounded() { sleep 1 & }"
+REDIRECTED: Final = 'redirected() { printf "%s" "$1"; } >&2'
+TERMINATED: Final = 'terminated() { printf "%s" "$1"; };'
+
+# Each holding a `; }` bash reads as text, inside quotes or inside a parameter expansion, so the body
+# runs on to a closing line of its own.
+QUOTED: Final = ("quoted() { printf '%s; } # %s\\n' \"$1\"", '  printf "and this"', "}")
+EXPANDED: Final = ('expanded() { printf "%s" ${1:-;} # the default', '  printf "and this"', "}")
+
+# The one-liners ahead of the blocks, which is the arrangement a walk mis-reads: with no closing line
 # of its own the first lift runs on to the second function's.
-MIXED: Final = "\n".join(("#!/usr/bin/env bash", ONE_LINE, "", ALIGNED, "", COMMENTED, "", "a_block() {", '  printf "not this"', "}", ""))
+MIXED: Final = "\n".join(
+    (
+        "#!/usr/bin/env bash",
+        ONE_LINE,
+        "",
+        ALIGNED,
+        "",
+        COMMENTED,
+        "",
+        BACKGROUNDED,
+        REDIRECTED,
+        TERMINATED,
+        "",
+        *QUOTED,
+        "",
+        *EXPANDED,
+        "",
+        "a_block() {",
+        '  printf "not this"',
+        "}",
+        "",
+    )
+)
 
 NESTED: Final = "\n".join(("#!/usr/bin/env bash", "outer() {", "  " + INDENTED, "  inner x", "}", ""))
 
@@ -52,6 +86,9 @@ UNCLOSED: Final = "\n".join(
     )
 )
 
+# A one-liner sharing its line with the next definition's opening, which leaves that line unclosed.
+SHARED: Final = "\n".join(("#!/usr/bin/env bash", 'shared() { printf "%s" "$1"; }; other() {', '  printf "not this"', "}", ""))
+
 
 def test_a_one_line_function_is_lifted_without_the_block_below_it(tmp_path: Path) -> None:
     """A wrong lift is a shell that still runs, so nothing but its text says the fixture is not the gate's."""
@@ -72,6 +109,21 @@ def test_a_one_line_function_with_a_trailing_comment_is_lifted_whole(tmp_path: P
     script = write_shell(tmp_path / "mixed.sh", MIXED)
 
     assert lift_function(script, "commented") == COMMENTED
+
+
+@pytest.mark.parametrize("line", [BACKGROUNDED, REDIRECTED, TERMINATED], ids=["ampersand", "redirection", "semicolon"])
+def test_a_one_line_function_ended_by_what_follows_its_brace_is_lifted_whole(line: str, tmp_path: Path) -> None:
+    script = write_shell(tmp_path / "mixed.sh", MIXED)
+
+    assert lift_function(script, line.split("(")[0]) == line
+
+
+@pytest.mark.parametrize("block", [QUOTED, EXPANDED], ids=["quoted", "expanded"])
+def test_a_brace_bash_reads_as_text_leaves_the_body_running_to_its_closing_line(block: tuple[str, ...], tmp_path: Path) -> None:
+    """Read as closed, the lift hands back the opening line alone, and a sweep never reads the rest of the body."""
+    script = write_shell(tmp_path / "mixed.sh", MIXED)
+
+    assert lift_function(script, block[0].split("(")[0]) == "\n".join(block)
 
 
 def test_a_block_function_is_lifted_from_its_opening_line_to_its_closing_one(tmp_path: Path) -> None:
@@ -109,6 +161,18 @@ def test_a_body_the_opening_line_never_closes_is_refused_by_its_name(tmp_path: P
         assert "unclosed" in str(refusal), refusal
     else:
         raise AssertionError("a function whose body outruns its opening line was lifted anyway")
+
+
+def test_a_one_line_function_sharing_its_line_with_another_definition_is_refused_by_its_name(tmp_path: Path) -> None:
+    """The line bash leaves open is the other definition's, so walking on from it hands back that function's body as this one's."""
+    script = write_shell(tmp_path / "shared.sh", SHARED)
+
+    try:
+        lift_function(script, "shared")
+    except AssertionError as refusal:
+        assert "shared" in str(refusal), refusal
+    else:
+        raise AssertionError("a function sharing its opening line with another definition was lifted anyway")
 
 
 def test_the_gates_own_one_line_function_comes_back_as_one_line() -> None:

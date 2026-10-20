@@ -73,7 +73,8 @@ REFEREE = ObjectId("6890a1b2c3d4e5f607930021")
 # No squad row holds it, so an admitted squad edit meets the handler's own 404 and writes nothing.
 NOT_IN_THE_SQUAD = ObjectId("6890a1b2c3d4e5f607930099")
 ANY_REGISTRIERUNG = ObjectId("6890a1b2c3d4e5f607930098")
-ANY_SPIEL = ObjectId("6890a1b2c3d4e5f607930097")
+ANY_SPIELBESTAETIGUNG = ObjectId("6890a1b2c3d4e5f607930097")
+ANY_SPIEL = ObjectId("6890a1b2c3d4e5f607930096")
 
 # One mailbox writing as all three kinds of person, so a count is seen to be the kind's and not the mailbox's.
 PERSON = "anna.drossel@schule.de"
@@ -316,12 +317,19 @@ class TestTheCeilingUnderConcurrency:
         assert row["ablauf"] == MIDNIGHT_UTC
 
 
-# Every route counting each call, each refused at an exhausted count before its handler reads the body.
+# Every route counting each call, each refused at an exhausted count of its Funktion before its handler reads the body.
 COUNTED_ON_EVERY_CALL = [
     pytest.param("PATCH", KADER_ROW, KADER_EDIT, "kontakt", id="a squad row's edit"),
     pytest.param("DELETE", KADER_ROW, None, "kontakt", id="a squad row's austragen"),
     pytest.param("POST", f"{API}/registrierungen/{ANY_REGISTRIERUNG}/aufnehmen", {}, "kontakt", id="an admission"),
     pytest.param("POST", f"{API}/registrierungen/{ANY_REGISTRIERUNG}/ablehnen", {}, "kontakt", id="a decline"),
+    pytest.param(
+        "POST",
+        f"{API}/spielbestaetigungen/{ANY_SPIELBESTAETIGUNG}/antwort",
+        {"antwort": "zugesagt", "begruendung": None},
+        "schiedsrichter",
+        id="a referee's answer",
+    ),
     pytest.param("PUT", f"{API}/spielberichte/{ANY_SPIEL}/bericht", SPIELBERICHT, "schiedsrichter", id="a referee's report"),
 ]
 

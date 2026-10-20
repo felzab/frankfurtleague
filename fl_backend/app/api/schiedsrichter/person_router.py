@@ -90,8 +90,8 @@ async def patch_einwilligung(
 
     Writes those two on this one referee row, each moved choice with its evidence (`nachweis.<choice>`), and nothing
     else: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The
-    fixture list does not read the scope yet: it serves the name each fixture stores, so a withdrawal here changes no
-    fixture page until its read joins this row. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to
+    public fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that
+    list's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to
     `kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
 
     Refuses, in this order: an id that is no confirmed referee record of this address (`REQ-FUNKTION-001`); a
@@ -102,8 +102,7 @@ async def patch_einwilligung(
     (`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), which
     counts grants alone, so a withdrawal is never refused for it. Each refusal writes nothing.
 
-    **The caller drops the cached fixture list after a successful answer**, ahead of the fixture read joining this
-    row; nothing here can.
+    **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
     """
 
     eigener_eintrag = build_selbst_referee_filter(identifier, schiedsrichter_id=schiedsrichter_id)

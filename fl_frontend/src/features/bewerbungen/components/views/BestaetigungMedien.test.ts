@@ -127,7 +127,6 @@ describe("the media switch, offered from the media age alone", () => {
             schule: "Lessing-Kolleg",
             rolle: "trainer",
             zugleich_rolle: null,
-            text_version: KONTAKT.textVersion,
             laufende_fassung: KONTAKT.textVersion,
             mindestalter: BEWERBUNG_MIN_ALTER,
             medien_mindestalter: MEDIEN_ALTER,

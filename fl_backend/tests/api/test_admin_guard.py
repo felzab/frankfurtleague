@@ -163,6 +163,9 @@ ADMIN_READS = [
     ("/api/v0/schiedsrichter/{schiedsrichter_id}", "get"),
     ("/api/v0/bewerbungen", "get"),
     ("/api/v0/bewerbungen/{bewerbung_id}", "get"),
+    # Every confirmation row of a season, each reason a club typed or an administrator recorded among them: free text
+    # that may name anyone, which no base-tier read serves.
+    ("/api/v0/spielbestaetigungen", "get"),
     # A POST because the address travels in a body, so `MUTATIONS` covers it too -- and would
     # stop covering it the day somebody makes the reveal a GET.
     ("/api/v0/identitaet/erasure/ansicht", "post"),
@@ -256,6 +259,8 @@ PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
         ("/api/v0/registrierungen/selbst/{registrierung_id}/einwilligung", "patch"),
         ("/api/v0/identitaet/selbst/erasure", "post"),
         ("/api/v0/identitaet/selbst/erasure/ansicht", "get"),
+        ("/api/v0/spielbestaetigungen/selbst", "get"),
+        ("/api/v0/spielbestaetigungen/{spielbestaetigung_id}/antwort", "post"),
         ("/api/v0/spielberichte/person", "get"),
         ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
         ("/api/v0/spielberichte/{spiel_id}/bericht", "put"),

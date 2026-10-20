@@ -55,7 +55,6 @@ const OFFEN: SchiedsrichterBestaetigungStart = {
   ansicht: {
     acknowledged: 1,
     zustand: "gueltig",
-    text_version: FASSUNG,
     mindestalter: MINDESTALTER,
     medien_mindestalter: MEDIEN_ALTER,
     frist: "2026-10-05",

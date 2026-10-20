@@ -9,6 +9,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.saisons.crud import pull_current_saison_id, pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielberichte.crud import pull_zustaende
+from app.api.spielbestaetigungen.services import ansetzung_stand_of, build_triage_rows_filter
 from app.api.spiele.crud import (
     advance_bracket_winners,
     anchor_a_booked_referee,
@@ -69,6 +70,7 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SpielberichteCollection,
+    SpielbestaetigungenCollection,
     SpieleCollection,
     SpielorteCollection,
     SpieltageCollection,
@@ -142,6 +144,7 @@ async def get_spiele_action_required(
     saisons_collection: SaisonsCollection,
     spielorte_collection: SpielorteCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
     saison_id: str | None = None,
     today: str = Depends(get_german_date_str),
@@ -152,6 +155,12 @@ async def get_spiele_action_required(
     knockout side with neither team nor `quelle`, or holding a referee's report the administrator has
     not adopted as it stands (`GET /spielberichte` serves its state). Scoped to `saison_id`, the active season when none
     is named, which answers 404 while no season is active.
+
+    Also every fixture a club's unclosed confirmation about its Ansetzung as it stands puts before the
+    administrator: a decline proposing another date, a deadline passed unanswered, or a deadline of
+    today on a request sent today or never. The rows themselves are not served: `GET /spielbestaetigungen`
+    for the same season serves them, read separately, so a row reaching one of those states between
+    the two reads shows its fixture on the next.
 
     The faults include a fixture still to be played that is booked onto a retired venue or referee,
     and one whose venue or referee another fixture of any season claims less than four hours away.
@@ -203,6 +212,25 @@ async def get_spiele_action_required(
     by_id: dict[CustomObjectId, FLSpielJoinedAdmin] = {spiel.id: spiel for spiel in spiele}
     for spiel in faulted_spiele:
         by_id.setdefault(spiel.id, spiel)
+
+    # A fixture a confirmation names may lack nothing above: rows are minted only for one with its day, time,
+    # ground and both sides. Grouped per fixture, so the read is bounded by the season's fixtures, never its rows.
+    angefragt = await aggregate_many_from_db(
+        collection=spielbestaetigungen_collection,
+        pipeline=[
+            {"$match": build_triage_rows_filter(saison_id=saison_id, today=today)},
+            {"$group": {"_id": "$spiel_id", "staende": {"$addToSet": "$ansetzung.stand"}}},
+        ],
+    )
+    staende = {row["_id"]: set(row["staende"]) for row in angefragt if row["_id"] not in by_id}
+    if staende:
+        for spiel_raw in await aggregate_many_from_db(
+            collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id, "_id": {"$in": list(staende)}})
+        ):
+            # A row about an Ansetzung the fixture has left asks the administrator nothing: the next pass closes it.
+            if ansetzung_stand_of(spiel_raw) in staende[spiel_raw["_id"]]:
+                spiel = FLSpielJoinedAdmin.model_validate(spiel_raw)
+                by_id.setdefault(spiel.id, spiel)
 
     # A report awaiting the administrator sits on a fixture the read above passes over -- one played today, or one whose
     # result stands -- so it is unioned in as a fault's is; the reports' own read serves the states.

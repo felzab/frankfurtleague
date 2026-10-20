@@ -12,6 +12,8 @@ import { publishedOperations } from "@/core/openapiDocument.ts";
 import { serverActionModules } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
+import type { FLBewerbungEinwilligungAnsichtResponse } from "@/features/bewerbungen/schemas.ts";
+
 /* The request the public mappers' reads and the undo actions load in, doubled before the `await import`s below. */
 doubleActionRequest();
 
@@ -78,11 +80,10 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
         schule: "Lessing-Kolleg",
         rolle: "ansprechperson" as const,
         zugleich_rolle: null,
-        text_version: null,
         laufende_fassung: "bestaetigung_kontakt",
         mindestalter: BEWERBUNG_MIN_ALTER,
         medien_mindestalter: MEDIEN_MIN_ALTER,
-      },
+      } satisfies FLBewerbungEinwilligungAnsichtResponse,
     })),
   "POST /bewerbungen/einwilligung/ansicht": bewerbungUtils.mapEinwilligungAnsichtRefusal,
   "POST /bewerbungen/{bewerbung_id}/annehmen": (error) => bewerbungen.mapTriageRefusal(error, "neue_schule"),
@@ -96,7 +97,7 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen": kontakte.mapEinladenRefusal,
   "POST /registrierungen": registrierungen.mapRegistrierungSubmitRefusal,
   "POST /registrierungen/bestaetigung": (error) =>
-    registrierungen.mapBestaetigungRefusal(error, async () => ({
+    registrierungen.mapBestaetigungRefusal(error, { geburtsdatum: "2010-05-01" }, async () => ({
       zustand: "gueltig" as const,
       ansicht: { mindestalter: REGISTRIERUNG_MIN_ALTER, medien_mindestalter: MEDIEN_MIN_ALTER },
     })),
@@ -138,6 +139,8 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "PATCH /spiele/{spiel_id}": spiele.mapSpielRefusal,
   "POST /spielbestaetigungen": spielbestaetigungen.mapAnsetzungRefusal,
   "POST /spielbestaetigungen/ansicht": spielbestaetigungen.mapAnsetzungAnsichtRefusal,
+  "POST /spielbestaetigungen/{spielbestaetigung_id}/eintragen": spielbestaetigungen.mapSpielbestaetigungAdminRefusal,
+  "POST /spielbestaetigungen/{spielbestaetigung_id}/verwerfen": spielbestaetigungen.mapSpielbestaetigungAdminRefusal,
   // Written by the match undo's replay alone.
   "PATCH /spiele/paarungen": (error) => replayRefusal(error, spiele.PAARUNGEN_REPLAY_REFUSALS) ?? null,
   "POST /spieler/{spieler_id}/adresswechsel": spieler.mapAdresswechselAntragRefusal,

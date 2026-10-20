@@ -64,11 +64,11 @@ export type SpielerBestaetigungStart =
   { zustand: "gueltig"; ansicht: SpielerBestaetigungGeoeffnet; token: string } | { zustand: SpielerLinkZustand | "unlesbar" };
 
 /**
- * What a confirmed pupil's answer panel states: the date they sent, and the two choices that stand —
- * the ones they gave on the new pupil's page, or the stored ones the returning pupil's page showed.
+ * What a confirmed pupil's answer panel states: what this page asked and they sent, so nothing on the
+ * returning pupil's page but a date typed where none was stored.
  */
 export type SpielerBestaetigungGespeichert = {
-  geburtsdatum: string;
+  geburtsdatum: string | null;
   umfang: FLEinwilligungUmfang | null;
   medien: boolean | null;
 };
@@ -82,7 +82,8 @@ export type SpielerBestaetigungGespeichert = {
 // than rendering as a chip with no text and a readout with an empty row.
 export type SpielerFassung = GekeyteFassung<SpielerAbsatzSchluessel, FLEinwilligungUmfang> & { readonly seite: "bestaetigung_spieler" };
 
-export type SpielerWiederkehrendFassung = GekeyteFassung<SpielerWiederkehrendAbsatzSchluessel, FLEinwilligungUmfang> & {
+// No control keys: the page asks no choice and shows none.
+export type SpielerWiederkehrendFassung = GekeyteFassung<SpielerWiederkehrendAbsatzSchluessel> & {
   readonly seite: "bestaetigung_spieler_wiederkehrend";
 };
 

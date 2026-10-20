@@ -10,6 +10,7 @@ import { spielFields } from "@/shared/testing/fixtures.ts";
 import {
   answer,
   answerReadsWith,
+  backendUnreachable,
   clearSteps,
   EMPTIEST_ANSWER,
   OBJECT_ID,
@@ -115,6 +116,44 @@ describe("which switch the match editor's near-date warning reads", () => {
     t.after(() => Reflect.set(frontend_config, "SPIEL_SWEEP", gesetzt));
 
     assert.equal((await opened()).isSpielSweepOn, true);
+  });
+});
+
+/* The panel's rows are the fixture's own, of its own season: the read takes a season, and the triage's season-wide
+   one would hand the editor every fixture's rows. */
+describe("the confirmations the match editor reads", () => {
+  type Handed = ReactElement<{ bestaetigungen: unknown }>;
+  const handed = async (): Promise<unknown> => {
+    const body = (await pageBody(AdminSpielEditPage, PROPS)) as ReactElement<{ children: Handed }>;
+    return body.props.children.props.bestaetigungen;
+  };
+
+  it("reads the fixture's rows of its own season and hands them to the editor with the last run", async () => {
+    answerReadsWith((endpoint, schema, params) => {
+      if (endpoint === ENDPOINT) return answer(schema, endpoint, { spiel: stored });
+      if (endpoint === "/spielbestaetigungen")
+        return answer(schema, endpoint, { spielbestaetigungen: [], spiel_sweep_gelaufen_am: "2026-11-01", vollstaendig: true });
+      return EMPTIEST_ANSWER(endpoint, schema, params);
+    });
+
+    assert.deepEqual(await handed(), { zeilen: [], gelaufenAm: "2026-11-01" });
+    assert.deepEqual(
+      readsOf(steps)
+        .filter(({ endpoint }) => endpoint === "/spielbestaetigungen")
+        .map(({ params }) => params),
+      [{ saison_id: STORED.saison_id, spiel_id: STORED.id }],
+    );
+  });
+
+  // The editor is how a fixture is repaired, so a read it can live without takes none of it down.
+  it("hands the editor no rows where their read failed, and keeps the editor", async () => {
+    answerReadsWith((endpoint, schema, params) => {
+      if (endpoint === ENDPOINT) return answer(schema, endpoint, { spiel: stored });
+      if (endpoint === "/spielbestaetigungen") throw backendUnreachable(endpoint);
+      return EMPTIEST_ANSWER(endpoint, schema, params);
+    });
+
+    assert.equal(await handed(), null);
   });
 });
 

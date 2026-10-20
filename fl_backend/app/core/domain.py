@@ -1376,11 +1376,13 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.REGISTRIERUNGEN,
         "geburtsdatum",
         Editability.COMPOSED,
-        "on no admin payload: the pupil answers on the confirmation page, whose returning pupil's variant shows the stored date "
-        "back -- matched on the folded address AND the folded name, so a sibling registering from a mailbox shared "
-        "anyway is not shown the stored person's date -- and the write lands in the same `$set` as the consent record it is "
-        "checked for (`REQ-REGISTRIERUNG-007`). No "
-        "control puts it back, so a mistyped date is corrected by registering again",
+        "on no admin payload: the pupil answers on the confirmation page, whose returning pupil's variant asks none where "
+        "the person holds one and the press writes the stored date, never serving it -- matched on the folded address AND the "
+        "folded name, so a sibling registering from a mailbox shared anyway is not given the stored person's date -- and "
+        "the write lands in the same `$set` as the consent record it is checked for (`REQ-REGISTRIERUNG-007`). No "
+        "control puts it back, so a mistyped date is corrected by registering again. A returning pupil's stored date, which "
+        "registering again takes too, is corrected by an administrator on the person "
+        "(`app.api.spieler.admin_router.patch_spieler`), and the refusal of that date names the league's address",
         "app.api.registrierungen.services.find_alter_refusal",
     ),
     FieldPolicy(
@@ -1967,6 +1969,18 @@ RULES: tuple[Rule, ...] = (
         ),
         implemented_by="app.api.spiele.services.find_booking_refusal",
         tested_by="tests/api/test_occupant_refusal.py::TestTheBookingRefusal",
+    ),
+    Rule(
+        code="REQ-BOOKING-002",
+        status=HTTPStatus.CONFLICT,
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
+        aggregate="Saison-Spielplan",
+        summary=(
+            "a referee NEWLY assigned to a fixture, or kept on one a save puts back among those still to be played, has "
+            "confirmed their own entry"
+        ),
+        implemented_by="app.api.spiele.services.find_booking_refusal",
+        tested_by="tests/api/test_occupant_refusal.py::TestAnUnconfirmedRefereeIsNeverBooked",
     ),
     Rule(
         code="REQ-CLASH-001",
@@ -2786,7 +2800,10 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /registrierungen/bestaetigung",
         aggregate="Registrierung",
-        summary="a confirmation answers both choices on the new pupil's page and neither on the returning pupil's",
+        summary=(
+            "a confirmation answers both choices on the new pupil's page and neither on the returning pupil's, and a "
+            "birthdate exactly where none is stored"
+        ),
         implemented_by="app.api.registrierungen.services.find_wahlen_refusal",
         tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestTheChoicesThePageAsks",
     ),
@@ -2816,14 +2833,15 @@ RULES: tuple[Rule, ...] = (
             "GET /teams/{team_id}/saisons/{saison_id}/person/sitze · GET /spieler/selbst · PATCH /spieler/selbst/einwilligung · "
             "GET /schiedsrichter/selbst · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
             "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung · "
-            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung · "
+            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung · GET /spielbestaetigungen/selbst · "
+            "POST /spielbestaetigungen/{spielbestaetigung_id}/antwort · "
             "GET /spielberichte/person · GET /spielberichte/{spiel_id}/bericht · PUT /spielberichte/{spiel_id}/bericht"
         ),
         aggregate="Saison",
         summary=(
             "a team's panel is read and changed only by a person holding a contact seat on that team in an `active` or `future` "
-            "season, a person's own consent record only from the address it was confirmed under, and a referee's report only "
-            "by a confirmed, live referee record the address holds"
+            "season, a person's own consent record or a referee's own fixture assignments only from the address the record "
+            "was confirmed under, and a referee's report only by a confirmed, live referee record the address holds"
         ),
         implemented_by="app.api.identitaet.services.find_funktion_refusal",
         tested_by="tests/api/test_kader_person.py::TestASeatNotHeld",
@@ -2943,9 +2961,18 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_spielbestaetigung_execution.py::TestALinkToAnAddressBarredAfterTheMint",
     ),
     Rule(
+        code="REQ-ANSETZUNG-015",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /spielbestaetigungen/{spielbestaetigung_id}/antwort",
+        aggregate="Spielbestaetigung",
+        summary="a referee answers only a row naming one of the live, confirmed referee records their address holds",
+        implemented_by="app.api.spielbestaetigungen.services.find_fremde_zeile_refusal",
+        tested_by="tests/api/test_spielbestaetigung_execution.py::TestARowAnswersOnlyToItsOwnReferee",
+    ),
+    Rule(
         code="REQ-ANSETZUNG-002",
         status=HTTPStatus.GONE,
-        operation="POST /spielbestaetigungen",
+        operation="POST /spielbestaetigungen · POST /spielbestaetigungen/{spielbestaetigung_id}/antwort",
         aggregate="Spielbestaetigung",
         summary="a row already answered, by any of the club's seats, takes no second answer, closed since or not",
         implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
@@ -2954,7 +2981,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-ANSETZUNG-009",
         status=HTTPStatus.GONE,
-        operation="POST /spielbestaetigungen",
+        operation="POST /spielbestaetigungen · POST /spielbestaetigungen/{spielbestaetigung_id}/antwort",
         aggregate="Spielbestaetigung",
         summary="a row closed before anybody answered takes no answer",
         implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
@@ -2963,25 +2990,28 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-ANSETZUNG-003",
         status=HTTPStatus.GONE,
-        operation="POST /spielbestaetigungen",
+        operation="POST /spielbestaetigungen · POST /spielbestaetigungen/{spielbestaetigung_id}/antwort",
         aggregate="Spielbestaetigung",
-        summary="a row takes no answer after its deadline's day",
+        summary="a club's row takes no answer after its deadline's day, nor a referee's after the fixture's",
         implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
         tested_by="tests/api/test_spielbestaetigung_refusal.py::TestASpentLinkMeetsTheCodeThatNamesWhy",
     ),
     Rule(
         code="REQ-ANSETZUNG-004",
         status=HTTPStatus.GONE,
-        operation="POST /spielbestaetigungen",
+        operation="POST /spielbestaetigungen · POST /spielbestaetigungen/{spielbestaetigung_id}/antwort",
         aggregate="Spielbestaetigung",
-        summary="a row takes no answer once the fixture's date, time, ground or sides differ from the Ansetzung it asks about",
+        summary=(
+            "a row takes no answer once the fixture's date, time, ground or sides differ from the Ansetzung it asks about, nor a "
+            "referee's once the fixture books another referee or none"
+        ),
         implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
         tested_by="tests/api/test_spielbestaetigung_execution.py::TestAFixtureMovedMidAnswerIsJudgedAgain",
     ),
     Rule(
         code="REQ-ANSETZUNG-005",
         status=HTTPStatus.GONE,
-        operation="POST /spielbestaetigungen",
+        operation="POST /spielbestaetigungen · POST /spielbestaetigungen/{spielbestaetigung_id}/antwort",
         aggregate="Spielbestaetigung",
         summary=(
             "a row takes no answer once its fixture carries a result or a `sonderereignis`, or either club left the season on or"
@@ -2998,6 +3028,24 @@ RULES: tuple[Rule, ...] = (
         summary="a declining club's proposed date is today or later",
         implemented_by="app.api.spielbestaetigungen.services.find_vorschlag_vergangen_refusal",
         tested_by="tests/api/test_spielbestaetigung_refusal.py::TestAProposalBeforeToday",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-013",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /spielbestaetigungen/{spielbestaetigung_id}/eintragen",
+        aggregate="Spielbestaetigung",
+        summary="an administrator answers for a party only on a row neither answered nor closed, so a seat's answer and theirs are one",
+        implemented_by="app.api.spielbestaetigungen.services.find_eintragen_refusal",
+        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestWhatTheAdministratorMaySettleAndDiscard",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-014",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /spielbestaetigungen/{spielbestaetigung_id}/verwerfen",
+        aggregate="Spielbestaetigung",
+        summary="a discard closes only a club's open decline that proposes another date",
+        implemented_by="app.api.spielbestaetigungen.services.find_verwerfen_refusal",
+        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestWhatTheAdministratorMaySettleAndDiscard",
     ),
     Rule(
         code="REQ-BERICHT-001",

@@ -26,6 +26,7 @@ import { renderTree } from "@/shared/testing/renderTest.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import type { SpielbestaetigungStart } from "@/features/spielbestaetigungen/components/views/SpielbestaetigungView.tsx";
+import type { FLSpielbestaetigungAnsichtResponse } from "@/features/spielbestaetigungen/schemas.ts";
 import type { NextPageProps } from "@/shared/types/types.ts";
 import type { ReactElement } from "react";
 
@@ -44,7 +45,7 @@ const VIEW_ENDPOINT = "/spielbestaetigungen/ansicht";
 const TOKEN = "kein-echtes-token";
 
 /** The view as the backend serves it, every field filled whatever the state: the page is what narrows it. */
-const ANSICHT = {
+const ANSICHT: FLSpielbestaetigungAnsichtResponse = {
   acknowledged: 1,
   zustand: "gueltig",
   seite: "team1",

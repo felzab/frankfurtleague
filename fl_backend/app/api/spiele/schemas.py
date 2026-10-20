@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, model_validator
 
 from app.api.teams.schemas import FLAustritt, FLAustrittType, FLGruppenNames
 from app.shared.schemas.bounds import (
@@ -256,17 +256,20 @@ class FLSpielSchiedsrichterFieldPayload(_SpielSchiedsrichterBooking):
 
 
 class FLSpielSchiedsrichterFieldPublic(_SpielSchiedsrichterBooked):
-    """The referee as a BASE-TIER read serves it: a forename and a surname initial (`READ-REFEREE-001`).
+    """The referee as a BASE-TIER read serves it: on their consent, a forename and a surname initial (`READ-REFEREE-001`, `-004`).
 
     `payment` is withheld for `mietpreis`' reason.
     """
 
-    @field_validator("name", mode="after")
-    @classmethod
-    def _reduce_the_surname(cls, name: str | None) -> str | None:
+    # Withheld unless the join says otherwise, so a join answering nothing costs a name rather than publishing one.
+    name_is_public: bool = False
+
+    @model_validator(mode="after")
+    def _publish_the_name_by_consent(self) -> FLSpielSchiedsrichterFieldPublic:
         # On the model and not in the pipeline: one aggregation feeds both tiers, so a stage
         # reducing there would reduce the admin editor's read with it.
-        return public_referee_name(name)
+        self.name = public_referee_name(self.name) if self.name_is_public else None
+        return self
 
 
 class FLSpielSchiedsrichterField(_SpielSchiedsrichterBooked):
@@ -732,6 +735,22 @@ class FLSpiel(FLSpielCommon):
     schiedsrichter: FLSpielSchiedsrichterField | None
 
 
+def _withheld_unless_agreed(block: Any) -> Any:
+    """The block, or `None` where the booked referee was asked and has not agreed to the Ansetzung as it stands.
+
+    Never a decorator on `FLSpielJoined`: pydantic hands it to the admin subclasses, which serve the assignment as made.
+    """
+
+    if not isinstance(block, Mapping):
+        return block
+
+    # Required, as `ansetzung_bestaetigt` is: only the join composes it, and a block without it is a read that skipped the gate.
+    if "einsatz_bestaetigt" not in block:
+        raise ValueError("a served referee block carries the join's acceptance verdict")
+
+    return None if block["einsatz_bestaetigt"] is False else block
+
+
 class FLSpielJoined(FLSpielCommon):
     """One fixture as a BASE-TIER endpoint serves it: stored fields plus each side's joined season state.
 
@@ -745,6 +764,10 @@ class FLSpielJoined(FLSpielCommon):
     # Here and never on `FLSpielCommon`, whose stored child `FLSpiel` would write it onto the fixture at
     # the next save. Required: only the join composes it (`docs/backend/spec.md :: I763`).
     ansetzung_bestaetigt: bool | None
+
+    # The acceptance gate ahead of the consent gate (`docs/backend/spec.md :: I781`); `FLSpielJoinedAdmin`
+    # re-declares the field plainly, which drops this validator there.
+    schiedsrichter: Annotated[FLSpielSchiedsrichterFieldPublic | None, BeforeValidator(_withheld_unless_agreed)]
 
 
 class FLSpielJoinedAdmin(FLSpielJoined):

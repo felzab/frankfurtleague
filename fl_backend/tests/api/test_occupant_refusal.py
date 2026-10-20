@@ -22,6 +22,7 @@ from app.api.spiele.schemas import (
     FLSpielTeamField,
 )
 from app.api.spiele.services import (
+    BOOKING_UNCONFIRMED_REFEREE,
     BOOKING_UNKNOWN_RESOURCE,
     CLASH_BUFFER_MINUTES,
     CLASH_REACH_DAYS,
@@ -232,10 +233,13 @@ A_DIFFERENT_REFEREE = {"schiedsrichter_id": ANOTHER_SCHIEDSRICHTER, "payment": 3
 
 LIVE_VENUE = BookedVenue(name="Sportplatz Nord", maps_link="Sportplatz Nord, Frankfurt", inactive_since=None)
 RETIRED_VENUE = BookedVenue(name="Sportplatz Nord", maps_link="Sportplatz Nord, Frankfurt", inactive_since="2026-02-01")
-LIVE_REFEREE = BookedReferee(name="B. Whistle", inactive_since=None)
-RETIRED_REFEREE = BookedReferee(name="B. Whistle", inactive_since="2026-02-01")
-# The ghost, which is the one referee row carrying no name (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
-GHOST_REFEREE = BookedReferee(name=None, inactive_since="2000-01-01")
+LIVE_REFEREE = BookedReferee(name="B. Whistle", inactive_since=None, bestaetigt=True)
+RETIRED_REFEREE = BookedReferee(name="B. Whistle", inactive_since="2026-02-01", bestaetigt=True)
+# A referee an administrator entered whose own confirmation has not come in.
+UNCONFIRMED_REFEREE = BookedReferee(name="B. Whistle", inactive_since=None, bestaetigt=False)
+# The ghost, which is the one referee row carrying no name (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`), and
+# no confirmation either.
+GHOST_REFEREE = BookedReferee(name=None, inactive_since="2000-01-01", bestaetigt=False)
 
 
 def patched_spiel(
@@ -574,6 +578,38 @@ class TestAFixtureReopenedBooksWhatItKeeps:
     )
     def test_a_save_leaving_the_fixture_where_it_was_books_nothing(self, season, seasoned, nr, overrides):
         assert booking_refusal_for(seasoned(season), nr, references(**BOTH_RETIRED), **overrides) is None
+
+
+class TestAnUnconfirmedRefereeIsNeverBooked:
+    """`REQ-BOOKING-002`: a referee is booked only once their own confirmation stands, judged on what `REQ-BOOKING-001` judges."""
+
+    def test_a_newly_assigned_unconfirmed_referee_is_refused(self, season):
+        resolved = references(schiedsrichter=UNCONFIRMED_REFEREE)
+
+        assert booking_refusal_for(season, 1, resolved, schiedsrichter=A_DIFFERENT_REFEREE) == BOOKING_UNCONFIRMED_REFEREE
+
+    def test_a_newly_assigned_confirmed_referee_passes(self, season):
+        assert booking_refusal_for(season, 1, references(schiedsrichter=LIVE_REFEREE), schiedsrichter=A_DIFFERENT_REFEREE) is None
+
+    @pytest.mark.parametrize(("seasoned", "nr", "overrides"), REOPENING_SAVES)
+    def test_a_save_reopening_the_fixture_books_the_unconfirmed_referee_it_kept(self, season, seasoned, nr, overrides):
+        resolved = references(ort=LIVE_VENUE, schiedsrichter=UNCONFIRMED_REFEREE)
+
+        assert booking_refusal_for(seasoned(season), nr, resolved, **overrides) == BOOKING_UNCONFIRMED_REFEREE
+
+    def test_an_edit_keeping_the_referee_on_a_fixture_still_to_play_books_nothing(self, season):
+        """The reference stored before is no booking this save makes, as a retired row it keeps is none."""
+
+        assert booking_refusal_for(season, 1, references(schiedsrichter=UNCONFIRMED_REFEREE), uhrzeit="19:00:00") is None
+
+    def test_a_retired_unconfirmed_referee_meets_the_retirement_first(self, season):
+        """The order the ghost relies on: its sentence is `REQ-BOOKING-001`'s, never a wait for a confirmation nobody can give."""
+
+        retired = BookedReferee(name="B. Whistle", inactive_since="2026-02-01", bestaetigt=False)
+
+        assert (
+            booking_refusal_for(season, 1, references(schiedsrichter=retired), schiedsrichter=A_DIFFERENT_REFEREE) == BOOKING_UNKNOWN_RESOURCE
+        )
 
 
 # Spiel 2's own result, which is what the replay of its Paarung writes back.
