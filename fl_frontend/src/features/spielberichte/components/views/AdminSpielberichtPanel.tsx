@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 
+import ArrowDownToLine from "@gravity-ui/icons/ArrowDownToLine";
+
 import { Button } from "@heroui/react/button";
 
 import { labelBadge } from "@/shared/components/ui/badges";
@@ -10,6 +12,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
+import { benannt } from "@/shared/utils/benannt";
 
 import { SPIELBERICHT_ZUSTAND_LABELS, SPIELBERICHT_ZUSTAND_TONE } from "../../constants";
 import { berichtSperre, berlinZeitpunkt, vorschlagText } from "../../utils";
@@ -126,7 +129,10 @@ function BerichtInhalt({
             </p>
           )}
           {istAbgesagt && (
-            <p className="muted-hint">Das Spiel ist ausgefallen oder annulliert. Der Bericht lässt sich weder übernehmen noch bearbeiten.</p>
+            <p className="muted-hint">
+              Das Spiel ist als ausgefallen oder annulliert eingetragen. Übernehmen und bearbeiten lässt sich der Bericht, sobald Du das
+              Sonderereignis entfernst.
+            </p>
           )}
 
           {zeigtVorschlag && (
@@ -140,9 +146,15 @@ function BerichtInhalt({
                   <Button
                     type="button"
                     variant="secondary"
+                    // Named apart from the confirmations' press of the same words on this editor, which carries a date.
+                    aria-label={benannt("Vorschlag übernehmen", "Spielbericht")}
                     isDisabled={uebernahmeGesperrt !== null}
                     onPress={() => onUebernehmen(bericht)}
-                    className={`${formButton({ intent: "nav", size: "xs" })} shrink-0`}>
+                    className={`${formButton({ intent: "nav", size: "xs" })} shrink-0 gap-x-2`}>
+                    <ArrowDownToLine
+                      className="size-3.5"
+                      aria-hidden="true"
+                    />
                     Vorschlag übernehmen
                   </Button>
                 </Hint>

@@ -319,8 +319,8 @@ const FORMS: Record<string, FormCase> = {
     // An entry's fields by their index, which every entry of a list shares. The goals, shown, and a caution's reason are
     // refused empty by refinements their leaves cannot state, so each site marks them by hand.
     expected: [
-      "aria INPUT:Tore Goethe-Gymnasium",
-      "aria INPUT:Tore Lessing-Gymnasium",
+      "aria INPUT:Goethe-Gymnasium",
+      "aria INPUT:Lessing-Gymnasium",
       "name bericht.karten.0.minute",
       "name bericht.torschuetzen.0.minute",
       "star Farbe suppressed",

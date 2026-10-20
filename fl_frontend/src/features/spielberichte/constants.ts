@@ -49,7 +49,7 @@ export const SPIELBERICHT_SONDEREREIGNIS_OPTIONS: readonly FLSpielberichtSondere
 export const SPIELBERICHT_ZUSTAND_LABELS: Record<FLSpielberichtZustand, string> = {
   vorgeschlagen: "Vorgeschlagen",
   uebernommen: "Übernommen",
-  abweichend: "Abweichend",
+  abweichend: "Nicht übernommen",
   abgesagt: "Abgesagt",
   teams_geaendert: "Teams geändert",
 };
@@ -76,15 +76,15 @@ export const SPIELBERICHT_ZUSTAENDE_OFFEN: ReadonlySet<FLSpielberichtZustand> = 
  * after the league opened it.
  */
 export const SPIELBERICHT_GESCHLOSSEN = {
-  title: "Der Spielbericht ist gerade nicht freigeschaltet",
-  hint: "Sobald die Liga ihn freigibt, trägst Du hier das Ergebnis, die Torschützen und die Karten ein.",
+  title: "Der Spielbericht ist gerade nicht freigeschaltet.",
+  hint: "Sobald die Liga ihn freigibt, trägst Du ihn hier ein.",
 } as const;
 
 /**
  * What the administrator's correction page says while the switch reads off. Never „noch nicht“: the switch can go off
  * again after the league opened it, and a report then standing still leads the administrator here.
  */
-export const SPIELBERICHT_GESCHLOSSEN_ADMIN = "Spielberichte sind gerade nicht freigeschaltet";
+export const SPIELBERICHT_GESCHLOSSEN_ADMIN = "Spielberichte sind gerade nicht freigeschaltet.";
 
 /**
  * The closed refusal an action answers with no request sent: the page that offered the press is older than the

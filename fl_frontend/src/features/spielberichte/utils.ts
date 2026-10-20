@@ -1,4 +1,5 @@
 import { SONDEREREIGNIS_LABELS } from "@/features/spiele/constants";
+import { IM_ELFMETERSCHIESSEN } from "@/features/spiele/utils";
 import { kaderName, NUMMER_NICHT_HINTERLEGT, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
@@ -27,7 +28,7 @@ export function vorschlagText(vorschlag: FLSpielberichtVorschlag): string {
   const elfmeter =
     vorschlag.elfmeterschiessen === null
       ? ""
-      : ` (${String(vorschlag.elfmeterschiessen.team1)}:${String(vorschlag.elfmeterschiessen.team2)} i. E.)`;
+      : ` (${String(vorschlag.elfmeterschiessen.team1)}:${String(vorschlag.elfmeterschiessen.team2)} ${IM_ELFMETERSCHIESSEN})`;
   return `${String(vorschlag.team1_tore)}:${String(vorschlag.team2_tore)}${elfmeter}${ereignis === null ? "" : `, ${ereignis}`}`;
 }
 
@@ -170,7 +171,7 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
       reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Verwaltung oder von Dir in einem anderen Fenster",
       repair: NEU_EINTRAGEN,
     }),
-    "DB-COMMON-002": buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: LADE_DIE_SEITE_NEU }),
+    "DB-COMMON-002": buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: NEU_EINTRAGEN }),
   },
   admin: {
     // A reload, no date to enter: the correction page states an undated or future fixture before any press, so this
@@ -180,14 +181,17 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
       reason: "Eine gewählte Person steht nicht im Kader ihres Teams",
       repair: "Lade die Seite neu und wähle neu",
     }),
-    "REQ-BERICHT-004": "Das Spiel ist als ausgefallen oder annulliert eingetragen. Dafür gibt es keinen Spielbericht.",
+    "REQ-BERICHT-004": buildRefusal({
+      reason: "Das Spiel ist als ausgefallen oder annulliert eingetragen",
+      repair: "Entferne das Sonderereignis im Spiel, um den Spielbericht zu bearbeiten",
+    }),
     "REQ-BERICHT-008": GRUND_FEHLT,
     "REQ-BERICHT-009": ELFMETER_IN_DER_GRUPPE,
     "REQ-BERICHT-006": buildRefusal({
       reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Schiedsrichterin oder dem Schiedsrichter",
       repair: NEU_EINTRAGEN,
     }),
-    "DB-COMMON-002": buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: LADE_DIE_SEITE_NEU }),
+    "DB-COMMON-002": buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: NEU_EINTRAGEN }),
   },
 };
 

@@ -216,10 +216,10 @@ export type SpielberichtFieldPath =
 const OFFEN = "offen";
 
 /**
- * A whole list is one row: an entry has no path of its own that survives the one before it being removed. Parted by a
- * middle dot, never a semicolon (`docs/frontend/spec.md` §1.12): an entry holds commas.
+ * A whole list is one row: an entry has no path surviving the one before it being removed. Parted by a slash, never a
+ * semicolon (`docs/frontend/spec.md` §1.12): an entry holds commas, and its pupil a middle dot.
  */
-const listText = (eintraege: readonly string[]): string | null => (eintraege.length === 0 ? null : eintraege.join(" · "));
+const listText = (eintraege: readonly string[]): string | null => (eintraege.length === 0 ? null : eintraege.join(" / "));
 
 const minuteText = (minute: string): string => (minute === "" ? OFFEN : `${minute}.`);
 
@@ -268,7 +268,7 @@ function descriptorsFor(
     },
     {
       path: "bericht.ergebnis_vorschlag.sonderereignis",
-      label: "Besonderes Ereignis",
+      label: "Sonderereignis",
       group: "Spielbericht",
       read: ({ sonderereignis }) => (sonderereignis === null ? null : SONDEREREIGNIS_LABELS[sonderereignis]),
     },

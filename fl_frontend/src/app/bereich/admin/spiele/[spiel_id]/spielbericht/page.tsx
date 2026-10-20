@@ -62,7 +62,8 @@ async function AdminSpielberichtContent({ params }: { params: NextPageProps<{ sp
   if (sperre === "abgesagt") {
     return (
       <SpielberichtZustandView
-        title="Das Spiel ist als ausgefallen oder annulliert eingetragen. Dafür gibt es keinen Spielbericht."
+        title="Das Spiel ist als ausgefallen oder annulliert eingetragen."
+        hint="Einen Spielbericht gibt es, sobald Du das Sonderereignis im Spiel entfernst."
         aktion={zumSpiel}
       />
     );

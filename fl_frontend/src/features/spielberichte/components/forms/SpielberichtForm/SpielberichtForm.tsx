@@ -76,10 +76,11 @@ export function SpielberichtForm({
   const nextKey = useRef(Math.max(gespeichert.torschuetzen.length, gespeichert.karten.length));
 
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
-    // The success's own words negated, per reader: the referee sends a report, the administrator saves a correction.
+    // The success's own words negated, the press reading „Speichern“; never „nicht gesendet“, which `docs/frontend/spec.md`
+    // §1.12 keeps for a press refused before anything went out.
     useDraftFieldErrors({
       schemas: { spielbericht: spielberichtFormSchema(stored?.karten ?? []) },
-      failureTitle: leser === "admin" ? "Spielbericht nicht gespeichert" : "Spielbericht nicht gesendet",
+      failureTitle: "Spielbericht nicht gespeichert",
     });
 
   const status = deriveSpielberichtDraftStatus({ kontext, stored: gespeichert, draft, fieldErrors });
@@ -129,7 +130,7 @@ export function SpielberichtForm({
 
           setSubmitFieldErrors({}, {});
           setHasSaved(true);
-          appToast.success(res.message ?? "Spielbericht gesendet");
+          appToast.success(res.message ?? "Spielbericht gespeichert");
           resetDraftToStored();
           leavePage();
         });
@@ -156,6 +157,7 @@ export function SpielberichtForm({
               />
             }>
             <FormVorschlagSection
+              leser={leser}
               kontext={kontext}
               draft={draft}
               onChange={change}
@@ -189,6 +191,7 @@ export function SpielberichtForm({
             />
 
             <FormBemerkungenSection
+              leser={leser}
               bemerkungen={draft.bemerkungen}
               onChange={(bemerkungen) => change({ bemerkungen })}
               onValidateFields={validateFields}

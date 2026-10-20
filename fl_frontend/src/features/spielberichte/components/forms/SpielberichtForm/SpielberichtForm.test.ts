@@ -50,8 +50,8 @@ const pick = async (user: User, trigger: HTMLElement, option: string) => {
 
 /** A 1:0 typed into the goal boxes. */
 async function eintragen(user: User): Promise<void> {
-  await user.type(screen.getByRole("textbox", { name: /Tore Goethe-Gymnasium/ }), "1");
-  await user.type(screen.getByRole("textbox", { name: /Tore Lessing-Gymnasium/ }), "0");
+  await user.type(screen.getByRole("textbox", { name: /^Goethe-Gymnasium/ }), "1");
+  await user.type(screen.getByRole("textbox", { name: /^Lessing-Gymnasium/ }), "0");
 }
 
 describe("the referee's report form", () => {
@@ -171,23 +171,23 @@ describe("the referee's report form", () => {
     render(leer());
     await user.click(screen.getByRole("button", { name: "Tor hinzufügen" }));
 
-    await pick(user, screen.getByRole("button", { name: /^Besonderes Ereignis/ }), "Nichtantreten Team 2");
+    await pick(user, screen.getByRole("button", { name: /^Sonderereignis/ }), "Nichtantreten Team 2");
 
     assert.equal(screen.queryAllByText("Tor 1").length, 0, "the scorer entry survived the no-show");
     assert.equal(screen.queryAllByRole("button", { name: "Tor hinzufügen" }).length, 0, "a no-show still offers a scorer");
     assert.ok(screen.getByText("Bei einem Nichtantreten gibt es keine Torschützen."));
 
     // Gone from the draft and not merely hidden: taking the no-show back finds no entry the referee left behind.
-    await pick(user, screen.getByRole("button", { name: /^Besonderes Ereignis/ }), "Keines");
+    await pick(user, screen.getByRole("button", { name: /^Sonderereignis/ }), "Keines");
     assert.equal(screen.queryAllByText("Tor 1").length, 0, "the hidden scorer entry still stands in the draft");
   });
 
-  /* The success toast reads „Spielbericht gesendet“, so its failure is that title negated. */
-  it("titles a refused send as not sent", async () => {
+  /* The press reads „Speichern“ and the request went out, so the failure is the success negated, never „nicht gesendet“. */
+  it("titles a refused save as not saved", async () => {
     const user = userEvent.setup();
     render(leer());
-    await user.type(screen.getByRole("textbox", { name: /Tore Goethe-Gymnasium/ }), "0");
-    await user.type(screen.getByRole("textbox", { name: /Tore Lessing-Gymnasium/ }), "0");
+    await user.type(screen.getByRole("textbox", { name: /^Goethe-Gymnasium/ }), "0");
+    await user.type(screen.getByRole("textbox", { name: /^Lessing-Gymnasium/ }), "0");
     answerWith(() => Promise.resolve({ success: false, error: "Dieses Spiel leitest Du nicht mehr. Lade die Seite neu." }));
     raised.length = 0;
 
@@ -196,7 +196,7 @@ describe("the referee's report form", () => {
 
     assert.deepEqual(
       raised.filter(({ variant }) => variant === "danger").map(({ title }) => title),
-      ["Spielbericht nicht gesendet"],
+      ["Spielbericht nicht gespeichert"],
     );
   });
 

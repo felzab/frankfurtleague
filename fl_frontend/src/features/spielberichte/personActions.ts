@@ -37,6 +37,6 @@ export async function putSpielberichtAction(spielId: string, rawPayload: z.input
       throw error;
     }
 
-    return { success: true, message: "Spielbericht gesendet" };
+    return { success: true, message: "Spielbericht gespeichert" };
   });
 }
