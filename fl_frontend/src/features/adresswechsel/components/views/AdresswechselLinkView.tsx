@@ -74,18 +74,18 @@ const ENDE: Record<FLAdresswechselEndeArt, Record<Beendet["seite"], { titel: str
     },
   },
   abgelehnt: {
-    neu: { titel: "Adresse entfernt", satz: "Diese Adresse ist entfernt und gilt für kein Konto." },
+    neu: { titel: "Adresse entfernt", satz: "Diese Adresse ist aus der Änderung entfernt und wird nicht übernommen." },
     bisherig: { titel: "Änderung beendet", satz: "Die neue Adresse wurde nicht bestätigt. Diese Adresse bleibt." },
   },
   gestoppt: {
-    neu: { titel: "Änderung gestoppt", satz: "Die Änderung wurde gestoppt. Diese Adresse gilt für kein Konto." },
+    neu: { titel: "Änderung gestoppt", satz: "Die Änderung wurde gestoppt. Diese Adresse wird nicht übernommen." },
     bisherig: {
       titel: "Änderung gestoppt",
       satz: `Die neue Adresse ist entfernt, diese bleibt. Wurde Dein Konto ohne Dich geändert, schreib uns an ${KONTAKT_EMAIL}.`,
     },
   },
   abgelaufen: {
-    neu: { titel: "Änderung abgelaufen", satz: "Die Änderung ist abgelaufen und gelöscht. Diese Adresse gilt für kein Konto." },
+    neu: { titel: "Änderung abgelaufen", satz: "Die Änderung ist abgelaufen und gelöscht. Diese Adresse wird nicht übernommen." },
     bisherig: { titel: "Änderung abgelaufen", satz: "Die Änderung ist abgelaufen und gelöscht. Diese Adresse bleibt." },
   },
   ersetzt: {
