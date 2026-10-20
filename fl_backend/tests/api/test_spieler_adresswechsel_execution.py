@@ -119,7 +119,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body) -> Any:
-    """The SHIPPED validators, a running season, one pupil holding `EMAIL`, a second holding `OTHER_EMAIL` and a third holding none."""
+    """The SHIPPED validators, a running season, one pupil holding `EMAIL` and a second holding `OTHER_EMAIL`."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
@@ -130,7 +130,6 @@ def on_a_league(url: str, body: Body) -> Any:
                 [
                     documents.spieler_document(SPIELER_OID, VORNAME, "Quastenbach", email=EMAIL, geburtsdatum="2009-05-04"),
                     documents.spieler_document(OTHER_OID, "Jonte", "Wirbelauer", email=OTHER_EMAIL),
-                    documents.spieler_document(NO_ADDRESS_OID, "Ilvy", "Ohnepost"),
                 ]
             )
 
@@ -566,6 +565,8 @@ class TestTheRequestsRefusals:
 
     def test_a_pupil_holding_no_address_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            # Here alone: a pupil holding no address is a hand edit, and the editor's list of every pupil refuses one.
+            await database[Collection.SPIELER].insert_one(documents.spieler_document(NO_ADDRESS_OID, "Ilvy", "Ohnepost", email=None))
             return await refused_code(request(database, client, email=NEW_EMAIL, spieler_id=NO_ADDRESS_OID)), await stored(
                 database, NO_ADDRESS_OID
             )

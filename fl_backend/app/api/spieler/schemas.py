@@ -470,8 +470,8 @@ class FLSpielerWithMemberships(_SpielerPerson):
     # this read serves no sentinel, and every person is born of their own confirmed registration.
     einwilligung: FLEinwilligung
     # Served here and withheld from the base tier, as the record above is: this read is the admin
-    # editor's, and an address is the person's own.
-    email: str | None = None
+    # editor's, and an address is the person's own. Never null: the admission writes one.
+    email: str
     # Defaulted for `FLSpieler.adresswechsel`'s reason.
     adresswechsel: FLSpielerAdresswechsel | None = None
     # The read's own judgement by the rule the lapse removes on, so no client compares `gueltig_bis`

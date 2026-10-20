@@ -161,7 +161,7 @@ export const FLSpielerWithMembershipsSchema = z.object({
   einwilligung: FLEinwilligungSchema,
   // The sign-in address, folded. No save carries it: it moves through its own link alone, so a field
   // bound to this key in the save's draft would offer a write the API refuses.
-  email: z.string().nullable(),
+  email: z.string(),
   // Null unless an administrator asked for a new address and its mailbox has not answered.
   adresswechsel: FLSpielerAdresswechselSchema.nullable(),
   // The backend's judgement of the link's deadline today, so the editor reads no day of its own.

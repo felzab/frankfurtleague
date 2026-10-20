@@ -29269,14 +29269,7 @@
             "$ref": "#/components/schemas/FLEinwilligung"
           },
           "email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Email"
           },
           "adresswechsel": {
@@ -29309,6 +29302,7 @@
           "inactive_since",
           "geburtsdatum",
           "einwilligung",
+          "email",
           "adresswechsel_abgelaufen",
           "memberships"
         ],

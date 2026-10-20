@@ -310,6 +310,7 @@ class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
                         "_id": SPIELER_OID,
                         "vorname": "Wiltrudis",
                         "nachname": "Meier",
+                        "email": "wiltrudis@schule.example",
                         "inactive_since": None,
                         "geburtsdatum": "2009-05-04",
                         "einwilligung": einwilligung,

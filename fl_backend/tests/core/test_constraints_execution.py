@@ -1181,7 +1181,7 @@ def test_the_values_a_list_refuses_are_counted_where_the_validators_store_them(m
         await database.spieler.insert_many(
             [
                 valid_document("spieler", adresswechsel={**ADRESSWECHSEL, "verschickt_am": "2026-02-31"}),
-                valid_document("spieler", _id=ObjectId(), vorname=None),
+                valid_document("spieler", _id=ObjectId(), vorname=None, email="zweite@schule.example"),
             ]
         )
         await database.saison_spieler.insert_one(valid_document("saison_spieler", inactive_since="2026-13-01"))

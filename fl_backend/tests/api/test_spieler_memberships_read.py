@@ -126,6 +126,7 @@ class TestTheResponseModel:
                         "inactive_since": None,
                         "geburtsdatum": "2009-05-04",
                         "einwilligung": EINWILLIGUNG,
+                        "email": STORED_ADDRESS,
                         "adresswechsel_abgelaufen": False,
                         "memberships": [],
                     }
@@ -146,6 +147,7 @@ class TestTheResponseModel:
                     "inactive_since": None,
                     "geburtsdatum": "2009-05-04",
                     "einwilligung": EINWILLIGUNG,
+                    "email": STORED_ADDRESS,
                     "adresswechsel_abgelaufen": False,
                     "memberships": [
                         {
@@ -172,6 +174,7 @@ class TestTheResponseModel:
                 "inactive_since": None,
                 "geburtsdatum": "2009-05-04",
                 "einwilligung": EINWILLIGUNG,
+                "email": STORED_ADDRESS,
                 "adresswechsel_abgelaufen": False,
                 "memberships": [
                     {
@@ -271,7 +274,9 @@ EINWILLIGUNG = eigene_einwilligung_document(text_version="v1", bestaetigt_am="20
 
 
 def _spieler(name: str, *, inactive_since: str | None = None) -> dict[str, Any]:
-    return spieler_document(SPIELER_OIDS[name], name[0], name, einwilligung=EINWILLIGUNG, inactive_since=inactive_since)
+    return spieler_document(
+        SPIELER_OIDS[name], name[0], name, einwilligung=EINWILLIGUNG, email=f"{name.lower()}@schule.de", inactive_since=inactive_since
+    )
 
 
 def _squad_row(name: str, saison_id: str, *, nummer: str | None, inactive_since: str | None = None) -> dict[str, Any]:
@@ -291,8 +296,6 @@ def squads(mongo_database: Database) -> Database:
 
     mongo_database.spieler.insert_many(
         [
-            # The one row carrying an address, so every other person here is the shape a row written
-            # before the field existed has: the key absent rather than null.
             {**_spieler("Abel"), "email": STORED_ADDRESS},
             _spieler("Alt"),
             # The person is retired and their squad row is not: the two are independent.
@@ -367,10 +370,3 @@ class TestTheMembershipsPipelineExecuted:
     def test_the_stored_address_reaches_this_read_in_the_form_it_was_stored(self, squads: Database):
         """Through a real aggregation: the root is unprojected, so a key added to the document rides along, and this tier is where it may."""
         assert self._by_surname(squads)["Abel"].email == STORED_ADDRESS
-
-    def test_a_person_stored_before_the_address_existed_does_not_break_the_list(self, squads: Database):
-        """The whole list again, over the population every stored row is in: no document carries the key until an admission writes one."""
-        raw = next(row for row in squads.spieler.aggregate(build_spieler_memberships_pipeline()) if row["nachname"] == "Baum")
-
-        assert "email" not in raw
-        assert self._by_surname(squads)["Baum"].email is None

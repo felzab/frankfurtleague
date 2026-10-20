@@ -177,7 +177,7 @@ function SpielerEditForm({
 
   // The address box's typing is unsaved work like the draft's, though no save carries it: every way off
   // the page asks over it, and every write here re-keying the editor refuses over it.
-  const adresseGetippt = adresseEntwurf !== null && spieler.email !== null && istAndereAdresse(adresseEntwurf, spieler.email);
+  const adresseGetippt = adresseEntwurf !== null && istAndereAdresse(adresseEntwurf, spieler.email);
   const isDirty = isDraftDirty || adresseGetippt;
 
   useUnsavedChangesWarning(isDirty);

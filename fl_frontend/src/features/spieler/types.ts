@@ -97,7 +97,7 @@ export type AdminSpielerStored = {
   nachname: string | null;
   inactive_since: string | null;
   geburtsdatum: string;
-  email: string | null;
+  email: string;
   adresswechsel: FLSpielerAdresswechsel | null;
   /** The read's judgement of the pending link's deadline, never this browser's day. */
   adresswechsel_abgelaufen: boolean;
