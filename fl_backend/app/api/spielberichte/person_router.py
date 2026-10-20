@@ -279,6 +279,7 @@ async def put_spielbericht_bericht(
         await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*neu.values()), session=session)
         dokument = await write_bericht(
             spielberichte_collection=spielberichte_collection,
+            saisons_collection=saisons_collection,
             spiel_raw=lage.spiel,
             gespeichert=gespeichert,
             payload=payload,

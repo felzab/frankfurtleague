@@ -160,6 +160,7 @@ async def anchor_the_pupils_named(*, spieler_collection: AsyncCollection, spiele
 async def write_bericht(
     *,
     spielberichte_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
     spiel_raw: Mapping[str, Any],
     gespeichert: Mapping[str, Any] | None,
     payload: FLSpielberichtBerichtPayload,
@@ -190,6 +191,9 @@ async def write_bericht(
             },
             session=session,
         )
+        # The season a replace and an undraw write, deleting reports this insert is invisible to: one of the two retries
+        # and meets the other (`docs/backend/spec.md :: I832`). After the insert, so a rival first write meets it there.
+        await anchor_in_db(collection=saisons_collection, db_filter={"_id": spiel_raw["saison_id"]}, session=session)
         return await pull_one_from_db(collection=spielberichte_collection, db_filter={"spiel_id": spiel_raw["_id"]}, session=session)
 
     update = (
@@ -208,11 +212,7 @@ async def write_bericht(
 
 
 async def count_eingereichte_berichte(*, spielberichte_collection: AsyncCollection, saison_id: str, session: AsyncClientSession | None) -> int:
-    """How many of the season's standing fixtures hold a submitted report, under `session`.
-
-    Joined as the reads join: an orphan report would otherwise refuse every replace and undraw (`REQ-SPIELPLAN-007`)
-    while no read shows it.
-    """
+    """How many of the season's fixtures hold a submitted report, under `session`, joined as the reads join so the two agree."""
 
     counted = await aggregate_many_from_db(
         collection=spielberichte_collection,

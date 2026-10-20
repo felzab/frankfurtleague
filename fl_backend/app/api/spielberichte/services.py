@@ -98,11 +98,7 @@ def build_bericht_kader_pipeline(*, saison_id: str, team_ids: Sequence[ObjectId]
 
 
 def build_eingereichte_pipeline(*, saison_id: str, spiel_fields: Mapping[str, int]) -> list[Mapping[str, Any]]:
-    """A season's reports holding a block, each joined to `spiel_fields` of a fixture that stands.
-
-    A report write crossing an undraw can outlive its fixture (`docs/backend/spec.md :: I118`), and is then neither read
-    nor counted.
-    """
+    """A season's reports holding a block, each joined to `spiel_fields` of its fixture."""
 
     return [
         {"$match": {"saison_id": saison_id, "bericht": {"$ne": None}}},

@@ -202,6 +202,7 @@ async def patch_spielbericht(
         von: FLSpielberichtVon = FLSpielberichtVonAdmin(art="admin")
         dokument = await write_bericht(
             spielberichte_collection=spielberichte_collection,
+            saisons_collection=saisons_collection,
             spiel_raw=lage.spiel,
             gespeichert=gespeichert,
             payload=payload,

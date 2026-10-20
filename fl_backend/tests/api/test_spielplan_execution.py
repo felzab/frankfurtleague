@@ -1,5 +1,7 @@
+import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from itertools import combinations, product
 from typing import Any
 
@@ -32,19 +34,23 @@ from app.api.saisons.services import (
     SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
     SPIELPLAN_SAISON_FINISHED,
 )
+from app.api.spielberichte.crud import write_bericht
+from app.api.spielberichte.schemas import FLSpielberichtBerichtPayload, FLSpielberichtVonAdmin
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpiel
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.spieltage.services import with_expected_matches
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
+from app.core.crud import pull_one_from_db
 from app.core.exception_handlers import refused_index_of
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.logging import trace_id_var
+from app.core.transactions import transaction_session
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.isolation import InterleavedCollection, outcome_of
+from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -210,10 +216,11 @@ async def call_draw(
     today: str = TODAY,
     shape: FLSpielplanShape | None = None,
     spielberichte_collection: Any = None,
+    saisons_collection: Any = None,
 ) -> FLGenerateSpielplanResponse:
     return await generate_spielplan(
         saison_id=saison_id,
-        saisons_collection=database[Collection.SAISONS],
+        saisons_collection=database[Collection.SAISONS] if saisons_collection is None else saisons_collection,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
@@ -1011,6 +1018,103 @@ class TestASubmittedReportKeepsTheSpielplanFromAReplace:
         assert outcome == SPIELPLAN_BERICHTE_EINGEREICHT
         assert watermark is not None and watermark["generiert_am"] == drawn.generiert_am
         assert passes == 1
+
+
+# How long the replace below holds its commit for the report's write. Where the report met the replace's season write,
+# it retries until the hold lets go, so this bounds the case's run rather than deciding it.
+HOLD_S = 2.0
+
+# A goalless report, the least a write takes.
+NULL_NULL = FLSpielberichtBerichtPayload.model_validate(
+    {
+        "ergebnis_vorschlag": {"team1_tore": 0, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
+        "torschuetzen": [],
+        "karten": [],
+        "bemerkungen": None,
+    }
+)
+
+
+async def held_until(event: asyncio.Event) -> None:
+    try:
+        await asyncio.wait_for(event.wait(), timeout=HOLD_S)
+    except TimeoutError:
+        return
+
+
+class SaisonsHeldAfterTheirWatermark:
+    """The replace's season collection, holding the replace open once its watermark write ran, for the report to land."""
+
+    def __init__(self, collection: Any, *, written: asyncio.Event, other: asyncio.Event) -> None:
+        self._collection = collection
+        self._written = written
+        self._other = other
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
+        result = await self._collection.find_one_and_update(*args, **kwargs)
+        if "spielplan" in kwargs.get("update", {}).get("$set", {}):
+            self._written.set()
+            await held_until(self._other)
+        return result
+
+
+class TestAFirstReportCrossingAReplaceMeetsItOnTheSeason:
+    def test_a_report_landing_inside_a_same_day_redraw_never_outlives_it(self, mongo_replica_set_url: str):
+        """The redraw's watermark write changes nothing, so only an anchor of its own writes the season the report anchors.
+
+        The report's tail as its write runs it, the fixture read in the transaction and every judgement past, landing
+        after the replace removed, counted twice and stamped its watermark, before it commits.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await call_draw(database, client)
+            spiel = await database[Collection.SPIELE].find_one({"saison_id": SAISON_ID})
+            assert spiel is not None, "the premise: the season is drawn"
+            watermark_written, report_landed = asyncio.Event(), asyncio.Event()
+
+            async def first_report(session: Any) -> None:
+                stand = await pull_one_from_db(collection=database[Collection.SPIELE], db_filter={"_id": spiel["_id"]}, session=session)
+                await write_bericht(
+                    spielberichte_collection=database[Collection.SPIELBERICHTE],
+                    saisons_collection=database[Collection.SAISONS],
+                    spiel_raw=stand,
+                    gespeichert=None,
+                    payload=NULL_NULL,
+                    von=FLSpielberichtVonAdmin(art="admin"),
+                    now=datetime(2026, 8, 22, 12, tzinfo=UTC),
+                    session=session,
+                )
+
+            async def report() -> str:
+                await held_until(watermark_written)
+                try:
+                    async with transaction_session(client) as session:
+                        await session.with_transaction(first_report)
+                # The fixture the replace removed, as the report's own write answers it.
+                except DocumentNotFoundException as gone:
+                    return str(gone.error_code)
+                finally:
+                    report_landed.set()
+                return COMMITTED
+
+            saisons = SaisonsHeldAfterTheirWatermark(database[Collection.SAISONS], written=watermark_written, other=report_landed)
+            outcomes = await asyncio.gather(
+                report(),
+                # The same day's redraw, whose watermark write changes nothing.
+                outcome_of(call_draw(database, client, replace=True, saisons_collection=saisons)),
+            )
+            standing = {row["_id"] for row in await database[Collection.SPIELE].find({}, {"_id": 1}).to_list()}
+            orphans = [row["_id"] async for row in database[Collection.SPIELBERICHTE].find() if row["spiel_id"] not in standing]
+
+            return outcomes, orphans
+
+        (report, replace), orphans = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert orphans == [], f"a report outlives the replace: the report {report!r}, the replace {replace!r}"
+        assert COMMITTED in (report, replace), "neither side landed"
 
 
 class TestAReplaceTakesTheSeasonsConfirmations:

@@ -1441,6 +1441,7 @@ rather than by the handler remembering to conceal one.
 | I826 | A replayed decline, stop or discard ends its change at the press's own instant, so its record expires as the press's would have                                                                           | `fl_backend/app/api/identitaet/wiederherstellung.py :: _plan_adresswechsel`; `fl_backend/tests/api/test_journal_replay.py :: TestEachPressAndItsReplay`                                                                                                                                                                                                                                                                                                                                                                              |
 | I827 | A due change the pass refuses ends discarded and answers its new address alone, for a notice naming nobody; the address on file hears nothing                                                             | `fl_backend/app/api/adresswechsel/sweep_router.py :: sweep_adresswechsel`; `fl_backend/tests/api/test_adresswechsel_sweep_execution.py :: TestADueChangeTakesEffect`, `fl_backend/tests/api/test_adresswechsel_execution.py :: TestTheWaitingTime`                                                                                                                                                                                                                                                                                   |
 | I831 | After the fixture's season its referee reads the report alone, no squad served, and their write is refused `REQ-BERICHT-007`                                                                              | `fl_backend/app/api/spielberichte/services.py :: ist_abgeschlossen` and `:: find_saison_beendet_refusal`; `fl_backend/tests/api/test_spielbericht_execution.py :: TestTheReads` and `:: TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain`                                                                                                                                                                                                                                                                                      |
+| I832 | A report's first write and a replace or an undraw each write the season document, so no report outlives the fixtures they remove                                                                          | `fl_backend/app/api/spielberichte/crud.py :: write_bericht`, `fl_backend/app/api/saisons/admin_router.py :: generate_spielplan` and `:: undraw_spielplan`; `fl_backend/tests/api/test_spielplan_execution.py :: TestAFirstReportCrossingAReplaceMeetsItOnTheSeason`                                                                                                                                                                                                                                                                  |
 
 ## 3. Violation → remedy
 
@@ -1636,17 +1637,12 @@ rather than by the handler remembering to conceal one.
   referee's sent reports are repointed at theirs (I788).
 - **A report can commit beside a rival that landed after its second judgement.** Both report writes
   judge again outside their transaction just before answering (I118), and write nothing a call-off,
-  a re-date, a booking, a referee's retirement, a squad row, a seat holder's rename or an undraw
-  writes, so one of those committing between that judgement and the report's commit stands beside
+  a re-date, a booking, a referee's retirement, a squad row or a seat holder's rename writes, so one
+  of those committing between that judgement and the report's commit stands beside
   it: remarks naming a seat holder renamed in that instant, or a report on a fixture called off in
-  it, which then reads `abgesagt`. A report's first write crossing a confirmed replace or an undraw
-  is the same window seen from the draw's side: each counts the season's reports again outside its
-  own transaction (`REQ-SPIELPLAN-007`), and an insert neither can see joins no write set they share,
-  so where both second readings land before either commit the referee is answered 201 and the report
-  outlives its fixture, read by nothing and counted by no draw
-  (`fl_backend/app/api/spielberichte/services.py :: build_eingereichte_pipeline`). Closing it takes an
-  anchor on every document judged, a write on each rival's path, for a window of one round trip; a
-  draw being allowed only on a `future` season holding no fact narrows the last one further.
+  it, which then reads `abgesagt`. Closing it takes an anchor on every document judged, a write on
+  each rival's path, for a window of one round trip. A draw's removal is no such rival: it and a
+  report's first write meet on the season document (I832).
 - **An Einteilung can reach a referee who declined meanwhile.** The pass commits before the frontend
   mails, and a request told again writes no referee row, anchoring only the referee's record
   (`fl_backend/app/api/spielbestaetigungen/crud.py :: anchor_the_referees_told`), which a decline does

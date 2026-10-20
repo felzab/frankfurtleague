@@ -496,7 +496,6 @@ class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
         [
             pytest.param("referee", retire_the_referee, FUNKTION_NICHT_GEHALTEN, id="the-referee-s-record-retired"),
             pytest.param("referee", take_the_referee_off, BERICHT_NICHT_GELEITET, id="the-referee-taken-off"),
-            pytest.param("referee", end_the_season, BERICHT_SAISON_BEENDET, id="the-season-ended"),
             *(
                 pytest.param(writer, rival, code, id=f"{writer}-{name}")
                 for writer in ("referee", "admin")
@@ -523,6 +522,29 @@ class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
         assert (outcome, documents_now) == (code, [])
         # Once: none of these conflicts, so a retry would mean the rival was caught some other way.
         assert passes == 1
+
+    def test_a_correction_is_refused_on_the_season_ending_under_it(self, mongo_replica_set_url: str):
+        """A correction, since a first write anchors the season and so conflicts with its end (`docs/backend/spec.md :: I832`)."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await put(database, client, bericht())
+            berichte = BerichteRunningARivalBeforeTheirCorrection(database[Collection.SPIELBERICHTE], lambda: end_the_season(database))
+            korrektur = bericht(torschuetzen=[tor("team1", LINA, "24")], stand=1)
+            outcome = await outcome_of(put(database, client, korrektur, spielberichte_collection=berichte))
+            berichte.assert_landed_inside(serially=0)
+
+            return outcome, [document["bericht"]["version"] for document in await stored(database)], berichte.passes
+
+        outcome, versions, passes = on_the_league(mongo_replica_set_url, body)
+
+        assert (outcome, versions) == (BERICHT_SAISON_BEENDET, [1])
+        assert passes == 1
+
+
+class BerichteRunningARivalBeforeTheirCorrection(InterleavedCollection):
+    async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
+        await self.run_the_rival()
+        return await self._collection.find_one_and_update(*args, **kwargs)
 
 
 class PupilsRunningARivalBeforeTheAnchor(InterleavedCollection):
