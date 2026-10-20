@@ -275,6 +275,7 @@ async def edited(database: AsyncDatabase, collection: Collection, document_id: A
 # The reports a referee sent, one of theirs an undraw of an earlier season took, and another referee's.
 THEIR_REPORT_OID = ObjectId("6890a1b2c3d4e5f607b000b1")
 OTHER_REPORT_OID = ObjectId("6890a1b2c3d4e5f607b000b2")
+OWED_NOTICE_OID = ObjectId("6890a1b2c3d4e5f607b000d1")
 THEIR_REMARKS = "Flutlicht fiel in der 70. Minute aus."
 
 
@@ -486,10 +487,14 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         (MOVING_PUPIL_CHANGE_OID, "gwendolyn@example.com", IDENTIFIER, "her-new-address", "2026-03-29"),
     )
     # A notice still owed to them from an earlier change of theirs, which the pass has not delivered yet.
+    # A fixed id: the log keeps the erasure's filter by id, which two runs of this seed must spell alike.
     await database[Collection.ADRESSWECHSEL_POSTAUSGANG].insert_one(
-        compose_postausgang(
-            art="wirksam", bisherige_email="vorher.zorbanax@example.org", email=IDENTIFIER, vorname="Zorbanax", weg="konto", now=NOW
-        )
+        {
+            "_id": OWED_NOTICE_OID,
+            **compose_postausgang(
+                art="wirksam", bisherige_email="vorher.zorbanax@example.org", email=IDENTIFIER, vorname="Zorbanax", weg="konto", now=NOW
+            ),
+        }
     )
 
     # The history: every image the log holds of the person is one of these edits'.
