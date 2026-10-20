@@ -893,7 +893,9 @@ that job and the stop stays a group's. **A run nothing can watch keeps
 none of this**: with no interpreter at the checkers' floor, or a watcher that did not arm, a stop
 leaves what the run started running, and the run says so where it announces its scopes
 (`scripts/gate/verify.sh :: join_the_job`); a watcher ended before the gate, by anything but its
-own stop, leaves the same and nothing says so.
+own stop, leaves the same and nothing says so. **Every run is unwatched until its watcher arms**:
+a console's Ctrl-C before then stops the run only where the gate's own shell takes the interrupt;
+in a console where it does not, the interrupt is lost and the run goes on to its verdict.
 
 **`next typegen` goes first and alone** because it writes the route types under
 `fl_frontend/.next/types/` and `fl_frontend/next-env.d.ts` that `tsc` reads: without them a
