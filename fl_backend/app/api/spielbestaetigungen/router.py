@@ -264,7 +264,7 @@ async def post_spielbestaetigung(
         except DocumentNotFoundException:
             # Never a seat answering under this press, which conflicts with the write and meets the retry's judgement:
             # the filter repeats that judgement on the write (`docs/backend/spec.md :: I755`).
-            refuse(first_press_refusal())
+            refuse(first_press_refusal(schiedsrichter=False))
 
         # Nothing judged is written here, so a move, a club's exit, a renamed seat, a re-dated matchday or a rival booking
         # landing under this transaction raises no conflict: all judged again outside it before answering

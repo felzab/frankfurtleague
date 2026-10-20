@@ -10566,7 +10566,7 @@
     "/api/v0/spielbestaetigungen/selbst": {
       "get": {
         "summary": "A signed-in referee's own fixture assignments",
-        "description": "Answer every confirmation row in an `active` season naming one of the signed-in address's live, confirmed referee records.\n\nOpen, answered and closed rows alike, each with the fixture as it stands -- or, where the fixture moved since, the\nAnsetzung the row asked about -- its state, and the referee's own decline reason. No deadline is served: a referee\nanswers until the fixture's day. Ordered with the rows still open first, then by the Ansetzung's day. Nobody's\naddress or seat is served, and no reason an administrator entered on the row.\n\nRefuses an address holding no live, confirmed referee record (`REQ-FUNKTION-001`).",
+        "description": "Answer every confirmation row in an `active` season naming one of the signed-in address's live, confirmed referee records.\n\nOpen, answered and closed rows alike, each with the fixture as it stands -- or, where the fixture moved since, the\nAnsetzung the row asked about -- its state, the referee's own decline reason, and whether the league recorded the\nanswer for them, naming nobody. No deadline is served: a referee answers until the fixture's day. Ordered with the\nrows still open first, then by the Ansetzung's day. Nobody's address or seat is served, and no reason an\nadministrator entered on the row.\n\nRefuses an address holding no live, confirmed referee record (`REQ-FUNKTION-001`).",
         "operationId": "get_eigene_spielbestaetigungen_api_v0_spielbestaetigungen_selbst_get",
         "responses": {
           "200": {
@@ -10606,7 +10606,7 @@
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/antwort": {
       "post": {
         "summary": "Accept or decline one of the signed-in referee's own fixture assignments",
-        "description": "Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.\n\nThe first answer binds, as a club's does. A decline also takes the referee off the fixture, writing its referee\nnull and nothing else of it -- no other fixture is resolved again and no club is told -- and closes the row, so\nbooking the same referee again asks them afresh. The reason is stored as typed, for the administrator, and goes at\nthe season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture\ncarries.\n\nRefuses, in this order: an address holding no live, confirmed referee record (`REQ-FUNKTION-001`); an id naming no\nrow, or a row naming none of those records (`REQ-ANSETZUNG-015`, one answer for both); a row already answered\n(`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club\n(`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the row, or which books another referee\nor none (`REQ-ANSETZUNG-004`); and a fixture whose day has gone by (`REQ-ANSETZUNG-003`). An acceptance is judged\nagain outside the transaction just before answering, so a move or a reassignment landing mid-answer refuses it\nrather than letting it stand.\n\n**The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name\non the public fixture, and a decline takes it off.",
+        "description": "Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.\n\nThe first answer binds, as a club's does. A decline also takes the referee off the fixture, writing its referee\nnull and nothing else of it -- no other fixture is resolved again and no club is told -- and closes the row, so\nbooking the same referee again asks them afresh. The reason is stored as typed, for the administrator, and goes at\nthe season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture\ncarries.\n\nRefuses, in this order: an address holding no live, confirmed referee record (`REQ-FUNKTION-001`); an id naming no\nrow of an `active` season, or a row naming none of those records (`REQ-ANSETZUNG-015`, one answer for both); a row\nalready answered, by them or by the league for them (`REQ-ANSETZUNG-002`); one closed unanswered\n(`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club (`REQ-ANSETZUNG-005`), then one whose date,\ntime, ground or sides moved since the row, or which books another referee or none (`REQ-ANSETZUNG-004`); and a\nfixture whose day has gone by (`REQ-ANSETZUNG-003`). An acceptance is judged again outside the transaction just\nbefore answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.\n\n**The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name\non the public fixture, and a decline takes it off.",
         "operationId": "post_schiedsrichter_antwort_api_v0_spielbestaetigungen__spielbestaetigung_id__antwort_post",
         "security": [
           {
@@ -26400,6 +26400,10 @@
               }
             ],
             "title": "Begruendung"
+          },
+          "eingetragen": {
+            "type": "boolean",
+            "title": "Eingetragen"
           }
         },
         "type": "object",
@@ -26409,7 +26413,8 @@
           "schiedsrichter_id",
           "ansetzung",
           "zustand",
-          "begruendung"
+          "begruendung",
+          "eingetragen"
         ],
         "title": "FLSpielbestaetigungSelbst",
         "description": "One of the signed-in referee's rows, as their panel lists it."

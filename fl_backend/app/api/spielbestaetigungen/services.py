@@ -278,23 +278,39 @@ def find_gesperrt_link_refusal(*, gesperrt: bool) -> WriteRefusal | None:
     )
 
 
-def first_press_refusal() -> WriteRefusal:
+def _is_referees(spielbestaetigung_raw: Mapping[str, Any]) -> bool:
+    """Whose row: each message below is worded for the reader it reaches, a club's link or a referee signed in."""
+
+    return bool((spielbestaetigung_raw.get("partei") or {}).get("art") == "schiedsrichter")
+
+
+def first_press_refusal(*, schiedsrichter: bool) -> WriteRefusal:
     """`REQ-ANSETZUNG-002`, built here alone: by the spent-link judgement and by the answer whose filtered write matched nothing."""
 
     return WriteRefusal(
         error_code=ANSETZUNG_BEANTWORTET,
         status=HTTPStatus.GONE,
-        message="this club has already answered about this fixture, from this link or another of its seats",
+        # The league's Zusage answers a referee's row too, so the sentence names both answerers.
+        message=(
+            "this booking has already been answered, by you or by the league on your behalf"
+            if schiedsrichter
+            else "this club has already answered about this fixture, from this link or another of its seats"
+        ),
     )
 
 
-def ansetzung_verlassen_refusal() -> WriteRefusal:
+def ansetzung_verlassen_refusal(*, schiedsrichter: bool) -> WriteRefusal:
     """`REQ-ANSETZUNG-004`, built here alone: by the spent-link judgement and by a referee's decline whose fixture write matched nothing."""
 
     return WriteRefusal(
         error_code=ANSETZUNG_GEAENDERT,
         status=HTTPStatus.GONE,
-        message="the fixture's date, time, ground, sides or referee changed since this row asked about it; the new Ansetzung is asked afresh",
+        # Never "asked afresh" to a referee: the fixture may book somebody else now, or nobody.
+        message=(
+            "the fixture's date, time, ground, sides or referee changed since this booking asked about it, so it takes no answer"
+            if schiedsrichter
+            else "the fixture's date, time, ground, sides or referee changed since this row asked about it; the new Ansetzung is asked afresh"
+        ),
     )
 
 
@@ -304,27 +320,37 @@ def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: A
     An answered row whose Ansetzung moved answers `-002` and reads `ungueltig`: the page re-reads the view on `-002`.
     """
 
+    schiedsrichter = _is_referees(spielbestaetigung_raw)
+
     if spielbestaetigung_raw.get("antwort") is not None:
-        return first_press_refusal()
+        return first_press_refusal(schiedsrichter=schiedsrichter)
 
     if spielbestaetigung_raw.get("geschlossen") is not None:
         return WriteRefusal(
             error_code=ANSETZUNG_GESCHLOSSEN,
             status=HTTPStatus.GONE,
-            message="this confirmation was closed before anybody answered; a fresh request is a new link",
+            message=(
+                "this booking was closed before you answered; a fresh request is a new row on your panel"
+                if schiedsrichter
+                else "this confirmation was closed before anybody answered; a fresh request is a new link"
+            ),
         )
 
     grund = _grund_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage, today=today)
 
     if grund in GRUENDE_UNGUELTIG:
-        return ansetzung_verlassen_refusal()
+        return ansetzung_verlassen_refusal(schiedsrichter=schiedsrichter)
 
     # A day gone by unplayed is a deadline gone by too, the deadline lying before the day: late rather than decided.
     if grund is not None and grund != "spiel_vergangen":
         return WriteRefusal(
             error_code=ANSETZUNG_ENTSCHIEDEN,
             status=HTTPStatus.GONE,
-            message="this fixture has been decided, called off or lost a club since this link was sent",
+            message=(
+                "this fixture has been decided, called off or lost a club since this booking asked about it"
+                if schiedsrichter
+                else "this fixture has been decided, called off or lost a club since this link was sent"
+            ),
         )
 
     if grund is not None:
@@ -641,6 +667,12 @@ def schiedsrichter_zustand_of(
     assert zustand != "gesperrt" and zustand != "vorschlag"
 
     return zustand
+
+
+def eingetragen_of(spielbestaetigung_raw: Mapping[str, Any]) -> bool:
+    """Whether an administrator recorded this row's answer, which `compose_eintragen_update` stores as `von: {art: "admin"}`."""
+
+    return bool(((spielbestaetigung_raw.get("antwort") or {}).get("von") or {}).get("art") == "admin")
 
 
 def eigene_begruendung_of(spielbestaetigung_raw: Mapping[str, Any]) -> str | None:

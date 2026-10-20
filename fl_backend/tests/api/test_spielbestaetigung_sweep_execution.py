@@ -2061,6 +2061,7 @@ class TestARefereeTakenOffIsToldOnlyWhereTheyWereTold:
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 spiele_collection=database[Collection.SPIELE],
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
+                saisons_collection=database[Collection.SAISONS],
                 records=record_collections(database),
                 db=client,
                 today=TODAY,

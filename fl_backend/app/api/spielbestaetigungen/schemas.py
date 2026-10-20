@@ -308,6 +308,8 @@ class FLSpielbestaetigungSelbst(BaseModel):
     zustand: FLSpielbestaetigungSchiedsrichterZustand
     # The referee's own decline reason, null on every other row.
     begruendung: CustomNonEmptyString | None
+    # Whether the league recorded the answer for them, so the panel never shows it as their own; it names nobody.
+    eingetragen: bool
 
 
 class FLSpielbestaetigungenSelbstResponse(BaseAPIResponse):

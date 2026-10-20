@@ -2978,7 +2978,7 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.FORBIDDEN,
         operation="POST /spielbestaetigungen/{spielbestaetigung_id}/antwort",
         aggregate="Spielbestaetigung",
-        summary="a referee answers only a row naming one of the live, confirmed referee records their address holds",
+        summary=("a referee answers only a row of an `active` season naming one of the live, confirmed referee records their address holds"),
         implemented_by="app.api.spielbestaetigungen.services.find_fremde_zeile_refusal",
         tested_by="tests/api/test_spielbestaetigung_execution.py::TestARowAnswersOnlyToItsOwnReferee",
     ),
@@ -2987,7 +2987,10 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.GONE,
         operation="POST /spielbestaetigungen · POST /spielbestaetigungen/{spielbestaetigung_id}/antwort",
         aggregate="Spielbestaetigung",
-        summary="a row already answered, by any of the club's seats, takes no second answer, closed since or not",
+        summary=(
+            "a row already answered -- by any of the club's seats, by the referee it names, or by the league for either -- "
+            "takes no second answer, closed since or not"
+        ),
         implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
         tested_by="tests/api/test_spielbestaetigung_execution.py::TestTheSeatTheAnswerRecords",
     ),
