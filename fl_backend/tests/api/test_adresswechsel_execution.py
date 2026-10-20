@@ -39,6 +39,7 @@ from app.api.adresswechsel.services import (
     ADRESSWECHSEL_VERGEBEN,
     build_address_filter,
     build_addresses_filter,
+    compose_postausgang,
 )
 from app.api.berechtigungen.admin_router import get_berechtigungen
 from app.api.berechtigungen.crud import live_unbarred_grant_since
@@ -57,6 +58,7 @@ from app.api.teams.admin_router import get_team_memberships
 from app.core.adressanker import adressanker_id
 from app.core.collections import Collection
 from app.core.crud import ANCHOR_FIELD, patch_one_in_db
+from app.core.drosselung import build_counts_filter
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.journal import JOURNAL_TOKEN, parse_line
 from app.core.recording import Actor, PersonActor, actor_var
@@ -1325,6 +1327,87 @@ class TestWhatTheEffectLeavesTheErasure:
 
         assert (antwort["von"]["halter"], antwort["begruendung"]) == (halter_of(NEW_EMAIL, schluessel=KEY), "Wir sind auf Klassenfahrt")
         assert log == {EMAIL: (0, 0), NEW_EMAIL: (1, 1)}
+
+    def test_a_seat_holder_s_decision_on_another_s_registration_follows_them_with_its_image(self, mongo_replica_set_url: str):
+        """A seat holder holding no grant declines under their own address; left behind, it is an address nobody's erasure finds."""
+
+        decided = documents.registrierung_document(
+            DECLINED_REG_OID,
+            OTHER_EMAIL,
+            saison_id=SAISON_ID,
+            team_id=SECOND_TEAM_OID,
+            vorname="Jonte",
+            nachname="Wirbelauer",
+            token="another-pupil-s-registration-link",
+            eingereicht_am="2026-03-30",
+            frist="2026-04-06",
+            bestaetigt=None,
+        )
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.REGISTRIERUNGEN].insert_one(decided)
+            # Declined through the shared write, so the log keeps an image naming the decider.
+            await patch_one_in_db(
+                collection=database[Collection.REGISTRIERUNGEN],
+                db_filter={"_id": DECLINED_REG_OID},
+                update=compose_ablehnung_update(von=EMAIL, grund=None, today=TODAY),
+                return_document=ReturnDocument.BEFORE,
+            )
+            await patch_one_in_db(
+                collection=database[Collection.REGISTRIERUNGEN],
+                db_filter={"_id": DECLINED_REG_OID},
+                update={"$set": {"frist": "2026-04-07"}},
+                return_document=ReturnDocument.BEFORE,
+            )
+            await confirmed_and_moved(database, client)
+
+            log = database[Collection.AKTIONEN]
+            return (
+                (await row(database, Collection.REGISTRIERUNGEN, DECLINED_REG_OID))["entscheidung"]["von"],
+                {address: await log.count_documents({"before.entscheidung.von": address}) for address in (EMAIL, NEW_EMAIL)},
+            )
+
+        von, images = on_a_person(mongo_replica_set_url, body)
+
+        assert von == NEW_EMAIL
+        assert images[EMAIL] == 0 and images[NEW_EMAIL] >= 1
+
+    def test_the_day_s_counts_follow_the_pseudonym(self, mongo_replica_set_url: str):
+        """Keyed by the address's pseudonym; left behind, every effect would hand the person a fresh day of starts."""
+
+        alt, neu = akteur_pseudonym(EMAIL, schluessel=KEY), akteur_pseudonym(NEW_EMAIL, schluessel=KEY)
+        far_off = NOW + timedelta(days=2)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            counts = database[Collection.DROSSELUNG]
+            # Two kinds under the replaced address, and one the new address already holds, which the carry adds to.
+            await counts.insert_many(
+                [
+                    {"_id": f"adresswechsel:{alt}:{TODAY}", "n": 3, "ablauf": far_off},
+                    {"_id": f"kontakt:{alt}:{TODAY}", "n": 2, "ablauf": far_off},
+                    {"_id": f"adresswechsel:{neu}:{TODAY}", "n": 1, "ablauf": far_off},
+                ]
+            )
+            await confirmed_and_moved(database, client)
+            return {
+                address: sorted([(row["_id"].split(":")[0], row["n"]) async for row in counts.find(build_counts_filter(pseudonym))])
+                for address, pseudonym in ((EMAIL, alt), (NEW_EMAIL, neu))
+            }
+
+        counts = on_a_person(mongo_replica_set_url, body)
+
+        assert counts == {EMAIL: [], NEW_EMAIL: [("adresswechsel", 4), ("kontakt", 2)]}
+
+    def test_an_earlier_effect_s_queued_notice_follows_the_person(self, mongo_replica_set_url: str):
+        """Its account goes where the person is now, and an erasure of the new address finds the row."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            earlier = compose_postausgang(art="wirksam", email=EMAIL, now=NOW, bisherige_email=FOREIGN_EMAIL, vorname="Lenore", weg="konto")
+            await database[Collection.ADRESSWECHSEL_POSTAUSGANG].insert_one(earlier)
+            await confirmed_and_moved(database, client)
+            return [(notice["bisherige_email"], notice["email"]) for notice in await owed(database)]
+
+        assert on_a_person(mongo_replica_set_url, body) == [(FOREIGN_EMAIL, NEW_EMAIL), (EMAIL, NEW_EMAIL)]
 
     def test_it_anchors_the_address_it_replaces(self, mongo_replica_set_url: str):
         """A registration submitted there while the effect runs meets it on the anchor, so the retry moves it rather than leaving it."""
