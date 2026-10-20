@@ -45,7 +45,7 @@ import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
-import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
+import { FASSUNG_NEU_OEFFNEN, LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import { ABLEHNEN_LABEL, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
 
@@ -1340,6 +1340,25 @@ describe("where the confirmation page shows a refusal it cannot put at a field",
       assert.deepEqual(
         raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
         [["Antwort nicht gespeichert", EIGENER_SATZ]],
+      ),
+    );
+    unmount();
+  });
+
+  /* Words changed since the page opened: the generic retry resends the stale version the route refuses
+     again, where the refusal's own sentence sends the visitor to the mail's link. */
+  it("announces a refusal's own sentence as the failure toast's description", async () => {
+    raised.length = 0;
+    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({ success: false, error: FASSUNG_NEU_OEFFNEN }))));
+    const { user, unmount } = renderBestaetigung();
+
+    await pressTwice(user, { resting: ABLEHNEN_LABEL, armed: /Widerspruch/ });
+    await act(fetchMock.answered);
+
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
+        [["Antwort nicht gespeichert", FASSUNG_NEU_OEFFNEN]],
       ),
     );
     unmount();
