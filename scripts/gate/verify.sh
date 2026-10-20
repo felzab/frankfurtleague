@@ -164,7 +164,7 @@ gate_exit() {
   # skipping the reclaims after it and reporting the trap's own failure over a body that exited 0.
   cleanup || true
   if [[ -n "$DB_RUN_MARKER" ]]; then rm -rf "$DB_RUN_MARKER" || true; fi
-  if [[ -n "${POOLS_REGISTRY:-}" ]]; then rm -f -- "$POOLS_REGISTRY" || true; fi
+  if [[ -n "${POOLS_REGISTRY:-}" ]]; then rm -rf -- "$POOLS_REGISTRY" || true; fi
   if (( ${#POOL_DIRS[@]} )); then
     # A crash keeps them, named: each unit's own output and the status the pool recorded are all
     # that can say which process ended it, and nothing past this exit reads them otherwise.
@@ -1467,7 +1467,7 @@ if (( RUN_DB )); then
   case "$DB_RC" in
     0) ;;
     1) die "fl_backend db-tier tests failed.
-testcontainers starts and removes the mongo \`fl_backend/tests/conftest.py :: MONGO_IMAGE\` pins itself; a failure here is the code, not the daemon.
+A failing test and a mongo \`fl_backend/tests/conftest.py :: MONGO_IMAGE\` pins that never started both end here: each case's own message above says which.
 Re-run without \`-n auto --dist loadfile --maxprocesses ${GATE_WIDTH_DB_PYTEST}\` to see whether distribution is what broke it." ;;
     130) on_interrupt ;;
     *) on_error "$DB_RC" "${LINENO}" "pytest -m db" ;;
@@ -1486,7 +1486,7 @@ Re-run without \`-n auto --dist loadfile --maxprocesses ${GATE_WIDTH_DB_PYTEST}\
   case "$FRONTEND_DB_RC" in
     0) ;;
     1) die "fl_frontend db-tier tests failed.
-testcontainers starts and removes the mongo \`fl_backend/tests/conftest.py :: MONGO_IMAGE\` pins itself; a failure here is the code, not the daemon." ;;
+A failing test and a mongo \`fl_frontend/src/core/expiredTransactions.ts :: startJudgedReplicaSet\` pins that never started both end here: each file's own message above says which." ;;
     130) on_interrupt ;;
     *) on_error "$FRONTEND_DB_RC" "${LINENO}" "pnpm run test:db" ;;
   esac

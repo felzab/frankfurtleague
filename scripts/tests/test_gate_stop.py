@@ -531,24 +531,55 @@ def test_a_tool_started_before_its_shell_s_signal_is_stopped_and_its_trap_s_work
 MARKED_FIRST: Final = """import sys, tempfile
 from pathlib import Path
 sys.path.insert(0, sys.argv[1])
+import gate_pool
 import gate_watch as watch
-registry = Path(tempfile.mkdtemp()) / "pools"
-registry.write_bytes(b"")
+registry = Path(tempfile.mkdtemp())
 read = []
-named = watch._pools_named
+named = gate_pool.pools_named
 def reading(path):
-    read.append(path.read_bytes().split())
+    read.append([entry.name for entry in path.iterdir()])
     return named(path)
-watch._pools_named = reading
+gate_pool.pools_named = reading
 job = watch.kernel32.CreateJobObjectW(None, None)
 assert watch.wind_down(job, Path(sys.argv[2]).parent / "kill.exe", registry) == 0
-assert read == [[watch.STOPPED.encode("ascii")]], read
+assert read == [[gate_pool.STOPPED]], read
 """
 
 
 def test_a_stop_marks_the_registry_before_it_reads_the_pools_named_there() -> None:
     """Read first, a pool naming itself in between was neither spared nor told, and was ended under the units it then started."""
     _drive_watcher(MARKED_FIRST)
+
+
+# `scripts/gate/gate_watch.py :: main` over a gate that ends on its own once a pool has named itself
+# in the registry the watcher announced.
+REGISTRY_REMOVED: Final = """import io, subprocess, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import gate_pool
+import gate_watch as watch
+gate = subprocess.Popen((str(Path(sys.argv[2]).parent / "sleep.exe"), "60"), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+said = io.BytesIO()
+sys.stdout = io.TextIOWrapper(said)
+named = []
+def a_pool_named(*processes):
+    registry = Path(said.getvalue().decode("utf-8").split("\\t")[1].strip())
+    assert gate_pool.enter(registry, str(gate.pid)), registry
+    named.append(registry)
+    return processes[0]
+watch.first_to_end = a_pool_named
+sys.argv = ["gate_watch", "--gate", str(gate.pid)]
+try:
+    assert watch.main() == watch.EXIT_OK
+finally:
+    gate.kill()
+assert named and not named[0].exists(), named
+"""
+
+
+def test_the_watcher_removes_its_pools_registry_with_every_entry_in_it() -> None:
+    """The gate's trap removes it too, except a trap the job ends past the grace, which leaves the watcher's removal the only one."""
+    _drive_watcher(REGISTRY_REMOVED)
 
 
 # `scripts/gate/verify.sh :: pool_open`, its directory's creation witnessed: what `POOL_DIRS` held then.
@@ -583,7 +614,7 @@ worker() {{ return 1; }}
 cleanup() {{ :; }}
 detail() {{ printf '%s\\n' "$@"; }}
 DB_RUN_MARKER=""
-POOLS_REGISTRY=""
+POOLS_REGISTRY="{registry}"
 POOL_DIRS=("{directory}")
 {crashed_units}
 {gate_exit}
@@ -619,6 +650,7 @@ def test_an_interrupted_run_reads_a_unit_killed_by_its_stop_as_no_crash(ending: 
     (pool / "manifest.tsv").write_bytes(f"unit\t{unit_status}\t0\t1\n".encode("ascii"))
     fixture = GATE_EXIT_FIXTURE.format(
         directory=pool.as_posix(),
+        registry="",
         crashed_units=lift_function(VERIFY, "crashed_units"),
         gate_exit=lift_function(VERIFY, "gate_exit"),
         ending=ending,
@@ -627,3 +659,22 @@ def test_an_interrupted_run_reads_a_unit_killed_by_its_stop_as_no_crash(ending: 
     assert done.returncode == ending, done.stdout + done.stderr
     assert pool.exists() is kept, done.stdout + done.stderr
     assert (f"the unit unit crashed with status {unit_status}" in done.stderr) is kept, done.stderr
+
+
+def test_the_gate_s_trap_removes_its_pools_registry_with_every_entry_in_it(tmp_path: Path) -> None:
+    """The watcher removes it too, but a closed console ends the watcher beside the gate, and the trap's removal is the one left."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    pool, registry = tmp_path / "pool", tmp_path / "pools"
+    pool.mkdir()
+    registry.mkdir()
+    (registry / "4242").touch()
+    fixture = GATE_EXIT_FIXTURE.format(
+        directory=pool.as_posix(),
+        registry=registry.as_posix(),
+        crashed_units=lift_function(VERIFY, "crashed_units"),
+        gate_exit=lift_function(VERIFY, "gate_exit"),
+        ending=0,
+    )
+    done = run_shell(BASH, write_shell(tmp_path / "exit.sh", fixture), env=base_env())
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert not registry.exists(), done.stdout + done.stderr
