@@ -1078,7 +1078,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "email",
         Editability.CONTROL_ONLY,
         "written by two controls alone, each as `sign_in_identifier` folds an address: the admission, from the registration's "
-        "address at the person's creation or onto a proposed person holding none, and an address change taking effect -- its "
+        "address at the person's creation, and an address change taking effect -- its "
         "new mailbox's confirmation through `POST /adresswechsel/bestaetigung`, an administrator's approval, or the hourly "
         "`POST /adresswechsel/sweep` at the end of its waiting time -- from the address that mailbox proved. No payload "
         "carries it, an admission never gives a person holding one another, and `uniq_spieler_email` keeps one person per address. "
