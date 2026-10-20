@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { KONTO_HREF } from "@/core/kontoHref";
+import { SchiedsrichterSpielberichteSection } from "@/features/spielberichte/components/views/SchiedsrichterSpielberichteSection";
 import { SchiedsrichterEinsaetzeSection } from "@/features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -8,6 +9,7 @@ import { textLink } from "@/shared/components/ui/textLink";
 
 import { SchiedsrichterAngaben } from "../ui/SchiedsrichterAngaben";
 
+import type { FLSpielberichtPersonEintrag } from "@/features/spielberichte/schemas";
 import type { FLSpielbestaetigungSelbst } from "@/features/spielbestaetigungen/schemas";
 import type { FLSchiedsrichterSelbst } from "../../schemas";
 
@@ -19,9 +21,12 @@ import type { FLSchiedsrichterSelbst } from "../../schemas";
 export function SchiedsrichterSelbstView({
   schiedsrichter,
   einsaetze,
+  spielberichte,
 }: {
   schiedsrichter: readonly FLSchiedsrichterSelbst[];
   einsaetze: readonly FLSpielbestaetigungSelbst[];
+  /** The played fixtures a report is due for, `null` while `SPIELBERICHT_EINGABE` reads off. */
+  spielberichte: readonly FLSpielberichtPersonEintrag[] | null;
 }) {
   const panel = formPanel();
 
@@ -29,6 +34,7 @@ export function SchiedsrichterSelbstView({
     <div className="w-full p-6 sm:p-8">
       <div className="mx-auto flex w-full max-w-page flex-col gap-6">
         <SchiedsrichterEinsaetzeSection einsaetze={einsaetze} />
+        <SchiedsrichterSpielberichteSection spiele={spielberichte} />
         {schiedsrichter.map((eintrag) => (
           <section
             key={eintrag.schiedsrichter_id}

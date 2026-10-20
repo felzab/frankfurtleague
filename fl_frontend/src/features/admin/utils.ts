@@ -13,6 +13,7 @@ import { typedObjectEntries } from "@/shared/utils/type";
 
 import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
 import type { SaisonBestaetigungen } from "@/features/spielbestaetigungen/types";
+import type { FLSpielberichtZustandEintrag } from "../spielberichte/schemas";
 import type { FLBracketFault, FLSpiel, FLSpielWithStoredSides } from "../spiele/schemas";
 import type { ActionRequiredCategory } from "../spiele/types";
 
@@ -87,6 +88,12 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
     desc: "Spiele, die gespielt sind und noch kein Ergebnis haben",
     urgency: "results",
   },
+  ergebnis_vorschlag: {
+    name: "Ergebnis vorgeschlagen",
+    short: "Bericht",
+    desc: "Spiele mit einem Spielbericht, dessen Ergebnis noch nicht übernommen ist oder der sich seit der Übernahme geändert hat",
+    urgency: "results",
+  },
   datum_missing: {
     name: "Fehlendes Datum",
     short: "Datum",
@@ -141,6 +148,8 @@ export function categorizeActionRequired<
   bracketFaults: readonly FLBracketFault[] = [],
   // The season's rows, as `bracketFaults` read, never derived: the editor passes none for the reason it passes no faults.
   bestaetigungen: SaisonBestaetigungen = KEINE_BESTAETIGUNGEN,
+  // Read, never derived, as the faults are: the backend judges a report against the stored result and its adoption.
+  spielberichte: readonly Pick<FLSpielberichtZustandEintrag, "spiel_id" | "zustand">[] = [],
 ): Record<ActionRequiredCategory, T[]> {
   // Keyed in the label table's order so `Object.keys` agrees with it, which a test asserts.
   const categorized: Record<ActionRequiredCategory, T[]> = {
@@ -150,6 +159,7 @@ export function categorizeActionRequired<
     bestaetigung_ueberfaellig: [],
     bestaetigung_sofort: [],
     ergebnis_pending: [],
+    ergebnis_vorschlag: [],
     datum_missing: [],
     uhrzeit_missing: [],
     ort_missing: [],
@@ -159,12 +169,17 @@ export function categorizeActionRequired<
   };
 
   const faultedSpielIds = new Set(bracketFaults.map((fault) => fault.spiel_id));
+  // A correction after adoption comes back as `abweichend`, so both states ask the administrator to look again.
+  const vorgeschlageneSpielIds = new Set(
+    spielberichte.filter((bericht) => bericht.zustand !== "uebernommen").map((bericht) => bericht.spiel_id),
+  );
 
   for (const spiel of spiele) {
     // Keyed on the faulted id alone, never on the reason, so a fault variant added to the union
     // lands here rather than falling through. Not exclusive with the branch below: a faulted
     // fixture still feeds whatever sits under it.
     if (faultedSpielIds.has(spiel.id)) categorized.bracket_fault.push(spiel);
+    if (vorgeschlageneSpielIds.has(spiel.id)) categorized.ergebnis_vorschlag.push(spiel);
 
     // `isAbgesagt` rather than a second spelling of the four events: two lists of them are invisible
     // until they part, and this list would then disagree with the card about whether a fixture
@@ -233,13 +248,15 @@ export function buildActionRequiredSections({
   today,
   bracketFaults,
   bestaetigungen,
+  spielberichte,
 }: {
   spiele: FLSpiel[];
   today: string;
   bracketFaults: readonly FLBracketFault[];
   bestaetigungen: SaisonBestaetigungen;
+  spielberichte: readonly FLSpielberichtZustandEintrag[];
 }): readonly FLActionRequiredSection[] {
-  const categorized = categorizeActionRequired(spiele, today, bracketFaults, bestaetigungen);
+  const categorized = categorizeActionRequired(spiele, today, bracketFaults, bestaetigungen, spielberichte);
 
   return typedObjectEntries(ACTION_REQUIRED_LABELS).map(([category]) => ({
     category,

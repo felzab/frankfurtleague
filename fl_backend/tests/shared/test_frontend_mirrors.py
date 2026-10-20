@@ -125,7 +125,9 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/funktionen/constants.ts", "ERASURE_ANLASS_MAX_LENGTH", "ERASURE_ANLASS_MAX_LENGTH"),
     Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE"),
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE"),
-    Mirror("features/spieler/constants.ts", "SPIELER_ADRESSWECHSEL_FRIST_TAGE", "SPIELER_ADRESSWECHSEL_FRIST_TAGE"),
+    # The link page, the account page and the mails state each figure, and the notice the waiting time.
+    Mirror("core/adresswechsel.ts", "ADRESSWECHSEL_GUELTIG_STUNDEN", "ADRESSWECHSEL_GUELTIG_STUNDEN"),
+    Mirror("core/adresswechsel.ts", "ADRESSWECHSEL_WARTEZEIT_TAGE", "ADRESSWECHSEL_WARTEZEIT_TAGE"),
     # These mirror the published notice's sentences and never a payload schema: each confirmation view
     # and each account entry states its floors as it was served them.
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_MIN_ALTER", "REGISTRIERUNG_MIN_ALTER_JAHRE"),
@@ -159,6 +161,7 @@ UNMIRRORED_BOUNDS: Final[dict[str, str]] = {
     "DROSSELUNG_SPIELER_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
     "DROSSELUNG_SCHIEDSRICHTER_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
     "DROSSELUNG_KONTAKT_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
+    "DROSSELUNG_ADRESSWECHSEL_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
     # The cadence is the fixture-confirmation pass's alone: no page or mail counts a link's window or a reminder's day.
     "SPIEL_ERINNERUNG_TAGE_ERSTE": "the day the pass reminds a team, which no frontend page or mail states",
     "SPIEL_ERINNERUNG_TAGE_ZWEITE": "the day the pass reminds a team, which no frontend page or mail states",

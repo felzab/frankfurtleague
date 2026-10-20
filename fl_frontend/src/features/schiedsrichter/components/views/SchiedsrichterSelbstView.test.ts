@@ -14,6 +14,7 @@ import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { schiedsrichterSelbst } from "@/shared/testing/selbstFixtures.ts";
 
+import type { FLSpielberichtPersonEintrag } from "@/features/spielberichte/schemas.ts";
 import type { FLSpielbestaetigungSelbst } from "@/features/spielbestaetigungen/schemas.ts";
 import type { FLSchiedsrichterSelbst } from "../../schemas.ts";
 
@@ -43,10 +44,22 @@ const EINSATZ: FLSpielbestaetigungSelbst = {
   begruendung: null,
 };
 
+const GELEITET: FLSpielberichtPersonEintrag = {
+  spiel_id: "6890a1b2c3d4e5f607390101",
+  datum: "2026-10-17",
+  uhrzeit: "15:00:00",
+  team1_name: "Goethe-Gymnasium",
+  team2_name: "Lessing-Gymnasium",
+  eingereicht_am: null,
+};
+
 const renderView = (
   schiedsrichter: readonly FLSchiedsrichterSelbst[] = [SCHIEDSRICHTERIN],
-  einsaetze: readonly FLSpielbestaetigungSelbst[] = [],
-) => render(underNext(h(SchiedsrichterSelbstView, { schiedsrichter, einsaetze })));
+  {
+    einsaetze = [],
+    spielberichte = null,
+  }: { einsaetze?: readonly FLSpielbestaetigungSelbst[]; spielberichte?: readonly FLSpielberichtPersonEintrag[] | null } = {},
+) => render(underNext(h(SchiedsrichterSelbstView, { schiedsrichter, einsaetze, spielberichte })));
 
 describe("a referee's own page", () => {
   /* The person tier's read, read by the person it names: the whole name and their own contact details. */
@@ -92,27 +105,50 @@ describe("a referee's own page", () => {
     const pointer = within(container).getByRole("link", { name: "Konto" }).closest("p")?.textContent ?? "";
     assert.ok(pointer.includes("im Spielplan") && pointer.includes("auf der Website"), pointer);
   });
+
+  /* Each played fixture leads to its own report, and the press names the fixture it opens. */
+  it("links each fixture's report under its pairing, open or sent", () => {
+    renderView([SCHIEDSRICHTERIN], {
+      spielberichte: [GELEITET, { ...GELEITET, spiel_id: "6890a1b2c3d4e5f607390102", eingereicht_am: "2026-10-17T18:00:00Z" }],
+    });
+
+    const eintragen = screen.getByRole("link", { name: "Spielbericht eintragen: Goethe-Gymnasium gegen Lessing-Gymnasium" });
+    assert.equal(eintragen.getAttribute("href"), "/bereich/schiedsrichter/spielbericht/6890a1b2c3d4e5f607390101");
+    assert.equal(
+      screen.getByRole("link", { name: "Spielbericht ansehen: Goethe-Gymnasium gegen Lessing-Gymnasium" }).getAttribute("href"),
+      "/bereich/schiedsrichter/spielbericht/6890a1b2c3d4e5f607390102",
+    );
+  });
+
+  /* Closed, the section names why it offers nothing, so a referee does not read an empty season. */
+  it("offers no report link while the reports are closed, and says so", () => {
+    renderView([SCHIEDSRICHTERIN], { spielberichte: null });
+
+    assert.equal(screen.queryAllByRole("link", { name: /^Spielbericht/ }).length, 0);
+    assert.ok(screen.getByText(/noch nicht freigeschaltet/));
+  });
 });
 
 describe("a referee's fixtures on their own page", () => {
   /* The section's empty state stands only where the list is empty: one drawn unconditionally passes the first half alone. */
   it("lists a booked fixture above the referee's data, and says so where none is booked", () => {
-    const { unmount } = renderView([SCHIEDSRICHTERIN], [EINSATZ]);
-    const [einsaetze, angaben] = screen.getAllByRole("heading", { level: 2 });
+    const { unmount } = renderView([SCHIEDSRICHTERIN], { einsaetze: [EINSATZ] });
 
-    assert.equal(einsaetze?.textContent, "Deine Einsätze");
-    assert.equal(angaben?.textContent, "Deine Angaben");
+    assert.deepEqual(
+      screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent),
+      ["Deine Einsätze", "Spielberichte", "Deine Angaben"],
+    );
     assert.ok(screen.getByText("Ernst-Reuter-Schule gegen Goethe-Gymnasium"));
     assert.equal(screen.queryAllByText(EINSAETZE_LEER).length, 0, "a referee booked on a fixture is told they are booked on none");
     unmount();
 
-    renderView([SCHIEDSRICHTERIN], []);
+    renderView([SCHIEDSRICHTERIN], { einsaetze: [] });
     assert.ok(screen.getByText(EINSAETZE_LEER));
   });
 
   /* Two rows each offer both answers, so each control names its fixture beside its words (WCAG 2.5.3). */
   it("offers an open row both answers, each named for its fixture", () => {
-    renderView([SCHIEDSRICHTERIN], [EINSATZ]);
+    renderView([SCHIEDSRICHTERIN], { einsaetze: [EINSATZ] });
 
     for (const worte of ["Zusagen", "Absagen"]) {
       assert.ok(screen.getByRole("button", { name: `${worte}: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 20.11.2026` }));
@@ -121,14 +157,13 @@ describe("a referee's fixtures on their own page", () => {
 
   /* A spent row offers nothing to press, and a decline shows the reason the referee gave. */
   it("shows a spent row's answer in place of the controls", () => {
-    renderView(
-      [SCHIEDSRICHTERIN],
-      [
+    renderView([SCHIEDSRICHTERIN], {
+      einsaetze: [
         { ...EINSATZ, zustand: "zugesagt" },
         { ...EINSATZ, id: "6890a1b2c3d4e5f607390052", zustand: "abgelehnt", begruendung: "Klassenfahrt" },
         { ...EINSATZ, id: "6890a1b2c3d4e5f607390053", zustand: "ungueltig" },
       ],
-    );
+    });
 
     assert.equal(screen.queryAllByRole("button", { name: /^(Zusagen|Absagen)/ }).length, 0, "a spent row offers an answer");
     for (const wort of ["Zugesagt", "Abgesagt", "Klassenfahrt", "Nicht mehr gültig: Termin oder Einteilung haben sich geändert"]) {
@@ -139,7 +174,7 @@ describe("a referee's fixtures on their own page", () => {
   /* The endpoint takes no decline without its reason, so the form sends none: the box says why instead. */
   it("sends a decline with its reason, and none without one", async () => {
     const user = userEvent.setup();
-    renderView([SCHIEDSRICHTERIN], [EINSATZ]);
+    renderView([SCHIEDSRICHTERIN], { einsaetze: [EINSATZ] });
     await user.click(screen.getByRole("button", { name: /^Absagen/ }));
     calls.length = 0;
 
@@ -156,7 +191,7 @@ describe("a referee's fixtures on their own page", () => {
 
   it("sends an acceptance for the row pressed", async () => {
     const user = userEvent.setup();
-    renderView([SCHIEDSRICHTERIN], [EINSATZ]);
+    renderView([SCHIEDSRICHTERIN], { einsaetze: [EINSATZ] });
     calls.length = 0;
 
     await user.click(screen.getByRole("button", { name: /^Zusagen/ }));

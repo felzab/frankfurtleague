@@ -110,6 +110,7 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/schiedsrichter/selbst": "the signed-in referee's own records, served to that person alone",
     "/api/v0/spielbestaetigungen/selbst": "the signed-in referee's own fixture assignments, which carry nobody's address",
     "/api/v0/konto/einwilligungen": "the signed-in person's own consent records, served to that person alone",
+    "/api/v0/konto/adresswechsel": "the signed-in person's own pending address change, served to that person alone",
     "/api/v0/identitaet/selbst/erasure/ansicht": "the signed-in person's own records an erasure would remove, by name and with no address",
     "/api/v0/spieler/nachnominierung/{saison_id}": "a season's late-entry window",
     "/api/v0/spieltage/list/admin": "matchdays",

@@ -172,6 +172,16 @@ describe("categorizeActionRequired", () => {
     assert.equal(result.bracket_fault.length, 1);
   });
 
+  /* A correction after adoption comes back as `abweichend`, so it asks for a second look as a first report does; an
+     adopted one asks nothing, its result standing as the report proposes. */
+  it("files a fixture under its report's proposal while the report reads proposed or diverging, never once adopted", () => {
+    const spiel = makeSpiel({ datum: TODAY, ergebnis: "3:1" });
+    const nach = (zustand: "vorgeschlagen" | "uebernommen" | "abweichend") =>
+      categorizeActionRequired([spiel], TODAY, [], saisonBestaetigungen([], []), [{ spiel_id: spiel.id, zustand }]).ergebnis_vorschlag.length;
+
+    assert.deepEqual([nach("vorgeschlagen"), nach("abweichend"), nach("uebernommen")], [1, 1, 0]);
+  });
+
   it("leaves the category empty when no fault names a match in the list", () => {
     const result = categorizeActionRequired([makeSpiel()], TODAY, [
       { reason: "same_team", spiel_id: "6890a1b2c3d4e5f607182999", spiel_nr: 29 },
@@ -339,7 +349,13 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
 
 describe("buildActionRequiredSections", () => {
   const build = (spiele: FLSpiel[], bracketFaults: Parameters<typeof categorizeActionRequired>[2] = []) =>
-    buildActionRequiredSections({ spiele, today: TODAY, bracketFaults: bracketFaults ?? [], bestaetigungen: saisonBestaetigungen([], []) });
+    buildActionRequiredSections({
+      spiele,
+      today: TODAY,
+      bracketFaults: bracketFaults ?? [],
+      bestaetigungen: saisonBestaetigungen([], []),
+      spielberichte: [],
+    });
 
   it("returns every category, in the label table's order", () => {
     const sections = build([]);
@@ -370,6 +386,7 @@ describe("buildActionRequiredSections", () => {
       "bestaetigung_ueberfaellig",
       "bestaetigung_sofort",
       "ergebnis_pending",
+      "ergebnis_vorschlag",
       "datum_missing",
       "uhrzeit_missing",
       "ort_missing",
@@ -386,6 +403,16 @@ describe("buildActionRequiredSections", () => {
     assert.deepEqual(
       raenge,
       [...raenge].sort((a, b) => a - b),
+    );
+  });
+
+  // The tab strip names a category by its short word alone, so two alike are two tabs a reader cannot tell apart.
+  it("gives every category a short word of its own", () => {
+    const kurz = Object.values(ACTION_REQUIRED_LABELS).map((label) => label.short);
+
+    assert.deepEqual(
+      kurz.filter((wort, index) => kurz.indexOf(wort) !== index),
+      [],
     );
   });
 

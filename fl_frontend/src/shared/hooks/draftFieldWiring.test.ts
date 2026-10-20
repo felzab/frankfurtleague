@@ -293,6 +293,7 @@ const OTHER_FORMS = [
   "features/registrierungen/components/views/SpielerBestaetigungView.tsx",
   "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
   "features/sperrliste/components/forms/AdminCreateSperreForm.tsx",
+  "features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.tsx",
   "features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx",
   "features/spielbestaetigungen/components/views/SpielbestaetigungFormPanel.tsx",
   "features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm.tsx",

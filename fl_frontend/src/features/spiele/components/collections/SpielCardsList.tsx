@@ -36,6 +36,7 @@ export function SpielCardsList({
   isAdmin = false,
   notes,
   bestaetigungen,
+  berichtChipsBySpielId,
   isFinishedSaison,
 }: {
   spiele: FLSpiel[];
@@ -45,6 +46,8 @@ export function SpielCardsList({
   notes?: SpielCardNotes;
   /** The season's confirmation rows, an administrator's read the card shows only beside its edit link. */
   bestaetigungen?: SaisonBestaetigungen;
+  /** Keyed by `spiel_id`, for the notes' reason: a report's state arrives beside the matches, never inside them. */
+  berichtChipsBySpielId?: ReadonlyMap<string, string>;
 }) {
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
   const saisonId = useSaisonId();
@@ -64,6 +67,7 @@ export function SpielCardsList({
             adminEditHref={isAdmin ? adminSpielEditHref(spielData.id, saisonId) : undefined}
             asListitem={!hasNotes}
             bestaetigungen={bestaetigungen}
+            berichtChip={berichtChipsBySpielId?.get(spielData.id)}
           />
         );
 

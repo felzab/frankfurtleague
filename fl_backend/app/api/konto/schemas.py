@@ -1,12 +1,20 @@
-from pydantic import BaseModel, Field
+from typing import Literal
 
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.schiedsrichter.schemas import FLSchiedsrichterKontext, FLSchiedsrichterSelbst
 from app.api.spieler.schemas import FLEinwilligung, FLEinwilligungUmfang, FLSpielerKontext, FLSpielerPosition, FLSpielerSelbst, FLSpielerStufe
 from app.api.teams.schemas import FLKontaktKenntnisnahmeUmfang
+from app.shared.adresswechsel import FLAdresswechselWartetAuf, FLAdresswechselWeg
 from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.einwilligung import FLEinwilligungStand
+from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
+
+# Which lane's row carries a person's change: the pupil's where the address holds one, else a confirmed referee's.
+FLAdresswechselArt = Literal["spieler", "schiedsrichter"]
 
 
 class FLSitzKontext(BaseModel):
@@ -137,6 +145,58 @@ class FLKontoRegistrierungEinwilligung(BaseModel):
     nummer: str | None
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
+
+
+class FLKontoAdresswechselOffen(BaseModel):
+    """The address's pending change as its own account page reads it -- NEVER the pending address.
+
+    An administrator's change may be a pretext whose target the holder of the address on file must not learn either.
+    """
+
+    weg: FLAdresswechselWeg
+    wartet_auf: FLAdresswechselWartetAuf
+    gueltig_bis: FLUtcInstant | None
+    wirksam_ab: FLUtcInstant | None
+
+
+class FLKontoAdresswechselResponse(BaseAPIResponse):
+    """Whether the signed-in address may change, and the change pending on it."""
+
+    # The address holds a pupil row or a confirmed referee row, one of which carries a change.
+    moeglich: bool
+    # It also holds an administrator's grant, which no change moves.
+    bleibt_verwaltung: bool
+    offen: FLKontoAdresswechselOffen | None
+
+
+class FLKontoAdresswechselPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: CustomEmail
+
+
+class FLKontoAdresswechselMintResponse(BaseAPIResponse):
+    """The person's start, answered ONCE to the frontend's server, which mails both links and answers the browser neither."""
+
+    # The row carrying the change, for the delivery tags of the new mailbox's link alone.
+    art: FLAdresswechselArt
+    id: CustomObjectId
+    token: str
+    stopp_token: str
+    gueltig_bis: FLUtcInstant
+    email: str
+    bisherige_email: str
+    vorname: str
+
+
+class FLKontoAdresswechselFreigabeResponse(BaseAPIResponse):
+    """The approval, answered ONCE to the frontend's server, which mails the new mailbox its link."""
+
+    art: FLAdresswechselArt
+    id: CustomObjectId
+    token: str
+    gueltig_bis: FLUtcInstant
+    email: str
 
 
 class FLKontoEinwilligungenResponse(BaseAPIResponse):

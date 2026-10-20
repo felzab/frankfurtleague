@@ -3,17 +3,18 @@ CORE · the daily ceiling on each signed-in person's writes, counted per kind of
 
 A person's write route opts in by one declaration: `Depends(gedrosselt)` where every call counts, or
 a `Drossel` parameter its handler calls on the calls that count, a consent grant and never its
-withdrawal. The count is operational state rather than a domain write, so it reaches the driver
-here, outside `app/core/crud.py`, the action log and the write's own transaction.
+withdrawal; an address change counts on a day of its own, `Depends(adresswechsel_gedrosselt)`. The
+count is operational state rather than a domain write, so it reaches the driver here, outside
+`app/core/crud.py`, the action log and the write's own transaction.
 
 Invariants:
-- No administrator's route declares either (`docs/backend/spec.md :: I615`).
+- No administrator's route declares any of them (`docs/backend/spec.md :: I615`).
 """
 
 import math
-from collections.abc import Awaitable, Callable, Iterable, Mapping
+from collections.abc import Awaitable, Iterable, Mapping
 from datetime import datetime, time, timedelta
-from typing import Annotated, Any, Final
+from typing import Annotated, Any, Final, Literal, Protocol
 
 from fastapi import Depends
 from pymongo import ReturnDocument
@@ -28,6 +29,7 @@ from app.core.logging import fl_logger
 from app.core.recording import AktorFunktion, PersonActor, actor_var
 from app.shared.schemas.bounds import (
     AKTEUR_PSEUDONYM_SHOWN,
+    DROSSELUNG_ADRESSWECHSEL_PRO_TAG,
     DROSSELUNG_KONTAKT_PRO_TAG,
     DROSSELUNG_SCHIEDSRICHTER_PRO_TAG,
     DROSSELUNG_SPIELER_PRO_TAG,
@@ -43,8 +45,18 @@ TAGESBUDGETS: Final[Mapping[AktorFunktion, int]] = {
     "schiedsrichter": DROSSELUNG_SCHIEDSRICHTER_PRO_TAG,
 }
 
-# One counted write of the person the request is bound to, refused past their ceiling.
-Drosseln = Callable[[], Awaitable[None]]
+# The address change's count, keyed apart from every kind's: whichever record carries a change, one person starts it.
+ADRESSWECHSEL_ZAEHLER: Final = "adresswechsel"
+Zaehler = AktorFunktion | Literal["adresswechsel"]
+
+# Every count a person holds, which the erasure of the whole person removes.
+ZAEHLER_BUDGETS: Final[Mapping[Zaehler, int]] = {**TAGESBUDGETS, ADRESSWECHSEL_ZAEHLER: DROSSELUNG_ADRESSWECHSEL_PRO_TAG}
+
+
+class Drosseln(Protocol):
+    """One counted write of the person the request is bound to, refused past their ceiling: on their Funktion's count, or on `zaehler`."""
+
+    def __call__(self, zaehler: Zaehler | None = None) -> Awaitable[None]: ...
 
 
 def tagesende(germany_now: datetime) -> datetime:
@@ -59,10 +71,10 @@ def sekunden_bis_tagesende(germany_now: datetime) -> int:
     return math.ceil(tagesende(germany_now).timestamp() - germany_now.timestamp())
 
 
-def _count_prefix(funktion: AktorFunktion, pseudonym: str) -> str:
+def _count_prefix(zaehler: Zaehler, pseudonym: str) -> str:
     """A count's key up to its day, spelled once for the count and for the erasure removing every day of it."""
 
-    return f"{funktion}:{pseudonym}:"
+    return f"{zaehler}:{pseudonym}:"
 
 
 def get_drossel(
@@ -75,7 +87,7 @@ def get_drossel(
     # after a transient error, and one write spends one unit however often its attempt is retried.
     zugelassen = False
 
-    async def drosseln() -> None:
+    async def drosseln(zaehler: Zaehler | None = None) -> None:
         nonlocal zugelassen
         if zugelassen:
             return
@@ -86,8 +98,9 @@ def get_drossel(
 
         # Outside the write's transaction: a write refused after this spends its unit, and one person's
         # concurrent writes never conflict over their count.
+        gezaehlt_auf: Zaehler = actor.funktion if zaehler is None else zaehler
         gezaehlt = await drosselung_collection.find_one_and_update(
-            {"_id": f"{_count_prefix(actor.funktion, actor.pseudonym)}{germany_now.date().isoformat()}"},
+            {"_id": f"{_count_prefix(gezaehlt_auf, actor.pseudonym)}{germany_now.date().isoformat()}"},
             {"$inc": {"n": 1}, "$setOnInsert": {"ablauf": tagesende(germany_now)}},
             projection={"_id": False, "n": True},
             upsert=True,
@@ -95,7 +108,7 @@ def get_drossel(
         )
         # An upsert answering `AFTER` yields the row it raised, whether or not the row stood before.
         assert gezaehlt is not None
-        ceiling = TAGESBUDGETS[actor.funktion]
+        ceiling = ZAEHLER_BUDGETS[gezaehlt_auf]
         if gezaehlt["n"] <= ceiling:
             zugelassen = True
             return
@@ -104,7 +117,7 @@ def get_drossel(
         # by the prefix the log page shows, never an address.
         if gezaehlt["n"] == ceiling + 1:
             fl_logger.warning(
-                f"A person reached their daily write ceiling: {actor.funktion} {actor.pseudonym[:AKTEUR_PSEUDONYM_SHOWN]}",
+                f"A person reached their daily write ceiling: {gezaehlt_auf} {actor.pseudonym[:AKTEUR_PSEUDONYM_SHOWN]}",
                 extra={"error_code": DROSSELUNG_ERREICHT},
             )
 
@@ -123,6 +136,12 @@ async def gedrosselt(drossel: Drossel) -> None:
     await drossel()
 
 
+async def adresswechsel_gedrosselt(drossel: Drossel) -> None:
+    """`gedrosselt` on the address change's own count (`docs/backend/spec.md :: I797`)."""
+
+    await drossel(ADRESSWECHSEL_ZAEHLER)
+
+
 async def erase_counts_in_session(
     *,
     drosselung_collection: AsyncCollection,
@@ -132,7 +151,7 @@ async def erase_counts_in_session(
     # back, handing a person who still stands a fresh day.
     session: AsyncClientSession,
     # A scope taking one kind of person names it: the counts of a kind whose record stands are that record's.
-    funktionen: Iterable[AktorFunktion] = TAGESBUDGETS,
+    funktionen: Iterable[Zaehler] = ZAEHLER_BUDGETS,
 ) -> int:
     """Remove every count this person holds of `funktionen`, every kind unless named, every day of each, answering how many."""
 
@@ -141,7 +160,7 @@ async def erase_counts_in_session(
     return erased.deleted_count
 
 
-def build_counts_filter(pseudonym: str, funktionen: Iterable[AktorFunktion] = TAGESBUDGETS) -> Mapping[str, Any]:
+def build_counts_filter(pseudonym: str, funktionen: Iterable[Zaehler] = ZAEHLER_BUDGETS) -> Mapping[str, Any]:
     """Every count `pseudonym` holds of `funktionen`, each day of each."""
 
     # By the key's prefix rather than today's and yesterday's keys: a day the TTL monitor has not yet
