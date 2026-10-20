@@ -24,6 +24,10 @@ import { SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH } from "@/features/spiele/cons
 import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
+import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
+import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES, FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -32,6 +36,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
@@ -143,13 +148,12 @@ function Erledigt({ einsatz }: { einsatz: FLSpielbestaetigungSelbst }) {
 }
 
 /**
- * The two answers to one open row: a Zusage in one press, a decline behind the disclosure, which takes no answer
- * without its reason. Each is one write, after which the row reads its answer.
+ * The two answers to one open row: a Zusage armed by its first press and sent by its second, the first answer binding,
+ * and a decline behind the disclosure, which takes no answer without its reason. Each is one write.
  */
 function Antwort({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string; wofuer: string }) {
-  const [isPending, startSending] = useTransition();
-  // Both presses wait on the one write, but only the one pressed reads as sending, as the link pages' second press does.
-  const [gedrueckt, setGedrueckt] = useState<"zusage" | "absage">("zusage");
+  const zusage = useTwoPressConfirm();
+  const [isSendingAbsage, startSendingAbsage] = useTransition();
   const [begruendung, setBegruendung] = useState("");
 
   // The payload the action parses, judging the draft too: a second schema here would refuse at rules the action does not.
@@ -163,8 +167,7 @@ function Antwort({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string;
 
   const sendeZusage = () => {
     const landing = focusAfterWrite();
-    setGedrueckt("zusage");
-    startSending(async () => {
+    zusage.press(async () => {
       // A rejected action may still have written, and uncaught here it takes the page down with it.
       const res = await zusagenSpielbestaetigungAction(spielbestaetigungId).catch(unansweredAction);
 
@@ -184,8 +187,7 @@ function Antwort({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string;
   const sendeAbsage = () => {
     guardSubmit({ absage: absage }, () => {
       const landing = focusAfterWrite();
-      setGedrueckt("absage");
-      startSending(async () => {
+      startSendingAbsage(async () => {
         const res = await absagenSpielbestaetigungAction(spielbestaetigungId, absage).catch(unansweredAction);
 
         startTransition(() => {
@@ -207,25 +209,39 @@ function Antwort({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string;
       data-required-marks="on"
       className="flex w-full flex-col gap-4"
       onSubmit={sendeAbsage}>
-      <div
-        className="flex w-full flex-col items-stretch sm:flex-row sm:justify-end"
-        {...focusSlot(ZUSAGEN)}>
-        <Button
-          type="button"
-          isPending={isPending}
-          onPress={sendeZusage}
-          aria-label={benannt(isPending && gedrueckt === "zusage" ? "Sendet..." : "Zusagen", wofuer)}
-          className={formButton({ intent: "submit", stacks: true })}>
-          <CircleCheck
-            className="size-4.5"
-            aria-hidden="true"
+      <ConfirmActionRow confirm={zusage}>
+        <FocusSlot name={ZUSAGEN}>
+          <ConfirmPressButton
+            confirm={zusage}
+            // Held, never relabelled, while the decline is sending: both wait on the one write in flight.
+            held={isSendingAbsage}
+            reason={null}
+            resting="Zusagen"
+            restingName={benannt("Zusagen", wofuer)}
+            armed="Ja, zusagen"
+            running="Sagt zu..."
+            icon={
+              <CircleCheck
+                className="size-4.5"
+                aria-hidden="true"
+              />
+            }
+            onPress={sendeZusage}
           />
-          {isPending && gedrueckt === "zusage" ? "Sendet..." : "Zusagen"}
-        </Button>
-      </div>
+        </FocusSlot>
+      </ConfirmActionRow>
 
-      {/* Around the whole disclosure: the decline is sent from its submit, which a slot on the trigger alone misses. */}
-      <div {...focusSlot(ABSAGEN)}>
+      {zusage.isConfirming && (
+        <ConfirmReveal>
+          <p className="fluid-sm text-pretty text-foreground">Du sagst für dieses Spiel zu. Das lässt sich hier nicht rückgängig machen.</p>
+        </ConfirmReveal>
+      )}
+
+      <div
+        // Hidden while the Zusage is armed, as a registration's second answer is: one row arms one answer at a time.
+        hidden={zusage.isConfirming}
+        // Around the whole disclosure: the decline is sent from its submit, which a slot on the trigger alone misses.
+        {...focusSlot(ABSAGEN)}>
         <Disclosure>
           <Disclosure.Heading level={3}>
             <Disclosure.Trigger
@@ -261,9 +277,9 @@ function Antwort({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string;
               <div className="flex w-full flex-col items-stretch sm:flex-row sm:justify-end">
                 <Button
                   type="submit"
-                  isPending={isPending}
+                  isPending={isSendingAbsage || zusage.isPending}
                   className={formButton({ intent: "submit", stacks: true })}>
-                  {isPending && gedrueckt === "absage" ? "Sendet..." : "Absage senden"}
+                  {isSendingAbsage ? "Sendet..." : "Absage senden"}
                 </Button>
               </div>
             </Disclosure.Body>

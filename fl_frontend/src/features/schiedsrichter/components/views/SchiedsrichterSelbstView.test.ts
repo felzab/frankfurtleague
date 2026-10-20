@@ -13,6 +13,7 @@ import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.
 import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { schiedsrichterSelbst } from "@/shared/testing/selbstFixtures.ts";
+import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import type { FLSpielbestaetigungSelbst } from "@/features/spielbestaetigungen/schemas.ts";
 import type { FLSchiedsrichterSelbst } from "../../schemas.ts";
@@ -154,12 +155,17 @@ describe("a referee's fixtures on their own page", () => {
     assert.deepEqual(calls, [{ action: "absagenSpielbestaetigungAction", payload: [EINSATZ.id, { begruendung: "Klassenfahrt" }] }]);
   });
 
-  it("sends an acceptance for the row pressed", async () => {
+  /* The first answer binds and the panel offers no way back, so a press on the wrong row of a list must not commit. */
+  it("arms an acceptance on the first press and sends it for the row pressed on the second", async () => {
     const user = userEvent.setup();
     renderView([SCHIEDSRICHTERIN], [EINSATZ]);
     calls.length = 0;
 
-    await user.click(screen.getByRole("button", { name: /^Zusagen/ }));
+    await pressTwice(user, {
+      resting: /^Zusagen/,
+      armed: "Ja, zusagen",
+      whileArmed: () => assert.deepEqual(calls, [], "the first press sent the acceptance"),
+    });
     await act(answered);
     assert.deepEqual(calls, [{ action: "zusagenSpielbestaetigungAction", payload: [EINSATZ.id] }]);
   });

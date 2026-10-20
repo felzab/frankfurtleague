@@ -1339,7 +1339,7 @@ const LANDINGS: Record<string, Landing> = {
   },
   "a referee's acceptance on their panel, on the next open row's acceptance": {
     before: () => h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta"), einsatz(EINSATZ_GAMMA, "SG Gamma")] }),
-    press: (user) => user.click(screen.getByRole("button", { name: "Zusagen: SG Alpha gegen SG Beta am 20.11.2026" })),
+    press: (user) => pressTwice(user, { resting: "Zusagen: SG Alpha gegen SG Beta am 20.11.2026", armed: "Ja, zusagen" }),
     after: () =>
       h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta", "zugesagt"), einsatz(EINSATZ_GAMMA, "SG Gamma")] }),
     lands: () => screen.getByRole("button", { name: "Zusagen: SG Alpha gegen SG Gamma am 20.11.2026" }),
@@ -1359,7 +1359,7 @@ const LANDINGS: Record<string, Landing> = {
   },
   "a referee's last open row's acceptance, on the section's heading": {
     before: () => h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta")] }),
-    press: (user) => user.click(screen.getByRole("button", { name: "Zusagen: SG Alpha gegen SG Beta am 20.11.2026" })),
+    press: (user) => pressTwice(user, { resting: "Zusagen: SG Alpha gegen SG Beta am 20.11.2026", armed: "Ja, zusagen" }),
     after: () => h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta", "zugesagt")] }),
     lands: () => heading("Deine Einsätze"),
   },
