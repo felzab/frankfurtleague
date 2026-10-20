@@ -349,9 +349,12 @@ AGGREGATES: tuple[Aggregate, ...] = (
         boundary=(
             "One fixture's report: what the referee recorded of the match. Held true against nothing: it states what the "
             "referee proposed, which stays true however the fixture is corrected afterwards -- so it is in no boundary with "
-            "`spiele`. The report writes no fixture and no fixture write reaches the report; the administrator carries a "
-            "proposal into the fixture by their own save, and the state the report reads in is derived on every read from "
-            "both. What is held is a rule over this collection alone, `uniq_spielbericht_spiel_id`: one report per fixture."
+            "`spiele`. The report writes no fixture; the administrator carries a proposal into the fixture by their own "
+            "save, and the state the report reads in is derived on every read from both. One fixture write reaches the "
+            "report: a save adopting it stamps the version it took, in the save's transaction and only while the report "
+            "still stands at that version, so the stamp records the adoption and holds no rule over the fixture, and a "
+            "report corrected since is left unadopted rather than refusing the save. What is held is a rule over this "
+            "collection alone, `uniq_spielbericht_spiel_id`: one report per fixture."
         ),
     ),
 )
@@ -715,9 +718,10 @@ REFERENCES: tuple[Reference, ...] = (
         note=(
             "Both writers read the fixture the path names and answer 404 for one that does not exist. A fixture "
             "corrected afterwards leaves the report alone, its state being derived on every read against the result as it "
-            "stands. A fixture is removed only with its season's whole draw, by a confirmed replace or an undraw, which a "
-            "submitted report refuses (`REQ-SPIELPLAN-007`); each removes the season's report documents in the same "
-            "transaction (`app/api/saisons/admin_router.py :: undraw_spielplan`)."
+            "stands, unless the save adopts the report, which stamps the version it took "
+            "(`app/api/spielberichte/crud.py :: stamp_the_adoption`). A fixture is removed only with its season's whole "
+            "draw, by a confirmed replace or an undraw, which a submitted report refuses (`REQ-SPIELPLAN-007`); each removes "
+            "the season's report documents in the same transaction (`app/api/saisons/admin_router.py :: undraw_spielplan`)."
         ),
     ),
     Reference(
