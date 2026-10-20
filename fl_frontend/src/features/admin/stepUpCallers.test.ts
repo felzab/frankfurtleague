@@ -448,7 +448,7 @@ const DRIVES: Record<string, Drive[]> = {
     { render: () => refereeEditor(false), reach: moveAddress, press: "Speichern", asks: true },
     { render: () => refereeEditor(true), reach: retype("Telefon", "069 7654321"), press: "Speichern", asks: false },
   ],
-  "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormKontaktSection.tsx :: beantrageSchiedsrichterAdresswechselAction": [
+  "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormKontaktSection.tsx :: beantrageAdresswechselAction": [
     { render: () => refereeEditor(true), reach: requestAddress, press: "Link an neue Adresse senden", asks: true },
   ],
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAdresswechselSection.tsx :: einladeAdresswechselAction": [

@@ -635,7 +635,7 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   "POST /schiedsrichter/{schiedsrichter_id}/reactivate": { name: "reactivateSchiedsrichterAction", payload: { id: REFEREE_ID } },
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": { name: "einladeSchiedsrichterAction", payload: { id: REFEREE_ID } },
   "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel": {
-    name: "beantrageSchiedsrichterAdresswechselAction",
+    name: "beantrageAdresswechselAction",
     payload: { id: REFEREE_ID, email: "anna@neu.example", grund: null },
   },
   "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": { name: "einladeAdresswechselAction", payload: { id: REFEREE_ID } },

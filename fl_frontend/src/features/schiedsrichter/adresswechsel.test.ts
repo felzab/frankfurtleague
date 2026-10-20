@@ -37,7 +37,7 @@ const client = doubleApiAnswers(async ({ endpoint, method }: ApiCall) => {
   return answer;
 });
 
-const { beantrageSchiedsrichterAdresswechselAction, einladeAdresswechselAction, patchSchiedsrichterAction, verwirfAdresswechselAction } =
+const { beantrageAdresswechselAction, einladeAdresswechselAction, patchSchiedsrichterAction, verwirfAdresswechselAction } =
   await import("./actions.ts");
 const { mapSchiedsrichterAdresswechselRefusal } = await import("./queries.ts");
 const { adresswechselLink } = await import("@/core/adresswechselEmail.ts");
@@ -118,7 +118,7 @@ describe("the save moving a confirmed referee's address", () => {
 
 describe("an administrator's start of a confirmed referee's change", () => {
   it("sends the address and the reason to its own endpoint, and mails the stored address the request with its stop link", async () => {
-    const res = await beantrageSchiedsrichterAdresswechselAction({ id: SCHIEDSRICHTER_ID, email: NEU, grund: null });
+    const res = await beantrageAdresswechselAction({ id: SCHIEDSRICHTER_ID, email: NEU, grund: null });
 
     assert.equal(res.success, true);
     assert.deepEqual(
@@ -146,7 +146,7 @@ describe("an administrator's start of a confirmed referee's change", () => {
     it(`words ${code}, and mails nobody`, async () => {
       start = () => refusedOn(START_OPERATION, code);
 
-      const res = await beantrageSchiedsrichterAdresswechselAction({ id: SCHIEDSRICHTER_ID, email: NEU, grund: null });
+      const res = await beantrageAdresswechselAction({ id: SCHIEDSRICHTER_ID, email: NEU, grund: null });
 
       assert.equal(res.success ? "" : res.error, satz);
       assert.deepEqual(mailedTo(), []);
@@ -156,7 +156,7 @@ describe("an administrator's start of a confirmed referee's change", () => {
   it("puts a name in the reason on the reason's box", async () => {
     start = () => refusedOn(START_OPERATION, "REQ-SCHIEDSRICHTER-013");
 
-    const res = await beantrageSchiedsrichterAdresswechselAction({ id: SCHIEDSRICHTER_ID, email: NEU, grund: "Anna hat angerufen" });
+    const res = await beantrageAdresswechselAction({ id: SCHIEDSRICHTER_ID, email: NEU, grund: "Anna hat angerufen" });
 
     assert.equal(res.success ? undefined : res.fieldErrors?.grund, "Der Grund enthält ein Wort, das einem Namen der Person gleicht.");
   });

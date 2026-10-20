@@ -71,7 +71,7 @@ describe("the account page's address control", () => {
 
     assert.deepEqual(
       calls.map(({ action, payload }) => [action, payload]),
-      [["beantrageAdresswechselAction", { email: "lena@neu.example" }]],
+      [["starteAdresswechselAction", { email: "lena@neu.example" }]],
     );
   });
 

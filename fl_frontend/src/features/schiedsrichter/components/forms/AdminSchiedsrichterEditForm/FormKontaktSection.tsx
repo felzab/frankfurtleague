@@ -9,7 +9,7 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 
 import { ADRESSE_HINWEIS, AdresswechselBeantragen } from "@/features/konto/components/forms/AdresswechselBeantragen";
-import { beantrageSchiedsrichterAdresswechselAction } from "@/features/schiedsrichter/actions";
+import { beantrageAdresswechselAction } from "@/features/schiedsrichter/actions";
 import { FLSchiedsrichterAdresswechselPayloadSchema } from "@/features/schiedsrichter/schemas";
 import { ADRESSE_AENDERN } from "@/features/spieler/constants";
 import { Angabe } from "@/shared/components/ui/Angabe";
@@ -143,9 +143,7 @@ export function FormKontaktSection({
                 fokussieren={perDruck}
                 schema={FLSchiedsrichterAdresswechselPayloadSchema}
                 pruefe={(neu, grund) => urteil(bestaetigt.schiedsrichterId, neu, grund)}
-                write={(neu, grund) =>
-                  beantrageSchiedsrichterAdresswechselAction({ id: bestaetigt.schiedsrichterId, email: neu, grund: grund })
-                }
+                write={(neu, grund) => beantrageAdresswechselAction({ id: bestaetigt.schiedsrichterId, email: neu, grund: grund })}
                 onEntwurfChange={bestaetigt.onEntwurfChange}
                 onFertig={() => bestaetigt.onEntwurfChange(null)}
               />

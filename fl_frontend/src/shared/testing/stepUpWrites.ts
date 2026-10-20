@@ -402,7 +402,7 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
     einladeSchiedsrichterAction: "one-press",
   },
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormKontaktSection.tsx": {
-    beantrageSchiedsrichterAdresswechselAction: "one-press",
+    beantrageAdresswechselAction: "one-press",
   },
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAdresswechselSection.tsx": {
     einladeAdresswechselAction: "one-press",

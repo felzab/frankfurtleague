@@ -13,7 +13,7 @@ import { Label } from "@heroui/react/label";
 import { ADRESSWECHSEL_WARTEZEIT_DAUER, adresswechselZeitpunkt } from "@/core/adresswechsel";
 import { ADRESSWECHSEL_STOPPEN } from "@/core/adresswechselAntworten";
 import { LINK_AN_NEUE_ADRESSE } from "@/features/konto/components/forms/AdresswechselBeantragen";
-import { beantrageAdresswechselAction, gibAdresswechselFreiAction, stoppeAdresswechselAction } from "@/features/konto/personActions";
+import { gibAdresswechselFreiAction, starteAdresswechselAction, stoppeAdresswechselAction } from "@/features/konto/personActions";
 import { FLKontoAdresswechselPayloadSchema } from "@/features/konto/schemas";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -114,7 +114,7 @@ export function AdresswechselPanel({
   const sende = async (was: Wartend): Promise<void> => {
     setLaeuft(was.art);
     // A rejected action may still have mailed, and uncaught here it takes the page down with it.
-    const res = await (was.art === "start" ? beantrageAdresswechselAction({ email: was.email }) : gibAdresswechselFreiAction()).catch(
+    const res = await (was.art === "start" ? starteAdresswechselAction({ email: was.email }) : gibAdresswechselFreiAction()).catch(
       unansweredAction,
     );
     setLaeuft(null);

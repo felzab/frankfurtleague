@@ -57,7 +57,7 @@ export async function mailSpielerAdresswechsel({
         }).then(linkVersandOf),
     stoppToken === null
       ? null
-      : sendeEinzeln(
+      : sendeHinweis(
           mint.bisherige_email,
           buildAdresswechselHinweisEmail({
             origin: frontend_config.AUTH_URL,
@@ -83,7 +83,7 @@ export async function mailSpielerAdresswechselWirksam({
   operation: string;
   mitteilung: FLAdresswechselMitteilung;
 }): Promise<HinweisVersand> {
-  return sendeEinzeln(
+  return sendeHinweis(
     mitteilung.bisherige_email,
     buildAdresswechselWirksamEmail({ origin: frontend_config.AUTH_URL, vorname: mitteilung.vorname, zeitpunkt: new Date() }),
     "spieler.adresswirksam_failed",
@@ -91,7 +91,7 @@ export async function mailSpielerAdresswechselWirksam({
   );
 }
 
-async function sendeEinzeln(
+async function sendeHinweis(
   adresse: string,
   mail: { subject: string; html: string; text: string },
   ereignis: string,

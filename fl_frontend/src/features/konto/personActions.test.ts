@@ -86,7 +86,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
 }) as typeof globalThis.fetch;
 
 // Imported here rather than at the top: a static import resolves before the hooks above are registered.
-const { beantrageAdresswechselAction, gibAdresswechselFreiAction, stoppeAdresswechselAction } = await import("./personActions.ts");
+const { starteAdresswechselAction, gibAdresswechselFreiAction, stoppeAdresswechselAction } = await import("./personActions.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 const { adresswechselLink } = await import("@/core/adresswechselEmail.ts");
 const { auth } = await import("@/core/auth.ts");
@@ -112,7 +112,7 @@ describe("the person's own start of an address change", () => {
   it("sends the new address under the person's actor, mails the link to it and the stop link to the address signed in", async () => {
     await angemeldet();
 
-    const answer = await beantrageAdresswechselAction({ email: NEU });
+    const answer = await starteAdresswechselAction({ email: NEU });
 
     assert.equal(answer.success, true, JSON.stringify(answer));
     assert.deepEqual(writes, [{ method: "POST", path: ADRESSWECHSEL, body: { email: NEU }, actor: true }]);
@@ -130,7 +130,7 @@ describe("the person's own start of an address change", () => {
   it("answers the browser one sentence carrying no token and no address", async () => {
     await angemeldet();
 
-    const answer = JSON.stringify(await beantrageAdresswechselAction({ email: NEU }));
+    const answer = JSON.stringify(await starteAdresswechselAction({ email: NEU }));
 
     assert.doesNotMatch(answer, /token|neu\.example|schule\.example/);
     assert.match(answer, /Bestätige die neue Adresse über den Link in der E-Mail an sie, bis 21\. Oktober 2026 um 13:30\./);
@@ -139,9 +139,9 @@ describe("the person's own start of an address change", () => {
   /* Telling the person their new address is barred would answer a stranger typing it whether an address is known here. */
   it("answers a link the ban list kept back in the words of one that went", async () => {
     await angemeldet();
-    const gesendet = await beantrageAdresswechselAction({ email: NEU });
+    const gesendet = await starteAdresswechselAction({ email: NEU });
     mail.answerWith(({ to }) => (to === NEU ? "barred" : "accepted"));
-    const gesperrt = await beantrageAdresswechselAction({ email: NEU });
+    const gesperrt = await starteAdresswechselAction({ email: NEU });
 
     assert.deepEqual(gesperrt, gesendet);
   });
@@ -150,7 +150,7 @@ describe("the person's own start of an address change", () => {
     art = "schiedsrichter";
     await angemeldet();
 
-    await beantrageAdresswechselAction({ email: NEU });
+    await starteAdresswechselAction({ email: NEU });
 
     assert.ok(an(NEU)[0]?.text.includes(adresswechselLink("http://localhost:3000", "schiedsrichter", "neu-token")));
   });
@@ -160,7 +160,7 @@ describe("the person's own start of an address change", () => {
     const row = await angemeldet();
     row.createdAt = new Date(Date.now() - 10 * 60 * 1000);
 
-    assert.deepEqual(await beantrageAdresswechselAction({ email: NEU }), stepUpRequired());
+    assert.deepEqual(await starteAdresswechselAction({ email: NEU }), stepUpRequired());
     assert.deepEqual(writes, []);
     assert.deepEqual(mail.sent, []);
   });
@@ -169,7 +169,7 @@ describe("the person's own start of an address change", () => {
     await angemeldet();
     startAnswer = () => Response.json({ error_code: "REQ-SPIELER-007", trace_id: "0".repeat(32) }, { status: 409 });
 
-    const answer = await beantrageAdresswechselAction({ email: BISHER });
+    const answer = await starteAdresswechselAction({ email: BISHER });
 
     assert.equal(answer.success ? undefined : answer.fieldErrors?.email, "Mit dieser Adresse bist Du schon angemeldet.");
     assert.deepEqual(mail.sent, []);

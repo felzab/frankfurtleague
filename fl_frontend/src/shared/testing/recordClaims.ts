@@ -6,7 +6,7 @@
 export const RECORD_CLAIMS: ReadonlyMap<string, string> = new Map([
   ["kontakte :: patchBewerbungEinwilligungAction", "PATCH /bewerbungen/{bewerbung_id}/person/einwilligung"],
   ["kontakte :: patchSitzEinwilligungAction", "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung"],
-  ["konto :: beantrageAdresswechselAction", "POST /konto/adresswechsel"],
+  ["konto :: starteAdresswechselAction", "POST /konto/adresswechsel"],
   ["konto :: gibAdresswechselFreiAction", "POST /konto/adresswechsel/freigabe"],
   ["konto :: loescheKontoAction", "POST /identitaet/selbst/erasure"],
   ["konto :: stoppeAdresswechselAction", "DELETE /konto/adresswechsel"],

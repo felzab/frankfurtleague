@@ -305,10 +305,10 @@ export async function einladeSchiedsrichterAction(
  * (`fl_frontend/src/features/spieler/actions.ts :: beantrageSpielerAdresswechselAction`): the save
  * refuses to move that address, so this is the only way in.
  */
-export async function beantrageSchiedsrichterAdresswechselAction(
+export async function beantrageAdresswechselAction(
   rawPayload: FLSchiedsrichterAdresswechselPayload,
 ): Promise<ActionResult<{ versand: LinkVersand | null; hinweis: HinweisVersand | null }>> {
-  return runAdminMutation("beantrageSchiedsrichterAdresswechselAction", { stepUp: true }, async () => {
+  return runAdminMutation("beantrageAdresswechselAction", { stepUp: true }, async () => {
     const validated = FLSchiedsrichterAdresswechselPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -331,7 +331,7 @@ export async function beantrageSchiedsrichterAdresswechselAction(
 
     const wechsel = mintOperation.adresswechsel;
     const versand = await mailSchiedsrichterAdresswechsel({
-      operation: "beantrageSchiedsrichterAdresswechselAction",
+      operation: "beantrageAdresswechselAction",
       schiedsrichterId: validated.data.id,
       mint: wechsel,
       anlass: "empfang",

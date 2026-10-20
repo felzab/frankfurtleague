@@ -137,8 +137,8 @@ async function istFrischBestaetigt(): Promise<boolean> {
  * (`docs/frontend/spec.md :: I411`): the link goes to the new address, and a notice with a stop link to
  * the one signed in.
  */
-export async function beantrageAdresswechselAction(rawPayload: { email: string }): Promise<AdresswechselGesendet | StepUpRequired> {
-  return runPersonRecordMutation("beantrageAdresswechselAction", async () => {
+export async function starteAdresswechselAction(rawPayload: { email: string }): Promise<AdresswechselGesendet | StepUpRequired> {
+  return runPersonRecordMutation("starteAdresswechselAction", async () => {
     const validated = FLKontoAdresswechselPayloadSchema.safeParse(rawPayload);
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
 
@@ -157,7 +157,7 @@ export async function beantrageAdresswechselAction(rawPayload: { email: string }
       throw error;
     }
 
-    const { link } = await mailAdresswechsel("beantrageAdresswechselAction", mint.art, mint.id, {
+    const { link } = await mailAdresswechsel("starteAdresswechselAction", mint.art, mint.id, {
       ...mint,
       weg: "konto",
       adresse_belegt: false,
