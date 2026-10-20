@@ -16,6 +16,7 @@ from app.api.teams.schemas import (
     FLKontaktKenntnisnahmePayload,
     FLKontaktperson,
     FLKontaktpersonPayload,
+    FLKontaktRolle,
     FLPatchSaisonTeamKontaktePayload,
     FLSaisonTeamKontakte,
     FLTeamMembership,
@@ -24,6 +25,7 @@ from app.api.teams.services import (
     KONTAKTE_MOVED_UNDER_THE_SAVE,
     compose_kontakte_at_entry,
     compose_kontakte_herkunft,
+    departing_holders,
     kontakte_stand_of,
 )
 from app.core.adressanker import adressanker_id
@@ -1102,3 +1104,41 @@ class TestTheLabelASaveNames:
 
         assert code == FASSUNG_UNZULAESSIG
         assert stored["kontakte"] == as_stored(NEW_KONTAKTE)
+
+
+class TestWhomTheSaveTakesOffTheRow:
+    """The pure half of `abgaenge`: a mailbox leaves only where no seat of the written block holds it."""
+
+    @staticmethod
+    def leaving(stored: Any, kontakte: Any) -> list[tuple[list[FLKontaktRolle], str]]:
+        return [(abgang.rollen, abgang.email) for abgang in departing_holders(stored=stored, kontakte=kontakte, schule=TEAM_NAME)]
+
+    def test_a_seat_handed_to_another_person_answers_the_mailbox_it_held(self):
+        handed = {**RESAVED_AS_RENDERED, "stellvertretung": person("Lea")}
+
+        assert self.leaving(SEEDED_KONTAKTE, handed) == [(["stellvertretung"], "klara@example.com")]
+
+    def test_a_cleared_block_answers_every_mailbox_once_with_every_seat_it_held(self):
+        """The Trainer's second seat rides on the first's notice: one mailbox, one message."""
+
+        assert self.leaving(NEW_KONTAKTE, None) == [
+            (["trainer", "ansprechperson"], "lea@example.com"),
+            (["stellvertretung"], "nils@example.com"),
+        ]
+
+    def test_the_same_people_saved_again_answer_nobody(self):
+        recased = {**RESAVED_AS_RENDERED, "trainer": person("Ida", email="IDA@Example.com")}
+
+        assert self.leaving(SEEDED_KONTAKTE, recased) == []
+
+    def test_a_mailbox_seated_again_under_another_name_is_not_told_it_left(self):
+        """It is minted a fresh link (`links_owed` reads it as a handover), and a leaving notice beside that link would contradict it."""
+
+        renamed = {**RESAVED_AS_RENDERED, "trainer": {**person("Ida"), "vorname": "Ida-Marie"}}
+
+        assert self.leaving(SEEDED_KONTAKTE, renamed) == []
+
+    def test_a_person_moving_to_another_seat_of_the_row_is_not_told_they_left(self):
+        moved = {**RESAVED_AS_RENDERED, "ansprechperson": person("Klara"), "stellvertretung": person("Jonas")}
+
+        assert self.leaving(SEEDED_KONTAKTE, moved) == []

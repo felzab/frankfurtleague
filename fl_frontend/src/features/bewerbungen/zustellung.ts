@@ -2,6 +2,7 @@ import z from "zod";
 
 import { ANMELDUNG_CODE, ANMELDUNG_TAG } from "@/core/anmeldeTag";
 import { BERECHTIGUNG_HINWEIS, BERECHTIGUNG_TAG } from "@/core/berechtigungTag";
+import { KONTAKT_ABGANG_HINWEIS, KONTAKT_ABGANG_TAG } from "@/core/kontaktAbgangTag";
 import { SAISONENDE_NOTIZ, SAISONENDE_TAG } from "@/core/saisonendeTag";
 import { SPIELLEITUNG_HINWEIS, SPIELLEITUNG_TAG } from "@/core/spielleitungTag";
 import { FLZustellungEreignisPayloadSchema, FLZustellungZielSchema, zielHatSitze } from "@/features/zustellung/schemas";
@@ -143,6 +144,8 @@ const OHNE_EINTRAG = [
   { ziel: "saisonende", tag: SAISONENDE_TAG, wert: SAISONENDE_NOTIZ },
   // A referee's fixture row holds no seat to record a delivery on, and a seat kind refuses a send naming none.
   { ziel: "spielleitung", tag: SPIELLEITUNG_TAG, wert: SPIELLEITUNG_HINWEIS },
+  // The seat the mailbox left now holds another person's delivery record, or nobody's.
+  { ziel: "kontakt_abgang", tag: KONTAKT_ABGANG_TAG, wert: KONTAKT_ABGANG_HINWEIS },
 ] as const;
 
 /**

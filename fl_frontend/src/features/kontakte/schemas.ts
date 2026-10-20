@@ -46,6 +46,14 @@ export const FLKontaktMintSchema = z.object({
 });
 export type FLKontaktMint = z.infer<typeof FLKontaktMintSchema>;
 
+/** Mirrors `FLKontaktAbgang` — one mailbox a save took off the row. The action mails it and hands the browser none of it. */
+export const FLKontaktAbgangSchema = z.object({
+  rollen: z.array(FLKontaktRolleSchema),
+  email: z.string(),
+  schule: z.string(),
+});
+export type FLKontaktAbgang = z.infer<typeof FLKontaktAbgangSchema>;
+
 /**
  * Mirrors `FLPatchSaisonTeamKontakteResponse` — the block as stored after the write, and no other
  * field of the row. The endpoint answers about the seats it moved, so the group and the Austritt
@@ -60,6 +68,7 @@ export const FLPatchSaisonTeamKontakteResponseSchema = BaseAPIResponseSchema.ext
   // The token of the block this save left, which is the only precondition an undo of it can carry.
   kontakte_stand: z.string(),
   bestaetigungen: z.array(FLKontaktMintSchema),
+  abgaenge: z.array(FLKontaktAbgangSchema),
 });
 export type FLPatchSaisonTeamKontakteResponse = z.infer<typeof FLPatchSaisonTeamKontakteResponseSchema>;
 

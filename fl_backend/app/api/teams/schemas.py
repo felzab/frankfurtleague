@@ -818,6 +818,15 @@ class FLKontaktMint(BaseModel):
     zeile: FLKontaktZeile
 
 
+class FLKontaktAbgang(BaseModel):
+    """One mailbox a write took off a season row, for the admin action's notice; the route handler reads it and the browser never does."""
+
+    rollen: list[FLKontaktRolle]
+    # As the replaced block spelled it: the notice goes where the seat's mail went.
+    email: str
+    schule: str
+
+
 class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
     """The block as STORED after the write, its row, and the links it minted.
 
@@ -832,6 +841,8 @@ class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
     kontakte: FLSaisonTeamKontakte | None
     # Empty where the save seated nobody new: a seat keeping its person keeps their link.
     bestaetigungen: list[FLKontaktMint]
+    # Empty where every mailbox the row seated still holds a seat on it.
+    abgaenge: list[FLKontaktAbgang]
 
     @computed_field
     @property
