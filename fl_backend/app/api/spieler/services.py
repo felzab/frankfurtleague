@@ -110,6 +110,7 @@ def build_ghost_spieler() -> dict[str, Any]:
         "vorname": None,
         "nachname": None,
         "einwilligung": None,
+        "geburtsdatum": None,
         "inactive_since": GHOST_INACTIVE_SINCE,
     }
 
@@ -250,11 +251,7 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
                             "nummer": 1,
                             "position": 1,
                             "stufe": 1,
-                            # Either stored spelling, `$$REMOVE` where a row carries neither: this
-                            # projection decides which keys the model sees, so a bare `1` drops the
-                            # marker and a null reaches a `bool` field and 500s the list
-                            # (`docs/backend/spec.md :: I302`).
-                            "ist_nachnominiert": {"$ifNull": ["$ist_nachnominiert", {"$ifNull": ["$is_nachgetragen", "$$REMOVE"]}]},
+                            "ist_nachnominiert": 1,
                             "rolle": 1,
                             "inactive_since": 1,
                         }
@@ -400,10 +397,8 @@ def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId) -> list[Map
                 "nummer": {"$ifNull": ["$nummer", None]},
                 "position": {"$ifNull": ["$position", None]},
                 "stufe": {"$ifNull": ["$stufe", None]},
-                "rolle": {"$ifNull": ["$rolle", None]},
-                # Either stored spelling, for `build_spieler_memberships_pipeline`'s reason
-                # (`docs/backend/spec.md :: I302`).
-                "ist_nachnominiert": {"$ifNull": ["$ist_nachnominiert", {"$ifNull": ["$is_nachgetragen", False]}]},
+                "rolle": 1,
+                "ist_nachnominiert": 1,
                 "inactive_since": {"$ifNull": ["$inactive_since", None]},
             }
         },
@@ -510,9 +505,7 @@ def build_selbst_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                             "position": 1,
                             "stufe": 1,
                             "rolle": 1,
-                            # Either stored spelling, as `build_spieler_memberships_pipeline` reads it
-                            # (`docs/backend/spec.md :: I302`).
-                            "ist_nachnominiert": {"$ifNull": ["$ist_nachnominiert", {"$ifNull": ["$is_nachgetragen", "$$REMOVE"]}]},
+                            "ist_nachnominiert": 1,
                             "inactive_since": 1,
                         }
                     },

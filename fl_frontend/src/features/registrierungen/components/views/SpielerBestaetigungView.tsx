@@ -358,7 +358,7 @@ function SpielerBestaetigungForm({
 
   // Built from the floor the link answered, never the module's own: the endpoint judges this
   // person, so a schema on a constant would let the press through at the wrong number.
-  const bestaetigungSchema = buildRegistrierungBestaetigungPayloadSchema(ansicht.mindestalter, fassung.seite, ansicht.geburtsdatum_gespeichert);
+  const bestaetigungSchema = buildRegistrierungBestaetigungPayloadSchema(ansicht.mindestalter, fassung.seite);
 
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } =
     useDraftFieldErrors({
@@ -381,8 +381,8 @@ function SpielerBestaetigungForm({
   // the schema is what turns that into a field error rather than this builder into a cast.
   const payload = () => ({
     token: token,
-    // None where one is stored: the press takes that one (`REQ-REGISTRIERUNG-017` refuses a date sent beside it).
-    geburtsdatum: ansicht.geburtsdatum_gespeichert ? null : entwurf.geburtsdatum,
+    // None from the returning page: the press takes the stored person's (`REQ-REGISTRIERUNG-017` refuses one sent).
+    geburtsdatum: fragtWahlen ? entwurf.geburtsdatum : null,
     // Both choices null from the returning page, which asks neither (`REQ-REGISTRIERUNG-017` refuses any other).
     umfang: fragtWahlen ? entwurf.umfang : null,
     // Never the draft's own `true` where no switch stands: one given before the date moved below the
@@ -471,7 +471,7 @@ function SpielerBestaetigungForm({
         <section className="flex flex-col gap-y-3">
           <h3 className={FORM_SECTION_HEADING_CLASSES}>Dein Geburtsdatum</h3>
 
-          {!ansicht.geburtsdatum_gespeichert ? (
+          {fragtWahlen ? (
             <div className={FIELD_PAIR_CLASSES}>
               <AppDatePicker
                 name="geburtsdatum"

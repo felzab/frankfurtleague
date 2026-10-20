@@ -13,6 +13,7 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
 import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
 import { spielbestaetigungFields } from "@/shared/testing/fixtures.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
@@ -233,12 +234,12 @@ const spielerEditor = (inactiveSince: string | null, inKader = true, adresswechs
       vorname: "Lena",
       nachname: "Meier",
       inactive_since: inactiveSince,
-      geburtsdatum: null,
+      geburtsdatum: "2009-05-04",
       email: "lena.meier@schule.example",
       adresswechsel: adresswechsel,
       adresswechsel_abgelaufen: false,
     },
-    einwilligung: null,
+    einwilligung: bestaetigteEinwilligung(),
     saison: {
       saisonId: "2026",
       saisonStatus: "active" as const,
@@ -402,7 +403,6 @@ const kontaktperson = (vorname: string, email: string | null, bestaetigtAm: stri
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
   einwilligung: kenntnisnahme({
-    erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: bestaetigtAm,

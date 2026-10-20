@@ -37,7 +37,7 @@ class TestASlotAndItsBookkeepingMoveTogether:
             assert update[f"bestaetigungen.{slot}"] is None
 
     def test_an_erasure_finding_no_block_moves_no_bookkeeping(self):
-        """The flag's other side: a junction row and an application stored before the flow have no entry to null."""
+        """The flag's other side: a junction row no link was minted for has no entry to null."""
 
         update = written(build_clearing_update(KONTAKT_ROLLEN))
 

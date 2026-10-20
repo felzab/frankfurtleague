@@ -140,18 +140,21 @@ class TestTheRecordTheConfirmationWrites:
 
         assert compose_einwilligung(umfang="intern", medien=False, text_version="v1", today=TODAY)["medien"] is False
 
-    def test_the_record_is_given_and_confirmed_in_one_press_naming_no_speaker(self):
-        """Nobody but the referee answers on their own link, and no write names who answered any longer."""
+    def test_the_record_is_given_and_confirmed_in_one_press(self):
+        """Nobody but the referee answers on their own link."""
 
         record = compose_einwilligung(umfang="intern", medien=False, text_version="v1", today=TODAY)
 
-        assert "erteilt_von" not in record
         assert record["datum"] == record["bestaetigt_am"] == TODAY
 
     def test_the_record_carries_every_key_the_validator_requires(self):
         declared = COLLECTION_VALIDATORS[Collection.SCHIEDSRICHTER]["$jsonSchema"]["properties"][EINWILLIGUNG_FELD]
 
-        assert set(declared["required"]) <= set(compose_einwilligung(umfang="intern", medien=False, text_version="v1", today=TODAY))
+        update = compose_confirmation_update(
+            geburtsdatum=AN_ADULTS_BIRTHDATE, umfang="intern", medien=False, text_version="v1", today=TODAY, am=CONFIRMED_AT
+        )
+
+        assert set(declared["required"]) <= set(update["$set"][EINWILLIGUNG_FELD])
 
 
 class TestWhatALeakedLinkLearns:

@@ -17,7 +17,6 @@ import {
    the shapes and never a value inside one. */
 const SERVED_EINWILLIGUNG = {
   umfang: "kader_oeffentlich",
-  erteilt_von: "volljaehrig",
   datum: "2026-10-01",
   bestaetigt_am: "2026-10-01",
   text_version: "2026-10-spielerseite-4",
@@ -67,7 +66,7 @@ describe("the floor a read of a player states", () => {
 // An administrator's edit may not store a name the pupil's own registration would refuse, and says so
 // in the sentence every form holding a name to that ceiling says.
 describe("the ceiling a person edit holds each name to", () => {
-  const names = { id: "0".repeat(24), vorname: "Max", nachname: "Mustermann", geburtsdatum: null };
+  const names = { id: "0".repeat(24), vorname: "Max", nachname: "Mustermann", geburtsdatum: "2009-05-04" };
 
   for (const part of ["vorname", "nachname"] as const) {
     it(`refuses a ${part} one past the registration's ceiling, in that ceiling's words`, () => {

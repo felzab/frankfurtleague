@@ -41,6 +41,7 @@ OTHER_PERSON_OID = ObjectId("6890a1b2c3d4e5f608310003")
 REFEREE_OIDS = (ObjectId("6890a1b2c3d4e5f608310004"), ObjectId("6890a1b2c3d4e5f608310005"))
 NAMELESS_OID = ObjectId("6890a1b2c3d4e5f608310006")
 RECORDLESS_OID = ObjectId("6890a1b2c3d4e5f608310007")
+UNDATED_OID = ObjectId("6890a1b2c3d4e5f608310008")
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -87,7 +88,7 @@ async def press(database: AsyncDatabase, client: AsyncMongoClient, route: str, s
     if route == "patch":
         return await patch_spieler(
             spieler_id=spieler_id,
-            spieler_data=FLPatchSpielerPayload(vorname="Lysander", nachname="Quell", geburtsdatum=None),
+            spieler_data=FLPatchSpielerPayload(vorname="Lysander", nachname="Quell", geburtsdatum="2009-05-04"),
             spieler_collection=collection,
             db=client,
         )
@@ -228,6 +229,7 @@ def test_the_constraints_check_names_a_nameless_person_and_never_the_sentinel(mo
             [
                 {**documents.spieler_document(NAMELESS_OID, "Lysander", "Quell"), "vorname": None},
                 documents.spieler_document(RECORDLESS_OID, "Ottilie", "Brandt", einwilligung=None),
+                documents.spieler_document(UNDATED_OID, "Hartwig", "Kranz", geburtsdatum=None),
             ]
         )
 
@@ -236,7 +238,7 @@ def test_the_constraints_check_names_a_nameless_person_and_never_the_sentinel(mo
     clean, found = on_a_league(mongo_replica_set_url, body)
 
     assert (clean.rule, clean.groups, clean.examples) == (NAMELESS_PERSON_RULE, 0, [])
-    assert (found.groups, sorted(found.examples)) == (2, [NAMELESS_OID, RECORDLESS_OID])
+    assert (found.groups, sorted(found.examples)) == (3, sorted([NAMELESS_OID, RECORDLESS_OID, UNDATED_OID]))
 
 
 def test_the_sign_in_lookup_never_resolves_the_sentinel_whatever_a_hand_edit_gives_it(mongo_replica_set_url: str):

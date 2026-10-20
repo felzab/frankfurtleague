@@ -43,7 +43,6 @@ from app.api.teams.services import (
     KONTAKT_SITZ_OHNE_BESTAETIGUNG,
     KONTAKT_ZEILE_OHNE_SAISON,
     compose_kontakt_bestaetigung,
-    compose_kontakte_at_entry,
 )
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -112,19 +111,20 @@ def person(vorname: str) -> dict[str, Any]:
 
 
 def stored(vorname: str, *, bestaetigt_am: str | None = None) -> dict[str, Any]:
-    """The same person as a row holds them, confirmed or entered administratively."""
+    """The same person as a row holds them, the league having seated them, confirmed or not."""
 
     sent = person(vorname)
 
-    return {
-        **sent,
-        "geburtsdatum": None if bestaetigt_am is None else AN_ADULTS_BIRTHDATE,
-        "einwilligung": {
-            **sent["einwilligung"],
-            "erfasst_von": "administrativ" if bestaetigt_am is None else "person",
-            "bestaetigt_am": bestaetigt_am,
-        },
-    }
+    return documents.kontaktperson_document(
+        vorname,
+        bestaetigt_am=bestaetigt_am,
+        einwilligung={"text_version": sent["einwilligung"]["text_version"], "datum": sent["einwilligung"]["datum"]},
+        eingetragen_von="liga",
+        nachname=sent["nachname"],
+        email=sent["email"],
+        telefon=sent["telefon"],
+        **({} if bestaetigt_am is None else {"geburtsdatum": AN_ADULTS_BIRTHDATE}),
+    )
 
 
 THREE = {"trainer": person("Ida"), "ansprechperson": person("Jonas"), "stellvertretung": person("Klara"), "trainer_ist_zugleich": None}
@@ -699,11 +699,7 @@ class TestTheLinkConfirms:
             True,
         )
         seat = row["kontakte"]["ansprechperson"]
-        assert (seat["geburtsdatum"], seat["einwilligung"]["bestaetigt_am"], seat["einwilligung"].get("erfasst_von")) == (
-            AN_ADULTS_BIRTHDATE,
-            TODAY,
-            None,
-        )
+        assert (seat["geburtsdatum"], seat["einwilligung"]["bestaetigt_am"]) == (AN_ADULTS_BIRTHDATE, TODAY)
         assert seat["einwilligung"]["umfang"] == "kontaktdaten_whatsapp"
         assert row["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] is None, "the press reached a seat its link does not open"
         assert after == [(SAISON_ID, "ansprechperson")]
@@ -1412,7 +1408,7 @@ class TestThePageASeasonRowsLinkOpens:
         assert refusal == FASSUNG_UNZULAESSIG
         assert unmoved["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] is None, "the refused answer wrote"
         einwilligung = row["kontakte"]["trainer"]["einwilligung"]
-        assert (einwilligung["bestaetigt_am"], einwilligung["text_version"], einwilligung.get("erfasst_von")) == (TODAY, SAISON_SEITE, None)
+        assert (einwilligung["bestaetigt_am"], einwilligung["text_version"]) == (TODAY, SAISON_SEITE)
         assert einwilligung["nachweis"]["umfang"]["text_version"] == SAISON_SEITE
         # The editor seated this person, and the answer leaves that standing.
         assert einwilligung["eingetragen_von"] == "liga"
@@ -1521,29 +1517,6 @@ class TestTheReplacementTakesThemOffTheApplication:
         assert [seat for seat in SEATS if application["kontakte"][seat] is not None] == []
         assert log, "the clearing filed no image, so the log's assertion below proves nothing"
         assert [vorname for vorname in ("ida", "jonas", "klara") if f"{vorname}@example.com" in str((application, log))] == []
-
-    def test_a_seat_a_pre_flow_application_carried_in_leaves_it_too(self, mongo_replica_set_url: str):
-        """Its seats entered the row unconfirmed and naming nobody as who seated them, so a re-send's link opens the row's page."""
-
-        applied = {
-            "trainer": documents.kontaktperson_document("Ida"),
-            "ansprechperson": documents.kontaktperson_document("Jonas"),
-            "stellvertretung": documents.kontaktperson_document("Klara"),
-            "trainer_ist_zugleich": None,
-        }
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            await database[Collection.BEWERBUNGEN].insert_one(accepted(applied))
-            view = await ansicht(database, (await resend(database, "trainer")).bestaetigung.token)
-            await replace(database)
-
-            return view, *await the_application(database)
-
-        view, application, log = on_a_league(mongo_replica_set_url, body, kontakte=compose_kontakte_at_entry(kontakte=applied))
-
-        assert view.laufende_fassung == SAISON_SEITE
-        assert [seat for seat in SEATS if application["kontakte"][seat] is not None] == []
-        assert log and "ida@example.com" not in str((application, log))
 
     def test_a_seat_whose_address_the_editor_corrected_leaves_it_by_name(self, mongo_replica_set_url: str):
         """Match the application on the address alone and this fails: it still spells Ida's address as the club first typed it."""

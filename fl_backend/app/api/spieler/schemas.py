@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, AliasChoices, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
 from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.sperrliste.schemas import ADDRESS_IN_FREE_TEXT
@@ -42,10 +42,6 @@ FLSpielerRolle = Literal["kapitaen", "co_kapitaen"]
 
 # An alias rather than inline: the payloads that set it answer in the record's own vocabulary.
 FLEinwilligungUmfang = Literal["kader_oeffentlich", "intern"]
-
-# What stored records name as who answered; no write sets it (`app/shared/einwilligung_nachweis.py ::
-# SPRECHER`). `bestandsuebernahme` marks a record carried over from before consent was collected.
-FLEinwilligungQuelle = Literal["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]
 
 # What a pupil's address link shows, the referee's states (`app/api/schiedsrichter/schemas.py ::
 # FLSchiedsrichterAdresswechselZustand`). `nicht_bestaetigbar` also answers a new address another pupil
@@ -106,24 +102,21 @@ class FLEinwilligung(BaseModel):
     """
 
     umfang: FLEinwilligungUmfang
-    # Read off stored records alone, so defaulted: a record written from now on names no speaker.
-    erteilt_von: FLEinwilligungQuelle | None = None
-    # The day consent was given, and `None` for a carry-over: nobody was asked, so no day exists.
-    datum: CustomOptionalDateString
-    # `None` means UNCONFIRMED, which is not the same as absent: the admin membership read serves
-    # this so a carried-over record shows as awaiting a confirmation rather than merely dateless.
+    # The day consent was given. A record is born of its person's own confirmation, so it is that day.
+    datum: CustomDateString
+    # The day its person confirmed it: a record is born confirmed. Null only as a stamp a hand edit
+    # blanked reads, which every reader takes for none rather than refusing the row.
     bestaetigt_am: CustomOptionalDateString
     # A label of `fl_backend/app/shared/einwilligung.py :: FASSUNGEN` and never the words, as
     # `app/api/teams/schemas.py :: FLKontaktKenntnisnahme` holds one: a rewording must not change what
-    # a stored record claims. Defaulted, every stored record predating it.
-    text_version: str | None = None
+    # a stored record claims.
+    text_version: str
     # A SECOND consent under one record rather than a third `umfang` member: publication and media
-    # are independent answers, so withdrawing one leaves the other standing. Defaulted for
-    # `text_version`'s reason.
-    medien: bool = False
-    # Each choice's evidence (`app/shared/einwilligung_nachweis.py`), empty on a record no person has
-    # answered. Never null: a choice's evidence is set dotted, and MongoDB sets no field under a null.
-    nachweis: FLEinwilligungNachweise = Field(default_factory=FLEinwilligungNachweise)
+    # are independent answers, so withdrawing one leaves the other standing.
+    medien: bool
+    # Each choice's evidence (`app/shared/einwilligung_nachweis.py`). Never null: a choice's evidence
+    # is set dotted, and MongoDB sets no field under a null.
+    nachweis: FLEinwilligungNachweise
 
 
 class _SpielerPerson(BaseModel):
@@ -191,19 +184,14 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
     # no read serves the sentinel, so a null reaching one is that exclusion failing.
     vorname: CustomNonEmptyString | None
 
-    # Defaulted where the junction requires them (the stored row the marker, the writable block the
-    # role): a squad row written before either field existed still has to be describable, and a
-    # model that 422s describes it as impossible.
-    ist_nachnominiert: bool = False
-    rolle: FLSpielerRolle | None = None
+    ist_nachnominiert: bool
     # The day this PERSON left the league. Distinct from the squad row's own `inactive_since`: a
     # player who left one squad has a retired junction row and is still a player.
     inactive_since: CustomOptionalDateString
-    # Defaulted for `rolle`'s reason above, over a person stored before the field existed.
-    geburtsdatum: CustomOptionalDateString = None
-    # No default, unlike every defaulted field above: a default would let a row with no consent read
-    # back as though it had been asked. Nullable for `vorname`'s reason, the sentinel being nobody who
-    # could have agreed to anything.
+    # Nullable for `vorname`'s reason: every person carries the date of their own registration.
+    geburtsdatum: CustomOptionalDateString
+    # No default: a default would let a row with no consent read back as though it had been asked.
+    # Nullable for `vorname`'s reason, the sentinel being nobody who could have agreed to anything.
     einwilligung: FLEinwilligung | None
     # Stored as `app/shared/folding.py :: sign_in_identifier` folds it and never as it was typed: the
     # seam joining a signed-in person to this row is an equality on the stored value, and a raw write
@@ -217,11 +205,7 @@ FLSpielerListAdapter = TypeAdapter(list[FLSpielerPublic])
 
 
 class FLSaisonSpielerRow(BaseModel):
-    """The junction document as it is STORED -- the DECLARED SHAPE ONLY, validated against no read.
-
-    `rolle` is the one defaulted key: every stored row predates it, and
-    `app/api/spieler/admin_router.py :: _as_junction` defaults it likewise.
-    """
+    """The junction document as it is STORED -- the DECLARED SHAPE ONLY, validated against no read."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
@@ -229,9 +213,7 @@ class FLSaisonSpielerRow(BaseModel):
     saison_id: str
     team_id: CustomObjectId
     ist_nachnominiert: bool
-    # DEFAULTED, alone on this model: every stored row predates the field, so the validator leaves
-    # it out of `required` and a model requiring it would describe those rows as impossible.
-    rolle: FLSpielerRolle | None = None
+    rolle: FLSpielerRolle | None
     stufe: FLSpielerStufe | None
     position: FLSpielerPosition | None
     # A STRING, never an int: squad numbers are worn, not counted, and "07" is a printed shirt.
@@ -267,7 +249,9 @@ class FLPatchSpielerPayload(BaseModel):
 
     vorname: CustomKontaktName
     nachname: CustomKontaktName | None
-    geburtsdatum: CustomOptionalDateString
+    # Never null: every person carries the date of their own registration, and a save clearing it
+    # would leave one whose age no page can read.
+    geburtsdatum: CustomDateString
 
 
 # Private, so the create and the edit state the bound once and the layer publishes no OpenAPI component.
@@ -463,11 +447,7 @@ class FLSpielerMembership(_SaisonSpielerWritable):
     where a team never leaves a season at all.
     """
 
-    # Defaulted for `FLSpieler`'s reason. The alias stands BEHIND the projection, which hands this
-    # model the new key from either stored spelling, so nothing reaches it; it is the ruled second
-    # half of that leniency (`docs/backend/spec.md :: I302`).
-    ist_nachnominiert: bool = Field(default=False, validation_alias=AliasChoices("ist_nachnominiert", "is_nachgetragen"))
-    rolle: FLSpielerRolle | None = None
+    ist_nachnominiert: bool
 
     saison_id: str
     inactive_since: CustomOptionalDateString
@@ -484,11 +464,11 @@ class FLSpielerWithMemberships(_SpielerPerson):
 
     # The day the PERSON left the league; a squad row retires independently, on the membership above.
     inactive_since: CustomOptionalDateString
-    # Defaulted for `FLSpielerMembership`'s reason, over a person stored before the field existed.
-    geburtsdatum: CustomOptionalDateString = None
-    # On the PERSON, as `inactive_since` is: consent is given by somebody, not per season. Defaulted
-    # where `FLSpieler` requires it, for `FLSpielerMembership`'s reason.
-    einwilligung: FLEinwilligung | None = None
+    # Every person carries the date of their own registration, and this read serves no sentinel.
+    geburtsdatum: CustomDateString
+    # On the PERSON, as `inactive_since` is: consent is given by somebody, not per season. Never null:
+    # this read serves no sentinel, and every person is born of their own confirmed registration.
+    einwilligung: FLEinwilligung
     # Served here and withheld from the base tier, as the record above is: this read is the admin
     # editor's, and an address is the person's own.
     email: str | None = None
@@ -573,8 +553,8 @@ class FLSpielerSelbstKaderZeile(BaseModel):
     nummer: str | None
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
-    rolle: FLSpielerRolle | None = None
-    ist_nachnominiert: bool = False
+    rolle: FLSpielerRolle | None
+    ist_nachnominiert: bool
     inactive_since: CustomOptionalDateString
 
 
@@ -597,7 +577,7 @@ class FLSpielerSelbst(_SpielerPerson):
     """
 
     spieler_id: CustomObjectId
-    geburtsdatum: CustomOptionalDateString = None
+    geburtsdatum: CustomDateString
     kader: list[FLSpielerSelbstKaderZeile]
 
 

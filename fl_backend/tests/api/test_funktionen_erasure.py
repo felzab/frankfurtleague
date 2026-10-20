@@ -32,7 +32,6 @@ from app.api.identitaet.services import LETZTER_INHABER_ERASURE
 from app.api.registrierungen.person_router import aufnehmen
 from app.api.registrierungen.schemas import FLRegistrierungAufnehmenPayload
 from app.api.registrierungen.services import compose_ablehnung_update
-from app.api.schiedsrichter.services import compose_einwilligung
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.crud import erase_person_in_session
@@ -224,7 +223,7 @@ def referee(schiedsrichter_id: ObjectId, *, email: str, name: str, **fields: Any
         email=email,
         name=name,
         default_payment=PAYMENT,
-        einwilligung=compose_einwilligung(umfang="kader_oeffentlich", medien=False, text_version="v1", today="2026-03-01"),
+        einwilligung=eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-01"),
         **fields,
     )
 

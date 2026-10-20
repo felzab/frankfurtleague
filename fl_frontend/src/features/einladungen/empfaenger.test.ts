@@ -14,7 +14,6 @@ const person = (vorname: string, email: string, bestaetigtAm: string | null): FL
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1990-04-01",
   einwilligung: kenntnisnahme({
-    erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
     text_version: "2026-08-01",
     datum: "2026-08-02",
     bestaetigt_am: bestaetigtAm,

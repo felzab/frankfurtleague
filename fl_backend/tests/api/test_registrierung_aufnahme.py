@@ -666,7 +666,7 @@ class TestThePersonAnAdmissionNames:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # Stored in another case and spacing, which the name fold reads as the same person.
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, vorname="THESSALY", geburtsdatum=None))
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, vorname="THESSALY"))
             registrierung_id = await seed(database, registrierung_document())
             listed = await read(database, client)
             answer = await admit(database, client, registrierung_id)
@@ -817,7 +817,7 @@ class TestThePersonAnAdmissionNames:
         legacy_id = ObjectId()
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(legacy_id, email=None, geburtsdatum=None))
+            await database[Collection.SPIELER].insert_one(a_stored_person(legacy_id, email=None))
             registrierung_id = await seed(database, registrierung_document())
             listed = await read(database, client)
             answer = await admit(database, client, registrierung_id, spieler_id=legacy_id)
@@ -834,9 +834,7 @@ class TestThePersonAnAdmissionNames:
         """No birthdate is served, so the two would read identically and the team would be guessing."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_many(
-                [a_stored_person(ObjectId(), email=None, geburtsdatum=None), a_stored_person(ObjectId(), email=None, geburtsdatum=None)]
-            )
+            await database[Collection.SPIELER].insert_many([a_stored_person(ObjectId(), email=None), a_stored_person(ObjectId(), email=None)])
             await seed(database, registrierung_document())
 
             return (await read(database, client)).registrierungen[0].vorschlag
@@ -978,7 +976,7 @@ class TestAReturningRegistration:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
             if namesake:
-                await database[Collection.SPIELER].insert_one(a_stored_person(legacy_id, email=None, geburtsdatum=None))
+                await database[Collection.SPIELER].insert_one(a_stored_person(legacy_id, email=None))
             registrierung_id = await seed(database, registrierung_document(confirmed=False))
             await confirm_as_returning(database, client)
             await database[Collection.SPIELER].update_one({"_id": stored_id}, {"$set": {"email": "thessaly.umgezogen@beispielschule.de"}})
@@ -1005,7 +1003,7 @@ class TestAReturningRegistration:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
             if namesake:
-                await database[Collection.SPIELER].insert_one(a_stored_person(legacy_id, email=None, geburtsdatum=None))
+                await database[Collection.SPIELER].insert_one(a_stored_person(legacy_id, email=None))
             registrierung_id = await seed(database, registrierung_document(confirmed=False))
             await confirm_as_returning(database, client)
             gone = await erased(database, client, TYPED_EMAIL, germany_now=NOW)
@@ -1304,7 +1302,7 @@ class TestThePendingReadServesNoAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_many(
-                [a_stored_person(ObjectId(), vorname="Thessa"), a_stored_person(ObjectId(), email=None, vorname="Zweite", geburtsdatum=None)]
+                [a_stored_person(ObjectId(), vorname="Thessa"), a_stored_person(ObjectId(), email=None, vorname="Zweite")]
             )
             await seed(database, registrierung_document())
             await seed(database, registrierung_document(email="zweite@beispielschule.de", vorname="Zweite"))

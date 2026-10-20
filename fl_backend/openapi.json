@@ -6164,7 +6164,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}/annehmen": {
       "post": {
         "summary": "Accept a Bewerbung and enter the school into the season",
-        "description": "Accept an application, creating the school's club where the applicant proposed a new one.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`REQ-BEWERBUNG-013`); an application stored before the confirmation flow carries no\nconfirmation block and is not held to it. A seat of such an application enters the season without the birthdate\nthe applicant gave for it, and recorded as entered on that person's behalf: a birthdate is the seat holder's own\nto state.",
+        "description": "Accept an application, creating the school's club where the applicant proposed a new one.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`REQ-BEWERBUNG-013`), so every seat enters the season as its person confirmed it.",
         "operationId": "annehmen_bewerbung_api_v0_bewerbungen__bewerbung_id__annehmen_post",
         "security": [
           {
@@ -6306,7 +6306,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut": {
       "post": {
         "summary": "Re-send one seat's confirmation link",
-        "description": "Mint a fresh link for one seat and answer it raw, for the caller to mail; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.\nThe application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat stored before the confirmation flow is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list\nholds is refused `REQ-BEWERBUNG-019`. A path naming no seat is a 404.",
+        "description": "Mint a fresh link for one seat and answer it raw, for the caller to mail; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.\nThe application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list\nholds is refused `REQ-BEWERBUNG-019`. A path naming no seat is a 404.",
         "operationId": "erneut_einwilligung_api_v0_bewerbungen__bewerbung_id__einwilligung__seat__erneut_post",
         "security": [
           {
@@ -6456,7 +6456,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
         "summary": "Seat another person where a contact person stepped out",
-        "description": "Write another person into a seat its own holder stepped out of, and mint the fresh link to mail them.\n\nIt runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.\nThe record written is administrative and confirms nothing: the new person's own link is what asks them, and an\nacceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled\nfrom one press and one link answers both, and both must be empty for either to be written.\n\nThe link the seat's last holder was sent stops opening anything, and the application's confirmation deadline\nrestarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens\nnothing, seating them for a confirmation they cannot give.\n\nRefused on an application already decided (`REQ-BEWERBUNG-001`); on any seat this write would reach that nobody\nstepped out of — confirmed, still waiting, erased at its person's request, or held by an application stored\nbefore the confirmation flow, the claimed mirror included (`REQ-BEWERBUNG-011`); and on an address another\ncontact person on this application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds\n(`REQ-BEWERBUNG-019`); and on any label but the application form's running one (`REQ-EINWILLIGUNG-001`), the person\nseated being a new acceptance. A path naming no seat is a 404.",
+        "description": "Write another person into a seat its own holder stepped out of, and mint the fresh link to mail them.\n\nIt runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.\nThe record written is administrative and confirms nothing: the new person's own link is what asks them, and an\nacceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled\nfrom one press and one link answers both, and both must be empty for either to be written.\n\nThe link the seat's last holder was sent stops opening anything, and the application's confirmation deadline\nrestarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens\nnothing, seating them for a confirmation they cannot give.\n\nRefused on an application already decided (`REQ-BEWERBUNG-001`); on any seat this write would reach that nobody\nstepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included\n(`REQ-BEWERBUNG-011`); and on an address another\ncontact person on this application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds\n(`REQ-BEWERBUNG-019`); and on any label but the application form's running one (`REQ-EINWILLIGUNG-001`), the person\nseated being a new acceptance. A path naming no seat is a 404.",
         "operationId": "besetze_kontakt_sitz_api_v0_bewerbungen__bewerbung_id__kontakte__seat__post",
         "security": [
           {
@@ -7960,7 +7960,7 @@
     "/api/v0/registrierungen/bestaetigung/ansicht": {
       "post": {
         "summary": "What one registration confirmation link opens",
-        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the age floor the press will be judged by, the age from\nwhich the media switch is offered, and which of two pages the link opens. Never the pupil's name: the link went to\nan address nobody has confirmed, which behind a typo is a stranger's.\n\n`bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded\naddress under its folded name who confirmed their own record. That page asks no choice, and asks no birthdate\nwhere the person has one stored, which `geburtsdatum_gespeichert` says; nothing the person's record holds is\nserved, the holder of a mailed link not yet being known to be that person. Matched on the address alone, a\nmailbox shared anyway would hand a sibling that person's page, so `geburtsdatum_gespeichert` is false on\n`bestaetigung_spieler`, the new pupil's page.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
+        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the age floor the press will be judged by, the age from\nwhich the media switch is offered, and which of two pages the link opens. Never the pupil's name: the link went to\nan address nobody has confirmed, which behind a typo is a stranger's.\n\n`bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded\naddress under its folded name who confirmed their own record. That page asks no choice and no birthdate, taking\nthe person's own; nothing the person's record holds is served, the holder of a mailed link not yet being known\nto be that person. Matched on the address alone, a mailbox shared anyway would hand a sibling that person's\npage, so the name narrows the match.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
         "operationId": "get_bestaetigung_ansicht_api_v0_registrierungen_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -12648,14 +12648,7 @@
             "$ref": "#/components/schemas/FLBewerbungKader"
           },
           "stufengroesse": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "integer",
             "title": "Stufengroesse"
           },
           "wunschgegner": {
@@ -12680,26 +12673,12 @@
             ]
           },
           "bestaetigungsfrist": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Bestaetigungsfrist"
           },
           "bestaetigungen": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLBewerbungBestaetigungen"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/FLBewerbungBestaetigungen"
           }
         },
         "type": "object",
@@ -12713,7 +12692,11 @@
           "kontakte",
           "trikot",
           "kader",
-          "entscheidung"
+          "stufengroesse",
+          "wunschgegner",
+          "entscheidung",
+          "bestaetigungsfrist",
+          "bestaetigungen"
         ],
         "title": "FLBewerbung",
         "description": "One school's application to play one season, as stored, its decision as served.\n\nThe submission is never rewritten: `status`, `entscheidung` and `team_id` move through the\ntriage, and a contact seat through the two administrative repairs in\n`app/api/bewerbungen/admin_router.py`."
@@ -15855,32 +15838,9 @@
             ],
             "title": "Umfang"
           },
-          "erteilt_von": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "erziehungsberechtigt",
-                  "volljaehrig",
-                  "bestandsuebernahme"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Erteilt Von"
-          },
           "datum": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Datum"
           },
           "bestaetigt_am": {
@@ -15896,20 +15856,12 @@
             "title": "Bestaetigt Am"
           },
           "text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Text Version"
           },
           "medien": {
             "type": "boolean",
-            "title": "Medien",
-            "default": false
+            "title": "Medien"
           },
           "nachweis": {
             "$ref": "#/components/schemas/FLEinwilligungNachweise"
@@ -15919,7 +15871,10 @@
         "required": [
           "umfang",
           "datum",
-          "bestaetigt_am"
+          "bestaetigt_am",
+          "text_version",
+          "medien",
+          "nachweis"
         ],
         "title": "FLEinwilligung",
         "description": "What this person agreed may be published about them.\n\nThe keys the validator requires stand TOGETHER, as `FLAustritt` does: a scope with no\nconfirmation date claims somebody consented, and no surface can tell that from one somebody gave."
@@ -17338,21 +17293,6 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Datum"
           },
-          "erfasst_von": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "person",
-                  "administrativ"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Erfasst Von"
-          },
           "bestaetigt_am": {
             "anyOf": [
               {
@@ -17367,21 +17307,13 @@
           },
           "medien": {
             "type": "boolean",
-            "title": "Medien",
-            "default": false
+            "title": "Medien"
           },
           "eingetragen_von": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "bewerbung",
-                  "liga"
-                ]
-              },
-              {
-                "type": "null"
-              }
+            "type": "string",
+            "enum": [
+              "bewerbung",
+              "liga"
             ],
             "title": "Eingetragen Von"
           },
@@ -17393,7 +17325,10 @@
         "required": [
           "umfang",
           "text_version",
-          "datum"
+          "datum",
+          "bestaetigt_am",
+          "medien",
+          "eingetragen_von"
         ],
         "title": "FLKontaktKenntnisnahme",
         "description": "Which wording this person was shown, and how the record came to be held.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's\n`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely\n(`docs/glossary.md :: Einwilligung`)."
@@ -17550,6 +17485,7 @@
           "nachname",
           "email",
           "telefon",
+          "geburtsdatum",
           "einwilligung"
         ],
         "title": "FLKontaktperson",
@@ -18341,15 +18277,8 @@
             "title": "Spieler Id"
           },
           "geburtsdatum": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Geburtsdatum"
           },
           "kader": {
@@ -18414,6 +18343,7 @@
           "vorname",
           "nachname",
           "spieler_id",
+          "geburtsdatum",
           "kader",
           "inactive_since",
           "einwilligung",
@@ -19693,15 +19623,8 @@
             "title": "Nachname"
           },
           "geburtsdatum": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Geburtsdatum"
           }
         },
@@ -21297,10 +21220,6 @@
             "type": "integer",
             "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
-          },
-          "geburtsdatum_gespeichert": {
-            "type": "boolean",
-            "title": "Geburtsdatum Gespeichert"
           }
         },
         "type": "object",
@@ -21311,8 +21230,7 @@
           "saison_id",
           "seite",
           "mindestalter",
-          "medien_mindestalter",
-          "geburtsdatum_gespeichert"
+          "medien_mindestalter"
         ],
         "title": "FLRegistrierungBestaetigungAnsichtResponse",
         "description": "What one confirmation link opens, and no field past the ones declared here (`docs/backend/spec.md :: I286`)."
@@ -21464,22 +21382,6 @@
             ],
             "title": "Umfang"
           },
-          "erteilt_von": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "erziehungsberechtigt",
-                  "volljaehrig",
-                  "bestandsuebernahme"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Erteilt Von"
-          },
           "datum": {
             "anyOf": [
               {
@@ -21505,14 +21407,7 @@
             "title": "Bestaetigt Am"
           },
           "text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Text Version"
           },
           "medien": {
@@ -21532,7 +21427,8 @@
         },
         "type": "object",
         "required": [
-          "bestaetigt_am"
+          "bestaetigt_am",
+          "text_version"
         ],
         "title": "FLRegistrierungEinwilligung",
         "description": "A pending registration's consent record, each choice and `datum` optional here alone.\n\nA returning pupil's page asks no choice (`docs/backend/spec.md :: I557`)."
@@ -22108,6 +22004,8 @@
           "start_date",
           "end_date",
           "rules",
+          "bewerbung",
+          "registrierung",
           "id",
           "status",
           "schedule"
@@ -29095,8 +28993,7 @@
           },
           "ist_nachnominiert": {
             "type": "boolean",
-            "title": "Ist Nachnominiert",
-            "default": false
+            "title": "Ist Nachnominiert"
           },
           "saison_id": {
             "type": "string",
@@ -29121,6 +29018,8 @@
           "nummer",
           "position",
           "stufe",
+          "rolle",
+          "ist_nachnominiert",
           "saison_id",
           "inactive_since"
         ],
@@ -29271,15 +29170,8 @@
             "title": "Spieler Id"
           },
           "geburtsdatum": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Geburtsdatum"
           },
           "kader": {
@@ -29295,6 +29187,7 @@
           "vorname",
           "nachname",
           "spieler_id",
+          "geburtsdatum",
           "kader"
         ],
         "title": "FLSpielerSelbst",
@@ -29445,8 +29338,7 @@
           },
           "ist_nachnominiert": {
             "type": "boolean",
-            "title": "Ist Nachnominiert",
-            "default": false
+            "title": "Ist Nachnominiert"
           },
           "inactive_since": {
             "anyOf": [
@@ -29469,6 +29361,8 @@
           "nummer",
           "position",
           "stufe",
+          "rolle",
+          "ist_nachnominiert",
           "inactive_since"
         ],
         "title": "FLSpielerSelbstKaderZeile",
@@ -29580,26 +29474,12 @@
             "title": "Inactive Since"
           },
           "geburtsdatum": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Geburtsdatum"
           },
           "einwilligung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLEinwilligung"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/FLEinwilligung"
           },
           "email": {
             "anyOf": [
@@ -29640,6 +29520,8 @@
           "nachname",
           "id",
           "inactive_since",
+          "geburtsdatum",
+          "einwilligung",
           "adresswechsel_abgelaufen",
           "memberships"
         ],
@@ -30348,6 +30230,7 @@
           "shorthand",
           "description",
           "full_name",
+          "schulform",
           "website_url",
           "address",
           "id",
@@ -30465,6 +30348,8 @@
           "saison_id",
           "gruppe",
           "austritt",
+          "trikot_farbe",
+          "kontakte",
           "kontakte_stand"
         ],
         "title": "FLTeamMembership",
@@ -30550,6 +30435,7 @@
           "shorthand",
           "description",
           "full_name",
+          "schulform",
           "website_url",
           "address",
           "id",
@@ -30772,6 +30658,7 @@
           "shorthand",
           "description",
           "full_name",
+          "schulform",
           "website_url",
           "address",
           "id",

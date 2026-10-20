@@ -66,7 +66,7 @@ async function AdminSpielerEditContent({
   // `null` where the registry's read failed or broke its contract, so the editor stands and says the
   // label went unchecked.
   const fassungBekannt = await runWithIncomingTrace(() =>
-    istFassungBekannt(spieler.einwilligung?.text_version ?? null).catch(nullAfterLoggingUnexplained),
+    istFassungBekannt(spieler.einwilligung.text_version).catch(nullAfterLoggingUnexplained),
   );
 
   const saison: SpielerSaisonMembership = {

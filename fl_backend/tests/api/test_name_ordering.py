@@ -20,6 +20,7 @@ from app.api.spielorte.schemas import FLSpielorteFilterParams
 from app.api.teams.admin_router import get_team_memberships
 from app.core.collections import Collection
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import spieler_document
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_name_ordering_test")
@@ -89,21 +90,7 @@ def team_documents() -> list[dict[str, Any]]:
 
 
 def spieler_documents() -> list[dict[str, Any]]:
-    return [
-        {
-            "_id": oid(300 + index),
-            "vorname": vorname,
-            "nachname": "Beispiel",
-            "inactive_since": None,
-            "einwilligung": {
-                "umfang": "kader_oeffentlich",
-                "erteilt_von": "erziehungsberechtigt",
-                "datum": "2026-01-15",
-                "bestaetigt_am": "2026-01-20",
-            },
-        }
-        for index, vorname in enumerate(FORENAMES)
-    ]
+    return [spieler_document(oid(300 + index), vorname, "Beispiel") for index, vorname in enumerate(FORENAMES)]
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]

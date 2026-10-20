@@ -188,7 +188,6 @@ const WIDERRUFEN = {
   registrierung_id: REGISTRIERUNG_ID,
   einwilligung: {
     umfang: "kader_oeffentlich",
-    erteilt_von: null,
     datum: "2026-09-20",
     bestaetigt_am: "2026-09-20",
     text_version: "2026-10-spielerseite-4",

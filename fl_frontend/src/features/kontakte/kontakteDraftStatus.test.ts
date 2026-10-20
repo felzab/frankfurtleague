@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE, trainerZugleichLabel } from "@/features/teams/constants";
+import { eingetragenVonLabel, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE, trainerZugleichLabel } from "@/features/teams/constants";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 
 import { deriveKontakteDraftStatus, kontaktSeatPaths } from "./kontakteDraftStatus";
@@ -16,7 +16,7 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" }),
+  einwilligung: kenntnisnahme({ text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" }),
   ...overrides,
 });
 
@@ -41,8 +41,10 @@ describe("deriveKontakteDraftStatus", () => {
     assert.equal(status.isDirty, false);
     assert.equal(status.fields.length, 7);
     assert.equal(status.byPath.get("kontakte.trainer")?.draftText, "Erika Mustermann, erika@beispiel.de, 069 1234567, geboren am 01.01.1990");
-    // No origin: the fixture's seat was seated before the field, and nothing guesses one for it.
-    assert.equal(status.byPath.get("kontakte.trainer.einwilligung")?.draftText, "Fassung 2025-08 (ab 01.09.2025)");
+    assert.equal(
+      status.byPath.get("kontakte.trainer.einwilligung")?.draftText,
+      `${eingetragenVonLabel("bewerbung")}, Fassung 2025-08 (ab 01.09.2025)`,
+    );
     // Read from the table rather than quoted: the wording is the product's, and pinning it here
     // makes rewording the question read as a regression.
     assert.equal(status.byPath.get("kontakte.trainer_ist_zugleich")?.draftText, trainerZugleichLabel(null));
@@ -149,7 +151,8 @@ describe("deriveKontakteDraftStatus", () => {
       stored: EMPTY,
       draft: block({
         trainer: person({
-          einwilligung: kenntnisnahme({ erfasst_von: null, text_version: "", datum: "", bestaetigt_am: null }),
+          // As the editor opens a seat: nobody has seated its person yet.
+          einwilligung: kenntnisnahme({ text_version: "", datum: "", bestaetigt_am: null, eingetragen_von: null }),
         }),
       }),
       fieldErrors: { "kontakte.trainer.einwilligung.datum": "Bitte gib an, wann die Kenntnisnahme erfasst wurde." },

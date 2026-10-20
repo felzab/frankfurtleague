@@ -190,14 +190,15 @@ async def _seed(database: AsyncDatabase) -> None:
         [
             spieler_document(SPIELER_AKTIV_OID, "Anna", "Aktiv", email=SPIELER_AKTIV),
             spieler_document(SPIELER_EHEMALIG_OID, "Anna", "Ehemalig", email=SPIELER_EHEMALIG, inactive_since="2026-03-01"),
-            spieler_document(SPIELER_OFFEN_OID, "Anna", "Offen", email=SPIELER_OFFEN, einwilligung={**EINWILLIGUNG, "bestaetigt_am": None}),
+            # A pupil's record is born confirmed, so a stamp a hand edit blanked is the unconfirmed pupil the gate meets.
+            spieler_document(SPIELER_OFFEN_OID, "Anna", "Offen", email=SPIELER_OFFEN, einwilligung={**EINWILLIGUNG, "bestaetigt_am": ""}),
             spieler_document(
                 SPIELER_EHEMALIG_OFFEN_OID,
                 "Anna",
                 "Ehemalig-Offen",
                 email=SPIELER_EHEMALIG_OFFEN,
                 inactive_since="2026-03-01",
-                einwilligung={**EINWILLIGUNG, "bestaetigt_am": None},
+                einwilligung={**EINWILLIGUNG, "bestaetigt_am": ""},
             ),
         ]
     )

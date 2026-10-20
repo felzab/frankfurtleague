@@ -44,7 +44,7 @@ const SUBMIT_OPERATION = "POST /registrierungen";
 const BESTAETIGUNG_OPERATION = "POST /registrierungen/bestaetigung";
 const EINLADUNG_ANSICHT_OPERATION = "POST /registrierungen/einladung/ansicht";
 
-/** The refused press's body where the pupil typed their date, which the page asks wherever none is stored. */
+/** The refused press's body where the pupil typed their date, which the new pupil's page asks. */
 const GETIPPT = { geburtsdatum: "2010-05-01" };
 
 /** A `REQ-VAL-001` naming one body path, as `fl_frontend/src/core/api.ts` reads it off the 422. */

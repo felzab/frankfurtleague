@@ -17,7 +17,6 @@ import type { AdminKontakteRow, AdminKontaktSeat } from "@/features/teams/types.
 const { AdminKontakteList } = await import("./AdminKontakteList.tsx");
 
 const KENNTNISNAHME: FLKontaktKenntnisnahme = kenntnisnahme({
-  erfasst_von: "administrativ",
   text_version: "kontakte-1",
   datum: "2026-05-01",
   bestaetigt_am: null,

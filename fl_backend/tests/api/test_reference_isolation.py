@@ -17,7 +17,7 @@ import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Final
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -48,6 +48,7 @@ from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import kontaktperson_document
 from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.payloads import spiel_patch_body
@@ -107,15 +108,12 @@ def team_document(team_id: ObjectId, shorthand: str) -> dict[str, Any]:
     )
 
 
+# The seat as its applicant named the person under the form's label, and as that person then confirmed it.
+SEATED: Final = {"text_version": "v1", "datum": "2026-01-15"}
+
+
 def kontaktperson(vorname: str) -> dict[str, Any]:
-    return {
-        "vorname": vorname,
-        "nachname": f"{vorname}-Mustermann",
-        "email": f"{vorname.lower()}@example.com",
-        "telefon": "+49 69 1234567",
-        "geburtsdatum": "1980-05-04",
-        "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"},
-    }
+    return kontaktperson_document(vorname, bestaetigt_am="2026-01-16", einwilligung=SEATED, telefon="+49 69 1234567", geburtsdatum="1980-05-04")
 
 
 def bewerbung_document() -> dict[str, Any]:
