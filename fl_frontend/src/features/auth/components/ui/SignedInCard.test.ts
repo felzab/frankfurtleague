@@ -2,9 +2,9 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { describe, it, mock } from "node:test";
+import { describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -12,12 +12,15 @@ import { userEvent } from "@testing-library/user-event";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { DEIN_BEREICH_TITEL } from "@/core/seitenNamen.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 /** Every server action the card calls, which must stay empty: an action ending the session re-renders the page. */
 const { calls: actionCalls } = doubleEveryAction();
 doubleToasts();
+/** The sign-out route, answered per case. */
+const fetchMock = doubleFetch();
 
 /** Every path the sign-out left the document for, a full document load jsdom does not implement. */
 const left: string[] = [];
@@ -73,22 +76,18 @@ describe("the sign-in page for somebody already signed in", () => {
   /* An action deleting the cookie makes Next render the page it came from again, before the start page loads
      (`docs/frontend/spec.md :: I831`). */
   it("ends the session at the sign-out route rather than through a server action, and leaves for the start page", async () => {
-    const posted: { url: string; method: string | undefined }[] = [];
-    const fetched = mock.method(globalThis, "fetch", (url: string, init?: RequestInit) => {
-      posted.push({ url: url, method: init?.method });
-      return Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200, headers: { "content-type": "application/json" } }));
-    });
+    fetchMock.mock.mockImplementationOnce(() =>
+      Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200, headers: { "content-type": "application/json" } })),
+    );
     left.length = 0;
-    try {
-      render(underNext(h(SignedInCard, { address: ADDRESS }), { router: recordingRouter().router }));
+    render(underNext(h(SignedInCard, { address: ADDRESS }), { router: recordingRouter().router }));
 
-      await pressTwice(userEvent.setup(), { resting: "Abmelden", armed: "Abmelden?" });
-      await waitFor(() => assert.deepEqual(left, ["/"]));
-    } finally {
-      fetched.mock.restore();
-    }
+    await pressTwice(userEvent.setup(), { resting: "Abmelden", armed: "Abmelden?" });
+    await act(fetchMock.answered);
+    await waitFor(() => assert.deepEqual(left, ["/"]));
 
-    assert.deepEqual(posted, [{ url: "/api/signout", method: "POST" }]);
+    const [url, init] = fetchMock.mock.calls[0]?.arguments ?? [];
+    assert.deepEqual([url, init?.method, fetchMock.mock.callCount()], ["/api/signout", "POST", 1]);
     assert.deepEqual(actionCalls, [], "the sign-out called a server action");
   });
 });

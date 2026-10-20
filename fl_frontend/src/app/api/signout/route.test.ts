@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
-import { incomingHeaders, NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 /** Every request's headers the sign-out was handed, in order. */
 const calls: Headers[] = [];
@@ -46,13 +46,16 @@ const { NextRequest } = await import("next/server");
 const ORIGIN = "http://localhost:3000";
 
 const arrive = (headers: Record<string, string>): InstanceType<typeof NextRequest> =>
-  new NextRequest(`${ORIGIN}/api/signout`, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: "{}" });
+  new NextRequest(`${ORIGIN}/api/signout`, {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie: "fl.session_token=die-sitzung", ...headers },
+    body: "{}",
+  });
 
 beforeEach(() => {
   calls.length = 0;
   logged.length = 0;
   outcome = "signed-out";
-  incomingHeaders.set("cookie", "fl.session_token=die-sitzung");
 });
 
 describe("the route a sign-out ends the session at", () => {

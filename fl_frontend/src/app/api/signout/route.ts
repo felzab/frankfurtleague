@@ -1,4 +1,3 @@
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { isAPIError } from "better-auth/api";
@@ -23,8 +22,8 @@ export async function POST(request: NextRequest) {
 
   const answer = await runWithIncomingTrace(async (): Promise<SignOutResult> => {
     try {
-      // `nextCookies()` writes the cleared cookie onto this response.
-      await signOutHere(await headers());
+      // The request's own cookie names the session; `nextCookies()` writes the cleared one onto this response.
+      await signOutHere(request.headers);
       return { success: true };
     } catch (error) {
       // The library's own refusal, raised before it reached the row.
