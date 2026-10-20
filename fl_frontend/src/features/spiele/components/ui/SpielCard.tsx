@@ -8,6 +8,7 @@ import PencilToSquare from "@gravity-ui/icons/PencilToSquare";
 import { Button } from "@heroui/react/button";
 
 import { Leer } from "@/shared/components/ui/Angabe";
+import { labelBadge } from "@/shared/components/ui/badges";
 import { BRAND_ICON_BUTTON_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
@@ -28,6 +29,7 @@ export function SpielCard({
   asListitem = true,
   today,
   isFinishedSaison,
+  berichtChip,
 }: {
   spielData: FLSpiel;
   onOpenInfoModal: () => void;
@@ -44,6 +46,8 @@ export function SpielCard({
   today: string;
   /** Required: a card omitting it promises a Termin for a finished season's undated fixture. */
   isFinishedSaison: boolean;
+  /** The report's proposal still to be adopted, on an administrator's card alone: the public cards never pass it. */
+  berichtChip?: string;
 }) {
   const {
     datum: spielDatum,
@@ -145,6 +149,7 @@ export function SpielCard({
           ansetzungBestaetigt={spielData.ansetzung_bestaetigt}
         />
         <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
+        {berichtChip !== undefined && <span className={labelBadge("info")}>{berichtChip}</span>}
       </div>
     </div>
   );

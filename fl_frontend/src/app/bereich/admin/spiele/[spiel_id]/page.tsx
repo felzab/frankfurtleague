@@ -5,11 +5,13 @@ import { connection } from "next/server";
 import { frontend_config } from "@/core/config";
 import { AdminContextWrapper } from "@/features/admin/components/providers/AdminContextWrapper";
 import { AdminSpielEditView } from "@/features/admin/components/views/AdminSpielEditView";
+import { getAdminSpielbericht } from "@/features/spielberichte/queries";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { resolveSpielId } from "@/features/spiele/resolvers";
 import { spielStateKey } from "@/features/spiele/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
+import { nullAfterLoggingUnexplained } from "@/shared/utils/degradedRead";
 
 import type { NextPageProps } from "@/shared/types/types";
 
@@ -33,9 +35,14 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
   await connection();
   const spielId = await resolveSpielId(params);
 
-  // Admin-tier and uncached, so the editor seeds from the fixture as it stands rather than from a
-  // cache entry hours old. `null` is "no such fixture"; everything else throws.
-  const spielRes = await getAdminSpiel(spielId);
+  const [spielRes, spielbericht] = await Promise.all([
+    // Admin-tier and uncached, so the editor seeds from the fixture as it stands rather than from a
+    // cache entry hours old. `null` is "no such fixture"; everything else throws.
+    getAdminSpiel(spielId),
+    // Uncached for the same reason: „Vorschlag übernehmen“ seeds from the report version standing now. A failed read
+    // leaves the editor without its panel; a closed switch reads nothing.
+    frontend_config.SPIELBERICHT_EINGABE === "on" ? getAdminSpielbericht(spielId).catch(nullAfterLoggingUnexplained) : null,
+  ]);
 
   if (!spielRes) {
     notFound();
@@ -54,6 +61,7 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
         today={getGermanTodayStr()}
         // The comparison the timer is armed on, so the near-date warning never announces a request no pass sends.
         isSpielSweepOn={frontend_config.SPIEL_SWEEP === "on"}
+        spielbericht={spielbericht}
       />
     </AdminContextWrapper>
   );

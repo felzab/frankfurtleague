@@ -8,6 +8,7 @@ import { createElement as h } from "react";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { spielFields } from "@/shared/testing/fixtures.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
+import { spielberichtReadFixture } from "@/shared/testing/spielberichtFixtures.ts";
 
 /** The props each render handed the match editor's form. */
 const handed: Record<string, unknown>[] = [];
@@ -30,7 +31,10 @@ const { AdminSpielEditView } = await import("./AdminSpielEditView.tsx");
 const { AdminProvider } = await import("../providers/AdminContextProvider.tsx");
 const { FLSpielAdminSchema } = await import("@/features/spiele/schemas.ts");
 
+const { FLSpielberichtAdminResponseSchema } = await import("@/features/spielberichte/schemas.ts");
+
 const SPIEL = FLSpielAdminSchema.parse(spielFields());
+const SPIELBERICHT = FLSpielberichtAdminResponseSchema.parse(spielberichtReadFixture());
 
 /* The type holds each prop present, never where its value comes from: a literal or the neighbouring boolean in its
    place passes tsc and every sheet of the form, and warns of a pass that never runs. */
@@ -51,13 +55,13 @@ describe("what the match editor's view hands its form", () => {
           numberOfGroups: null,
           isFinishedSaison: false,
           isActiveSaison: isActiveSaison,
-          children: h(AdminSpielEditView, { spielData: SPIEL, today: today, isSpielSweepOn: isSpielSweepOn }),
+          children: h(AdminSpielEditView, { spielData: SPIEL, today: today, isSpielSweepOn: isSpielSweepOn, spielbericht: SPIELBERICHT }),
         }),
       );
 
       assert.deepEqual(
-        handed.map((props) => [props["isSpielSweepOn"], props["isActiveSaison"], props["today"]]),
-        [[isSpielSweepOn, isActiveSaison, today]],
+        handed.map((props) => [props["isSpielSweepOn"], props["isActiveSaison"], props["today"], props["spielbericht"]]),
+        [[isSpielSweepOn, isActiveSaison, today, SPIELBERICHT]],
       );
     });
   }

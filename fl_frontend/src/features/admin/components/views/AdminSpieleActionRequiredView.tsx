@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 import { Tabs } from "@heroui/react/tabs";
 
+import { berichtChipText } from "@/features/spielberichte/utils";
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { SpielCardGrid } from "@/features/spiele/components/ui/SpielCardGrid";
 import { groupBracketFaultsBySpielId } from "@/features/spiele/utils";
@@ -16,6 +17,7 @@ import { CARDS_CASCADE_CLASSES, PAGE_RISE_CLASSES } from "@/shared/components/ui
 
 import { ACTION_REQUIRED_LABELS, buildActionRequiredSections } from "../../utils";
 
+import type { FLSpielberichtZustandEintrag } from "@/features/spielberichte/schemas";
 import type { FLBracketFault, FLSpiel } from "@/features/spiele/schemas";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
 import type { Key } from "@heroui/react/rac";
@@ -49,11 +51,14 @@ const SELECTED_BADGE_CLASSES = `${COUNT_BADGE_CLASSES} bg-brand-solid-foreground
 export function AdminSpieleActionRequiredView({
   overviewSpiele,
   bracketFaults,
+  spielberichte,
   today,
   isFinishedSaison,
 }: {
   overviewSpiele: FLSpiel[];
   bracketFaults: FLBracketFault[];
+  /** The season's reports and their states, empty while `SPIELBERICHT_EINGABE` reads off. */
+  spielberichte: readonly FLSpielberichtZustandEintrag[];
   today: string;
   isFinishedSaison: boolean;
 }) {
@@ -63,8 +68,20 @@ export function AdminSpieleActionRequiredView({
   // Memoised by hand: the React Compiler is deliberately off (`next.config.ts`), so without this
   // every section switch re-partitions the whole match list for the identical result.
   const sections = useMemo(
-    () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults }),
-    [overviewSpiele, today, bracketFaults],
+    () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults, spielberichte }),
+    [overviewSpiele, today, bracketFaults, spielberichte],
+  );
+
+  // On every card of every section, as the fixture's own state is: a proposal still to adopt is news wherever it shows.
+  const berichtChipsBySpielId = useMemo(
+    () =>
+      new Map(
+        spielberichte.flatMap((eintrag) => {
+          const text = berichtChipText(eintrag);
+          return text === null ? [] : [[eintrag.spiel_id, text] as const];
+        }),
+      ),
+    [spielberichte],
   );
 
   // Keyed by `spiel_id` so each card states its own reasons; one shared box leaves the reader
@@ -179,6 +196,7 @@ export function AdminSpieleActionRequiredView({
                   isFinishedSaison={isFinishedSaison}
                   isAdmin
                   faultsBySpielId={section.category === "bracket_fault" ? faultsBySpielId : undefined}
+                  berichtChipsBySpielId={berichtChipsBySpielId}
                 />
               </SpielCardGrid>
             )}

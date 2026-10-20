@@ -153,10 +153,13 @@ export type SpielberichtFieldPath =
   | "bericht.karten"
   | "bericht.bemerkungen";
 
+/** What the change list says of a value still to enter, in words: a lone dash would do a word's job. */
+const OFFEN = "offen";
+
 /** A whole list is one row: an entry has no path of its own that survives the one before it being removed. */
 const listText = (eintraege: readonly string[]): string | null => (eintraege.length === 0 ? null : eintraege.join("; "));
 
-const minuteText = (minute: string): string => (minute === "" ? "–" : `${minute}.`);
+const minuteText = (minute: string): string => (minute === "" ? OFFEN : `${minute}.`);
 
 /**
  * The change list's rows, reading each pupil by name: the text is the comparison key and the „Vorher“ line alike, so
@@ -166,10 +169,10 @@ function descriptorsFor(
   kontext: SpielberichtKontext,
 ): readonly (FLFieldDescriptor<SpielberichtDraft, SpielberichtFieldGroup> & { path: SpielberichtFieldPath })[] {
   const teamName = (seite: FLSpielberichtSeite | null): string =>
-    seite === null ? "–" : seite === "team1" ? kontext.team1Name : kontext.team2Name;
+    seite === null ? OFFEN : seite === "team1" ? kontext.team1Name : kontext.team2Name;
   const personName = (seite: FLSpielberichtSeite | null, spieler: string): string => {
     if (spieler === UNBEKANNT) return TORSCHUETZE_UNBEKANNT_LABEL;
-    if (spieler === "") return "–";
+    if (spieler === "") return OFFEN;
     const kader = seite === null ? [] : kontext.kader[seite];
     return [...kader, ...kontext.genannt].find((option) => option.id === spieler)?.label ?? spieler;
   };
@@ -192,7 +195,9 @@ function descriptorsFor(
       label: "Elfmeterschießen",
       group: "Spielbericht",
       read: ({ elfmeterschiessen }) =>
-        elfmeterschiessen === null ? null : `${numberAsNull(elfmeterschiessen.team1) ?? "–"}:${numberAsNull(elfmeterschiessen.team2) ?? "–"}`,
+        elfmeterschiessen === null
+          ? null
+          : `${numberAsNull(elfmeterschiessen.team1) ?? OFFEN}:${numberAsNull(elfmeterschiessen.team2) ?? OFFEN}`,
       errorPaths: [
         "bericht.ergebnis_vorschlag.elfmeterschiessen",
         "bericht.ergebnis_vorschlag.elfmeterschiessen.team1",
@@ -225,7 +230,7 @@ function descriptorsFor(
         listText(
           karten.map(
             (karte) =>
-              `${teamName(karte.seite)}: ${personName(karte.seite, karte.spieler)}, ${minuteText(karte.minute)}, ${karte.farbe === null ? "–" : KARTEN_FARBE_LABELS[karte.farbe]}${karte.grund === null ? "" : `, ${KARTEN_GRUND_LABELS[karte.grund]}`}`,
+              `${teamName(karte.seite)}: ${personName(karte.seite, karte.spieler)}, ${minuteText(karte.minute)}, ${karte.farbe === null ? OFFEN : KARTEN_FARBE_LABELS[karte.farbe]}${karte.grund === null ? "" : `, ${KARTEN_GRUND_LABELS[karte.grund]}`}`,
           ),
         ),
     },

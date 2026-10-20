@@ -16,6 +16,7 @@ export function SpielCardsList({
   today,
   isAdmin = false,
   faultsBySpielId,
+  berichtChipsBySpielId,
   isFinishedSaison,
 }: {
   spiele: FLSpiel[];
@@ -27,6 +28,8 @@ export function SpielCardsList({
    * whole season and arriving beside the matches rather than inside them.
    */
   faultsBySpielId?: ReadonlyMap<string, readonly string[]>;
+  /** Keyed by `spiel_id`, for the fault map's reason: a report's state arrives beside the matches, never inside them. */
+  berichtChipsBySpielId?: ReadonlyMap<string, string>;
 }) {
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
   const saisonId = useSaisonId();
@@ -44,6 +47,7 @@ export function SpielCardsList({
             isFinishedSaison={isFinishedSaison}
             onOpenInfoModal={() => setSelectedSpiel(spielData)}
             adminEditHref={isAdmin ? adminSpielEditHref(spielData.id, saisonId) : undefined}
+            berichtChip={berichtChipsBySpielId?.get(spielData.id)}
             asListitem={!hasFaults}
           />
         );

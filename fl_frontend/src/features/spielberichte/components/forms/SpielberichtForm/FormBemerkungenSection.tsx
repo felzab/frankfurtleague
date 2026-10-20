@@ -59,7 +59,7 @@ export function FormBemerkungenSection({
           {/* Under the box rather than behind a press: the reader it has to reach is the one already typing a name. */}
           <Hint
             mode="field"
-            text="Nur die Verwaltung liest sie. Schreib hier, was kein Feld oben erfasst, etwa einen Vorfall oder einen Protest; den Grund einer Karte wählst Du bei der Karte. Nenne keine Namen, auch keinen Spielernamen: eine Spielerin oder einen Spieler beschreibst Du mit der Rückennummer."
+            text="Nur die Verwaltung liest sie. Schreib hier, was kein Feld oben erfasst, etwa einen Vorfall oder einen Protest. Den Grund einer Karte wählst Du bei der Karte. Nenne keine Namen, auch keinen Spielernamen: eine Spielerin oder einen Spieler beschreibst Du mit der Rückennummer."
           />
         </TextField>
       </div>

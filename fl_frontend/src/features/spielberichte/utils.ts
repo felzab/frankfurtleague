@@ -1,15 +1,55 @@
+import { SONDEREREIGNIS_LABELS } from "@/features/spiele/constants";
 import { kaderName, NUMMER_NICHT_HINTERLEGT, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLSpielberichtSpieler } from "./schemas";
+import type { FLSpielberichtSpieler, FLSpielberichtVorschlag, FLSpielberichtZustandEintrag } from "./schemas";
+
+/** The proposal as one line: the score, its shoot-out, and the event, a no-show naming its event alone. */
+export function vorschlagText(vorschlag: FLSpielberichtVorschlag): string {
+  const ereignis = vorschlag.sonderereignis === null ? null : SONDEREREIGNIS_LABELS[vorschlag.sonderereignis];
+  if (vorschlag.team1_tore === null || vorschlag.team2_tore === null) return ereignis ?? "";
+
+  const elfmeter =
+    vorschlag.elfmeterschiessen === null
+      ? ""
+      : ` (${String(vorschlag.elfmeterschiessen.team1)}:${String(vorschlag.elfmeterschiessen.team2)} i. E.)`;
+  return `${String(vorschlag.team1_tore)}:${String(vorschlag.team2_tore)}${elfmeter}${ereignis === null ? "" : `, ${ereignis}`}`;
+}
+
+/**
+ * What an administrator's fixture card says of its report, `null` once adopted: the two states the triage files under
+ * „Ergebnis vorgeschlagen“, each in its own words.
+ */
+export function berichtChipText({ zustand, ergebnis_vorschlag }: FLSpielberichtZustandEintrag): string | null {
+  if (zustand === "uebernommen") return null;
+
+  return `${zustand === "vorgeschlagen" ? "Ergebnis vorgeschlagen" : "Bericht geändert"} ${vorschlagText(ergebnis_vorschlag)}`;
+}
 
 /** A pupil as a report's reader sees them: shirt number and name, and the erased pupils' sentinel as „anonym“. */
 export function spielerLabel(spieler: FLSpielberichtSpieler): string {
   if (spieler.vorname === null) return SPIELER_ANONYM_LABEL;
 
   return `${spieler.nummer ?? NUMMER_NICHT_HINTERLEGT} · ${kaderName({ vorname: spieler.vorname, nachname: spieler.nachname })}`;
+}
+
+// Europe/Berlin, as every other date in this app is rendered, and to the minute: a correction made the same day as
+// the adoption is exactly what the administrator needs to tell apart.
+const BERLIN_ZEITPUNKT = new Intl.DateTimeFormat("de-DE", {
+  timeZone: "Europe/Berlin",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** A stored instant as the administrator reads it; one no date can parse is shown as stored rather than thrown on. */
+export function berlinZeitpunkt(stamp: string): string {
+  const instant = new Date(stamp);
+  return Number.isNaN(instant.getTime()) ? stamp : `${BERLIN_ZEITPUNKT.format(instant)} Uhr`;
 }
 
 /** Who reads the sentence: the booked referee on their panel, or an administrator correcting the report. */
