@@ -72,11 +72,6 @@ A_CHILDS_BIRTHDATE = "2018-01-01"
 
 LIVE_BLOCK: Mapping[str, Any] = compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)
 
-# One mailbox, its domain spelled in two cases (RFC 5321 §2.4). The address rule stores the lower one,
-# and a row written before any rule held the referee's address may hold the other.
-CAPITALS_STORED = "anna@Mueller.DE"
-LOWER_CASE_SAVED = "anna@mueller.de"
-
 
 def confirmed(*, bestaetigt_am: str = TODAY) -> dict[str, Any]:
     return {**compose_einwilligung(umfang="intern", medien=False, text_version="v1", today=TODAY), "bestaetigt_am": bestaetigt_am}
@@ -445,16 +440,6 @@ class TestARetiredRefereeTakesNoFreshLink:
         assert minted is False
         assert update == {"$set": payload, "$unset": {BESTAETIGUNG_FELD: ""}}
 
-    def test_a_retired_referees_unmoved_address_keeps_its_link_in_whichever_spelling_it_was_stored(self):
-        stored = {"kontakt": {"email": CAPITALS_STORED}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}
-        payload = {"kontakt": {"telefon": None, "email": LOWER_CASE_SAVED}}
-
-        update, minted = compose_korrektur_update(
-            stored=stored, payload=payload, payload_email=LOWER_CASE_SAVED, token_hash=TOKEN_HASH, today=TODAY
-        )
-
-        assert (update, minted) == ({"$set": payload}, False)
-
     def test_a_live_referees_new_address_is_minted_for(self):
         stored = {"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None, "inactive_since": None}
         payload = {"kontakt": {"telefon": None, "email": "new@example.com"}}
@@ -539,13 +524,11 @@ class TestACorrectedAddressReMints:
         ("stored", "payload_email"),
         [
             ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None}, "new@example.com"),
-            # Two inboxes to RFC 5321, whose local part is case-sensitive, though one sign-in.
-            ({"kontakt": {"email": "Old@example.com"}, EINWILLIGUNG_FELD: None}, "old@example.com"),
             ({"kontakt": {"email": None}, EINWILLIGUNG_FELD: None}, "first@example.com"),
             ({"kontakt": {"email": "adresse-fehlt@frankfurtleague.invalid"}, EINWILLIGUNG_FELD: None}, "first@example.com"),
             ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: confirmed(bestaetigt_am="")}, "new@example.com"),
         ],
-        ids=["address-moved", "address-moved-in-the-local-part-s-case-alone", "address-entered", "placeholder-replaced", "empty-stamp"],
+        ids=["address-moved", "address-entered", "placeholder-replaced", "empty-stamp"],
     )
     def test_an_unconfirmed_referee_whose_address_moves_gets_a_fresh_block(self, stored: Mapping[str, Any], payload_email: str):
         assert korrektur(stored, payload_email) == (
@@ -557,10 +540,9 @@ class TestACorrectedAddressReMints:
         ("stored", "payload_email"),
         [
             ({"kontakt": {"email": "same@example.com"}, EINWILLIGUNG_FELD: None}, "same@example.com"),
-            ({"kontakt": {"email": CAPITALS_STORED}, EINWILLIGUNG_FELD: None}, LOWER_CASE_SAVED),
             ({"kontakt": {"email": "same@example.com"}, EINWILLIGUNG_FELD: confirmed()}, "same@example.com"),
         ],
-        ids=["address-unchanged", "address-unchanged-but-its-domain-in-capitals", "already-confirmed-and-unmoved"],
+        ids=["address-unchanged", "already-confirmed-and-unmoved"],
     )
     def test_every_other_save_mints_nothing(self, stored: Mapping[str, Any], payload_email: str):
         assert korrektur(stored, payload_email) == ({"$set": {}}, False)

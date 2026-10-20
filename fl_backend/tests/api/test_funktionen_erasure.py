@@ -97,7 +97,7 @@ YESTERDAY = "2026-03-31"
 # Injected through `get_germany_now`, and in summer, so the conversion to the log's stamp moves the clock.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
-# The person: typed with capitals where a payload keeps them, folded where the pupil row stores it.
+# The person as a request or a pasted grant may spell them, and the fold every record the league writes stores.
 TYPED = "Zorbanax.Quillfeather@Example.org"
 IDENTIFIER = "zorbanax.quillfeather@example.org"
 # As a hand-typed row may spell it, the domain fullwidth: the fold equates it with theirs, a pattern listing domains never.
@@ -221,7 +221,7 @@ def _built_before_any_case() -> None:
 
 
 def their_seat() -> dict[str, Any]:
-    return kontaktperson_document(VORNAME, bestaetigt_am="2026-03-21", nachname=NACHNAME, email=TYPED, telefon=TELEFON)
+    return kontaktperson_document(VORNAME, bestaetigt_am="2026-03-21", nachname=NACHNAME, email=IDENTIFIER, telefon=TELEFON)
 
 
 def referee(schiedsrichter_id: ObjectId, *, email: str, name: str, **fields: Any) -> dict[str, Any]:
@@ -409,6 +409,12 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         )
     )
     einwilligung = eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-02")
+    # A pupil's address as it stood before its correction, which the person's own pupil row holds after it: the
+    # correction's image alone keeps it, a row the person's steps never reach.
+    await database[Collection.SPIELER].insert_one(
+        spieler_document(READDRESSED_PUPIL_OID, "Hartwig", "Hartwig-Muster", email=IDENTIFIER, einwilligung=einwilligung)
+    )
+    await edited(database, Collection.SPIELER, READDRESSED_PUPIL_OID, {"$set": {"email": "hartwig@example.com"}})
     await database[Collection.SPIELER].insert_many(
         [
             spieler_document(PUPIL_OID, VORNAME, NACHNAME, email=IDENTIFIER, geburtsdatum=GEBURTSDATUM, einwilligung=einwilligung),
@@ -425,7 +431,11 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
             referee(
-                REFEREE_OID, email=TYPED, name=REFEREE_NAME, geburtsdatum=REFEREE_GEBURTSDATUM, kontakt={"telefon": TELEFON, "email": TYPED}
+                REFEREE_OID,
+                email=IDENTIFIER,
+                name=REFEREE_NAME,
+                geburtsdatum=REFEREE_GEBURTSDATUM,
+                kontakt={"telefon": TELEFON, "email": IDENTIFIER},
             ),
             referee(OTHER_REFEREE_OID, email="kraus.bernd@example.com", name="Bernd Kraus"),
         ]
@@ -449,11 +459,10 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     )
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
-            a_registration(PENDING_OID, TYPED),
-            # Typed once more otherwise: the fold, never the spelling, says whose a row is.
+            a_registration(PENDING_OID, IDENTIFIER),
             a_registration(
                 DECLINED_OID,
-                IDENTIFIER.upper(),
+                IDENTIFIER,
                 **compose_ablehnung_update(von="quillhilde@example.com", grund=None, today="2026-03-28")["$set"],
             ),
         ]
@@ -467,11 +476,8 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     )
     await pending_changes(
         database,
-        (OTHER_REFEREE_CHANGE_OID, "kraus.bernd@example.com", TYPED, "their-new-address", "2026-03-28"),
-        (MOVING_PUPIL_CHANGE_OID, "gwendolyn@example.com", TYPED, "her-new-address", "2026-03-29"),
-    )
-    await database[Collection.SPIELER].insert_one(
-        spieler_document(READDRESSED_PUPIL_OID, "Hartwig", "Hartwig-Muster", email=TYPED, einwilligung=einwilligung)
+        (OTHER_REFEREE_CHANGE_OID, "kraus.bernd@example.com", IDENTIFIER, "their-new-address", "2026-03-28"),
+        (MOVING_PUPIL_CHANGE_OID, "gwendolyn@example.com", IDENTIFIER, "her-new-address", "2026-03-29"),
     )
 
     # The history: every image the log holds of the person is one of these edits'.
@@ -482,11 +488,9 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     await edited(database, Collection.SPIELE, THEIR_SPIEL_OID, {"$set": {"uhrzeit": "15:00:00"}})
     for registrierung_id in (PENDING_OID, DECLINED_OID):
         await edited(database, Collection.REGISTRIERUNGEN, registrierung_id, {"$set": {"nummer": "11"}})
-    # Images of rows the person's steps never reach, each holding the address: two pending changes, and
-    # a pupil's address as it stood before its correction.
+    # Images of rows the person's steps never reach, each holding the address: two pending changes.
     for change_id in (OTHER_REFEREE_CHANGE_OID, MOVING_PUPIL_CHANGE_OID):
         await edited(database, Collection.ADRESSWECHSEL, change_id, {"$set": {"verschickt_am": "2026-03-30"}})
-    await edited(database, Collection.SPIELER, READDRESSED_PUPIL_OID, {"$set": {"email": "hartwig@example.com"}})
     # And of the records they made, each image keeping them as its author: the address pass's alone to reach.
     await edited(database, Collection.BERECHTIGUNGEN, GRANTED_BY_THEM_OID, {"$set": {"erteilt_am": datetime(2026, 1, 2, tzinfo=UTC)}})
     await edited(database, Collection.SPERRLISTE, BANNED_BY_THEM_OID, {"$set": {"grund": "Doppelte Anmeldung"}})
@@ -641,7 +645,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
         [
             ban_document(address, bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID), _id=ban_id, erstellt_von=von)
             for address, ban_id, von in (
-                ("gebannt@beispiel.de", BANNED_BY_THEM_OID, TYPED),
+                ("gebannt@beispiel.de", BANNED_BY_THEM_OID, IDENTIFIER),
                 ("gebannt-zwei@beispiel.de", BANNED_BY_THEM_PASTED_OID, PASTED),
             )
         ]
@@ -649,7 +653,9 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
     await database[Collection.EINLADUNGEN].insert_one(
         {
             "_id": INVITED_BY_THEM_OID,
-            **compose_einladung(saison_id=SAISON_ID, team_id=HOME_TEAM_OID, token_hash="hash-of-their-invite", erstellt_von=TYPED, today=TODAY),
+            **compose_einladung(
+                saison_id=SAISON_ID, team_id=HOME_TEAM_OID, token_hash="hash-of-their-invite", erstellt_von=IDENTIFIER, today=TODAY
+            ),
         }
     )
     await database[Collection.BEWERBUNGEN].insert_one(
@@ -660,7 +666,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
             kontakte=kontakte_document(),
             eingereicht_am="2026-03-01",
             schule=neue_schule_document("Abgelehnt", "AB"),
-            entscheidung={"getroffen_am": "2026-03-10", "von": TYPED, "grund": "Keine Halle"},
+            entscheidung={"getroffen_am": "2026-03-10", "von": IDENTIFIER, "grund": "Keine Halle"},
         )
     )
     declined = registrierung_document(
@@ -1100,7 +1106,7 @@ class TestOneTransaction:
         # On the code, so this cannot pass because something else failed before any write.
         assert code == DOCUMENT_VALIDATION_FAILED
         assert counts == {"berechtigungen": 2, "spieler": 5, "saison_spieler": 2, "schiedsrichter": 4, "registrierungen": 4, "drosselung": 4}
-        assert (seat, pending, their_rows, stamped, on_the_ghost) == (TYPED, TYPED, 2, 0, 0)
+        assert (seat, pending, their_rows, stamped, on_the_ghost) == (IDENTIFIER, IDENTIFIER, 2, 0, 0)
         # And no journal line nor floor warning: an erasure rolled back is no erasure a replay may repeat.
         assert not [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
         assert NO_OWNER.error_code not in [getattr(record, "error_code", None) for record in caplog.records]
@@ -1267,7 +1273,7 @@ class TestTheScope:
 
         *rest, as_a_person, counts = on_a_league(mongo_replica_set_url, body)
 
-        assert rest == [0, 0, TYPED, 1, True, 1, 1, True]
+        assert rest == [0, 0, IDENTIFIER, 1, True, 1, 1, True]
         assert as_a_person == [("kontakt", PSEUDONYM), ("spieler", ERASED_ACTOR_MARKER)]
         assert counts == sorted(count_id for count_id in (*COUNT_IDS, OTHER_COUNT_ID) if not count_id.startswith("spieler:"))
 
@@ -1386,7 +1392,7 @@ async def an_admittable_registration(database: AsyncDatabase) -> None:
     await database[Collection.REGISTRIERUNGEN].insert_one(
         a_registration(
             PENDING_OID,
-            TYPED,
+            IDENTIFIER,
             bestaetigt={
                 "geburtsdatum": GEBURTSDATUM,
                 "umfang": "intern",

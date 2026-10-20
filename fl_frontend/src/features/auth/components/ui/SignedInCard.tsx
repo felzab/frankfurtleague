@@ -10,14 +10,14 @@ import { ctaButton } from "@/shared/components/ui/formButtons";
 import { SignInCard } from "@/shared/components/ui/SignInCard";
 import { useSignOut } from "@/shared/hooks/useSignOut";
 
-import { signOutAction } from "../../actions";
+import { signOut } from "../../signOut";
 
 /**
  * `/signin` for somebody already signed in, instead of a second sign-in: its passkey offer would list
  * the signed-in account's passkeys alone, and a code would replace the session this reader holds.
  */
 export function SignedInCard({ address }: { address: string }) {
-  const { confirm, press, disarm } = useSignOut(signOutAction);
+  const { confirm, press, disarm } = useSignOut(signOut);
 
   return (
     <SignInCard title="Anmelden">

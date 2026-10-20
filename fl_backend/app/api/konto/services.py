@@ -16,7 +16,7 @@ from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbun
 from app.api.einwilligung.services import find_fassung_refusal, medien_angeboten
 from app.api.identitaet.schemas import FLSubjektSitz
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, eigene_sitze, holds_a_seat, ist_eigene_registrierung
-from app.api.kontakte.services import rows_possibly_naming
+from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
 from app.api.schiedsrichter.services import vorname_of
 from app.api.teams.schemas import KONTAKT_ROLLEN
@@ -280,13 +280,13 @@ def compose_schiedsrichter_konto(row: Mapping[str, Any], *, erteilbar: bool, tod
 
 
 def build_selbst_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every season row whose seats may name the address: a pre-filter, `app/api/identitaet/services.py :: eigene_sitze` deciding.
+    """Every season row one of whose seats names the address, `app/api/identitaet/services.py :: eigene_sitze` judging each slot.
 
     No `austritt` term: a withdrawal reaches a withdrawn team's seat too.
     """
 
     return [
-        {"$match": rows_possibly_naming(identifier)},
+        {"$match": rows_seating(identifier)},
         {
             "$project": {
                 "saison_id": 1,

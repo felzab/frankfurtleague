@@ -1,4 +1,5 @@
 import { SAISONUEBERSICHT_TITEL } from "@/core/seitenNamen";
+import { DashboardAreaBoundary } from "@/features/dashboard/components/providers/DashboardAreaBoundary";
 import { DashboardShell } from "@/features/dashboard/components/ui/DashboardShell";
 import { SaisonMetadataDisplay } from "@/features/saisons/components/ui/SaisonMetadataDisplay";
 import { openGraphFor } from "@/shared/utils/metadata";
@@ -20,5 +21,10 @@ export const metadata: Metadata = {
  * is the opposite case.
  */
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return <DashboardShell saisonMetadataDisplay={<SaisonMetadataDisplay tier="base" />}>{children}</DashboardShell>;
+  return (
+    // Around the shell, the season slot included: `error.tsx` sits inside this layout and catches none of it.
+    <DashboardAreaBoundary>
+      <DashboardShell saisonMetadataDisplay={<SaisonMetadataDisplay tier="base" />}>{children}</DashboardShell>
+    </DashboardAreaBoundary>
+  );
 }

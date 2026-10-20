@@ -16,7 +16,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.adresswechsel.services import compose_end_update, compose_genehmigung
 from app.api.aktionen.crud import redact_address_in_images
-from app.api.aktionen.services import IMAGE_ADDRESSES, ImageAddress, address_image_edits
+from app.api.aktionen.services import IMAGE_ADDRESSES, address_image_edits
 from app.api.einladungen.services import compose_einladung, compose_widerruf_update
 from app.core.collections import Collection
 from app.core.crud import delete_many_from_db, patch_one_in_db
@@ -31,7 +31,7 @@ DATABASE_NAME = worker_database("fl_aktionen_redaction_test")
 
 # Deliberately unusual, so a hit in the log cannot be a coincidence.
 ERASED = "eduarda.fuchsbau@example.com"
-# The same mailbox as one row stored it, which only the fold makes theirs.
+# The same mailbox as a request or a pasted grant may spell it, which only the fold makes theirs.
 ERASED_AS_TYPED = "Eduarda.Fuchsbau@EXAMPLE.com"
 # The administrator beside them, whose authorship the pass must leave standing.
 OTHER_ADMIN = "rainald.kesselflick@example.com"
@@ -108,18 +108,12 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
     )
     await patched(database, Collection.REGISTRIERUNGEN, REGISTRIERUNG, {"$set": {"entscheidung.grund": "Anderes Team"}})
     await database[Collection.SCHIEDSRICHTER].insert_many(
-        [
-            documents.schiedsrichter_document(
-                READDRESSED_REFEREE, email=ERASED_AS_TYPED, name="Hiltrud Kesselring", default_payment=20, einwilligung=None
-            )
-        ]
+        [documents.schiedsrichter_document(READDRESSED_REFEREE, email=ERASED, name="Hiltrud Kesselring", default_payment=20, einwilligung=None)]
     )
     # An unconfirmed referee's address corrected to another mailbox, which the referee step does not reach.
     await patched(database, Collection.SCHIEDSRICHTER, READDRESSED_REFEREE, {"$set": {"kontakt.email": REFEREE_NOW}})
     # The referee's twin among the pupils, whose row the pupil step does not reach either.
-    await database[Collection.SPIELER].insert_one(
-        documents.spieler_document(READDRESSED_PUPIL, "Wendelin", "Kesselring", email=ERASED_AS_TYPED)
-    )
+    await database[Collection.SPIELER].insert_one(documents.spieler_document(READDRESSED_PUPIL, "Wendelin", "Kesselring", email=ERASED))
     await patched(database, Collection.SPIELER, READDRESSED_PUPIL, {"$set": {"email": PUPIL_NOW}})
     # A change once bound for their mailbox, and one they started as an administrator: each since ended.
     await database[Collection.ADRESSWECHSEL].insert_many(
@@ -186,10 +180,12 @@ def image_of(log: list[Mapping[str, Any]], collection: Collection, document_id: 
 class TestTheJudgement:
     """The pure half, apart from a database."""
 
-    def test_an_address_held_in_another_spelling_is_judged_on_the_fold(self):
-        addresses = (ImageAddress("kontakt.email", "kontakt.email", None),)
+    def test_a_grant_image_holding_a_pasted_spelling_is_judged_on_the_fold(self):
+        addresses = IMAGE_ADDRESSES[Collection.BERECHTIGUNGEN]
 
-        assert address_image_edits({"kontakt": {"email": ERASED_AS_TYPED}}, identifier=ERASED, addresses=addresses) == {"kontakt.email": None}
+        assert address_image_edits({"adresse": ERASED_AS_TYPED, "erteilt_von": OTHER_ADMIN}, identifier=ERASED, addresses=addresses) == {
+            "adresse": None
+        }
 
     def test_a_nested_actor_takes_the_marker_where_it_is_theirs_and_stays_where_it_is_not(self):
         addresses = IMAGE_ADDRESSES[Collection.ADRESSWECHSEL]
@@ -231,7 +227,7 @@ def test_no_image_holds_the_address_afterwards(mongo_replica_set_url: str):
 
 @pytest.mark.db
 def test_a_spelling_handed_in_unfolded_still_takes_the_address_out(mongo_replica_set_url: str):
-    """Drop the fold at the pass's entry and this fails: the pre-filter's `i` selects each image and the fold then matches none."""
+    """Drop the fold at the pass's entry and this fails: every image but a grant's is read by equality on the stored fold."""
 
     _, log, counts = after_the_pass(mongo_replica_set_url, identifier=ERASED_AS_TYPED)
 

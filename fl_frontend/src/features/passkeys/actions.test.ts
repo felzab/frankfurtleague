@@ -292,6 +292,8 @@ describe("what a removal costs, and what it refuses", () => {
 
     assert.deepEqual(answer, { success: true, message: "Passkey gelöscht", diesesGeraet: true });
     assert.ok(!store.session.some((row) => row.id === acting.row.id), "the session the removed passkey made survived");
+    // Rendered again without its session, the person area's guard unmounts the frame (`docs/frontend/spec.md :: I831`).
+    assert.deepEqual(cacheCalls, [], "the removal rendered the page again");
   });
 
   /* The rows are read off the caller's own account, so another person's identifier is absent rather than taken. */

@@ -22,7 +22,6 @@ import {
   FLBewerbungZustellungEreignisPayloadSchema,
   FLPostBewerbungPayloadSchema,
   gleicheAdresse,
-  gleichesPostfach,
   ZUSTELLUNG_GRUND_MAX_LENGTH,
   ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH,
   ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH,
@@ -703,15 +702,6 @@ describe("the one field of a submitted application an administrator may move", (
     assert.equal(gleicheAdresse("", ""), false, "two empty boxes read as one address, which would refuse a seat that has none");
   });
 
-  /* The editor's other question, whether a correction moves the delivery target: the mail goes to the
-     bytes stored, so a full-width letter's ASCII repair (built from its code point) moves it. */
-  it("reads a correction as unmoved only where the mailbox is the same one", () => {
-    assert.equal(gleichesPostfach(" erika@Schule.de ", "erika@schule.de"), true);
-    assert.equal(gleichesPostfach(`${String.fromCharCode(0xff45)}rika@schule.de`, "erika@schule.de"), false);
-    assert.equal(gleichesPostfach("Erika@schule.de", "erika@schule.de"), false, "a corrected case is another mailbox to the send");
-    assert.equal(gleichesPostfach("", ""), false, "two empty boxes read as one mailbox, which would close the press on a seat that has none");
-  });
-
   /* The sign-in fold, as the API compares: an umlaut domain is its punycode, a full-width „e“ before the
      at sign is another address (built from its code point, rendering as the ASCII one), and „strasse“
      is not „straße“. */
@@ -719,12 +709,6 @@ describe("the one field of a submitted application an administrator may move", (
     assert.equal(gleicheAdresse("erika@müller.de", "Erika@xn--mller-kva.de"), true);
     assert.equal(gleicheAdresse(`${String.fromCharCode(0xff45)}rika@schule.de`, "erika@schule.de"), false);
     assert.equal(gleicheAdresse("erika@straße.de", "erika@strasse.de"), false);
-  });
-
-  /* An address typed with its domain in Unicode is compared with the punycode every row stores; how
-     each spelling converts is the address table's. */
-  it("reads a mailbox typed with a Unicode domain as the one its stored punycode names", () => {
-    assert.equal(gleichesPostfach("anna@müller.de", "anna@xn--mller-kva.de"), true);
   });
 });
 

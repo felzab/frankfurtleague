@@ -63,7 +63,6 @@ from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.core.transactions import transaction_session
-from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -416,7 +415,7 @@ async def korrigiere_kontakt_email(
     Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.
 
     **The mailbox the link leaves is answered in `abgang_email`** for the caller to tell, as the contacts editor's save
-    answers one it takes off a seat; null where the corrected address is the same mailbox on the sign-in fold.
+    answers one it takes off a seat; null where the corrected address is the one the seat held.
 
     The only repair there is for a link the mail provider will not carry: everything else the school typed stays the
     record the decision is taken against. Where one person holds two seats both are corrected, and the confirmation
@@ -491,7 +490,8 @@ async def korrigiere_kontakt_email(
             rollen=list(seats),
             token=raw,
             bestaetigungsfrist=bestaetigungsfrist,
-            abgang_email=None if sign_in_identifier(alt) == sign_in_identifier(email_data.email) else alt,
+            # Both the stored fold (`docs/backend/spec.md :: I332`).
+            abgang_email=None if alt == email_data.email else alt,
         )
 
     # A transaction where the re-send beside it takes none: this write moves an address as well as a
@@ -596,7 +596,7 @@ async def besetze_kontakt_sitz(
             [sitz_data.email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session
         )
 
-        return FLBewerbungKontaktSitzResponse(rollen=list(seats), token=raw, bestaetigungsfrist=bestaetigungsfrist)
+        return FLBewerbungKontaktSitzResponse(email=sitz_data.email, rollen=list(seats), token=raw, bestaetigungsfrist=bestaetigungsfrist)
 
     # A transaction for the correction's reason: this write seats a person as well as a credential,
     # so a decision landing mid-request must leave neither half standing.

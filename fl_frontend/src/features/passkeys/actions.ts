@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { isAPIError } from "better-auth/api";
 
 import { notifyPasskeyRemoved, PASSKEY_LIMIT, passkeysOf, removePasskey, renamePasskey } from "@/core/auth";
-import { recordWriteSent } from "@/core/requestScope";
+import { recordOwnSessionEnding, recordWriteSent } from "@/core/requestScope";
 import { stepUpRequired } from "@/shared/utils/adminMutation";
 import { enrolmentUntil, runKontoMutation } from "@/shared/utils/kontoMutation";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
@@ -44,6 +44,9 @@ export async function removePasskeyAction(id: string): Promise<ActionResult<{ di
     // Named here because the sign-in store is written past the API client, which records its own writes: unrecorded,
     // the spine answers a success unrefreshed and a throw after the commit as a plain failure.
     recordWriteSent();
+    // Before the removal, whose commit may end that session unanswered: the spine then renders no page again
+    // (`docs/frontend/spec.md :: I831`), and the page leaves by a document load.
+    if (diesesGeraet) recordOwnSessionEnding();
 
     const removal = await removePasskey({ id: served.user.id, verwaltung: served.verwaltung }, id);
 
