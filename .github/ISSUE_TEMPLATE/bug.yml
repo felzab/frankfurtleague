@@ -9,10 +9,10 @@ body:
       value: |
         **Not for security problems.** A suspected vulnerability goes to a
         [private advisory](https://github.com/felzab/frankfurtleague/security/advisories/new)
-        or through [frankfurtleague.de/kontakt](https://frankfurtleague.de/kontakt) — never a public
-        issue. See [SECURITY.md](https://github.com/felzab/frankfurtleague/blob/main/SECURITY.md).
+        or through [frankfurtleague.de/kontakt](https://frankfurtleague.de/kontakt), never to a
+        public issue. See [SECURITY.md](https://github.com/felzab/frankfurtleague/blob/main/SECURITY.md).
 
-        Keep the title in the shape `Area: symptom` — for example
+        Keep the title in the shape `Area: symptom`, for example
         `Spielplan: switching Spieltag leaves an empty grid on mobile`.
 
   - type: textarea
@@ -51,6 +51,8 @@ body:
         - Public pages
         - Dashboard
         - Admin
+        - Team area
+        - Personal pages (account, player or referee)
         - Not sure
     validations:
       required: true
@@ -61,7 +63,7 @@ body:
       label: Evidence
       description: >
         A screenshot or console error. **If an error page was shown, include its digest and the
-        time it happened** — the digest narrows the search to an error class, and the time pins
+        time it happened**: the digest narrows the search to an error class, and the time pins
         the exact server log entry.
     validations:
       required: false
