@@ -7219,7 +7219,7 @@
     "/api/v0/bewerbungen/einwilligung/ansicht": {
       "post": {
         "summary": "What one confirmation link opens",
-        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role and the consent wording's version, and `zugleich_rolle`: the\nsecond seat the same person holds, which an answer on this link writes too, or null. Never the holder's name: the\nlink went to an address nobody has confirmed, which behind a typo is a stranger's.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take. `laufende_fassung` is the label of the page the person is shown and their\nanswer must name: the applicant's where the applicant named them in every seat the link answers, else the one for a\nperson the administration seated.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`), an open link whose seat holds nobody among them: a confirmed, declined or\nexpired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The state\nis `gesperrt`, ahead of every other, wherever the ban list holds an address a consent on this link would be\nrefused for (`REQ-BEWERBUNG-020`), so the page offers a barred person nothing to press.\n\nThe same token may open a seat an administrator entered on a team's season row (`quelle: saison`): `schule` is then\nthe name the club carries that season, and the link is over once its seat's own deadline has passed. Before that, a\nseason that has ended or a team that has left it answers `saison_vorbei`: the link takes a Widerspruch and no consent.",
+        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, and `zugleich_rolle`: the\nsecond seat the same person holds, which an answer on this link writes too, or null. Never the holder's name: the\nlink went to an address nobody has confirmed, which behind a typo is a stranger's.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take. `laufende_fassung` is the label of the page the person is shown and their\nanswer must name: the applicant's where the applicant named them in every seat the link answers, else the one for a\nperson the administration seated.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`), an open link whose seat holds nobody among them: a confirmed, declined or\nexpired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The state\nis `gesperrt`, ahead of every other, wherever the ban list holds an address a consent on this link would be\nrefused for (`REQ-BEWERBUNG-020`), so the page offers a barred person nothing to press.\n\nThe same token may open a seat an administrator entered on a team's season row (`quelle: saison`): `schule` is then\nthe name the club carries that season, and the link is over once its seat's own deadline has passed. Before that, a\nseason that has ended or a team that has left it answers `saison_vorbei`: the link takes a Widerspruch and no consent.",
         "operationId": "get_einwilligung_ansicht_api_v0_bewerbungen_einwilligung_ansicht_post",
         "requestBody": {
           "content": {
@@ -7404,7 +7404,7 @@
     "/api/v0/registrierungen/bestaetigung/ansicht": {
       "post": {
         "summary": "What one registration confirmation link opens",
-        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the age floor the press will be judged by, the age from\nwhich the media switch is offered, and which of two pages the link opens. Never the pupil's name: the link went to\nan address nobody has confirmed, which behind a typo is a stranger's.\n\n`bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded\naddress under its folded name who confirmed their own record. That page asks no choice, so beside it the view\nserves the person's stored birthdate, publication scope and media switch, the birthdate null where none is\nstored. Matched on the address alone, a mailbox shared anyway would show a sibling that person's answers, so on\n`bestaetigung_spieler`, the new pupil's page, all three are null.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
+        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the age floor the press will be judged by, the age from\nwhich the media switch is offered, and which of two pages the link opens. Never the pupil's name: the link went to\nan address nobody has confirmed, which behind a typo is a stranger's.\n\n`bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded\naddress under its folded name who confirmed their own record. That page asks no choice, and asks no birthdate\nwhere the person has one stored, which `geburtsdatum_gespeichert` says; nothing the person's record holds is\nserved, the holder of a mailed link not yet being known to be that person. Matched on the address alone, a\nmailbox shared anyway would hand a sibling that person's page, so `geburtsdatum_gespeichert` is false on\n`bestaetigung_spieler`, the new pupil's page.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
         "operationId": "get_bestaetigung_ansicht_api_v0_registrierungen_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -7458,7 +7458,7 @@
     "/api/v0/registrierungen/bestaetigung": {
       "post": {
         "summary": "Confirm one registration and record the pupil's consent",
-        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the consent record, in one update.\n\nWhich page the link opens is resolved again here, as the view resolves it. On the new pupil's page the record\ncarries the publication scope they chose, the media answer beside it, the stamp and the wording they were shown.\nOn the returning pupil's page, which asks no choice, it carries the stamp and the wording alone: the choices\nstanding on the person's own record are theirs to change on the account page, and nothing here re-grants one.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but\nthe running one of the page the link opens now (`REQ-EINWILLIGUNG-001`), choices that are not the ones that page\nasks -- both on the new pupil's, none on the returning pupil's (`REQ-REGISTRIERUNG-017`) -- a link mailed to an\naddress the ban list holds now, whenever the link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor\n(`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`). Every one is\njudged before anything is written, so a reloaded page or a mistyped year spends nothing and the pupil keeps the\nlink.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
+        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the consent record, in one update.\n\nWhich page the link opens is resolved again here, as the view resolves it. On the new pupil's page the record\ncarries the publication scope they chose, the media answer beside it, the stamp and the wording they were shown.\nOn the returning pupil's page, which asks no choice, it carries the stamp and the wording alone: the choices\nstanding on the person's own record are theirs to change on the account page, and nothing here re-grants one.\nWhere that person has a birthdate stored, the body carries none: the one read here is judged and written, and\nthe answer echoes null rather than the stored date.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but\nthe running one of the page the link opens now (`REQ-EINWILLIGUNG-001`), answers that are not the ones that page\nasks -- both choices on the new pupil's, none on the returning pupil's, and a birthdate exactly where none is\nstored (`REQ-REGISTRIERUNG-017`) -- a link mailed to an\naddress the ban list holds now, whenever the link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor\n(`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`). Every one is\njudged before anything is written, so a reloaded page or a mistyped year spends nothing and the pupil keeps the\nlink.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
         "operationId": "post_bestaetigung_api_v0_registrierungen_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -7520,7 +7520,7 @@
     "/api/v0/schiedsrichter/bestaetigung/ansicht": {
       "post": {
         "summary": "What one Schiedsrichter confirmation link opens",
-        "description": "Answer what this token opens: the link's state and deadline, both age floors, and the wording's version.\n\n**Nothing else** (`READ-REFEREE-002`): never a name, the school, the contact details, the fee, the birthdate or the\nentry's id, all of which are behind `READ-CONTACT-001`. The link went to an address an administrator typed and nobody has\nconfirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a body and never in a second\nURL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `gesperrt`,\nahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`),\nso the page offers a barred referee nothing to press.",
+        "description": "Answer what this token opens: the link's state and deadline, and both age floors.\n\n**Nothing else** (`READ-REFEREE-002`): never a name, the school, the contact details, the fee, the birthdate or the\nentry's id, all of which are behind `READ-CONTACT-001`. The link went to an address an administrator typed and nobody has\nconfirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a body and never in a second\nURL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `gesperrt`,\nahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`),\nso the page offers a barred referee nothing to press.",
         "operationId": "get_bestaetigung_ansicht_api_v0_schiedsrichter_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -11873,17 +11873,6 @@
             ],
             "title": "Zugleich Rolle"
           },
-          "text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Text Version"
-          },
           "laufende_fassung": {
             "type": "string",
             "title": "Laufende Fassung"
@@ -11907,13 +11896,12 @@
           "schule",
           "rolle",
           "zugleich_rolle",
-          "text_version",
           "laufende_fassung",
           "mindestalter",
           "medien_mindestalter"
         ],
         "title": "FLBewerbungEinwilligungAnsichtResponse",
-        "description": "What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).\n\nA leaked link's holder learns what its mail said: a school, a season, the roles one answer\ncovers and a wording's version, never a name."
+        "description": "What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).\n\nA leaked link's holder learns what its mail said: a school, a season and the roles one answer\ncovers, and nothing of the person."
       },
       "FLBewerbungEinwilligungAntwortPayload": {
         "properties": {
@@ -19908,43 +19896,9 @@
             "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           },
-          "geburtsdatum": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Geburtsdatum"
-          },
-          "umfang": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "kader_oeffentlich",
-                  "intern"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Umfang"
-          },
-          "medien": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Medien"
+          "geburtsdatum_gespeichert": {
+            "type": "boolean",
+            "title": "Geburtsdatum Gespeichert"
           }
         },
         "type": "object",
@@ -19956,9 +19910,7 @@
           "seite",
           "mindestalter",
           "medien_mindestalter",
-          "geburtsdatum",
-          "umfang",
-          "medien"
+          "geburtsdatum_gespeichert"
         ],
         "title": "FLRegistrierungBestaetigungAnsichtResponse",
         "description": "What one confirmation link opens, and no field past the ones declared here (`docs/backend/spec.md :: I286`)."
@@ -19972,8 +19924,15 @@
             "title": "Token"
           },
           "geburtsdatum": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Geburtsdatum"
           },
           "umfang": {
@@ -20019,7 +19978,7 @@
           "text_version"
         ],
         "title": "FLRegistrierungBestaetigungPayload",
-        "description": "One pupil's own answer: their date of birth, and on the new pupil's page the two consents that stand under one record."
+        "description": "One pupil's own answer: their date of birth where the page asks it, and on the new pupil's page the two consents."
       },
       "FLRegistrierungBestaetigungResponse": {
         "properties": {
@@ -20038,8 +19997,15 @@
             "title": "Ergebnis"
           },
           "geburtsdatum": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Geburtsdatum"
           },
           "umfang": {
@@ -22039,17 +22005,6 @@
             ],
             "title": "Zustand"
           },
-          "text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Text Version"
-          },
           "mindestalter": {
             "type": "integer",
             "title": "Mindestalter"
@@ -22068,7 +22023,6 @@
         "type": "object",
         "required": [
           "zustand",
-          "text_version",
           "mindestalter",
           "medien_mindestalter",
           "frist"

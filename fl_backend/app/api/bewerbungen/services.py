@@ -536,7 +536,7 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     **_per_seat("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am"),
     # The address for the ban list alone, as the answer's read takes it: the response model declares
     # no field to carry it.
-    **_per_seat("kontakte", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version", *KONTAKT_SEITE_FIELDS),
+    **_per_seat("kontakte", "email", "einwilligung.bestaetigt_am", *KONTAKT_SEITE_FIELDS),
     # A declaration naming a seat, holding nobody's details: `paired_seat` reads it, and the view
     # serves only the pair it resolves for this link's own seat.
     "kontakte.trainer_ist_zugleich": 1,
@@ -762,7 +762,7 @@ def build_saison_token_filter(*, token_hash: str) -> Mapping[str, Any]:
 # `schule`.
 SAISON_EINWILLIGUNG_FIELDS: Mapping[str, int] = {
     **_per_seat("bestaetigungen", SAISON_TOKEN_FIELD, "abgelehnt_am", "frist"),
-    **_per_seat("kontakte", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version", *KONTAKT_SEITE_FIELDS),
+    **_per_seat("kontakte", "email", "einwilligung.bestaetigt_am", *KONTAKT_SEITE_FIELDS),
     "kontakte.trainer_ist_zugleich": 1,
     "saison_id": 1,
     "name": 1,
@@ -772,7 +772,11 @@ SAISON_EINWILLIGUNG_FIELDS: Mapping[str, int] = {
 
 # The answer's read writes on the row, so it keys the patch on `_id`, and reads each seat's choices
 # and their evidence as `EINWILLIGUNG_ANTWORT_FIELDS` does.
-SAISON_EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {**SAISON_EINWILLIGUNG_FIELDS, **_per_seat("kontakte", *KONTAKT_WAHL_FIELDS), "_id": 1}
+SAISON_EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
+    **SAISON_EINWILLIGUNG_FIELDS,
+    **_per_seat("kontakte", "einwilligung.text_version", *KONTAKT_WAHL_FIELDS),
+    "_id": 1,
+}
 
 
 def saison_frist_of(*, bestaetigungen: Any, seat: str) -> Any:

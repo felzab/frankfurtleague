@@ -927,12 +927,12 @@ class TestTheSentinelIsNobodyToAdmit:
 
 
 async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    """The returning pupil's page pressed: a birthdate, its label, and no choice."""
+    """The returning pupil's page pressed over a stored birthdate: its label, and no choice and no date."""
 
     return await post_bestaetigung(
         antwort_data=FLRegistrierungBestaetigungPayload(
             token=TOKEN,
-            geburtsdatum=GEBURTSDATUM,
+            geburtsdatum=None,
             umfang=None,
             medien=None,
             text_version=LAUFENDE_FASSUNGEN["bestaetigung_spieler_wiederkehrend"],
@@ -1025,9 +1025,9 @@ class TestAReturningRegistration:
         assert (person["geburtsdatum"], person["email"]) == (GEBURTSDATUM, FOLDED_EMAIL)
 
     def test_a_withdrawal_made_while_the_page_stood_open_stands(self, mongo_replica_set_url: str):
-        """The page opened showing media on, the account page withdrew it, the page was pressed, the team admitted.
+        """The page opened while media stood on, the account page withdrew it, the page was pressed, the team admitted.
 
-        A press sending the choices its page showed would stamp that grant after the withdrawal, and the admission carry it.
+        A press re-sending the opening choices would stamp that grant after the withdrawal, and the admission carry it.
         """
 
         stored_id = ObjectId()
@@ -1054,7 +1054,7 @@ class TestAReturningRegistration:
 
         view, einwilligung = on_a_league(mongo_replica_set_url, body)
 
-        assert (view.seite, view.medien) == ("bestaetigung_spieler_wiederkehrend", True)
+        assert view.seite == "bestaetigung_spieler_wiederkehrend"
         assert (einwilligung["medien"], einwilligung["nachweis"]["medien"]["text_version"]) == (False, KONTO_LABEL)
 
 

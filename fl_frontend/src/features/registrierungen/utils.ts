@@ -182,8 +182,9 @@ export async function mapBestaetigungRefusal(
     // backend's sends this, which a reopened link would offer again: switching it off is the repair.
     case "REQ-REGISTRIERUNG-010":
       return { error: medienNochNicht((await ansicht())?.medien_mindestalter ?? null) };
-    // Choices the link's page did not ask: no page of ours sends it, the label check refusing a
-    // mismatched page first, so only a drifted client meets this, and the mail's link reopens the page.
+    // Answers the page did not ask: a page whose person's stored birthdate was set or cleared since it
+    // opened, or a drifted client, the label check refusing a mismatched page first. The mail's link
+    // reopens it.
     case "REQ-REGISTRIERUNG-017":
       return { error: ANTWORT_NEU_OEFFNEN };
     // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a

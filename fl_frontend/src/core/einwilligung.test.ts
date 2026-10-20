@@ -217,7 +217,8 @@ describe("a page's keyed words", () => {
     for (const [fassung, schluessel, bedien] of [
       ...KONTAKTSEITEN.map((kontakt) => [kontakt, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL] as const),
       [SPIELER, SPIELER_ABSATZ_SCHLUESSEL, UMFANG] as const,
-      [SPIELER_WIEDERKEHREND, SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL, UMFANG] as const,
+      // No control keys: that page asks no choice and shows none.
+      [SPIELER_WIEDERKEHREND, SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL, []] as const,
       [SCHIEDSRICHTER, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL, UMFANG] as const,
     ]) {
       const { absaetze } = gekeyteFassung(fassung, schluessel, bedien);
