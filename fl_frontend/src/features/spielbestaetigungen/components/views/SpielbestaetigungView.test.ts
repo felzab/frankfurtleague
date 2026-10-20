@@ -14,6 +14,7 @@ import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
+import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import type { FLSpielbestaetigungAnsichtResponse } from "../../schemas.ts";
@@ -96,6 +97,10 @@ const getippt = (datum: string): string => {
   const [jahr, monat, tag] = datum.split("-");
   return `${tag ?? ""}${monat ?? ""}${jahr ?? ""}`;
 };
+
+/** Both presses of the Zusage, which the second alone sends. */
+const sagZu = (user: ReturnType<typeof userEvent.setup>, whileArmed?: () => void): Promise<void> =>
+  pressTwice(user, { resting: "Zusagen", armed: "Ja, zusagen", whileArmed });
 
 /** Opens the proposal and fills its date, its kick-off and, where given, its reason. */
 async function schlageVor(
@@ -209,16 +214,38 @@ describe("the fixture confirmation page", () => {
 });
 
 describe("what the press sends", () => {
-  it("sends a Zusage carrying neither a proposal nor a reason, and shows its receipt", async () => {
+  /* The first press of any of the club's seats binds the club, and the page offers no way back: one press must not commit. */
+  it("arms a Zusage on the first press and sends it once on the second, carrying neither a proposal nor a reason", async () => {
     const { sent } = answerEveryFetch({ success: true, zustand: "zugesagt", vorschlag: null });
 
     render(h(SpielbestaetigungView, { start: OFFEN }));
-    await userEvent.setup().click(screen.getByRole("button", { name: /Zusagen/ }));
+    await sagZu(userEvent.setup(), () => {
+      assert.deepEqual(sent, [], "the first press sent the Zusage");
+      // One answer armed at a time, as the referee's panel hides its decline.
+      assert.ok(screen.queryByRole("button", { name: ANDEREN_TERMIN_VORSCHLAGEN }) === null, "the proposal stands beside the armed Zusage");
+    });
     await act(fetchMock.answered);
 
     assert.deepEqual(sent, [{ token: TOKEN, antwort: "zugesagt", vorschlag: null, begruendung: null }]);
     assert.ok(await screen.findByRole("heading", { name: "Termin bestätigt" }));
     assertOwnPanel(document.body.innerHTML, "Für Lessing-Kolleg ist der Termin bestätigt.", "zugesagt-neu");
+    // A boolean rather than the node: a failing assertion's report inspects a jsdom node's whole window.
+    const gelandet = document.activeElement === document.querySelector('section[role="status"]');
+    assert.ok(gelandet, "the receipt replaced the form and the focus fell to the page");
+  });
+
+  it("sends nothing on a cancelled Zusage, and arms again on the next press", async () => {
+    const { sent } = answerEveryFetch({ success: true, zustand: "zugesagt", vorschlag: null });
+    const user = userEvent.setup();
+
+    render(h(SpielbestaetigungView, { start: OFFEN }));
+    await user.click(screen.getByRole("button", { name: "Zusagen" }));
+    await user.click(screen.getByRole("button", { name: "Abbrechen" }));
+
+    assert.ok(screen.getByRole("button", { name: ANDEREN_TERMIN_VORSCHLAGEN }), "the cancel left the proposal hidden");
+    await user.click(screen.getByRole("button", { name: "Zusagen" }));
+    assert.ok(screen.getByRole("button", { name: "Ja, zusagen" }), "the press after a cancel did not arm");
+    assert.deepEqual(sent, [], "a cancelled Zusage was sent");
   });
 
   it("sends a proposal as a decline carrying the typed date, kick-off and reason", async () => {
@@ -252,9 +279,14 @@ describe("what the press sends", () => {
 
   /* Both presses wait on the one write, and only the pressed one says so: a proposal button reading „Sendet...“ under
      a Zusage tells the reader the wrong answer is on its way. */
-  for (const [gedrueckt, anderer, gespeichert] of [
-    ["Zusagen", "Vorschlag senden", { success: true, zustand: "zugesagt", vorschlag: null }],
-    ["Vorschlag senden", "Zusagen", { success: true, zustand: "abgelehnt", vorschlag: { datum: "2026-11-14", uhrzeit: "16:00:00" } }],
+  for (const [gedrueckt, anderer, drueckt, gespeichert] of [
+    ["Zusagen", "Vorschlag senden", sagZu, { success: true, zustand: "zugesagt", vorschlag: null }],
+    [
+      "Vorschlag senden",
+      "Zusagen",
+      (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole("button", { name: /Vorschlag senden/ })),
+      { success: true, zustand: "abgelehnt", vorschlag: { datum: "2026-11-14", uhrzeit: "16:00:00" } },
+    ],
   ] as const) {
     it(`keeps „${anderer}“ under its own words while „${gedrueckt}“ is sending`, async () => {
       let antworte: (antwort: Response) => void = () => assert.fail("the press sent no request");
@@ -263,12 +295,14 @@ describe("what the press sends", () => {
 
       render(h(SpielbestaetigungView, { start: OFFEN }));
       await schlageVor(user, { datum: "2026-11-14", uhrzeit: "16:00" });
-      await user.click(screen.getByRole("button", { name: new RegExp(gedrueckt) }));
+      await drueckt(user);
 
       // Answered whatever the reading, so a failure here leaves no write in flight into the next case.
       try {
-        assert.equal(screen.getAllByRole("button", { name: /Sendet\.\.\./ }).length, 1, "both presses read as sending, or neither");
-        assert.ok(screen.getByRole("button", { name: new RegExp(anderer) }), `„${anderer}“ lost its words under the other press`);
+        // Hidden ones counted too: an armed Zusage hides the proposal, whose words must still not claim the write.
+        const laufend = screen.getAllByRole("button", { name: /Sendet\.\.\.|Sagt zu\.\.\./, hidden: true });
+        assert.equal(laufend.length, 1, "both presses read as sending, or neither");
+        assert.ok(screen.getByRole("button", { name: new RegExp(anderer), hidden: true }), `„${anderer}“ lost its words under the other press`);
       } finally {
         antworte(new Response(JSON.stringify(gespeichert), { status: 200 }));
         await act(fetchMock.answered);
@@ -301,7 +335,7 @@ describe("what a refused press does to the page", () => {
       answerEveryFetch({ success: false, zustand: zustand });
 
       render(h(SpielbestaetigungView, { start: OFFEN }));
-      await userEvent.setup().click(screen.getByRole("button", { name: /Zusagen/ }));
+      await sagZu(userEvent.setup());
       await act(fetchMock.answered);
 
       assert.ok(await screen.findByRole("heading", { name: ueberschrift }), "the page kept the form the press cannot use again");
@@ -316,7 +350,7 @@ describe("what a refused press does to the page", () => {
     answerEveryFetch({ success: false, zustand: "zugesagt", beantwortet_von: { art: "kontakt", rolle: "trainer" } });
 
     render(h(SpielbestaetigungView, { start: OFFEN }));
-    await userEvent.setup().click(screen.getByRole("button", { name: /Zusagen/ }));
+    await sagZu(userEvent.setup());
     await act(fetchMock.answered);
 
     assert.ok(await screen.findByRole("heading", { name: "Schon erledigt" }));
