@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -33,14 +34,45 @@ describe("a db file's replica set, started through the helper", () => {
   });
 });
 
-describe("a db file's replica set whose mongod exits at start", () => {
-  it("fails its start naming the container's last log lines", async () => {
-    // The image's own entrypoint, which hands the option to mongod ahead of the replica set's command.
-    const refusing = replicaSetContainer().withEntrypoint(["docker-entrypoint.sh", REFUSED_OPTION]);
+const UNHEALTHY_MARKER = "logged before its health check failed";
 
-    await assert.rejects(startJudged(refusing), (failure) => {
+/** Alive for good, so its ports are bound whenever testcontainers looks, and failing its first health check. */
+const unhealthy = () =>
+  replicaSetContainer()
+    .withEntrypoint(["sh", "-c", `echo '${UNHEALTHY_MARKER}'; exec sleep infinity`])
+    .withHealthCheck({ test: ["CMD-SHELL", "exit 1"], interval: 1000, retries: 1 });
+
+const rejectsNaming = (start: Promise<unknown>, wait: RegExp, logged: string) =>
+  assert.rejects(start, (failure) => {
+    assert.ok(failure instanceof Error, String(failure));
+    assert.match(failure.message, wait);
+    assert.ok(failure.message.includes(logged), `the container's log never reached the failure: ${failure.message}`);
+    return true;
+  });
+
+/* testcontainers fails a start in its port wait, before it hands over the container's log, or in the
+   health check after it: each case holds its container to one of the two, whatever the machine's load. */
+describe("a db file's replica set that fails its start", () => {
+  it("fails in the health check naming the container's last log lines", async () => {
+    await rejectsNaming(startJudged(unhealthy()), /^Health check failed/, UNHEALTHY_MARKER);
+  });
+
+  it("fails in the port wait naming the container's last log lines, and removes the container", async () => {
+    const name = `fl-unbound-${randomUUID()}`;
+    // With no network nothing is published, however soon mongod exits. The image's own entrypoint hands
+    // the option to mongod ahead of the replica set's command.
+    const unbound = replicaSetContainer().withName(name).withNetworkMode("none").withEntrypoint(["docker-entrypoint.sh", REFUSED_OPTION]);
+
+    await rejectsNaming(startJudged(unbound), /ports to be bound/, REFUSED_OPTION);
+    // Docker refuses a container a name another still holds, so this start reaches its health check only once the first is gone.
+    await rejectsNaming(startJudged(unhealthy().withName(name)), /^Health check failed/, UNHEALTHY_MARKER);
+  });
+
+  it("fails with Docker's own refusal where no container was created", async () => {
+    await assert.rejects(startJudged(replicaSetContainer().withName("refused name")), (failure) => {
       assert.ok(failure instanceof Error, String(failure));
-      assert.ok(failure.message.includes(REFUSED_OPTION), `the container's log never reached the failure: ${failure.message}`);
+      assert.match(failure.message, /invalid container name/);
+      assert.doesNotMatch(failure.message, /log lines/);
       return true;
     });
   });
