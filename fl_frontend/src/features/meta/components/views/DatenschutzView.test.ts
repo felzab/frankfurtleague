@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
 
-import { ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_NACHLAUF_TAGE } from "@/core/adresswechsel.ts";
+import {
+  ADRESSWECHSEL_GENEHMIGUNG_TAGE,
+  ADRESSWECHSEL_GUELTIG_STUNDEN,
+  ADRESSWECHSEL_NACHLAUF_TAGE,
+  ADRESSWECHSEL_WARTEZEIT_TAGE,
+} from "@/core/adresswechsel.ts";
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { ADMIN_WINDOW_HOURS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes.ts";
 import { CODE_FAILURE_WINDOW_HOURS } from "@/core/signInCode.ts";
@@ -64,6 +69,17 @@ const ZAHLWORT: Readonly<Record<number, string>> = { 3: "drei", 5: "fünf", 7: "
 function inWorten(zahl: number): string {
   const wort = ZAHLWORT[zahl];
   assert.ok(wort !== undefined, `the notice writes ${String(zahl)} in a word this case does not hold`);
+
+  return wort;
+}
+
+/* A count of days whole weeks long, which German states in weeks; the case's own table, as `ZAHLWORT` is, so a wrong
+   word in `core/adresswechsel.ts`'s map fails rather than agreeing with itself. */
+const WOCHEN: Readonly<Record<number, string>> = { 7: "eine Woche", 14: "zwei Wochen" };
+
+function inWochen(tage: number): string {
+  const wort = WOCHEN[tage];
+  assert.ok(wort !== undefined, `the notice states ${String(tage)} days in weeks this case does not hold`);
 
   return wort;
 }
@@ -258,7 +274,7 @@ describe("the privacy notice's retention table", () => {
         "Adresse, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach " +
         `${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem ` +
         "Versand, der Stopp-Link bis die Änderung gilt. Ist eine Frist abgelaufen, endet die Änderung innerhalb einer Stunde. Hat " +
-        "die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie eine Woche nach ihrer Bestätigung; kann sie " +
+        `die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie ${inWochen(ADRESSWECHSEL_WARTEZEIT_TAGE)} nach ihrer Bestätigung; kann sie ` +
         "dann nicht gelten, schreiben wir der neuen Adresse, dass sie nicht gilt, ohne den Grund zu nennen",
     );
   });
@@ -270,9 +286,9 @@ describe("the privacy notice's retention table", () => {
       "Deine E-Mail-Adresse änderst Du selbst in Deinem Konto, gleich als was Du bei uns eingetragen bist. Die neue gilt erst, wenn " +
         "Du sie über den Link bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige " +
         "schicken wir einen Hinweis mit einem Link, über den sie die Änderung stoppen kann. Hat Deine Adresse Zugang zur Verwaltung, " +
-        "gilt die neue erst, wenn eine andere Person aus der Verwaltung zustimmt; ohne diese Zustimmung endet die Änderung eine Woche " +
+        `gilt die neue erst, wenn eine andere Person aus der Verwaltung zustimmt; ohne diese Zustimmung endet die Änderung ${inWochen(ADRESSWECHSEL_GENEHMIGUNG_TAGE)} ` +
         "nach ihrem Beginn. Erreichst Du Deine bisherige Adresse nicht mehr, " +
-        "ändert die Verwaltung sie auf Deine Bitte; die neue gilt dann erst eine Woche nach ihrer Bestätigung. Gilt die neue, gilt sie " +
+        `ändert die Verwaltung sie auf Deine Bitte; die neue gilt dann erst ${inWochen(ADRESSWECHSEL_WARTEZEIT_TAGE)} nach ihrer Bestätigung. Gilt die neue, gilt sie ` +
         "für alles, was unter der bisherigen steht: Deine Einträge als Spielerin oder Spieler, einen bestätigten Eintrag als " +
         "Schiedsrichterin oder Schiedsrichter, Deine bestätigten Plätze als Kontaktperson, Deine Registrierungen und einen Zugang zur " +
         "Verwaltung; die bisherige bekommt eine Nachricht darüber.",

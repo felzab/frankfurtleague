@@ -6,9 +6,12 @@ export const ADRESSWECHSEL_GUELTIG_STUNDEN = 24;
 
 /**
  * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days a change an administrator started
- * with a reason waits after its confirmation, so the address on file can still stop it.
+ * with a reason waits after its confirmation, so the address on file can still stop it. Exported for
+ * `fl_backend/tests/shared/test_frontend_mirrors.py`, which reads it by its `export const` line; the privacy notice's
+ * render test holds its words to it.
+ * @internal
  */
-const ADRESSWECHSEL_WARTEZEIT_TAGE = 7;
+export const ADRESSWECHSEL_WARTEZEIT_TAGE = 7;
 
 /**
  * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days an ended change's record, holding no address,
@@ -18,9 +21,10 @@ export const ADRESSWECHSEL_NACHLAUF_TAGE = 30;
 
 /**
  * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days after its start a change moving a grant waits for
- * another administrator's approval before it lapses.
+ * another administrator's approval before it lapses. Exported for the mirror test, as the waiting time is.
+ * @internal
  */
-const ADRESSWECHSEL_GENEHMIGUNG_TAGE = 7;
+export const ADRESSWECHSEL_GENEHMIGUNG_TAGE = 7;
 
 // Indexed by the constant, so a waiting time this map has no words for fails the type check rather
 // than printing a numeral beside every other duration the pages spell out.
