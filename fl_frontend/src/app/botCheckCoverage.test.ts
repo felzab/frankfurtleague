@@ -57,10 +57,7 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "app/api/bestaetigung/spieler/route.ts POST": "its credential is a link the league minted and mailed; it mails no address the request types",
   "app/api/bestaetigung/schiedsrichter/route.ts POST":
     "its credential is a link the league minted and mailed; it mails no address the request types",
-  "app/api/bestaetigung/schiedsrichter/adresse/route.ts POST":
-    "its credential is a link the league minted and mailed; it mails no address the request types",
-  "app/api/bestaetigung/spieler/adresse/route.ts POST":
-    "its credential is a link the league minted and mailed; it mails no address the request types",
+  "app/api/bestaetigung/adresse/route.ts POST": "its credential is a link the league minted and mailed; it mails no address the request types",
   "app/api/bestaetigung/spiel/route.ts POST": "its credential is a link the league minted and mailed; it mails no address the request types",
   "app/api/bewerbung/kuerzel/route.ts GET": "a read: it writes nothing and mails nobody",
   "app/api/revalidate/route.ts POST": "its credential is the system key, which no visitor holds, and the edge refuses it; it mails nobody",
