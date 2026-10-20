@@ -719,9 +719,9 @@ the triage's decisions and a fixture confirmation's settle and discard
 what nothing here can put back, so each confirms in place behind I37's shared escalation and none
 offers an undo. **The triage's decisions hand on rather than destroy**: each mails the school as it
 commits, and no endpoint recalls a message or decides an application a second time
-(`REQ-BEWERBUNG-001`). **A confirmation's settle and discard record the league's word on a club's
-behalf**: no endpoint reopens an answered or closed row, and a discarded proposal's club is never
-asked about that Ansetzung again.
+(`REQ-BEWERBUNG-001`). **A confirmation's settle and discard record the league's word on a party's
+behalf**, the settle on a referee's row as on a club's: no endpoint reopens an answered or closed
+row, and a discarded proposal's club is never asked about that Ansetzung again.
 
 **The messages are not all addressed alike.** A decision reaches every mailbox the application
 names (I39). Every message addressed to the submitter reaches the Ansprechperson's mailbox alone

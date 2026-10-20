@@ -121,7 +121,7 @@ export function SpielbestaetigungPanel({
             mode="reveal"
             label="Hinweis zu den Spielbestätigungen"
             body={{
-              lead: "Wer diesem Termin zugesagt, abgesagt oder noch nicht geantwortet hat.",
+              lead: "Wer diesem Termin zugesagt, abgelehnt oder noch nicht geantwortet hat.",
               points: [{ term: "Die Begründung", text: "wird am Ende der Saison, die auf diese folgt, gelöscht." }],
             }}
           />
@@ -230,25 +230,27 @@ function BestaetigungZeile({
         {antwort?.begruendung && <Angabe label="Begründung">„{antwort.begruendung}“</Angabe>}
         <Angabe label="Frist">{formatSpielDatum(zeile.frist)}</Angabe>
         <Angabe label="Angefragt">{zeile.angefragt_am === null ? <Leer>Nicht verschickt</Leer> : formatSpielDatum(zeile.angefragt_am)}</Angabe>
-        {zeile.erinnert_am.length > 0 && <Angabe label="Erinnert">{zeile.erinnert_am.map((tag) => formatSpielDatum(tag)).join(", ")}</Angabe>}
+        {zeile.erinnert_am.length > 0 && (
+          <Angabe label="Erinnert am">{zeile.erinnert_am.map((tag) => formatSpielDatum(tag)).join(", ")}</Angabe>
+        )}
         {geschlossen !== null && (
           <Angabe label="Geschlossen">
             {SCHLIESSGRUND_LABELS[geschlossen.grund]}, {formatSpielDatum(geschlossen.am)}
           </Angabe>
         )}
-        {/* What an administrator can act on alone: a delivered message, or one still under way, raises nothing. */}
+        {/* Each seat holding a link, in `LinkStandAngaben`'s words: a delivered message, or one under way, is nothing
+            to report, and a seat the row minted no link for has no line. */}
         {KONTAKT_ROLLEN.flatMap(({ value, label }) => {
-          const zustellung = zeile.kontakte?.[value]?.zustellung ?? null;
-          const chip = zustellung === null ? null : ZUSTELLUNG_CHIP[zustellung.stand];
-          return chip === null
-            ? []
-            : [
-                <Angabe
-                  key={value}
-                  label={`Zustellung ${label}`}>
-                  <span className={`${labelBadge(chip.tone)} h-7 shrink-0`}>{chip.label}</span>
-                </Angabe>,
-              ];
+          const sitz = zeile.kontakte?.[value] ?? null;
+          if (sitz === null) return [];
+          const chip = sitz.zustellung === null ? null : ZUSTELLUNG_CHIP[sitz.zustellung.stand];
+          return [
+            <Angabe
+              key={value}
+              label={`Zustellung ${label}`}>
+              {chip === null ? <Leer>Nichts zu melden</Leer> : <span className={`${labelBadge(chip.tone)} h-7 shrink-0`}>{chip.label}</span>}
+            </Angabe>,
+          ];
         })}
       </dl>
 

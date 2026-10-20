@@ -152,6 +152,13 @@ describe("the confirmations' panel in the match editor", () => {
     assert.ok(screen.getByText(/^Betrifft den früheren Termin 07\.11\.2026 um 19:00 Uhr/));
   });
 
+  // `LinkStandAngaben`'s words, so one link state reads alike in every administrator editor showing a link.
+  it("reads each seat holding a link as the other link editors do, and none for a seat holding none", () => {
+    renderEditor({ stand: { zeilen: [zeile()], gelaufenAm: "2026-11-01" } });
+
+    assert.equal(screen.getAllByText("Nichts zu melden").length, 2, "the two seats holding a link, and not the empty third");
+  });
+
   it("says in words that no pass has run since, where one was due", () => {
     renderEditor({ stand: { zeilen: [], gelaufenAm: "2026-10-30" } });
     assert.ok(screen.getByText("Letzter Lauf: 30.10.2026. Seitdem wurde nicht mehr angefragt."));
