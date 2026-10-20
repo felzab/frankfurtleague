@@ -1786,9 +1786,15 @@ going on to name it since its hash matches nothing the record holds. Four things
 - **A Widerspruch's replay mails nobody**, its submitter having been told when it was made.
 - **An address change that took effect inside the window, started before the snapshot**, replays
   from its line, moving every record again; **one started inside the window** reads `left for
-review`, the restored record holding no change to move: ask the person to start it again on their
-  account page ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)). A change
-  started or confirmed inside the window and not yet in effect is in no journal: its person starts
+review`, the restored database holding no change to move: ask the person to start it again on their
+  account page ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)). **The
+  sign-in store is not restored**, so the account and its passkeys stay at the new address while the
+  records stand at the replaced one: the person signs in at the replaced address by code to start
+  again, and once the new mailbox confirms, the new address signs in to the account it kept. A
+  grant holder's effect whose approval came after the snapshot also reads `left for review`: the
+  restored change waits on an approval again, and where its week is past an approval is refused
+  (`REQ-ADRESSWECHSEL-003`), so discard it and have the person start again. A change started,
+  confirmed or approved inside the window and not yet in effect is in no journal: its person starts
   it again too.
 - **An address an administrator corrected inside the window**: a referee's who had not confirmed,
   retired or not, in the referee editor, or a contact seat's through

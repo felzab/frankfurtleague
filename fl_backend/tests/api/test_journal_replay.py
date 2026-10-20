@@ -900,10 +900,11 @@ class TestAnErasureAfterAChangeTookEffect:
         ("erased", "code", "listed_line", "absent"),
         [
             pytest.param("2026-10-03T10:00:02+00:00", 1, "held in spieler: 1 field(s), ", "nothing to replay", id="erased after the effect"),
+            # The change itself started after the snapshot: its person is asked to start it again, never left untold.
             pytest.param(
                 "2026-10-03T10:00:00+00:00",
-                0,
-                "    no such record",
+                1,
+                "started after the snapshot: its person starts the change again",
                 "held in spieler",
                 id="an earlier erasure of the address it moved to",
             ),
