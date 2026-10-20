@@ -8,6 +8,7 @@ import type {
   FLKontaktperson,
   FLPatchSaisonTeamPayload,
   FLPostSaisonTeamPayload,
+  FLSaisonTeamAdresswechsel,
   FLSaisonTeamBestaetigungenAnsicht,
   FLSaisonTeamKontakte,
   FLTrikotFarbe,
@@ -118,6 +119,8 @@ export type TeamSaisonMembership = {
     kontakte: FLSaisonTeamKontakte | null;
     /** Each seat's link, read beside the block for the contacts editor. */
     bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null;
+    /** Each seat's pending address change, read beside the block for the contacts editor. */
+    adresswechsel: FLSaisonTeamAdresswechsel | null;
     /** The token `PATCH .../kontakte` judges a save against, carried from the read (`REQ-KONTAKT-001`). */
     kontakte_stand: string;
   } | null;

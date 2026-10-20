@@ -20,6 +20,7 @@ doubleActionRequest();
 const { answerSettled, publishedRefusals } = await import("@/shared/testing/publishedRefusals.ts");
 const { isFunktionLost, isRefusal } = await import("@/shared/utils/actionError.ts");
 const { replayRefusal } = await import("@/shared/utils/adminUndo.ts");
+const adresswechsel = await import("@/features/adresswechsel/refusals.ts");
 const berechtigungen = await import("@/features/berechtigungen/refusals.ts");
 const bewerbungen = await import("@/features/bewerbungen/refusals.ts");
 const { BEWERBUNG_MIN_ALTER } = await import("@/features/bewerbungen/constants.ts");
@@ -39,7 +40,6 @@ const spiele = await import("@/features/spiele/refusals.ts");
 const spielbestaetigungen = await import("@/features/spielbestaetigungen/utils.ts");
 const spielberichte = await import("@/features/spielberichte/utils.ts");
 const spieler = await import("@/features/spieler/refusals.ts");
-const spielerQueries = await import("@/features/spieler/queries.ts");
 const spielorte = await import("@/features/spielorte/refusals.ts");
 const spieltage = await import("@/features/spieltage/refusals.ts");
 const teams = await import("@/features/teams/refusals.ts");
@@ -128,16 +128,20 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
       ansicht: { mindestalter: 16, medien_mindestalter: MEDIEN_MIN_ALTER },
     })),
   "POST /schiedsrichter/bestaetigung/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,
-  "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": schiedsrichter.mapAdresswechselRefusal,
-  "POST /schiedsrichter/adresswechsel": schiedsrichterQueries.mapSchiedsrichterAdresswechselRefusal,
-  "POST /schiedsrichter/adresswechsel/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,
-  "POST /schiedsrichter/adresswechsel/stopp": schiedsrichterQueries.mapSchiedsrichterAdresswechselRefusal,
-  "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel": schiedsrichter.mapAdresswechselAntragRefusal,
   // The last owner's refusal is the slice's; the unique index's, which no request reaches without a hand
   // edit racing it, the shared reader's.
   "POST /identitaet/selbst/erasure": kontoRefusals.mapLoeschungRefusal,
-  "POST /konto/adresswechsel": kontoRefusals.mapKontoAdresswechselRefusal,
-  "POST /konto/adresswechsel/freigabe": kontoRefusals.mapKontoFreigabeRefusal,
+  "POST /konto/adresswechsel": adresswechsel.mapKontoAdresswechselRefusal,
+  "POST /konto/adresswechsel/freigabe": adresswechsel.mapKontoFreigabeRefusal,
+  // One link page and one tool for every address: the change is the address's, never a record's.
+  "POST /adresswechsel/bestaetigung/ansicht": adresswechsel.mapAdresswechselAnsichtRefusal,
+  "POST /adresswechsel/bestaetigung": adresswechsel.mapAdresswechselPresseRefusal,
+  "POST /adresswechsel/bestaetigung/stopp": adresswechsel.mapAdresswechselPresseRefusal,
+  "POST /adresswechsel/ansicht": adresswechsel.mapVerwaltungAnsichtRefusal,
+  "POST /adresswechsel": adresswechsel.mapVerwaltungStartRefusal,
+  "POST /adresswechsel/{adresswechsel_id}/einladen": adresswechsel.mapVerwaltungLinkRefusal,
+  "DELETE /adresswechsel/{adresswechsel_id}": adresswechsel.mapVerwaltungLinkRefusal,
+  "POST /adresswechsel/{adresswechsel_id}/genehmigung": adresswechsel.mapGenehmigungRefusal,
   // The operator's own address and a grant holder's are the slice's; the unique index's is the shared reader's.
   "POST /identitaet/erasure/ansicht": funktionen.mapErasureRefusal,
   "POST /identitaet/erasure": funktionen.mapErasureRefusal,
@@ -150,11 +154,6 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /spielbestaetigungen/{spielbestaetigung_id}/verwerfen": spielbestaetigungen.mapSpielbestaetigungAdminRefusal,
   // Written by the match undo's replay alone.
   "PATCH /spiele/paarungen": (error) => replayRefusal(error, spiele.PAARUNGEN_REPLAY_REFUSALS) ?? null,
-  "POST /spieler/{spieler_id}/adresswechsel": spieler.mapAdresswechselAntragRefusal,
-  "POST /spieler/{spieler_id}/adresswechsel/einladen": spieler.mapAdresswechselLinkRefusal,
-  "POST /spieler/adresswechsel": spielerQueries.mapSpielerAdresswechselRefusal,
-  "POST /spieler/adresswechsel/ansicht": spielerQueries.mapSpielerAdresswechselAnsichtRefusal,
-  "POST /spieler/adresswechsel/stopp": spielerQueries.mapSpielerAdresswechselRefusal,
   "GET /spieler/kader/{team_id}/{saison_id}": TEAM_FORBIDDEN_PANEL,
   "PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id}": spieler.mapKaderZeileRefusal,
   "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id}": SHARED_READER,

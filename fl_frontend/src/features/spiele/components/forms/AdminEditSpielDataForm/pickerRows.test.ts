@@ -45,7 +45,6 @@ const BESTAETIGT: FLSchiedsrichter = {
     nachweis: { umfang: null, medien: null },
   },
   bestaetigung: null,
-  adresswechsel: null,
 };
 
 /** One created and still waiting on its link, as the admin list serves it. */

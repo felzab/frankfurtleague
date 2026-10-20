@@ -107,6 +107,11 @@ describe("the referee's writes against the codes their endpoints publish", () =>
     assert.deepEqual(Object.keys(saveAnswer(refusedOn(CREATE_OPERATION, "REQ-SCHIEDSRICHTER-007"))?.fieldErrors ?? {}), ["kontakt.email"]);
   });
 
+  /* Only a page older than the confirmation sends a confirmed referee's address: the editor reads it, so the way on is the tool. */
+  it("answers a save moving a confirmed referee's address with the way to the address tool", () => {
+    assert.match(patchAnswer(refusedOn(SAVE_OPERATION, "REQ-SCHIEDSRICHTER-011"))?.error ?? "", /unter „Adressänderung auf Anfrage“/);
+  });
+
   /* Every refusal the re-send publishes, worded at the panel: nothing there is a form, so each is a
      sentence rather than a field error. */
   it("words every refusal the re-send publishes", () => {
@@ -183,8 +188,8 @@ const RECORD = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
-  adresswechsel: null,
-  abgelaufen: { bestaetigung: false, adresswechsel: false },
+  adresswechsel_id: null,
+  abgelaufen: { bestaetigung: false },
 };
 
 /** The record the editor page's read answers with, as the backend holds it at that moment. */
@@ -192,7 +197,7 @@ let stored: Record<string, unknown> = { ...RECORD, inactive_since: null };
 /** The registry's read failing, where a case asks it to: with a failure, or with words off their schema. */
 let registerFehlt: boolean | "vertragsbruch" = false;
 /** The read's judgement of each link's deadline, served beside the record. */
-let lapse = { bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: false };
+let lapse: { bestaetigung_abgelaufen: boolean; adresswechsel_id: string | null } = { bestaetigung_abgelaufen: false, adresswechsel_id: null };
 answerReadsWith((endpoint, schema, params) => {
   if (registerFehlt === true && endpoint.startsWith("/einwilligung/fassungen/")) throw new Error("backend unreachable");
   if (registerFehlt === "vertragsbruch" && endpoint.startsWith("/einwilligung/fassungen/")) return { acknowledged: 1 };
@@ -426,36 +431,22 @@ describe("which link the editor's page marks as lapsed", () => {
       return text;
     } finally {
       stored = { ...RECORD, inactive_since: null };
-      lapse = { bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: false };
+      lapse = { bestaetigung_abgelaufen: false, adresswechsel_id: null };
     }
   }
 
   it("marks the consent link's panel where only that link has lapsed", async () => {
-    const shown = await shownIn({ bestaetigung }, { bestaetigung_abgelaufen: true, adresswechsel_abgelaufen: false }, "Bestätigung");
+    const shown = await shownIn({ bestaetigung }, { bestaetigung_abgelaufen: true, adresswechsel_id: null }, "Bestätigung");
 
     assert.match(shown, /abgelaufen/, "the consent link's panel says nothing of the lapse the read served for it");
   });
 
-  // A confirmed referee: the only one an address change waits on, and one whose consent link no lapse costs.
-  it("marks the address change's panel, and not the consent link's, where only the change has lapsed", async () => {
-    const record = {
-      einwilligung: BESTAETIGT,
-      bestaetigung,
-      adresswechsel: {
-        email: "anna@neu.example",
-        weg: "konto" as const,
-        verschickt_am: "2026-10-01",
-        gueltig_bis: "2020-01-01T11:00:00Z",
-        freigegeben_am: null,
-        grund: null,
-        bestaetigt_am: null,
-        wirksam_ab: null,
-        zustellung: null,
-      },
-    };
-    const served = { bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: true };
+  /* The editor reads the change and moves nothing: one line, the same on every editor, links to the address tool. */
+  it("shows a change pending at a confirmed referee's address as the line linking to the address tool", async () => {
+    const id = "68c1f0a2b3c4d5e6f7a8b9e0";
+    const shown = await shownIn({ einwilligung: BESTAETIGT }, { bestaetigung_abgelaufen: false, adresswechsel_id: id }, "Kontakt");
 
-    assert.match(await shownIn(record, served, "Neue E-Mail-Adresse"), /abgelaufen/, "the change's panel misses the lapse served for it");
-    assert.doesNotMatch(await shownIn(record, served, "Bestätigung"), /abgelaufen/, "the consent link's panel took the change's lapse");
+    assert.match(shown, /Eine neue Adresse wartet auf ihre Bestätigung\. Zur Änderung/);
+    assert.doesNotMatch(shown, /Link an neue Adresse senden|Änderung verwerfen/, "the editor still starts or ends a change itself");
   });
 });

@@ -250,6 +250,7 @@ export function AdminKontakteEditForm({
             value={kontakte}
             stored={storedKontakte}
             bestaetigungen={storedMembership?.bestaetigungen ?? null}
+            adresswechsel={storedMembership?.adresswechsel ?? null}
             teamId={teamId}
             saisonId={saison.saisonId}
             nimmtLinks={kontaktZeile(saison.saisonStatus, storedMembership?.austritt ?? null) === "offen"}

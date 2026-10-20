@@ -10,8 +10,9 @@ import { Label } from "@heroui/react/label";
 import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
-import { ADRESSWECHSEL_WARTEZEIT_DAUER } from "@/core/adresswechsel";
 import { asSignInIdentifier } from "@/core/emailAddress";
+import { beantrageAdresswechselAction } from "@/features/adresswechsel/actions";
+import { AdresswechselGrundSchema, FLAdresswechselVerwaltungPayloadSchema } from "@/features/adresswechsel/schemas";
 import { formButton } from "@/shared/components/ui/formButtons";
 import {
   FIELD_ERROR_CLASSES,
@@ -31,16 +32,11 @@ import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 import { meldeAdresswechselVersand } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
+import { toFieldErrors } from "@/shared/utils/validation";
 
-import type { ActionResult } from "@/shared/types/types";
-import type { HinweisVersand, LinkVersand } from "@/shared/utils/linkVersand";
 import type { Key } from "@heroui/react/rac";
-import type { ZodType } from "zod";
 
 export const LINK_AN_NEUE_ADRESSE = "Link an neue Adresse senden";
-
-/** The address hint, both editors alike: a person who can sign in changes it on their own account page. */
-export const ADRESSE_HINWEIS = `Mit dieser Adresse meldet sich die Person an. Eine neue trägt sie selbst in ihrem Konto ein. Hier nur, wenn sie sich nicht mehr anmelden kann: Ohne Grund muss sie die neue mit ihrer bisherigen Adresse freigeben. Mit Grund gilt die neue erst ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung.`;
 
 /** The two ways an administrator starts a change: the address on file asked first, or a recorded reason and a waiting time. */
 type Weg = "fragen" | "unerreichbar";
@@ -53,49 +49,66 @@ const WEGE: readonly { id: Weg; label: string }[] = [
 /** Names the way chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
 const WEG_LABEL_ID = "adresswechsel-weg";
 
-/** The box's two refusable values; a refusal is kept with the value it was about and retracted by a keystroke away from it. */
-export type AdresswechselFehler = { email?: string; grund?: string };
+/**
+ * The box's typing, held by the tool above every read it makes, so a read answering after a write keeps the way and
+ * the reason: a way reset to its default would start a change asking the lost mailbox.
+ */
+export type AdresswechselEntwurf = { email: string; weg: Weg; grund: string };
 
-type Fehler = { satz: AdresswechselFehler; zu: { email: string; grund: string } };
+export const LEERER_ENTWURF: AdresswechselEntwurf = { email: "", weg: "fragen", grund: "" };
+
+/** The reason is sent only on the way that records one: the address on file is asked first exactly where it is null. */
+const gesendeterGrund = ({ weg, grund }: AdresswechselEntwurf): string | null => (weg === "unerreichbar" ? grund : null);
+
+type Fehler = { email?: string; grund?: string };
+
+/** The box's two values as the write's own schema judges them, at the press and never between keystrokes. */
+function fehlerIn(adresse: string, entwurf: AdresswechselEntwurf): Fehler {
+  const geprueft = FLAdresswechselVerwaltungPayloadSchema.safeParse({
+    adresse: adresse,
+    email: entwurf.email,
+    grund: gesendeterGrund(entwurf),
+  });
+  if (geprueft.success) return {};
+  const fehler = toFieldErrors(geprueft.error);
+  return { email: fehler.email, grund: fehler.grund };
+}
+
+/** The reason required on its way, so its box wears the star its refusal asks for: the payload's own field is nullable. */
+const MIT_GRUND = FLAdresswechselVerwaltungPayloadSchema.extend({ grund: AdresswechselGrundSchema });
 
 /**
- * Whether the box holds an address its press would send, which is also what the editor counts as unsaved:
- * compared as the backend compares it, both sides on the sign-in fold.
+ * Whether the box holds an address its press would send: compared as the backend compares it, both sides on the
+ * sign-in fold.
  */
-export const istAndereAdresse = (entwurf: string, gespeicherteAdresse: string): boolean =>
+const istAndereAdresse = (entwurf: string, gespeicherteAdresse: string): boolean =>
   entwurf.trim() !== "" && asSignInIdentifier(entwurf) !== asSignInIdentifier(gespeicherteAdresse);
 
 // `fl_frontend/src/features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx :: AdresseKorrigieren`'s box,
-// without its `<Form>`: this one stands inside the editor's, and Enter is taken here or it submits the draft.
-/** The administrator's start of a change, both lanes' editors alike. */
+// without its `<Form>`: Enter is taken here, the press being one write of its own.
+/** The administrator's start of a change for the address the tool read. */
 export function AdresswechselBeantragen({
-  gespeicherteAdresse,
-  isDirty,
+  adresse,
   entwurf,
+  ersetztOffen,
   fokussieren,
-  schema,
-  pruefe,
-  write,
   onEntwurfChange,
-  onFertig,
+  onGeschrieben,
+  onAbbrechen,
 }: {
-  gespeicherteAdresse: string;
-  isDirty: boolean;
-  entwurf: string;
+  /** The address on file, folded as the read answered it: what the start names, never a second typing of it. */
+  adresse: string;
+  entwurf: AdresswechselEntwurf;
+  /** Whether a change already stands at the address, which this start ends. */
+  ersetztOffen: boolean;
   fokussieren: boolean;
-  /** The lane's payload schema, whose required marks the fields read. */
-  schema: ZodType;
-  /** The lane schema's own sentences for the two values, empty where it takes them. */
-  pruefe: (email: string, grund: string | null) => AdresswechselFehler;
-  write: (email: string, grund: string | null) => Promise<ActionResult<{ versand: LinkVersand | null; hinweis: HinweisVersand | null }>>;
-  onEntwurfChange: (next: string) => void;
-  onFertig: () => void;
+  onEntwurfChange: (next: AdresswechselEntwurf) => void;
+  onGeschrieben: () => void;
+  onAbbrechen: () => void;
 }) {
   const router = useRouter();
   const stepUp = useStepUp();
-  const [weg, setWeg] = useState<Weg>("fragen");
-  const [grund, setGrund] = useState("");
-  const [fehler, setFehler] = useState<Fehler | null>(null);
+  const [fehler, setFehler] = useState<{ satz: Fehler; zu: AdresswechselEntwurf } | null>(null);
   const [sendet, setSendet] = useState(false);
   const feldRef = useRef<HTMLInputElement>(null);
 
@@ -105,24 +118,17 @@ export function AdresswechselBeantragen({
     if (fokussieren) feldRef.current?.focus();
   }, [fokussieren]);
 
-  const unveraendert = !istAndereAdresse(entwurf, gespeicherteAdresse);
-  // The reason is sent only on the way that records one: an empty box there is the schema's to refuse.
-  const gesendeterGrund = weg === "unerreichbar" ? grund : null;
+  const unveraendert = !istAndereAdresse(entwurf.email, adresse);
 
-  const markiere = (satz: AdresswechselFehler) => {
-    setFehler({ satz: satz, zu: { email: entwurf, grund: grund } });
+  const markiere = (satz: Fehler) => {
+    setFehler({ satz: satz, zu: entwurf });
     feldRef.current?.focus();
-  };
-
-  const schliesse = (landing: ReturnType<typeof focusAfterWrite>) => {
-    landing.landed();
-    onFertig();
   };
 
   const sende = async () => {
     // The pending button is not the whole guard: Enter in the field presses too.
     if (sendet || unveraendert) return;
-    const satz = pruefe(entwurf, gesendeterGrund);
+    const satz = fehlerIn(adresse, entwurf);
     if (satz.email !== undefined || satz.grund !== undefined) {
       markiere(satz);
       return;
@@ -131,11 +137,11 @@ export function AdresswechselBeantragen({
     const landing = focusAfterWrite();
     // The link it mails replaces any the new address already holds (`docs/frontend/spec.md :: I432`).
     const res = await pressLinkWrite({
-      isDirty,
+      isDirty: false,
       stepUp,
       router,
       pending: setSendet,
-      write: () => write(entwurf, gesendeterGrund),
+      write: () => beantrageAdresswechselAction({ adresse: adresse, email: entwurf.email, grund: gesendeterGrund(entwurf) }),
       repair: LINK_ERNEUT_OHNE_ANTWORT,
     });
     if (res === null) return;
@@ -151,39 +157,41 @@ export function AdresswechselBeantragen({
       return;
     }
 
-    schliesse(landing);
+    landing.landed();
+    onGeschrieben();
     meldeAdresswechselVersand(res, res.message);
   };
 
-  const gezeigt = fehler !== null && fehler.zu.email === entwurf ? (fehler.satz.email ?? null) : null;
-  const grundGezeigt = fehler !== null && fehler.zu.grund === grund ? (fehler.satz.grund ?? null) : null;
+  // A refusal is kept with the value it was about and retracted by a keystroke away from it.
+  const gezeigt = fehler !== null && fehler.zu.email === entwurf.email ? (fehler.satz.email ?? null) : null;
+  const grundGezeigt = fehler !== null && fehler.zu.grund === entwurf.grund ? (fehler.satz.grund ?? null) : null;
+  const setze = (teil: Partial<AdresswechselEntwurf>) => onEntwurfChange({ ...entwurf, ...teil });
 
   return (
     <div className={`${PANEL_REVEAL_CLASSES} flex w-full flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm`}>
-      {/* The start's own payload, which the editor's save around it never submits. */}
-      <RequiredSchemas schemas={[schema]}>
+      {/* Said before the press rather than after it: the start ends the change shown above, its links with it. */}
+      {ersetztOffen && (
+        <p className="muted-hint text-pretty">Eine neue Änderung beendet die oben gezeigte, und ihre Links gelten nicht mehr.</p>
+      )}
+
+      <RequiredSchemas schemas={[entwurf.weg === "unerreichbar" ? MIT_GRUND : FLAdresswechselVerwaltungPayloadSchema]}>
         <TextField
           type="email"
           name="email"
-          value={entwurf}
+          value={entwurf.email}
           isInvalid={gezeigt !== null}
-          onChange={onEntwurfChange}
-          onBlur={() => {
-            // Missing is never a blur's business, and a value already refused keeps its refusal.
-            if (entwurf.trim() === "" || gezeigt !== null) return;
-            const satz = pruefe(entwurf, null).email;
-            if (satz !== undefined) setFehler({ satz: { email: satz }, zu: { email: entwurf, grund: grund } });
-          }}
+          onChange={(email) => setze({ email })}
           onKeyDown={(event) => {
             if (event.key !== "Enter") return;
             event.preventDefault();
             void sende();
           }}
           className="w-full sm:max-w-md">
-          {/* Not „E-Mail“: the stored address stands above, so the reader sees old over new. */}
+          {/* Not „E-Mail“: the address on file stands above, so the reader sees old over new. */}
           <Label className={FIELD_LABEL_CLASSES}>Neue E-Mail-Adresse</Label>
           <Input
             ref={feldRef}
+            autoComplete="off"
             placeholder="z.B. name@beispiel.de"
             className={FIELD_INPUT_CLASSES}
           />
@@ -202,10 +210,10 @@ export function AdresswechselBeantragen({
             isDetached
             selectionMode="single"
             disallowEmptySelection
-            selectedKeys={[weg]}
+            selectedKeys={[entwurf.weg]}
             onSelectionChange={(keys: Set<Key>) => {
               const [picked] = [...keys].map(String);
-              if (picked === "fragen" || picked === "unerreichbar") setWeg(picked);
+              if (picked === "fragen" || picked === "unerreichbar") setze({ weg: picked });
             }}
             className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
             {WEGE.map((option) => (
@@ -219,12 +227,12 @@ export function AdresswechselBeantragen({
           </ToggleButtonGroup>
         </div>
 
-        {weg === "unerreichbar" && (
+        {entwurf.weg === "unerreichbar" && (
           <TextField
             name="grund"
-            value={grund}
+            value={entwurf.grund}
             isInvalid={grundGezeigt !== null}
-            onChange={setGrund}
+            onChange={(grund) => setze({ grund })}
             onKeyDown={(event) => {
               if (event.key !== "Enter") return;
               event.preventDefault();
@@ -269,7 +277,7 @@ export function AdresswechselBeantragen({
           type="button"
           variant="secondary"
           isPending={sendet}
-          onPress={() => schliesse(focusAfterWrite())}
+          onPress={onAbbrechen}
           className={formButton({ intent: "cancel", stacks: true })}>
           Abbrechen
         </Button>

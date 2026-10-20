@@ -12,7 +12,7 @@ import { Label } from "@heroui/react/label";
 
 import { ADRESSWECHSEL_WARTEZEIT_DAUER, adresswechselZeitpunkt } from "@/core/adresswechsel";
 import { ADRESSWECHSEL_STOPPEN } from "@/core/adresswechselAntworten";
-import { LINK_AN_NEUE_ADRESSE } from "@/features/konto/components/forms/AdresswechselBeantragen";
+import { LINK_AN_NEUE_ADRESSE } from "@/features/adresswechsel/components/forms/AdresswechselBeantragen";
 import { gibAdresswechselFreiAction, starteAdresswechselAction, stoppeAdresswechselAction } from "@/features/konto/personActions";
 import { FLKontoAdresswechselPayloadSchema } from "@/features/konto/schemas";
 import { formButton } from "@/shared/components/ui/formButtons";
@@ -31,7 +31,7 @@ import { toFieldErrors } from "@/shared/utils/validation";
 import { pruefeInhaberAction } from "../../../actions";
 import { CodeConfirmation } from "../../ui/CodeConfirmation";
 
-import type { FLKontoAdresswechselOffen, FLKontoAdresswechselResponse } from "@/features/konto/schemas";
+import type { FLAdresswechselGenehmigungStand, FLKontoAdresswechselOffen, FLKontoAdresswechselResponse } from "@/features/konto/schemas";
 import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
 import type { ActionFailure } from "@/shared/types/types";
 import type { VersandTitel } from "@/shared/utils/linkVersandToast";
@@ -67,21 +67,39 @@ export type AdresswechselBestaetigung = ConfirmedUntil & {
   readonly inhaberAdresse: string;
 };
 
-/** The pending change's sentence, by the step it waits on; the pending address is never shown. */
+/** Who else must agree where the address holds a grant: an owner's change is another owner's to approve. */
+const genehmigerText = (genehmigung: FLAdresswechselGenehmigungStand): string =>
+  genehmigung.verwaltung === "owner"
+    ? "eine andere Inhaberin oder ein anderer Inhaber der Verwaltung"
+    : "eine andere Person aus der Verwaltung";
+
+/**
+ * The pending change's sentence, by the step it waits on. The address is the backend's string, whole where this
+ * person typed it and masked where the league did, so a mistyped one is caught here before a stranger confirms it.
+ */
 function offenSatz(offen: FLKontoAdresswechselOffen): string {
   const bis = offen.gueltig_bis === null ? null : adresswechselZeitpunkt(offen.gueltig_bis);
+  const { email, genehmigung } = offen;
+  // Owed besides the link: until it is given, the address on file keeps its grant and signs in as before.
+  const zugang =
+    genehmigung === null || genehmigung.genehmigt
+      ? ""
+      : ` Weil diese Adresse Zugang zur Verwaltung hat, muss außerdem ${genehmigerText(genehmigung)} zustimmen, bis ${adresswechselZeitpunkt(genehmigung.bis)}. Bis dahin meldest Du Dich weiter mit dieser Adresse an, mit vollem Zugang.`;
 
   if (offen.wartet_auf === "freigabe") {
-    return `Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen. Sie gilt erst, wenn Du sie hier freigibst und sie danach über ihren Link bestätigt wird. Gib sie nur frei, wenn Du das selbst bei uns angefragt hast.${bis === null ? "" : ` Freigeben kannst Du bis ${bis}.`}`;
+    return `Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen: ${email}. Sie gilt erst, wenn Du sie hier freigibst und sie danach über ihren Link bestätigt wird. Gib sie nur frei, wenn Du das selbst bei uns angefragt hast.${bis === null ? "" : ` Freigeben kannst Du bis ${bis}.`}${zugang}`;
+  }
+  if (offen.wartet_auf === "genehmigung") {
+    return `Die neue E-Mail-Adresse ${email} ist bestätigt.${zugang}`;
   }
   if (offen.wartet_auf === "wartezeit") {
     const ab = offen.wirksam_ab === null ? "" : ` und gilt ab ${adresswechselZeitpunkt(offen.wirksam_ab)}`;
-    return `Die neue E-Mail-Adresse ist bestätigt${ab}. Bis dahin gilt diese. Stimmt das nicht, stoppe die Änderung.`;
+    return `Die neue E-Mail-Adresse ${email} ist bestätigt${ab}. Bis dahin gilt diese. Stimmt das nicht, stoppe die Änderung.${zugang}`;
   }
   if (offen.weg === "wartezeit") {
-    return `Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen, weil Deine bisherige nicht mehr erreichbar sein soll. Bestätigt sie ihren Link, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} danach. Stimmt das nicht, stoppe die Änderung.`;
+    return `Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen, ${email}, weil Deine bisherige nicht mehr erreichbar sein soll. Bestätigt sie ihren Link, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} danach. Stimmt das nicht, stoppe die Änderung.${zugang}`;
   }
-  return `Eine neue E-Mail-Adresse wartet auf ihre Bestätigung${bis === null ? "" : `, bis ${bis}`}. Bis dahin gilt diese.`;
+  return `Die neue E-Mail-Adresse ${email} wartet auf ihre Bestätigung${bis === null ? "" : `, bis ${bis}`}. Bis dahin gilt diese.${zugang}`;
 }
 
 /**
@@ -194,8 +212,12 @@ export function AdresswechselPanel({
             Mit dieser Adresse meldest Du Dich an, und unter ihr stehen Deine Einträge. Eine neue gilt erst, wenn Du sie über den Link
             bestätigst, den wir an sie schicken. Bis dahin bleibt diese in Kraft.
           </p>
-          {adresswechsel.bleibt_verwaltung && (
-            <p className="muted-hint text-pretty">Dein Zugang zur Verwaltung bleibt bei der bisherigen Adresse.</p>
+          {/* Said before the start: the grant moves with the address only once another administrator agrees. */}
+          {bestaetigung.verwaltung && (
+            <p className="muted-hint text-pretty">
+              Weil diese Adresse Zugang zur Verwaltung hat, muss außerdem eine andere Person aus der Verwaltung zustimmen. Bis dahin meldest Du
+              Dich weiter mit dieser Adresse an.
+            </p>
           )}
 
           {entwurf === null ? (

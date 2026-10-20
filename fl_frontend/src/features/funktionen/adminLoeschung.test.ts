@@ -46,7 +46,6 @@ const refused = (serverErrorCode: string): APIBadStatusError =>
   });
 
 const ID = "68c1f0a2b3c4d5e6f7a8b9c0";
-const PUPIL_ID = "68c1f0a2b3c4d5e6f7a8b9c1";
 const ADRESSE = "Ada.Byron@Example.org";
 const ANDERE_ADRESSE = "grace.hopper@example.org";
 const ANLASS = "E-Mail vom 12.10.2026, Betreff Löschung meiner Daten";
@@ -60,7 +59,6 @@ const NICHTS_GESPEICHERT = {
   bewerbungen: [],
   registrierungen: [],
   adresswechsel: [],
-  spieler_adresswechsel: [],
   verwaltung: null,
   gesperrt: false,
 };
@@ -81,8 +79,7 @@ const EIN_EINTRAG_JE_ART = {
   registrierungen: [
     { registrierung_id: ID, saison_id: "2026", team_id: ID, team_name: "SG Alpha", status: "eingereicht", vorname: "Lena", nachname: "Meier" },
   ],
-  adresswechsel: [{ schiedsrichter_id: ID }],
-  spieler_adresswechsel: [{ spieler_id: PUPIL_ID }],
+  adresswechsel: [{ adresswechsel_id: "68c1f0a2b3c4d5e6f7a8b9e0" }],
   verwaltung: "owner",
   gesperrt: true,
 } satisfies Omit<FLErasureAnsichtResponse, "acknowledged">;
@@ -513,13 +510,9 @@ describe("the reveal the arming read answers", () => {
     assert.doesNotMatch(screen.getByRole("alert").textContent, /Handlungsbedarf/);
   });
 
-  /* A pending change names nobody, so its line opens the record it waits on, on the season the shell shows. */
-  it("opens each pending address change's own record, a referee's and a pupil's, keeping the season", async () => {
-    const ansicht = {
-      ...NICHTS_GESPEICHERT,
-      adresswechsel: EIN_EINTRAG_JE_ART.adresswechsel,
-      spieler_adresswechsel: EIN_EINTRAG_JE_ART.spieler_adresswechsel,
-    };
+  /* A pending change names nobody, so its line opens the change in the address tool, on the season the shell shows. */
+  it("opens each pending address change in the address tool, keeping the season", async () => {
+    const ansicht = { ...NICHTS_GESPEICHERT, adresswechsel: EIN_EINTRAG_JE_ART.adresswechsel };
     const { user } = await renderPage({ readErasureAnsichtAction: { success: true, ansicht: ansicht } }, "saison_id=2026");
     await typeRequest(user);
     await arm(user);
@@ -527,7 +520,7 @@ describe("the reveal the arming read answers", () => {
     const ziele = within(screen.getByRole("alert"))
       .getAllByRole("link")
       .map((link) => link.getAttribute("href"));
-    assert.deepEqual(ziele, [`/bereich/admin/schiedsrichter/${ID}?saison_id=2026`, `/bereich/admin/spieler/${PUPIL_ID}?saison_id=2026`]);
+    assert.deepEqual(ziele, ["/bereich/admin/adresswechsel?adresswechsel=68c1f0a2b3c4d5e6f7a8b9e0&saison_id=2026"]);
   });
 
   /* A read nobody answered: the names ARE the confirmation, so the press stays closed and says why on itself as the

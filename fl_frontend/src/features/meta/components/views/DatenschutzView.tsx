@@ -1,6 +1,11 @@
 import Link from "next/link";
 
-import { ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_TAGE } from "@/core/adresswechsel";
+import {
+  ADRESSWECHSEL_GENEHMIGUNG_DAUER,
+  ADRESSWECHSEL_GUELTIG_STUNDEN,
+  ADRESSWECHSEL_NACHLAUF_TAGE,
+  ADRESSWECHSEL_WARTEZEIT_DAUER,
+} from "@/core/adresswechsel";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "@/core/brand";
 import { DEIN_BEREICH_TITEL, IMPRESSUM_TITEL, ORGANISATION_TITEL } from "@/core/seitenNamen";
@@ -38,9 +43,6 @@ const STAND = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day:
  * stays in digits. Indexed by a constant's literal type: a constant moved to a count with no word here fails `tsc`.
  */
 const ZAHLWORT = { 3: "drei", 7: "sieben", 10: "zehn", 14: "vierzehn" } as const;
-
-/** A waiting time whole weeks long, which German states in weeks rather than as a count of days; indexed as `ZAHLWORT` is. */
-const WOCHEN = { 7: "eine Woche" } as const;
 
 /** One hour, the one count a sentence here pairs with a feminine singular: a window moved off it fails `tsc` rather than reading „eine Stunden“. */
 const EINE_STUNDE = { 1: "eine Stunde" } as const;
@@ -210,8 +212,8 @@ const FRISTEN = [
   },
   {
     daten:
-      "Neue E-Mail-Adresse eines Kontos, solange sie nicht gilt, dazu ihr Link und der Stopp-Link an die bisherige Adresse als unlesbare Schlüssel, das Versanddatum, die Frist, gegebenenfalls die Freigabe, der Grund der Verwaltung, die Bestätigung und der Zeitpunkt, ab dem sie gilt",
-    frist: `Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird oder die Verwaltung sie verwirft. Mit dem Eintrag wird sie gelöscht. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem Versand, der Stopp-Link bis die Änderung gilt. Ist ein Link abgelaufen, löschen wir die Adresse innerhalb einer Stunde. Hat die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie ${WOCHEN[ADRESSWECHSEL_WARTEZEIT_TAGE]} nach ihrer Bestätigung`,
+      "Änderung der E-Mail-Adresse eines Kontos, ein Eintrag je bisheriger Adresse: die neue Adresse, solange sie nicht gilt, dazu ihr Link und der Stopp-Link an die bisherige Adresse als unlesbare Schlüssel, das Versanddatum, die Frist, gegebenenfalls die Freigabe oder die Genehmigung durch die Verwaltung, der Grund der Verwaltung, die Bestätigung und der Zeitpunkt, ab dem sie gilt",
+    frist: `Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird, die Verwaltung sie verwirft oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund; es bleibt ein Vermerk ohne Adresse, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach ${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem Versand, der Stopp-Link bis die Änderung gilt. Ist eine Frist abgelaufen, endet die Änderung innerhalb einer Stunde. Hat die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung; kann sie dann nicht gelten, schreiben wir der neuen Adresse, dass sie nicht gilt, ohne den Grund zu nennen`,
   },
   {
     daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
@@ -226,7 +228,7 @@ const FRISTEN = [
     daten: "Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey",
     // Each figure read off the constant the sign-in enforces, never typed: a copy typed here is a
     // promise nothing keeps.
-    frist: `Ein Anmeldecode gilt ${ZAHLWORT[CODE_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Konto in das Anmeldeformular einträgt. Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, angeforderte Codes ${EINE_STUNDE[CODE_MAIL_WINDOW_HOURS]} lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse; eine erfolgreiche Anmeldung löscht die gezählten Fehlversuche. Eine Sitzung endet, wenn sie ${String(PERSON_LEERLAUF_TAGE)} Tage lang nicht genutzt wurde, spätestens aber ${String(PERSON_WINDOW_DAYS)} Tage nach der Anmeldung. Für die Verwaltung gilt sie nach ${NACH_EINER_STUNDE[ADMIN_IDLE_HOURS]} ohne Nutzung nicht mehr, spätestens aber ${String(ADMIN_WINDOW_HOURS)} Stunden nach der Anmeldung. Zu einer Sitzung, die mit einem Passkey begonnen hat, speichern wir, welcher Passkey das war. Zu jedem Passkey speichern wir, wann er zuletzt benutzt wurde, und den Namen, den Du ihm gibst. Adresse und Passkeys bleiben, solange das Konto besteht. Das Konto löschen wir auf Wunsch und von selbst, sobald Du unter Deiner Adresse nichts davon mehr bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter, eine bestätigte Registrierung, über die das Team noch nicht entschieden hat, oder einen Zugang zur Verwaltung`,
+    frist: `Ein Anmeldecode gilt ${ZAHLWORT[CODE_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Konto in das Anmeldeformular einträgt. Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, angeforderte Codes ${EINE_STUNDE[CODE_MAIL_WINDOW_HOURS]} lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse; eine erfolgreiche Anmeldung löscht die gezählten Fehlversuche. Eine Sitzung endet, wenn sie ${String(PERSON_LEERLAUF_TAGE)} Tage lang nicht genutzt wurde, spätestens aber ${String(PERSON_WINDOW_DAYS)} Tage nach der Anmeldung. Für die Verwaltung gilt sie nach ${NACH_EINER_STUNDE[ADMIN_IDLE_HOURS]} ohne Nutzung nicht mehr, spätestens aber ${String(ADMIN_WINDOW_HOURS)} Stunden nach der Anmeldung. Zu einer Sitzung, die mit einem Passkey begonnen hat, speichern wir, welcher Passkey das war. Zu jedem Passkey speichern wir, wann er zuletzt benutzt wurde, und den Namen, den Du ihm gibst. Gilt eine neue E-Mail-Adresse, die Du selbst eingetragen oder unter der bisherigen freigegeben hast, tragen wir sie in Dein Konto ein, und jede Sitzung endet; hat die Verwaltung sie ohne die bisherige Adresse eingetragen, bleibt das Konto bei der bisherigen, und Du meldest Dich unter der neuen neu an. Adresse und Passkeys bleiben, solange das Konto besteht. Das Konto löschen wir auf Wunsch und von selbst, sobald Du unter Deiner Adresse nichts davon mehr bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter, eine bestätigte Registrierung, über die das Team noch nicht entschieden hat, oder einen Zugang zur Verwaltung`,
   },
   {
     daten: "Änderungsprotokoll: Änderungen der Verwaltung und Änderungen angemeldeter Personen",
@@ -619,11 +621,14 @@ export function DatenschutzView() {
             bitten die Person, sich mit einer eigenen E-Mail-Adresse erneut zu registrieren.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Deine E-Mail-Adresse änderst Du selbst in Deinem Konto. Die neue gilt erst, wenn Du sie über den Link bestätigt hast, den wir an sie
-            schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen Hinweis mit einem Link, über den sie die
-            Änderung stoppen kann. Kannst Du Dich nicht mehr anmelden, ändert die Verwaltung sie auf Deine Bitte: Entweder gibst Du die neue mit
-            der bisherigen Adresse frei, oder sie gilt erst {WOCHEN[ADRESSWECHSEL_WARTEZEIT_TAGE]} nach ihrer Bestätigung. Gilt die neue, gilt
-            sie für jeden bestätigten Eintrag unter der bisherigen, und die bisherige bekommt eine Nachricht darüber.
+            Deine E-Mail-Adresse änderst Du selbst in Deinem Konto, gleich als was Du bei uns eingetragen bist. Die neue gilt erst, wenn Du sie
+            über den Link bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir
+            einen Hinweis mit einem Link, über den sie die Änderung stoppen kann. Hat Deine Adresse Zugang zur Verwaltung, gilt die neue erst,
+            wenn eine andere Person aus der Verwaltung zustimmt; ohne diese Zustimmung endet die Änderung {ADRESSWECHSEL_GENEHMIGUNG_DAUER} nach
+            ihrem Beginn. Erreichst Du Deine bisherige Adresse nicht mehr, ändert die Verwaltung sie auf Deine Bitte; die neue gilt dann erst{" "}
+            {ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung. Gilt die neue, gilt sie für alles, was unter der bisherigen steht: Deine
+            Einträge als Spielerin oder Spieler, einen bestätigten Eintrag als Schiedsrichterin oder Schiedsrichter, Deine bestätigten Plätze
+            als Kontaktperson, Deine Registrierungen und einen Zugang zur Verwaltung; die bisherige bekommt eine Nachricht darüber.
           </p>
           <p className={ABSATZ_CLASSES}>
             Rechtsgrundlage für die Daten, die wir für Deine Teilnahme brauchen, ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse
@@ -654,8 +659,7 @@ export function DatenschutzView() {
             bestehen.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Hast Du Deinen Eintrag bestätigt, änderst Du Deine E-Mail-Adresse wie eine Spielerin oder ein Spieler selbst in Deinem Konto, und
-            die neue gilt für jeden bestätigten Eintrag unter der bisherigen.
+            Hast Du Deinen Eintrag bestätigt, änderst Du Deine E-Mail-Adresse wie eine Spielerin oder ein Spieler selbst in Deinem Konto.
           </p>
           <p className={ABSATZ_CLASSES}>
             Du kannst jederzeit verlangen, dass Dein Name von dieser Website verschwindet, formlos an <MailLink />. Danach nehmen wir ihn

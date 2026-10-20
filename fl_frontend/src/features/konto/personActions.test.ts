@@ -42,15 +42,14 @@ const CARRIER = "6890a1b2c3d4e5f607800002";
 const ADRESSWECHSEL = "/api/v0/konto/adresswechsel";
 const FREIGABE = "/api/v0/konto/adresswechsel/freigabe";
 
-type Art = "spieler" | "schiedsrichter";
-let art: Art = "spieler";
+/** Who is told an approval waits: none for an address holding no grant. */
+let genehmiger: string[] = [];
 let startAnswer: () => Response;
 let freigabeAnswer: () => Response;
 const writes: { method: string; path: string; body: unknown; actor: boolean }[] = [];
 
 const mint = () => ({
   acknowledged: 1,
-  art: art,
   id: CARRIER,
   token: "neu-token",
   stopp_token: "stopp-token",
@@ -58,6 +57,7 @@ const mint = () => ({
   email: NEU,
   bisherige_email: BISHER,
   vorname: "Lena",
+  genehmiger: genehmiger,
 });
 
 globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
@@ -72,7 +72,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
       actor: new Headers(init?.headers).get("x-fl-actor") !== null,
     });
     if (path === FREIGABE) return Promise.resolve(freigabeAnswer());
-    if (method === "DELETE") return Promise.resolve(Response.json({ acknowledged: 1, moeglich: true, bleibt_verwaltung: false, offen: null }));
+    if (method === "DELETE") return Promise.resolve(Response.json({ acknowledged: 1, moeglich: true, offen: null }));
     return Promise.resolve(startAnswer());
   }
 
@@ -101,10 +101,9 @@ beforeEach(() => {
   writes.length = 0;
   mail.sent.length = 0;
   mail.answerWith(() => "accepted");
-  art = "spieler";
+  genehmiger = [];
   startAnswer = () => Response.json(mint());
-  freigabeAnswer = () =>
-    Response.json({ acknowledged: 1, art: art, id: CARRIER, token: "frei-token", gueltig_bis: "2026-10-21T11:30:00Z", email: NEU });
+  freigabeAnswer = () => Response.json({ acknowledged: 1, id: CARRIER, token: "frei-token", gueltig_bis: "2026-10-21T11:30:00Z", email: NEU });
   cacheCalls.length = 0;
 });
 
@@ -119,12 +118,9 @@ describe("the person's own start of an address change", () => {
 
     assert.equal(answer.success, true, JSON.stringify(answer));
     assert.deepEqual(writes, [{ method: "POST", path: ADRESSWECHSEL, body: { email: NEU }, actor: true }]);
+    assert.ok(an(NEU)[0]?.text.includes(adresswechselLink("http://localhost:3000", "neu-token")), "the new address got no link to its page");
     assert.ok(
-      an(NEU)[0]?.text.includes(adresswechselLink("http://localhost:3000", "spieler", "neu-token")),
-      "the new address got no link to its page",
-    );
-    assert.ok(
-      an(BISHER)[0]?.text.includes(adresswechselLink("http://localhost:3000", "spieler", "stopp-token")),
+      an(BISHER)[0]?.text.includes(adresswechselLink("http://localhost:3000", "stopp-token")),
       "the address signed in got no stop link",
     );
   });
@@ -149,13 +145,43 @@ describe("the person's own start of an address change", () => {
     assert.deepEqual(gesperrt, gesendet);
   });
 
-  it("puts the link on the referee's page where a referee row carries the change", async () => {
-    art = "schiedsrichter";
+  /* A grant moves only once another administrator approves: each is told one waits, and the person that it does. */
+  it("tells the approvers an approval waits where a grant moves, and the person that the old address signs in meanwhile", async () => {
+    genehmiger = ["anna@verwaltung.example", "ben@verwaltung.example"];
     await angemeldet();
 
-    await starteAdresswechselAction({ email: NEU });
+    const answer = await starteAdresswechselAction({ email: NEU });
 
-    assert.ok(an(NEU)[0]?.text.includes(adresswechselLink("http://localhost:3000", "schiedsrichter", "neu-token")));
+    assert.deepEqual(
+      ["anna@verwaltung.example", "ben@verwaltung.example"].map((to) => an(to)[0]?.subject),
+      ["Eine Adressänderung wartet auf Deine Genehmigung", "Eine Adressänderung wartet auf Deine Genehmigung"],
+    );
+    for (const to of ["anna@verwaltung.example", "ben@verwaltung.example"]) {
+      assert.doesNotMatch(an(to)[0]?.text ?? "", /neu\.example|schule\.example/, "an approver's notice names an address");
+    }
+    assert.match(
+      answer.success ? (answer.message ?? "") : "",
+      /muss außerdem eine andere Person aus der Verwaltung zustimmen\. Bis dahin meldest Du Dich weiter mit dieser Adresse an\./,
+    );
+  });
+
+  it("mails no approver where the address holds no grant", async () => {
+    await angemeldet();
+
+    const answer = await starteAdresswechselAction({ email: NEU });
+
+    assert.deepEqual(mail.sent.map(({ to }) => to).sort(), [BISHER, NEU].sort());
+    assert.doesNotMatch(answer.success ? (answer.message ?? "") : "", /Verwaltung/);
+  });
+
+  /* The page then shows the change and its withdrawal alone, so the repair named is the one it offers. */
+  it("answers a link that did not leave with the withdrawal the page offers", async () => {
+    await angemeldet();
+    mail.answerWith(({ to }) => (to === NEU ? "refused" : "accepted"));
+
+    const answer = await starteAdresswechselAction({ email: NEU });
+
+    assert.match(answer.success ? (answer.message ?? "") : "", /Zieh die Änderung zurück und gib die Adresse erneut ein/);
   });
 
   /* An address change outlives the session making it, as a passkey does: past the enrolment window the page asks first. */
@@ -184,7 +210,7 @@ describe("the person's own start of an address change", () => {
 
   it("puts the address already signed in with on the box", async () => {
     await angemeldet();
-    startAnswer = () => Response.json({ error_code: "REQ-SPIELER-007", trace_id: "0".repeat(32) }, { status: 409 });
+    startAnswer = () => Response.json({ error_code: "REQ-ADRESSWECHSEL-007", trace_id: "0".repeat(32) }, { status: 409 });
 
     const answer = await starteAdresswechselAction({ email: BISHER });
 

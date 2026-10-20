@@ -4,10 +4,6 @@ import {
   FLKaderZeileResponseSchema,
   FLSaisonSpielerResponseSchema,
   FLSpielerAdminSingleResponseSchema,
-  FLSpielerAdresswechselAnsichtResponseSchema,
-  FLSpielerAdresswechselAntwortResponseSchema,
-  FLSpielerAdresswechselMintResponseSchema,
-  FLSpielerAdresswechselStoppResponseSchema,
   FLSpielerSelbstEinwilligungResponseSchema,
 } from "./schemas";
 
@@ -23,16 +19,6 @@ import type {
   FLSaisonSpielerKeyPayload,
   FLSaisonSpielerResponse,
   FLSpielerAdminSingleResponse,
-  FLSpielerAdresswechselAnsichtPayload,
-  FLSpielerAdresswechselAnsichtResponse,
-  FLSpielerAdresswechselAntwortPayload,
-  FLSpielerAdresswechselAntwortResponse,
-  FLSpielerAdresswechselEinladenPayload,
-  FLSpielerAdresswechselMintResponse,
-  FLSpielerAdresswechselPayload,
-  FLSpielerAdresswechselStoppPayload,
-  FLSpielerAdresswechselStoppResponse,
-  FLSpielerAdresswechselVerwerfenPayload,
   FLSpielerSelbstEinwilligungPayload,
   FLSpielerSelbstEinwilligungResponse,
 } from "./schemas";
@@ -110,68 +96,6 @@ export async function deleteKaderZeile({ team_id, saison_id, spieler_id }: FLKad
   return apiClient<FLKaderZeileResponse>(`/spieler/kader/${team_id}/${saison_id}/${spieler_id}`, FLKaderZeileResponseSchema, {
     method: "DELETE",
     authType: "admin",
-  });
-}
-
-// Writes the whole pending block, ending every other change at the address, so a link minted before
-// stops working at once; the stored address stays in force until the change takes effect.
-export async function beantrageSpielerAdresswechsel({
-  id,
-  ...body
-}: FLSpielerAdresswechselPayload): Promise<FLSpielerAdresswechselMintResponse> {
-  return apiClient<FLSpielerAdresswechselMintResponse>(`/spieler/${id}/adresswechsel`, FLSpielerAdresswechselMintResponseSchema, {
-    method: "POST",
-    authType: "admin",
-    body: JSON.stringify(body),
-  });
-}
-
-// A fresh link to the new mailbox, so the previous one stops working at once; the stop link stays.
-export async function einladeSpielerAdresswechsel({ id }: FLSpielerAdresswechselEinladenPayload): Promise<FLSpielerAdresswechselMintResponse> {
-  return apiClient<FLSpielerAdresswechselMintResponse>(`/spieler/${id}/adresswechsel/einladen`, FLSpielerAdresswechselMintResponseSchema, {
-    method: "POST",
-    authType: "admin",
-  });
-}
-
-// The stored address stays; the pending one and its link go.
-export async function verwirfSpielerAdresswechsel({ id }: FLSpielerAdresswechselVerwerfenPayload): Promise<FLSpielerAdminSingleResponse> {
-  return apiClient<FLSpielerAdminSingleResponse>(`/spieler/${id}/adresswechsel`, FLSpielerAdminSingleResponseSchema, {
-    method: "DELETE",
-    authType: "admin",
-  });
-}
-
-/** A POST that reads: the token is the credential, and a GET would put it in a query string the backend's route template does not redact. */
-export async function postSpielerAdresswechselAnsicht(
-  payload: FLSpielerAdresswechselAnsichtPayload,
-): Promise<FLSpielerAdresswechselAnsichtResponse> {
-  return apiClient<FLSpielerAdresswechselAnsichtResponse>("/spieler/adresswechsel/ansicht", FLSpielerAdresswechselAnsichtResponseSchema, {
-    method: "POST",
-    readOnly: true,
-    authType: "base",
-    body: JSON.stringify(payload),
-  });
-}
-
-/**
- * The mailbox's own answer. `base`, not `admin`: the token in the body is the whole authorization,
- * and an admin key on this call would make the public page a route into the admin tier.
- */
-export async function postSpielerAdresswechsel(payload: FLSpielerAdresswechselAntwortPayload): Promise<FLSpielerAdresswechselAntwortResponse> {
-  return apiClient<FLSpielerAdresswechselAntwortResponse>("/spieler/adresswechsel", FLSpielerAdresswechselAntwortResponseSchema, {
-    method: "POST",
-    authType: "base",
-    body: JSON.stringify(payload),
-  });
-}
-
-/** The stop of the address on file, `base` for `postSpielerAdresswechsel`'s reason; it hands nothing over. */
-export async function postSpielerAdresswechselStopp(payload: FLSpielerAdresswechselStoppPayload): Promise<FLSpielerAdresswechselStoppResponse> {
-  return apiClient<FLSpielerAdresswechselStoppResponse>("/spieler/adresswechsel/stopp", FLSpielerAdresswechselStoppResponseSchema, {
-    method: "POST",
-    authType: "base",
-    body: JSON.stringify(payload),
   });
 }
 

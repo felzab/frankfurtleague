@@ -79,7 +79,6 @@ const REFEREE: FLSchiedsrichter = {
     nachweis: { umfang: null, medien: null },
   },
   bestaetigung: null,
-  adresswechsel: null,
 };
 
 const CREATED_REFEREE = "Jonas Weber";
