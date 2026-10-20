@@ -136,6 +136,13 @@ export const RECORDED_FACTS_NONE =
   "kein Ergebnis, kein Ausfall, kein Ort, kein Schiedsrichter, keine Notiz und keine von Hand geänderte Herkunft";
 export const RECORDED_FACTS_ANY = "ein Ergebnis, ein Ausfall, ein Ort, ein Schiedsrichter, eine Notiz oder eine von Hand geänderte Herkunft";
 
+/**
+ * `REQ-SPIELPLAN-007`, for the Spielplan panel's closed control and for the refusal alike: no page takes a report
+ * back, so the way on is the one the draw does not need, editing the fixtures.
+ */
+export const SPIELBERICHTE_HALTEN_DEN_SPIELPLAN =
+  "Für diese Saison sind Spielberichte eingereicht. Solange ein Spielbericht vorliegt, lässt sich der Spielplan weder neu auslosen noch zurücknehmen. Ändere die Spiele stattdessen einzeln.";
+
 /** The season editor's panels, each named by its heading where a sentence sends the reader to it, so a renamed panel takes the sentence with it. */
 export const ZEITRAUM_ABSCHNITT = "Zeitraum";
 export const REGELN_ABSCHNITT = "Regeln";

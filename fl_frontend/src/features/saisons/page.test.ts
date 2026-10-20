@@ -8,7 +8,7 @@ import { answer, answerReadsWith, EDGE_TRACE_ID, EMPTIEST_ANSWER, pageBody, sais
 import { FLSaisonSchema } from "./schemas.ts";
 
 import type { ReactElement } from "react";
-import type { SaisonRolloverContext } from "./types.ts";
+import type { SaisonRolloverContext, SaisonSpielplanContext } from "./types.ts";
 
 // An administrator's session: every admin-tier read resolves its actor from it before it is sent.
 doubleActionRequest();
@@ -18,6 +18,13 @@ const { default: AdminSaisonEditPage } = await import("@/app/bereich/admin/saiso
 
 const VORSCHAU = "/saisons/2026/loeschung/vorschau";
 
+/** Two of the planned season's fixtures holding a submitted report, as the report states' read lists them. */
+const EINGEREICHT = ["6890a1b2c3d4e5f607190001", "6890a1b2c3d4e5f607190002"].map((spielId) => ({
+  spiel_id: spielId,
+  zustand: "vorgeschlagen",
+  ergebnis_vorschlag: { team1_tore: 1, team2_tore: 0, elfmeterschiessen: null, sonderereignis: null },
+}));
+
 const SAISON = (id: string, status: "active" | "future") => answer(FLSaisonSchema, "/saisons/list/admin", saisonFields(id, status));
 
 /** What the count's read answers in the running case: its fields, or the `Error` it throws. */
@@ -26,6 +33,7 @@ let vorschau: Record<string, unknown> | Error = { abgeschlossene_saison_id: "202
 answerReadsWith((endpoint, schema, params) => {
   // A planned season beside a running one: the rollover is on offer, so the page reads the count.
   if (endpoint === "/saisons/list/admin") return answer(schema, endpoint, { saisons: [SAISON("2025", "active"), SAISON("2026", "future")] });
+  if (endpoint === "/spielberichte" && params.saison_id === "2026") return answer(schema, endpoint, { spielberichte: EINGEREICHT });
   if (endpoint !== VORSCHAU) return EMPTIEST_ANSWER(endpoint, schema, params);
   if (vorschau instanceof Error) throw vorschau;
   return answer(schema, endpoint, vorschau);
@@ -44,6 +52,17 @@ async function rollover(): Promise<SaisonRolloverContext> {
 
   return body.props.rollover;
 }
+
+/* `REQ-SPIELPLAN-007` refuses the replace and the undraw while a report stands, so the panel must know of one before it
+   offers either, as it knows of a recorded result. */
+it("hands the Spielplan panel the planned season's submitted reports", async () => {
+  const body = (await pageBody(AdminSaisonEditPage, {
+    params: Promise.resolve({ saison_id: "2026" }),
+    searchParams: Promise.resolve({}),
+  })) as ReactElement<{ spielplan: SaisonSpielplanContext }>;
+
+  assert.equal(body.props.spielplan.eingereichteBerichte, EINGEREICHT.length);
+});
 
 describe("the count beside the rollover press", () => {
   it("hands the panel the count and the season it closes", async () => {

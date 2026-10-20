@@ -508,6 +508,7 @@ const FORMS: Record<string, FormCase> = {
               { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
             ],
             bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
+            eingereichteBerichte: 0,
           },
           hasDrawnSpiele: false,
           spieltagBound: { startMax: null, endMin: null },

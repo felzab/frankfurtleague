@@ -288,8 +288,15 @@ const saisonProps = (over: { drawn?: boolean } = {}) => ({
           spieltageCount: 5,
           schedule: SAISON_SCHEDULE,
           bestand: { spiele: 15, erfasst: 0, angesetzt: 0 },
+          eingereichteBerichte: 0,
         }
-      : { spielplan: null, spieltageCount: 0, schedule: SAISON_SCHEDULE, bestand: { spiele: 0, erfasst: 0, angesetzt: 0 } },
+      : {
+          spielplan: null,
+          spieltageCount: 0,
+          schedule: SAISON_SCHEDULE,
+          bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
+          eingereichteBerichte: 0,
+        },
   hasDrawnSpiele: over.drawn === true,
   spieltagBound: { startMax: null, endMin: null },
 });
