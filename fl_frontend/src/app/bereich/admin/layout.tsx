@@ -1,6 +1,3 @@
-// Here rather than in `globals.css`, so the public routes never download or parse these styles.
-import "./admin.css";
-
 import { Suspense } from "react";
 
 import { AdminAreaBoundary } from "@/features/admin/components/providers/AdminAreaBoundary";

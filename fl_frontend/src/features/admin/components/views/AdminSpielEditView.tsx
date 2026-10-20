@@ -7,6 +7,7 @@ import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { categorizeActionRequired } from "../../utils";
 import { useAdmin } from "../providers/AdminContextProvider";
 
+import type { FLSpielberichtAdminResponse } from "@/features/spielberichte/schemas";
 import type { SpielbestaetigungenStand } from "@/features/spielbestaetigungen/types";
 import type { FLSpielAdmin, FLSpielWithDraftFields } from "@/features/spiele/schemas";
 import type { ActionRequiredCategory } from "@/features/spiele/types";
@@ -21,12 +22,15 @@ export function AdminSpielEditView({
   today,
   isSpielSweepOn,
   bestaetigungen,
+  spielbericht,
 }: {
   spielData: FLSpielAdmin;
   today: string;
   isSpielSweepOn: boolean;
   /** `null` where the read failed, which the panel says. */
   bestaetigungen: SpielbestaetigungenStand | null;
+  /** `null` where `SPIELBERICHT_EINGABE` reads off, the page then reading no report. */
+  spielbericht: FLSpielberichtAdminResponse | null;
 }) {
   const { teams, spielorte, schiedsrichter, saisonSpiele, numberOfGroups, isFinishedSaison, isActiveSaison } = useAdmin();
 
@@ -58,6 +62,7 @@ export function AdminSpielEditView({
         today={today}
         isSpielSweepOn={isSpielSweepOn}
         bestaetigungen={bestaetigungen}
+        spielbericht={spielbericht}
         categorize={categorize}
         pageHeader={{
           title: `Spiel ${String(spielData.spiel_nr)}`,
