@@ -29,13 +29,11 @@ from app.shared.folding import sign_in_identifier
 PERSON_FIELDS: tuple[str, ...] = (*PERSON_IDENTITY_FIELDS, "geburtsdatum", "email")
 
 # What a confirmation link reads of a person: who they are and whether they confirmed, for the page,
-# and what the returning page shows back. No evidence: a base-tier read carries nothing it does not show.
+# and the birthdate the returning page takes as given. Never a choice: no link read serves one.
 PERSON_ANSICHT_FIELDS: tuple[str, ...] = (
     *PERSON_IDENTITY_FIELDS,
     "geburtsdatum",
     "einwilligung.bestaetigt_am",
-    "einwilligung.umfang",
-    "einwilligung.medien",
 )
 
 

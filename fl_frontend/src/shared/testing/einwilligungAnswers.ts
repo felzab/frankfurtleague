@@ -19,10 +19,7 @@ export const laufendeSpielerFassung = () => ({
 });
 
 export const laufendeSpielerWiederkehrendFassung = () => ({
-  ...gekeyteFassung(publishedLaufendeFassung("bestaetigung_spieler_wiederkehrend"), SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL, [
-    "kader_oeffentlich",
-    "intern",
-  ] as const),
+  ...gekeyteFassung(publishedLaufendeFassung("bestaetigung_spieler_wiederkehrend"), SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL),
   seite: "bestaetigung_spieler_wiederkehrend" as const,
 });
 
