@@ -19,9 +19,8 @@ function unwrapped(at: ZodType): ZodType | undefined {
 }
 
 /**
- * The schema one dotted payload path lands on, through `.optional()`, `.nullable()`, `.default()` and a pipe, read
- * with Zod's documented `.def.type`, `.unwrap()`, a pipe's `.in` and `.out` and `.shape`, a list's entry named by its
- * index. `undefined` where the path leaves the tree of objects and lists.
+ * The schema one dotted payload path lands on through every wrapper `unwrapped` steps into, read with Zod's documented
+ * `.def.type` and `.shape`, a list's entry named by its index. `undefined` where the path leaves objects and lists.
  */
 function leafAt(schema: ZodType, path: string): ZodType | undefined {
   let at: ZodType | undefined = schema;
