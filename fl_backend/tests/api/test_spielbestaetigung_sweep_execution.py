@@ -2030,7 +2030,7 @@ class TestARefereeTakenOffIsToldOnlyWhereTheyWereTold:
         assert (second.geschlossen, second.schiedsrichter_gewechselt) == (1, [])
 
     def test_a_day_gone_by_tells_nobody(self, mongo_replica_set_url: str):
-        """A correction of who officiated a match already played is no booking taken away."""
+        """The fixture unplayed past its day: a slot of a day gone by is no booking taken away, so nobody is told."""
 
         after_the_day = days_after(day=NEXT_WEEK, days=1)
 

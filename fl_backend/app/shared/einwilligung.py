@@ -25,6 +25,20 @@ def is_confirmed(einwilligung: Any) -> bool:
     return isinstance(stamp, str) and stamp != ""
 
 
+# `app/api/spieler/services.py :: name_is_public` as a Mongo expression, here for `is_confirmed`'s reason: a pupil's
+# squad read and a fixture's referee join both read it. By `$type`, as an absent key and a stored null are one state.
+NAME_IS_PUBLIC: Final[Mapping[str, Any]] = {
+    "$and": [
+        {"$eq": [{"$type": "$einwilligung"}, "object"]},
+        {"$eq": ["$einwilligung.umfang", "kader_oeffentlich"]},
+        {"$eq": [{"$type": "$einwilligung.bestaetigt_am"}, "string"]},
+        # Beside the type test rather than instead of it: `$type` calls `""` a string, so an arm
+        # reading the type alone publishes a record nobody confirmed.
+        {"$ne": ["$einwilligung.bestaetigt_am", ""]},
+    ]
+}
+
+
 # Every page that stamps a label: a name outside it is a type error rather than a 500. The wire
 # serves a plain string, so a page added here moves no published schema.
 Seite = Literal[
