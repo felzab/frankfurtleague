@@ -10,7 +10,6 @@ from pymongo import ASCENDING, DESCENDING, AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.saisons.schemas import NumberOfGroups, QualifiersPerGroup, TeamsPerGroup
 from app.api.spielberichte.schemas import CustomSpielberichtMinute, FLSpielberichtKarte
 from app.api.spiele.schemas import FLSpielElfmeterschiessen
@@ -2122,8 +2121,6 @@ _NON_EMPTY_OR_NULL = TypeAdapter(CustomNonEmptyString | None)
 _DAY = TypeAdapter(CustomDateString)
 _DAY_OR_NULL = TypeAdapter(CustomDateString | None)
 _OPTIONAL_DAY = TypeAdapter(CustomOptionalDateString)
-# Marked UTC as it is read, refusing no stored date: listed because the read model validates it.
-_OPTIONAL_INSTANT = TypeAdapter(FLUtcInstant | None)
 _TIME_OR_NULL = TypeAdapter(CustomTimeString | None)
 _TIME = TypeAdapter(CustomTimeString)
 _DAYS = TypeAdapter(list[CustomDateString])
@@ -2283,10 +2280,6 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "einwilligung.datum": _OPTIONAL_DAY,
         "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
         "adresswechsel.verschickt_am": _DAY,
-        "adresswechsel.gueltig_bis": _OPTIONAL_INSTANT,
-        "adresswechsel.freigegeben_am": _OPTIONAL_INSTANT,
-        "adresswechsel.bestaetigt_am": _OPTIONAL_INSTANT,
-        "adresswechsel.wirksam_ab": _OPTIONAL_INSTANT,
     },
     Collection.SPERRLISTE: {
         "grund": _NON_EMPTY,
@@ -2350,10 +2343,6 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "inactive_since": _OPTIONAL_DAY,
         "geburtsdatum": _OPTIONAL_DAY,
         "adresswechsel.verschickt_am": _DAY,
-        "adresswechsel.gueltig_bis": _OPTIONAL_INSTANT,
-        "adresswechsel.freigegeben_am": _OPTIONAL_INSTANT,
-        "adresswechsel.bestaetigt_am": _OPTIONAL_INSTANT,
-        "adresswechsel.wirksam_ab": _OPTIONAL_INSTANT,
     },
     Collection.SPIELORTE: {
         "name": _NON_EMPTY,
