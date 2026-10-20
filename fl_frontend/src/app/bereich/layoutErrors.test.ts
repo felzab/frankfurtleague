@@ -21,7 +21,7 @@ import { callPage, clearSteps, steps } from "@/shared/testing/pageHarness.ts";
 import type { ComponentType, ReactElement, ReactNode } from "react";
 
 const { setSession, setSubject } = doubleActionRequest();
-// Each shell hands a sign-out action to the bar, whose real module reaches `next/server` past the harness.
+// The admin layout's guard mounts the step-up provider, whose action module reaches `server-only` past the harness.
 doubleEveryAction();
 // The area's panel reports the crash it draws.
 const fetchDouble = doubleFetch();
