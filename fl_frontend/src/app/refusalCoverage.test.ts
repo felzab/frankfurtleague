@@ -95,7 +95,7 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen": kontakte.mapEinladenRefusal,
   "POST /registrierungen": registrierungen.mapRegistrierungSubmitRefusal,
   "POST /registrierungen/bestaetigung": (error) =>
-    registrierungen.mapBestaetigungRefusal(error, async () => ({
+    registrierungen.mapBestaetigungRefusal(error, { geburtsdatum: "2010-05-01" }, async () => ({
       zustand: "gueltig" as const,
       ansicht: { mindestalter: REGISTRIERUNG_MIN_ALTER, medien_mindestalter: MEDIEN_MIN_ALTER },
     })),
