@@ -206,8 +206,7 @@ export type FLSpielberichtPayload = z.infer<typeof FLSpielberichtPayloadSchema>;
 
 /**
  * The form's own parse of its draft, every path the wire's: a picker's value rather than an id, an untouched one
- * being `""`. The action parses the wire's shape again. `bestand` is the stored report's cards, which excuse a caution
- * they hold stripped of its reason.
+ * being `""`. The action parses the wire's shape again. `bestand` is the stored report's cards (`grundGestrippt`).
  */
 export function spielberichtFormSchema(bestand: Parameters<typeof grundGestrippt>[0]) {
   return z.object({

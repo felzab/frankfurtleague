@@ -70,8 +70,8 @@ describe("the report panel on the match editor", () => {
     assert.ok(screen.getByText("früheres Team 2"));
   });
 
-  /* The correction page states these fixtures' refusals and offers no form, so a link to it leads nowhere. The state is
-     the report's, so a fixture with no report reads none of it: only the fixture says whether it takes one. */
+  /* The correction page offers no form on these fixtures. The state is the report's, so a fixture holding none reads
+     none of it: only the fixture says whether it takes a report. */
   it("offers no correction on a fixture holding no report that takes none", () => {
     const { spiel } = spielberichtReadFixture();
     for (const fixture of [

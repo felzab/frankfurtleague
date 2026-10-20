@@ -171,9 +171,8 @@ function BerichtInhalt({
         </>
       )}
 
-      {/* The correction page writes only while the switch reads on and the stored fixture takes a report, whose
-          refusals it would otherwise state alone; a client-side navigation passes the editor's unsaved-changes guard, so a
-          draft seeded from the proposal would go unasked. */}
+      {/* The correction page writes only while the switch reads on and the stored fixture takes a report; a
+          client-side navigation passes the editor's unsaved-changes guard, so a seeded draft would go unasked. */}
       {berichtSperre(spiel, today) === null &&
         (!korrigierbar ? (
           <p className="muted-hint">Solange Spielberichte nicht freigeschaltet sind, lässt sich der Bericht nicht bearbeiten.</p>

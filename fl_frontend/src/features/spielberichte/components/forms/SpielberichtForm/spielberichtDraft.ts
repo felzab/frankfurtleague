@@ -120,9 +120,9 @@ export type Eroeffnung = {
 };
 
 /**
- * Where a side fields another club since the report's last write, the stored block is about the club that left: its
- * pupils leave the side's entries, whose save would be refused them, and the draft is written for the clubs playing
- * now, so a save changing nothing else still stamps them and makes the report adoptable.
+ * On a side fielding another club since the report's last write, the departed club's pupils leave their entries, a
+ * save naming them being refused; the draft is written for the clubs playing now, so an otherwise unchanged save
+ * stamps them.
  */
 export function eroeffnungOf(stored: FLSpielberichtBerichtPayload | null, kontext: SpielberichtKontext): Eroeffnung {
   const block = draftOf(stored);

@@ -136,11 +136,11 @@ export const BEMERKUNGEN_PATH = "bericht.bemerkungen";
 // The box's hint already asks for a shirt number, so the message names the fault alone (`docs/frontend/spec.md` §1.12).
 const NAME_IN_BEMERKUNGEN = "In den Bemerkungen steht ein Name.";
 
-// The form refuses a caution without its reason before the press, so this arrives only where the stored report moved
-// under the page: a reload draws the cards it holds now.
 // The form offers no shoot-out on a group fixture, so this arrives only from a request no page composed.
 const ELFMETER_IN_DER_GRUPPE = buildRefusal({ reason: "Ein Spiel der Gruppenphase hat kein Elfmeterschießen", repair: LADE_DIE_SEITE_NEU });
 
+// The form refuses a caution without its reason before the press, so this arrives only where the stored report moved
+// under the page: a reload draws the cards it holds now.
 const GRUND_FEHLT = buildRefusal({
   reason: "Bei einer gelben oder gelb-roten Karte fehlt der Grund",
   repair: "Lade die Seite neu und wähle ihn",

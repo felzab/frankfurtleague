@@ -411,8 +411,8 @@ def judge_bericht(
 def vorschlag_entspricht(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[str, Any]) -> bool:
     """Whether the stored result is what the proposal proposes.
 
-    A no-show by its event alone, its goals being the forfeit's; the shoot-out too, an absent one included, which a write
-    proposes only where the fixture keeps one (`REQ-BERICHT-009`, and the payload's rule after an unlevel score).
+    A no-show by its event alone, its goals being the forfeit's; the shoot-out too, absent or not, which no write proposes
+    where the fixture keeps none (`REQ-BERICHT-009`).
     """
 
     if vorschlag.sonderereignis in SONDEREREIGNIS_NO_SHOW:

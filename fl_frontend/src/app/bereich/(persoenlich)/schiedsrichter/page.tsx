@@ -29,11 +29,12 @@ export default async function PersoenlichSchiedsrichterPage() {
   let selbst, einsaetze, spielberichte;
   try {
     // Side by side: no read waits on another, and each answers the same lost record alike. Nothing is read while the
-    // reports are closed: their section then says why it offers no fixture. A failed report read is its section's own
-    // state, so the answers to an Einteilung stand; a lost record still lands through the two reads beside it.
+    // reports are closed: their section then says why it offers no fixture.
     [selbst, einsaetze, spielberichte] = await Promise.all([
       getSchiedsrichterSelbst(),
       getEigeneSpielbestaetigungen(),
+      // A failed report read is its section's own state, so the answers to an Einteilung stand; a lost record still
+      // lands through the two reads beside it.
       frontend_config.SPIELBERICHT_EINGABE === "on"
         ? runWithIncomingTrace(() =>
             getSchiedsrichterSpielberichte().then(
