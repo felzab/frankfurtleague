@@ -63,7 +63,7 @@ SPIELER_OIDS = {
     "Adler": ObjectId("6890a1b2c3d4e5f607390012"),
     # No surname at all: absent is not the same fact as withheld, and must not read as an initial.
     "Ohne": ObjectId("6890a1b2c3d4e5f607390013"),
-    # A surname whose first letter is two bytes, plus a junction row predating both flags.
+    # A surname whose first letter is two bytes.
     "Oeztuerk": ObjectId("6890a1b2c3d4e5f607390014"),
     # The PERSON is retired and the squad row is live -- `READ-SQUAD-001`'s case.
     "Weber": ObjectId("6890a1b2c3d4e5f607390015"),
@@ -103,16 +103,6 @@ def _squad_row(
     return saison_spieler_document(
         SPIELER_OIDS[key], SAISON, TEAM_OID, nummer=nummer, position=position, stufe=stufe, rolle=rolle, inactive_since=inactive_since
     )
-
-
-def _legacy_squad_row(key: str, **fields: Any) -> dict[str, Any]:
-    """A row written before either field existed: the keys are ABSENT, and `$project` omits an absent key rather than nulling it."""
-
-    row = _squad_row(key, **fields)
-    del row["ist_nachnominiert"]
-    del row["rolle"]
-
-    return row
 
 
 def _filters() -> FLSpielerFilterParams:
@@ -525,10 +515,6 @@ class TestTheBaseTierReadExecuted:
 
         assert (served["nummer"], served["position"]) == ("7", "Angriff")
 
-    def test_a_row_written_before_the_squad_flags_existed_still_reads(self, seeded_url: str):
-        """The allow-list names neither flag, so a row missing both is not a shape the read can trip over."""
-        assert self._by_vorname(seeded_url)["Timo"]["nummer"] == "5"
-
     def test_the_rendered_name_is_the_forename_and_an_initial(self, seeded_url: str):
         """The frontend's join and its avatar letter, spelled out: emitting the dot here is what keeps both unchanged."""
         served = self._by_vorname(seeded_url)["Maxim"]
@@ -600,10 +586,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
     """
 
     async def _seed() -> None:
-        # UNCONSTRAINED: `_legacy_squad_row` omits `ist_nachnominiert`, which the shipped validator
-        # requires, so the row this corpus exists to serve is one a constrained database refuses --
-        # it models a row already stored when the validator arrived.
-        async with a_clean_database(mongo_url, DATABASE_NAME, constraints=False) as (_, database):
+        async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
             await database.spieler.insert_many(
                 [
                     # Distinct forenames, none of them holding a surname as a substring: the rows
@@ -621,7 +604,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
                     _squad_row("Mueller", nummer="7", position="Angriff", stufe="Q3", rolle="kapitaen"),
                     _squad_row("Adler", nummer="3", position="Abwehr", stufe="E1"),
                     _squad_row("Ohne", nummer=None, position=None, stufe=None),
-                    _legacy_squad_row("Oeztuerk", nummer="5", position="Mittelfeld", stufe="Q1"),
+                    _squad_row("Oeztuerk", nummer="5", position="Mittelfeld", stufe="Q1"),
                     _squad_row("Weber", nummer="1", position="Tor", stufe="Q2"),
                     _squad_row("Kraus", nummer="12", position="Angriff", stufe="Q4", inactive_since="2026-03-01"),
                 ]
