@@ -25,6 +25,7 @@ from app.api.spielberichte.services import (
     BERICHT_NICHT_GESPIELT,
     BERICHT_NICHT_IM_KADER,
 )
+from app.api.spiele.admin_router import get_spiele_action_required
 from app.core.collections import Collection
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
@@ -495,3 +496,40 @@ class TestTheAdministratorReadsTheStateAReportIsIn:
         assert [(eintrag.spiel_id, eintrag.zustand) for eintrag in differing.spielberichte] == [(SPIEL, "abweichend")]
         assert admin.zustand == "abweichend"
         assert admin.bericht is not None and admin.bericht.karten[0].grund == "foulspiel"
+
+
+class TestTheTriageFindsEveryReportAwaitingTheAdministrator:
+    def test_a_report_on_a_fixture_played_today_or_holding_another_result_is_unioned_in(self, mongo_replica_set_url: str):
+        """Neither fixture is on the list by its own fields: dated, timed, booked, played today, then holding a result."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def triage() -> set[ObjectId]:
+                listed = await get_spiele_action_required(
+                    spiele_collection=database[Collection.SPIELE],
+                    teams_collection=database[Collection.TEAMS],
+                    saisons_collection=database[Collection.SAISONS],
+                    spielorte_collection=database[Collection.SPIELORTE],
+                    schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                    spielberichte_collection=database[Collection.SPIELBERICHTE],
+                    saison_id=SAISON_ID,
+                    today=TODAY,
+                )
+                return {spiel.id for spiel in listed.spiele}
+
+            unreported = await triage()
+            await put(database, client, bericht())
+            proposed = await triage()
+            await save_the_result(database, 0, 1)
+            differing = await triage()
+            await save_the_result(database, 1, 0)
+            # Typed by the administrator, never adopted: still awaiting them.
+            typed = await triage()
+
+            return unreported, proposed, differing, typed
+
+        unreported, proposed, differing, typed = on_the_league(mongo_replica_set_url, body)
+
+        assert SPIEL not in unreported
+        assert SPIEL in proposed
+        assert SPIEL in differing
+        assert SPIEL in typed

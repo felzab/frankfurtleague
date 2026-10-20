@@ -8,6 +8,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.crud import pull_current_saison_id, pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.spielberichte.crud import pull_zustaende
 from app.api.spiele.crud import (
     advance_bracket_winners,
     anchor_a_booked_referee,
@@ -67,6 +68,7 @@ from app.core.dependencies import (
     SaisonsCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
+    SpielberichteCollection,
     SpieleCollection,
     SpielorteCollection,
     SpieltageCollection,
@@ -140,13 +142,15 @@ async def get_spiele_action_required(
     saisons_collection: SaisonsCollection,
     spielorte_collection: SpielorteCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
+    spielberichte_collection: SpielberichteCollection,
     saison_id: str | None = None,
     today: str = Depends(get_german_date_str),
 ) -> FLSpieleActionRequiredResponse:
     """List Spiele needing attention, and the bracket faults among them.
 
-    Qualifying: cancelled, missing a date, time, venue or referee, past with no result, or a
-    knockout side with neither team nor `quelle`. Scoped to `saison_id`, the active season when none
+    Qualifying: cancelled, missing a date, time, venue or referee, past with no result, a
+    knockout side with neither team nor `quelle`, or holding a referee's report the administrator has
+    not adopted as it stands (`GET /spielberichte` serves its state). Scoped to `saison_id`, the active season when none
     is named, which answers 404 while no season is active.
 
     The faults include a fixture still to be played that is booked onto a retired venue or referee,
@@ -199,6 +203,17 @@ async def get_spiele_action_required(
     by_id: dict[CustomObjectId, FLSpielJoinedAdmin] = {spiel.id: spiel for spiel in spiele}
     for spiel in faulted_spiele:
         by_id.setdefault(spiel.id, spiel)
+
+    # A report awaiting the administrator sits on a fixture the read above can pass over -- one played today, or one
+    # whose result stands -- so its fixture is unioned in as a fault's is. The states are served by the reports' own read.
+    berichte = await pull_zustaende(spielberichte_collection=spielberichte_collection, saison_id=saison_id)
+    offen = [eintrag.spiel_id for eintrag in berichte if eintrag.zustand != "uebernommen" and eintrag.spiel_id not in by_id]
+    if offen:
+        berichtet_raw = await aggregate_many_from_db(
+            collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id, "_id": {"$in": offen}})
+        )
+        for spiel in FLSpielJoinedAdminListAdapter.validate_python(berichtet_raw):
+            by_id.setdefault(spiel.id, spiel)
 
     return FLSpieleActionRequiredResponse(spiele=list(by_id.values()), bracket_faults=bracket_faults)
 
