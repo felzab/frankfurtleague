@@ -105,14 +105,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`) and
   (`:: VERTRETUNG_MIN_AGE_YEARS`), one per seat in
   `fl_backend/app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`.
-- **A pupil's birthdate is optional until the sign-up flow exists, and required from it.** Ruled
-  2026-09-08. The alternative weighed and refused was requiring it now: that means inventing data in
-  the one field whose purpose is the age floor, a validator that invalidates every standing pupil
-  row until a backfill is run by hand, and an administrator making a date up at every squad entry
-  until the flow ships. `fl_backend/app/core/domain.py :: UNENFORCED` carries the standing state and
-  names what ends it — the next season's registration, at which the pupil rows standing today are
-  dropped ([section 3](#3-the-current-pupil-records-are-reset-once)). **What the field is FOR is checking an age when a
-  question about one arises.** On a pupil's own row it gates no read and no publication and nothing
+- **A pupil's birthdate is required, and the pupil's own registration is what supplies it.** Ruled
+  2026-09-08: required from the sign-up flow on, so that nobody invents the one field whose purpose
+  is the age floor. The admission carries the date the pupil typed onto their record, and the
+  person's validator requires the key, which only the erased pupils' sentinel holds null
+  (`fl_backend/app/core/constraints.py`). **What the field is FOR is checking an age when a question
+  about one arises.** On a pupil's own row it gates no read and no publication and nothing
   judges it; the date a pupil types on their confirmation page is judged against the floor before
   anything is written (`fl_backend/app/api/registrierungen/services.py :: find_alter_refusal`),
   which is what the published notice tells a reader. Ruled 2026-09-08.
