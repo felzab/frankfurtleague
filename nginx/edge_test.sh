@@ -9,11 +9,11 @@
 # nothing about which locations the edge makes reachable (`docs/ops/spec.md` I13).
 #
 # Invariants:
-# - `docs/logging/spec.md` L11, and the edge's half of L12, the span every line carries.
+# - `docs/logging/spec.md` L11, and the edge's half of L12, every line's span.
 # - `docs/logging/spec.md` L7 and L10, on every location proxying to the frontend.
 # - `docs/ops/spec.md` I2, each security header sent once, as written, on every location's response.
 # - `docs/ops/spec.md` I352, no visitor named in the container's own streams.
-# - `docs/ops/spec.md` I9, I507, and §1.3's server-action pair.
+# - `docs/ops/spec.md` I9, I507, §1.3's server-action and link-page pairs.
 #
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
 #   ./nginx/edge_test.sh --help
@@ -249,13 +249,16 @@ done
 #   KEEP-REF|<referer>|<text> as KEEP, with the URL on a Referer header
 
 CASES=(
-  # The pages a mailed link lands on, each served by `location /`: pins against narrowing the map,
-  # which matches the parameter wherever it sits, to a path list.
+  # The pages a mailed link lands on: pins against narrowing the map, which matches the parameter
+  # wherever it sits, to a path list.
   "LEAK|${BASE}/bestaetigung/schiedsrichter?token=${TOK}"
+  "LEAK|${BASE}/bestaetigung/schiedsrichter/adresse?token=${TOK}"
   "LEAK|${BASE}/bestaetigung/spieler?token=${TOK}"
+  "LEAK|${BASE}/bestaetigung/spieler/adresse?token=${TOK}"
   "LEAK|${BASE}/bestaetigung/kontakt?token=${TOK}"
   "LEAK|${BASE}/bestaetigung/spiel?token=${TOK}"
   "LEAK|${BASE}/registrierung?token=${TOK}"
+  "LEAK|${BASE}/loeschung?token=${TOK}"
   "LEAK|${BASE}/signin?token=${TOK}"
   "LEAK|${BASE}/signin?foo=1&token=${TOK}"
   "LEAK|${BASE}/signin?foo=1&EMAIL=${EM}"
@@ -591,7 +594,7 @@ done < "${REPO_ROOT}/nginx/shared/site.conf"
 # dropping the inherited set hands both to Next as they arrived.
 CLIENT_TRACE="0af7651916cd43dd8448eb211c80319c"
 CLIENT_ACTOR="fl-edge-actor-probe"
-# On a GET, which no zone meters, so every location answers.
+# On a GET, which only the link pages' pair meters, here inside its burst, so every location answers.
 CLIENT_ACTION="fl-edge-action-probe"
 # One curl for every path, each response's headers to a file of its own, and the counting in bash:
 # on Windows a spawn costs ~0.1s, which a grep per header would pay a hundred times.
@@ -753,6 +756,8 @@ action_request urlencoded -X POST --data "probe=1" "${BASE}/"
 action_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/_next/static/chunk.js"
 # An id opening with a colon, which a key joined on `:` would read as no id at all.
 action_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
+# A link page's block, whose own pair has room left here, so only the restated action pair refuses.
+action_request link-action -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/bestaetigung/spiel"
 # The refusal itself, kept whole: what Next's action client reads as the press's error. Not through
 # `action_request`, whose `-o /dev/null` curl would pair with this transfer in place of the file.
 ACTION_LABELS+=( refusal )
@@ -768,6 +773,42 @@ action_request empty-id -X POST -H "Next-Action;" -H "Content-Type: text/plain;c
 action_request json-post -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/"
 action_request page-load "${BASE}/"
 action_request asset-load "${BASE}/_next/static/chunk.js"
+
+# The link pages' pair, every request it meters a page render. Its burst read off the file, so a
+# burst moved there is still flooded past, with twenty more for the refill the run takes.
+LINK_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=linkseite burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
+[[ -n "$LINK_BURST" ]] || refuse "nginx/shared/site.conf declares no linkseite burst this test can read."
+for _ in $(seq 1 $(( LINK_BURST + 20 ))); do
+  action_request link-flood "${BASE}/bestaetigung/spiel?token=${TOK}"
+done
+# The key spent: every link page, each block's own twin and the spellings nginx resolves before
+# choosing a location, each kept whole, since a block declaring its own error_page answers 429 too.
+LINK_MARKER="fl-link"
+LINK_SPENT=(
+  "/bestaetigung/kontakt?token=${TOK}"
+  "/bestaetigung/schiedsrichter?token=${TOK}"
+  "/bestaetigung/schiedsrichter/adresse?token=${TOK}"
+  "/bestaetigung/spieler?token=${TOK}"
+  "/bestaetigung/spieler/adresse?token=${TOK}"
+  "/registrierung?token=${TOK}"
+  "/registrierung/?token=${TOK}"
+  "/loeschung?token=${TOK}"
+  "/loeschung/?token=${TOK}"
+  "//bestaetigung/spiel?token=${TOK}"
+  "/bestaetigung/./spiel?token=${TOK}"
+  "/%62estaetigung/spiel?token=${TOK}"
+)
+for _i in "${!LINK_SPENT[@]}"; do
+  ACTION_LABELS+=( "link-spent-${_i}" )
+  ACTION_REQUESTS+=( --next -s --path-as-is -D "${SCRATCH}/link-spent-${_i}.headers" -o "${SCRATCH}/link-spent-${_i}.body"
+    -w '%{http_code}\n' --max-time 5 -H "Host: localhost" -A "$LINK_MARKER" "${BASE}${LINK_SPENT[_i]}" )
+done
+# A key covering GETs alone lets both of these through, and one exempting HEAD, which a mail
+# gateway's link check may send, the second.
+ACTION_LABELS+=( link-json )
+ACTION_REQUESTS+=( --next -s -D "${SCRATCH}/link-json.headers" -o "${SCRATCH}/link-json.body" -w '%{http_code}\n' --max-time 5
+  -H "Host: localhost" -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/bestaetigung/spiel?token=${TOK}" )
+action_request link-head --head "${BASE}/bestaetigung/spiel?token=${TOK}"
 
 mapfile -t ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
 expect_action() { # $1 label, $2 the status every transfer of it must answer, or "some:<status>"
@@ -821,6 +862,35 @@ expect_action empty-id 200
 expect_action json-post 200
 expect_action page-load 200
 expect_action asset-load 200
+expect_action link-action 429
+expect_action link-flood some:429
+for _i in "${!LINK_SPENT[@]}"; do
+  _before=$ACTION_FAILURES
+  expect_action "link-spent-${_i}" 429
+  grade_refusal "link-spent-${_i}"
+  (( ACTION_FAILURES == _before )) || detail "link-spent-${_i} asked for ${LINK_SPENT[_i]}"
+done
+expect_action link-json 429
+grade_refusal link-json
+expect_action link-head 429
+
+# A refusal's error line repeats the request line, live token included, so `limit_req_log_level` keeps
+# it below the log's own level. Read once every kept refusal's access line is written, which comes
+# after its error line.
+LINK_LOGGED=0
+for _ in $(seq 1 50); do
+  LINK_LOGGED="$({ grep -c "\"user_agent\":\"${LINK_MARKER}\"" "$ACCESS_LOG" 2>/dev/null || true; })"
+  if (( ${LINK_LOGGED:-0} >= ${#LINK_SPENT[@]} + 1 )); then break; fi
+  sleep 0.2
+done
+(( ${LINK_LOGGED:-0} >= ${#LINK_SPENT[@]} + 1 )) \
+  || refuse "the edge logged ${LINK_LOGGED:-0} of the $(( ${#LINK_SPENT[@]} + 1 )) link-page requests kept whole, so whether a refusal reached the error log was not judged."
+LINK_ERRORS="$({ grep -F "$TOK" "$ERROR_LOG" 2>/dev/null || true; })"
+if [[ -n "$LINK_ERRORS" ]]; then
+  fail "ACTION link-log"
+  detail "the error log holds a live token: ${LINK_ERRORS}"
+  ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+fi
 
 # --- the Control API the deploy reloads through ----------------------------------------------------
 
@@ -1180,6 +1250,7 @@ ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers
 ${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor,
 ${#REFUSED_WITH[@]} refused at the edge and still refused under ${#REFUSED_LABELS[@]} other spellings, an empty
 Next-Action handed to no one, server
-actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker,
+actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, every link page
+metered on every request under every spelling with no token reaching the error log, the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker,
 every upstream named through a variable and found through Docker's DNS alone, holding an answer ${RESOLVER_VALID}s, both edges reaching a backend recreated at a new address
 without a reload, and each upstream's redirect naming itself handed back as the visitor's origin"
