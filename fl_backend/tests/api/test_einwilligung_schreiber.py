@@ -108,7 +108,6 @@ AM: Final = "2026-04-01T10:30:00+00:00"
 # evidenced, the withdrawal naming the grant it ended.
 PERSON_RECORD: Final = {
     "umfang": "kader_oeffentlich",
-    "erteilt_von": "volljaehrig",
     "datum": "2026-03-01",
     "bestaetigt_am": "2026-03-01",
     "text_version": "2026-09-spielerseite-3",
@@ -125,7 +124,6 @@ PERSON_RECORD: Final = {
 # A seat its applicant named, which nobody has answered yet.
 SEAT_RECORD: Final = {
     "umfang": "kontaktdaten",
-    "erfasst_von": "administrativ",
     "text_version": "2026-09-bestaetigung-5",
     "datum": "2026-03-01",
     "bestaetigt_am": None,
@@ -136,7 +134,6 @@ SEAT_RECORD: Final = {
 ANSWERED_SEAT: Final = {
     **SEAT_RECORD,
     "umfang": "kontaktdaten_whatsapp",
-    "erfasst_von": "person",
     "bestaetigt_am": "2026-03-02",
     "medien": True,
     NACHWEIS: {

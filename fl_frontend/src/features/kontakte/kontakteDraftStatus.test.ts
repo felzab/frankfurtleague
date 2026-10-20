@@ -16,7 +16,7 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" }),
+  einwilligung: kenntnisnahme({ text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" }),
   ...overrides,
 });
 
@@ -152,7 +152,7 @@ describe("deriveKontakteDraftStatus", () => {
       draft: block({
         trainer: person({
           // As the editor opens a seat: nobody has seated its person yet.
-          einwilligung: kenntnisnahme({ erfasst_von: null, text_version: "", datum: "", bestaetigt_am: null, eingetragen_von: null }),
+          einwilligung: kenntnisnahme({ text_version: "", datum: "", bestaetigt_am: null, eingetragen_von: null }),
         }),
       }),
       fieldErrors: { "kontakte.trainer.einwilligung.datum": "Bitte gib an, wann die Kenntnisnahme erfasst wurde." },

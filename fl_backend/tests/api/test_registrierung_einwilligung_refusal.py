@@ -482,7 +482,6 @@ class TestWhatAConfirmationWrites:
             "$set": {
                 "geburtsdatum": "2009-05-09",
                 "einwilligung": {
-                    # No speaker: no write names who answered any longer.
                     "umfang": "intern",
                     "datum": TODAY,
                     "bestaetigt_am": TODAY,
@@ -633,7 +632,7 @@ class TestAPersonIsNeverWrittenNameless:
         "vorname": "Quillhilde",
         "nachname": "Brackenmoor",
         "geburtsdatum": "2009-05-09",
-        "einwilligung": {"umfang": "intern", "medien": False, "bestaetigt_am": TODAY, "datum": TODAY, "text_version": RETURNING_LABEL},
+        "einwilligung": eigene_einwilligung_document(text_version=RETURNING_LABEL, bestaetigt_am=TODAY, umfang="intern"),
     }
 
     # Whitespace among them: `person_name_key` folds it to the empty key the sentinel's null name also folds to.
@@ -707,6 +706,6 @@ class TestWhatTheAnswerPayloadRefuses:
         body = antwort() if model is FLRegistrierungBestaetigungPayload else {"token": RAW}
 
         with pytest.raises(ValidationError) as failure:
-            model.model_validate({**body, "erteilt_von": "erziehungsberechtigt"})
+            model.model_validate({**body, "nachweis": {}})
 
         assert [entry["type"] for entry in failure.value.errors()] == ["extra_forbidden"]

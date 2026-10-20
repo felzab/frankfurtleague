@@ -671,7 +671,6 @@ class TestWhatTheServerComposes:
 
         composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY)
 
-        assert "erfasst_von" not in composed[seat]["einwilligung"]
         assert "bestaetigt_am" in composed[seat]["einwilligung"] and composed[seat]["einwilligung"]["bestaetigt_am"] is None
         assert "geburtsdatum" in composed[seat] and composed[seat]["geburtsdatum"] is None
 
@@ -691,9 +690,9 @@ class TestWhatTheServerComposes:
         with pytest.raises(ValidationError):
             FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"text_version": "v3", "erteilt": False}))
 
-    @pytest.mark.parametrize("field", ["umfang", "erfasst_von", "datum", "bestaetigt_am"])
+    @pytest.mark.parametrize("field", ["umfang", "eingetragen_von", "datum", "bestaetigt_am"])
     def test_a_client_may_not_name_a_field_the_server_composes(self, field: str):
-        """`extra="forbid"`: a body naming one of these could claim a person's own consent, or backdate or pre-confirm one."""
+        """`extra="forbid"`: a body naming one of these could claim a person's own consent or its seating, or backdate or pre-confirm one."""
 
         with pytest.raises(ValidationError):
             FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"text_version": "v3", "erteilt": True, field: "x"}))

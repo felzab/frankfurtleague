@@ -33,7 +33,6 @@ from app.core.collections import Collection
 from app.core.crud import build_query
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.einwilligung_nachweis import ohne_sprecher
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
 
@@ -902,10 +901,10 @@ def mit_abgelaufen(teams_raw: Sequence[Mapping[str, Any]], *, today: str) -> lis
 def als_unbestaetigt(einwilligung: Mapping[str, Any]) -> dict[str, Any]:
     """A seat's record held unconfirmed, as it stands until its person answers (`docs/backend/spec.md :: I142`).
 
-    The stamp nulled and any stored speaker dropped: a blank stamp is no answer, and no write sets a speaker.
+    The stamp nulled: a blank stamp is no answer.
     """
 
-    return {**ohne_sprecher(einwilligung), "bestaetigt_am": None}
+    return {**einwilligung, "bestaetigt_am": None}
 
 
 # Which fields say WHO holds a seat. The telephone number is not one: it is a way to reach a person
@@ -1051,10 +1050,8 @@ def compose_kontakte_at_entry(*, kontakte: Any) -> Any:
         if not isinstance(seat, Mapping):
             continue
 
-        # A confirmed seat moves whole but for a speaker its application stored: the row is a new
-        # document, and no write sets one there.
+        # A confirmed seat moves whole.
         if _seat_is_stamped(seat):
-            composed[slot] = {**seat, "einwilligung": ohne_sprecher(seat["einwilligung"])}
             continue
 
         # Dropped rather than refused: the entry is legitimate, and nobody can put the date right --

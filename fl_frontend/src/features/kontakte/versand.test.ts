@@ -76,7 +76,7 @@ const sitz = (vorname: string, email: string) => ({
 const gespeichert = (vorname: string, email: string) => ({
   ...sitz(vorname, email),
   geburtsdatum: null,
-  einwilligung: kenntnisnahme({ ...sitz(vorname, email).einwilligung, erfasst_von: "administrativ", bestaetigt_am: null }),
+  einwilligung: kenntnisnahme({ ...sitz(vorname, email).einwilligung, bestaetigt_am: null }),
 });
 
 const BLOCK = {

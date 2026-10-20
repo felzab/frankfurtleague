@@ -3,7 +3,6 @@
 import { Beleg, Fassung } from "@/features/spieler/components/ui/Nachweis";
 import {
   EINWILLIGUNG_FASSUNG_FRAGE,
-  EINWILLIGUNG_HERKUNFT_LABELS,
   EINWILLIGUNG_MEDIEN_FRAGE,
   EINWILLIGUNG_MEDIEN_LABELS,
   EINWILLIGUNG_UMFANG_LABELS,
@@ -62,8 +61,6 @@ export function FormEinwilligungSection({
             {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
             <Beleg nachweis={einwilligung.nachweis.medien} />
           </Angabe>
-          {/* A stored record's alone: nothing names who answered since, the person being the only one who may. */}
-          {einwilligung.erteilt_von !== null && <Angabe label="Herkunft">{EINWILLIGUNG_HERKUNFT_LABELS[einwilligung.erteilt_von]}</Angabe>}
           <Angabe label="Erteilt am">{formatSpielDatum(einwilligung.datum)}</Angabe>
           <Angabe label="Bestätigt am">
             {einwilligung.bestaetigt_am === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.bestaetigt_am)}

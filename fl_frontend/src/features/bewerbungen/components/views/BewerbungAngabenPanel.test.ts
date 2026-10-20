@@ -44,7 +44,7 @@ const BEWERBUNG: FLBewerbung = FLBewerbungSchema.parse({
       // Spaced the way a school types one, which is the whole of what the two hrefs differ over.
       telefon: "069 12 34 56",
       geburtsdatum: "1990-01-01",
-      einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: null }),
+      einwilligung: kenntnisnahme({ text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: null }),
     },
     stellvertretung: null,
     trainer: null,
@@ -93,8 +93,7 @@ describe("the panel a triage decision is taken from", () => {
     assert.equal(textOf(factLine(markup({ wunschgegner: null }), "Wunschgegner")), "Nicht hinterlegt");
   });
 
-  /* The Herkunft is who seated the person, `eingetragen_von`: `erfasst_von` is written by nothing new
-     and leaves the stored records at the programme's end, so a label read off it would go blank. */
+  /* The Herkunft is who seated the person, `eingetragen_von`. */
   for (const [von, label] of [
     ["bewerbung", "Mit der Bewerbung eingetragen"],
     ["liga", "Von der Liga eingetragen"],

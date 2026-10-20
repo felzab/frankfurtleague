@@ -9,7 +9,6 @@ const BESTAETIGUNG = { am: "2026-09-01T10:00:00Z", text_version: "2026-09-spiele
 export const bestaetigteEinwilligung = () =>
   ({
     umfang: "kader_oeffentlich",
-    erteilt_von: null,
     datum: "2026-09-01",
     bestaetigt_am: "2026-09-01",
     text_version: "2026-09-spielerseite",

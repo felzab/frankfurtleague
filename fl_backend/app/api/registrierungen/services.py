@@ -34,7 +34,7 @@ from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
-from app.shared.einwilligung_nachweis import SPRECHER, compose_erneuert, compose_geboren, ohne_sprecher
+from app.shared.einwilligung_nachweis import compose_erneuert, compose_geboren
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -1015,8 +1015,7 @@ def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: 
         erneuert=registrierung_raw["einwilligung"],
     )
 
-    # A speaker the stored record names is no truer once the person's own answer renews it.
-    return {"$set": {**fields, **erneuert}, "$unset": {f"einwilligung.{field}": "" for field in SPRECHER}}
+    return {"$set": {**fields, **erneuert}}
 
 
 def beendeter_adresswechsel(*, person_raw: Mapping[str, Any], adresse: str) -> str | None:
@@ -1045,9 +1044,7 @@ def compose_person(*, spieler_id: Any, registrierung_raw: Mapping[str, Any], adr
         # Refused ahead of every write by `find_person_fehlt_refusal`; reaching here is a caller that skipped it.
         raise ValueError("a returning pupil's registration carries no choice to create a person from")
 
-    einwilligung = ohne_sprecher(registrierung_raw["einwilligung"])
-
-    return {"_id": spieler_id, **fields, "einwilligung": einwilligung}
+    return {"_id": spieler_id, **fields, "einwilligung": dict(registrierung_raw["einwilligung"])}
 
 
 def compose_kader_fields(*, registrierung_raw: Mapping[str, Any], team_id: Any, ist_nachnominiert: bool) -> dict[str, Any]:

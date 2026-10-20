@@ -99,7 +99,6 @@ const ADA: FLKontaktperson = {
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
   einwilligung: kenntnisnahme({
-    erfasst_von: "person",
     text_version: "1",
     datum: "2026-03-12",
     bestaetigt_am: "2026-03-14",
@@ -307,7 +306,7 @@ const unconfirmed = (vorname: string, nachname: string, email: string): FLKontak
   vorname,
   nachname,
   email,
-  einwilligung: { ...ADA.einwilligung, erfasst_von: "administrativ", bestaetigt_am: null },
+  einwilligung: { ...ADA.einwilligung, bestaetigt_am: null },
 });
 
 /** The editor page's address: the club the answers below hold, in the season they hold it in. */
@@ -1227,7 +1226,7 @@ describe("what the editor says about a Kenntnisnahme it may not write", () => {
     assert.ok(renderedSeats.includes(`value="${eingetragenVonLabel("liga")}"`), "a seat the league filled does not say so");
     assert.ok(renderedSeats.includes("14.03.2026"), "the stamp renders no date, or renders it as the stored string");
 
-    for (const fieldName of ["erfasst_von", "eingetragen_von", "bestaetigt_am"]) {
+    for (const fieldName of ["eingetragen_von", "bestaetigt_am"]) {
       assert.ok(!renderedSeats.includes(`einwilligung.${fieldName}"`), `${fieldName} is still a named field, so a save can carry it`);
     }
   });
@@ -1578,7 +1577,7 @@ describe("whose birthdate a seat holds, and who may put one there", () => {
     trainer: {
       ...seatPerson("Ada", "Byron", "ada@example.org"),
       geburtsdatum: null,
-      einwilligung: { ...ADA.einwilligung, erfasst_von: "administrativ", bestaetigt_am: null },
+      einwilligung: { ...ADA.einwilligung, bestaetigt_am: null },
     },
   };
 

@@ -17,7 +17,6 @@ import {
    the shapes and never a value inside one. */
 const SERVED_EINWILLIGUNG = {
   umfang: "kader_oeffentlich",
-  erteilt_von: "volljaehrig",
   datum: "2026-10-01",
   bestaetigt_am: "2026-10-01",
   text_version: "2026-10-spielerseite-4",

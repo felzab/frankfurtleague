@@ -150,7 +150,6 @@ class TestTheTwoShapesOfAWrite:
 REGISTERED_AT: Final = "2026-04-15T09:00:00+00:00"
 REGISTERED: Final[Mapping[str, Any]] = {
     "umfang": "intern",
-    "erteilt_von": "volljaehrig",
     "datum": "2026-04-15",
     "bestaetigt_am": "2026-04-15",
     "text_version": "2026-09-spielerseite-3",
@@ -180,12 +179,10 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
             {"am": REGISTERED_AT, "text_version": "2026-09-spielerseite-3", "erteilt_zuvor": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL}},
         )
 
-    def test_every_field_but_the_choices_and_the_speaker_is_renewed(self):
-        """The registration's `erteilt_von` stays behind: no write names who answered any longer."""
+    def test_every_field_but_the_choices_is_renewed(self):
+        """The day, the stamp and the label follow the newer confirmation whole."""
 
         update = renew(MEDIA_WITHDRAWN, REGISTERED)
-
-        assert "einwilligung.erteilt_von" not in update
 
         assert {key: update[f"einwilligung.{key}"] for key in ("datum", "bestaetigt_am", "text_version")} == {
             "datum": "2026-04-15",
@@ -254,7 +251,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
         update = compose_person_update(registrierung_raw=registrierung, gespeichert=gespeichert, adresse="ida@example.com")
         gesetzt = update["$set"]
 
-        assert update["$unset"] == {"einwilligung.erteilt_von": "", "einwilligung.erfasst_von": ""}
+        assert set(update) == {"$set"}
 
         stamp = {
             "am": "2026-10-01T08:00:00+00:00",

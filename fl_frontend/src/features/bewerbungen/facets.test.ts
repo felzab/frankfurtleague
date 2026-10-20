@@ -423,7 +423,7 @@ const SEAT_ROWS = KONTAKT_ROLLEN.map(({ value }, index): AdminBewerbungRow => {
     email,
     telefon: "069 1234567",
     geburtsdatum: null,
-    einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: null }),
+    einwilligung: kenntnisnahme({ text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: null }),
   };
 
   return {

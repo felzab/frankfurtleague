@@ -37,7 +37,7 @@ const person = (vorname: string, nachname: string, email: string): FLKontaktpers
   email,
   telefon: TELEFON[vorname] ?? "069 444",
   geburtsdatum: "1990-12-10",
-  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
+  einwilligung: kenntnisnahme({ text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
 });
 
 /** Three seats, each holding a different person, so an offer on the wrong one names the wrong name. */

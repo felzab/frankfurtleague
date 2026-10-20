@@ -9,7 +9,6 @@ const einwilligungsTeil = (umfang: string, textVersion: string) => ({
   inactive_since: null,
   einwilligung: {
     umfang: umfang,
-    erteilt_von: "volljaehrig",
     datum: "2026-09-01",
     bestaetigt_am: "2026-09-01",
     text_version: textVersion,

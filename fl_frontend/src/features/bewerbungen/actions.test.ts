@@ -286,7 +286,7 @@ const ENTSCHIEDEN = FLBewerbungSchema.parse({
       nachname: "Meier",
       telefon: "069 1234567",
       geburtsdatum: null,
-      einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: FORM_LABEL, datum: "2026-09-01", bestaetigt_am: null }),
+      einwilligung: kenntnisnahme({ text_version: FORM_LABEL, datum: "2026-09-01", bestaetigt_am: null }),
     },
     stellvertretung: null,
     trainer_ist_zugleich: null,

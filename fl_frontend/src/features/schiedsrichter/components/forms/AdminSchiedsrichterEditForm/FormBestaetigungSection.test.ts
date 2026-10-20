@@ -46,7 +46,6 @@ const BESTAETIGUNG = { am: "2026-09-22T09:00:00Z", text_version: "2026-09-schied
 
 const BESTAETIGT: FLEinwilligung = {
   umfang: "kader_oeffentlich",
-  erteilt_von: "volljaehrig",
   datum: "2026-09-22",
   bestaetigt_am: "2026-09-22",
   text_version: "2026-09-schiedsrichterseite",

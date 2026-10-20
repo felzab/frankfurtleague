@@ -25,7 +25,7 @@ function person(vorname: string, nachname: string, email: string, bestaetigtAm: 
     email: email,
     telefon: "069 1234567",
     geburtsdatum: null,
-    einwilligung: kenntnisnahme({ erfasst_von: "administrativ", text_version: "kontakte-1", datum: "2026-05-01", bestaetigt_am: bestaetigtAm }),
+    einwilligung: kenntnisnahme({ text_version: "kontakte-1", datum: "2026-05-01", bestaetigt_am: bestaetigtAm }),
   };
 }
 

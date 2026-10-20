@@ -139,7 +139,7 @@ def _seat(email: str, *, bestaetigt_am: str | None = "2026-09-03") -> dict[str, 
         email=email,
         telefon="+49 69 5550101",
         geburtsdatum="2000-05-09",
-        einwilligung={"erfasst_von": "person", "text_version": "2026-09-bestaetigungsseite-6", "datum": "2026-09-01", "medien": True},
+        einwilligung={"text_version": "2026-09-bestaetigungsseite-6", "datum": "2026-09-01", "medien": True},
     )
 
 

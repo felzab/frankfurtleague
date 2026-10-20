@@ -21,7 +21,7 @@ from app.api.teams.schemas import KONTAKT_ROLLEN, FLKontaktEingetragenVon, FLPos
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
-from app.shared.einwilligung_nachweis import SPRECHER, compose_wahlen
+from app.shared.einwilligung_nachweis import compose_wahlen
 from app.shared.folding import mailbox_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
@@ -1016,8 +1016,7 @@ def compose_confirmation_update(
             )
         )
 
-    # A speaker a seat stored before its answer names is no truer once its person has answered.
-    return {"$set": written, "$unset": {f"kontakte.{seat}.einwilligung.{field}": "" for seat in seats for field in SPRECHER}}
+    return {"$set": written}
 
 
 # The two pages' own fills: the account page states a seat's words with these too, so each confirmation

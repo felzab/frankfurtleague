@@ -4,12 +4,7 @@ import { describe, it } from "node:test";
 import { readEinwilligungDocument } from "@/core/einwilligungDocument.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
-import {
-  EINWILLIGUNG_HERKUNFT_LABELS,
-  EINWILLIGUNG_MEDIEN_LABELS,
-  EINWILLIGUNG_UMFANG_LABELS,
-  EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS,
-} from "../../../constants.ts";
+import { EINWILLIGUNG_MEDIEN_LABELS, EINWILLIGUNG_UMFANG_LABELS, EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS } from "../../../constants.ts";
 
 import type { FLEinwilligung } from "../../../schemas.ts";
 
@@ -29,7 +24,6 @@ const BESTAETIGUNG = { am: "2026-03-04T09:00:00Z", text_version: FASSUNG, erteil
 /** A consent the registration flow collected: dated, confirmed, and citing the wording its person was shown. */
 const ERTEILT: FLEinwilligung = {
   umfang: "kader_oeffentlich",
-  erteilt_von: "erziehungsberechtigt",
   datum: "2026-03-04",
   bestaetigt_am: "2026-03-04",
   text_version: FASSUNG,
@@ -37,8 +31,8 @@ const ERTEILT: FLEinwilligung = {
   nachweis: { umfang: BESTAETIGUNG, medien: BESTAETIGUNG },
 };
 
-/** A record naming the carry-over as its origin, which the enum still holds. */
-const UEBERNOMMEN: FLEinwilligung = { ...ERTEILT, erteilt_von: "bestandsuebernahme", medien: false };
+/** The same record with its media consent withheld. */
+const OHNE_MEDIEN: FLEinwilligung = { ...ERTEILT, medien: false };
 
 /** The panel as the page hands it over, which resolves the stored label through the words read. */
 const markup = (einwilligung: FLEinwilligung, istFassungBekannt: boolean | null = true): string =>
@@ -54,37 +48,26 @@ const closingNote = (einwilligung: FLEinwilligung): string => {
 };
 
 describe("the stored consent panel", () => {
-  it("names the carry-over where the record is one, and never where somebody consented", () => {
-    assert.ok(words(UEBERNOMMEN).includes(EINWILLIGUNG_HERKUNFT_LABELS.bestandsuebernahme), "a backfilled record does not read as one");
-    assert.ok(!words(ERTEILT).includes(EINWILLIGUNG_HERKUNFT_LABELS.bestandsuebernahme), "a consent somebody gave reads as a carry-over");
-    assert.ok(words(ERTEILT).includes(EINWILLIGUNG_HERKUNFT_LABELS.erziehungsberechtigt), "a consent somebody gave does not say who");
-  });
-
-  it("renders every origin and every scope the record can carry", () => {
-    const herkuenfte = Object.keys(EINWILLIGUNG_HERKUNFT_LABELS) as NonNullable<FLEinwilligung["erteilt_von"]>[];
+  it("renders every scope the record can carry", () => {
     const umfaenge = Object.keys(EINWILLIGUNG_UMFANG_LABELS) as FLEinwilligung["umfang"][];
     // Floored, because a loop over a table that has emptied runs zero times and reports clean.
-    assert.ok(herkuenfte.length >= 3, "the origin table is short of the three the record declares");
     assert.ok(umfaenge.length >= 2, "the scope table is short of the two the record declares");
 
-    for (const erteilt_von of herkuenfte) {
-      assert.ok(words({ ...UEBERNOMMEN, erteilt_von }).includes(EINWILLIGUNG_HERKUNFT_LABELS[erteilt_von]), `${erteilt_von} renders no label`);
-    }
     for (const umfang of umfaenge) {
-      assert.ok(words({ ...UEBERNOMMEN, umfang }).includes(EINWILLIGUNG_UMFANG_LABELS[umfang]), `${umfang} renders no label`);
+      assert.ok(words({ ...OHNE_MEDIEN, umfang }).includes(EINWILLIGUNG_UMFANG_LABELS[umfang]), `${umfang} renders no label`);
     }
   });
 
   it("offers nothing to type into, the field being immutable", () => {
-    assert.doesNotMatch(markup(UEBERNOMMEN), /<(input|select|textarea)\b/, "a read-only record renders a control");
+    assert.doesNotMatch(markup(OHNE_MEDIEN), /<(input|select|textarea)\b/, "a read-only record renders a control");
   });
 
   it("says that the record cannot be edited, standing among panels that can", () => {
-    assert.ok(words(UEBERNOMMEN).includes("lassen sich nicht bearbeiten"), "nothing tells the reader these facts are read-only");
+    assert.ok(words(OHNE_MEDIEN).includes("lassen sich nicht bearbeiten"), "nothing tells the reader these facts are read-only");
   });
 
   it("keeps the heading level the shell's other sections take", () => {
-    const html = markup(UEBERNOMMEN);
+    const html = markup(OHNE_MEDIEN);
     assert.match(html, /<h2\b/, "the panel renders no heading");
     assert.doesNotMatch(html, /<h1\b/, "the section gives the shell page a second h1");
   });
@@ -114,22 +97,13 @@ describe("the stored consent panel", () => {
     assert.ok(!text.includes("Unbekannte Fassung"), "an unchecked label reads as an unknown one");
   });
 
-  /* Nothing names who answered since the person alone may: a record naming nobody shows no origin rather than a guessed one. */
-  it("shows no origin for a record naming nobody", () => {
-    const text = words({ ...ERTEILT, erteilt_von: null });
-
-    assert.ok(!text.includes("Herkunft"), "a record naming nobody reads an origin");
-    for (const label of Object.values(EINWILLIGUNG_HERKUNFT_LABELS))
-      assert.ok(!text.includes(label), `a record naming nobody reads as ${label}`);
-  });
-
   it("reads the media consent as a word on either answer", () => {
     // Floored, because `includes("")` holds of any render: a label edited to empty passes both
     // assertions below, and one copied over the other passes them against a panel showing either.
     assert.ok(EINWILLIGUNG_MEDIEN_LABELS.erteilt.length > 0, "the granted label has emptied");
     assert.notEqual(EINWILLIGUNG_MEDIEN_LABELS.erteilt, EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt, "the two answers read alike");
     assert.ok(words(ERTEILT).includes(EINWILLIGUNG_MEDIEN_LABELS.erteilt), "a media consent renders no word");
-    assert.ok(words(UEBERNOMMEN).includes(EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt), "a record carrying none renders no word");
+    assert.ok(words(OHNE_MEDIEN).includes(EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt), "a record carrying none renders no word");
   });
 
   /* The account page moves one choice and leaves the confirmation's day and label standing, so a
@@ -161,20 +135,12 @@ describe("the stored consent panel", () => {
     assert.match(text, /Bestätigt am\s*04\.03\.2026/, "the day the consent was confirmed is not shown");
   });
 
-  /* The readout has no sentence beside it to qualify a gendered noun, so each origin is named
-     without one — and `bestandsuebernahme` stays the plain word a softened one would blur. */
-  it("names whoever gave a consent without a gendered noun", () => {
-    for (const [herkunft, label] of Object.entries(EINWILLIGUNG_HERKUNFT_LABELS)) {
-      assert.doesNotMatch(label, /Spieler/, `${herkunft} names the squad member's gender in a readout`);
-    }
-  });
-
   /* Compared whole rather than by an opening fragment: „steuert die Veröffentlichung“ is a prefix of
      its own negation, so a sentence saying the opposite about a pupil's privacy passes on it. */
   it("names the publication rule whichever scope the record holds", () => {
-    const withheld: FLEinwilligung = { ...UEBERNOMMEN, umfang: "intern" };
+    const withheld: FLEinwilligung = { ...OHNE_MEDIEN, umfang: "intern" };
 
-    for (const record of [UEBERNOMMEN, withheld]) {
+    for (const record of [OHNE_MEDIEN, withheld]) {
       assert.equal(closingNote(record), EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS, "the panel closes on words the constant does not carry");
     }
   });

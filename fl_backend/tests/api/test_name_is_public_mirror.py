@@ -59,14 +59,13 @@ class ConsentCase(NamedTuple):
 
 
 def _record(umfang: Any, bestaetigt_am: Any) -> dict[str, Any]:
-    record = {"umfang": umfang, "erteilt_von": "erziehungsberechtigt", "datum": "2026-01-15", "bestaetigt_am": bestaetigt_am}
+    record = {"umfang": umfang, "datum": "2026-01-15", "bestaetigt_am": bestaetigt_am}
 
     return {key: value for key, value in record.items() if value is not ABSENT}
 
 
 # The three inputs `READ-PUPIL-003` names, closed over: the record's presence, its `umfang`, and
-# whether `bestaetigt_am` is stamped -- each key's own absence among its states. `erteilt_von` is not
-# among them, and the case below the table is what says so.
+# whether `bestaetigt_am` is stamped -- each key's own absence among its states.
 NAME_IS_PUBLIC: Final[tuple[ConsentCase, ...]] = (
     ConsentCase("no record at all", None, False),
     ConsentCase("public, confirmed", _record("kader_oeffentlich", CONFIRMED), True),
@@ -115,13 +114,6 @@ def test_the_table_closes_over_every_input_and_both_verdicts():
 @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
 def test_the_python_predicate_answers_the_table(case: ConsentCase):
     assert name_is_public(case.einwilligung) is case.published
-
-
-@pytest.mark.parametrize("erteilt_von", ["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"])
-def test_who_gave_the_consent_is_not_one_of_the_inputs(erteilt_von: str):
-    """A carry-over that was confirmed publishes like any other record: the table's three inputs are the whole of the rule."""
-
-    assert name_is_public({**_record("kader_oeffentlich", CONFIRMED), "erteilt_von": erteilt_von}) is True
 
 
 def _oid(position: int) -> ObjectId:

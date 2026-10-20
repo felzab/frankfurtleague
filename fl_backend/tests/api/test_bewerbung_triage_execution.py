@@ -379,7 +379,6 @@ class TestAnAcceptanceEntersTheSchool:
                     "$set": {
                         **{f"kontakte.{slot}.einwilligung.eingetragen_von": von for slot, von in seated.items()},
                         # The Trainer confirmed: entry carries a stamped seat whole, an unstamped one recomposed.
-                        "kontakte.trainer.einwilligung.erfasst_von": "person",
                         "kontakte.trainer.einwilligung.bestaetigt_am": TODAY,
                     }
                 },
@@ -565,15 +564,16 @@ BESTAETIGUNGEN = compose_bestaetigungen(
 def confirmed_kontakte(*, open_seat: str | None) -> dict[str, Any]:
     """The seeded people with every seat confirmed by its own person, or one of them left open."""
 
-    block = {slot: dict(person) if isinstance(person, dict) else person for slot, person in KONTAKTE.items()}
+    block = dict(KONTAKTE)
     for slot in ("trainer", "ansprechperson", "stellvertretung"):
         stamped = slot != open_seat
-        block[slot]["geburtsdatum"] = "1980-05-04" if stamped else None
-        block[slot]["einwilligung"] = {
-            **block[slot]["einwilligung"],
-            "erfasst_von": "person" if stamped else "administrativ",
-            "bestaetigt_am": "2026-02-10" if stamped else None,
-        }
+        block[slot] = kontaktperson_document(
+            KONTAKTE[slot]["vorname"],
+            bestaetigt_am="2026-02-10" if stamped else None,
+            einwilligung=SEATED,
+            telefon="+49 69 1234567",
+            geburtsdatum="1980-05-04" if stamped else None,
+        )
 
     return block
 

@@ -251,10 +251,10 @@ class TestSpieler:
 
 
 class TestEinwilligung:
-    """The consent record: what may be published, who agreed it, and whether anyone confirmed it."""
+    """The consent record: what may be published, and whether anyone confirmed it."""
 
     def test_accepts_a_collected_consent(self, spieler, einwilligung):
-        collected = einwilligung(umfang="kader_oeffentlich", erteilt_von="erziehungsberechtigt")
+        collected = einwilligung(umfang="kader_oeffentlich")
 
         einwilligung = FLSpieler.model_validate(spieler(einwilligung=collected)).einwilligung
 
@@ -278,20 +278,12 @@ class TestEinwilligung:
         assert parsed.medien is True
         assert parsed.umfang == "kader_oeffentlich"
 
-    def test_a_record_naming_no_speaker_reads_back(self, einwilligung):
-        """No write names who answered any longer, so every record written from now on reads without one."""
-
-        assert FLEinwilligung.model_validate(einwilligung()).erteilt_von is None
-
     @pytest.mark.parametrize(
         ("field", "value"),
         [
             # A scope somebody invented where the two the league publishes under already exist.
             ("umfang", "oeffentlich"),
             ("umfang", "kader"),
-            # A source outside the three: consent comes from a guardian, an adult, or a carry-over.
-            ("erteilt_von", "schule"),
-            ("erteilt_von", "trainer"),
         ],
     )
     def test_rejects_a_value_outside_its_closed_set(self, einwilligung, field, value, assert_rejects):

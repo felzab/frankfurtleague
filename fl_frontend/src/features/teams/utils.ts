@@ -245,8 +245,8 @@ export const computeEntscheidungFor = ({ spiel, teamId }: { spiel: FLSpiel; team
 };
 
 /**
- * A blank contact person, for the moment the editor's contact block is switched on. `erfasst_von` and
- * the date stay unanswered: who recorded it, and when, is the one thing nobody may guess for the league.
+ * A blank contact person, for the moment the editor's contact block is switched on. The stamp and the
+ * date stay unanswered: whether the person answered, and when, is the one thing nobody may guess for the league.
  */
 export const buildEmptyKontaktperson = (textVersion: string): KontaktpersonDraft => ({
   vorname: "",
@@ -258,7 +258,6 @@ export const buildEmptyKontaktperson = (textVersion: string): KontaktpersonDraft
   // an admin transcribing a version number is a value nobody decided stored as though they had.
   einwilligung: {
     umfang: EINWILLIGUNG_UMFANG,
-    erfasst_von: null,
     text_version: textVersion,
     datum: "",
     // A confirmation link is the only writer of this stamp, so a seat an administrator opened here

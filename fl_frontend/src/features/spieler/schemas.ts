@@ -73,16 +73,9 @@ export type FLEinwilligungStand = z.infer<typeof FLEinwilligungStandSchema>;
 export const FLEinwilligungStandPayloadSchema = FLEinwilligungStandSchema;
 export type FLEinwilligungStandPayload = z.infer<typeof FLEinwilligungStandPayloadSchema>;
 
-/**
- * Mirrors `FLEinwilligung` — what may be published about this person.
- *
- * `bestandsuebernahme` marks a backfilled record, which must stay distinguishable from consent
- * somebody actually gave.
- */
+/** Mirrors `FLEinwilligung` — what may be published about this person. */
 export const FLEinwilligungSchema = z.object({
   umfang: z.enum(["kader_oeffentlich", "intern"]),
-  // Who answered, on a record stored before no write named one; null on every record since.
-  erteilt_von: z.enum(["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]).nullable(),
   datum: CustomDateStringSchema,
   // Null only where a hand edit blanked the stamp: every record is born confirmed.
   bestaetigt_am: CustomDateStringSchema.nullable(),

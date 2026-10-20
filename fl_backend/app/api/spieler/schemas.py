@@ -43,10 +43,6 @@ FLSpielerRolle = Literal["kapitaen", "co_kapitaen"]
 # An alias rather than inline: the payloads that set it answer in the record's own vocabulary.
 FLEinwilligungUmfang = Literal["kader_oeffentlich", "intern"]
 
-# What stored records name as who answered; no write sets it (`app/shared/einwilligung_nachweis.py ::
-# SPRECHER`). `bestandsuebernahme` marks a record carried over from before consent was collected.
-FLEinwilligungQuelle = Literal["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]
-
 # What a pupil's address link shows, the referee's states (`app/api/schiedsrichter/schemas.py ::
 # FLSchiedsrichterAdresswechselZustand`). `nicht_bestaetigbar` also answers a new address another pupil
 # holds and a pupil holding none, alike with a ban on the replaced one; the press's codes part them.
@@ -106,8 +102,6 @@ class FLEinwilligung(BaseModel):
     """
 
     umfang: FLEinwilligungUmfang
-    # Read off stored records alone, so defaulted: a record written from now on names no speaker.
-    erteilt_von: FLEinwilligungQuelle | None = None
     # The day consent was given. A record is born of its person's own confirmation, so it is that day.
     datum: CustomDateString
     # The day its person confirmed it: a record is born confirmed. Null only as a stamp a hand edit

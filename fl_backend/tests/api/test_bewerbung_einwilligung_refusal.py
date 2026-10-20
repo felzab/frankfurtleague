@@ -584,9 +584,7 @@ class TestWhatAConfirmationWrites:
                 "kontakte.trainer.einwilligung.nachweis.umfang": {"am": AM, "text_version": "v4"},
                 "kontakte.trainer.einwilligung.medien": True,
                 "kontakte.trainer.einwilligung.nachweis.medien": {"am": AM, "text_version": "v4"},
-            },
-            # No speaker is written, and one a seat stored before its answer named goes.
-            "$unset": {"kontakte.trainer.einwilligung.erteilt_von": "", "kontakte.trainer.einwilligung.erfasst_von": ""},
+            }
         }
 
     def test_the_whatsapp_tick_widens_the_scope_and_nothing_else(self):
@@ -600,7 +598,7 @@ class TestWhatAConfirmationWrites:
 
         assert {key.split(".")[1] for key in update["$set"]} == {"trainer", "ansprechperson"}
         assert len(update["$set"]) == 14
-        assert {key.split(".")[1] for key in update["$unset"]} == {"trainer", "ansprechperson"}
+        assert set(update) == {"$set"}
 
     def test_a_decline_empties_the_slot_and_marks_the_day_beside_it(self):
         assert compose_decline_update(seats=("trainer",), today=TODAY) == {

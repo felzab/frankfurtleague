@@ -183,10 +183,6 @@ class _KontaktKenntnisnahmeWritable(BaseModel):
 # would transcribe one.
 FLKontaktKenntnisnahmeUmfang = Literal["kontaktdaten", "kontaktdaten_whatsapp"]
 
-# What stored seats name as who answered; no write sets it (`app/shared/einwilligung_nachweis.py ::
-# SPRECHER`). Whether the person answered is `bestaetigt_am`, and who seated them `eingetragen_von`.
-FLKontaktKenntnisnahmeQuelle = Literal["person", "administrativ"]
-
 # Who put this person in the seat: the applicant on the form, or the league's administration (a reseat,
 # the contacts editor). Not `verwaltung`, the access tier's word (`docs/glossary.md :: verwaltung`).
 FLKontaktEingetragenVon = Literal["bewerbung", "liga"]
@@ -201,8 +197,6 @@ class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable):
     """
 
     umfang: FLKontaktKenntnisnahmeUmfang
-    # For `app/api/spieler/schemas.py :: FLEinwilligung.erteilt_von`'s reason.
-    erfasst_von: FLKontaktKenntnisnahmeQuelle | None = None
     # The day this person confirmed the seat themselves; null until they do.
     bestaetigt_am: CustomOptionalDateString
     # The one consent on this record, to photographs, video and interviews, and on the READ model

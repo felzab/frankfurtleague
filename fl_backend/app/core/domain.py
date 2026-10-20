@@ -1321,7 +1321,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.COMPOSED,
         "on no administrative payload and written whole by `POST /schiedsrichter/bestaetigung` alone, from the scope and the "
         "media answer the person chose: the server stamps `bestaetigt_am` and `datum` with the day it lands, nobody else "
-        "being permitted to answer for a referee, and names no speaker (`erteilt_von` is a stored record's alone). It is "
+        "being permitted to answer for a referee. It is "
         "written whole once -- a "
         "second press is refused (`REQ-SCHIEDSRICHTER-004`) -- and afterwards only the person moves its two choices through "
         "`PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung`, every other member standing, `text_version` "
@@ -1374,7 +1374,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.COMPOSED,
         "on no payload beyond the scope and the media answer the pupil chose on the new pupil's page: the server stamps "
         "`bestaetigt_am` and `datum` with the day the confirmation lands, nobody else being permitted to answer for a pupil, "
-        "names no speaker (`erteilt_von` is a stored record's alone) and writes the record born with each choice's evidence. "
+        "and writes the record born with each choice's evidence. "
         "The returning pupil's page asks no choice, so its record is `bestaetigt_am` and `text_version` alone "
         "(`REQ-REGISTRIERUNG-017`). `text_version` arrives on the payload, and anything but the running label of the page "
         "the press resolves is refused (`REQ-EINWILLIGUNG-001`). Until the admission, only the pupil moves a choice the "

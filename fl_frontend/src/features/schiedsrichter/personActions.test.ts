@@ -30,7 +30,6 @@ const LANDED = {
   schiedsrichter_id: SCHIEDSRICHTER_ID,
   einwilligung: {
     umfang: "kader_oeffentlich",
-    erteilt_von: "volljaehrig",
     datum: "2026-09-01",
     bestaetigt_am: "2026-09-01",
     text_version: "2026-09-schiedsrichterseite-3",

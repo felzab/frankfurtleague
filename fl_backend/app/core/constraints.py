@@ -64,7 +64,6 @@ _SONDEREREIGNISSE = ["ausgefallen", "nichtantreten_team1", "nichtantreten_team2"
 _TIEBREAK_ORDER = ["tordifferenz", "direkter_vergleich"]
 _AUSTRITT_ARTEN = ["disqualifikation", "rueckzug"]
 _EINWILLIGUNG_UMFANG = ["kader_oeffentlich", "intern"]
-_EINWILLIGUNG_QUELLEN = ["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]
 _GRUPPEN = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]
 _QUELLE_TYPES = ["gruppe", "spiel"]
 _QUELLE_AUSGAENGE = ["sieger", "verlierer"]
@@ -100,7 +99,6 @@ _TRIKOT_FARBEN = [
 ]
 # The second member is the person's own tick on their confirmation page: no payload offers it.
 _KONTAKT_KENNTNISNAHME_UMFANG = ["kontaktdaten", "kontaktdaten_whatsapp"]
-_KONTAKT_KENNTNISNAHME_QUELLEN = ["person", "administrativ"]
 # Mirrors `app/api/teams/schemas.py :: FLKontaktEingetragenVon`.
 _KONTAKT_EINGETRAGEN_VON = ["bewerbung", "liga"]
 _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
@@ -241,8 +239,6 @@ _EINWILLIGUNG = _object(
     required=("umfang", "datum", "bestaetigt_am", "text_version", "medien", "nachweis"),
     properties={
         "umfang": {"bsonType": "string", "enum": _EINWILLIGUNG_UMFANG},
-        # Out of `required` and still closed: stored records carry it, and no write sets it.
-        "erteilt_von": {"bsonType": _STRING_OR_NULL, "enum": [*_EINWILLIGUNG_QUELLEN, None]},
         "datum": {"bsonType": "string"},
         # Null for the read model's reason: no writer stores one.
         "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
@@ -274,8 +270,6 @@ _KONTAKT_KENNTNISNAHME = _object(
     required=("umfang", "text_version", "datum", "bestaetigt_am", "medien", "eingetragen_von"),
     properties={
         "umfang": {"bsonType": "string", "enum": _KONTAKT_KENNTNISNAHME_UMFANG},
-        # For `_EINWILLIGUNG`'s `erteilt_von`'s reason.
-        "erfasst_von": {"bsonType": _STRING_OR_NULL, "enum": [*_KONTAKT_KENNTNISNAHME_QUELLEN, None]},
         "text_version": {"bsonType": "string"},
         "datum": {"bsonType": "string"},
         "bestaetigt_am": {"bsonType": _STRING_OR_NULL},

@@ -721,10 +721,6 @@ MASKED_SQUAD = {
     "Unbestaetigt": MaskedRow(
         ObjectId("6890a1b2c3d4e5f607390033"), "Carla", "Hoffmann", _consent("kader_oeffentlich", bestaetigt_am=""), None, None
     ),
-    # The carry-over population owner step 13 counts, pinned at the state that count expects to find.
-    "Uebernommen": MaskedRow(
-        ObjectId("6890a1b2c3d4e5f607390034"), "Dario", "Jansen", _consent("kader_oeffentlich", erteilt_von="bestandsuebernahme"), "Dario", "J."
-    ),
     # A row whose name is not stored at all, under a record that DOES publish: an absent name is not
     # a consent decision, and the mask must not invent one either way.
     "Namenlos": MaskedRow(ObjectId("6890a1b2c3d4e5f607390035"), None, None, _consent("kader_oeffentlich"), None, None),

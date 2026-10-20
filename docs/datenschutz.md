@@ -17,7 +17,7 @@ two** — which is what a reviewer needs before reading the published notice
 | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | [1. Responsibility and the request route](#1-responsibility-and-the-request-route)                         | Who the controller is, and where a request goes              |
 | [2. Consent comes from the person, from 16 or 18](#2-consent-comes-from-the-person-from-16-or-18)          | The sign-up flow every ruling on consent assumes             |
-| [3. The current pupil records are reset once](#3-the-current-pupil-records-are-reset-once)                 | What happens to the backfilled consents                      |
+| [3. The current pupil records are reset once](#3-the-current-pupil-records-are-reset-once)                 | What the once-only reset removes, and when                   |
 | [4. What is published, and on what basis](#4-what-is-published-and-on-what-basis)                          | Addresses, names, the organisers' page, crawlers, the notice |
 | [5. Erasure reaches everyone who asks](#5-erasure-reaches-everyone-who-asks)                               | Who can be erased, what erasure reaches, what it does not    |
 | [6. Retention is bounded where a bound was chosen](#6-retention-is-bounded-where-a-bound-was-chosen)       | The action log, applications, contacts, access logs          |
@@ -236,11 +236,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`DatenschutzView.tsx :: FRISTEN`), and none of the five as a refusal. Whether any belongs beside
   the two the notice names is [section 11](#11-open-and-owed-a-decision)'s question.
 
-- **There is no guardian workflow.** No code composes a consent on a guardian's word; a pupil's own
-  registration is what records one, and what the vocabulary still expresses beyond that is a
-  carried-over record. `erziehungsberechtigt` stays in the stored enum for the rows that already
-  carry it (`fl_backend/app/core/constraints.py :: _EINWILLIGUNG_QUELLEN`), and
-  `fl_backend/tests/core/test_consent_writers.py` is what holds the value to having no writer.
+- **There is no guardian workflow.** No code composes a consent on a guardian's word: a pupil's own
+  registration is what records one, and the record holds no field naming anyone else as its source
+  (`fl_backend/app/core/constraints.py :: _EINWILLIGUNG`).
 - **Nothing about a person is published without that person's recorded consent.** Both public reads
   of a pupil decide through `fl_backend/app/api/spieler/services.py :: name_is_public`, which
   publishes a name only where the consent record is present, its `umfang` is `kader_oeffentlich` and
@@ -299,14 +297,6 @@ Every ruling below is the sign-up flow as it stands for the next season.
 
 ## 3. The current pupil records are reset once
 
-- **The backfilled consents stand until the end of this season.** The pupil rows that were
-  backfilled carry a consent nobody was asked for, marked as carried over
-  (`bestandsuebernahme`); the rows registered since through the admin form carry the guardian
-  consent an administrator composed. The publication gate reads both populations alike
-  (`docs/backend/spec.md :: READ-PUPIL-003`): a carried-over record whose `bestaetigt_am` is stamped
-  publishes as before, and one with no stamp withholds the name.
-  **Datenschutzexperte consulted.** Ruled 2026-08 and re-confirmed
-  2026-09-01 and 2026-09-02.
 - **At the end of this season, once, every player row is deleted and the action log is reset in
   full.** From the next season on every player signs up through the website, and from then on
   player records are kept and governed by
