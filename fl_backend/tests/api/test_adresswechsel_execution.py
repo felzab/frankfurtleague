@@ -67,7 +67,6 @@ from app.shared.schemas.bounds import ADRESSWECHSEL_NACHLAUF_TAGE
 from tests import documents
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
-from tests.documents import spieler_document
 from tests.holds import HeldCollection
 from tests.records import record_collections
 from tests.whole_database import where_held
@@ -128,7 +127,6 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_adresswechsel_test")
 KEY = build_test_config().sperrliste_schluessel
 # A pupil whose record holds no address.
-ADDRESSLESS_OID = ObjectId("6890a1b2c3d4e5f607850099")
 
 
 def on_a_person(url: str, body: Any, **seeded: Any) -> Any:
@@ -1657,11 +1655,9 @@ class TestTheLiveReadsTheIndexServes:
         assert (joined["indexesUsed"], joined["collectionScans"]) == (["uniq_adresswechsel_adresse"], 0)
 
     def test_the_pupils_list_names_a_live_change_and_never_an_ended_one(self, mongo_replica_set_url: str):
-        """A pupil holding no address beside it: an ended change's null address must not meet them."""
+        """Every pupil holds an address, so the bystander beside it names none: an ended change's null address meets nobody."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(spieler_document(ADDRESSLESS_OID, "Ohne", "Adresse"))
-
             async def listed() -> dict[Any, Any]:
                 rows = await (await database[Collection.SPIELER].aggregate(build_spieler_memberships_pipeline())).to_list()
                 return {row["_id"]: row["adresswechsel_id"] for row in rows}
@@ -1673,7 +1669,7 @@ class TestTheLiveReadsTheIndexServes:
 
         minted, live, ended = on_a_person(mongo_replica_set_url, body)
 
-        assert (live[SPIELER_OID], live[ADDRESSLESS_OID]) == (minted, None)
+        assert (live[SPIELER_OID], live[OTHER_OID]) == (minted, None)
         assert set(ended.values()) == {None}
 
 
