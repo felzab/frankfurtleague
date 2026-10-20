@@ -28,7 +28,8 @@ def refused_at_start(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
         # The reaper's image passes untouched: a refused reaper fails the start before mongod runs.
         if image != harness.MONGO_IMAGE:
             return create(client, image, command, **kwargs)
-        container = create(client, image, ["-c", f"echo '{EXIT_MARKER}'; exit 1"], **{**kwargs, "entrypoint": "sh"})
+        kwargs["entrypoint"] = "sh"
+        container = create(client, image, ["-c", f"echo '{EXIT_MARKER}'; exit 1"], **kwargs)
         created.append(container)
         return container
 
