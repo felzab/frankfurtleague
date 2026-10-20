@@ -15,14 +15,14 @@ from app.api.bewerbungen.schemas import (
     FLKontaktRolle,
     refuse_age_outside_the_bounds,
 )
-from app.api.kontakte.services import rows_possibly_naming
+from app.api.kontakte.services import rows_seating
 from app.api.sperrliste.services import withheld_actor
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLKontaktEingetragenVon, FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
 from app.shared.einwilligung_nachweis import compose_wahlen
-from app.shared.folding import mailbox_key, sign_in_identifier
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
     BEWERBUNG_ERINNERUNG_TAGE,
@@ -966,8 +966,8 @@ def ansprechperson_mailbox(*, kontakte: Any) -> tuple[str | None, list[FLKontakt
     if anchor is None:
         return None, []
 
-    key = mailbox_key(anchor)
-    held = [seat for seat in KONTAKT_ROLLEN if seat in addresses and mailbox_key(addresses[seat]) == key]
+    # One inbox is one stored address, each the fold every payload stores (`docs/backend/spec.md :: I332`).
+    held = [seat for seat in KONTAKT_ROLLEN if addresses.get(seat) == anchor]
 
     return anchor, [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in held]
 
@@ -1028,13 +1028,13 @@ def bewerbung_schule(*, bewerbung_raw: Mapping[str, Any], club_name: Any) -> str
     return str(club_name or "")
 
 
-def build_eigene_bewerbung_filter(identifier: str) -> Mapping[str, Any]:
-    """Every PENDING application whose seats may name the address, a pre-filter the fold decides on.
+def build_eigene_bewerbung_filter(*identifiers: str) -> Mapping[str, Any]:
+    """Every PENDING application one of whose seats names one of these addresses.
 
     Pending alone: an accepted application's seats are its season row's, and a declined one's go with it.
     """
 
-    return {"status": "eingereicht", **rows_possibly_naming(identifier)}
+    return {"status": "eingereicht", **rows_seating(*identifiers)}
 
 
 # The pages a contact seat's link opens, named as the registry names them: the applicant's, and one
@@ -1455,10 +1455,7 @@ def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str) -> list[FLKo
 
 
 def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[str]) -> list[tuple[str, list[FLKontaktRolle]]]:
-    """The seats as the mails go out: one message per mailbox, in first-seen order.
-
-    Keyed as the first mail keys it (`app/shared/folding.py :: mailbox_key`).
-    """
+    """The seats as the mails go out: one message per stored address, in first-seen order."""
 
     slots = kontakte if isinstance(kontakte, Mapping) else {}
     grouped: dict[str, tuple[str, list[FLKontaktRolle]]] = {}
@@ -1468,7 +1465,7 @@ def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[str]) -> list[tuple
         email = str(slot.get("email") or "").strip() if isinstance(slot, Mapping) else ""
         if not email:
             continue
-        address, held = grouped.setdefault(mailbox_key(email), (email, []))
+        address, held = grouped.setdefault(email, (email, []))
         held.append(seat_named(seat) or cast(FLKontaktRolle, seat))
 
     return list(grouped.values())

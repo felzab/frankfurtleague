@@ -19,7 +19,7 @@ from app.api.berechtigungen.schemas import FLVerwaltung
 from app.api.berechtigungen.services import OWNER, holds_an_owners_power, lebendige, verwaltung_des
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
 from app.api.identitaet.schemas import FLErasureAnsicht, FLSelbstErasureAnsicht, FLSubjekt, FLSubjektSitz
-from app.api.kontakte.services import rows_possibly_naming
+from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_erasure_registrierung_filter
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.services import (
@@ -38,10 +38,10 @@ from app.shared.folding import composed_name, is_stored_identifier, sign_in_iden
 
 
 def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every junction row whose block may name the address, a withdrawn team's included."""
+    """Every junction row whose block names the address, a withdrawn team's included."""
 
     return [
-        {"$match": rows_possibly_naming(identifier)},
+        {"$match": rows_seating(identifier)},
         # `name` rides along free, this read opening the row anyway, and it is the row's own rather
         # than the club's (`docs/backend/spec.md :: I13`).
         {
@@ -77,14 +77,14 @@ ERASURE_SEAT_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
 
 
 def build_erasure_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every season row or application whose seats may name the address, whatever its status.
+    """Every season row or application one of whose seats names the address, whatever its status.
 
     `bestaetigungen` rides along whole: the clearing nulls a seat's bookkeeping only where the block
     exists (`app/api/kontakte/services.py :: build_clearing_update`).
     """
 
     return [
-        {"$match": rows_possibly_naming(identifier)},
+        {"$match": rows_seating(identifier)},
         {
             "$project": {
                 "saison_id": 1,
@@ -295,7 +295,7 @@ def build_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
 
 def build_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every pending application whose seats may name the address; read for the sign-in alone, no panel standing on one."""
+    """Every pending application one of whose seats names the address; read for the sign-in alone, no panel standing on one."""
 
     return [
         {"$match": build_eigene_bewerbung_filter(identifier)},
@@ -304,7 +304,7 @@ def build_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
 
 def build_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every pending registration that may be the address's; read for the sign-in alone, no panel standing on one.
+    """Every pending registration of the address; read for the sign-in alone, no panel standing on one.
 
     The whole consent record rides along: whether its pupil confirmed it is part of the judgement.
     """
@@ -709,30 +709,26 @@ def find_name_im_grund_refusal(*, grund: str, names: Iterable[str]) -> WriteRefu
 # (`docs/backend/spec.md :: I698`). Each selection is the one its record's own reads take
 # for one address, asked for a batch.
 
-# An `$or` of those filters rather than one pattern taking every address, which costs a twelfth as
-# much: the server refuses a pattern past about 32,000 characters, and a full batch of long addresses
-# passes that.
-
 # The address alone, never the confirmation: an unconfirmed seat on the running season is one the
 # gate admits, to be told its confirmation is outstanding.
 SEAT_ADDRESS_FIELDS: Mapping[str, int] = {f"kontakte.{slot}.email": 1 for slot in KONTAKT_ROLLEN}
 
 
 def build_seat_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
-    """Every season row whose block may name one of these addresses, a past season's and a withdrawn team's alike."""
+    """Every season row whose block names one of these addresses, a past season's and a withdrawn team's alike."""
 
-    return [{"$match": {"$or": [rows_possibly_naming(identifier) for identifier in identifiers]}}, {"$project": SEAT_ADDRESS_FIELDS}]
+    return [{"$match": rows_seating(*identifiers)}, {"$project": SEAT_ADDRESS_FIELDS}]
 
 
 def build_bewerbung_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
-    return [{"$match": {"$or": [build_eigene_bewerbung_filter(identifier) for identifier in identifiers]}}, {"$project": SEAT_ADDRESS_FIELDS}]
+    return [{"$match": build_eigene_bewerbung_filter(*identifiers)}, {"$project": SEAT_ADDRESS_FIELDS}]
 
 
 def build_referee_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
     """Retired rows too: a retired referee's account signs in to take back a consent."""
 
     return [
-        {"$match": {"$or": [build_selbst_referee_filter(identifier) for identifier in identifiers]}},
+        {"$match": build_selbst_referee_filter(*identifiers)},
         {"$project": {"kontakt.email": 1}},
     ]
 
@@ -748,7 +744,7 @@ def build_pupil_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[
 
 def build_registrierung_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
     return [
-        {"$match": {"$or": [build_eigene_registrierung_filter(identifier) for identifier in identifiers]}},
+        {"$match": build_eigene_registrierung_filter(*identifiers)},
         {"$project": {"status": 1, "email": 1, "einwilligung": 1}},
     ]
 
@@ -851,15 +847,9 @@ def build_offene_registrierungen_pipeline() -> list[Mapping[str, Any]]:
 
 
 def offene_adressen(registrierung_rows: Iterable[Mapping[str, Any]]) -> frozenset[str]:
-    """The pending registrations' addresses, folded, so membership decides exactly.
+    """The pending registrations' addresses, each the fold a pupil's `email` holds (`docs/backend/spec.md :: I332`)."""
 
-    A registration stores its address unfolded (`docs/glossary.md :: Registrierung`), and one pupil's read in
-    `app/api/identitaet/crud.py :: erase_if_still_due` takes every mailbox sharing the local part, another person's among them.
-    """
-
-    return frozenset(
-        sign_in_identifier(row["email"]) for row in registrierung_rows if row.get("status") == SUBMITTED and isinstance(row.get("email"), str)
-    )
+    return frozenset(row["email"] for row in registrierung_rows if row.get("status") == SUBMITTED and isinstance(row.get("email"), str))
 
 
 def loeschung_faellig(*, email: Any, kader_saison_ids: Iterable[str], offene: AbstractSet[str], behalten: frozenset[str] | None) -> bool:

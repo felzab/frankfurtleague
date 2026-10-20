@@ -335,16 +335,16 @@ describe("the address correction", () => {
     await act(async () => answerPending({ success: true, message: "Der neue Link ging an anna.neu@schule.example.", versand: "gesendet" }));
   });
 
-  /* The sign-in fold reads the two as one person, and the mail goes to the bytes stored: a stored
-     capital before the at sign is a repair to send. */
-  it("sends a correction whose only change the sign-in fold would erase", async () => {
+  /* The API stores the fold, so the stored address retyped in capitals is the same mailbox and the
+     same stored row: a press there would be a re-send wearing another name. */
+  it("stays closed over the stored address retyped in capitals", async () => {
     const user = userEvent.setup();
-    renderStrip({ stands: standsOf({ kontakte: { trainer: person("Clara", "Clara@schule.example") } }) });
+    renderStrip({ stands: standsOf({ kontakte: { trainer: person("Clara", "clara@schule.example") } }) });
 
-    await correctClara(user, "clara@schule.example{Enter}");
+    await correctClara(user, "Clara@Schule.example{Enter}");
 
-    assert.equal(ran("kontaktEmailKorrigierenAction"), 1, "the press stayed closed over a delivery target that moved");
-    await act(async () => answerPending({ success: true, message: "Der neue Link ging an clara@schule.example.", versand: "gesendet" }));
+    closedControl("Korrigieren und Link senden", "Gib zuerst eine andere E-Mail-Adresse ein.");
+    assert.equal(ran("kontaktEmailKorrigierenAction"), 0, "the press opened over the address the seat already holds");
   });
 
   /* A pending submit button stops being a submit button, so `Enter` in the box submits the form by itself,

@@ -188,7 +188,7 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
         ]
     )
     await database[Collection.REGISTRIERUNGEN].insert_many(
-        [_registrierung("Rita.Registriert@Schule.de", confirmed=True), _registrierung(REGISTRIERT_OFFEN, confirmed=False)]
+        [_registrierung(REGISTRIERT, confirmed=True), _registrierung(REGISTRIERT_OFFEN, confirmed=False)]
     )
     await database[Collection.SPERRLISTE].insert_many(
         [ban_document(GESPERRT_PFEIFE, bis=ACTIVE_SAISON), ban_document(GESPERRT, bis=ACTIVE_SAISON)]

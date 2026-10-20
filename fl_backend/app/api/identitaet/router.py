@@ -50,16 +50,9 @@ async def get_subjekt(
     access line, which is `POST /identitaet/erasure/ansicht`'s reason too.
 
     The address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival
-    and compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain
-    asked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de`
-    are two domains here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.
-
-    A contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode --
-    so both are read in two steps: the database narrows to the rows holding the identifier whatever the case of its letters, and the
-    fold decides on each candidate's own stored value.
-
-    Neither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by
-    every writer that touches either.
+    and matched by equality, every record storing its address in that form: `Anna.Mueller@Schule.de` asked answers for the
+    `anna.mueller@schule.de` a contact seat stores, and a domain asked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß`
+    is not folded to `ss`, so `poststrasse.de` and `poststraße.de` are two domains here as they are at sign-in.
 
     A record is answered only once its own person has confirmed it -- a seat's `einwilligung.bestaetigt_am`, judged per seat, and the
     same stamp on a pupil's and a referee's consent record, an empty stamp confirming nothing -- and only while its row is live: a
@@ -96,8 +89,6 @@ async def get_subjekt(
     An address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.
     """
 
-    # Folded here as well as by the caller: the payload has already lower-cased the domain, so a
-    # value compared as it arrived is half-folded and misses a seat over the local part's case.
     identifier = sign_in_identifier(str(subjekt_data.email))
 
     # Keyed from the payload's own value, as the ban write keys it: that payload type runs the rule
@@ -147,7 +138,7 @@ async def get_anmeldung(
     caller's. A mailbox the league holds nothing for is answered both flags false rather than a 404.
     """
 
-    # Folded and keyed as `get_subjekt` folds and keys, for its reasons.
+    # Keyed as `get_subjekt` keys, for its reason.
     identifier = sign_in_identifier(str(anmeldung_data.email))
     ban_key = sperrliste.hash_of(str(anmeldung_data.email))
 

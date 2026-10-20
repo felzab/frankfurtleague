@@ -24,7 +24,6 @@ from app.api.bewerbungen.sweep_router import sweep_saison
 from app.api.identitaet.services import build_erasure_seat_pipeline
 from app.api.identitaet.wiederherstellung import Read, Window, replay_line
 from app.api.kontakte.crud import erase_kontaktperson_in_session
-from app.api.kontakte.services import rows_naming
 from app.api.spielbestaetigungen.router import get_spielbestaetigung_ansicht
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAnsichtPayload
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
@@ -286,11 +285,8 @@ async def erase_the_trainer(database: AsyncDatabase, client: AsyncMongoClient) -
     identifier = "ida@example.com"
 
     async def in_session(session: Any) -> Any:
-        rows = rows_naming(
-            await aggregate_many_from_db(
-                collection=database[Collection.SAISON_TEAMS], pipeline=build_erasure_seat_pipeline(identifier), session=session
-            ),
-            identifier,
+        rows = await aggregate_many_from_db(
+            collection=database[Collection.SAISON_TEAMS], pipeline=build_erasure_seat_pipeline(identifier), session=session
         )
         return await erase_kontaktperson_in_session(
             saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -591,50 +587,3 @@ class TestALeavingPersonsLinksLeaveTheLog:
         on_a_league(mongo_replica_set_url, after_an_image)
 
         assert found["held"] == ALL - gone
-
-
-class TestAReasonIsMatchedOnTheFoldOfTheSeatsStoredAddress:
-    """The season row keeps the local part's case as the league stores it (`app/shared/folding.py :: league_address`)."""
-
-    @pytest.mark.parametrize(
-        "write",
-        [
-            pytest.param(contradict, id="their Widerspruch on the season row"),
-            pytest.param(replay_the_widerspruch, id="the replay of that Widerspruch"),
-        ],
-    )
-    def test_a_holder_stored_with_a_capital_loses_the_reasons_her_answers_folded(self, mongo_replica_set_url: str, write: Write):
-        """Both hand the seat's stored address, never a folded one: its digest unfolded matches none of her answers."""
-
-        found: dict[str, Any] = {}
-
-        async def after_the_answers(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SAISON_TEAMS].update_one({"_id": ROW_OID}, {"$set": {"kontakte.trainer.email": "Ida@example.com"}})
-            collection = database[Collection.SPIELBESTAETIGUNGEN]
-            await collection.insert_many([dict(row) for row in REASONS.values()])
-            for row in REASONS.values():
-                await patch_one_in_db(
-                    collection=collection,
-                    db_filter={"_id": row["_id"]},
-                    update={"$set": {"erinnert_am": [TODAY]}},
-                    return_document=ReturnDocument.BEFORE,
-                )
-
-            await write(database, client)
-
-            found["rows"] = sorted(
-                [left_behind(NAMED[row["spiel_id"]], row["antwort"]) async for row in collection.find({"spiel_id": {"$in": list(NAMED)}})]
-            )
-            logged = database[Collection.AKTIONEN].find({"collection": str(Collection.SPIELBESTAETIGUNGEN), "before": {"$ne": None}})
-            found["images"] = sorted(
-                [
-                    left_behind(NAMED[image["spiel_id"]], image["antwort"])
-                    async for row in logged
-                    for image in (row["before"] if isinstance(row["before"], list) else [row["before"]])
-                    if image.get("spiel_id") in NAMED
-                ]
-            )
-
-        on_a_league(mongo_replica_set_url, after_the_answers)
-
-        assert found["rows"] == found["images"] == sorted(expected(name) for name in REASONS)
