@@ -594,7 +594,8 @@ done < "${REPO_ROOT}/nginx/shared/site.conf"
 # dropping the inherited set hands both to Next as they arrived.
 CLIENT_TRACE="0af7651916cd43dd8448eb211c80319c"
 CLIENT_ACTOR="fl-edge-actor-probe"
-# On a GET, which only the link pages' pair meters, here inside its burst, so every location answers.
+# On a GET, which the action pair's key leaves out, and inside the burst of every zone keyed on a GET,
+# so every location answers.
 CLIENT_ACTION="fl-edge-action-probe"
 # One curl for every path, each response's headers to a file of its own, and the counting in bash:
 # on Windows a spawn costs ~0.1s, which a grep per header would pay a hundred times.

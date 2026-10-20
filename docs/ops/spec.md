@@ -360,7 +360,7 @@ reached the fail-open `default`, and no two addresses shared a /64 while differi
 **Both zones are repeated inside every limited location rather than declared once at server
 level**: nginx inherits `limit_req` only where the level declares none — the
 replace-rather-than-extend rule I2 records for `add_header`, reaching a third directive.
-`limit_conn` inherits the same way, and `location /` declares it alone.
+`limit_conn` inherits the same way, and `location /` and the link pages' blocks alone declare it.
 
 **Each metered path has a trailing-slash twin carrying the same zones.** An exact match is exact,
 so the slashed form fell to the catch-all and reached Next unmetered before the twins existed. Next
@@ -379,7 +379,7 @@ What decides that number, and what it risks, is at the zone in `nginx/shared/htt
 `limit_conn conn 50` on the narrow key, sized for HTTP/2 where nginx counts each concurrent request
 as a connection. **Its one rate zone pair keys on server actions alone**, `action`/`action48` over
 `nginx/shared/http.conf :: $action_limit_key`: a POST carrying a `Next-Action` header or either
-form content type, which is every post Next 16.3.8 runs as an action. Next takes an empty header for
+form content type, which is every post Next 16.4.2 runs as an action. Next takes an empty header for
 an action too, which nginx cannot tell from none, so the edge passes the header only where it holds
 a value (`nginx/shared/site.conf :: Next-Action`). Every other request's key is
 empty, so no page load or asset is metered by it; the pair is rated above any administrator's run of
@@ -389,19 +389,20 @@ makes one directive count differently on the two stacks**: `nginx/local/local.co
 the one line in `nginx/shared/site.conf` bounds whole connections locally.
 
 **Every page a mailed or shared link opens, its token in the query, is metered on every request
-and every method**, on `linkseite`/`linkseite48`: each GET renders a page that reads the link's
-view from the backend, so one network reloading a link page spends database operations the whole
-league shares. No page links to one, so a visit is one request rather than a navigation's fan-out,
-which is what a zone at `location /` would refuse. **`/bestaetigung/` is a prefix because every page
-under it is a link page**, so a page added there is metered the day it exists; a link page added
-anywhere else needs an exact match and its twin, as `/registrierung` and `/loeschung` have.
-**`scripts/checks/check_public_routes.py :: LINK_ZONES` holds every page whose own module reads
-`token` from its search parameters to a location naming that pair, at its URL and at its twin's**; a
-page reading the token through another module goes unseen. Each block restates `location /`'s ceiling and action pair and declares no `proxy_set_header`,
-`add_header` or `error_page`, each of which would replace an inherited set. `nginx/edge_test.sh`
-floods one link page past the burst, then fails any link page, twin, double slash, dot segment,
-percent-encoded letter, `HEAD` or JSON post that is not refused with the edge's own `429`, and any
-link block whose action pair lets a server action past the action burst.
+and every method**, on `linkseite`/`linkseite48`: each GET renders a page reading the database,
+through the backend or the sign-in store, so one network reloading a link page spends database
+operations the whole league shares. No page links to one, so a visit is one request rather than a
+navigation's fan-out, which is what a zone at `location /` would refuse. **`/bestaetigung/` is a
+prefix because every page under it is a link page**, so a page added there is metered the day it
+exists; a link page added anywhere else needs an exact match and its twin, as `/registrierung` and
+`/loeschung` have. **`scripts/checks/check_public_routes.py :: LINK_ZONES` holds every page whose
+own module reads `token` from its search parameters to a location naming that pair, at its URL and
+at its twin's**; a page reading the token through another module goes unseen. Each block restates
+`location /`'s ceiling and action pair and declares no `proxy_set_header`, `add_header` or
+`error_page`, each of which would replace an inherited set. `nginx/edge_test.sh` floods one link
+page past the burst, then fails any link page, twin, double slash, dot segment, percent-encoded
+letter, `HEAD` or JSON post that is not refused with the edge's own `429`, and any link block whose action pair lets a server action past
+the action burst.
 
 **A body cap below the server block's `20M` is set at the location it bounds.** The application
 form's `64k` cap alone is measured, 2026-08-30: a 100,049-byte POST is refused `413` at the edge,
@@ -415,7 +416,7 @@ the `limit_conn` figure is derived from HTTP/2 semantics and never exercised (me
 
 **Every `429` the edge answers itself is one ASCII sentence under exactly `Content-Type: text/plain`**,
 the server block's `error_page 429` sending a zone's refusal and the connection ceiling's alike to
-`nginx/shared/site.conf :: @edge_refusal`. Next 16.3.8 hands a server action's caller the body of a
+`nginx/shared/site.conf :: @edge_refusal`. Next 16.4.2 hands a server action's caller the body of a
 failed answer that is not RSC as the error's message under that exact type alone, and the frontend
 reads that message as a press that wrote nothing
 ([`docs/frontend/spec.md`](../frontend/spec.md) I656). A `charset` makes the header
@@ -455,11 +456,13 @@ the clearance a navigation earns protects none of the writes there; the bot chec
 server at the submit does ([`docs/frontend/spec.md`](../frontend/spec.md) I622).
 A Next server action is a `fetch()` POST carrying a `Next-Action` header, and a `fetch()` renders no
 interstitial: the challenge's HTML reaches React where a Flight stream was expected, and the throw
-lands on the error boundary before any application code runs. Every page but a link page arrives through `location /`, and the browser posts an action to the address of the page it is on,
-so the sign-in form's own POST lands on `= /signin`. **What that zone bounds is the PATH and never
-the action**: a server action resolves from a process-wide module map with no reference to the
-address it was posted to, so the same action posted to any other page reaches it, metered there only by the server-action
-pair above (`fl_frontend/src/features/auth/actions.ts :: handleSignIn`). **A rate limit is the edge
+lands on the error boundary before any application code runs. A page arrives through `location /`
+unless a location names it, as `= /signin` and the link pages' blocks do, and the browser posts an
+action to the address of the page it is on, so the sign-in form's own POST lands on `= /signin`.
+**What that zone bounds is the PATH and never the action**: a server action resolves from a
+process-wide module map with no reference to the address it was posted to, so the same action posted
+to any other page reaches it, metered there by the server-action pair above and on a link page by
+the link pages' pair besides (`fl_frontend/src/features/auth/actions.ts :: handleSignIn`). **A rate limit is the edge
 control that fits**, because a status code is an answer the caller can read; `limit_req` on these
 paths is that control at the origin.
 
@@ -1419,10 +1422,12 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
   still meets. **The dashboard is where its token is issued**, and the server holds the issued
   value at `./secrets/tunnel_token` (§1.2). Each hostname's DNS record is the tunnel's own, written
   when the hostname was added, so the zone holds no record naming the origin's address.
-- **Always Use HTTPS answers every plain-HTTP request at Cloudflare** with a `301` to `https://` on
-  the same host (observed 2026-10-20 as `Server: cloudflare` on that answer for both hostnames), so
-  `nginx/prod/prod.conf`'s port-80 block is never reached. A browser ignores HSTS sent over plain
-  HTTP, so this redirect is what moves a first visit typed as `http://` onto TLS.
+- **Cloudflare answers every plain-HTTP request itself** with a `301` to `https://` on the same host
+  (observed 2026-10-20 as `Server: cloudflare` on that answer for both hostnames). Which setting
+  answers is inferred rather than read: Always Use HTTPS fits, and a redirect rule would answer the
+  same. A browser ignores HSTS sent over plain HTTP, so this redirect is what moves a first visit
+  typed as `http://` onto TLS; `nginx/prod/prod.conf`'s port-80 block plays no part, the tunnel above
+  dialling the origin over TLS whatever Cloudflare does with plain HTTP.
 - **The AI-bot controls admit an agent and refuse a trainer**: AI training blocked, AI agents
   allowed, AI search allowed, and the managed `robots.txt` on. An agent fetching a page for a
   person is a visitor; a crawler filling a training set is not, and the distinction is the whole
