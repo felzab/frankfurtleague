@@ -118,3 +118,14 @@ def test_a_file_the_key_does_not_carry_stops_the_step(tmp_path: Path, sheet: str
     code, _, said = _run(tmp_path / "run", sheet=sheet, config=config)
     assert code != 0, said
     assert says in said, said
+
+
+def test_one_job_alone_saves_the_pnpm_store() -> None:
+    """A second writer prunes the store too and races the first to save one key, the loser's failure only a warning."""
+    writers = [
+        f"{path.name}:{number}"
+        for path in sorted(WORKFLOWS.glob("*.yml"))
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if re.fullmatch(r"\s+save-store:\s*[\"']?true[\"']?\s*(?:#.*)?", line)
+    ]
+    assert len(writers) == 1, f"save-store: true in {writers}, where one job writes the store"
