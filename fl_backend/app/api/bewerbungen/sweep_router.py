@@ -517,7 +517,7 @@ async def sweep_saison(
         return len(cleared), redacted
 
     async def strip_the_confirmations(session: AsyncClientSession, batch: Batch) -> int:
-        """The season-and-one clock's last part, apart from the blocks' share. Read in-session, the season with it, so a retry re-judges."""
+        """The season-and-one clock's last part, a transaction apart from the blocks' share, so a failing strip holds back no block."""
 
         if not season_after_has_ended(
             later_saison_status=await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
