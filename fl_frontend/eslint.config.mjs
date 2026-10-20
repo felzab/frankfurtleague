@@ -1054,7 +1054,28 @@ const SEARCH_FIELD_HOME = {
   ],
 };
 
+/**
+ * `fl_frontend/src/core/logFormat.ts :: serializeError` writes an error's message and stack, and a
+ * failure on the sign-in or the mail path routinely carries the submitted address
+ * (`docs/logging/spec.md :: L9`).
+ */
+const LOGGED_ERROR = {
+  selector:
+    'CallExpression[callee.object.name="logger"][callee.property.name="error"] > :not(Identifier[name="undefined"]).arguments:nth-child(2)',
+  message: "Hand `logger.error` `undefined` for the error on this path: its message and stack carry the submitted address.",
+};
+
+/**
+ * Every module importing the mailer, whatever its path, so the next one written is held without being listed; the
+ * scoped list below keeps the paths reaching the mailer through another module.
+ */
+const MAILER_LOGGED_ERROR = {
+  selector: `Program:has(ImportDeclaration[source.value="@/core/mail"]) ${LOGGED_ERROR.selector}`,
+  message: LOGGED_ERROR.message,
+};
+
 const SOURCE_BANS = [
+  MAILER_LOGGED_ERROR,
   {
     // A test's router double counts `seen.back` and destructures `back` off itself, which the
     // property rule production takes would refuse, so a test keeps the call ban alone.
@@ -1382,17 +1403,6 @@ const SOURCE_BANS = [
 ];
 
 /**
- * `fl_frontend/src/core/logFormat.ts :: serializeError` writes an error's message and stack, and a
- * failure on the sign-in or the mail path routinely carries the submitted address
- * (`docs/logging/spec.md :: L9`).
- */
-const LOGGED_ERROR = {
-  selector:
-    'CallExpression[callee.object.name="logger"][callee.property.name="error"] > :not(Identifier[name="undefined"]).arguments:nth-child(2)',
-  message: "Hand `logger.error` `undefined` for the error on this path: its message and stack carry the submitted address.",
-};
-
-/**
  * Bans reaching part of the production tree, each with its population's glob. In a chain each scope
  * lies inside every earlier one, which lets its block restate theirs, and no two chains' scopes meet.
  */
@@ -1422,17 +1432,12 @@ const SCOPED_BANS = [
   [
     {
       files: [
-        "src/features/adresswechsel/notifications.ts",
         "src/features/auth/actions.ts",
         "src/features/bewerbungen/actions.ts",
-        "src/features/bewerbungen/notifications.ts",
-        "src/features/bewerbungen/sweep.ts",
         "src/features/funktionen/actions.ts",
         "src/features/funktionen/sweep.ts",
         "src/features/saisons/sweep.ts",
         "src/features/schiedsrichter/notifications.ts",
-        "src/features/sperrliste/actions.ts",
-        "src/features/zustellung/notifications.ts",
       ],
       ...LOGGED_ERROR,
     },
