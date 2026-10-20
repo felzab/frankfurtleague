@@ -24,9 +24,13 @@ INDENTED: Final = 'inner() { printf "%s" "$1"; }'
 # reader tolerant of the opening column alone still walks past this one's end.
 ALIGNED: Final = 'aligned()   { printf "%s" "$1";  }'
 
+# `scripts/gate/verify.sh :: do_pyright`'s shape: a comment after the closing brace, so the line no
+# longer ends on it.
+COMMENTED: Final = 'commented() { printf "%s" "$1"; } # why it reads so'
+
 # The one-liner ahead of the block, which is the arrangement a walk mis-reads: with no closing line
 # of its own the first lift runs on to the second function's.
-MIXED: Final = "\n".join(("#!/usr/bin/env bash", ONE_LINE, "", ALIGNED, "", "a_block() {", '  printf "not this"', "}", ""))
+MIXED: Final = "\n".join(("#!/usr/bin/env bash", ONE_LINE, "", ALIGNED, "", COMMENTED, "", "a_block() {", '  printf "not this"', "}", ""))
 
 NESTED: Final = "\n".join(("#!/usr/bin/env bash", "outer() {", "  " + INDENTED, "  inner x", "}", ""))
 
@@ -61,6 +65,13 @@ def test_a_one_line_function_padded_out_to_a_column_is_lifted_whole(tmp_path: Pa
     script = write_shell(tmp_path / "mixed.sh", MIXED)
 
     assert lift_function(script, "aligned") == ALIGNED
+
+
+def test_a_one_line_function_with_a_trailing_comment_is_lifted_whole(tmp_path: Path) -> None:
+    """Run on to the block below, the lift hands a sweep another function's body under this name, which it counts as this one's."""
+    script = write_shell(tmp_path / "mixed.sh", MIXED)
+
+    assert lift_function(script, "commented") == COMMENTED
 
 
 def test_a_block_function_is_lifted_from_its_opening_line_to_its_closing_one(tmp_path: Path) -> None:
