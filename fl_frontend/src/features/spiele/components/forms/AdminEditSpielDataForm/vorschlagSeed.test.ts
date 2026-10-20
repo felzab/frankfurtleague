@@ -94,6 +94,19 @@ describe("carrying a report's proposal into the match editor", () => {
     assert.equal(screen.getByRole<HTMLInputElement>("switch", { name: "Spielergebnis eintragen" }).checked, true);
   });
 
+  /* The correction link is a client-side navigation the unsaved-changes guard never sees, so a seeded draft would go
+     unasked through it. */
+  it("holds the correction link back once the draft holds unsaved changes", async () => {
+    const user = userEvent.setup();
+    render(editor());
+    const links = () => screen.queryAllByRole("link", { name: "Spielbericht bearbeiten" }).length;
+    assert.equal(links(), 1, "a clean editor offers no correction");
+
+    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen" }));
+
+    assert.equal(links(), 0, "the correction link leaves a seeded draft unasked");
+  });
+
   /* The App Router keeps the discarded tree, so a seed surviving the discard would name a report version on a later,
      unrelated save of the same editor. */
   it("drops the seed with the rest of the draft on a discard", async () => {
