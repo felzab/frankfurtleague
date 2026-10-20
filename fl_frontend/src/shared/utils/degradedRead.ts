@@ -5,14 +5,14 @@ import { unstable_rethrow } from "next/navigation";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, isContractBreak } from "@/core/errors";
 import { logger } from "@/core/logging";
 
-import { isRefusal } from "./actionError";
+import { isRuleRefusal } from "./actionError";
 
 /**
- * Whether a failed read explains itself: the network never answered it, or the API refused it. Anything else, a bug in
- * a read's narrowing included, would leave a plausible panel standing with nothing logged.
+ * Whether a failed read explains itself: the network never answered it, or one of the API's rules refused it. Anything
+ * else, a narrowing bug or a rotated key's protocol refusal included, would leave a plausible panel standing unlogged.
  */
 export function explainsItself(error: unknown): boolean {
-  return error instanceof APINetworkError || error instanceof ApiUnsentError || isRefusal(error);
+  return error instanceof APINetworkError || error instanceof ApiUnsentError || isRuleRefusal(error);
 }
 
 export function logCodedFailure(message: string, error: unknown, untypedCode: "FE-ACT-001" | "FE-RSC-001"): void {

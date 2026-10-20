@@ -286,12 +286,12 @@ describe("a club's answer to a fixture confirmation link", () => {
     );
   });
 
-  /* The refusal settled the write, so a failed read answers the panel claiming nothing whatever failed. An unanswered
-     and a refused read explain themselves; anything else, a bug in the read included, is logged under its own code. */
+  /* A failed read after the settling refusal answers the panel claiming nothing. Unanswered, it explains itself, and a
+     rule's refusal is the view's own state; anything else, a protocol refusal or a bug, is logged under its own code. */
   for (const [wie, lesen, code] of [
     ["is never answered", () => aLostRead(), null],
     [
-      "is refused",
+      "is refused for its credential",
       () =>
         new APIBadStatusError({
           message: "Forbidden.",
@@ -303,7 +303,7 @@ describe("a club's answer to a fixture confirmation link", () => {
           readOnly: true,
           traceId: "0",
         }),
-      null,
+      "FE-API-001",
     ],
     [
       "meets a server error",

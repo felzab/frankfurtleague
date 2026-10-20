@@ -75,12 +75,25 @@ describe("a page's degraded read's rejection handler", () => {
     );
   });
 
-  it("settles a read the network never answered, one never sent, and a refused one to null with no line", () => {
+  it("settles a read the network never answered, one never sent, and one a rule refused to null with no line", () => {
     for (const failure of [unanswered(), new ApiUnsentError("GET"), answeredWith(409, "REQ-BEWERBUNG-008")]) {
       assert.equal(nullUnlessContractBreak(failure), null, failure.name);
     }
 
     assert.deepEqual(lines, []);
+  });
+
+  /* A rotated key or a route the API does not serve is this deployment's fault, refused on every request alike. */
+  it("logs a protocol refusal under the error's own code and settles it to null", () => {
+    for (const code of ["REQ-AUTH-001", "REQ-ROUTE-001"]) assert.equal(nullUnlessContractBreak(answeredWith(403, code)), null, code);
+
+    assert.deepEqual(
+      lines.map(({ meta }) => [meta?.error_code, meta?.server_error_code]),
+      [
+        ["FE-API-001", "REQ-AUTH-001"],
+        ["FE-API-001", "REQ-ROUTE-001"],
+      ],
+    );
   });
 
   it("rethrows a contract break and an answer off its schema to the error boundary, which logs them", () => {
@@ -127,8 +140,8 @@ describe("an admin editor's label readout's rejection handler", () => {
     );
   });
 
-  it("settles a read the network never answered, one never sent, and a refused one to null with no line", () => {
-    for (const failure of [unanswered(), new ApiUnsentError("GET"), answeredWith(404, "DB-COMMON-001")]) {
+  it("settles a read the network never answered, one never sent, and one a rule refused to null with no line", () => {
+    for (const failure of [unanswered(), new ApiUnsentError("GET"), answeredWith(409, "REQ-EINWILLIGUNG-001")]) {
       assert.equal(nullAfterLoggingContractBreak(failure), null, failure.name);
     }
 
