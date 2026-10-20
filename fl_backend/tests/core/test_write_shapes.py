@@ -690,6 +690,8 @@ HANDED_OUTSIDE_THE_TRANSACTION: Mapping[str, tuple[str, ...]] = {
     # The fixture, squads and season rows a report is judged against, which its write never writes.
     "app/api/spielberichte/admin_router.py :: write_the_report hands pull_bericht_lage": ("session", "None"),
     "app/api/spielberichte/person_router.py :: write_the_report hands pull_bericht_lage": ("session", "None"),
+    # The referee's records, which a retirement writes and the report never does, through a session no transaction holds.
+    "app/api/spielberichte/person_router.py :: write_the_report hands funktionen_of": ("session", "ausserhalb"),
 }
 
 

@@ -19,6 +19,7 @@ from app.api.spielberichte.services import (
     SEITEN,
     SPIEL_FIELDS,
     BerichtLage,
+    bericht_unveraendert,
     bericht_zustand_of,
     build_bericht_kader_pipeline,
     build_referee_report_images_filter,
@@ -84,14 +85,23 @@ async def pull_bericht_lage(
 
 
 async def pull_genannt(
-    *, spieler_collection: AsyncCollection, lage: BerichtLage, bericht: Mapping[str, Any] | None, session: AsyncClientSession | None
+    *,
+    spieler_collection: AsyncCollection,
+    lage: BerichtLage,
+    kader_offen: bool,
+    bericht: Mapping[str, Any] | None,
+    session: AsyncClientSession | None,
 ) -> list[FLSpielberichtSpieler]:
-    """Every pupil the stored block names outside both live squads, so an entry stored before keeps its name on the form."""
+    """Every pupil the stored block names outside the squads served beside it, so an entry stored before keeps its name on the form.
 
-    live = {row["spieler_id"] for seite in SEITEN for row in live_kader(lage, seite)}
+    Every pupil it names where no squad is served (`compose_ansicht`'s `kader_offen`).
+    """
+
+    live = {row["spieler_id"] for seite in SEITEN for row in live_kader(lage, seite)} if kader_offen else set()
     ausserhalb = set().union(*genannte_ids(bericht).values()) - live
     zeilen = {row["spieler_id"]: row for row in lage.kader if row["spieler_id"] in ausserhalb}
-    # A pupil holding no squad row of either club: the erased pupils' sentinel, whose names are null.
+    # A pupil of neither side's club, such as one of a club a knockout slot has since replaced: read off their record.
+    # An erased pupil's id finds none, and the entry stays unnamed.
     rest = ausserhalb - zeilen.keys()
     personen = (
         []
@@ -130,13 +140,17 @@ async def write_bericht(
     now: datetime,
     session: AsyncClientSession,
 ) -> Mapping[str, Any]:
-    """The block written whole: the document created by its first writer, a block a line-up's document lacked created, or the block replaced.
+    """The block written whole: created by its first writer, created on a line-up's document lacking it, or replaced.
 
-    Answers the document as written, read back under `session`.
+    A block already saying what the payload says is left as stored; otherwise answers the document as written.
     """
 
+    if gespeichert is not None and bericht_unveraendert(payload, gespeichert.get("bericht")):
+        return gespeichert
+
     if gespeichert is None:
-        # An insert, so two first writes meet `uniq_spielbericht_spiel_id` (`DB-COMMON-002`) rather than both standing.
+        # A first write committing while this one runs conflicts with it, and the retry writes this one over it as a
+        # correction; `uniq_spielbericht_spiel_id` stands behind both.
         await post_one_to_db(
             collection=spielberichte_collection,
             document={

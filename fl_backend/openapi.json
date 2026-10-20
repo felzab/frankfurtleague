@@ -7375,7 +7375,7 @@
     "/api/v0/spielberichte/{spiel_id}": {
       "patch": {
         "summary": "Write one fixture's report as an administrator",
-        "description": "Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.\n\nEvery write raises its `version`, so a report adopted before reads `abweichend` until it is adopted again. Who first\nwrote the report stays recorded; a report an administrator writes first records an administrator, naming nobody.\n\nRefuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); one undated or whose\nday is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a pupil newly named on\na side outside that side's live squad of the season (`REQ-BERICHT-003`); and remarks naming a seat holder of either\nclub, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each is asked again outside the\ntransaction just before answering. Two first writes at once are one report and one `DB-COMMON-002`.",
+        "description": "Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.\n\nEvery write changing it raises its `version`, so a report adopted before reads `abweichend` until it is adopted\nagain, and a write changing nothing writes nothing. Who first wrote the report stays recorded; a report an\nadministrator writes first records an administrator, naming nobody.\n\nRefuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); one undated or whose\nday is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a pupil newly named on\na side outside that side's live squad of the season (`REQ-BERICHT-003`); and remarks naming a seat holder of either\nclub, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each is asked again outside the\ntransaction just before answering. Two first writes at once are one report: the later is written over the earlier,\nas a correction is.",
         "operationId": "patch_spielbericht_api_v0_spielberichte__spiel_id__patch",
         "security": [
           {
@@ -10705,7 +10705,7 @@
     "/api/v0/spielberichte/{spiel_id}/bericht": {
       "get": {
         "summary": "One fixture's report as its referee reads it",
-        "description": "What the booked referee's report form reads.\n\nThe fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored\nreport, its remarks and card reasons included, or null.\n\nServed for a fixture still to come or called off too, whose page says why it takes no report. Refused\n`REQ-FUNKTION-001` where the address holds no confirmed, live referee record, and `REQ-BERICHT-002` where the fixture\nis booked to none of its records; `DB-COMMON-001` for a fixture that does not exist.",
+        "description": "What the booked referee's report form reads.\n\nThe fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored\nreport, its remarks and card reasons included, or null.\n\nServed for a fixture still to come or called off too, whose page says why it takes no report, with both squads\nempty: the pupils the stored report names are then all in `genannt`. Refused\n`REQ-FUNKTION-001` where the address holds no confirmed, live referee record, and `REQ-BERICHT-002` where the fixture\nis booked to none of its records; `DB-COMMON-001` for a fixture that does not exist.",
         "operationId": "get_spielbericht_bericht_api_v0_spielberichte__spiel_id__bericht_get",
         "security": [
           {
@@ -10761,7 +10761,7 @@
       },
       "put": {
         "summary": "Write one fixture's report as its referee",
-        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe proposed result, the scorers, the cards and the remarks. The first write creates it; every write raises its\n`version`, so a report the\nadministrator adopted reads `abweichend` again until it is adopted anew. Writes no fixture: the result is the\nadministrator's to save.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records\n(`REQ-BERICHT-002`); one undated or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out\n(`REQ-BERICHT-004`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil\nthe report already named on that side staying (`REQ-BERICHT-003`); and remarks naming a seat holder of either club,\nthe booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal after the first is asked\nagain outside the transaction just before answering, so a write landing mid-press on what was judged refuses the\nreport rather than letting it stand. Two first writes at once are one report and one `DB-COMMON-002`.",
+        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every\nwrite changing it raises its `version`, so a report the administrator adopted reads `abweichend` again until it\nis adopted anew, and a write changing nothing writes nothing. Writes no fixture: the result is the administrator's\nto save.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records\n(`REQ-BERICHT-002`); one undated or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out\n(`REQ-BERICHT-004`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil\nthe report already named on that side staying (`REQ-BERICHT-003`); and remarks naming a seat holder of either club,\nthe booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal after the first is asked\nagain outside the transaction just before answering, the referee's records included, so a write landing mid-press\non what was judged refuses the report rather than letting it stand. Two first writes at once are one report: the\nlater is written over the earlier, as a correction is.",
         "operationId": "put_spielbericht_bericht_api_v0_spielberichte__spiel_id__bericht_put",
         "security": [
           {
@@ -10793,6 +10793,16 @@
         "responses": {
           "200": {
             "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielberichtSchiedsrichterResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "The report did not stand before, and this write created it",
             "content": {
               "application/json": {
                 "schema": {
@@ -24820,7 +24830,8 @@
                 "enum": [
                   "vorgeschlagen",
                   "uebernommen",
-                  "abweichend"
+                  "abweichend",
+                  "abgesagt"
                 ]
               },
               {
@@ -25366,7 +25377,7 @@
           "nummer"
         ],
         "title": "FLSpielberichtSpieler",
-        "description": "A pupil a report may name or names. Both names null on the erased pupils' sentinel alone."
+        "description": "A pupil a report may name or names, with the names their record holds."
       },
       "FLSpielberichtTeam": {
         "properties": {
@@ -25427,7 +25438,7 @@
           "eigentor"
         ],
         "title": "FLSpielberichtTorschuetze",
-        "description": "One goal. A null `spieler_id` is a scorer nobody named, never an erased one, whose entry names the sentinel."
+        "description": "One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one."
       },
       "FLSpielberichtUebernommenVon": {
         "properties": {
@@ -25553,7 +25564,8 @@
             "enum": [
               "vorgeschlagen",
               "uebernommen",
-              "abweichend"
+              "abweichend",
+              "abgesagt"
             ],
             "title": "Zustand"
           },

@@ -348,6 +348,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/api/spieler/services.py :: NAME_IS_PUBLIC`, `docs/backend/spec.md :: READ-REFEREE-004`);
   a referee asked about a fixture is shown on it only once they agreed, the league's own entry of an
   agreement counting (`:: READ-REFEREE-005`). Ruled 2026-10-20.
+- **The booked referee reads both clubs' squads, every name and shirt number, for their own
+  fixture's report, as part of officiating**, whatever a pupil answered about publication: nothing
+  of it is published. The form serves the squads only from the match day and only while the fixture
+  takes a report (`fl_backend/app/api/spielberichte/services.py :: nimmt_einen_bericht`), and the
+  published notice says so. Ruled 2026-10-20.
 - **A photograph, a video or an interview needs a consent of its own, and only a person of eighteen
   or over may give it, for the Datenschutzexperte.** The consent is separate from the name and
   answered as a yes or a no on a pupil's, a referee's and a contact person's confirmation page

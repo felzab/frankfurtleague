@@ -520,6 +520,9 @@ def refusal_codes(app: FastAPI) -> dict[Operation, Refusals]:
     unnamed: list[str] = []
     for route in document_routes(app):
         for status_code, response in route.responses.items():
+            # A success a route answers besides its default, such as a PUT's 201 on a create, refuses nothing.
+            if HTTPStatus(int(status_code)).is_success:
+                continue
             # Read off the declaration and never assumed from it, so a route refusing for a second
             # reason publishes that reason's code rather than the duplicate key's.
             if not (named := refused_codes(response)):

@@ -755,7 +755,7 @@ _SPIELBERICHT_TORSCHUETZE = _object(
     required=("seite", "spieler_id", "minute", "eigentor"),
     properties={
         "seite": {"bsonType": "string", "enum": _SPIELBERICHT_SEITEN},
-        # Null is a scorer nobody named; an erased pupil's entry names the sentinel instead.
+        # Null is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.
         "spieler_id": {"bsonType": ["objectId", "null"]},
         "minute": {"bsonType": "string"},
         "eigentor": {"bsonType": "bool"},
