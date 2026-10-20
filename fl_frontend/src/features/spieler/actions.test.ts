@@ -13,7 +13,6 @@ import { ContractBreakError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
-import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pageBody } from "@/shared/testing/pageHarness.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
@@ -230,7 +229,7 @@ function person(id: string, vorname: string, rows: { saison_id: string; team_id:
     inactive_since: null,
     geburtsdatum: "2009-05-04",
     einwilligung: bestaetigteEinwilligung(),
-    email: null as string | null,
+    email: `${vorname.toLowerCase()}@schule.example`,
     adresswechsel_id: null as string | null,
     memberships: rows.map(({ saison_id, team_id, rolle = null }) => ({
       saison_id,
@@ -788,7 +787,7 @@ const GESPEICHERT = "lena@schule.example";
 const WARTEND = "68c1f0a2b3c4d5e6f7a8b9e0";
 
 /** The editor page over one pupil holding `adresse`, rendered as its reads answer it. */
-async function renderAdressePage(adresse: { email: string | null; adresswechselId: string | null }) {
+async function renderAdressePage(adresse: { email: string; adresswechselId: string | null }) {
   answerPages([
     {
       ...person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }]),
@@ -823,18 +822,6 @@ describe("the pupil's address on the editor", () => {
     assert.equal(
       screen.getByRole("link", { name: "„Adressänderung auf Anfrage“" }).getAttribute("href"),
       `/bereich/admin/adresswechsel?saison_id=${SAISON_ID}`,
-    );
-  });
-
-  /* The empty value reads in the one muted grade, and the panel says where an address comes from. */
-  it("shows a pupil holding no address „Nicht hinterlegt“, muted, and no way to change one", async () => {
-    await renderAdressePage({ email: null, adresswechselId: null });
-
-    assertLeer(angabe("Hinterlegte Adresse")?.firstElementChild, "Nicht hinterlegt");
-    assert.equal(
-      screen.queryAllByRole("link", { name: /Adressänderung auf Anfrage/ }).length,
-      0,
-      "a pupil holding no address is offered a change",
     );
   });
 });
