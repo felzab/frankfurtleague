@@ -213,11 +213,10 @@ class TestAnUnconfirmedReferee:
 
 class TestTheEditorsRead:
     def test_it_names_the_live_change_of_the_referee_s_address(self, mongo_replica_set_url: str):
-        """Read off the folded address, as the change keys it: the referee stores theirs as typed."""
+        """Read off the folded address the referee stores, as the change keys it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await read(database)
-            await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER_OID}, {"$set": {"kontakt.email": EMAIL.upper()}})
             minted = await request(database, client)
             return before.adresswechsel_id, (await read(database)).adresswechsel_id, minted.id
 

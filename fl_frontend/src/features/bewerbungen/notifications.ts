@@ -1,6 +1,6 @@
 import "server-only";
 
-import { mailboxKey } from "@/core/emailAddress";
+import { asSignInIdentifier } from "@/core/emailAddress";
 import { joinUnd } from "@/core/joinUnd";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
@@ -103,28 +103,24 @@ export function rolleText(rolle: BewerbungRolle): string {
 
 /**
  * **Distinct, because one person can hold two seats**: where `trainer_ist_zugleich` names one, the
- * same record is stored twice. Two are one mailbox when their local parts match byte for byte under
- * a domain compared without case (RFC 5321 §2.4).
+ * same record is stored twice. Two seats are one mailbox where their addresses share a fold.
  */
 function collectSeats(kontakte: BewerbungSeats): { address: string; rollen: BewerbungRolle[] }[] {
-  // Stricter than `fl_backend/app/api/kontakte/services.py :: find_matching_slots`, which folds the whole
-  // address as sign-in does, on purpose: over-matching here costs a fan-out a person.
   const mailboxes = new Map<string, { address: string; rollen: BewerbungRolle[] }>();
 
   // The three seats are read here and nowhere else, so no caller can notify two of them. In the
   // order the form asks for them, which is the order a reader holding two is told them in.
   for (const seat of BEWERBUNG_SEATS) {
     const person = kontakte[seat.value];
-    const address = person === null ? "" : person.email.trim();
+    // The fold the API stores (`docs/backend/spec.md :: I332`), so a message goes where its delivery events are matched
+    // back: the public route hands the addresses as typed.
+    const address = person === null ? "" : asSignInIdentifier(person.email);
     if (address === "") continue;
 
-    const mailbox = mailboxKey(address);
-
-    // Keyed by mailbox and valued by the address as stored, never by the key. A second seat on a
-    // known mailbox ADDS its role rather than opening a second message.
-    const known = mailboxes.get(mailbox) ?? { address: address, rollen: [] };
+    // A second seat on a known mailbox ADDS its role rather than opening a second message.
+    const known = mailboxes.get(address) ?? { address: address, rollen: [] };
     known.rollen.push(seat.value);
-    mailboxes.set(mailbox, known);
+    mailboxes.set(address, known);
   }
 
   return [...mailboxes.values()];

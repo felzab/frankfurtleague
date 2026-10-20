@@ -124,8 +124,8 @@ const { calls, answerWith } = doubleApiAnswers((call: ApiCall) => Promise.resolv
 const { stepUpRequired } = await import("./adminMutation.ts");
 const { UNDO_UNBESTAETIGT } = await import("./adminUndo.ts");
 
-/** The two actions that authorize nobody, which `fl_frontend/src/shared/utils/adminActionSpine.test.ts` exempts for their own reasons. */
-const AUTHORIZES_NOBODY: ReadonlySet<string> = new Set(["auth :: handleSignIn", "auth :: signOutAction"]);
+/** The action that authorizes nobody, which `fl_frontend/src/shared/utils/adminActionSpine.test.ts` exempts for its own reason. */
+const AUTHORIZES_NOBODY: ReadonlySet<string> = new Set(["auth :: handleSignIn"]);
 
 /** The account page's slices, whose every write its own spine holds to the window (`docs/frontend/spec.md :: I422`). */
 const ACCOUNT_SLICES: ReadonlySet<string> = new Set(["konto", "passkeys"]);

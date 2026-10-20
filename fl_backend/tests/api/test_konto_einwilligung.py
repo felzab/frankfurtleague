@@ -64,9 +64,9 @@ PATH = f"/api/v{API_VERSION}/schiedsrichter/selbst"
 
 NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
-# The address a referee row keeps as it was typed, and the folded form a signed-in person is bound under.
+# The folded form a signed-in person is bound under, which every record stores (`docs/backend/spec.md :: I332`).
 IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
-REFEREE_STORED = "Ortrud.Zwiebelmayer@Schule.de"
+REFEREE_STORED = IDENTIFIER
 YOUNG = "jonas.jungspund@schule.de"
 RETIRED = "rudolf.ruhestand@schule.de"
 UNCONFIRMED = "ottilie.wartezeit@schule.de"
@@ -281,7 +281,7 @@ def test_a_seat_entry_names_at_least_one_role_and_publishes_the_floor(model: typ
 
 @pytest.mark.db
 class TestTheOwnRecords:
-    def test_the_address_is_answered_its_own_record_whatever_case_it_was_stored_in(self, mongo_replica_set_url: str):
+    def test_the_address_is_answered_its_own_record_whatever_case_it_is_asked_in(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
             selbst = await http.get(PATH, headers=_person(IDENTIFIER.upper()))
             konto = await http.get(KONTO_PATH, headers=_person(IDENTIFIER.upper()))

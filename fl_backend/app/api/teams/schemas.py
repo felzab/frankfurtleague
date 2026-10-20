@@ -521,7 +521,7 @@ class FLTeamMembership(BaseModel):
     # Each seat's link as the editor shows it, the referee editor's twin. Defaulted: `$project` omits a
     # key the stored row has not got, and a row holds none until a save mints its first link.
     bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | None = None
-    # Composed after the read and never projected: a seat stores its address as typed, the change keys it folded.
+    # Composed after the read from the `adresswechsel` collection, never projected off the season row.
     # Defaulted for `kontakte`'s reason.
     adresswechsel: FLSaisonTeamAdresswechsel | None = None
 
