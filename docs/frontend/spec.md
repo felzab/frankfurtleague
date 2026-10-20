@@ -135,10 +135,11 @@ caller** ([`docs/backend/spec.md`](../backend/spec.md#11-endpoint-inventory)): a
 way is one a Zod mirror can be held to (I17), where an endpoint narrowing its response by the
 credential would answer a shape its own published component never states.
 
-**A cached read that answers `null` for an unknown id converts the 404 INSIDE the cached function.** A
-production build redacts an error thrown out of a `"use cache"` scope to a digest-only `Error`, which a
-catch at the call site can never recognise, so `getTeam` catches its own 404 where the directive can
-still see it. The uncached reads that resolve `null` the same way are under no such constraint, and
+**A cached read that answers `null` for an unknown id converts the 404 INSIDE the cached function.**
+An error thrown out of a `"use cache"` scope reaches its caller as a plain `Error` carrying a digest,
+its class lost in every build and its message too in a production build, which also logs the
+original under that digest; a catch at the call site can never recognise it, so `getTeam` catches
+its own 404 where the directive can still see it. The uncached reads that resolve `null` the same way are under no such constraint, and
 each catches where its own answer is decided. **Every one of them reads the record-missing code,
 never the status** (`fl_frontend/src/core/errors.ts :: isRecordMissing`): a 404 carrying no
 `DB-COMMON-001` is a route nothing served, and answering it as `null` would render a page's missing

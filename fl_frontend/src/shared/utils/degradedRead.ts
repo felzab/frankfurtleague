@@ -30,8 +30,8 @@ export function logCodedFailure(message: string, error: unknown, untypedCode: "F
     error instanceof APINetworkError ||
     error instanceof APIMalformedDataError ||
     error instanceof ApiUnsentError;
-  // A `"use cache"` fill's throw arrives as a plain `Error` carrying Next's digest, which joins this line to Next's
-  // own line of the original (`docs/frontend/spec.md` §1.2).
+  // A `"use cache"` fill's throw arrives as a plain `Error` carrying Next's digest, which joins this line to the line
+  // a production build writes of the original (`docs/frontend/spec.md` §1.2).
   const digest: unknown = error instanceof Error ? Reflect.get(error, "digest") : undefined;
   logger.error(message, error, {
     error_code: typed ? error.code : untypedCode,

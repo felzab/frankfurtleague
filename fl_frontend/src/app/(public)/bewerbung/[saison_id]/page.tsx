@@ -65,7 +65,6 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
   // read never learnt. A broken contract is no failed read: it reaches the error boundary, which logs it.
 
   const antwort = await getBewerbungFenster(saison_id).catch((error: unknown) => nullUnlessContractBreak(error) ?? undefined);
-  // Outside the read's own handlers: a `notFound()` thrown inside `.then` would be caught as a failed read.
   if (antwort === null) notFound();
   const fenster = antwort === undefined ? { isUnlesbar: true, fenster: null } : { isUnlesbar: false, fenster: antwort.fenster };
 
