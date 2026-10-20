@@ -139,6 +139,10 @@ describe("the referee's report form", () => {
     assert.equal(screen.queryAllByText("Tor 1").length, 0, "the scorer entry survived the no-show");
     assert.equal(screen.queryAllByRole("button", { name: "Tor hinzufügen" }).length, 0, "a no-show still offers a scorer");
     assert.ok(screen.getByText("Bei einem Nichtantreten gibt es keine Torschützen."));
+
+    // Gone from the draft and not merely hidden: taking the no-show back finds no entry the referee left behind.
+    await pick(user, screen.getByRole("button", { name: /^Besonderes Ereignis/ }), "Keines");
+    assert.equal(screen.queryAllByText("Tor 1").length, 0, "the hidden scorer entry still stands in the draft");
   });
 
   /* The success toast reads „Spielbericht gesendet“, so its failure is that title negated. */
