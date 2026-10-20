@@ -401,13 +401,6 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormBestaetigungSection.tsx": {
     einladeSchiedsrichterAction: "one-press",
   },
-  "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormKontaktSection.tsx": {
-    beantrageAdresswechselAction: "one-press",
-  },
-  "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAdresswechselSection.tsx": {
-    einladeAdresswechselAction: "one-press",
-    verwirfAdresswechselAction: "one-press",
-  },
   "features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx": { reactivateSchiedsrichterAction: "one-press" },
   "features/sperrliste/components/forms/AdminCreateSperreForm.tsx": { postSperreAction: "two-press" },
   "features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx": { deleteSperreAction: "two-press" },
@@ -418,12 +411,13 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
   "features/berechtigungen/components/forms/AdminCreateBerechtigungForm.tsx": { postBerechtigungAction: "create" },
   "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx": { deleteBerechtigungAction: "two-press" },
   "features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx": { patchBerechtigungAction: "two-press" },
-  "features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.tsx": { patchAdminSpielberichtAction: "one-press" },
-  "features/spieler/components/forms/AdminSpielerEditForm/FormAdresseSection.tsx": { beantrageSpielerAdresswechselAction: "one-press" },
-  "features/spieler/components/forms/AdminSpielerEditForm/FormAdresswechselSection.tsx": {
-    einladeSpielerAdresswechselAction: "one-press",
-    verwirfSpielerAdresswechselAction: "one-press",
+  "features/berechtigungen/components/forms/AdminBerechtigungGenehmigenPanel.tsx": { genehmigeAdresswechselAction: "two-press" },
+  "features/adresswechsel/components/forms/AdresswechselBeantragen.tsx": { beantrageAdresswechselAction: "one-press" },
+  "features/adresswechsel/components/forms/AdresswechselWartet.tsx": {
+    einladeAdresswechselAction: "one-press",
+    verwirfAdresswechselAction: "one-press",
   },
+  "features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.tsx": { patchAdminSpielberichtAction: "one-press" },
   "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx": {
     postEinladungAction: "two-press",
     deleteEinladungAction: "two-press",

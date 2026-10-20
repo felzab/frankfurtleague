@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
 import { publishedOperations } from "@/core/openapiDocument.ts";
+import { mapVerwaltungAnsichtRefusal, mapVerwaltungLinkRefusal, mapVerwaltungStartRefusal } from "@/features/adresswechsel/refusals.ts";
 import {
   GELOESCHTE_PERSON,
   GESPERRTE_ADRESSE,
@@ -99,6 +100,14 @@ describe("a refusal of an owner's power", () => {
   /** The codes refusing a session without an owner's power, an owner's signed in before the promotion among them. */
   const OWNERS_POWER = new Set(["REQ-PURGE-005", "REQ-BERECHTIGUNG-005"]);
 
+  /** A mapper answering its sentence alone, read in the shape the others answer. */
+  const alsFehler =
+    (map: (error: unknown) => string | null) =>
+    (error: unknown): { error?: string } | null => {
+      const satz = map(error);
+      return satz === null ? null : { error: satz };
+    };
+
   /** Each operation publishing one, and the mapper wording it. */
   const WORDED_BY: Readonly<Record<string, (error: unknown) => { error?: string } | null>> = {
     "POST /identitaet/erasure/ansicht": mapErasureRefusal,
@@ -106,6 +115,10 @@ describe("a refusal of an owner's power", () => {
     "POST /identitaet/abmeldung": mapAbmeldungRefusal,
     "DELETE /berechtigungen/{berechtigung_id}": mapEntziehenRefusal,
     "PATCH /berechtigungen/{berechtigung_id}": mapStufeRefusal,
+    "POST /adresswechsel/ansicht": alsFehler(mapVerwaltungAnsichtRefusal),
+    "POST /adresswechsel": mapVerwaltungStartRefusal,
+    "POST /adresswechsel/{adresswechsel_id}/einladen": alsFehler(mapVerwaltungLinkRefusal),
+    "DELETE /adresswechsel/{adresswechsel_id}": alsFehler(mapVerwaltungLinkRefusal),
   };
 
   /* An owner whose session predates the promotion is refused in the code an administrator is, and reads the sentence

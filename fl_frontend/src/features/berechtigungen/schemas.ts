@@ -9,6 +9,21 @@ import { CustomObjectIdStringSchema, KontaktEmailSchema } from "@/shared/schemas
 export const FLVerwaltungSchema = z.enum(["owner", "administration"], { error: "Diese Stufe gibt es nicht." });
 export type FLVerwaltung = z.infer<typeof FLVerwaltungSchema>;
 
+/**
+ * Mirrors `FLBerechtigungAdresswechsel`: the change the grant's address waits at, set only while another
+ * administrator's approval is owed. `verwehrt` is why THIS administrator may not give it, null where they may.
+ */
+export const FLBerechtigungAdresswechselSchema = z.object({
+  id: CustomObjectIdStringSchema,
+  // The new address whole: the administrator's tier, as the address tool shows it.
+  email: z.string(),
+  // Whether the new mailbox has confirmed, so an approval now takes effect at once.
+  bestaetigt: z.boolean(),
+  bis: z.string(),
+  verwehrt: z.enum(["eigene", "gestartet", "inhaber"]).nullable(),
+});
+export type FLBerechtigungAdresswechsel = z.infer<typeof FLBerechtigungAdresswechselSchema>;
+
 /** One grant, as the list serves it. */
 export const FLBerechtigungZeileSchema = z.object({
   id: CustomObjectIdStringSchema,
@@ -22,6 +37,8 @@ export const FLBerechtigungZeileSchema = z.object({
   erteilt_von_gesperrt: z.boolean(),
   // An instant, where most dates in this app are a calendar day.
   erteilt_am: z.string(),
+  // Null on a barred row, whose change the ban refuses anyway.
+  adresswechsel: FLBerechtigungAdresswechselSchema.nullable(),
 });
 export type FLBerechtigungZeile = z.infer<typeof FLBerechtigungZeileSchema>;
 

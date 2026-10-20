@@ -2,14 +2,9 @@ import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
-import { ansichtOf } from "@/features/konto/adresswechselLink";
-import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
-import { postSpielerAdresswechselAnsicht } from "./mutations";
 import {
   FLKaderResponseSchema,
   FLSpielerListResponseSchema,
@@ -18,8 +13,6 @@ import {
   FLSpielerSelbstResponseSchema,
 } from "./schemas";
 
-import type { AdresswechselAnsicht, AdresswechselLinkZustand } from "@/features/konto/adresswechselLink";
-import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   FLKaderResponse,
   FLSpielerListResponse,
@@ -86,67 +79,3 @@ export const getKader = cache(async (teamId: string, saisonId: string): Promise<
 export const getSpielerSelbst = cache(async (): Promise<FLSpielerSelbstResponse> =>
   runPersonRead(() => apiClient<FLSpielerSelbstResponse>("/spieler/selbst", FLSpielerSelbstResponseSchema, { authType: "admin" })),
 );
-
-/**
- * A refused address-link read as the panel it renders, or `null` where the read failed instead. Every
- * rule's refusal alike: a lapsed or barred link answers its state in a 200, so a refusal is a token
- * nothing could place.
- */
-export function mapSpielerAdresswechselAnsichtRefusal(error: unknown): "ungueltig" | null {
-  if (!isRefusal(error)) return null;
-
-  // A token the backend will not parse matches no record, so the page calls the link void.
-  if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
-
-  return isRuleRefusal(error) ? "ungueltig" : null;
-}
-
-/** What one address link opens, the referee's twin (`fl_frontend/src/features/schiedsrichter/queries.ts :: getSchiedsrichterAdresswechselAnsicht`). */
-export async function getSpielerAdresswechselAnsicht(token: string): Promise<AdresswechselAnsicht> {
-  return runWithIncomingTrace(() =>
-    postSpielerAdresswechselAnsicht({ token: token }).then(ansichtOf, (error: unknown): AdresswechselAnsicht => {
-      // Anything but a refusal is a failed read, which is the page's own state rather than a panel
-      // calling a live link void.
-      const zustand = mapSpielerAdresswechselAnsichtRefusal(error);
-      if (zustand !== null) return { zustand: zustand };
-      throw error;
-    }),
-  );
-}
-
-export type SpielerAdresswechselRefusal = {
-  error?: string;
-  fieldErrors?: FieldErrors;
-  unplacedError?: string;
-  zustand?: AdresswechselLinkZustand;
-};
-
-/** A refused answer as the panel or the sentence the address page shows, or `null` where the code is none of these. */
-export function mapSpielerAdresswechselRefusal(error: unknown): SpielerAdresswechselRefusal | null {
-  if (!isRefusal(error)) return null;
-
-  switch (error.serverErrorCode) {
-    // The body shape is mirrored, so a refused one is a drifted page, which the mail's link replaces.
-    case "REQ-VAL-002":
-    case "REQ-VAL-001":
-      return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
-    case "REQ-SPIELER-001":
-    // The discard body's own miss: the change went between the read and the press, as an unknown token's did.
-    case "DB-COMMON-001":
-      return { zustand: "ungueltig" };
-    case "REQ-SPIELER-002":
-      return { zustand: "abgelaufen" };
-    case "REQ-SPIELER-004":
-      return { zustand: "gesperrt" };
-    // The replaced address barred or gone, or the new one taken by another pupil since the page opened,
-    // the unique index answering a race the check missed: one panel, so the link's holder learns nothing
-    // about who holds an address.
-    case "REQ-SPIELER-005":
-    case "REQ-SPIELER-006":
-    case "REQ-SPIELER-008":
-    case "DB-COMMON-002":
-      return { zustand: "nicht_bestaetigbar" };
-    default:
-      return null;
-  }
-}

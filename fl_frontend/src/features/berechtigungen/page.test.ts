@@ -24,6 +24,7 @@ const INHABER = {
   erteilt_von: "PLAYGROUND",
   erteilt_von_gesperrt: false,
   erteilt_am: "2026-09-27T01:00:00Z",
+  adresswechsel: null,
 };
 const VORSTAND = {
   id: "6890a1b2c3d4e5f6071b0002",
@@ -34,6 +35,7 @@ const VORSTAND = {
   erteilt_von_gesperrt: false,
   // Past 22:00 UTC: already the 28th in Berlin.
   erteilt_am: "2026-09-27T22:30:00Z",
+  adresswechsel: null,
 };
 const GESPERRT = {
   id: "6890a1b2c3d4e5f6071b0003",
@@ -43,6 +45,7 @@ const GESPERRT = {
   erteilt_von: null,
   erteilt_von_gesperrt: true,
   erteilt_am: "2026-09-27T03:00:00Z",
+  adresswechsel: null,
 };
 
 const ZWEITER_INHABER = { ...VORSTAND, id: "6890a1b2c3d4e5f6071b0004", adresse: "kasse@schule.de", verwaltung: "owner" };
@@ -274,6 +277,59 @@ describe("who is offered the tier change", () => {
     assert.deepEqual(
       names.filter((name) => /ernennen|herabstufen|entziehen/.test(name)),
       ["Mich zur Verwaltung herabstufen", "Zur Verwaltung herabstufen: kasse@schule.de"],
+    );
+  });
+});
+
+describe("who is offered an address change's approval", () => {
+  const wartend = (verwehrt: "eigene" | "gestartet" | "inhaber" | null) => ({
+    ...VORSTAND,
+    adresswechsel: { id: "68c1f0a2b3c4d5e6f7a8b9e0", email: "vorstand@neu.de", bestaetigt: true, bis: "2026-10-27T11:30:00Z", verwehrt },
+  });
+
+  /* On the grant the change moves, where granting and revoking already are: one place for the approval. */
+  it("shows the change on the grant it moves, with the press named by its row and its deadline in Berlin", async () => {
+    zeilen = [INHABER, wartend(null)];
+
+    const markup = await renderPage(PAGE);
+
+    assert.match(
+      textOf(markup, " ").replace(/\s+/g, " "),
+      /Neue Adresse für diesen Zugang: vorstand@neu\.de ?\. Sie ist bestätigt\. Genehmigen bis 27\. Oktober 2026 um 12:30 ?\./,
+    );
+    assert.deepEqual(
+      buttonNames(markup).filter((name) => name.startsWith("Adressänderung genehmigen")),
+      ["Adressänderung genehmigen: vorstand@schule.de"],
+    );
+  });
+
+  /* The backend refuses each of these: the press stands closed, saying why in its refusal's words. */
+  for (const [verwehrt, satz] of [
+    ["eigene", "Eine Änderung Deiner eigenen Adresse genehmigt eine andere Person aus der Verwaltung."],
+    ["gestartet", "Eine Änderung, die Du selbst begonnen hast, genehmigt eine andere Person aus der Verwaltung."],
+    ["inhaber", "Die neue Adresse eines Zugangs als Inhaberin oder Inhaber genehmigt nur eine andere Inhaberin oder ein anderer Inhaber."],
+  ] as const) {
+    it(`closes the press where the read says ${verwehrt}, saying why`, async () => {
+      zeilen = [INHABER, wartend(verwehrt)];
+
+      const markup = await renderPage(PAGE);
+
+      assert.deepEqual(
+        refusalWrappers(markup)
+          .map(({ name }) => name)
+          .filter((name) => name.startsWith("Adressänderung genehmigen")),
+        ["Adressänderung genehmigen: vorstand@schule.de"],
+      );
+      assert.ok(textOf(markup, " ").includes(satz), "the closed approval says not why");
+    });
+  }
+
+  it("shows no approval on a grant no change waits at", async () => {
+    const names = buttonNames(await renderPage(PAGE));
+
+    assert.deepEqual(
+      names.filter((name) => name.startsWith("Adressänderung genehmigen")),
+      [],
     );
   });
 });

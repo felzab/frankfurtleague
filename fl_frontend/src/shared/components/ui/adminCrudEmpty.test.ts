@@ -82,7 +82,6 @@ const REFEREE: Row<ComponentProps<typeof AdminSchiedsrichterTable>, "filteredSch
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
-  adresswechsel: null,
 };
 
 /** Retired twice over, so the row holds both restores beside its link. */

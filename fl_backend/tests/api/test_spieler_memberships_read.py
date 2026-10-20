@@ -126,7 +126,7 @@ class TestTheResponseModel:
                         "inactive_since": None,
                         "geburtsdatum": "2009-05-04",
                         "einwilligung": EINWILLIGUNG,
-                        "adresswechsel_abgelaufen": False,
+                        "adresswechsel_id": None,
                         "memberships": [],
                     }
                 ],
@@ -146,7 +146,7 @@ class TestTheResponseModel:
                     "inactive_since": None,
                     "geburtsdatum": "2009-05-04",
                     "einwilligung": EINWILLIGUNG,
-                    "adresswechsel_abgelaufen": False,
+                    "adresswechsel_id": None,
                     "memberships": [
                         {
                             "saison_id": SAISON,
@@ -172,7 +172,7 @@ class TestTheResponseModel:
                 "inactive_since": None,
                 "geburtsdatum": "2009-05-04",
                 "einwilligung": EINWILLIGUNG,
-                "adresswechsel_abgelaufen": False,
+                "adresswechsel_id": None,
                 "memberships": [
                     {
                         "saison_id": SAISON,
@@ -321,10 +321,7 @@ def squads(mongo_database: Database) -> Database:
 class TestTheMembershipsPipelineExecuted:
     def _by_surname(self, squads: Database) -> dict[str, FLSpielerWithMemberships]:
         raw = list(squads.spieler.aggregate(build_spieler_memberships_pipeline()))
-        return {
-            player.nachname or "": player
-            for player in (FLSpielerWithMemberships.model_validate({**row, "adresswechsel_abgelaufen": False}) for row in raw)
-        }
+        return {player.nachname or "": player for player in (FLSpielerWithMemberships.model_validate(row) for row in raw)}
 
     def test_it_returns_every_player_exactly_once(self, squads: Database):
         """One row per PERSON, including the one who plays two seasons — the unwind's failure, undone."""

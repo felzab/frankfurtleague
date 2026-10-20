@@ -3,7 +3,6 @@ import { cache } from "react";
 import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
 import { medienNochNicht } from "@/features/bewerbungen/utils";
-import { ansichtOf } from "@/features/konto/adresswechselLink";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
@@ -11,10 +10,9 @@ import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } from "@/shared/utils/reopenL
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { alterAusserhalb } from "./constants";
-import { postSchiedsrichterAdresswechselAnsicht, postSchiedsrichterBestaetigungAnsicht } from "./mutations";
+import { postSchiedsrichterBestaetigungAnsicht } from "./mutations";
 import { FLSchiedsrichterListResponseSchema, FLSchiedsrichterSelbstResponseSchema, FLSchiedsrichterSingleResponseSchema } from "./schemas";
 
-import type { AdresswechselAnsicht, AdresswechselLinkZustand } from "@/features/konto/adresswechselLink";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLSchiedsrichterListResponse, FLSchiedsrichterSelbstResponse, FLSchiedsrichterSingleResponse } from "./schemas";
 import type { FLSchiedsrichterFilterParams, SchiedsrichterAnsicht, SchiedsrichterLinkZustand } from "./types";
@@ -163,53 +161,6 @@ export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promi
       },
     ),
   );
-}
-
-/** What one address link opens, the pupil's twin (`fl_frontend/src/features/spieler/queries.ts :: getSpielerAdresswechselAnsicht`). */
-export async function getSchiedsrichterAdresswechselAnsicht(token: string): Promise<AdresswechselAnsicht> {
-  return runWithIncomingTrace(() =>
-    postSchiedsrichterAdresswechselAnsicht({ token: token }).then(ansichtOf, (error: unknown): AdresswechselAnsicht => {
-      // The consent link's reading of a refused read: a token nothing could place.
-      const zustand = mapSchiedsrichterAnsichtRefusal(error);
-      if (zustand !== null) return { zustand: zustand };
-      throw error;
-    }),
-  );
-}
-
-export type SchiedsrichterAdresswechselRefusal = {
-  error?: string;
-  fieldErrors?: FieldErrors;
-  unplacedError?: string;
-  zustand?: AdresswechselLinkZustand;
-};
-
-/** A refused answer as the panel or the sentence the address page shows, or `null` where the code is none of these. */
-export function mapSchiedsrichterAdresswechselRefusal(error: unknown): SchiedsrichterAdresswechselRefusal | null {
-  if (!isRefusal(error)) return null;
-
-  switch (error.serverErrorCode) {
-    // The body shape is mirrored, so a refused one is a drifted page, which the mail's link replaces.
-    case "REQ-VAL-002":
-    case "REQ-VAL-001":
-      return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
-    case "REQ-SCHIEDSRICHTER-002":
-    // The discard body's own miss: the change went between the read and the press, as an unknown token's did.
-    case "DB-COMMON-001":
-      return { zustand: "ungueltig" };
-    case "REQ-SCHIEDSRICHTER-003":
-      return { zustand: "abgelaufen" };
-    case "REQ-SCHIEDSRICHTER-009":
-      return { zustand: "gesperrt" };
-    // A ban entered on the replaced address after the page opened, or a pupil row at it that would move onto
-    // an address another pupil holds: one panel, so the link's holder learns nothing about who holds an address.
-    case "REQ-SCHIEDSRICHTER-010":
-    case "REQ-SPIELER-006":
-    case "DB-COMMON-002":
-      return { zustand: "nicht_bestaetigbar" };
-    default:
-      return null;
-  }
 }
 
 /**

@@ -7,7 +7,6 @@ from fastapi import APIRouter, Body, Depends, Query
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.aktionen.crud import redact_images_in_session
 from app.api.identitaet.crud import refuse_without_a_seat
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.registrierungen.crud import (
@@ -27,7 +26,6 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungAufnehmenPayload,
 )
 from app.api.registrierungen.services import (
-    beendeter_adresswechsel,
     compose_ablehnung_update,
     compose_kader_fields,
     compose_person,
@@ -39,7 +37,6 @@ from app.api.registrierungen.services import (
     find_stufe_refusal,
     find_unbestaetigt_refusal,
     nummern_im_kader,
-    ohne_adresswechsel,
     person_weicht_ab,
     registrierung_ist_bestaetigt,
     sole_vorschlag,
@@ -47,7 +44,7 @@ from app.api.registrierungen.services import (
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spieler.crud import refuse_a_full_squad
-from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_spieler_filter, spieler_adresswechsel_image_edits
+from app.api.spieler.services import build_spieler_filter
 from app.api.spieltage.crud import nachnominierung_laeuft_in
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -295,32 +292,16 @@ async def aufnehmen(
             # Read here, not by the address lookup, which serves no consent record
             # (`docs/backend/spec.md :: I584`): a choice the person moved after confirming the
             # registration stands (`:: I611`).
-            gespeichert = await spieler_collection.find_one(
-                {"_id": spieler_id}, projection={"einwilligung": 1, "email": 1, f"{SPIELER_ADRESSWECHSEL_FELD}.email": 1}, session=session
-            )
-            beendet = beendeter_adresswechsel(person_raw=gespeichert or {}, adresse=adresse)
-            update = compose_person_update(
-                registrierung_raw=registrierung_raw, gespeichert=(gespeichert or {}).get("einwilligung"), adresse=adresse
-            )
+            gespeichert = await spieler_collection.find_one({"_id": spieler_id}, projection={"einwilligung": 1}, session=session)
             await patch_one_in_db(
                 collection=spieler_collection,
                 db_filter={"_id": spieler_id},
-                update=update if beendet is None else ohne_adresswechsel(update),
+                update=compose_person_update(
+                    registrierung_raw=registrierung_raw, gespeichert=(gespeichert or {}).get("einwilligung"), adresse=adresse
+                ),
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
-
-            if beendet is not None:
-                # After the patch, for the decline's reason (`app/api/spieler/adresswechsel_router.py ::
-                # post_adresswechsel_antwort`): it reaches the pre-image the patch just filed.
-                ended = sign_in_identifier(beendet)
-                await redact_images_in_session(
-                    aktionen_collection=aktionen_collection,
-                    db_filter=build_redaction_filter([(Collection.SPIELER, [spieler_id])]),
-                    judge=lambda image: spieler_adresswechsel_image_edits(image, ended),
-                    stamp=log_stamp(germany_now),
-                    session=session,
-                )
 
         kader_fields = compose_kader_fields(
             registrierung_raw=registrierung_raw,

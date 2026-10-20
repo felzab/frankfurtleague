@@ -108,7 +108,7 @@ async function AdminSpielerEditContent({
     }));
 
   return (
-    // Unkeyed: the view keys what it holds itself, and a key here would reset the address box's typing over a save.
+    // Unkeyed: the form keys its editor by the stored state the drafts mirror.
     <AdminSpielerEditView
       spieler={{
         id: spieler.id,
@@ -117,8 +117,7 @@ async function AdminSpielerEditContent({
         inactive_since: spieler.inactive_since,
         geburtsdatum: spieler.geburtsdatum,
         email: spieler.email,
-        adresswechsel: spieler.adresswechsel,
-        adresswechsel_abgelaufen: spieler.adresswechsel_abgelaufen,
+        adresswechsel_id: spieler.adresswechsel_id,
       }}
       // Off the record this page already holds: no read of its own, the memberships tier being the
       // only one that serves the field.

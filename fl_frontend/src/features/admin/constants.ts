@@ -1,3 +1,4 @@
+import At from "@gravity-ui/icons/At";
 import Ban from "@gravity-ui/icons/Ban";
 import Calendar from "@gravity-ui/icons/Calendar";
 import ClockArrowRotateLeft from "@gravity-ui/icons/ClockArrowRotateLeft";
@@ -46,6 +47,8 @@ export const ADMIN_SIDEMENU_ICONS = {
   Key,
   // A person taken out of the league whole, never the bin a single record's removal wears.
   PersonXmark,
+  // An address, never the envelope the contacts list wears: what moves is the sign-in, not a message.
+  At,
 } as const satisfies Record<string, React.ElementType>;
 
 export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
@@ -181,6 +184,21 @@ export const LOESCHUNG_EINTRAG = {
   },
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
+/** The address tool's entry, named where an editor and a refusal send a reader to it, so a rename reaches both. */
+export const ADRESSWECHSEL_EINTRAG = {
+  id: "adresswechsel",
+  label: "Adressänderung auf Anfrage",
+  iconName: "At",
+  hint: {
+    lead: "Die E-Mail-Adresse einer Person ändern, die sich nicht mehr anmelden kann.",
+    points: [
+      { term: "Wer sich anmelden kann", detail: "ändert die eigene Adresse selbst auf der Kontoseite." },
+      // Keyed by the address a person writes from, as the erasure's page is: nothing here is browsed.
+      { term: "Die bisherige Adresse", detail: "gibst Du ein, um zu sehen, was unter ihr steht." },
+    ],
+  },
+} as const satisfies SidemenuStructureSubOption<AdminIconName>;
+
 export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   // Deliberately unnamed: a season is created and edited here, which makes this the subject the menu
   // is organised under rather than one more group in it. `SidemenuNavLinks` renders neither a label
@@ -286,6 +304,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
     category_name: "Zugang",
     sub_options: [
       SPERRLISTE_EINTRAG,
+      ADRESSWECHSEL_EINTRAG,
       {
         id: "administratoren",
         label: "Administratoren",

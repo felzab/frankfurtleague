@@ -175,6 +175,7 @@ export function resolveTeamSaisonMembership(
             trikot_farbe: membership.trikot_farbe,
             kontakte: membership.kontakte,
             bestaetigungen: membership.bestaetigungen,
+            adresswechsel: membership.adresswechsel,
             kontakte_stand: membership.kontakte_stand,
           },
   };

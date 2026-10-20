@@ -19,6 +19,7 @@ import {
 } from "@/core/seitenNamen.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import {
+  ADRESSWECHSEL_EINTRAG,
   FINALRUNDEN_EINTRAG,
   HANDLUNGSBEDARF_EINTRAG,
   LOESCHUNG_EINTRAG,
@@ -38,7 +39,7 @@ import {
   ZEITRAUM_ABSCHNITT,
 } from "@/features/saisons/constants.ts";
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants.ts";
-import { ADRESSE_AENDERN, KADER_ABSCHNITT, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants.ts";
+import { KADER_ABSCHNITT, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants.ts";
 import { KONTAKTE_ABSCHNITT, SAISON_ABSCHNITT } from "@/features/teams/constants.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
@@ -68,7 +69,7 @@ const SAISON_FORM = "features/saisons/components/forms/AdminSaisonEditForm";
 const SAISONS_TABELLE = "features/saisons/components/collections/AdminSaisonsTable.tsx";
 const ADMIN = "features/admin/constants.ts";
 const ANTWORTEN = "core/adresswechselAntworten.ts";
-const ADRESSWECHSEL_SEITEN = ["features/konto/components/views/AdresswechselLinkView.tsx"];
+const ADRESSWECHSEL_SEITEN = ["features/adresswechsel/components/views/AdresswechselLinkView.tsx"];
 
 const TOP_NAV = "shared/components/layout/topnav/TopNav.tsx";
 const FOOTER = "shared/components/layout/footer/Footer.tsx";
@@ -206,6 +207,7 @@ const REGISTER: readonly Benannt[] = [
   eintrag("TEAMS_EINTRAG", TEAMS_EINTRAG, [SAISONS_TABELLE]),
   eintrag("SPERRLISTE_EINTRAG", SPERRLISTE_EINTRAG),
   eintrag("LOESCHUNG_EINTRAG", LOESCHUNG_EINTRAG),
+  eintrag("ADRESSWECHSEL_EINTRAG", ADRESSWECHSEL_EINTRAG, ["features/adresswechsel/components/ui/AdresswechselHinweis.tsx"]),
   eintrag("SAISONS_EINTRAG", SAISONS_EINTRAG),
   eintrag("SPIELTAGE_EINTRAG", SPIELTAGE_EINTRAG, [SAISONS_TABELLE]),
   eintrag("FINALRUNDEN_EINTRAG", FINALRUNDEN_EINTRAG),
@@ -215,16 +217,6 @@ const REGISTER: readonly Benannt[] = [
     konstante: "UEBERALL_ABMELDEN",
     heim: ADMIN,
     zeigen: ["features/funktionen/components/forms/AdminLoeschungForm/FormAbmeldenSection.tsx"],
-    steuerung: true,
-  },
-  {
-    wort: ADRESSE_AENDERN,
-    konstante: "ADRESSE_AENDERN",
-    heim: "features/spieler/constants.ts",
-    zeigen: [
-      `${SPIELER_FORM}/FormAdresseSection.tsx`,
-      "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormKontaktSection.tsx",
-    ],
     steuerung: true,
   },
   { wort: JA_MEINE_ADRESSE, konstante: "JA_MEINE_ADRESSE", heim: ANTWORTEN, zeigen: ADRESSWECHSEL_SEITEN, steuerung: true },

@@ -28,7 +28,9 @@ class TestTheMembershipsPipeline:
         lookup = next(stage["$lookup"] for stage in build_team_memberships_pipeline() if "$lookup" in stage)
         assert lookup["from"] == "saison_teams"
         projection = lookup["pipeline"][0]["$project"]
-        assert projection == {"_id": 0} | {name: 1 for name in FLTeamMembership.model_fields}
+        # Composed after the read off the seats' folded addresses, which the junction stores as typed.
+        composed = {"adresswechsel"}
+        assert projection == {"_id": 0} | {name: 1 for name in FLTeamMembership.model_fields if name not in composed}
 
     def test_it_sorts_by_name(self):
         assert build_team_memberships_pipeline()[-1] == {"$sort": {"name": 1}}
@@ -89,7 +91,9 @@ def read_the_links(
                 )
             )
             roh = await aggregate_many_from_db(collection=database[Collection.TEAMS], pipeline=build_team_memberships_pipeline())
-            return roh, await get_team_memberships(teams_collection=database[Collection.TEAMS], today=TODAY)
+            return roh, await get_team_memberships(
+                teams_collection=database[Collection.TEAMS], adresswechsel_collection=database[Collection.ADRESSWECHSEL], today=TODAY
+            )
 
     roh, response = on_the_seed_loop(run())
     [membership] = response.teams[0].memberships

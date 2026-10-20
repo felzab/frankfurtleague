@@ -166,8 +166,7 @@ const LISTED: Readonly<Record<string, Record<string, unknown>>> = {
         geburtsdatum: "2009-05-04",
         einwilligung: bestaetigteEinwilligung(),
         email: null,
-        adresswechsel: null,
-        adresswechsel_abgelaufen: false,
+        adresswechsel_id: null,
         memberships: [{ ...KADER_ZEILE, saison_id: "2026", team_id: OBJECT_ID }],
       },
     ],
@@ -193,6 +192,17 @@ const LISTED: Readonly<Record<string, Record<string, unknown>>> = {
     frist: "2026-10-31",
     vorschlag: null,
     beantwortet_von: null,
+  },
+  // The new mailbox's link, still to confirm: its view sits one level down, where `OPEN` does not reach.
+  "/adresswechsel/bestaetigung/ansicht": {
+    ansicht: {
+      seite: "neu",
+      zustand: "gueltig",
+      gueltig_bis: "2026-10-31T10:00:00Z",
+      wirksam_ab: null,
+      weg: "konto",
+      genehmigung_offen: false,
+    },
   },
 };
 
@@ -245,9 +255,8 @@ const LINKED: ReadonlySet<string> = new Set([
   "(public)/registrierung/page.tsx",
   "(public)/bestaetigung/kontakt/page.tsx",
   "(public)/bestaetigung/schiedsrichter/page.tsx",
-  "(public)/bestaetigung/schiedsrichter/adresse/page.tsx",
   "(public)/bestaetigung/spieler/page.tsx",
-  "(public)/bestaetigung/spieler/adresse/page.tsx",
+  "(public)/bestaetigung/adresse/page.tsx",
   "(public)/bestaetigung/spiel/page.tsx",
   "(public)/loeschung/page.tsx",
 ]);

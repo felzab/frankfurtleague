@@ -2,9 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
-from app.api.berechtigungen.schemas import FLUtcInstant
-from app.api.spieler.schemas import CustomAdresswechselGrund, FLAdresswechselMitteilung, FLEinwilligung, SelbstEinwilligungPayload
-from app.shared.adresswechsel import FLAdresswechselBisherigZustand, FLAdresswechselWeg
+from app.api.spieler.schemas import FLEinwilligung, SelbstEinwilligungPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
@@ -19,7 +17,7 @@ from app.shared.schemas.custom import (
     CustomOptionalString,
 )
 from app.shared.schemas.einwilligung import FLEinwilligungStand
-from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName, FLKontakt, FLKontaktPayload
+from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
 from app.shared.schemas.responses import BaseAPIResponse
 
 # The delivery state has ONE shape at every home `app/api/zustellung/services.py :: ZIEL_PFADE`
@@ -35,13 +33,6 @@ FLSchiedsrichterUmfang = Literal["kader_oeffentlich", "intern"]
 # confirmed on the last valid day still sees that they did. `gesperrt` ranks first
 # (`docs/backend/spec.md :: I515`).
 FLSchiedsrichterBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]
-
-# What an address link shows. No `bestaetigt`: an answer removes the block the link opens.
-# `nicht_bestaetigbar`, a barred REPLACED address, is named apart from `gesperrt` so the new mailbox
-# learns nothing of the ban.
-FLSchiedsrichterAdresswechselZustand = Literal["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar"]
-
-FLSchiedsrichterAdresswechselAntwort = Literal["bestaetigt", "abgelehnt"]
 
 # The raw token as it arrives on the two base-tier endpoints. `BEWERBUNG_TOKEN_MAX_LENGTH` and not a
 # referee's own: one `mint_token` spells every confirmation link this application hands out.
@@ -108,48 +99,6 @@ class FLSchiedsrichterMint(BaseModel):
     email: CustomNonEmptyString
 
 
-class FLSchiedsrichterAdresswechsel(BaseModel):
-    """A confirmed referee's address waiting on its change, as the editor reads it -- and NEITHER hash.
-
-    Kept off the wire for `FLSchiedsrichterBestaetigung`'s reason.
-    """
-
-    email: str
-    weg: FLAdresswechselWeg
-    verschickt_am: CustomDateString
-    # Stored for `FLSchiedsrichterBestaetigung.frist`'s reason.
-    gueltig_bis: FLUtcInstant | None
-    freigegeben_am: FLUtcInstant | None
-    grund: str | None
-    bestaetigt_am: FLUtcInstant | None
-    wirksam_ab: FLUtcInstant | None
-    zustellung: FLBewerbungZustellung | None = None
-
-
-class FLSchiedsrichterAdresswechselPayload(BaseModel):
-    """The pupil's `FLSpielerAdresswechselPayload`, for a confirmed referee's address. The path names the referee."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    email: CustomEmail
-    # Required for the pupil's twin's reason.
-    grund: CustomAdresswechselGrund | None
-
-
-class FLSchiedsrichterAdresswechselMint(BaseModel):
-    """The pupil's `FLSpielerAdresswechselMint`, for its reasons, on this lane."""
-
-    weg: FLAdresswechselWeg
-    token: str | None
-    stopp_token: str | None
-    gueltig_bis: FLUtcInstant
-    email: CustomNonEmptyString
-    bisherige_email: str
-    # The stored name's first part (`app/api/schiedsrichter/services.py :: vorname_of`), empty where it gives none.
-    vorname: str
-    adresse_belegt: bool
-
-
 class FLSchiedsrichter(_SchiedsrichterWritable):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # Nullable where the payload is not, for the one row that stands behind nobody
@@ -166,9 +115,6 @@ class FLSchiedsrichter(_SchiedsrichterWritable):
     bestaetigung: FLSchiedsrichterBestaetigung | None = None
     einwilligung: FLEinwilligung | None = None
     geburtsdatum: CustomOptionalDateString = None
-    # Defaulted and on no payload, for the three above's reasons: only a confirmed referee whose
-    # address an administrator moved carries one.
-    adresswechsel: FLSchiedsrichterAdresswechsel | None = None
 
 
 FLSchiedsrichterListAdapter = TypeAdapter(list[FLSchiedsrichter])
@@ -215,71 +161,6 @@ class FLSchiedsrichterMintResponse(BaseAPIResponse):
     """The re-send's answer. Never null: where no link may be minted a refusal answers instead."""
 
     bestaetigung: FLSchiedsrichterMint
-
-
-class FLSchiedsrichterAdresswechselMintResponse(BaseAPIResponse):
-    """The start's and the re-send's answer. Never null: where no link may be minted a refusal answers instead."""
-
-    adresswechsel: FLSchiedsrichterAdresswechselMint
-
-
-class FLSchiedsrichterAdresswechselAnsichtPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    token: CustomSchiedsrichterToken
-
-
-class FLSchiedsrichterAdresswechselAnsichtNeu(BaseModel):
-    """What the new mailbox's link opens: its state and its deadline."""
-
-    seite: Literal["neu"]
-    zustand: FLSchiedsrichterAdresswechselZustand
-    gueltig_bis: FLUtcInstant
-
-
-class FLSchiedsrichterAdresswechselAnsichtBisherig(BaseModel):
-    """What the address on file's stop link opens: the step the change waits on, never whether it could be confirmed."""
-
-    seite: Literal["bisherig"]
-    zustand: FLAdresswechselBisherigZustand
-    gueltig_bis: FLUtcInstant | None
-    wirksam_ab: FLUtcInstant | None
-
-
-class FLSchiedsrichterAdresswechselAnsichtResponse(BaseAPIResponse):
-    """What one address link opens, and nothing a leaked one should not learn (`READ-REFEREE-003`).
-
-    A side, a state and its instants: never a name, either address, the school, the fee or the id.
-    """
-
-    ansicht: Annotated[FLSchiedsrichterAdresswechselAnsichtNeu | FLSchiedsrichterAdresswechselAnsichtBisherig, Field(discriminator="seite")]
-
-
-class FLSchiedsrichterAdresswechselAntwortPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    token: CustomSchiedsrichterToken
-    # Required rather than defaulted: a page that omitted it would have the model answer for the
-    # person whether a mailbox is theirs.
-    antwort: FLSchiedsrichterAdresswechselAntwort
-
-
-class FLSchiedsrichterAdresswechselAntwortResponse(BaseAPIResponse):
-    """The pupil's `FLSpielerAdresswechselAntwortResponse`, for its reasons, on this lane."""
-
-    antwort: FLSchiedsrichterAdresswechselAntwort
-    wirksam_ab: FLUtcInstant | None
-    mitteilung: FLAdresswechselMitteilung | None
-
-
-class FLSchiedsrichterAdresswechselStoppPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    token: CustomSchiedsrichterToken
-
-
-class FLSchiedsrichterAdresswechselStoppResponse(BaseAPIResponse):
-    gestoppt: Literal[True]
 
 
 class FLSchiedsrichterBestaetigungAnsichtPayload(BaseModel):
@@ -329,7 +210,7 @@ class FLSchiedsrichterBestaetigungResponse(BaseAPIResponse):
 
 
 class FLSchiedsrichterWriteResponse(BaseAPIResponse):
-    """The referee as a retirement or a discarded address change leaves them."""
+    """The referee as a retirement leaves them."""
 
     updated_document: FLSchiedsrichter
 
@@ -339,7 +220,8 @@ class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     # Whether each link's deadline has passed today, judged by the rule its press refuses on, so the
     # editor reads no day of its own; false where the row holds no such link.
     bestaetigung_abgelaufen: bool
-    adresswechsel_abgelaufen: bool
+    # The live change of the referee's address, which the address tool shows; null where none stands.
+    adresswechsel_id: CustomObjectId | None
 
 
 class FLSchiedsrichterKontext(BaseModel):
@@ -380,23 +262,3 @@ class FLSchiedsrichterSelbstEinwilligungResponse(BaseAPIResponse):
     einwilligung: FLEinwilligung
     # For `app/api/spieler/schemas.py :: FLSpielerSelbstEinwilligungResponse`'s reason.
     nachweis_stand: FLEinwilligungStand
-
-
-class FLAdresswechselSweepParams(BaseModel):
-    """Where in one pass the call starts: after the change the call before it reached, or at the lowest id where none is named."""
-
-    nach: CustomObjectId | None = None
-
-
-class FLSchiedsrichterAdresswechselSweepResponse(BaseAPIResponse):
-    """One call's share of the pending changes whose step lapsed or whose waiting time ended, a referee's or a pupil's."""
-
-    entfernt: int
-    # Due changes a judgement refused at the end of their waiting time, removed as a lapse is.
-    verworfen: int
-    # Each change that took effect: whom the caller mails the completion notice, never the new address.
-    wirksam: list[FLAdresswechselMitteilung]
-    # A change whose removal or effect failed among them: it stays due, so a caller looping on this alone never ends.
-    verbleibend: int
-    # The last row this call reached, for the next call's `nach`; null once it reached the end, which ends the pass.
-    nach: CustomObjectId | None

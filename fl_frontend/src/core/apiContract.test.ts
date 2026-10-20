@@ -86,6 +86,9 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSpielbestaetigungGrund: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielbestaetigungSchiedsrichterZustand: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLAdresswechselWeg: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLAdresswechselWartetAuf: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLAdresswechselBisherigZustand: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLAdresswechselEndeArt: "a Pydantic Literal alias, inlined as an enum at each use site",
 
   // Both fields are path segments of `POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut`,
   // so the request carries no body for FastAPI to describe.
@@ -129,10 +132,9 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSchiedsrichterKeyPayload: "the referee's DELETE and reactivate take the id from the path, with no request body",
   FLSchiedsrichterEinladenPayload: "the referee's re-send POST takes its id from the path and has no request body",
   FLSchiedsrichterUmfang: "a Pydantic Literal alias, inlined as an enum at each use site",
-  FLSchiedsrichterAdresswechselEinladenPayload: "the address link's re-send POST takes its id from the path and has no request body",
-  FLSchiedsrichterAdresswechselVerwerfenPayload: "the address change's DELETE takes its id from the path and has no request body",
-  FLSpielerAdresswechselEinladenPayload: "the pupil's address link re-send POST takes its id from the path and has no request body",
-  FLSpielerAdresswechselVerwerfenPayload: "the pupil's address change DELETE takes its id from the path and has no request body",
+  FLAdresswechselEinladenPayload: "the address link's re-send POST takes its id from the path and has no request body",
+  FLAdresswechselVerwerfenPayload: "the address change's DELETE takes its id from the path and has no request body",
+  FLAdresswechselGenehmigungPayload: "the address change's approval POST takes its id from the path and has no request body",
   FLSpielbestaetigungVerwerfenPayload: "the discard POST takes its id from the path and has no request body",
   FLSperrlisteKeyPayload: "the ban's DELETE takes the id from the path and has no request body",
   FLBerechtigungKeyPayload: "the grant's DELETE takes the id from the path and has no request body",
@@ -359,7 +361,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 416;
+const EXPECTED_PAIRS = 413;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

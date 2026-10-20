@@ -68,3 +68,6 @@ class Collection(StrEnum):
     #: One fixture's report: the referee's proposed result, scorers, cards and remarks, which the fixture's
     #: result never reads. Created by its first writer, one per fixture.
     SPIELBERICHTE = "spielberichte"
+    #: One address's pending change of the address it signs in on, keyed by that address, one live change per address;
+    #: ended, it keeps no address, its links answering how it ended until its TTL index removes it.
+    ADRESSWECHSEL = "adresswechsel"

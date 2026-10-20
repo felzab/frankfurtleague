@@ -1,25 +1,41 @@
 /**
  * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: how long an address change's link stays open,
- * so a page and a mail state the instant the backend refuses at. One figure for both lanes: a change
- * belongs to an address.
+ * so a page and a mail state the instant the backend refuses at.
  */
 export const ADRESSWECHSEL_GUELTIG_STUNDEN = 24;
 
 /**
- * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days a change an administrator started
- * with a reason waits after its confirmation, so the address on file can still stop it.
+ * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days a change started with a reason waits after its
+ * confirmation, so the address on file can still stop it. Exported for the mirror test, which reads its
+ * `export const` line.
+ * @internal
  */
 export const ADRESSWECHSEL_WARTEZEIT_TAGE = 7;
+
+/**
+ * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days an ended change's record, holding no address,
+ * stays so either link can still say how it ended; the privacy notice states it.
+ */
+export const ADRESSWECHSEL_NACHLAUF_TAGE = 30;
+
+/**
+ * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days after its start a change moving a grant waits for
+ * another administrator's approval before it lapses. Exported for the mirror test, as the waiting time is.
+ * @internal
+ */
+export const ADRESSWECHSEL_GENEHMIGUNG_TAGE = 7;
 
 // Indexed by the constant, so a waiting time this map has no words for fails the type check rather
 // than printing a numeral beside every other duration the pages spell out.
 export const ADRESSWECHSEL_WARTEZEIT_DAUER = ({ 7: "eine Woche" } as const)[ADRESSWECHSEL_WARTEZEIT_TAGE];
+export const ADRESSWECHSEL_GENEHMIGUNG_DAUER = ({ 7: "eine Woche" } as const)[ADRESSWECHSEL_GENEHMIGUNG_TAGE];
 
-/** How a change reaches its effect, as the backend stores it. */
-export type AdresswechselWeg = "konto" | "freigabe" | "wartezeit";
-
-/** Which lane's collection carries a change, and so which page its links open. */
-export type AdresswechselArt = "spieler" | "schiedsrichter";
+/**
+ * How a change reaches its effect, as the backend stores it: the one spelling the slice's mirror, the mails
+ * and the link reports read, `core` being the layer all three may import.
+ */
+export const ADRESSWECHSEL_WEGE = ["konto", "freigabe", "wartezeit"] as const;
+export type AdresswechselWeg = (typeof ADRESSWECHSEL_WEGE)[number];
 
 // The zone named rather than taken from the server's clock: the image runs UTC, and a deadline a
 // reader checks against their own evening is stated in the zone they live in.

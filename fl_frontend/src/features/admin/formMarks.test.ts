@@ -236,8 +236,8 @@ const FORMS: Record<string, FormCase> = {
             geburtsdatum: null,
             einwilligung: null,
             bestaetigung: null,
-            adresswechsel: null,
-            abgelaufen: { bestaetigung: false, adresswechsel: false },
+            adresswechsel_id: null,
+            abgelaufen: { bestaetigung: false },
           },
           istFassungBekannt: true,
           isRetired: false,
@@ -258,8 +258,7 @@ const FORMS: Record<string, FormCase> = {
         inactive_since: null,
         geburtsdatum: "2009-05-04",
         email: null,
-        adresswechsel: null,
-        adresswechsel_abgelaufen: false,
+        adresswechsel_id: null,
       };
       const membership = {
         team_id: TEAM_A.teamId,
@@ -379,7 +378,15 @@ const FORMS: Record<string, FormCase> = {
           saison: {
             saisonId: "2026",
             saisonStatus: "future",
-            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte: null, bestaetigungen: null, kontakte_stand: "stand" },
+            membership: {
+              gruppe: "A",
+              austritt: null,
+              trikot_farbe: null,
+              kontakte: null,
+              bestaetigungen: null,
+              adresswechsel: null,
+              kontakte_stand: "stand",
+            },
           },
           today: "2026-09-14",
           gruppeLocked: false,
@@ -414,7 +421,15 @@ const FORMS: Record<string, FormCase> = {
           saison: {
             saisonId: "2026",
             saisonStatus: "future",
-            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, bestaetigungen: null, kontakte_stand: "stand" },
+            membership: {
+              gruppe: "A",
+              austritt: null,
+              trikot_farbe: null,
+              kontakte,
+              bestaetigungen: null,
+              adresswechsel: null,
+              kontakte_stand: "stand",
+            },
           },
           pageHeader: { title: TEAM_A.name },
         });
