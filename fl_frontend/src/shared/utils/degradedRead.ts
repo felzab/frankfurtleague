@@ -2,7 +2,7 @@ import "server-only";
 
 import { unstable_rethrow } from "next/navigation";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, isContractBreak } from "@/core/errors";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, isContractBreak, UnreadGrantError } from "@/core/errors";
 import { logger } from "@/core/logging";
 
 import { isRuleRefusal } from "./actionError";
@@ -12,7 +12,8 @@ import { isRuleRefusal } from "./actionError";
  * else, a narrowing bug or a rotated key's protocol refusal included, would leave a plausible panel standing unlogged.
  */
 export function explainsItself(error: unknown): boolean {
-  return error instanceof APINetworkError || error instanceof ApiUnsentError || isRuleRefusal(error);
+  // An unread grant is the guard's own read failing, which the guard logged as it refused (`FE-AUTH-010`).
+  return error instanceof APINetworkError || error instanceof ApiUnsentError || error instanceof UnreadGrantError || isRuleRefusal(error);
 }
 
 export function logCodedFailure(message: string, error: unknown, untypedCode: "FE-ACT-001" | "FE-RSC-001"): void {

@@ -14,7 +14,8 @@ const LOGGING = {
 registerDoubles({ modules: { "core/logging.ts": LOGGING } });
 
 const { nullAfterLoggingContractBreak, nullUnlessContractBreak } = await import("./degradedRead.ts");
-const { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, ContractBreakError } = await import("@/core/errors.ts");
+const { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, ContractBreakError, UnreadGrantError } =
+  await import("@/core/errors.ts");
 const { redirect } = await import("next/navigation");
 
 const REQUEST = {
@@ -79,6 +80,13 @@ describe("a page's degraded read's rejection handler", () => {
     for (const failure of [unanswered(), new ApiUnsentError("GET"), answeredWith(409, "REQ-BEWERBUNG-008")]) {
       assert.equal(nullUnlessContractBreak(failure), null, failure.name);
     }
+
+    assert.deepEqual(lines, []);
+  });
+
+  /* The admin guard logged its unread grant as it refused, so a second line would count one outage twice. */
+  it("settles a read whose administrator's grant went unread to null with no line", () => {
+    assert.equal(nullUnlessContractBreak(new UnreadGrantError()), null);
 
     assert.deepEqual(lines, []);
   });
