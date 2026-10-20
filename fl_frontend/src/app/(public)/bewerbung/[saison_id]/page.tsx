@@ -28,6 +28,8 @@ export async function generateMetadata(props: NextPageProps<{ saison_id: string 
 
   // Caught for the body's reason: a window this page could not read is a state it renders, and a
   // failed read answering not-found would take the season down with the backend.
+
+  // Unlogged: the body's handler logs this same memoised read's failure.
   const antwort = await getBewerbungFenster(saison_id).catch(() => undefined);
   if (antwort === null) return NOT_FOUND_METADATA;
 
