@@ -187,12 +187,10 @@ describe("carrying a report's proposal into the match editor", () => {
       }),
     );
 
-    const press =
-      screen
-        .getAllByRole<HTMLButtonElement>("button", { name: /^Vorschlag übernehmen/ })
-        .find((button) => button.textContent === "Vorschlag übernehmen") ?? assert.fail("the panel renders no press");
-    assert.ok(press.disabled, "the press carries a report about Goethe onto Schiller");
-    assert.ok(screen.getAllByText(/Die Teams im Formular sind nicht die des Spielberichts/).length > 0, "the closed press names no reason");
+    const press = screen
+      .queryAllByRole<HTMLButtonElement>("button", { name: /^Vorschlag übernehmen/ })
+      .filter((button) => button.textContent === "Vorschlag übernehmen");
+    assert.deepEqual(press, [], "the panel offers to carry a report about Goethe onto Schiller");
     assert.ok(screen.getByText("Teams geändert"), "the panel names no state of its own");
     assert.ok(screen.getByText(/für andere Teams geschrieben/), "the panel does not say the report is about other teams");
   });
