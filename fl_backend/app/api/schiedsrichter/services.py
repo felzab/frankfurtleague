@@ -3,7 +3,6 @@ from http import HTTPStatus
 from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after
-from app.api.kontakte.services import same_address
 from app.api.schiedsrichter.schemas import FLSchiedsrichterBestaetigungZustand
 from app.api.spiele.schemas import unplayed_filter
 from app.core.collections import Collection
@@ -12,7 +11,7 @@ from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_nachweis import compose_geboren
-from app.shared.folding import canonical_address, mailbox_key
+from app.shared.folding import canonical_address, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     MEDIEN_MIN_AGE_YEARS,
@@ -539,15 +538,12 @@ BESTAETIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
 EINLADEN_FIELDS: Mapping[str, int] = {"inactive_since": 1, "kontakt.email": 1, f"{EINWILLIGUNG_FELD}.bestaetigt_am": 1}
 
 
-def build_selbst_referee_filter(identifier: str, *, schiedsrichter_id: Any = None) -> Mapping[str, Any]:
-    """The referee rows that may be this address's own, retired ones included: a withdrawal reaches them too.
-
-    A pre-filter reading every mailbox sharing the local part, in any case or domain: the caller keeps
-    the rows `app/api/identitaet/services.py :: folds_to` confirms.
-    """
+def build_selbst_referee_filter(*identifiers: str, schiedsrichter_id: Any = None) -> Mapping[str, Any]:
+    """The referee rows of these addresses, retired ones included: a withdrawal reaches them too."""
 
     return {
-        "kontakt.email": same_address(identifier),
+        # Folded here, the form every referee record stores (`docs/backend/spec.md :: I332`).
+        "kontakt.email": {"$in": sorted({sign_in_identifier(identifier) for identifier in identifiers})},
         **(build_real_referees_filter() if schiedsrichter_id is None else build_referee_filter(schiedsrichter_id)),
     }
 

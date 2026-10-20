@@ -23,7 +23,6 @@ from app.api.bewerbungen.services import (
 # every `laeuft` a link is shown with and this flow's refusal, so a link and the write it opens
 # cannot disagree.
 from app.api.einladungen.services import registrierungsfenster_laeuft
-from app.api.kontakte.services import same_address
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand, FLRegistrierungEntscheidung, FLRegistrierungSeite
 
 # The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
@@ -818,23 +817,17 @@ def build_offene_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
     return {"saison_id": saison_id, "team_id": team_id, "status": SUBMITTED}
 
 
-def build_eigene_registrierung_filter(identifier: str) -> Mapping[str, Any]:
-    """Every pending registration that may be this address's own.
+def build_eigene_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
+    """Every pending registration of these addresses, on `registrierungen_email_status`."""
 
-    A pattern and never an equality: `email` is stored unfolded, so this is a pre-filter and the
-    caller's fold decides.
-    """
-
-    return {"status": SUBMITTED, "email": same_address(identifier)}
+    return {**build_erasure_registrierung_filter(*identifiers), "status": SUBMITTED}
 
 
-def build_erasure_registrierung_filter(identifier: str) -> Mapping[str, Any]:
-    """Every registration that may be this address's, of every status: a declined row holds the same person until its month is out.
+def build_erasure_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
+    """Every registration of these addresses, of every status: a declined row holds the same person until its month is out."""
 
-    A pre-filter, as `build_eigene_registrierung_filter` is, the caller's fold deciding.
-    """
-
-    return {"email": same_address(identifier)}
+    # Folded here, the form every registration stores (`docs/backend/spec.md :: I332`).
+    return {"email": {"$in": sorted({sign_in_identifier(identifier) for identifier in identifiers})}}
 
 
 def find_unbestaetigt_refusal(*, einwilligung: Any) -> WriteRefusal | None:

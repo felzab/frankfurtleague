@@ -81,7 +81,7 @@ ERLAUBTE_STUFEN = ["Q1", "Q2"]
 # One mailbox per seat, spelled so that a hit cannot be a coincidence.
 ANSPRECH = "ansprech.kader@schule.de"
 TRAINER_ALLEIN = "trainer.kader@schule.de"
-GROSS_STORED = "Gross.Kader@Schule.de"
+GROSS_STORED = "gross.kader@schule.de"
 GROSS_ASKED = "GROSS.KADER@schule.DE"
 B_ANSPRECH = "b.ansprech.kader@schule.de"
 GESPERRT = "gesperrt.kader@schule.de"
@@ -277,7 +277,7 @@ class TestTheSquadRead:
         assert "email" not in text
         assert "einwilligung" not in text
 
-    def test_an_identifier_stored_in_another_case_reads_the_squad(self, mongo_replica_set_url: str):
+    def test_an_identifier_asked_in_another_case_reads_the_squad(self, mongo_replica_set_url: str):
         response = self._read(mongo_replica_set_url, GROSS_ASKED)
 
         assert response.status_code == 200, response.text

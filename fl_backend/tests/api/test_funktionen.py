@@ -50,8 +50,7 @@ STAMP = "2026-02-01"
 # One mailbox per case, each spelled so that a hit in the corpus cannot be a coincidence.
 AKTIV = "aktiv.sitz@schule.de"
 AKTIV_UNFOLDED = "Aktiv.Sitz@SCHULE.de"
-GROSS_ASKED = "gross.sitz@schule.de"
-GROSS_STORED = "GROSS.SITZ@schule.de"
+
 ZWEI_TEAMS = "zwei.teams@schule.de"
 ZEITEN = "zeiten.sitz@schule.de"
 OHNE_STEMPEL = "ohne.stempel@schule.de"
@@ -171,7 +170,6 @@ async def _seed(database: AsyncDatabase) -> None:
                 ROW_NAME_A,
                 trainer=_seat(AKTIV),
                 ansprechperson=_seat(ZWEI_TEAMS),
-                stellvertretung=_seat(GROSS_STORED),
             ),
             _junction(
                 ROW_ACTIVE_B_OID,
@@ -300,11 +298,8 @@ class TestTheSeasonNarrowing:
 
 @pytest.mark.db
 class TestTheFold:
-    def test_a_seat_stored_with_an_upper_case_local_part_is_answered(self, seeded_league: str):
-        assert seats(answered(seeded_league, GROSS_ASKED)) == [(ACTIVE_SAISON, TEAM_A_OID, "stellvertretung", ROW_NAME_A, "active")]
-
     def test_an_identifier_arriving_unfolded_is_answered_the_same_seat(self, seeded_league: str):
-        """Kills trusting the caller to have folded: the pre-filter is case-blind, so only the fold's own comparison parts the two."""
+        """Kills trusting the caller to have folded: every read is an equality on the stored fold, which the asked spelling misses."""
 
         assert seats(answered(seeded_league, AKTIV_UNFOLDED)) == seats(answered(seeded_league, AKTIV))
 

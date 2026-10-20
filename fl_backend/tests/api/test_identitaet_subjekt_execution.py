@@ -10,14 +10,12 @@ from fastapi import FastAPI
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.router import get_subjekt
+from app.api.identitaet.router import get_anmeldung, get_subjekt
 from app.api.identitaet.schemas import FLSubjektPayload, FLSubjektResponse
-from app.api.identitaet.services import build_referee_pipeline, build_seat_pipeline
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
-from app.shared.folding import league_address, sign_in_identifier
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import SYSTEM_AUTH
@@ -41,27 +39,17 @@ DATABASE_NAME = worker_database("fl_identitaet_subjekt_test")
 
 PATH = f"/api/v{API_VERSION}/identitaet/subjekt"
 
-# The folded form a caller sends, and the spellings the league stores it under. Deliberately
-# unusual, so a hit in a seeded corpus cannot be a coincidence.
+# The folded form every record stores the address in (`docs/backend/spec.md :: I332`), and a spelling a
+# caller may hand over unfolded. Deliberately unusual, so a hit in a seeded corpus cannot be a coincidence.
 IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
-SEAT_STORED = "Ortrud.Zwiebelmayer@Schule.de"
-SEAT_STORED_UPPER = "ORTRUD.ZWIEBELMAYER@schule.de"
-SEAT_STORED_DOMAIN = "ortrud.zwiebelmayer@SCHULE.de"
-PUPIL_STORED = "ortrud.zwiebelmayer@schule.de"
-REFEREE_STORED = "ORTRUD.ZWIEBELMAYER@schule.de"
-REFEREE_STORED_MIXED = "Ortrud.Zwiebelmayer@schule.de"
-
-# A spelling the database's case-blind match takes and the fold parts from the asker: a row edited by
-# hand past the address rule, its local part holding a long s the match reads as „s“.
-PARTED_ASKED = "ortrud.schmidt@schule.de"
-HAND_EDITED_STORED = f"ortrud.{chr(0x17F)}chmidt@schule.de"
+ASKED_UNFOLDED = "Ortrud.Zwiebelmayer@Schule.de"
 
 # The „ß“ decision, never a `casefold`: IDNA 2008 keeps „ß“ in a domain, so these are two mailboxes,
 # each holding a seat. The sharp-s one is stored in punycode, as a payload stores it.
 SHARP_S_ASKED = "Post@straße.de"
-SHARP_S_STORED = "Post@xn--strae-oqa.de"
+SHARP_S_STORED = "post@xn--strae-oqa.de"
 DOUBLE_S_ASKED = "post@strasse.de"
-DOUBLE_S_STORED = "Post@strasse.de"
+DOUBLE_S_STORED = "post@strasse.de"
 
 # Nobody this identifier may reach, in each of the three collections.
 BYSTANDER = "baldur.krautzberger@example.com"
@@ -70,12 +58,13 @@ BYSTANDER = "baldur.krautzberger@example.com"
 # confirmed on a row that has since been retired.
 UNCONFIRMED = "ottilie.wartezeit@schule.de"
 RETIRED = "rudolf.ruhestand@schule.de"
-# Holding nothing, at the unconfirmed mailbox's local part: the address pre-filter reads that mailbox's seat and referee row.
+# Holding nothing, at the unconfirmed mailbox's local part: a read wider than the address takes that mailbox's records.
 UNCONFIRMED_ELSEWHERE = UNCONFIRMED.replace("@schule.de", "@anderswo.de")
 
-# A banned address holding a confirmed seat, stored and banned in one spelling and asked in another,
-# and an address whose ban ended with the season before the running one.
-GESPERRT_STORED = "Gerda.Gesperrt@Schule.de"
+# A banned address holding a confirmed seat, banned in one spelling and asked in another, the seat
+# stored folded; and an address whose ban ended with the season before the running one.
+GESPERRT_STORED = "gerda.gesperrt@schule.de"
+GESPERRT_BANNED = "Gerda.Gesperrt@Schule.de"
 GESPERRT_ASKED = "GERDA.GESPERRT@schule.de"
 ABGELAUFEN = "arno.abgelaufen@schule.de"
 BAN_ACTIVE_OID = ObjectId("6890a1b2c3d4e5f607820041")
@@ -89,11 +78,10 @@ GRANT_INHABER_OID = ObjectId("6890a1b2c3d4e5f607820051")
 GRANT_STORED_OID = ObjectId("6890a1b2c3d4e5f607820052")
 
 # One mailbox at an internationalised domain, stored as every payload stores it
-# (`docs/backend/spec.md :: I332`): the domain in punycode, and folded too on a pupil's row.
-# Asked in punycode, the only form the sign-in library hands over.
+# (`docs/backend/spec.md :: I332`): the domain in punycode. Asked in punycode, the only form the
+# sign-in library hands over.
 IDN_ASKED = "anna@xn--mller-kva.de"
-IDN_SEAT_STORED = "Anna@xn--mller-kva.de"
-IDN_PUPIL_STORED = "anna@xn--mller-kva.de"
+IDN_STORED = "anna@xn--mller-kva.de"
 
 PAST_SAISON = "2425"
 ACTIVE_SAISON = "2526"
@@ -109,7 +97,6 @@ SEAT_ROW_B_OID = ObjectId("6890a1b2c3d4e5f607820012")
 BYSTANDER_ROW_OID = ObjectId("6890a1b2c3d4e5f607820013")
 SHARP_S_ROW_OID = ObjectId("6890a1b2c3d4e5f607820014")
 DOUBLE_S_ROW_OID = ObjectId("6890a1b2c3d4e5f607820015")
-HAND_EDITED_ROW_OID = ObjectId("6890a1b2c3d4e5f607820016")
 IDN_ROW_OID = ObjectId("6890a1b2c3d4e5f607820017")
 PUPIL_ONE_OID = ObjectId("6890a1b2c3d4e5f607820021")
 IDN_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820023")
@@ -117,7 +104,6 @@ RETIRED_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820024")
 BYSTANDER_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820029")
 REFEREE_ONE_OID = ObjectId("6890a1b2c3d4e5f607820031")
 REFEREE_TWO_OID = ObjectId("6890a1b2c3d4e5f607820032")
-HAND_EDITED_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820033")
 IDN_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820034")
 UNCONFIRMED_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820035")
 RETIRED_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820036")
@@ -214,16 +200,9 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SAISON_TEAMS].insert_many(
         [
-            _junction(SEAT_ROW_A_OID, PAST_SAISON, TEAM_A_OID, name=ROW_NAME_A, trainer=SEAT_STORED),
+            _junction(SEAT_ROW_A_OID, PAST_SAISON, TEAM_A_OID, name=ROW_NAME_A, trainer=IDENTIFIER),
             # One address in TWO person slots of one row, which is what a person entered twice is.
-            _junction(
-                SEAT_ROW_B_OID,
-                ACTIVE_SAISON,
-                TEAM_B_OID,
-                name=ROW_NAME_B,
-                trainer=SEAT_STORED_UPPER,
-                ansprechperson=SEAT_STORED_DOMAIN,
-            ),
+            _junction(SEAT_ROW_B_OID, ACTIVE_SAISON, TEAM_B_OID, name=ROW_NAME_B, trainer=IDENTIFIER, ansprechperson=IDENTIFIER),
             _junction(
                 BYSTANDER_ROW_OID,
                 ACTIVE_SAISON,
@@ -235,24 +214,22 @@ async def _seed(database: AsyncDatabase) -> None:
             ),
             _junction(SHARP_S_ROW_OID, FUTURE_SAISON, TEAM_A_OID, name=ROW_NAME_A, trainer=SHARP_S_STORED),
             _junction(DOUBLE_S_ROW_OID, FUTURE_SAISON, TEAM_B_OID, name=ROW_NAME_B, trainer=DOUBLE_S_STORED),
-            _junction(HAND_EDITED_ROW_OID, FUTURE_SAISON, TEAM_C_OID, name="Krautzberg", trainer=HAND_EDITED_STORED),
-            _junction(IDN_ROW_OID, PAST_SAISON, TEAM_C_OID, name="Krautzberg", trainer=IDN_SEAT_STORED),
+            _junction(IDN_ROW_OID, PAST_SAISON, TEAM_C_OID, name="Krautzberg", trainer=IDN_STORED),
         ]
     )
     await database[Collection.SPIELER].insert_many(
         [
-            _pupil(PUPIL_ONE_OID, PUPIL_STORED),
-            _pupil(IDN_PUPIL_OID, IDN_PUPIL_STORED),
+            _pupil(PUPIL_ONE_OID, IDENTIFIER),
+            _pupil(IDN_PUPIL_OID, IDN_STORED),
             _pupil(BYSTANDER_PUPIL_OID, BYSTANDER),
             {**_pupil(RETIRED_PUPIL_OID, RETIRED), "inactive_since": "2026-03-01"},
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
-            _referee(REFEREE_ONE_OID, REFEREE_STORED, "A. Referee"),
-            _referee(REFEREE_TWO_OID, REFEREE_STORED_MIXED, "C. Zweitpfeife"),
-            _referee(HAND_EDITED_REFEREE_OID, HAND_EDITED_STORED, "D. Umlaut"),
-            _referee(IDN_REFEREE_OID, IDN_SEAT_STORED, "E. Umlaut"),
+            _referee(REFEREE_ONE_OID, IDENTIFIER, "A. Referee"),
+            _referee(REFEREE_TWO_OID, IDENTIFIER, "C. Zweitpfeife"),
+            _referee(IDN_REFEREE_OID, IDN_STORED, "E. Umlaut"),
             _referee(BYSTANDER_REFEREE_OID, BYSTANDER, "B. Krautzberger"),
             _referee(UNCONFIRMED_REFEREE_OID, UNCONFIRMED, "F. Wartezeit", einwilligung=None),
             _referee(RETIRED_REFEREE_OID, RETIRED, "G. Ruhestand", inactive_since="2026-03-01"),
@@ -260,7 +237,7 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SPERRLISTE].insert_many(
         [
-            ban_document(GESPERRT_STORED, bis=FUTURE_SAISON, _id=BAN_ACTIVE_OID),
+            ban_document(GESPERRT_BANNED, bis=FUTURE_SAISON, _id=BAN_ACTIVE_OID),
             ban_document(ABGELAUFEN, bis=PAST_SAISON, _id=BAN_LAPSED_OID),
         ]
     )
@@ -323,10 +300,7 @@ def answered(url: str, email: str = IDENTIFIER) -> FLSubjektResponse:
 
 @pytest.mark.db
 def test_one_mailbox_answers_all_three_kinds_at_once(mongo_replica_set_url: str):
-    """The seat and the referee are stored in spellings other than the identifier's, the pupil in the folded form `spieler.email` holds.
-
-    Split in three, a lookup answering only the collection a case names would pass all three.
-    """
+    """Split in three, a lookup answering only the collection a case names would pass all three."""
 
     answer = answered(mongo_replica_set_url)
 
@@ -359,54 +333,9 @@ def test_the_pupil_the_address_names_is_answered(mongo_replica_set_url: str):
 
 @pytest.mark.db
 def test_two_referees_sharing_an_address_are_both_answered(mongo_replica_set_url: str):
-    """The same for referees, whose two rows are stored in two spellings so neither is reached by equality."""
+    """The same for referees: a first-match read answers one of the two rows."""
 
     assert [row.schiedsrichter_id for row in answered(mongo_replica_set_url).schiedsrichter] == [REFEREE_ONE_OID, REFEREE_TWO_OID]
-
-
-@pytest.mark.db
-def test_a_spelling_the_database_match_accepts_and_the_fold_refuses_is_no_seat(mongo_replica_set_url: str):
-    """A case where the post-read fold is a judgement: the pre-filter reaches the row, and the fold keeps the long s apart from „s“.
-
-    One of the cases killing a presence test in its place.
-    """
-
-    assert answered(mongo_replica_set_url, PARTED_ASKED).sitze == []
-
-
-@pytest.mark.db
-def test_a_spelling_the_database_match_accepts_and_the_fold_refuses_is_no_referee(mongo_replica_set_url: str):
-    """The referee half of the same judgement, whose comprehension carries its own fold clause."""
-
-    assert answered(mongo_replica_set_url, PARTED_ASKED).schiedsrichter == []
-
-
-@pytest.mark.db
-def test_the_parted_spelling_is_one_the_database_match_reaches(mongo_replica_set_url: str):
-    """The control under the two cases above: without it both would pass on a lookup that reaches those rows never.
-
-    Read through the pipelines rather than asked for: the payload refuses the stored spelling, its local part being above ASCII.
-    """
-
-    identifier = sign_in_identifier(PARTED_ASKED)
-
-    async def candidates(database: AsyncDatabase) -> tuple[list[Any], list[Any]]:
-        seats = await (await database[Collection.SAISON_TEAMS].aggregate(build_seat_pipeline(identifier))).to_list()
-        referees = await (await database[Collection.SCHIEDSRICHTER].aggregate(build_referee_pipeline(identifier))).to_list()
-
-        return [row["_id"] for row in seats], [row["_id"] for row in referees]
-
-    seat_ids, referee_ids = on_a_league(mongo_replica_set_url, candidates)
-
-    assert (HAND_EDITED_ROW_OID in seat_ids, HAND_EDITED_REFEREE_OID in referee_ids) == (True, True)
-
-
-def test_the_parted_spelling_is_one_no_payload_stores_and_the_fold_parts():
-    """The premise of the three cases above: the row is a hand edit the fold still keeps from the asker, no write storing it."""
-
-    with pytest.raises(ValueError):
-        league_address(HAND_EDITED_STORED)
-    assert sign_in_identifier(HAND_EDITED_STORED) != sign_in_identifier(PARTED_ASKED)
 
 
 @pytest.mark.db
@@ -434,9 +363,9 @@ def test_the_sharp_s_address_and_the_double_s_one_are_two_mailboxes(mongo_replic
 
 @pytest.mark.db
 def test_an_address_arriving_unfolded_answers_the_same_seats(mongo_replica_set_url: str):
-    """Kills trusting the caller to have folded: the payload lower-cases the domain alone, so a half-folded value would miss every seat."""
+    """Kills trusting the caller to have folded: every read is an equality on the stored fold, which the asked spelling misses."""
 
-    assert [seat.team_id for seat in answered(mongo_replica_set_url, SEAT_STORED).sitze] == [TEAM_A_OID, TEAM_B_OID, TEAM_B_OID]
+    assert [seat.team_id for seat in answered(mongo_replica_set_url, ASKED_UNFOLDED).sitze] == [TEAM_A_OID, TEAM_B_OID, TEAM_B_OID]
 
 
 @pytest.mark.db
@@ -450,7 +379,7 @@ def test_an_address_the_league_holds_nothing_for_answers_three_empty_lists(mongo
 
 @pytest.mark.db
 def test_an_address_sharing_only_a_local_part_with_unconfirmed_records_awaits_no_confirmation(mongo_replica_set_url: str):
-    """The flag raised, the sign-in gate admits a mailbox the league holds nothing for; only the fold after the read holds it down."""
+    """The flag raised, the sign-in gate admits a mailbox the league holds nothing for."""
 
     answer = answered(mongo_replica_set_url, UNCONFIRMED_ELSEWHERE)
 

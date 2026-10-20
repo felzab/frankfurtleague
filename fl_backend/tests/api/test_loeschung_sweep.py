@@ -254,11 +254,10 @@ LIVE_IN_THE_SEASON_JUST_ENDED = numbered(3)
 RETIRED_IN_THE_SEASON_JUST_ENDED = numbered(4)
 IN_THE_RUNNING_SEASON = numbered(5)
 IN_THE_PLANNED_SEASON = numbered(6)
-PENDING_TYPED_OTHERWISE = numbered(7)
+WITH_A_PENDING_REGISTRATION = numbered(7)
 ADDRESSLESS = numbered(8)
 
-PENDING_FOLDED = "thessaly.okonkwo@beispielschule.de"
-PENDING_TYPED = "Thessaly.Okonkwo@beispielschule.de"
+PENDING = "thessaly.okonkwo@beispielschule.de"
 
 LABELS = {
     TWO_SEASONS_BACK: "a squad row two seasons back alone",
@@ -267,7 +266,7 @@ LABELS = {
     RETIRED_IN_THE_SEASON_JUST_ENDED: "a retired row in the season just ended",
     IN_THE_RUNNING_SEASON: "a row in the running season",
     IN_THE_PLANNED_SEASON: "a row in the planned season",
-    PENDING_TYPED_OTHERWISE: "a pending registration typed with capitals",
+    WITH_A_PENDING_REGISTRATION: "a pending registration",
     ADDRESSLESS: "no address",
 }
 
@@ -276,7 +275,7 @@ async def a_league_of_every_kind(database: AsyncDatabase) -> None:
     await database[Collection.SPIELER].insert_many(
         [pupil(spieler_id, None if spieler_id == ADDRESSLESS else address_of(position)) for position, spieler_id in enumerate(LABELS, start=1)]
     )
-    await database[Collection.SPIELER].update_one({"_id": PENDING_TYPED_OTHERWISE}, {"$set": {"email": PENDING_FOLDED}})
+    await database[Collection.SPIELER].update_one({"_id": WITH_A_PENDING_REGISTRATION}, {"$set": {"email": PENDING}})
     await database[Collection.SAISON_SPIELER].insert_many(
         [
             squad_row(TWO_SEASONS_BACK, "2024"),
@@ -290,7 +289,7 @@ async def a_league_of_every_kind(database: AsyncDatabase) -> None:
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
             registration(numbered(101), address_of(2), declined=True),
-            registration(numbered(102), PENDING_TYPED),
+            registration(numbered(102), PENDING),
         ]
     )
 
@@ -352,7 +351,6 @@ class TestThePopulation:
 # --- The run.
 
 ADDRESS = "quirinus.vandersloot@beispielschule.de"
-TYPED = "Quirinus.VanDerSloot@beispielschule.de"
 REACHED = numbered(11)
 REACHED_ROWS = (numbered(12), numbered(13))
 REACHED_REGISTRATION = numbered(14)
@@ -368,7 +366,7 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
     await database[Collection.SAISON_SPIELER].insert_many(
         [squad_row(REACHED, saison_id, _id=row_id) for saison_id, row_id in zip(("2023", "2024"), REACHED_ROWS, strict=True)]
     )
-    await database[Collection.REGISTRIERUNGEN].insert_one(registration(REACHED_REGISTRATION, TYPED, declined=True, nachname="Pupillensloot"))
+    await database[Collection.REGISTRIERUNGEN].insert_one(registration(REACHED_REGISTRATION, ADDRESS, declined=True, nachname="Pupillensloot"))
     await database[Collection.SAISON_TEAMS].insert_one(
         {
             "_id": SEAT_ROW,
@@ -378,13 +376,13 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
                 "Lindenschule",
                 "LS",
                 kontakte=kontakte_document(
-                    ansprechperson=kontaktperson_document("Quirinus", bestaetigt_am="2026-03-01", nachname="Sitzsloot", email=TYPED)
+                    ansprechperson=kontaktperson_document("Quirinus", bestaetigt_am="2026-03-01", nachname="Sitzsloot", email=ADDRESS)
                 ),
             ),
         }
     )
     await database[Collection.SCHIEDSRICHTER].insert_one(
-        schiedsrichter_document(REFEREE, email=TYPED, name="Quirinus Schiedssloot", default_payment=20, einwilligung=None)
+        schiedsrichter_document(REFEREE, email=ADDRESS, name="Quirinus Schiedssloot", default_payment=20, einwilligung=None)
     )
     await database[Collection.BERECHTIGUNGEN].insert_one(
         {
@@ -415,7 +413,7 @@ class TestThePupilsOwnDataAlone:
 
             return (
                 counts(answer),
-                await where_held(database, "Pupillensloot", "Sitzsloot", "Schiedssloot", TYPED, ADDRESS),
+                await where_held(database, "Pupillensloot", "Sitzsloot", "Schiedssloot", ADDRESS),
                 await database[Collection.AKTIONEN]
                 .find(
                     {
@@ -441,8 +439,7 @@ class TestThePupilsOwnDataAlone:
             "Pupillensloot": [],
             "Sitzsloot": ["aktionen", "saison_teams"],
             "Schiedssloot": ["aktionen", "schiedsrichter"],
-            TYPED: ["aktionen", "saison_teams", "schiedsrichter"],
-            ADDRESS: ["aktionen", "berechtigungen"],
+            ADDRESS: ["aktionen", "berechtigungen", "saison_teams", "schiedsrichter"],
         }
         assert unredacted == []
 
@@ -453,7 +450,7 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
         [
             pytest.param(lambda database: database[Collection.SAISON_SPIELER].insert_one(squad_row(numbered(1), "2026")), id="a squad row"),
             pytest.param(
-                lambda database: database[Collection.REGISTRIERUNGEN].insert_one(registration(numbered(901), address_of(1).upper())),
+                lambda database: database[Collection.REGISTRIERUNGEN].insert_one(registration(numbered(901), address_of(1))),
                 id="a pending registration",
             ),
         ],
@@ -508,28 +505,19 @@ UNFOLDED = "Thessaly.Okonkwo@beispielschule.de"
 
 class TestAStoredAddressNoRequestMatchesIsPassedOver:
     def test_the_pupil_stands_and_a_warning_names_them_by_id(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Their pending registration at the same spelling would keep them, and nothing compares the two.
-
-        Read the page without the leave-out and no warning names them.
-        """
+        """Read the page without the leave-out and no warning names them."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(database, a_due_pupil(1), a_due_pupil(2))
             await database[Collection.SPIELER].update_one({"_id": numbered(1)}, {"$set": {"email": UNFOLDED}})
-            await database[Collection.REGISTRIERUNGEN].insert_one(registration(numbered(903), UNFOLDED))
             answer = await run(database, client)
 
-            return (
-                counts(answer),
-                answer.nach,
-                await database[Collection.SPIELER].count_documents({"_id": numbered(1)}),
-                await database[Collection.REGISTRIERUNGEN].count_documents({"_id": numbered(903)}),
-            )
+            return counts(answer), answer.nach, await database[Collection.SPIELER].count_documents({"_id": numbered(1)})
 
         with caplog.at_level(logging.WARNING):
-            answer, nach, standing, registered = on_a_league(mongo_replica_set_url, body)
+            answer, nach, standing = on_a_league(mongo_replica_set_url, body)
 
-        assert (answer["spieler"], answer["uebersprungen"], answer["verbleibend"], nach, standing, registered) == (1, 0, 1, None, 1, 1)
+        assert (answer["spieler"], answer["uebersprungen"], answer["verbleibend"], nach, standing) == (1, 0, 1, None, 1)
         warnings = [record.getMessage() for record in caplog.records if getattr(record, "error_code", None) == STORED_DATA_INVALID]
         assert [message.endswith(f": 1 ({numbered(1)})") for message in warnings] == [True]
         assert not [message for message in warnings if "thessaly" in message.lower()]

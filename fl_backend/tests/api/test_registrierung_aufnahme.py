@@ -84,8 +84,7 @@ OTTO = "otto@example.com"
 PAULA = "paula@example.com"
 NORA = "nora@example.com"
 
-# As typed, a capital in the local part: the fold differs, so this spelling exists in the
-# registration alone and a whole-database scan finds it only where the registration's values survive.
+# As a visitor may type it, and the fold every record stores it under.
 TYPED_EMAIL = "Thessaly.Okonkwo@beispielschule.de"
 FOLDED_EMAIL = "thessaly.okonkwo@beispielschule.de"
 GEBURTSDATUM = "2009-05-04"
@@ -194,7 +193,7 @@ def registrierung_document(
     confirmed: bool = True,
     saison_id: str = SAISON_ID,
     team_id: ObjectId = TEAM_OID,
-    email: str = TYPED_EMAIL,
+    email: str = FOLDED_EMAIL,
     vorname: str = "Thessaly",
     nachname: str = "Okonkwo-Brandt",
     geburtsdatum: str = GEBURTSDATUM,
@@ -429,7 +428,8 @@ class TestWhatAnAdmissionWrites:
 
             remaining = await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-            return imaged, naming, remaining, await where_held(database, TYPED_EMAIL, hash_token(TOKEN))
+            # The link's hash alone: the address is the person's too, whom the admission writes.
+            return imaged, naming, remaining, await where_held(database, hash_token(TOKEN))
 
         imaged, naming, remaining, held = on_a_league(mongo_replica_set_url, body)
 
@@ -437,7 +437,7 @@ class TestWhatAnAdmissionWrites:
         assert imaged >= 1
         assert remaining == 0
         assert naming and all(row["before"] is None and row["redacted_at"] is not None for row in naming)
-        assert held == {TYPED_EMAIL: [], hash_token(TOKEN): []}
+        assert held == {hash_token(TOKEN): []}
 
     def test_it_writes_nothing_beyond_the_person_the_squad_row_the_anchor_and_the_log(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1254,7 +1254,7 @@ class TestTheDecline:
         before, after, answer = on_a_league(mongo_replica_set_url, body)
 
         assert after == {**before, "status": "abgelehnt", "entscheidung": {"getroffen_am": TODAY, "von": THEO, "grund": grund}}
-        assert (answer.email, answer.bestaetigt, answer.team, answer.grund) == (TYPED_EMAIL, True, "Zorbanax", grund)
+        assert (answer.email, answer.bestaetigt, answer.team, answer.grund) == (FOLDED_EMAIL, True, "Zorbanax", grund)
 
     def test_a_decided_registration_answers_404_to_either_press(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

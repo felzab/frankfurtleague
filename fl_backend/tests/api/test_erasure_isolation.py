@@ -74,7 +74,7 @@ NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2026-04-01"
 SAISON_ID = "2026"
 
-# Typed as a visitor types it: the fold, never the spelling, says whose a record is.
+# Typed as a visitor types it, and the fold every record stores: the fold, never the spelling, says whose a record is.
 TYPED = "Zorbanax.Quillfeather@Example.org"
 IDENTIFIER = sign_in_identifier(TYPED)
 PSEUDONYM = akteur_pseudonym(IDENTIFIER, schluessel=config_for(DATABASE_NAME).sperrliste_schluessel)
@@ -431,7 +431,7 @@ async def a_seat_holder_with_a_registration_to_decide(database: AsyncDatabase) -
         {
             "$set": {
                 "kontakte": kontakte_document(
-                    ansprechperson=kontaktperson_document("Zorbanax", bestaetigt_am="2026-03-21", nachname="Quillfeather", email=TYPED)
+                    ansprechperson=kontaktperson_document("Zorbanax", bestaetigt_am="2026-03-21", nachname="Quillfeather", email=IDENTIFIER)
                 )
             }
         },
