@@ -71,7 +71,7 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
   },
   ergebnis_vorschlag: {
     name: "Ergebnis vorgeschlagen",
-    short: "Vorschlag",
+    short: "Bericht",
     desc: "Spiele mit einem Spielbericht, dessen Ergebnis noch nicht übernommen ist oder der sich seit der Übernahme geändert hat",
     urgency: "results",
   },

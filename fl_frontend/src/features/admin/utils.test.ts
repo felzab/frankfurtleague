@@ -346,6 +346,16 @@ describe("buildActionRequiredSections", () => {
     assert.equal(Object.keys(ACTION_REQUIRED_LABELS).at(-1), "abgesagt");
   });
 
+  // The tab strip names a category by its short word alone, so two alike are two tabs a reader cannot tell apart.
+  it("gives every category a short word of its own", () => {
+    const kurz = Object.values(ACTION_REQUIRED_LABELS).map((label) => label.short);
+
+    assert.deepEqual(
+      kurz.filter((wort, index) => kurz.indexOf(wort) !== index),
+      [],
+    );
+  });
+
   it("returns an empty section rather than omitting it", () => {
     const sections = build([makeSpiel({ ort: null })]);
 

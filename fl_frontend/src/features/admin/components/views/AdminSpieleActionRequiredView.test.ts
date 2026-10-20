@@ -49,14 +49,14 @@ describe("the triage's reports", () => {
   it("files a corrected report's fixture under its proposal, its card naming the state and the score", () => {
     triage([bericht("abweichend")]);
 
-    assert.equal(screen.getByRole("tab", { name: /Vorschlag/ }).textContent, "Vorschlag1", "the fixture is not filed under the proposal");
+    assert.equal(screen.getByRole("tab", { name: /^Bericht/ }).textContent, "Bericht1", "the fixture is not filed under the proposal");
     assert.ok(screen.getByText("Bericht geändert 3:1"), "the card does not say the report diverges");
   });
 
   it("files nothing and names nothing once the report is adopted", () => {
     triage([bericht("uebernommen")]);
 
-    assert.equal(screen.getByRole("tab", { name: /Vorschlag/ }).textContent, "Vorschlag0");
+    assert.equal(screen.getByRole("tab", { name: /^Bericht/ }).textContent, "Bericht0");
     assert.equal(screen.queryAllByText(/Ergebnis vorgeschlagen|Bericht geändert/).length, 0, "an adopted report still chips its card");
   });
 });
