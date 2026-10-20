@@ -13,7 +13,21 @@ import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 /** Every line the handler's logger was handed, serialised whole. */
 const logs: string[] = [];
 const line = (...args: unknown[]): void => void logs.push(JSON.stringify(args));
-const LOGGING = { logger: { info: line, warn: line, error: line } };
+/**
+ * Every ERROR line's message and the code its own fields file it under, read apart from the serialisation above,
+ * where the error's own `code` would match whatever the line was filed under.
+ */
+const coded: { message: string; error_code: unknown }[] = [];
+const LOGGING = {
+  logger: {
+    info: line,
+    warn: line,
+    error: (message: string, error: unknown, meta?: { error_code?: unknown }): void => {
+      line(message, error, meta);
+      coded.push({ message, error_code: meta?.error_code });
+    },
+  },
+};
 /* The serving origin every link in a message is minted on. */
 const ORIGIN = "http://localhost:3000";
 const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } };
@@ -137,6 +151,7 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
 
 beforeEach(() => {
   logs.length = 0;
+  coded.length = 0;
   schreibAntwort = () => GESCHRIEBEN;
   ansichtAntwort = () => ANSICHT;
 });
@@ -315,8 +330,9 @@ describe("the contact seat's confirmation handler", () => {
 
     assert.deepEqual(answer.body, nachFehler.body, "a contract break after a refusal answered otherwise than a failed read");
     assert.ok(
-      logs.some(
-        (logged) => logged.includes("read broke its contract after its write was answered: postEinwilligung") && logged.includes("FE-API-002"),
+      coded.some(
+        ({ message, error_code }) =>
+          message.includes("read broke its contract after its write was answered: postEinwilligung") && error_code === "FE-API-002",
       ),
       "the contract break left no line",
     );

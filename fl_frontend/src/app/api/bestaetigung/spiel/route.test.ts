@@ -16,8 +16,18 @@ const NEXT_CACHE = {
 };
 // Silent: each refusal a case drives would otherwise print an ERROR line into a passing run. Errors are kept to be read.
 const inert = (): undefined => undefined;
-const errors: string[] = [];
-const LOGGING = { logger: { info: inert, warn: inert, error: (...args: unknown[]) => void errors.push(JSON.stringify(args)) } };
+/**
+ * Every ERROR line the handler was handed: its message, and the code its own fields file it under, never the
+ * serialised arguments, where the error's own `code` would match whatever the line was filed under.
+ */
+const errors: { message: string; error_code: unknown }[] = [];
+const LOGGING = {
+  logger: {
+    info: inert,
+    warn: inert,
+    error: (message: string, _error: unknown, meta?: { error_code?: unknown }) => void errors.push({ message, error_code: meta?.error_code }),
+  },
+};
 
 const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint));
 
@@ -261,8 +271,8 @@ describe("a club's answer to a fixture confirmation link", () => {
     assert.deepEqual(tags, []);
     assert.ok(
       errors.some(
-        (logged) =>
-          logged.includes("read broke its contract after its write was answered: postSpielbestaetigung") && logged.includes("FE-API-002"),
+        ({ message, error_code }) =>
+          message.includes("read broke its contract after its write was answered: postSpielbestaetigung") && error_code === "FE-API-002",
       ),
       "the contract break left no line",
     );
@@ -279,8 +289,8 @@ describe("a club's answer to a fixture confirmation link", () => {
     assert.deepEqual(answer.body, { success: false, zustand: "ungueltig" });
     assert.ok(
       errors.some(
-        (logged) =>
-          logged.includes("read broke its contract after its write was answered: postSpielbestaetigung") && logged.includes("FE-ACT-001"),
+        ({ message, error_code }) =>
+          message.includes("read broke its contract after its write was answered: postSpielbestaetigung") && error_code === "FE-ACT-001",
       ),
       "the contract break left no line of its own",
     );
@@ -327,14 +337,14 @@ describe("a club's answer to a fixture confirmation link", () => {
       leseAntwort = lesen;
 
       const answer = await bodyOf(aRequest(vorschlagKoerper));
-      const zeilen = errors.filter((logged) => logged.includes("after its write was answered: postSpielbestaetigung"));
+      const zeilen = errors.filter(({ message }) => message.includes("after its write was answered: postSpielbestaetigung"));
 
       assert.deepEqual(answer.body, { success: false, zustand: "ungueltig" });
       if (code === null) assert.deepEqual(zeilen, [], "a read that explains itself was logged");
       else
         assert.ok(
-          zeilen.length === 1 && zeilen[0]!.includes("read failed after its write was answered") && zeilen[0]!.includes(code),
-          zeilen.join("\n"),
+          zeilen.length === 1 && zeilen[0]!.message.includes("read failed after its write was answered") && zeilen[0]!.error_code === code,
+          JSON.stringify(zeilen),
         );
     });
   }

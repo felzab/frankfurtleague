@@ -14,7 +14,21 @@ import type { SentMail } from "@/core/mailDouble.ts";
 /** Every line the handler's logger was handed, serialised whole. */
 const logs: string[] = [];
 const line = (...args: unknown[]): void => void logs.push(JSON.stringify(args));
-const LOGGING = { logger: { info: line, warn: line, error: line } };
+/**
+ * Every ERROR line's message and the code its own fields file it under, read apart from the serialisation above,
+ * where the error's own `code` would match whatever the line was filed under.
+ */
+const coded: { message: string; error_code: unknown }[] = [];
+const LOGGING = {
+  logger: {
+    info: line,
+    warn: line,
+    error: (message: string, error: unknown, meta?: { error_code?: unknown }): void => {
+      line(message, error, meta);
+      coded.push({ message, error_code: meta?.error_code });
+    },
+  },
+};
 const ORIGIN = "http://localhost:3000";
 const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" }, turnstileSecretKey: () => TEST_SECRET };
 const calls = doubleApiClient(({ endpoint }, schema) =>
@@ -122,6 +136,7 @@ const writes = () => calls.filter((call) => call.endpoint === "/bewerbungen");
 beforeEach(() => {
   calls.length = 0;
   logs.length = 0;
+  coded.length = 0;
   schreibAntwort = () => GESCHRIEBEN;
   schulenAntwort = async () => ({ acknowledged: 1, schulen: [] });
 });
@@ -383,6 +398,7 @@ describe("what the application handler answers", () => {
   it("logs a school read answered off its schema and answers a stored application as received", async () => {
     const received = (await bodyOf(aRequest())).body;
     logs.length = 0;
+    coded.length = 0;
     schulenAntwort = async () => {
       throw new APIMalformedDataError({
         message: "Response failed schema.",
@@ -399,8 +415,9 @@ describe("what the application handler answers", () => {
 
     assert.deepEqual(answer.body, received);
     assert.ok(
-      logs.some(
-        (logged) => logged.includes("read broke its contract after its write was answered: postBewerbung") && logged.includes("FE-API-002"),
+      coded.some(
+        ({ message, error_code }) =>
+          message.includes("read broke its contract after its write was answered: postBewerbung") && error_code === "FE-API-002",
       ),
       "the contract break left no line",
     );
