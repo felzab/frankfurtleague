@@ -317,10 +317,10 @@ def notice_route(pool: Pool) -> tuple[Callable[[bytes], None], Path | None]:
 
 
 def announce() -> bool:
-    """Name this pool where a stop reads it, before any unit starts; answer whether a stop came first.
+    """Name this pool where a stop reads it before any unit starts; True where a stop came first.
 
-    Named before it looks, as a stop marks before it reads, so of the two racing each finds the
-    other. Bytes, one whole line per append (`.claude/CLAUDE.md` §6).
+    Named, then looks, as a stop marks, then reads: racing, each finds the other. Bytes, one whole
+    line per append (`.claude/CLAUDE.md` §6).
     """
     registry = os.environ.get(POOLS)
     if not registry:

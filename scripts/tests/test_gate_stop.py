@@ -222,9 +222,9 @@ with open(log, "wb") as out:
     raise SystemExit(child.wait())
 """
 INTERRUPTED: Final = 130
-# Each console that interrupt can reach the gate through, none with a window anyone sees: no window
-# at all, where the watcher alone takes it, and a hidden one, where every pool takes it too and
-# leaves its units to the watcher (`scripts/gate/gate_pool.py :: terminate`).
+# The consoles that interrupt reaches the gate through, none with a visible window: none at all,
+# where the watcher alone takes it, and a hidden one, where every pool takes it too
+# (`scripts/gate/gate_pool.py :: terminate`).
 CONSOLES: Final = ("no window", "a hidden window") if WINDOWS else ("a terminal",)
 # Started with no window itself, it opens a console for its command and keeps that console's hidden.
 HIDDEN_WINDOW: Final = """import subprocess, sys
@@ -481,9 +481,8 @@ def test_a_wind_down_that_fails_still_ends_the_job() -> None:
     _drive_watcher(FAILED_WIND_DOWN)
 
 
-# `scripts/gate/gate_watch.py :: wind_down` over a shell whose tool the stop's first listing missed, as
-# one started between the listing and the signal is: the shell waits on the tool, and its trap then
-# starts work of its own, which the stop must leave to finish.
+# `scripts/gate/gate_watch.py :: wind_down` over a shell whose tool the first listing missed, as one
+# started before the signal is: the shell waits on the tool, and its trap's own work must finish.
 UNLISTED_TOOL: Final = """import os, subprocess, sys, tempfile, time
 from pathlib import Path
 sys.path.insert(0, sys.argv[1])
