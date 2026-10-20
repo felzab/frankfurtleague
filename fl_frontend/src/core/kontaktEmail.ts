@@ -200,3 +200,48 @@ export function buildKontaktBestaetigungEmail({
     text: renderText(fakten),
   };
 }
+
+const ABGANG_UEBERSCHRIFT = "Nicht mehr als Kontaktperson eingetragen";
+
+/** What a mailbox a contacts save took off a team's season row is told. No name, as the confirmation names none: behind a typo its reader is a stranger. */
+export interface KontaktAbgangData {
+  origin: string;
+  /** Every seat the mailbox held there, as one phrase, rendered by the caller as `KontaktBestaetigungData.rollenText` is. */
+  rollenText: string;
+  schule: string;
+  saisonId: string;
+}
+
+// The link is gone with the seat, and a reader still holding the confirmation or a fixture request
+// would otherwise press it and meet a refusal with no reason.
+const ABGANG_FOLGE = "Links, die Du für diesen Eintrag bekommen hast, funktionieren nicht mehr. Du musst nichts tun.";
+
+/** The word to a mailbox that its seat on a team's season row is gone: no button, since nothing is left for it to answer. */
+export function buildKontaktAbgangEmail({ origin, rollenText, schule, saisonId }: KontaktAbgangData): KontaktEmail {
+  const site = mailOrigin(origin);
+  const fakten = { rollen: einzeilig(rollenText), schule: einzeilig(schule), saisonId: einzeilig(saisonId) };
+
+  const abgang = (markup: boolean): string => {
+    const team = markup ? strong(escapeHtml(fakten.schule)) : fakten.schule;
+    const saison = markup ? brandPhrase(`Saison ${escapeHtml(fakten.saisonId)}`) : `Saison ${fakten.saisonId}`;
+
+    return `Hallo, Du bist in der ${saison} nicht mehr als ${markup ? escapeHtml(fakten.rollen) : fakten.rollen} für ${team} eingetragen.`;
+  };
+
+  const html = renderKarte({
+    titel: `${BRAND_NAME}: ${ABGANG_UEBERSCHRIFT}`,
+    ueberschrift: escapeHtml(ABGANG_UEBERSCHRIFT),
+    bloecke: [paragraph(abgang(true)), paragraph(escapeHtml(ABGANG_FOLGE))],
+    aktionen: [],
+    fuss: `${EMPFAENGER_SATZ} ${ANTWORT_SATZ_HTML}`,
+    origin: site,
+  });
+
+  const oben = [`${BRAND_NAME}: ${ABGANG_UEBERSCHRIFT}`, "", abgang(false), "", ABGANG_FOLGE];
+
+  return {
+    subject: `Du bist nicht mehr als ${fakten.rollen} für ${fakten.schule} eingetragen`,
+    html: html,
+    text: [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(site, [EMPFAENGER_SATZ, ANTWORT_SATZ_TEXT])].join("\n"),
+  };
+}

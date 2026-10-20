@@ -254,6 +254,13 @@ where the row carries the stamp the expiry reads (I119).\
 **Trap:** it is not the people who run the league, which a German reader may also take the word for: those are the Verwaltung, and on screen „Organisation“. And it names the lane, never one message, so a delivery missed under it says a referee was not told about their fixture whichever of the three it was, and no row records either (the `Einteilung` entry).\
 **See:** the `Einteilung` entry, and the `Schiedsrichter` entry for the booking.
 
+### `Abgang` · `kontakt_abgang` — a mailbox a contacts save took off a team's season row, and the lane its notice rides under
+
+**Is:** what the contacts editor's save answers about each mailbox the stored block seated and the written block does not, with the seats it held there; the save's action mails it a nameless notice, without a button, under the tag that names the lane.\
+**In code:** `fl_backend/app/api/teams/schemas.py :: FLKontaktAbgang`, composed by `fl_backend/app/api/teams/services.py :: departing_holders`; the notice is `fl_frontend/src/core/kontaktEmail.ts :: buildKontaktAbgangEmail`, sent by `fl_frontend/src/features/kontakte/notifications.ts :: mailKontaktAbgang` under `fl_frontend/src/core/kontaktAbgangTag.ts :: KONTAKT_ABGANG_TAG`.\
+**Trap:** it is judged by mailbox and never by person, so a mailbox seated again under a corrected name is no Abgang and is mailed its new link alone, while the same person's seat moved to a new mailbox is one, the old mailbox told it left (`docs/backend/spec.md :: I800`). It is not the `austritt` of a club, and a club's replacement, an erasure, a Widerspruch and the season's end answer none. Its delivery is recorded on no row, the seat now holding another person's record or nobody's: a missed one is `FE-MAIL-015` alone.\
+**See:** the `kontakte` entry for the seats, and the `Spielleitung` entry for the referee's lane this one is the sibling of.
+
 ### `vorschlag` — a date and hour a club proposes, and the link state showing the other club's
 
 **Is:** on a `Spielbestätigung`'s answer, `antwort.vorschlag` is the date and hour a club's decline proposes instead of the Ansetzung it was asked about; as a link's state, `vorschlag` is what a still-answerable link shows while the OTHER club's open decline proposes another date for the same Ansetzung, served beside it.\
