@@ -8,6 +8,7 @@ import {
   EINWILLIGUNG_UMFANG_LABELS,
   EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS,
 } from "@/features/spieler/constants";
+import { bestaetigungOf } from "@/features/spieler/nachweis";
 import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -53,13 +54,19 @@ export function FormEinwilligungSection({
         <dl className={FIELD_PAIR_CLASSES}>
           <Angabe label="Umfang">
             {EINWILLIGUNG_UMFANG_LABELS[einwilligung.umfang]}
-            <Beleg nachweis={einwilligung.nachweis.umfang} />
+            <Beleg
+              nachweis={einwilligung.nachweis.umfang}
+              bestaetigung={bestaetigungOf(einwilligung)}
+            />
           </Angabe>
           {/* A word and never a switch: this panel reads a record back, and a control here would
                 offer an administrator the answer that is the person's alone. */}
           <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
             {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
-            <Beleg nachweis={einwilligung.nachweis.medien} />
+            <Beleg
+              nachweis={einwilligung.nachweis.medien}
+              bestaetigung={bestaetigungOf(einwilligung)}
+            />
           </Angabe>
           <Angabe label="Erteilt am">{formatSpielDatum(einwilligung.datum)}</Angabe>
           <Angabe label="Bestätigt am">

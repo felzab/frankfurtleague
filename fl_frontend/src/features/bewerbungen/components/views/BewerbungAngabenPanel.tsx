@@ -5,6 +5,7 @@ import { BEWERBUNG_HERKUNFT_LABELS } from "@/features/bewerbungen/constants";
 import { bewerbungHerkunft } from "@/features/bewerbungen/utils";
 import { Beleg } from "@/features/spieler/components/ui/Nachweis";
 import { EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
+import { bestaetigungOf } from "@/features/spieler/nachweis";
 import {
   eingetragenVonLabel,
   KONTAKT_ROLLEN,
@@ -228,11 +229,17 @@ export function BewerbungAngabenPanel({
                       <>
                         <Angabe label={KONTAKT_WHATSAPP_FRAGE}>
                           {KONTAKT_WHATSAPP_LABELS[person.einwilligung.umfang]}
-                          <Beleg nachweis={person.einwilligung.nachweis.umfang} />
+                          <Beleg
+                            nachweis={person.einwilligung.nachweis.umfang}
+                            bestaetigung={bestaetigungOf(person.einwilligung)}
+                          />
                         </Angabe>
                         <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
                           {person.einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
-                          <Beleg nachweis={person.einwilligung.nachweis.medien} />
+                          <Beleg
+                            nachweis={person.einwilligung.nachweis.medien}
+                            bestaetigung={bestaetigungOf(person.einwilligung)}
+                          />
                         </Angabe>
                       </>
                     )}
