@@ -20,7 +20,7 @@ from app.api.identitaet.schemas import ADRESSE_UNTER_INVALID, ANLASS_HOLDS_AN_AD
 from app.api.identitaet.services import grants_a_panel
 from app.api.saisons.schemas import FLSaisonStatus, TeamsPerGroup
 from app.api.spielberichte.schemas import MINUTE_PATTERN
-from app.api.spielbestaetigungen.services import ANSETZUNG_QUELLEN, anfrage_is_due
+from app.api.spielbestaetigungen.services import ANSETZUNG_QUELLEN, anfrage_is_due, compose_ansetzung, grund_to_end
 from app.api.spiele.schemas import MAX_QUALIFIERS
 from app.api.spiele.services import CLASH_BUFFER_MINUTES
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
@@ -111,6 +111,8 @@ MIRRORED_BOUNDS: Final = (
     # The editor's rail banner says a fixture dated inside it is due at once; the deadline itself is the
     # one each row stores.
     Mirror("features/spiele/constants.ts", "SPIEL_BESTAETIGUNG_FRIST_TAGE", "SPIEL_BESTAETIGUNG_FRIST_TAGE"),
+    # With the deadline above, the last day the pass asks about, which the editor's last-run warning reads.
+    Mirror("features/spiele/constants.ts", "SPIEL_ANFRAGE_VORLAUF_TAGE", "SPIEL_ANFRAGE_VORLAUF_TAGE"),
     Mirror("features/spiele/constants.ts", "SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH", "SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH"),
     Mirror("features/spielberichte/constants.ts", "SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH", "SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH"),
     Mirror("features/spielberichte/constants.ts", "SPIELBERICHT_EINTRAEGE_MAX", "SPIELBERICHT_EINTRAEGE_MAX"),
@@ -161,7 +163,6 @@ UNMIRRORED_BOUNDS: Final[dict[str, str]] = {
     "DROSSELUNG_KONTAKT_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
     "DROSSELUNG_ADRESSWECHSEL_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
     # The cadence is the fixture-confirmation pass's alone: no page or mail counts a link's window or a reminder's day.
-    "SPIEL_ANFRAGE_VORLAUF_TAGE": "how long before the deadline the pass asks, which no frontend page or mail states",
     "SPIEL_ERINNERUNG_TAGE_ERSTE": "the day the pass reminds a team, which no frontend page or mail states",
     "SPIEL_ERINNERUNG_TAGE_ZWEITE": "the day the pass reminds a team, which no frontend page or mail states",
 }
@@ -1787,6 +1788,65 @@ def test_the_pass_asks_about_a_fixture_as_the_shared_table_says(row: dict[str, A
     spiel, austritte = _anfrage_case(row["anders"])
 
     assert anfrage_is_due(spiel=spiel, austritte=austritte, today=ANFRAGE_TODAY) is row["gefragt"]
+
+
+# Which rows still speak for their fixture is spelled again by the triage, the administrator's chips and the editor's
+# panel, and both run this one table, so a closing reason one tier gains alone fails at the other.
+GRUND_TO_END: Final = Path(__file__).resolve().parent / "grund_to_end.json"
+GRUND_REFEREES: Final = (ObjectId("6890a1b2c3d4e5f6077600c1"), ObjectId("6890a1b2c3d4e5f6077600c2"))
+
+
+def _grund_case(zeile: dict[str, Any], anders: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], dict[Any, str]]:
+    """The row, the fixture and the club exits one row names: a row asked about a fixture set in full three days out.
+
+    `tage` moves the row's day and the fixture's alike; every other key moves the fixture alone.
+    """
+
+    if unread := set(zeile) - {"partei", "verworfen"}:
+        raise ValueError(f"the table's row names {sorted(unread)}, which this tier does not read")
+
+    spiel, _ = _anfrage_case({"tage": anders.get("tage", 3)})
+    spiel["schiedsrichter"] = {"schiedsrichter_id": GRUND_REFEREES[0], "name": "Rita", "payment": 30}
+    partei = (
+        {"art": "schiedsrichter", "schiedsrichter_id": GRUND_REFEREES[0]}
+        if zeile.get("partei") == "schiedsrichter"
+        else {"art": "team", "team_id": ANFRAGE_SIDES[0]}
+    )
+    row = {
+        "partei": partei,
+        "ansetzung": compose_ansetzung(spiel),
+        "geschlossen": {"am": ANFRAGE_TODAY, "grund": "verworfen"} if zeile.get("verworfen") else None,
+    }
+    austritte: dict[Any, str] = {}
+    for key, value in anders.items():
+        match key:
+            case "tage":
+                pass
+            case "datum_tage":
+                spiel["datum"] = None if value is None else days_after(day=ANFRAGE_TODAY, days=value)
+            case "uhrzeit" | "sonderereignis" | "elfmeterschiessen":
+                spiel[key] = value
+            case "spielort":
+                spiel["ort"] = {**spiel["ort"], "spielort_id": ObjectId("6890a1b2c3d4e5f6077600b2")}
+            case "team2":
+                spiel["team2"] = {**spiel["team2"], "team_id": ObjectId("6890a1b2c3d4e5f607760003")}
+            case "tore":
+                spiel["team1"] = {**spiel["team1"], "tore": value}
+            case "schiedsrichter":
+                spiel["schiedsrichter"] = None if value is None else {"schiedsrichter_id": GRUND_REFEREES[1], "name": "Udo", "payment": 30}
+            case "austritt_tage":
+                austritte[ANFRAGE_SIDES[1]] = days_after(day=ANFRAGE_TODAY, days=value)
+            case _:
+                raise ValueError(f"the table moves {key}, which this tier does not read")
+
+    return row, spiel, austritte
+
+
+@pytest.mark.parametrize("row", json.loads(GRUND_TO_END.read_bytes().decode("utf-8")), ids=lambda row: row["fall"])
+def test_the_pass_ends_a_row_as_the_shared_table_says(row: dict[str, Any]):
+    zeile, spiel, austritte = _grund_case(row["zeile"], row["anders"])
+
+    assert grund_to_end(row=zeile, spiel=spiel, austritte=austritte, today=ANFRAGE_TODAY) == row["grund"]
 
 
 # The erasure's two refusals of a typed value are spelled once per tier, and the API's sentence reaches its log

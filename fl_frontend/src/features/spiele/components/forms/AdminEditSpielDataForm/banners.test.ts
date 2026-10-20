@@ -10,7 +10,7 @@ import { resolveBlockingBanners, resolveRailBanners } from "@/shared/components/
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import { SONDEREREIGNIS_LABELS, SPIEL_BESTAETIGUNG_FRIST_TAGE } from "../../../constants.ts";
 import { FLSonderereignisSchema } from "../../../schemas.ts";
-import { buildSpielBanners, isSpielRefusalBannerId, isSpielRefusalCode } from "./banners.ts";
+import { buildSpielBanners, isSpielRefusalBannerId, isSpielRefusalCode, wirdAngefragt } from "./banners.ts";
 
 import type { SpielBanner, SpielBannerAnsetzung, SpielBannerSide } from "./banners.ts";
 
@@ -100,6 +100,15 @@ const ANFRAGE_IS_DUE = z
     }),
   )
   .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "anfrage_is_due.json"), "utf8")));
+
+/** One row's fixture: set in full three days out, one thing moved. */
+const zeilenAnsetzung = (anders: (typeof ANFRAGE_IS_DUE)[number]["anders"]): SpielBannerAnsetzung => ({
+  ...angesetzt(anders.tage === undefined ? tagNach(3) : anders.tage === null ? null : tagNach(anders.tage)),
+  ...(anders.uhrzeit === undefined ? {} : { uhrzeit: anders.uhrzeit }),
+  ...(anders.spielort === undefined ? {} : { spielortId: anders.spielort }),
+  ...(anders.team1 === undefined ? {} : { team1Id: anders.team1 }),
+  ...(anders.team2 === undefined ? {} : { team2Id: anders.team2 }),
+});
 
 /** Whether the confirmation's lost-notice banner is raised. */
 const sofort = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]>): boolean =>
@@ -538,28 +547,21 @@ describe("buildSpielBanners", () => {
     assert.ok(!sofort({ ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(30)), isActiveSaison: false }));
   });
 
-  /* Read rather than retyped: the backend's predicate answers the same rows in its own suite, so a condition one tier
-     gains alone fails at the other. Each row moves a draft re-dated from a month out. */
+  /* Each row of the table the pass shares, through the banner: raised where the pass asks inside the deadline's days. */
   for (const { fall, anders, gefragt } of ANFRAGE_IS_DUE) {
-    it(`raises it for a re-dated fixture, ${fall}, exactly where the pass asks`, () => {
-      const ansetzung = {
-        ...angesetzt(anders.tage === undefined ? tagNach(3) : anders.tage === null ? null : tagNach(anders.tage)),
-        ...(anders.uhrzeit === undefined ? {} : { uhrzeit: anders.uhrzeit }),
-        ...(anders.spielort === undefined ? {} : { spielortId: anders.spielort }),
-        ...(anders.team1 === undefined ? {} : { team1Id: anders.team1 }),
-        ...(anders.team2 === undefined ? {} : { team2Id: anders.team2 }),
-      };
+    it(`raises it for a re-dated fixture, ${fall}, exactly where the pass asks inside the deadline's days`, () => {
+      const tage = anders.tage === undefined ? 3 : anders.tage;
 
       assert.equal(
         sofort({
-          ansetzung,
+          ansetzung: zeilenAnsetzung(anders),
           storedAnsetzung: angesetzt(tagNach(30)),
           hasAnyTore: anders.tore !== undefined,
           hasShootOut: anders.elfmeterschiessen !== undefined,
           sonderereignis: anders.sonderereignis ?? null,
           austrittTage: anders.austritt_tage === undefined ? [] : [tagNach(anders.austritt_tage)],
         }),
-        gefragt,
+        gefragt && tage !== null && tage <= SPIEL_BESTAETIGUNG_FRIST_TAGE,
       );
     });
   }
@@ -572,4 +574,24 @@ describe("buildSpielBanners", () => {
       ["danger", "warning", "info"],
     );
   });
+});
+
+describe("wirdAngefragt", () => {
+  /* Read rather than retyped: the backend's predicate answers the same rows in its own suite, so a condition one tier
+     gains alone fails at the other. */
+  for (const { fall, anders, gefragt } of ANFRAGE_IS_DUE) {
+    it(`asks about a fixture exactly where the pass does: ${fall}`, () => {
+      assert.equal(
+        wirdAngefragt(zeilenAnsetzung(anders), {
+          isActiveSaison: true,
+          hasAnyTore: anders.tore !== undefined,
+          hasShootOut: anders.elfmeterschiessen !== undefined,
+          sonderereignis: anders.sonderereignis ?? null,
+          austrittTage: anders.austritt_tage === undefined ? [] : [tagNach(anders.austritt_tage)],
+          today: HEUTE,
+        }),
+        gefragt,
+      );
+    });
+  }
 });

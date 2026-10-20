@@ -5,16 +5,17 @@ import type { FLSpielbestaetigungGrund } from "./schemas";
 export const SCHIEDSRICHTER_PARTEI = "Schiedsrichter";
 
 /** Where a party stands on the fixture's current Ansetzung, as the administrator's chip says it. */
-export type AntwortStand = "offen" | "zugesagt" | "abgelehnt" | "ueberfaellig";
+export type AntwortStand = "offen" | "zugesagt" | "abgelehnt" | "ueberfaellig" | "verworfen";
 
 // „Abgelehnt“ for every decline, a club's or a referee's: „Abgesagt“ is the status chip's word for a called-off
-// fixture on the same card.
-export const ANTWORT_LABELS: Record<AntwortStand, { label: string; tone: FeedbackTone }> = {
+// fixture on the same card. The triage's note beside a chip wears its tone. A discard counts as agreement publicly.
+export const ANTWORT_LABELS = {
   offen: { label: "Offen", tone: "info" },
   zugesagt: { label: "Zugesagt", tone: "success" },
   abgelehnt: { label: "Abgelehnt", tone: "warning" },
-  ueberfaellig: { label: "Überfällig", tone: "danger" },
-};
+  ueberfaellig: { label: "Überfällig", tone: "warning" },
+  verworfen: { label: "Verworfen", tone: "success" },
+} as const satisfies Record<AntwortStand, { label: string; tone: FeedbackTone }>;
 
 // `verworfen` in the discard control's own word, so the readout and the press name one act alike; a referee's own
 // decline in the answer's word above, never „abgesagt“, which `abgesagt` here says of a called-off fixture.

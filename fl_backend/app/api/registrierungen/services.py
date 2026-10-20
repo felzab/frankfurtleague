@@ -32,7 +32,6 @@ from app.api.sperrliste.services import withheld_actor
 from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
-from app.core.recording import log_stamp
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
 from app.shared.einwilligung_nachweis import SPRECHER, compose_erneuert, compose_geboren, ohne_sprecher
@@ -628,7 +627,6 @@ def compose_confirmation_update(
             "medien": medien,
         },
         am=am,
-        stamp=log_stamp,
     )
 
     return {"$set": {"geburtsdatum": geburtsdatum, "einwilligung": record}}
@@ -1023,7 +1021,6 @@ def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: 
         pfad="einwilligung",
         gespeichert=gespeichert,
         erneuert=registrierung_raw["einwilligung"],
-        stamp=log_stamp,
     )
 
     # A speaker the stored record names is no truer once the person's own answer renews it.

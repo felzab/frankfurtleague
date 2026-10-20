@@ -65,7 +65,7 @@ import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeade
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate, Time } from "@internationalized/date";
-import type { SpielBannerAnsetzung, SpielRefusalCode } from "./banners";
+import type { SpielRefusalCode } from "./banners";
 
 /**
  * Lookup lists arrive as props: `useAdmin()` here would make `spiele` depend on `admin`.
@@ -274,13 +274,7 @@ export function AdminEditSpielDataForm({
   const dropsShootOut =
     hasEnteredShootOut && elfmeterschiessenInDraft === null && admitsShootOut(spielData.saison_phase, team1Payload, team2Payload, null);
 
-  const ansetzung: SpielBannerAnsetzung = {
-    datum: draft.datum,
-    uhrzeit: draft.uhrzeit,
-    spielortId: ortPayload?.spielort_id ?? null,
-    team1Id: team1Payload?.team_id ?? null,
-    team2Id: team2Payload?.team_id ?? null,
-  };
+  const ansetzung = spielAnsetzung({ datum: draft.datum, uhrzeit: draft.uhrzeit, ort: ortPayload, team1: team1Payload, team2: team2Payload });
   const storedAnsetzung = spielAnsetzung(spielData);
 
   // The void and release entries name fixtures the dry run actually voided, never possibilities —
@@ -628,6 +622,8 @@ export function AdminEditSpielDataForm({
                 stand={bestaetigungen}
                 spiel={spielData}
                 parteien={{ teams: teams, schiedsrichter: schiedsrichter }}
+                // `teams` joins each club's exit from this season on every read.
+                austritte={new Map(teams.flatMap((team) => (team.austritt === null ? [] : [[team.id, team.austritt.datum]])))}
                 today={today}
                 isSpielSweepOn={isSpielSweepOn}
                 isActiveSaison={isActiveSaison}

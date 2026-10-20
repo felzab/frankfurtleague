@@ -7059,7 +7059,7 @@
     "/api/v0/spielbestaetigungen": {
       "get": {
         "summary": "A season's fixture confirmations, or one fixture's",
-        "description": "Every confirmation row of the season, or of its one fixture, and the day the confirmation pass last ran over it.\n\nNewest first, closed rows included. No seat's link hashes and no answer's holder digest are served.\n`vollstaendig` is false where more rows exist than one read serves, the oldest being the ones left out. A season no\ndocument has answers no rows and a null day rather than 404.",
+        "description": "Every confirmation row of the season, or of its one fixture, and the day the confirmation pass last ran over it.\n\nNewest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still\nholding its party's question is served; `limit` cuts the others, and `vollstaendig` is false where it left the\noldest of them out. A season no document has answers no rows and a null day rather than 404.",
         "operationId": "get_spielbestaetigungen_api_v0_spielbestaetigungen_get",
         "security": [
           {

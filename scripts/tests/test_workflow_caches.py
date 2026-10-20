@@ -21,13 +21,14 @@ VERIFY: Final = WORKFLOWS / "verify.yml"
 PRETTIER_STEP: Final = "Name the installed packages a prettier verdict depends on"
 NODE: Final = shutil.which("node")
 
-# Prettier, the Tailwind package and a plugin with a dependency of its own; a package a stylesheet
-# imports; and one nothing the check loads reaches.
+# Prettier, the Tailwind package and a plugin with a dependency and a peer of its own; a package a
+# stylesheet imports; and one nothing the check loads reaches.
 INSTALL: Final[dict[str, dict[str, Any]]] = {
     "prettier": {},
     "tailwindcss": {},
-    "plug": {"dependencies": {"dep": "^1"}},
+    "plug": {"dependencies": {"dep": "^1"}, "peerDependencies": {"peer": "^1"}},
     "dep": {},
+    "peer": {},
     "cssdep": {},
     "unrelated": {},
 }
@@ -81,7 +82,9 @@ def test_a_package_no_check_loads_leaves_the_key_where_it_was(tmp_path: Path) ->
     assert _key(tmp_path / "after", bump="unrelated") == _key(tmp_path / "before")
 
 
-@pytest.mark.parametrize("bumped", ["dep", "cssdep"], ids=["a-plugin-s-dependency", "a-package-a-stylesheet-imports"])
+@pytest.mark.parametrize(
+    "bumped", ["dep", "peer", "cssdep"], ids=["a-plugin-s-dependency", "a-plugin-s-peer", "a-package-a-stylesheet-imports"]
+)
 def test_a_package_a_check_loads_moves_the_key(tmp_path: Path, bumped: str) -> None:
     """Prettier keys a verdict on no plugin's code, so a key holding still here restores a stale one."""
     assert _key(tmp_path / "after", bump=bumped) != _key(tmp_path / "before")
@@ -111,6 +114,22 @@ def test_a_name_under_both_dependency_lists_is_optional(tmp_path: Path) -> None:
             "tailwindStylesheet ./shared.css",
             id="a-tailwind-stylesheet-outside-src",
         ),
+        # The plugin's deprecated spellings of that option, each read where `tailwindStylesheet` is absent.
+        pytest.param(
+            SHEET_TEXT,
+            {"plugins": ["plug"], "tailwindEntryPoint": "./shared.css"},
+            "tailwindEntryPoint ./shared.css",
+            id="an-entry-point-outside-src",
+        ),
+        pytest.param(
+            SHEET_TEXT, {"plugins": ["plug"], "tailwindConfig": "./shared.css"}, "tailwindConfig ./shared.css", id="a-css-config-outside-src"
+        ),
+        pytest.param(
+            SHEET_TEXT,
+            {"plugins": ["plug"], "tailwindConfig": "./tailwind.config.js"},
+            "tailwindConfig ./tailwind.config.js is a script",
+            id="a-script-config",
+        ),
     ],
 )
 def test_a_file_the_key_does_not_carry_stops_the_step(tmp_path: Path, sheet: str, config: dict[str, Any], says: str) -> None:
@@ -120,12 +139,38 @@ def test_a_file_the_key_does_not_carry_stops_the_step(tmp_path: Path, sheet: str
     assert says in said, said
 
 
+def _steps(workflow: Path) -> list[list[str]]:
+    """Each step's lines, from its `- ` to the next one's."""
+    lines = workflow.read_text(encoding="utf-8").splitlines()
+    starts = [number for number, line in enumerate(lines) if line.startswith("      - ")]
+    return [lines[start:end] for start, end in zip(starts, [*starts[1:], len(lines)], strict=True)]
+
+
+def test_the_prettier_cache_is_keyed_on_the_step_the_cases_drive_and_the_stylesheets() -> None:
+    """A key dropping either term restores a verdict another install or another stylesheet earned."""
+    steps = _steps(VERIFY)
+    [named] = [step for step in steps if f"        name: {PRETTIER_STEP}" in step]
+    [step_id] = [found[1] for line in named if (found := re.fullmatch(r"      - id: (\S+)", line))]
+    [cache] = [step for step in steps if "          path: fl_frontend/node_modules/.cache/prettier" in step]
+    [key] = [line.removeprefix("          key: ") for line in cache if line.startswith("          key: ")]
+    opened = cache.index("          restore-keys: |")
+    restore = [line.strip() for line in cache[opened + 1 :] if line.startswith("            ")]
+    # The stylesheets the step's `keyed` admits, the files its walk leaves to this hash.
+    terms = [f"${{{{ steps.{step_id}.outputs.key }}}}", "${{ hashFiles('fl_frontend/src/**/*.css') }}"]
+    assert restore, "the prettier cache restores no prefix"
+    for prefix in restore:
+        assert key.startswith(prefix), f"the restore prefix {prefix!r} is not the key's, so it restores another key's verdict"
+        for term in terms:
+            assert term in prefix, f"the restore prefix {prefix!r} lacks {term}"
+
+
 def test_one_job_alone_saves_the_pnpm_store() -> None:
     """A second writer prunes the store too and races the first to save one key, the loser's failure only a warning."""
     writers = [
         f"{path.name}:{number}"
         for path in sorted(WORKFLOWS.glob("*.yml"))
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
-        if re.fullmatch(r"\s+save-store:\s*[\"']?true[\"']?\s*(?:#.*)?", line)
+        # Any value but a literal `false`: an expression such as `${{ matrix.shard == 1 }}` reaches the action as `true`.
+        if (found := re.fullmatch(r"\s+save-store:\s*(.*?)\s*(?:#.*)?", line)) and found[1].strip("\"'") != "false"
     ]
-    assert len(writers) == 1, f"save-store: true in {writers}, where one job writes the store"
+    assert len(writers) == 1, f"save-store other than false in {writers}, where one job writes the store"
