@@ -19,7 +19,7 @@
 # is cut before the merge from the code being merged rather than after it from code already holding
 # the gate. Left out of a row's population, that row alone: a job that did not succeed; a job whose
 # log carries the runner's own retry of an action download, a wait that is GitHub's rather than the
-# tree's; and for a job whose own cache is keyed on the tree
+# tree's; and for a job a cache keyed on the tree speeds
 # (`scripts/checks/check_gate_budget.py :: TREE_KEYED`), every attempt but the first of a push to
 # main, and any pull-request run: a re-run restores everything its first attempt wrote, while a push
 # to main finds warm only what the trees before it left unchanged, so re-runs read at least as warm
@@ -56,6 +56,9 @@
 # refused otherwise by `scripts/checks/check_gate_budget.py :: check_raise` in the pull request's
 # `docs` job. Lowering one is free; dropping a budget, or a reference or floor the report compares,
 # to `-` removes a ceiling or a comparison rather than lowering it, and is refused whatever the stamp.
+# A pooled job's budget also stays under its timeout by the time a stalled unit takes to be named, or
+# GitHub ends the job first and names nothing
+# (`scripts/tests/test_gate_pool.py :: test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout`).
 #
 # A check joining the gate records its measured cost here, the **gate** clause in
 # `.claude/rules/ops.md` being what asks for it. Only a new job is refused without a row; a check
@@ -68,26 +71,29 @@
 # here that judges a cost.
 #
 # `images` is measured and not budgeted: its span is the layer cache's before it is the tree's, and
-# inside the population its stamp counts its widest run costs five times its narrowest, so the
-# number a ceiling would be set from says more about which layers were warm than about the tree. The
-# Dockerfile change most worth catching is the one that empties that cache, and the median report
-# is the only guard a row like this has, so it has none while the row carries no reference.
+# inside the population its stamp counts its widest run costs about twelve times its narrowest, so
+# the number a ceiling would be set from says more about which layers were warm than about the tree.
+# The Dockerfile change most worth catching is the one that empties that cache, and the median
+# report is the only guard a row like this has, so it has none while the row carries no reference.
 #
 # `backend`, `db`, `docs`, `ops`, `scripts` and the `frontend-units` shards are cut from the 24
 # attempts of pull-request run 37627541547, the merge commit their stamps name, the tree that run
 # tests being the one main carries after the merge. `scripts` counts 23: one attempt's job failed
 # fetching the pinned shellcheck, so its population is too short to cut into two windows of twelve
-# and the row carries `-` for reference and floor, held by its budget alone.
+# and the row carries `-` for reference and floor, held by its budget alone. `db` and the shards
+# install the frontend from a store and a verdict keyed on the lockfile, so their re-runs never met
+# the cold install main's first push after a lockfile change pays; each row is re-stamped only from
+# twenty-four first attempts of pushes to main, the count its reference and floor need, and until
+# then none of its figures rises.
 #
-# `format`, `frontend` and `images` are cut from the main push runs their stamps count, every one of
-# them carrying the backend's tier over workers and the db scope's two suites started together. Their
-# caches are keyed on the tree, so only a first attempt of a push times them, and a population as
-# short as theirs cannot be cut into two windows of twelve: drawn with replacement it reads its own
-# smallness rather than the job -- five runs of `frontend` answered 5 percent that way -- and a
-# reference with no floor beside it is a median the report cannot judge. So each of these rows
-# carries `-` for both, is held by its budget alone where it has one, and is listed by the report as
-# measured rather than compared; its reference and floor are cut once twenty-four first attempts of
-# pushes to main exist.
+# `format`, `frontend` and `images` are cut from the main push runs their stamps count. Their caches
+# are keyed on the tree, so only a first attempt of a push times them, and a population under
+# twenty-four, as each of theirs is, cannot be cut into two windows of twelve: drawn with
+# replacement it reads its own smallness rather than the job -- five runs of `frontend` answered 5
+# percent that way -- and a reference with no floor beside it is a median the report cannot judge.
+# So each of these rows carries `-` for both, is held by its budget alone where it has one, and is
+# listed by the report as measured rather than compared; its reference and floor are cut once
+# twenty-four first attempts of pushes to main exist.
 #
 # `docs` gained two checks: `cell-prose` costs 0.05 s and `echo` 1.01 s over the whole corpus,
 # measured locally on 2026-09-02 with the file listing already warmed, so the figures are the
@@ -586,16 +592,17 @@
 # 2026-09-27 on a sixteen-core Windows machine carrying a fleet of agent sessions, so an upper bound
 # on a runner's cost. The budget does not move and takes no new stamp.
 #
-# `format` restores prettier's cache on a runner, under a key carrying the lockfile, every frontend
-# stylesheet and the commit (`.github/workflows/verify.yml`, the format job). The scope took 21 s
-# from an empty cache against 9.1-9.3 s warm, and prettier alone 18.2-19.1 s against 6.4-6.6 s; a
-# warm check with 50 source files changed took 6.9-7.1 s, and with 400 changed 10.9-11.1 s. Three to
-# five interleaved rounds each, measured locally on 2026-09-26 on a sixteen-core Windows machine
-# running nothing else. A runner still starts cold wherever the lockfile or a stylesheet moves and on
-# a key's first run, so the budget is the cold job's, cut from the widest cold run on record rather
-# than from the stamped runs alone: of the main runs its stamp counts, the first found no cache and
-# spanned 50 s against 27 s for the two that restored one, and six uncached pull-request runs to
-# 2026-09-26 spanned 41-56 s, which the rule above makes 70 s.
+# `format` restores prettier's cache on a runner, under a key carrying the installed version of
+# every package a check loads, every frontend stylesheet and the commit
+# (`.github/workflows/verify.yml`, the format job). The scope took 21 s from an empty cache against
+# 9.1-9.3 s warm, and prettier alone 18.2-19.1 s against 6.4-6.6 s; a warm check with 50 source
+# files changed took 6.9-7.1 s, and with 400 changed 10.9-11.1 s. Three to five interleaved rounds
+# each, measured locally on 2026-09-26 on a sixteen-core Windows machine running nothing else. A
+# runner still starts cold wherever one of those packages or a stylesheet moves and on a key's first
+# run, so the budget is the cold job's, cut from the widest cold run on record rather than from the
+# stamped runs alone: of the 17 first attempts of pushes to main its stamp counts, the seven that
+# found no cache spanned 50-69 s against 23-31 s for the ten that restored one, which the rule above
+# makes 90 s.
 #
 # `frontend-units`, `db`, `backend` and `scripts` gained the refusal of a test file that runs no
 # case, each figure measured locally on 2026-10-02 on a sixteen-core Windows machine carrying a fleet
@@ -1022,7 +1029,7 @@
 #   `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py`, 62 cases, 11.95-12.35 s;
 #   `fl_backend/tests/api/test_spielbestaetigung_seats_execution.py`, 20 cases, 5.86-6.42 s;
 #   `fl_backend/tests/api/test_spielbestaetigung_execution.py`, 35 cases, 5.75-6.30 s; and
-#   `fl_backend/tests/core/test_conftest_servers.py`, 4 cases starting servers of their own,
+#   `fl_backend/tests/core/test_conftest_servers.py`, 5 cases starting servers of their own,
 #   2.70-3.39 s. Each module has a pair of runs within 0.2 s, and its run outside the pair read
 #   0.3-0.7 s higher.
 # - `frontend-units`, by the runner's own `duration_ms` through `test:base`, each run 1.2-1.4 s
@@ -1064,13 +1071,13 @@
 backend	78	21	105	24@2026-10-07/37627541547
 db	113	7	160	24@2026-10-07/37627541547
 docs	42	8	60	24@2026-10-07/37627541547
-format	-	-	70	3@2026-09-26
+format	-	-	90	17@2026-10-20
 frontend	-	-	220	16@2026-10-19
 frontend-units (1)	156	5	205	24@2026-10-07/37627541547
 frontend-units (2)	132	4	205	24@2026-10-07/37627541547
 frontend-units (3)	139	11	205	24@2026-10-07/37627541547
 frontend-units (4)	96	14	205	24@2026-10-07/37627541547
-images	-	-	-	3@2026-09-26
+images	-	-	-	17@2026-10-20
 ops	18	23	45	24@2026-10-07/37627541547
 scripts	-	-	90	23@2026-10-07/37627541547
 total	774	4	-	-
