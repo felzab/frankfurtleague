@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_TAGE } from "@/core/adresswechsel";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "@/core/brand";
 import { DEIN_BEREICH_TITEL, IMPRESSUM_TITEL, ORGANISATION_TITEL } from "@/core/seitenNamen";
@@ -14,7 +15,7 @@ import {
 } from "@/features/bewerbungen/constants";
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants";
 import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants";
-import { SPIELER_ADRESSWECHSEL_FRIST_TAGE, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants";
+import { SPIELER_ANONYM_LABEL } from "@/features/spieler/constants";
 import { Angabe } from "@/shared/components/ui/Angabe";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
@@ -37,6 +38,9 @@ const STAND = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day:
  * stays in digits. Indexed by a constant's literal type: a constant moved to a count with no word here fails `tsc`.
  */
 const ZAHLWORT = { 3: "drei", 7: "sieben", 10: "zehn", 14: "vierzehn" } as const;
+
+/** A waiting time whole weeks long, which German states in weeks rather than as a count of days; indexed as `ZAHLWORT` is. */
+const WOCHEN = { 7: "eine Woche" } as const;
 
 /** One hour, the one count a sentence here pairs with a feminine singular: a window moved off it fails `tsc` rather than reading „eine Stunden“. */
 const EINE_STUNDE = { 1: "eine Stunde" } as const;
@@ -188,14 +192,8 @@ const FRISTEN = [
   },
   {
     daten:
-      "Neue E-Mail-Adresse einer Schiedsrichterin oder eines Schiedsrichters, solange sie nicht bestätigt ist, dazu ihr Link als unlesbarer Schlüssel mit Versanddatum und Frist",
-    frist:
-      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft. Mit dem Eintrag wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen, löschen wir die Adresse am Tag danach",
-  },
-  {
-    daten:
-      "Neue E-Mail-Adresse einer Spielerin oder eines Spielers, solange sie nicht bestätigt ist, dazu ihr Link als unlesbarer Schlüssel mit Versanddatum und Frist",
-    frist: `Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft. Mit dem Eintrag wird sie gelöscht. Ihr Link gilt ${ZAHLWORT[SPIELER_ADRESSWECHSEL_FRIST_TAGE]} Tage ab dem Versand, und jeder neue Link ersetzt den vorigen. Ist er abgelaufen, löschen wir die Adresse am Tag danach`,
+      "Neue E-Mail-Adresse eines Kontos, solange sie nicht gilt, dazu ihr Link und der Stopp-Link an die bisherige Adresse als unlesbare Schlüssel, das Versanddatum, die Frist, gegebenenfalls die Freigabe, der Grund der Verwaltung, die Bestätigung und der Zeitpunkt, ab dem sie gilt",
+    frist: `Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird oder die Verwaltung sie verwirft. Mit dem Eintrag wird sie gelöscht. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem Versand, der Stopp-Link bis die Änderung gilt. Ist ein Link abgelaufen, löschen wir die Adresse innerhalb einer Stunde. Hat die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie ${WOCHEN[ADRESSWECHSEL_WARTEZEIT_TAGE]} nach ihrer Bestätigung`,
   },
   {
     daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
@@ -238,7 +236,7 @@ const FRISTEN = [
   },
   {
     daten:
-      "Vermerk eines Schritts, den Du veranlasst hast: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines Widerspruchs als Kontaktperson oder der Ablehnung einer neuen E-Mail-Adresse. Deine E-Mail-Adresse steht darin nur als unlesbarer Schlüssel, bei einer Löschung als drei solche Schlüssel. Außerdem enthält er die Art des Schritts und den Zeitpunkt, bei den übrigen Schritten den betroffenen Eintrag, bei einem Widerruf die Fassung des Textes und die Antworten, die er setzt, bei einem Widerspruch die Rollen, die er leert, und Kennungen der Anfrage, über die er sich dem Eintrag im Zugriffsprotokoll zuordnen lässt",
+      "Vermerk eines Schritts, den Du veranlasst hast: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines Widerspruchs als Kontaktperson, der Ablehnung einer neuen E-Mail-Adresse oder des Stopps ihrer Änderung. Deine E-Mail-Adresse steht darin nur als unlesbarer Schlüssel, bei einer Löschung als drei solche Schlüssel. Außerdem enthält er die Art des Schritts und den Zeitpunkt, bei den übrigen Schritten den betroffenen Eintrag, bei einem Widerruf die Fassung des Textes und die Antworten, die er setzt, bei einem Widerspruch die Rollen, die er leert, und Kennungen der Anfrage, über die er sich dem Eintrag im Zugriffsprotokoll zuordnen lässt",
     // The line stands in the application log as every line does, and the day file ages from its last write
     // (`docs/ops/runbooks.md` §7), so the row names both and no flat period.
     frist:
@@ -588,8 +586,11 @@ export function DatenschutzView() {
             bitten die Person, sich mit einer eigenen E-Mail-Adresse erneut zu registrieren.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Ändert die Verwaltung Deine E-Mail-Adresse, gilt die neue erst, wenn Du sie über den Link bestätigt hast, den wir an sie schicken.
-            Bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen Hinweis auf die Änderung.
+            Deine E-Mail-Adresse änderst Du selbst in Deinem Konto. Die neue gilt erst, wenn Du sie über den Link bestätigt hast, den wir an sie
+            schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen Hinweis mit einem Link, über den sie die
+            Änderung stoppen kann. Kannst Du Dich nicht mehr anmelden, ändert die Verwaltung sie auf Deine Bitte: Entweder gibst Du die neue mit
+            der bisherigen Adresse frei, oder sie gilt erst {WOCHEN[ADRESSWECHSEL_WARTEZEIT_TAGE]} nach ihrer Bestätigung. Gilt die neue, gilt
+            sie für jeden bestätigten Eintrag unter der bisherigen, und die bisherige bekommt eine Nachricht darüber.
           </p>
           <p className={ABSATZ_CLASSES}>
             Rechtsgrundlage für die Daten, die wir für Deine Teilnahme brauchen, ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse
@@ -620,9 +621,8 @@ export function DatenschutzView() {
             bestehen.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Ändert die Verwaltung Deine E-Mail-Adresse, nachdem Du Deinen Eintrag bestätigt hast, gilt die neue erst, wenn Du sie über den Link
-            bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen Hinweis
-            auf die Änderung.
+            Hast Du Deinen Eintrag bestätigt, änderst Du Deine E-Mail-Adresse wie eine Spielerin oder ein Spieler selbst in Deinem Konto, und
+            die neue gilt für jeden bestätigten Eintrag unter der bisherigen.
           </p>
           <p className={ABSATZ_CLASSES}>
             Du kannst jederzeit verlangen, dass Dein Name von dieser Website verschwindet, formlos an <MailLink />. Danach nehmen wir ihn
@@ -769,8 +769,8 @@ export function DatenschutzView() {
             Wie Du sie ausübst: eine formlose E-Mail an <MailLink />. Eine Einwilligung, auf die sich bei uns noch etwas stützt, kannst Du
             außerdem selbst in Deinem Konto zurücknehmen: Melde Dich mit der Adresse an, unter der wir Dich heute erreichen; dort steht jede
             solche Einwilligung. Eine abgelehnte Bewerbung oder Registrierung steht dort nicht; wir löschen sie einen Monat nach der
-            Entscheidung. Begründen musst Du nur einen Widerspruch, mit Deiner besonderen Situation. Wir antworten so schnell wir können und in
-            jedem Fall innerhalb der Frist des Art. 12 Abs. 3 DSGVO.
+            Entscheidung. Deine E-Mail-Adresse änderst Du selbst in Deinem Konto. Begründen musst Du nur einen Widerspruch, mit Deiner
+            besonderen Situation. Wir antworten so schnell wir können und in jedem Fall innerhalb der Frist des Art. 12 Abs. 3 DSGVO.
           </p>
           <p className={ABSATZ_CLASSES}>
             Was eine Löschung erreicht und was nicht: Aus der laufenden Datenbank sind Deine Daten sofort verschwunden. In den Sicherungskopien
