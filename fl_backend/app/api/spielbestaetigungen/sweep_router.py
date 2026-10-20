@@ -845,7 +845,7 @@ async def sweep_spielbestaetigungen(
     reminder_share = Batch(share=REMINDERS_PER_PASS)
     if minted is not None:
         # A row inserted this pass is wholly the mint's; a row it updated owes the reminder its other seats
-        # (`docs/backend/spec.md :: I782`).
+        # (`docs/backend/spec.md :: I767`).
         minted_now = _Minted(
             anfragen=anfragen,
             einteilungen=einteilungen,

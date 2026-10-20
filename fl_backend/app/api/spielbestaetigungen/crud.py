@@ -260,7 +260,7 @@ async def anchor_the_mailboxes_told(
     # REQUIRED: committed on its own, the anchor conflicts with no seat write.
     session: AsyncClientSession,
 ) -> None:
-    """Write the season rows a close read its notices' mailboxes off (`docs/backend/spec.md :: I780`).
+    """Write the season rows a close read its notices' mailboxes off (`docs/backend/spec.md :: I762`).
 
     An erasure or a Widerspruch empties the seat on that row and writes nothing the close writes.
     """
@@ -275,7 +275,7 @@ async def anchor_the_referees_told(
     # REQUIRED: committed on its own, the anchor conflicts with no erasure.
     session: AsyncClientSession,
 ) -> None:
-    """Write the referees a mint writes a row for (`docs/backend/spec.md :: I779`), as a fixture's save anchors the referee it books.
+    """Write the referees a mint writes a row for (`docs/backend/spec.md :: I760`), as a fixture's save anchors the referee it books.
 
     A referee's erasure deletes the rows its snapshot holds, never one inserted beside it.
     """
