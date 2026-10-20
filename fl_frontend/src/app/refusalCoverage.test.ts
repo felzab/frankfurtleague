@@ -78,7 +78,6 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
         schule: "Lessing-Kolleg",
         rolle: "ansprechperson" as const,
         zugleich_rolle: null,
-        text_version: null,
         laufende_fassung: "bestaetigung_kontakt",
         mindestalter: BEWERBUNG_MIN_ALTER,
         medien_mindestalter: MEDIEN_MIN_ALTER,

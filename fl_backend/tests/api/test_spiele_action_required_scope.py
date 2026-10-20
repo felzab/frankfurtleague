@@ -202,6 +202,7 @@ class TestNamingNoSeasonWithNoneActive:
                     saisons_collection=cast(AsyncCollection, _NoActiveSaison()),
                     spielorte_collection=cast(AsyncCollection, object()),
                     schiedsrichter_collection=cast(AsyncCollection, object()),
+                    spielbestaetigungen_collection=cast(AsyncCollection, object()),
                     saison_id=None,
                     today="2026-03-15",
                 )

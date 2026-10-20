@@ -273,8 +273,8 @@ class FLRegistrierungBestaetigungAnsichtResponse(BaseAPIResponse):
     team: CustomNonEmptyString
     schule: CustomNonEmptyString
     saison_id: str
-    # Served rather than left to the page to infer from the three below: a stored person with no
-    # birthdate is a returning pupil all the same, and the press refuses the other page's label.
+    # Served rather than left to the page to infer: a stored person with no birthdate is a returning
+    # pupil all the same, and the press refuses the other page's label.
     seite: FLRegistrierungSeite
     # Served rather than read from a constant of the page's own: the floor the write judges by is
     # the one the paragraph a pupil reads before consenting has to state.
@@ -282,24 +282,20 @@ class FLRegistrierungBestaetigungAnsichtResponse(BaseAPIResponse):
     # The age the media answer is judged by, served for `mindestalter`'s reason: the page offers the
     # switch only from it, and a copy of its own would offer it where the write refuses.
     medien_mindestalter: int = Field(gt=0)
-    # The returning pupil's stored answers, all three null on the new pupil's page; the birthdate is
-    # null on the returning one too where the stored person has none.
-    geburtsdatum: CustomOptionalDateString
-    umfang: FLRegistrierungUmfang | None
-    # Null is "not shown back" and never "off": a stored `True` re-presented as off misstates a
-    # consent the page says still stands.
-    medien: bool | None
+    # Whether the returning pupil's page takes a stored birthdate rather than asking one; never the
+    # date, nor any choice: whoever holds a mailed link is not yet known to be the person stored.
+    geburtsdatum_gespeichert: bool
 
 
 class FLRegistrierungBestaetigungPayload(BaseModel):
-    """One pupil's own answer: their date of birth, and on the new pupil's page the two consents that stand under one record."""
+    """One pupil's own answer: their date of birth where the page asks it, and on the new pupil's page the two consents."""
 
     model_config = ConfigDict(extra="forbid")
 
     token: CustomRegistrierungToken
-    # Unbounded here -- the age is a 422 carrying its own code, never a `REQ-VAL-001`, so the page
-    # marks its one field and keeps the date the pupil typed.
-    geburtsdatum: CustomDateString
+    # Unbounded: the age is a 422 with its own code, never a `REQ-VAL-001`, so the page marks its one
+    # field and keeps the typed date. Null where a stored one is taken, and required for `umfang`'s reason.
+    geburtsdatum: CustomOptionalDateString
     # Both set on the new pupil's page and both null on the returning pupil's (`REQ-REGISTRIERUNG-017`).
     # Required rather than defaulted: a page omitting one would store this model's answer in place of
     # the person's.
@@ -316,8 +312,9 @@ class FLRegistrierungBestaetigungResponse(BaseAPIResponse):
     # One member: this page has no Widerspruch door. A pupil who does not want to be registered lets
     # the link expire, and the sweep takes the row.
     ergebnis: Literal["bestaetigt"]
-    geburtsdatum: CustomDateString
-    # Null on a returning pupil's press, which posted none: the panel states the view's stored pair.
+    # Null where the press posted none, the stored date standing: an echo of it would serve it.
+    geburtsdatum: CustomOptionalDateString
+    # Null on a returning pupil's press, which posted none.
     umfang: FLRegistrierungUmfang | None
     medien: bool | None
 

@@ -260,14 +260,13 @@ export const FLSchiedsrichterBestaetigungAnsichtPayloadSchema = z.object({
 export type FLSchiedsrichterBestaetigungAnsichtPayload = z.infer<typeof FLSchiedsrichterBestaetigungAnsichtPayloadSchema>;
 
 /**
- * What a link is told before any press: the link's standing, the wording's label and the floor. No
+ * What a link is told before any press: the link's standing and the floor. No
  * name travels: the link went to an address nobody has confirmed (`READ-REFEREE-002`).
  */
 export const FLSchiedsrichterBestaetigungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   // The link's own standing, answered rather than refused: a spent or lapsed link stays readable, so
   // only an unknown token has nothing to answer with and reaches the page as a 409.
   zustand: z.enum(["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]),
-  text_version: z.string().nullable(),
   // The floor this person has to reach, over the wire rather than retyped here: a constant of this
   // side's own would be a second number nothing compares.
   mindestalter: z.number().int(),

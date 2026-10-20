@@ -290,6 +290,10 @@ demand a tree spell every code below.
 - **`REQ-ROUTE-003`** — the routing layer raised a status no other code names, passed through as
   raised. The router raises only the statuses the other routing codes and `REQ-VAL-002` name, so
   one outside them is a server bug and answers the server fault it is.
+- **`REQ-ANSETZUNG-006`** — reserved and raised by nothing; what the reservation covered is unrecorded.
+- **`REQ-ANSETZUNG-008`** — reserved for a refusal on a signed-in person's answer and raised by
+  nothing; that refusal takes a number past the family's highest instead.
+- **`REQ-ANSETZUNG-010`** — reserved beside `REQ-ANSETZUNG-006`, on the same terms.
 - **`REQ-ANSETZUNG-012`** — a club's reason for declining a fixture's date named a contact seat holder
   of either club or the booked referee. A reason takes any text, by decision: it goes with its
   writer's erasure and with the season's contacts.

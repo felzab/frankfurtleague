@@ -132,7 +132,7 @@ async def redact_seat_entries_in_images(
     )
 
 
-async def strip_the_seasons_team_rows(
+async def strip_the_seasons_confirmations(
     *,
     spielbestaetigungen_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
@@ -141,9 +141,10 @@ async def strip_the_seasons_team_rows(
     # REQUIRED: the season's end judged in the same snapshot, so an activation since the caller's read keeps the rows.
     session: AsyncClientSession,
 ) -> int:
-    """At the season's end, every link entry, reason and holder digest left on the season's team rows and their images.
+    """At the season's end, every link entry, reason and holder digest left on the season's rows and their images.
 
-    A replaced club's rows and an administrator's reason among them; each answer's way and role stay as the record.
+    A replaced club's rows, a referee's and an administrator's reason among them; each answer's way and role stay as the
+    record.
     """
 
     # Every seat, whoever held it: what a block's void left standing, a hand edit's or a restore's, goes too.

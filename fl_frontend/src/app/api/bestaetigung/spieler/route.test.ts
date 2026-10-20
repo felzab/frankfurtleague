@@ -46,9 +46,7 @@ const ANSICHT = {
   seite: "bestaetigung_spieler" as const,
   mindestalter: 16,
   medien_mindestalter: 18,
-  geburtsdatum: null,
-  umfang: null,
-  medien: null,
+  geburtsdatum_gespeichert: false,
 };
 
 const GESCHRIEBEN = { acknowledged: 1, ergebnis: "bestaetigt" as const, geburtsdatum: "2008-09-01", umfang: "intern" as const, medien: false };
@@ -135,21 +133,21 @@ describe("the pupil's confirmation handler", () => {
     assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: "2008-09-01", umfang: "intern", medien: false });
   });
 
-  /* The returning pupil's page sends neither choice, and its answer echoes neither: the panel states
-     the read's stored pair instead. */
-  it("passes the returning pupil's body on with both choices null, and echoes the nulls", async () => {
-    schreibAntwort = () => ({ ...GESCHRIEBEN, umfang: null, medien: null });
+  /* The returning pupil's page over a stored date sends no date and neither choice, and its answer
+     echoes none of them: the stored date reaches no browser. */
+  it("passes the returning pupil's body on with the date and both choices null, and echoes the nulls", async () => {
+    schreibAntwort = () => ({ ...GESCHRIEBEN, geburtsdatum: null, umfang: null, medien: null });
 
-    const answer = await bodyOf(aRequest({ ...gueltigerKoerper, umfang: null, medien: null }));
+    const answer = await bodyOf(aRequest({ ...gueltigerKoerper, geburtsdatum: null, umfang: null, medien: null }));
     const geschrieben = JSON.parse(calls.find((call) => call.endpoint === "/registrierungen/bestaetigung")?.body ?? "{}");
 
-    assert.deepEqual([geschrieben.umfang, geschrieben.medien], [null, null]);
-    assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: "2008-09-01", umfang: null, medien: null });
+    assert.deepEqual([geschrieben.geburtsdatum, geschrieben.umfang, geschrieben.medien], [null, null, null]);
+    assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: null, umfang: null, medien: null });
   });
 
-  /* No page of ours sends choices its page does not ask, the label check refusing a mismatched page
-     first, so only a drifted client meets this, and the mail's link reopens the page. */
-  it("answers the refusal of choices the page does not ask with the sentence that reopens the link", async () => {
+  /* A page whose person's stored birthdate was set or cleared since it opened meets this, or a drifted
+     client; the mail's link reopens the page as it stands. */
+  it("answers the refusal of answers the page does not ask with the sentence that reopens the link", async () => {
     schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-REGISTRIERUNG-017");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));

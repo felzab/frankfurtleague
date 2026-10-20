@@ -3117,7 +3117,7 @@
     "/api/v0/spiele/action_required": {
       "get": {
         "summary": "Spiele needing attention",
-        "description": "List Spiele needing attention, and the bracket faults among them.\n\nQualifying: cancelled, missing a date, time, venue or referee, past with no result, or a\nknockout side with neither team nor `quelle`. Scoped to `saison_id`, the active season when none\nis named, which answers 404 while no season is active.\n\nThe faults include a fixture still to be played that is booked onto a retired venue or referee,\nand one whose venue or referee another fixture of any season claims less than four hours away.",
+        "description": "List Spiele needing attention, and the bracket faults among them.\n\nQualifying: cancelled, missing a date, time, venue or referee, past with no result, or a\nknockout side with neither team nor `quelle`. Scoped to `saison_id`, the active season when none\nis named, which answers 404 while no season is active.\n\nAlso every fixture a club's unclosed confirmation about its Ansetzung as it stands puts before the\nadministrator: a decline proposing another date, a deadline passed unanswered, or a deadline of\ntoday on a request sent today or never. The rows themselves are not served: `GET /spielbestaetigungen`\nfor the same season serves them, read separately, so a row reaching one of those states between\nthe two reads shows its fixture on the next.\n\nThe faults include a fixture still to be played that is booked onto a retired venue or referee,\nand one whose venue or referee another fixture of any season claims less than four hours away.",
         "operationId": "get_spiele_action_required_api_v0_spiele_action_required_get",
         "security": [
           {
@@ -6987,6 +6987,269 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/spielbestaetigungen": {
+      "get": {
+        "summary": "A season's fixture confirmations, or one fixture's",
+        "description": "Every confirmation row of the season, or of its one fixture, and the day the confirmation pass last ran over it.\n\nNewest first, closed rows included. No seat's link hashes and no answer's holder digest are served.\n`vollstaendig` is false where more rows exist than one read serves, the oldest being the ones left out. A season no\ndocument has answers no rows and a null day rather than 404.",
+        "operationId": "get_spielbestaetigungen_api_v0_spielbestaetigungen_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          },
+          {
+            "name": "spiel_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-fA-F]{24}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Spiel Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungenListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      },
+      "post": {
+        "summary": "Confirm a fixture's Ansetzung, or decline it proposing another date",
+        "description": "Record one club's answer about one Ansetzung, from whichever of its three seats presses first, and the seat it came from.\n\nThe first press binds: the write itself takes only a row neither answered nor closed, so two seats pressing at once\nare one answer and one `REQ-ANSETZUNG-002`. Writes no fixture: a proposal is the administrator's to act on.\n\nRefuses, in this order: a token no seat holds (`REQ-ANSETZUNG-001`); a link whose seat's address the ban list holds\nnow, whenever it was minted (`REQ-ANSETZUNG-011`); a row already answered, closed since or not\n(`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club\n(`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the link (`REQ-ANSETZUNG-004`), each\nas the confirmation pass's close judges the row; an answer after the deadline's day (`REQ-ANSETZUNG-003`); a\nproposal dated before today (`REQ-ANSETZUNG-007`); and a proposal the administrator's own save of that date would be\nrefused, judged on what it newly claims and in that save's order: on or after a club's exit\n(`REQ-ELIGIBILITY-001`), outside the matchday (`REQ-DATE-001`), or within four hours of the ground's or the referee's\nother fixture (`REQ-CLASH-001`). The reason is stored as typed. Every refusal after the ban's is asked again outside\nthe transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather\nthan letting it stand.",
+        "operationId": "post_spielbestaetigung_api_v0_spielbestaetigungen_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielbestaetigungAntwortPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungAntwortResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-ANSETZUNG-007.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-ANSETZUNG-011"
+          },
+          "404": {
+            "$ref": "#/components/responses/404.REQ-ANSETZUNG-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001"
+          },
+          "410": {
+            "$ref": "#/components/responses/410.REQ-ANSETZUNG-002.REQ-ANSETZUNG-003.REQ-ANSETZUNG-004.REQ-ANSETZUNG-005.REQ-ANSETZUNG-009"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "base"
+      }
+    },
+    "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/eintragen": {
+      "post": {
+        "summary": "Record a party's Zusage on its behalf",
+        "description": "Record that the party of an open confirmation agreed to its Ansetzung elsewhere than through its link.\n\nThe administrator's reason says how. IRREVERSIBLE: the answer is the league's record of how a date was agreed, and\nnothing rewrites it. It names nobody: no seat and no person is recorded, and the reason takes any text and goes at\nthe season's end. Refused for a row\nalready answered, by a seat or by an administrator, or closed (`REQ-ANSETZUNG-013`), including one a seat answers\nwhile this request runs: of the two answers exactly one is stored. A row about an Ansetzung the fixture has since\nleft is settled as asked, and the next confirmation pass closes it.",
+        "operationId": "eintragen_spielbestaetigung_api_v0_spielbestaetigungen__spielbestaetigung_id__eintragen_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spielbestaetigung_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spielbestaetigung Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielbestaetigungEintragenPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungEintragenResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-ANSETZUNG-013"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/verwerfen": {
+      "post": {
+        "summary": "Discard a club's proposed date",
+        "description": "Close a club's open decline that proposes another date, so the proposal stops asking the administrator to act.\n\nIRREVERSIBLE: the decline stays as the club gave it, and the row is closed `verworfen`, which is that club's one\nanswer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture\ncounts it as the club's agreement, the league having kept the date. Refused for any other row -- open, agreed,\ndeclined without a proposal, a referee's, or closed (`REQ-ANSETZUNG-014`).",
+        "operationId": "verwerfen_spielbestaetigung_api_v0_spielbestaetigungen__spielbestaetigung_id__verwerfen_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spielbestaetigung_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spielbestaetigung Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungVerwerfenResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-ANSETZUNG-014"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
     "/api/v0/bewerbungen/fenster": {
       "get": {
         "summary": "The Saison currently accepting applications",
@@ -7219,7 +7482,7 @@
     "/api/v0/bewerbungen/einwilligung/ansicht": {
       "post": {
         "summary": "What one confirmation link opens",
-        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role and the consent wording's version, and `zugleich_rolle`: the\nsecond seat the same person holds, which an answer on this link writes too, or null. Never the holder's name: the\nlink went to an address nobody has confirmed, which behind a typo is a stranger's.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take. `laufende_fassung` is the label of the page the person is shown and their\nanswer must name: the applicant's where the applicant named them in every seat the link answers, else the one for a\nperson the administration seated.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`), an open link whose seat holds nobody among them: a confirmed, declined or\nexpired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The state\nis `gesperrt`, ahead of every other, wherever the ban list holds an address a consent on this link would be\nrefused for (`REQ-BEWERBUNG-020`), so the page offers a barred person nothing to press.\n\nThe same token may open a seat an administrator entered on a team's season row (`quelle: saison`): `schule` is then\nthe name the club carries that season, and the link is over once its seat's own deadline has passed. Before that, a\nseason that has ended or a team that has left it answers `saison_vorbei`: the link takes a Widerspruch and no consent.",
+        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, and `zugleich_rolle`: the\nsecond seat the same person holds, which an answer on this link writes too, or null. Never the holder's name: the\nlink went to an address nobody has confirmed, which behind a typo is a stranger's.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take. `laufende_fassung` is the label of the page the person is shown and their\nanswer must name: the applicant's where the applicant named them in every seat the link answers, else the one for a\nperson the administration seated.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`), an open link whose seat holds nobody among them: a confirmed, declined or\nexpired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The state\nis `gesperrt`, ahead of every other, wherever the ban list holds an address a consent on this link would be\nrefused for (`REQ-BEWERBUNG-020`), so the page offers a barred person nothing to press.\n\nThe same token may open a seat an administrator entered on a team's season row (`quelle: saison`): `schule` is then\nthe name the club carries that season, and the link is over once its seat's own deadline has passed. Before that, a\nseason that has ended or a team that has left it answers `saison_vorbei`: the link takes a Widerspruch and no consent.",
         "operationId": "get_einwilligung_ansicht_api_v0_bewerbungen_einwilligung_ansicht_post",
         "requestBody": {
           "content": {
@@ -7404,7 +7667,7 @@
     "/api/v0/registrierungen/bestaetigung/ansicht": {
       "post": {
         "summary": "What one registration confirmation link opens",
-        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the age floor the press will be judged by, the age from\nwhich the media switch is offered, and which of two pages the link opens. Never the pupil's name: the link went to\nan address nobody has confirmed, which behind a typo is a stranger's.\n\n`bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded\naddress under its folded name who confirmed their own record. That page asks no choice, so beside it the view\nserves the person's stored birthdate, publication scope and media switch, the birthdate null where none is\nstored. Matched on the address alone, a mailbox shared anyway would show a sibling that person's answers, so on\n`bestaetigung_spieler`, the new pupil's page, all three are null.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
+        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the age floor the press will be judged by, the age from\nwhich the media switch is offered, and which of two pages the link opens. Never the pupil's name: the link went to\nan address nobody has confirmed, which behind a typo is a stranger's.\n\n`bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded\naddress under its folded name who confirmed their own record. That page asks no choice, and asks no birthdate\nwhere the person has one stored, which `geburtsdatum_gespeichert` says; nothing the person's record holds is\nserved, the holder of a mailed link not yet being known to be that person. Matched on the address alone, a\nmailbox shared anyway would hand a sibling that person's page, so `geburtsdatum_gespeichert` is false on\n`bestaetigung_spieler`, the new pupil's page.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
         "operationId": "get_bestaetigung_ansicht_api_v0_registrierungen_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -7458,7 +7721,7 @@
     "/api/v0/registrierungen/bestaetigung": {
       "post": {
         "summary": "Confirm one registration and record the pupil's consent",
-        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the consent record, in one update.\n\nWhich page the link opens is resolved again here, as the view resolves it. On the new pupil's page the record\ncarries the publication scope they chose, the media answer beside it, the stamp and the wording they were shown.\nOn the returning pupil's page, which asks no choice, it carries the stamp and the wording alone: the choices\nstanding on the person's own record are theirs to change on the account page, and nothing here re-grants one.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but\nthe running one of the page the link opens now (`REQ-EINWILLIGUNG-001`), choices that are not the ones that page\nasks -- both on the new pupil's, none on the returning pupil's (`REQ-REGISTRIERUNG-017`) -- a link mailed to an\naddress the ban list holds now, whenever the link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor\n(`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`). Every one is\njudged before anything is written, so a reloaded page or a mistyped year spends nothing and the pupil keeps the\nlink.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
+        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the consent record, in one update.\n\nWhich page the link opens is resolved again here, as the view resolves it. On the new pupil's page the record\ncarries the publication scope they chose, the media answer beside it, the stamp and the wording they were shown.\nOn the returning pupil's page, which asks no choice, it carries the stamp and the wording alone: the choices\nstanding on the person's own record are theirs to change on the account page, and nothing here re-grants one.\nWhere that person has a birthdate stored, the body carries none: the one read here is judged and written, and\nthe answer echoes null rather than the stored date.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but\nthe running one of the page the link opens now (`REQ-EINWILLIGUNG-001`), answers that are not the ones that page\nasks -- both choices on the new pupil's, none on the returning pupil's, and a birthdate exactly where none is\nstored (`REQ-REGISTRIERUNG-017`) -- a link mailed to an\naddress the ban list holds now, whenever the link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor\n(`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`). Every one is\njudged before anything is written, so a reloaded page or a mistyped year spends nothing and the pupil keeps the\nlink.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
         "operationId": "post_bestaetigung_api_v0_registrierungen_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -7520,7 +7783,7 @@
     "/api/v0/schiedsrichter/bestaetigung/ansicht": {
       "post": {
         "summary": "What one Schiedsrichter confirmation link opens",
-        "description": "Answer what this token opens: the link's state and deadline, both age floors, and the wording's version.\n\n**Nothing else** (`READ-REFEREE-002`): never a name, the school, the contact details, the fee, the birthdate or the\nentry's id, all of which are behind `READ-CONTACT-001`. The link went to an address an administrator typed and nobody has\nconfirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a body and never in a second\nURL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `gesperrt`,\nahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`),\nso the page offers a barred referee nothing to press.",
+        "description": "Answer what this token opens: the link's state and deadline, and both age floors.\n\n**Nothing else** (`READ-REFEREE-002`): never a name, the school, the contact details, the fee, the birthdate or the\nentry's id, all of which are behind `READ-CONTACT-001`. The link went to an address an administrator typed and nobody has\nconfirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a body and never in a second\nURL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `gesperrt`,\nahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`),\nso the page offers a barred referee nothing to press.",
         "operationId": "get_bestaetigung_ansicht_api_v0_schiedsrichter_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -7917,68 +8180,6 @@
         ],
         "x-fl-tier": "base",
         "x-fl-stores-nothing": true
-      }
-    },
-    "/api/v0/spielbestaetigungen": {
-      "post": {
-        "summary": "Confirm a fixture's Ansetzung, or decline it proposing another date",
-        "description": "Record one club's answer about one Ansetzung, from whichever of its three seats presses first, and the seat it came from.\n\nThe first press binds: the write itself takes only a row neither answered nor closed, so two seats pressing at once\nare one answer and one `REQ-ANSETZUNG-002`. Writes no fixture: a proposal is the administrator's to act on.\n\nRefuses, in this order: a token no seat holds (`REQ-ANSETZUNG-001`); a link whose seat's address the ban list holds\nnow, whenever it was minted (`REQ-ANSETZUNG-011`); a row already answered, closed since or not\n(`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club\n(`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the link (`REQ-ANSETZUNG-004`), each\nas the confirmation pass's close judges the row; an answer after the deadline's day (`REQ-ANSETZUNG-003`); a\nproposal dated before today (`REQ-ANSETZUNG-007`); and a proposal the administrator's own save of that date would be\nrefused, judged on what it newly claims and in that save's order: on or after a club's exit\n(`REQ-ELIGIBILITY-001`), outside the matchday (`REQ-DATE-001`), or within four hours of the ground's or the referee's\nother fixture (`REQ-CLASH-001`). The reason is stored as typed. Every refusal after the ban's is asked again outside\nthe transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather\nthan letting it stand.",
-        "operationId": "post_spielbestaetigung_api_v0_spielbestaetigungen_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLSpielbestaetigungAntwortPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungAntwortResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "$ref": "#/components/responses/422.REQ-ANSETZUNG-007.REQ-VAL-001"
-          },
-          "default": {
-            "$ref": "#/components/responses/default"
-          },
-          "400": {
-            "$ref": "#/components/responses/400.REQ-VAL-002"
-          },
-          "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
-          },
-          "403": {
-            "$ref": "#/components/responses/403.REQ-ANSETZUNG-011"
-          },
-          "404": {
-            "$ref": "#/components/responses/404.REQ-ANSETZUNG-001"
-          },
-          "409": {
-            "$ref": "#/components/responses/409.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001"
-          },
-          "410": {
-            "$ref": "#/components/responses/410.REQ-ANSETZUNG-002.REQ-ANSETZUNG-003.REQ-ANSETZUNG-004.REQ-ANSETZUNG-005.REQ-ANSETZUNG-009"
-          },
-          "503": {
-            "$ref": "#/components/responses/503.DB-CONN-001"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "x-fl-tier": "base"
       }
     },
     "/api/v0/bewerbungen/sweep": {
@@ -11873,17 +12074,6 @@
             ],
             "title": "Zugleich Rolle"
           },
-          "text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Text Version"
-          },
           "laufende_fassung": {
             "type": "string",
             "title": "Laufende Fassung"
@@ -11907,13 +12097,12 @@
           "schule",
           "rolle",
           "zugleich_rolle",
-          "text_version",
           "laufende_fassung",
           "mindestalter",
           "medien_mindestalter"
         ],
         "title": "FLBewerbungEinwilligungAnsichtResponse",
-        "description": "What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).\n\nA leaked link's holder learns what its mail said: a school, a season, the roles one answer\ncovers and a wording's version, never a name."
+        "description": "What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).\n\nA leaked link's holder learns what its mail said: a school, a season and the roles one answer\ncovers, and nothing of the person."
       },
       "FLBewerbungEinwilligungAntwortPayload": {
         "properties": {
@@ -19908,43 +20097,9 @@
             "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           },
-          "geburtsdatum": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Geburtsdatum"
-          },
-          "umfang": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "kader_oeffentlich",
-                  "intern"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Umfang"
-          },
-          "medien": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Medien"
+          "geburtsdatum_gespeichert": {
+            "type": "boolean",
+            "title": "Geburtsdatum Gespeichert"
           }
         },
         "type": "object",
@@ -19956,9 +20111,7 @@
           "seite",
           "mindestalter",
           "medien_mindestalter",
-          "geburtsdatum",
-          "umfang",
-          "medien"
+          "geburtsdatum_gespeichert"
         ],
         "title": "FLRegistrierungBestaetigungAnsichtResponse",
         "description": "What one confirmation link opens, and no field past the ones declared here (`docs/backend/spec.md :: I286`)."
@@ -19972,8 +20125,15 @@
             "title": "Token"
           },
           "geburtsdatum": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Geburtsdatum"
           },
           "umfang": {
@@ -20019,7 +20179,7 @@
           "text_version"
         ],
         "title": "FLRegistrierungBestaetigungPayload",
-        "description": "One pupil's own answer: their date of birth, and on the new pupil's page the two consents that stand under one record."
+        "description": "One pupil's own answer: their date of birth where the page asks it, and on the new pupil's page the two consents."
       },
       "FLRegistrierungBestaetigungResponse": {
         "properties": {
@@ -20038,8 +20198,15 @@
             "title": "Ergebnis"
           },
           "geburtsdatum": {
-            "type": "string",
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Geburtsdatum"
           },
           "umfang": {
@@ -22039,17 +22206,6 @@
             ],
             "title": "Zustand"
           },
-          "text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Text Version"
-          },
           "mindestalter": {
             "type": "integer",
             "title": "Mindestalter"
@@ -22068,7 +22224,6 @@
         "type": "object",
         "required": [
           "zustand",
-          "text_version",
           "mindestalter",
           "medien_mindestalter",
           "frist"
@@ -24145,6 +24300,167 @@
         "title": "FLSpielTeamFieldPayload",
         "description": "One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the server composes them from the season's `saison_teams` row\n(`docs/backend/spec.md :: I3`). A submitted copy is IGNORED rather than refused, as\n`docs/backend/spec.md :: I114` allows."
       },
+      "FLSpielbestaetigung": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "partei": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungParteiTeam"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungParteiSchiedsrichter"
+              }
+            ],
+            "title": "Partei",
+            "discriminator": {
+              "propertyName": "art",
+              "mapping": {
+                "schiedsrichter": "#/components/schemas/FLSpielbestaetigungParteiSchiedsrichter",
+                "team": "#/components/schemas/FLSpielbestaetigungParteiTeam"
+              }
+            }
+          },
+          "ansetzung": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungAnsetzung"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "angefragt_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Angefragt Am"
+          },
+          "erinnert_am": {
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+            },
+            "type": "array",
+            "title": "Erinnert Am"
+          },
+          "kontakte": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungKontakte"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "antwort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungAntwort"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "geschlossen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungGeschlossen"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "saison_id",
+          "spiel_id",
+          "partei",
+          "ansetzung",
+          "frist",
+          "angefragt_am",
+          "erinnert_am",
+          "kontakte",
+          "antwort",
+          "geschlossen"
+        ],
+        "title": "FLSpielbestaetigung",
+        "description": "One party's confirmation of one Ansetzung, as stored and as an administrator reads it.\n\nThe close reaches an answered row too, so an agreement a move overtook records why it stopped\napplying (`app/api/spielbestaetigungen/services.py :: build_closable_filter`)."
+      },
+      "FLSpielbestaetigungAnsetzung": {
+        "properties": {
+          "datum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum"
+          },
+          "uhrzeit": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
+            "title": "Uhrzeit"
+          },
+          "spielort_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{24}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spielort Id"
+          },
+          "team1_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team1 Id"
+          },
+          "team2_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team2 Id"
+          },
+          "stand": {
+            "type": "string",
+            "title": "Stand"
+          }
+        },
+        "type": "object",
+        "required": [
+          "datum",
+          "uhrzeit",
+          "spielort_id",
+          "team1_id",
+          "team2_id",
+          "stand"
+        ],
+        "title": "FLSpielbestaetigungAnsetzung",
+        "description": "The Ansetzung a row answers about: every input of `stand`, stored beside it.\n\nA digest is opaque to an aggregation, so the public fixture's verdict compares these five values\nrather than `stand` (`app/api/spielbestaetigungen/services.py :: ANSETZUNG_QUELLEN`)."
+      },
       "FLSpielbestaetigungAnsichtAnsetzung": {
         "properties": {
           "team1_name": {
@@ -24296,6 +24612,77 @@
         "title": "FLSpielbestaetigungAnsichtResponse",
         "description": "What one link's page renders, filled in every state; the frontend narrows a spent one to its `zustand`."
       },
+      "FLSpielbestaetigungAntwort": {
+        "properties": {
+          "art": {
+            "type": "string",
+            "enum": [
+              "zugesagt",
+              "abgelehnt"
+            ],
+            "title": "Art"
+          },
+          "am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Am"
+          },
+          "von": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungVonAdmin"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
+              }
+            ],
+            "title": "Von",
+            "discriminator": {
+              "propertyName": "art",
+              "mapping": {
+                "admin": "#/components/schemas/FLSpielbestaetigungVonAdmin",
+                "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
+                "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
+              }
+            }
+          },
+          "vorschlag": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungTermin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "begruendung": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Begruendung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art",
+          "am",
+          "von",
+          "vorschlag",
+          "begruendung"
+        ],
+        "title": "FLSpielbestaetigungAntwort",
+        "description": "Written once, while the row is open: a second press finds the row answered and changes nothing."
+      },
       "FLSpielbestaetigungAntwortPayload": {
         "properties": {
           "token": {
@@ -24408,6 +24795,172 @@
         ],
         "title": "FLSpielbestaetigungAntwortResponse",
         "description": "What the answer recorded: its way, its role, and the answering club's own proposal, which no view of the link serves.\n\nSo a page shows that proposal from this response, never from a re-read. No receipt is mailed off it."
+      },
+      "FLSpielbestaetigungEintragenPayload": {
+        "properties": {
+          "begruendung": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Begruendung"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "begruendung"
+        ],
+        "title": "FLSpielbestaetigungEintragenPayload",
+        "description": "The administrator's Zusage for a party that answered elsewhere, and how it was given.\n\nNo way to choose: the one press records a Zusage, and a decline without a proposal would sit in no queue."
+      },
+      "FLSpielbestaetigungEintragenResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "updated_document": {
+            "$ref": "#/components/schemas/FLSpielbestaetigung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "updated_document"
+        ],
+        "title": "FLSpielbestaetigungEintragenResponse"
+      },
+      "FLSpielbestaetigungGeschlossen": {
+        "properties": {
+          "am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Am"
+          },
+          "grund": {
+            "type": "string",
+            "enum": [
+              "ansetzung_geaendert",
+              "austritt",
+              "spiel_entschieden",
+              "abgesagt",
+              "schiedsrichter_gewechselt",
+              "verworfen",
+              "spiel_vergangen"
+            ],
+            "title": "Grund"
+          }
+        },
+        "type": "object",
+        "required": [
+          "am",
+          "grund"
+        ],
+        "title": "FLSpielbestaetigungGeschlossen"
+      },
+      "FLSpielbestaetigungKontakte": {
+        "properties": {
+          "trainer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungSitz"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ansprechperson": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungSitz"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stellvertretung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungSitz"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "trainer",
+          "ansprechperson",
+          "stellvertretung"
+        ],
+        "title": "FLSpielbestaetigungKontakte",
+        "description": "The three seats, mirroring `kontakte`'s slots. Null per SEAT: an empty, barred or voided seat holds no link."
+      },
+      "FLSpielbestaetigungParteiSchiedsrichter": {
+        "properties": {
+          "art": {
+            "type": "string",
+            "const": "schiedsrichter",
+            "title": "Art"
+          },
+          "schiedsrichter_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Schiedsrichter Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art",
+          "schiedsrichter_id"
+        ],
+        "title": "FLSpielbestaetigungParteiSchiedsrichter"
+      },
+      "FLSpielbestaetigungParteiTeam": {
+        "properties": {
+          "art": {
+            "type": "string",
+            "const": "team",
+            "title": "Art"
+          },
+          "team_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art",
+          "team_id"
+        ],
+        "title": "FLSpielbestaetigungParteiTeam"
+      },
+      "FLSpielbestaetigungSitz": {
+        "properties": {
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungZustellung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "FLSpielbestaetigungSitz",
+        "description": "One seat's link bookkeeping as an administrator reads it -- and NO `token_hashes`.\n\nThe hashes are raw document keys the token filter alone reads; a model declaring them would serve\nevery live link's hash through the admin read."
       },
       "FLSpielbestaetigungSweepAnfrage": {
         "properties": {
@@ -24814,6 +25367,27 @@
         "title": "FLSpielbestaetigungTermin",
         "description": "A date and time without a ground: a team's proposal, and the slot a moved fixture left."
       },
+      "FLSpielbestaetigungVerwerfenResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "updated_document": {
+            "$ref": "#/components/schemas/FLSpielbestaetigung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "updated_document"
+        ],
+        "title": "FLSpielbestaetigungVerwerfenResponse"
+      },
       "FLSpielbestaetigungVonAdmin": {
         "properties": {
           "art": {
@@ -24888,6 +25462,50 @@
           "uhrzeit"
         ],
         "title": "FLSpielbestaetigungVorschlagPayload"
+      },
+      "FLSpielbestaetigungenListResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spielbestaetigungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigung"
+            },
+            "type": "array",
+            "title": "Spielbestaetigungen"
+          },
+          "spiel_sweep_gelaufen_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spiel Sweep Gelaufen Am"
+          },
+          "vollstaendig": {
+            "type": "boolean",
+            "title": "Vollstaendig"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielbestaetigungen",
+          "spiel_sweep_gelaufen_am",
+          "vollstaendig"
+        ],
+        "title": "FLSpielbestaetigungenListResponse",
+        "description": "The rows newest first, closed ones included, and the named season's own last pass."
       },
       "FLSpieleActionRequiredResponse": {
         "properties": {
@@ -28733,6 +29351,52 @@
                         "REQ-SQUAD-001",
                         "REQ-SQUAD-003",
                         "REQ-SQUAD-004"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-ANSETZUNG-013": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-ANSETZUNG-013"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-ANSETZUNG-014": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-ANSETZUNG-014"
                       ]
                     }
                   }
