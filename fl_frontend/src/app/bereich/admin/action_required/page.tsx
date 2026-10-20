@@ -22,7 +22,8 @@ export default async function AdminOverviewPage(props: NextPageProps) {
     // The queue's own season, so the two lists disagree about no fixture; degraded rather than awaited whole, the
     // fixtures' categories standing without it.
     runWithIncomingTrace(() => getSpielbestaetigungen({ saison_id: saison.id }).catch(nullUnlessContractBreak)),
-    getSpielberichteZustaende({ saison_id: saison.id }),
+    // Degraded as the confirmations are, and to `null` rather than an empty list, which would read as no report waiting.
+    runWithIncomingTrace(() => getSpielberichteZustaende({ saison_id: saison.id }).catch(nullUnlessContractBreak)),
   ]);
 
   return (
@@ -32,7 +33,7 @@ export default async function AdminOverviewPage(props: NextPageProps) {
       bracketFaults={adminRes.bracket_faults}
       bestaetigungen={bestaetigungenRes?.spielbestaetigungen ?? null}
       bestaetigungenVollstaendig={bestaetigungenRes?.vollstaendig ?? true}
-      spielberichte={berichteRes.spielberichte}
+      spielberichte={berichteRes?.spielberichte ?? null}
       today={getGermanTodayStr()}
       isFinishedSaison={saison.status === "past"}
     />

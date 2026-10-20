@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 import { Tabs } from "@heroui/react/tabs";
 
-import { berichtChipText } from "@/features/spielberichte/utils";
+import { berichtChip } from "@/features/spielberichte/utils";
 import { groupBestaetigungenBySpielId } from "@/features/spielbestaetigungen/utils";
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { SpielCardGrid } from "@/features/spiele/components/ui/SpielCardGrid";
@@ -30,6 +30,7 @@ import type { FLActionUrgency } from "../../utils";
 
 // Module scope, so a failed read keeps one identity across renders and the memos below hold.
 const KEINE_BESTAETIGUNGEN: readonly FLSpielbestaetigung[] = [];
+const KEINE_BERICHTE: readonly FLSpielberichtZustandEintrag[] = [];
 
 /**
  * In the URL and not `useState`: the App Router keeps an admin tree alive between navigations, so a
@@ -70,32 +71,33 @@ export function AdminSpieleActionRequiredView({
   /** The season's confirmation rows; `null` where their read failed, which the page says rather than showing empty tabs as clear. */
   bestaetigungen: readonly FLSpielbestaetigung[] | null;
   bestaetigungenVollstaendig: boolean;
-  /** The season's reports and their states, read whatever `SPIELBERICHT_EINGABE` reads. */
-  spielberichte: readonly FLSpielberichtZustandEintrag[];
+  /** The season's reports and their states, read whatever `SPIELBERICHT_EINGABE` reads; `null` where the read failed, which the page says. */
+  spielberichte: readonly FLSpielberichtZustandEintrag[] | null;
   today: string;
   isFinishedSaison: boolean;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const zeilen = bestaetigungen ?? KEINE_BESTAETIGUNGEN;
+  const berichte = spielberichte ?? KEINE_BERICHTE;
 
   // Memoised by hand: the React Compiler is deliberately off (`next.config.ts`), so without this
   // every section switch re-partitions the whole match list for the identical result.
   const sections = useMemo(
-    () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults, bestaetigungen: zeilen, spielberichte }),
-    [overviewSpiele, today, bracketFaults, zeilen, spielberichte],
+    () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults, bestaetigungen: zeilen, spielberichte: berichte }),
+    [overviewSpiele, today, bracketFaults, zeilen, berichte],
   );
 
   // On every card of every section, as the fixture's own state is: a proposal still to adopt is news wherever it shows.
   const berichtChipsBySpielId = useMemo(
     () =>
       new Map(
-        spielberichte.flatMap((eintrag) => {
-          const text = berichtChipText(eintrag);
-          return text === null ? [] : [[eintrag.spiel_id, text] as const];
+        berichte.flatMap((eintrag) => {
+          const chip = berichtChip(eintrag);
+          return chip === null ? [] : [[eintrag.spiel_id, chip] as const];
         }),
       ),
-    [spielberichte],
+    [berichte],
   );
 
   // Keyed by `spiel_id` so each card states its own reasons; one shared box leaves the reader
@@ -209,6 +211,16 @@ export function AdminSpieleActionRequiredView({
             {bestaetigungen === null
               ? "Die Kategorien zu Terminvorschlägen und Bestätigungen sind deshalb leer, auch wo ein Spiel hineingehört. Lade die Seite neu."
               : "Geladen sind nur die neuesten Antworten dieser Saison. Die Kategorien zu Terminvorschlägen und Bestätigungen können Spiele auslassen."}
+          </Callout>
+        </div>
+      )}
+
+      {spielberichte === null && (
+        <div className="flex w-full max-w-page flex-col px-4 pb-4 sm:px-8">
+          <Callout
+            severity="warning"
+            title="Die Spielberichte ließen sich gerade nicht lesen">
+            {`Die Kategorie „${ACTION_REQUIRED_LABELS.ergebnis_vorschlag.name}“ ist deshalb leer, auch wo ein Spiel hineingehört. Lade die Seite neu.`}
           </Callout>
         </div>
       )}

@@ -50,7 +50,7 @@ describe("the triage's reports", () => {
     triage([bericht("abweichend")]);
 
     assert.equal(screen.getByRole("tab", { name: /^Bericht/ }).textContent, "Bericht1", "the fixture is not filed under the proposal");
-    assert.ok(screen.getByText("Bericht geändert 3:1"), "the card does not say the report diverges");
+    assert.ok(screen.getByText("Bericht nicht übernommen 3:1"), "the card does not say the result stands on no adopted report");
   });
 
   /* A report on a fixture called off since awaits nobody, as an adopted one does: the triage names the states that wait. */
@@ -59,7 +59,11 @@ describe("the triage's reports", () => {
       triage([bericht(zustand)]);
 
       assert.equal(screen.getByRole("tab", { name: /^Bericht/ }).textContent, "Bericht0");
-      assert.equal(screen.queryAllByText(/Ergebnis vorgeschlagen|Bericht geändert/).length, 0, `a ${zustand} report still chips its card`);
+      assert.equal(
+        screen.queryAllByText(/Ergebnis vorgeschlagen|Bericht nicht übernommen/).length,
+        0,
+        `a ${zustand} report still chips its card`,
+      );
     });
   }
 });

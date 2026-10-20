@@ -23,6 +23,7 @@ import { ERGEBNIS_INK_CLASSES, SpielScore } from "./SpielScore";
 import { SpielStatusChip } from "./SpielStatusChip";
 import { SpielTeamSlot } from "./SpielTeamSlot";
 
+import type { BerichtChip } from "@/features/spielberichte/utils";
 import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
 import type { FLSpiel } from "../../schemas";
 
@@ -53,8 +54,8 @@ export function SpielCard({
   isFinishedSaison: boolean;
   /** This fixture's confirmation rows, an administrator's read: each party's answer to the Ansetzung it holds. */
   bestaetigungen?: readonly FLSpielbestaetigung[];
-  /** The report's proposal still to be adopted, on an administrator's card alone: the public cards never pass it. */
-  berichtChip?: string;
+  /** The report's proposal still to be adopted, an administrator's read the card shows only beside its edit link. */
+  berichtChip?: BerichtChip;
 }) {
   const {
     datum: spielDatum,
@@ -156,7 +157,8 @@ export function SpielCard({
           ansetzungBestaetigt={spielData.ansetzung_bestaetigt}
         />
         <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
-        {berichtChip !== undefined && <span className={labelBadge("info")}>{berichtChip}</span>}
+        {/* Keyed on the edit link, as the answers below are: `ergebnis_vorschlag` is withheld from the public tier. */}
+        {adminEditHref !== undefined && berichtChip !== undefined && <span className={labelBadge(berichtChip.tone)}>{berichtChip.text}</span>}
       </div>
 
       {/* The admin card's alone, keyed on the edit link: a public caller handed the rows renders none of them. */}

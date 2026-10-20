@@ -91,3 +91,27 @@ describe("the answer chips on a fixture's card", () => {
     assert.doesNotMatch(text, /Abgelehnt|Zugesagt|Offen/);
   });
 });
+
+describe("the report chip on a fixture's card", () => {
+  const mitChip = (isAdmin: boolean): string =>
+    textOf(
+      renderTree(
+        underNext(
+          h(SpielCardsList, {
+            spiele: [SPIEL],
+            today: "2026-07-30",
+            isFinishedSaison: false,
+            isAdmin,
+            berichtChipsBySpielId: new Map([[SPIEL.id, { text: "Ergebnis vorgeschlagen 3:1", tone: "info" as const }]]),
+          }),
+        ),
+      ),
+      " ",
+    );
+
+  /* The proposed result is withheld from the public tier, so the chip is keyed on the edit link as the answers are. */
+  it("stays off a public card even where its caller passes the chips, and shows on the admin card", () => {
+    assert.doesNotMatch(mitChip(false), /Ergebnis vorgeschlagen/);
+    assert.match(mitChip(true), /Ergebnis vorgeschlagen 3:1/);
+  });
+});

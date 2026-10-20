@@ -8,6 +8,7 @@ import { adminSpielEditHref } from "../../utils";
 import { SpielDetailsModal } from "../modals/SpielDetailsModal";
 import { SpielCard } from "../ui/SpielCard";
 
+import type { BerichtChip } from "@/features/spielberichte/utils";
 import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
 import type { FLSpiel } from "../../schemas";
@@ -47,7 +48,7 @@ export function SpielCardsList({
   /** The season's confirmation rows by `spiel_id`, an administrator's read the card shows only beside its edit link. */
   bestaetigungenBySpielId?: ReadonlyMap<string, readonly FLSpielbestaetigung[]>;
   /** Keyed by `spiel_id`, for the notes' reason: a report's state arrives beside the matches, never inside them. */
-  berichtChipsBySpielId?: ReadonlyMap<string, string>;
+  berichtChipsBySpielId?: ReadonlyMap<string, BerichtChip>;
 }) {
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
   const saisonId = useSaisonId();

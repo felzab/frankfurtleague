@@ -34,7 +34,7 @@ const { FLSpielAdminSchema } = await import("@/features/spiele/schemas.ts");
 const { FLSpielberichtAdminResponseSchema } = await import("@/features/spielberichte/schemas.ts");
 
 const SPIEL = FLSpielAdminSchema.parse(spielFields());
-const SPIELBERICHT = FLSpielberichtAdminResponseSchema.parse(spielberichtReadFixture());
+const SPIELBERICHT = { lesen: FLSpielberichtAdminResponseSchema.parse(spielberichtReadFixture()), korrigierbar: true };
 
 /* The type holds each prop present, never where its value comes from: a literal or the neighbouring boolean in its
    place passes tsc and every sheet of the form, and warns of a pass that never runs. */

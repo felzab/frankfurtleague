@@ -3,12 +3,12 @@ import { describe, it } from "node:test";
 
 import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
-import { berichtChipText, mapSpielberichtRefusal } from "./utils.ts";
+import { berichtChip, mapSpielberichtRefusal } from "./utils.ts";
 
 import type { FLSpielberichtZustand } from "./schemas.ts";
 
 const chip = (zustand: FLSpielberichtZustand) =>
-  berichtChipText({
+  berichtChip({
     spiel_id: "68c1f0a2b3c4d5e6f7a8b9e2",
     zustand,
     ergebnis_vorschlag: { team1_tore: 3, team2_tore: 1, elfmeterschiessen: null, sonderereignis: null },
@@ -16,7 +16,12 @@ const chip = (zustand: FLSpielberichtZustand) =>
 
 describe("what an administrator's card says of its report", () => {
   it("names a proposal still to adopt with its score", () => {
-    assert.equal(chip("vorgeschlagen"), "Ergebnis vorgeschlagen 3:1");
+    assert.deepEqual(chip("vorgeschlagen"), { text: "Ergebnis vorgeschlagen 3:1", tone: "info" });
+  });
+
+  /* `abweichend` is also a first report beside a result typed by hand, which nobody changed: „geändert“ would be false. */
+  it("names a report the result does not stand on as not adopted, in the panel's warning tone", () => {
+    assert.deepEqual(chip("abweichend"), { text: "Bericht nicht übernommen 3:1", tone: "warning" });
   });
 
   /* The triage cards of every section carry the chip, so a state awaiting nobody chipping its card would ask for an
