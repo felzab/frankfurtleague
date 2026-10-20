@@ -248,7 +248,7 @@ const FRISTEN = [
   },
   {
     daten:
-      "Vermerk eines Schritts, den Du veranlasst hast: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines Widerspruchs als Kontaktperson, der Ablehnung einer neuen E-Mail-Adresse oder des Stopps ihrer Änderung. Deine E-Mail-Adresse steht darin nur als unlesbarer Schlüssel, bei einer Löschung als drei solche Schlüssel. Außerdem enthält er die Art des Schritts und den Zeitpunkt, bei den übrigen Schritten den betroffenen Eintrag, bei einem Widerruf die Fassung des Textes und die Antworten, die er setzt, bei einem Widerspruch die Rollen, die er leert, und Kennungen der Anfrage, über die er sich dem Eintrag im Zugriffsprotokoll zuordnen lässt",
+      "Vermerk eines Schritts, den Du veranlasst hast: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines Widerspruchs als Kontaktperson, der Ablehnung einer neuen E-Mail-Adresse, des Stopps ihrer Änderung oder der Änderung selbst, sobald sie gilt. Deine E-Mail-Adresse steht darin nur als unlesbarer Schlüssel, bei einer Löschung als drei solche Schlüssel. Außerdem enthält er die Art des Schritts und den Zeitpunkt, bei den übrigen Schritten den betroffenen Eintrag, bei einem Widerruf die Fassung des Textes und die Antworten, die er setzt, bei einem Widerspruch die Rollen, die er leert, und Kennungen der Anfrage, über die er sich dem Eintrag im Zugriffsprotokoll zuordnen lässt",
     // The line stands in the application log as every line does, and the day file ages from its last write
     // (`docs/ops/runbooks.md` §7), so the row names both and no flat period.
     frist:

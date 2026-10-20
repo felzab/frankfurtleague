@@ -957,13 +957,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   application log they are written to is, and in a file per day deleted thirty days after its last
   change**, so a pass copying a late line into a day starts that day's thirty again. Each line names
   a requested erasure, or a consent its person withdrew, a Widerspruch, an address change declined
-  through its link, or one its address on file stopped, and its person by keyed hashes of the address alone. An erasure's line holds
-  three, the journal's own, the pseudonym the action log and the day counts key that person on, and
-  the digest their fixture answers carry, so a restore holding the address nowhere still finds those
-  rows and the reasons those answers hold (`docs/backend/spec.md :: I666`, `:: I731`); a choice's
-  line holds the journal's one, beside the record that act changed and its moment, a
-  withdrawal's text version and the withholding values it set, and the seats a Widerspruch emptied
-  (`:: I706`). The day file keeps each line's whole log envelope, its trace and span ids among them,
+  through its link, one its address on file stopped, or one that took effect, and its person by
+  keyed hashes of the address alone. An erasure's line holds three, the journal's own, the pseudonym
+  the action log and the day counts key that person on, and the digest their fixture answers carry,
+  so a restore holding the address nowhere still finds those rows and the reasons those answers hold
+  (`docs/backend/spec.md :: I666`, `:: I731`); a choice's line holds the journal's one, beside the
+  record that act changed and its moment, a withdrawal's text version and the withholding values it
+  set, and the seats a Widerspruch emptied (`:: I706`). The day file keeps each line's whole log
+  envelope, its trace and span ids among them,
   and the trace id joins the line to the edge's access line, which names the visitor's address for
   that log's eight days. Each line is copied into its day file hourly so that a restore can run
   every erasure since its snapshot again ([section 5](#5-erasure-reaches-everyone-who-asks)) and
