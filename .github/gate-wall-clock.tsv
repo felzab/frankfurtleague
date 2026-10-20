@@ -1007,6 +1007,49 @@
 # Each module is one chunk under `--dist loadfile`, shorter than the suite's longest; the row carries
 # `-` for its reference, so they move no figure and answer to the budget alone.
 #
+# The fixture confirmations added test modules to three jobs, each module run alone, three
+# interleaved rounds of each job's modules, measured locally on 2026-10-20 on a sixteen-core Windows
+# machine running nothing else, at 1.0-1.4 percent CPU before each series and 4-16 percent mean
+# during each run, every run exit 0, so upper bounds:
+#
+# - `backend`, by pytest's own span, each run 2.8 s longer from the interpreter's start:
+#   `fl_backend/tests/api/test_seat_writers.py`, 4 cases, 3.14 s;
+#   `fl_backend/tests/api/test_spielbestaetigung_refusal.py`, 72 cases, 0.79-0.80 s;
+#   `fl_backend/tests/api/test_spielbestaetigung_sweep_refusal.py`, 47 cases, 0.75-0.76 s; and
+#   `fl_backend/tests/api/test_spielbestaetigung_shapes.py`, 22 cases, 0.73 s
+# - `db`, by pytest's own span over the module's db-marked cases, each holding 2.4-2.6 s of its first
+#   case's setup starting the servers, which the gate starts once a run:
+#   `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py`, 62 cases, 11.95-12.35 s;
+#   `fl_backend/tests/api/test_spielbestaetigung_seats_execution.py`, 20 cases, 5.86-6.42 s;
+#   `fl_backend/tests/api/test_spielbestaetigung_execution.py`, 35 cases, 5.75-6.30 s; and
+#   `fl_backend/tests/core/test_conftest_servers.py`, 4 cases starting servers of their own,
+#   2.70-3.39 s. Each module has a pair of runs within 0.2 s, and its run outside the pair read
+#   0.3-0.7 s higher.
+# - `frontend-units`, by the runner's own `duration_ms` through `test:base`, each run 1.2-1.4 s
+#   longer from pnpm's start:
+#   `fl_frontend/src/features/spielbestaetigungen/components/views/SpielbestaetigungView.test.ts`,
+#   18 cases, 13.32-13.39 s; `fl_frontend/src/app/(public)/bestaetigung/spiel/page.test.ts`, 18
+#   cases, 9.59-9.63 s; `fl_frontend/src/app/bereich/admin/spiele/[spiel_id]/page.test.ts`, 8 cases,
+#   2.93-3.46 s; `fl_frontend/src/app/bereich/areaFrames.test.ts`, 16 cases, 2.94-3.37 s; and twelve
+#   more under 2 s each, 12.1 s together at their medians:
+#   `fl_frontend/src/features/spiele/components/ui/SpielStatusChip.test.ts` 1.91-1.92 s,
+#   `fl_frontend/src/features/spiele/components/collections/RecentAndUpcomingSpieleGrid.test.ts`
+#   1.84-1.96 s, `fl_frontend/src/proxyCookie.test.ts` 1.59-1.60 s,
+#   `fl_frontend/src/app/api/bestaetigung/spiel/route.test.ts` 1.53-1.61 s,
+#   `fl_frontend/src/features/system/components/ui/ServerIsLive.test.ts` 1.31-1.36 s,
+#   `fl_frontend/src/features/meta/components/views/AboutView.test.ts` 1.19-1.29 s,
+#   `fl_frontend/src/features/spielbestaetigungen/sweep.test.ts` 0.85 s,
+#   `fl_frontend/src/features/admin/components/views/AdminSpielEditView.test.ts` 0.72 s,
+#   `fl_frontend/src/shared/utils/degradedRead.test.ts` 0.37-0.38 s,
+#   `fl_frontend/src/core/spielEmail.test.ts` 0.32-0.33 s,
+#   `fl_frontend/src/features/spielbestaetigungen/bestaetigungLink.test.ts` 0.31 s and
+#   `fl_frontend/src/features/spielbestaetigungen/utils.test.ts` 0.14-0.16 s
+#
+# On the runner, over the ten verify runs of the branch carrying them on 2026-10-20, 01:16-05:17 UTC,
+# each job's span read first log line to last over the attempts that passed: `backend` 65-104 s
+# against its 105 s budget, `db` 112-157 s against 160 s, and the four `frontend-units` shards
+# 127-190, 94-169, 109-176 and 107-154 s against 205 s. No row moves and none takes a stamp.
+#
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
 # reference was re-stamped from the one population it reads, keeps the base's where it re-stamped
