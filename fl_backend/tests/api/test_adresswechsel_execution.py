@@ -59,7 +59,7 @@ from app.core.adressanker import adressanker_id
 from app.core.collections import Collection
 from app.core.crud import ANCHOR_FIELD, patch_one_in_db
 from app.core.drosselung import build_counts_filter
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import ActorConfirmationRequiredException, DocumentNotFoundException, WriteRefusalException
 from app.core.journal import JOURNAL_TOKEN, parse_line
 from app.core.recording import Actor, PersonActor, actor_var
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
@@ -107,6 +107,7 @@ from .adresswechsel_harness import (
     everything,
     granted,
     owed,
+    person_check,
     read,
     refused_code,
     registration,
@@ -561,6 +562,40 @@ class TestTheStop:
 
         # The judgement names no address: the exception's filter reaches the log line.
         assert EMAIL not in on_a_person(mongo_replica_set_url, body)
+
+
+class TestAGrantHoldersOwnPressAsksAPasskey:
+    """The person's lane admits a sign-in by code, which a change handing a grant over must not be enough for (I790)."""
+
+    def test_a_start_by_code_is_refused_where_the_address_holds_a_grant_and_writes_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            with pytest.raises(ActorConfirmationRequiredException):
+                await start(database, client, refuse_unconfirmed=person_check(factor=None))
+            return await database[Collection.ADRESSWECHSEL].count_documents({})
+
+        assert on_a_person(mongo_replica_set_url, body) == 0
+
+    def test_a_start_by_code_goes_where_the_address_holds_no_grant(self, mongo_replica_set_url: str):
+        """The control: the code reached the address on file, the confirmation OWASP's process asks of it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            return await start(database, client, refuse_unconfirmed=person_check(factor=None))
+
+        assert on_a_person(mongo_replica_set_url, body).token is not None
+
+    def test_the_address_on_files_approval_by_code_is_refused_where_it_holds_a_grant(self, mongo_replica_set_url: str):
+        """Its press lets the link go that hands the grant over at the effect."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            started = await administrator_starts(database, client, grund=None, operator=OWNER)
+            with pytest.raises(ActorConfirmationRequiredException):
+                await approve_as_the_address(database, client, started.id, refuse_unconfirmed=person_check(factor=None))
+            approved = await approve_as_the_address(database, client, started.id)
+            return approved.token is not None
+
+        assert on_a_person(mongo_replica_set_url, body) is True
 
 
 class TestTheAddressOnFilesApproval:

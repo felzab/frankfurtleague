@@ -5,6 +5,7 @@ Each route is called as its handler, every collection it takes by its own name o
 what it changes: the address, the instant, the actor.
 """
 
+import dataclasses
 import inspect
 import time
 from collections.abc import Awaitable, Callable, Mapping
@@ -37,10 +38,13 @@ from app.api.adresswechsel.sweep_router import sweep_adresswechsel
 from app.api.konto.router import delete_adresswechsel as stop_on_the_account_page
 from app.api.konto.router import get_adresswechsel, post_adresswechsel, post_adresswechsel_freigabe
 from app.api.konto.schemas import FLKontoAdresswechselFreigabePayload, FLKontoAdresswechselPayload
+from app.core.actor_token import PASSKEY_FACTOR
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
+from app.core.security import StepUpCheck, get_person_confirmation_check
 from app.shared.schemas.bounds import ADRESSWECHSEL_WARTEZEIT_TAGE
 from tests import documents
+from tests.actor_tokens import verified_actor
 from tests.bans import ban_list
 from tests.config import ADMINISTRATORS, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
@@ -243,6 +247,13 @@ async def granted(database: AsyncDatabase, adresse: str = EMAIL, *, verwaltung: 
     return grant_id
 
 
+def person_check(*, factor: str | None) -> StepUpCheck:
+    """The person's step-up check over a sign-in a minute old, by passkey or, with `factor` None, by code."""
+
+    actor = dataclasses.replace(verified_actor(EMAIL), lane="person", amr=() if factor is None else (factor,))
+    return get_person_confirmation_check(actor)
+
+
 def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> Awaitable[Any]:
     """The handler with every collection it names taken off `database` by its parameter's spelling, and the rest defaulted.
 
@@ -271,6 +282,8 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
             supplied[name] = int(time.time()) - 60
         elif name == "identifier":
             supplied[name] = EMAIL
+        elif name == "refuse_unconfirmed":
+            supplied[name] = person_check(factor=PASSKEY_FACTOR)
 
     return handler(**supplied)
 

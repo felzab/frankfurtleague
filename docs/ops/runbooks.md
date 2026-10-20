@@ -694,8 +694,9 @@ seat, registration and grant the address holds, so one sign-in stays whole
 (`docs/backend/spec.md :: I793`).
 
 - **The person can still sign in.** Point them to their account page, `/bereich/konto`, „E-Mail-Adresse
-  ändern“. They confirm it is them by passkey or by a code to the address on file, type the new
-  address, and confirm it from its own mailbox within 24 hours; the address on file is told, with a
+  ändern“. They confirm it is them by passkey or by a code to the address on file, a holder of
+  access to the Verwaltung by passkey alone, type the new address, and confirm it from its own
+  mailbox within 24 hours; the address on file is told, with a
   link that stops the change (`docs/backend/spec.md :: I790`, `:: I796`). Never start a change for a
   person who can sign in: a request arriving by mail proves nothing about who sent it.
 - **They say they cannot sign in.** Ask the address on file first: start the change in the address

@@ -7,7 +7,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.adresswechsel.crud import end_the_change_in_session, ending_line, read_the_bestand, start_the_change_in_session
+from app.api.adresswechsel.crud import end_the_change_in_session, ending_line, live_grant_of, read_the_bestand, start_the_change_in_session
 from app.api.adresswechsel.schemas import FLAdresswechselGenehmigungStand
 from app.api.adresswechsel.services import (
     LIVE_TERMS,
@@ -80,7 +80,14 @@ from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_K
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.journal import Journal
 from app.core.recording import log_stamp
-from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin, verify_recent_person_confirmation
+from app.core.security import (
+    PERSON_ACTOR_BINDERS,
+    KontaktIdentifier,
+    StepUpCheck,
+    get_person_confirmation_check,
+    verify_access_admin,
+    verify_recent_person_confirmation,
+)
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 
@@ -282,6 +289,7 @@ async def post_adresswechsel(
     adressanker_collection: AdressankerCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
+    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_person_confirmation_check)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLKontoAdresswechselMintResponse:
     """
@@ -294,7 +302,8 @@ async def post_adresswechsel(
     a sign-in at the address on file proves the mailbox is not lost. **Nothing about the new address is judged here** --
     the ban list, another pupil, a grant it holds -- so this start answers alike whatever the new address holds.
 
-    Refused `REQ-AUTH-009` from a sign-in or confirmation, passkey or code, older than `ENROLMENT_WINDOW_MINUTES`;
+    Refused `REQ-AUTH-009` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
+    address holds a grant;
     `REQ-ADRESSWECHSEL-010` where the address holds nothing a change moves; `-007` where the typed address is the one
     signed in; `-011` where nobody could approve the grant's move, the last owner making another first; and
     `REQ-DROSSELUNG-001` past the day's count of starts and approvals.
@@ -314,6 +323,8 @@ async def post_adresswechsel(
         genehmiger: list[str] = []
         genehmigung = None
         if bestand.berechtigung is not None:
+            # The change hands the grant over, so it asks the passkey a revoke does: this lane admits a sign-in by code.
+            refuse_unconfirmed()
             grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
             announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
             gesperrt = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in lebendige(grants)], session=session)
@@ -372,7 +383,9 @@ async def post_adresswechsel_freigabe(
     identifier: KontaktIdentifier,
     freigabe_data: Annotated[FLKontoAdresswechselFreigabePayload, Body()],
     adresswechsel_collection: AdresswechselCollection,
+    berechtigungen_collection: BerechtigungenCollection,
     db: DBClient,
+    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_person_confirmation_check)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLKontoAdresswechselFreigabeResponse:
     """
@@ -401,6 +414,9 @@ async def post_adresswechsel_freigabe(
             # The judgement names no address: the exception's filter reaches the log line.
             raise DocumentNotFoundException(filter={"_id": adresswechsel_id, **build_awaiting_approval_terms()}, error_code=DOCUMENT_NOT_FOUND)
         refuse(find_abgelaufen_refusal(abgelaufen=ist_abgelaufen(record, now=germany_now)))
+        # As the start: the press lets a link go that hands over any grant the address holds at the effect.
+        if await live_grant_of(identifier, berechtigungen_collection=berechtigungen_collection, session=session) is not None:
+            refuse_unconfirmed()
 
         return await patch_one_in_db(
             collection=adresswechsel_collection,
