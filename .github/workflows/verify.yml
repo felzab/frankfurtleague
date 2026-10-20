@@ -164,24 +164,70 @@ jobs:
       # prettier and its plugins are dependencies of fl_frontend, so the check needs that install
       # even though what it reads is mostly outside it.
       - uses: ./.github/actions/frontend-toolchain
+      # Prettier keys a verdict on its own version, Node's and the options, never on a plugin's code
+      # (`docs/ops/spec.md` §1.6), so this names every installed package a check loads, with all
+      # each depends on.
+
+      # Read from the install, so it cannot disagree with the lockfile, and a dependency none of
+      # them loads leaves the cache warm.
+      - id: prettier-packages
+        name: Name the installed packages a prettier verdict depends on
+        working-directory: fl_frontend
+        run: |
+          node --input-type=module - >> "$GITHUB_OUTPUT" <<'JS'
+          import { createHash } from "node:crypto";
+          import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
+          import path from "node:path";
+
+          const config = JSON.parse(readFileSync("../.prettierrc.json", "utf8"));
+          const roots = new Set(["prettier", config.tailwindPackageName ?? "tailwindcss", ...(config.plugins ?? [])]);
+          for (const sheet of readdirSync("src", { recursive: true }).filter((name) => name.endsWith(".css"))) {
+            for (const [, id] of readFileSync(path.join("src", sheet), "utf8").matchAll(/@(?:import|plugin|config|reference)\s+["']([^"'./][^"']*)["']/g)) {
+              roots.add(id.split("/").slice(0, id.startsWith("@") ? 2 : 1).join("/"));
+            }
+          }
+          const find = (from, name) => {
+            for (let dir = from; ; dir = path.dirname(dir)) {
+              if (existsSync(path.join(dir, "node_modules", name, "package.json"))) return realpathSync(path.join(dir, "node_modules", name));
+              if (path.dirname(dir) === dir) return null;
+            }
+          };
+          const seen = new Map();
+          const visit = (dir) => {
+            if (seen.has(dir)) return;
+            const manifest = JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8"));
+            seen.set(dir, `${manifest.name}@${manifest.version}`);
+            for (const [fields, required] of [[["dependencies"], true], [["optionalDependencies", "peerDependencies", "peerDependenciesMeta"], false]]) {
+              for (const name of new Set(fields.flatMap((field) => Object.keys(manifest[field] ?? {})))) {
+                const found = find(dir, name);
+                if (found) visit(found);
+                else if (required) throw new Error(`${manifest.name} depends on ${name}, which is not installed`);
+              }
+            }
+          };
+          for (const root of roots) {
+            const found = find(process.cwd(), root);
+            if (!found) throw new Error(`${root} is not installed`);
+            visit(found);
+          }
+          const listed = [...new Set(seen.values())].sort().join("\n");
+          console.error(listed);
+          console.log(`key=${createHash("sha256").update(listed).digest("hex")}`);
+          JS
       # Restored after the toolchain, so its install never meets the restored directory.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # Prettier's default `--cache-location` (https://prettier.io/docs/cli), which
           # `fl_frontend/package.json :: "format:check"` leaves in place.
           path: fl_frontend/node_modules/.cache/prettier
-          # Prettier keys a verdict on its own version, Node's and the options, never on a plugin's
-          # code, so the lockfile is in the key and the prefix alike: no runner reads a verdict
-          # another lockfile's plugins wrote (`docs/ops/spec.md` §1.6).
-
           # `.prettierrc.json :: "tailwindStylesheet"` is a path, keyed by its name alone, so every
           # stylesheet under `fl_frontend/src` joins the key and the prefix: the one it names imports a
           # season scheme, and either can move a class's sort order.
-          key: prettier-${{ runner.os }}-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ hashFiles('fl_frontend/src/**/*.css') }}-${{ github.sha }}
-          # The newest verdicts under this lockfile and these stylesheets; the commit in the key makes
+          key: prettier-${{ runner.os }}-${{ steps.prettier-packages.outputs.key }}-${{ hashFiles('fl_frontend/src/**/*.css') }}-${{ github.sha }}
+          # The newest verdicts under these packages and these stylesheets; the commit in the key makes
           # each new tree save its own, where a key without it would freeze the first run's.
           restore-keys: |
-            prettier-${{ runner.os }}-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ hashFiles('fl_frontend/src/**/*.css') }}-
+            prettier-${{ runner.os }}-${{ steps.prettier-packages.outputs.key }}-${{ hashFiles('fl_frontend/src/**/*.css') }}-
       - name: Run the format scope
         run: ./scripts/gate/verify.sh --format
 

@@ -590,16 +590,17 @@
 # 2026-09-27 on a sixteen-core Windows machine carrying a fleet of agent sessions, so an upper bound
 # on a runner's cost. The budget does not move and takes no new stamp.
 #
-# `format` restores prettier's cache on a runner, under a key carrying the lockfile, every frontend
-# stylesheet and the commit (`.github/workflows/verify.yml`, the format job). The scope took 21 s
-# from an empty cache against 9.1-9.3 s warm, and prettier alone 18.2-19.1 s against 6.4-6.6 s; a
-# warm check with 50 source files changed took 6.9-7.1 s, and with 400 changed 10.9-11.1 s. Three to
-# five interleaved rounds each, measured locally on 2026-09-26 on a sixteen-core Windows machine
-# running nothing else. A runner still starts cold wherever the lockfile or a stylesheet moves and on
-# a key's first run, so the budget is the cold job's, cut from the widest cold run on record rather
-# than from the stamped runs alone: of the main runs its stamp counts, the first found no cache and
-# spanned 50 s against 27 s for the two that restored one, and six uncached pull-request runs to
-# 2026-09-26 spanned 41-56 s, which the rule above makes 70 s.
+# `format` restores prettier's cache on a runner, under a key carrying the installed version of
+# every package a check loads, every frontend stylesheet and the commit
+# (`.github/workflows/verify.yml`, the format job). The scope took 21 s from an empty cache against
+# 9.1-9.3 s warm, and prettier alone 18.2-19.1 s against 6.4-6.6 s; a warm check with 50 source
+# files changed took 6.9-7.1 s, and with 400 changed 10.9-11.1 s. Three to five interleaved rounds
+# each, measured locally on 2026-09-26 on a sixteen-core Windows machine running nothing else. A
+# runner still starts cold wherever one of those packages or a stylesheet moves and on a key's first
+# run, so the budget is the cold job's, cut from the widest cold run on record rather than from the
+# stamped runs alone: of the main runs its stamp counts, the first found no cache and spanned 50 s
+# against 27 s for the two that restored one, and six uncached pull-request runs to 2026-09-26
+# spanned 41-56 s, which the rule above makes 70 s.
 #
 # `frontend-units`, `db`, `backend` and `scripts` gained the refusal of a test file that runs no
 # case, each figure measured locally on 2026-10-02 on a sixteen-core Windows machine carrying a fleet
