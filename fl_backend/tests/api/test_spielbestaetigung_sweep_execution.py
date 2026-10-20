@@ -2372,4 +2372,10 @@ class TestACalledOffFixtureTellsEveryPartyItAsked:
 
         second = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
 
-        assert (second.geschlossen, second.spiel_abgesagt, second.schiedsrichter_spiel_abgesagt) == (3, [], [])
+        # None owed rather than owed and given up: a notice given up is a warning sending the administrator to tell by hand.
+        assert (second.geschlossen, second.spiel_abgesagt, second.schiedsrichter_spiel_abgesagt, second.mitteilungen_aufgegeben) == (
+            3,
+            [],
+            [],
+            0,
+        )
