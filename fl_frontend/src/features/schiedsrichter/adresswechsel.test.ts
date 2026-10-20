@@ -66,7 +66,6 @@ const stored = () => ({
   geburtsdatum: "1990-01-01",
   einwilligung: {
     umfang: "intern",
-    erteilt_von: null,
     datum: "2026-09-01",
     bestaetigt_am: "2026-09-01",
     text_version: "2026-09-schiedsrichterseite-3",

@@ -420,12 +420,6 @@ describe("an application holding a seat no message reaches", () => {
     }
   });
 
-  /* An application stored before this block shipped carries no `bestaetigungen` at all, and reading
-     that as an unreachable seat would mark every one of them. */
-  it("is not marked on an application from before the confirmation workflow", () => {
-    assert.equal(hatUnerreichbarenSitz({ bestaetigungen: null }), false);
-  });
-
   /* `danger` where the duplicate mark is `warning`: a colliding pair is waited out and an address
      refused for good is not. Never grey (`fl_frontend/src/shared/components/ui/badges.ts :: PillTone`). */
   it("is marked in the queue's own words, at a tone a reader can act on", () => {

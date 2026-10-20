@@ -123,15 +123,10 @@ BESTAETIGUNGEN = compose_bestaetigungen(
 class TestEverySeatIsConfirmedBeforeAcceptance:
     """`REQ-BEWERBUNG-013`: the block copied into the junction row must carry every person's own date and stamp."""
 
-    def test_an_application_stored_before_the_flow_is_not_held_to_it(self):
-        """The carve-out: without it every application in the queue becomes unacceptable in the deploy that ships this."""
-
-        assert find_unconfirmed_kontakte_refusal(kontakte=seats(), bestaetigungen=None) is None
-
     def test_every_seat_confirmed_passes(self):
         stamped = seats(trainer="2026-03-21", ansprechperson="2026-03-22", stellvertretung="2026-03-23")
 
-        assert find_unconfirmed_kontakte_refusal(kontakte=stamped, bestaetigungen=BESTAETIGUNGEN) is None
+        assert find_unconfirmed_kontakte_refusal(kontakte=stamped) is None
 
     @pytest.mark.parametrize(
         ("kontakte", "outstanding"),
@@ -148,7 +143,7 @@ class TestEverySeatIsConfirmedBeforeAcceptance:
     def test_a_seat_without_its_persons_stamp_refuses_and_is_named(self, kontakte: Mapping[str, Any], outstanding: str):
         """Named, so the administrator knows whom to wait for or re-send to."""
 
-        refusal = find_unconfirmed_kontakte_refusal(kontakte=kontakte, bestaetigungen=BESTAETIGUNGEN)
+        refusal = find_unconfirmed_kontakte_refusal(kontakte=kontakte)
 
         assert refusal is not None
         assert refusal.error_code == BEWERBUNG_KONTAKTE_UNCONFIRMED
@@ -266,7 +261,6 @@ def erased_entries(seat: str) -> dict[str, Any]:
 NOT_STEPPED_OUT = [
     pytest.param(BESTAETIGUNGEN, id="a seat still waiting on its own answer"),
     pytest.param(erased_entries("ansprechperson"), id="a seat erased at its person's request"),
-    pytest.param(None, id="an application stored before the confirmation flow"),
 ]
 
 

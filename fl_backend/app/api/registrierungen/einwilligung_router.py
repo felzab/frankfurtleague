@@ -78,11 +78,10 @@ async def get_bestaetigung_ansicht(
     an address nobody has confirmed, which behind a typo is a stranger's.
 
     `bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded
-    address under its folded name who confirmed their own record. That page asks no choice, and asks no birthdate
-    where the person has one stored, which `geburtsdatum_gespeichert` says; nothing the person's record holds is
-    served, the holder of a mailed link not yet being known to be that person. Matched on the address alone, a
-    mailbox shared anyway would hand a sibling that person's page, so `geburtsdatum_gespeichert` is false on
-    `bestaetigung_spieler`, the new pupil's page.
+    address under its folded name who confirmed their own record. That page asks no choice and no birthdate, taking
+    the person's own; nothing the person's record holds is served, the holder of a mailed link not yet being known
+    to be that person. Matched on the address alone, a mailbox shared anyway would hand a sibling that person's
+    page, so the name narrows the match.
 
     A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
     registration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather
@@ -118,7 +117,6 @@ async def get_bestaetigung_ansicht(
         seite=seite,
         mindestalter=REGISTRIERUNG_MIN_ALTER_JAHRE,
         medien_mindestalter=MEDIEN_MIN_AGE_YEARS,
-        geburtsdatum_gespeichert=gespeichertes_geburtsdatum(seite=seite, person_raw=person) is not None,
     )
 
 

@@ -64,7 +64,6 @@ _SONDEREREIGNISSE = ["ausgefallen", "nichtantreten_team1", "nichtantreten_team2"
 _TIEBREAK_ORDER = ["tordifferenz", "direkter_vergleich"]
 _AUSTRITT_ARTEN = ["disqualifikation", "rueckzug"]
 _EINWILLIGUNG_UMFANG = ["kader_oeffentlich", "intern"]
-_EINWILLIGUNG_QUELLEN = ["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]
 _GRUPPEN = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]
 _QUELLE_TYPES = ["gruppe", "spiel"]
 _QUELLE_AUSGAENGE = ["sieger", "verlierer"]
@@ -100,7 +99,6 @@ _TRIKOT_FARBEN = [
 ]
 # The second member is the person's own tick on their confirmation page: no payload offers it.
 _KONTAKT_KENNTNISNAHME_UMFANG = ["kontaktdaten", "kontaktdaten_whatsapp"]
-_KONTAKT_KENNTNISNAHME_QUELLEN = ["person", "administrativ"]
 # Mirrors `app/api/teams/schemas.py :: FLKontaktEingetragenVon`.
 _KONTAKT_EINGETRAGEN_VON = ["bewerbung", "liga"]
 _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
@@ -234,35 +232,34 @@ _NACHWEIS_WAHL = _object(
 _NACHWEIS = _object(required=(), properties={"umfang": _NACHWEIS_WAHL, "medien": _NACHWEIS_WAHL})
 
 
-# Required TOGETHER: the required keys are always present, and a null `bestaetigt_am` is what says
-# the consent is UNCONFIRMED rather than absent. Spread into the registration's own below, so
-# widening `umfang` here widens it on all three collections.
+# Required TOGETHER: a record is born whole of its person's own confirmation, so a key missing is a
+# record nobody gave. Spread into the registration's own below, so widening `umfang` here widens it
+# on all three collections.
 _EINWILLIGUNG = _object(
-    required=("umfang", "datum", "bestaetigt_am"),
+    required=("umfang", "datum", "bestaetigt_am", "text_version", "medien", "nachweis"),
     properties={
         "umfang": {"bsonType": "string", "enum": _EINWILLIGUNG_UMFANG},
-        # Out of `required` and still closed: stored records carry it, and no write sets it.
-        "erteilt_von": {"bsonType": _STRING_OR_NULL, "enum": [*_EINWILLIGUNG_QUELLEN, None]},
-        "datum": {"bsonType": _STRING_OR_NULL},
+        "datum": {"bsonType": "string"},
+        # Null for the read model's reason: no writer stores one.
         "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
-        # Both out of `required` for `saisons.spielplan`'s reason: every stored consent record
-        # predates them. A media consent is a scope of its own and never an `_EINWILLIGUNG_UMFANG`
-        # member, so a record can be withdrawn from one and stand in the other.
-        "text_version": {"bsonType": _STRING_OR_NULL},
+        "text_version": {"bsonType": "string"},
+        # A media consent is a scope of its own and never an `_EINWILLIGUNG_UMFANG` member, so a
+        # record can be withdrawn from one and stand in the other.
         "medien": {"bsonType": "bool"},
         "nachweis": _NACHWEIS,
     },
 )
 
-# A pending registration's: `bestaetigt_am` alone required and both choices nullable, a returning
-# pupil's page asking none. Never a widened `_EINWILLIGUNG`, which a person's record would then
-# pass without a scope.
+# A pending registration's: its stamp and label alone required and both choices nullable, a
+# returning pupil's page asking none. Never a widened `_EINWILLIGUNG`, which a person's record would
+# then pass without a scope.
 _REGISTRIERUNG_EINWILLIGUNG = _object(
     nullable=True,
-    required=("bestaetigt_am",),
+    required=("bestaetigt_am", "text_version"),
     properties={
         **_EINWILLIGUNG["properties"],
         "umfang": {"bsonType": _STRING_OR_NULL, "enum": [*_EINWILLIGUNG_UMFANG, None]},
+        "datum": {"bsonType": _STRING_OR_NULL},
         "medien": {"bsonType": ["bool", "null"]},
     },
 )
@@ -270,20 +267,14 @@ _REGISTRIERUNG_EINWILLIGUNG = _object(
 # A CONTACT person's record, and never `_EINWILLIGUNG` above: that one records what may be
 # published about a pupil, and one shared sub-schema would let either enum widen the other.
 _KONTAKT_KENNTNISNAHME = _object(
-    required=("umfang", "text_version", "datum"),
+    required=("umfang", "text_version", "datum", "bestaetigt_am", "medien", "eingetragen_von"),
     properties={
         "umfang": {"bsonType": "string", "enum": _KONTAKT_KENNTNISNAHME_UMFANG},
-        # For `_EINWILLIGUNG`'s `erteilt_von`'s reason.
-        "erfasst_von": {"bsonType": _STRING_OR_NULL, "enum": [*_KONTAKT_KENNTNISNAHME_QUELLEN, None]},
         "text_version": {"bsonType": "string"},
         "datum": {"bsonType": "string"},
-        # Out of `required` for `wunschgegner`'s reason: every record stored before the field lacks
-        # the key, and a decision re-validates the whole document.
         "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
-        # Out of `required` for `bestaetigt_am`'s reason.
         "medien": {"bsonType": "bool"},
-        # Out of `required` for `bestaetigt_am`'s reason, and null only as the read model spells an absent key.
-        "eingetragen_von": {"bsonType": _STRING_OR_NULL, "enum": [*_KONTAKT_EINGETRAGEN_VON, None]},
+        "eingetragen_von": {"bsonType": "string", "enum": _KONTAKT_EINGETRAGEN_VON},
         "nachweis": _NACHWEIS,
     },
 )
@@ -291,14 +282,14 @@ _KONTAKT_KENNTNISNAHME = _object(
 # Required TOGETHER, as `_EINWILLIGUNG` is: a person the league cannot reach is not a contact, and a
 # set of details carrying no record is one nobody was told the league holds.
 _KONTAKTPERSON = _object(
-    required=("vorname", "nachname", "email", "telefon", "einwilligung"),
+    required=("vorname", "nachname", "email", "telefon", "geburtsdatum", "einwilligung"),
     properties={
         "vorname": {"bsonType": "string"},
         "nachname": {"bsonType": "string"},
         "email": {"bsonType": "string"},
         "telefon": {"bsonType": "string"},
-        # Nullable and out of `required`: the date arrives with the confirmation, and "required once
-        # confirmed" is no type or enum (`docs/backend/spec.md :: I141`), so nothing here says it.
+        # Nullable: the date arrives with the confirmation, and "non-null once confirmed" is no type or
+        # enum (`docs/backend/spec.md :: I141`), so nothing here says it.
         "geburtsdatum": {"bsonType": _STRING_OR_NULL},
         "einwilligung": _KONTAKT_KENNTNISNAHME,
     },
@@ -371,7 +362,6 @@ _BEWERBUNG_BESTAETIGUNG = _object(
 # The block mirrors `kontakte`'s three slots and stays OUTSIDE it: acceptance copies `kontakte`
 # whole into `saison_teams`, and a hash inside a slot would live there for a season.
 _BEWERBUNG_BESTAETIGUNGEN = _object(
-    nullable=True,
     required=("trainer", "ansprechperson", "stellvertretung"),
     properties={
         "trainer": _BEWERBUNG_BESTAETIGUNG,
@@ -856,7 +846,7 @@ _SPIELBERICHT_BERICHT = _object(
 COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
     Collection.SAISONS: {
         "$jsonSchema": _object(
-            required=("_id", "start_date", "end_date", "status", "rules"),
+            required=("_id", "start_date", "end_date", "status", "rules", "bewerbung", "registrierung"),
             properties={
                 "_id": {"bsonType": "string"},
                 "start_date": {"bsonType": "string"},
@@ -889,9 +879,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                         "erlaubte_stufen": {"bsonType": "array", "items": {"bsonType": "string", "enum": _STUFEN}},
                     },
                 ),
-                # Deliberately out of `required`: every stored season predates the field, so making
-                # the key mandatory would refuse every one of them and owe a backfill. A missing key
-                # and a stored null both read as never generated.
+                # Deliberately out of `required`: the season's creation writes none, the generator
+                # being what writes it. A missing key and a stored null both read as never generated.
                 "spielplan": _object(
                     nullable=True,
                     required=("generiert_am", "spieltage", "spiele"),
@@ -901,11 +890,11 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                         "spiele": {"bsonType": "int"},
                     },
                 ),
-                # Nullable and out of `required` as `spielplan` is, and for its reason. Both halves
-                # together: a switch with no span cannot say when the window closes, and a span with
-                # no switch cannot be shut early.
+                # Nullable, a season taking no applications holding none. Both halves together: a
+                # switch with no span cannot say when the window closes, and a span with no switch
+                # cannot be shut early.
                 "bewerbung": _SAISON_BEWERBUNG,
-                # Out of `required` on the same terms as the window above it.
+                # On the same terms as the window above it.
                 "registrierung": _SAISON_REGISTRIERUNG,
                 # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
                 # null both read as a database no retention pass has ever run against.
@@ -921,7 +910,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
     },
     Collection.TEAMS: {
         "$jsonSchema": _object(
-            required=("_id", "name", "shorthand", "description", "full_name", "website_url", "address", "inactive_since"),
+            required=("_id", "name", "shorthand", "description", "full_name", "website_url", "address", "schulform", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "name": {"bsonType": "string"},
@@ -930,8 +919,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "full_name": {"bsonType": "string"},
                 "website_url": {"bsonType": _STRING_OR_NULL},
                 "address": _ADDRESS,
-                # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
-                # null both read as a school form nobody has recorded.
+                # A stored null reads as a school form nobody has recorded.
                 "schulform": {"bsonType": _STRING_OR_NULL, "enum": [*_SCHULFORMEN, None]},
                 # A retired CLUB, not a club out of one season. `uniq_shorthand` keeps indexing it,
                 # so its two letters stay reserved.
@@ -944,17 +932,17 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             # Transcribed from the documents: this junction has no Pydantic model of the ROW. A club
             # leaves by an `austritt` or by a replacement repointing the row, never by retiring it, so
             # there is no `inactive_since` here (`docs/backend/spec.md :: I19`).
-            required=("_id", "saison_id", "team_id", "gruppe", "austritt", "name", "shorthand"),
+            required=("_id", "saison_id", "team_id", "gruppe", "austritt", "trikot_farbe", "kontakte", "name", "shorthand"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "saison_id": {"bsonType": "string"},
                 "team_id": {"bsonType": "objectId"},
                 "gruppe": {"bsonType": "string", "enum": _GRUPPEN},
                 "austritt": _AUSTRITT,
-                # Both out of `required` for `saisons.spielplan`'s reason.
+                # Both written by the entry, null until a club is given its kit or its people.
                 "trikot_farbe": {"bsonType": _STRING_OR_NULL, "enum": [*_TRIKOT_FARBEN, None]},
                 "kontakte": _SAISON_TEAM_KONTAKTE,
-                # Out of `required` for `saisons.spielplan`'s reason: no row carried links before them.
+                # Out of `required`: the entry writes none, the first save minting a link writes it.
                 "bestaetigungen": _SAISON_TEAM_BESTAETIGUNGEN,
                 # The name this club was PLAYED under, seeded at entry and rewritten by a rename only
                 # while the season is not `past` (`docs/backend/spec.md :: I13`). What makes the copy
@@ -966,19 +954,18 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
     },
     Collection.SPIELER: {
         "$jsonSchema": _object(
-            required=("_id", "vorname", "nachname", "einwilligung", "inactive_since"),
+            required=("_id", "vorname", "nachname", "einwilligung", "geburtsdatum", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
-                # This and `einwilligung` nullable for the erased pupils' sentinel
+                # This, `einwilligung` and `geburtsdatum` nullable for the erased pupils' sentinel
                 # (`app/core/sentinels.py :: GHOST_SPIELER_ID`), never an `anyOf` on its id, which is no
                 # type or enum; a person is held to both where written
                 # (`app/api/registrierungen/services.py :: compose_person`).
                 "vorname": {"bsonType": _STRING_OR_NULL},
                 "nachname": {"bsonType": _STRING_OR_NULL},
-                # Out of `required` for `saisons.spielplan`'s reason.
                 "geburtsdatum": {"bsonType": _STRING_OR_NULL},
                 "einwilligung": {**_EINWILLIGUNG, "bsonType": ["object", "null"]},
-                # Out of `required` for `saisons.spielplan`'s reason. Stored as
+                # Out of `required`: the sentinel carries none. Stored as
                 # `app/shared/folding.py :: sign_in_identifier` folds it, which is the form the
                 # sign-in seam's equality compares against.
                 "email": {"bsonType": _STRING_OR_NULL},
@@ -1001,18 +988,16 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "position",
                 "nummer",
                 "inactive_since",
+                "ist_nachnominiert",
+                "rolle",
             ),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "spieler_id": {"bsonType": "objectId"},
                 "saison_id": {"bsonType": "string"},
                 "team_id": {"bsonType": "objectId"},
-                # Out of `required` while rows written under the marker's old spelling survive
-                # (`docs/backend/spec.md :: I302`): a retire or a reactivate `$set`s
-                # `inactive_since` alone, so requiring it would refuse one on such a row.
                 "ist_nachnominiert": {"bsonType": "bool"},
-                # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
-                # null both read as holding no role.
+                # A null holds no role.
                 "rolle": {"bsonType": _STRING_OR_NULL, "enum": [*_SPIELER_ROLLEN, None]},
                 "stufe": {"bsonType": _STRING_OR_NULL, "enum": [*_STUFEN, None]},
                 "position": {"bsonType": _STRING_OR_NULL, "enum": [*_POSITIONEN, None]},
@@ -1147,7 +1132,11 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "kontakte",
                 "trikot",
                 "kader",
+                "stufengroesse",
+                "wunschgegner",
                 "entscheidung",
+                "bestaetigungsfrist",
+                "bestaetigungen",
             ),
             properties={
                 "_id": {"bsonType": "objectId"},
@@ -1160,20 +1149,18 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "kontakte": _BEWERBUNG_KONTAKTE,
                 "trikot": _BEWERBUNG_TRIKOT,
                 "kader": _BEWERBUNG_KADER,
-                # How many pupils the school's whole Abi-Jahrgang holds. Out of `required` for
-                # `wunschgegner`'s reason.
-                "stufengroesse": {"bsonType": _INT_OR_NULL},
-                # Free text, a school being free to name an opponent that has not applied. Out of
-                # `required` for `saisons.spielplan`'s reason.
+                # How many pupils the school's whole Abi-Jahrgang holds.
+                "stufengroesse": {"bsonType": "int"},
+                # Free text, a school being free to name an opponent that has not applied, and null
+                # where it names none.
                 "wunschgegner": {"bsonType": _STRING_OR_NULL},
                 "entscheidung": _BEWERBUNG_ENTSCHEIDUNG,
-                # Both out of `required` for `wunschgegner`'s reason. An application with no
-                # `bestaetigungen` block is one the confirmation flow does not apply to.
-                "bestaetigungsfrist": {"bsonType": _STRING_OR_NULL},
+                # Both written by the submission, which mints every seat's link.
+                "bestaetigungsfrist": {"bsonType": "string"},
                 "bestaetigungen": _BEWERBUNG_BESTAETIGUNGEN,
                 # The day the deletion notice was settled -- delivered, or the seat that would read
                 # it emptied. The erasure's second condition: without it a failed erasure mails
-                # again every hour. Out of `required` for `wunschgegner`'s reason.
+                # again every hour. Out of `required`: only the sweep writes it.
                 "loeschung_angekuendigt_am": {"bsonType": _STRING_OR_NULL},
                 **_IDEMPOTENZ_PROPERTIES,
             },
@@ -2092,19 +2079,22 @@ async def report_relations(db: AsyncDatabase) -> list[RelationReport]:
 
 
 # The rule the `spieler` validator cannot state, its two nullable keys being the sentinel's alone.
-NAMELESS_PERSON_RULE = "a person is named and holds a consent record (spieler)"
+NAMELESS_PERSON_RULE = "a person is named, dated and holds a consent record (spieler)"
 
 
 async def report_nameless_persons(db: AsyncDatabase) -> RelationReport:
-    """Count the persons with a null forename or a null consent record, writing nothing.
+    """Count the persons with a null forename, birthdate or consent record, writing nothing.
 
-    The first 500s the admin's membership list and the team's squad, every served model requiring a
-    forename; the admission refuses to admit into the second.
+    A null forename or birthdate 500s the admin's membership list, the forename the team's squad too;
+    the admission refuses to admit into a null record.
     """
 
     # By its id, as every read excludes the sentinel, and by `$type` rather than null, so a missing key
     # stays the validator report's alone.
-    nameless = {"_id": {"$ne": GHOST_SPIELER_ID}, "$or": [{"vorname": {"$type": "null"}}, {"einwilligung": {"$type": "null"}}]}
+    nameless = {
+        "_id": {"$ne": GHOST_SPIELER_ID},
+        "$or": [{"vorname": {"$type": "null"}}, {"geburtsdatum": {"$type": "null"}}, {"einwilligung": {"$type": "null"}}],
+    }
     collection = db[Collection.SPIELER]
 
     return RelationReport(
@@ -2161,7 +2151,7 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
     },
     Collection.BEWERBUNGEN: {
         "eingereicht_am": _DAY,
-        "bestaetigungsfrist": _OPTIONAL_DAY,
+        "bestaetigungsfrist": _DAY,
         "schule.team_name": _NON_EMPTY,
         "schule.full_name": _NON_EMPTY,
         "schule.shorthand": _SHORTHAND,
@@ -2275,7 +2265,7 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "bestaetigung.verschickt_am": _DAY,
         "bestaetigung.erinnert_am": _OPTIONAL_DAY,
         "bestaetigung.frist": _DAY,
-        "einwilligung.datum": _OPTIONAL_DAY,
+        "einwilligung.datum": _DAY,
         "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
         "adresswechsel.verschickt_am": _DAY,
     },
@@ -2333,7 +2323,7 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "bericht.bemerkungen": _NON_EMPTY_OR_NULL,
     },
     Collection.SPIELER: {
-        "einwilligung.datum": _OPTIONAL_DAY,
+        "einwilligung.datum": _DAY,
         "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
         # Null is the sentinel's, and `NAMELESS_PERSON_RULE`'s anywhere else.
         "vorname": _NON_EMPTY_OR_NULL,

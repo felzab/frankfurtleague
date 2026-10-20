@@ -43,11 +43,11 @@ function row(id: string, inSelectedSaison: boolean, status: FLBewerbungStatus = 
     kontakte: { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null },
     trikot: { vorhandener_satz: "", wunschfarbe: null },
     kader: { voraussichtliche_groesse: 14, gute_spieler: 3 },
-    stufengroesse: null,
+    stufengroesse: 96,
     wunschgegner: null,
     entscheidung: null,
-    bestaetigungen: null,
-    bestaetigungsfrist: null,
+    bestaetigungen: { trainer: null, ansprechperson: null, stellvertretung: null },
+    bestaetigungsfrist: "2026-05-15",
     teamName: null,
     inSelectedSaison,
   };
@@ -423,7 +423,7 @@ const SEAT_ROWS = KONTAKT_ROLLEN.map(({ value }, index): AdminBewerbungRow => {
     email,
     telefon: "069 1234567",
     geburtsdatum: null,
-    einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: null }),
+    einwilligung: kenntnisnahme({ text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: null }),
   };
 
   return {

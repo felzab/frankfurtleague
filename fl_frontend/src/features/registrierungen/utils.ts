@@ -192,9 +192,8 @@ export async function mapBestaetigungRefusal(
     // backend's sends this, which a reopened link would offer again: switching it off is the repair.
     case "REQ-REGISTRIERUNG-010":
       return { error: medienNochNicht((await ansicht())?.medien_mindestalter ?? null) };
-    // Answers the page did not ask: a page whose person's stored birthdate was set or cleared since it
-    // opened, or a drifted client, the label check refusing a mismatched page first. The mail's link
-    // reopens it.
+    // Answers the page did not ask: a drifted client, the label check refusing a page whose person
+    // changed since it opened first. The mail's link reopens it.
     case "REQ-REGISTRIERUNG-017":
       return { error: ANTWORT_NEU_OEFFNEN };
     // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
@@ -216,7 +215,7 @@ export async function mapBestaetigungRefusal(
     // The one refusal that spends no token, so a typed date's refusal lands on its field and the date survives it;
     // a `zustand` here would swap a live form for a dead-link panel.
     case "REQ-REGISTRIERUNG-007": {
-      // No date sent is the stored one judged: `REQ-REGISTRIERUNG-017` refuses a press sending none where none is stored.
+      // No date sent is the returning pupil's stored one judged: their page asks none (`REQ-REGISTRIERUNG-017`).
       if (gesendet.geburtsdatum === null) return { error: GESPEICHERTES_GEBURTSDATUM_AUSSERHALB };
 
       const floor = (await ansicht())?.mindestalter ?? null;

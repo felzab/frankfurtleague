@@ -73,21 +73,14 @@ export type FLEinwilligungStand = z.infer<typeof FLEinwilligungStandSchema>;
 export const FLEinwilligungStandPayloadSchema = FLEinwilligungStandSchema;
 export type FLEinwilligungStandPayload = z.infer<typeof FLEinwilligungStandPayloadSchema>;
 
-/**
- * Mirrors `FLEinwilligung` — what may be published about this person.
- *
- * `bestandsuebernahme` marks a backfilled record, which must stay distinguishable from consent
- * somebody actually gave. A null `bestaetigt_am` is UNCONFIRMED.
- */
+/** Mirrors `FLEinwilligung` — what may be published about this person. */
 export const FLEinwilligungSchema = z.object({
   umfang: z.enum(["kader_oeffentlich", "intern"]),
-  // Who answered, on a record stored before no write named one; null on every record since.
-  erteilt_von: z.enum(["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]).nullable(),
-  datum: CustomDateStringSchema.nullable(),
+  datum: CustomDateStringSchema,
+  // Null only where a hand edit blanked the stamp: every record is born confirmed.
   bestaetigt_am: CustomDateStringSchema.nullable(),
-  // A label of the backend's consent registry and never the words; null on every record stored
-  // before the registration flow stamped one.
-  text_version: z.string().nullable(),
+  // A label of the backend's consent registry and never the words.
+  text_version: z.string(),
   // A second consent under one record: `umfang` and this are independent answers, so a reader
   // deciding whether a photo may be published asks this one and never that one.
   medien: z.boolean(),
@@ -163,11 +156,9 @@ export const FLSpielerWithMembershipsSchema = z.object({
   nachname: z.string().nullable(),
   // The day the PERSON left the league; a squad row's own retirement is on the membership.
   inactive_since: CustomDateStringSchema.nullable(),
-  // Nullable for `einwilligung`'s reason below, over a person stored before the field existed.
-  geburtsdatum: CustomDateStringSchema.nullable(),
-  // Nullable rather than optional, mirroring the backend default: a person stored before consent
-  // was collected has no record, and this tier is the only one that may read one.
-  einwilligung: FLEinwilligungSchema.nullable(),
+  geburtsdatum: CustomDateStringSchema,
+  // This tier is the only one that may read the record.
+  einwilligung: FLEinwilligungSchema,
   // The sign-in address, folded. No save carries it: it moves through its own link alone, so a field
   // bound to this key in the save's draft would offer a write the API refuses.
   email: z.string().nullable(),
@@ -195,9 +186,9 @@ export const FLPatchSpielerPayloadSchema = z.object({
   vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   // The form submits null for an empty box, never an empty string — a surname often arrives later.
   nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }).nullable(),
-  // Nullable, and the form states the null rather than omitting: no flow collects a pupil's own
-  // date yet (`fl_backend/app/core/domain.py :: UNENFORCED`).
-  geburtsdatum: CustomDateStringSchema.nullable(),
+  // Never null: a save clearing the date the person's registration carried would leave one whose age
+  // no page can read.
+  geburtsdatum: CustomDateStringSchema,
 });
 export type FLPatchSpielerPayload = z.infer<typeof FLPatchSpielerPayloadSchema>;
 
@@ -525,7 +516,7 @@ export const FLSpielerSelbstSchema = z.object({
   spieler_id: CustomObjectIdStringSchema,
   vorname: z.string().nonempty(),
   nachname: z.string().nullable(),
-  geburtsdatum: CustomDateStringSchema.nullable(),
+  geburtsdatum: CustomDateStringSchema,
   kader: z.array(FLSpielerSelbstKaderZeileSchema),
 });
 export type FLSpielerSelbst = z.infer<typeof FLSpielerSelbstSchema>;

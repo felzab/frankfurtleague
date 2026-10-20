@@ -105,12 +105,8 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
         nummer=document.get("nummer"),
         position=document.get("position"),
         stufe=document.get("stufe"),
-        # A fall-back rather than a subscript, here and on `rolle`: a row missing the key would
-        # KeyError on a request that changed nothing. The old spelling is read while rows written
-        # under it survive (`docs/backend/spec.md :: I302`).
-        ist_nachnominiert=document.get("ist_nachnominiert", document.get("is_nachgetragen", False)),
-        # `rolle` is on no stored row that predates it, and `python -m app.core.constraints --check` finds one.
-        rolle=document.get("rolle"),
+        ist_nachnominiert=document["ist_nachnominiert"],
+        rolle=document["rolle"],
         inactive_since=document.get("inactive_since"),
     )
 
@@ -766,7 +762,6 @@ async def reactivate_saison_spieler(
             session=session,
         )
 
-        # `.get`, not a subscript: a row stored before the field existed carries no key at all.
         await refuse_a_taken_rolle(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,

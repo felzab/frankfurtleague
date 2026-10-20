@@ -82,7 +82,8 @@ export type AustrittDraft = Omit<FLAustritt, "type"> & {
 
 /** One contact person mid-edit. Every other field is typed, so an unanswered one is the empty string. */
 export type KontaktpersonDraft = Omit<FLKontaktperson, "einwilligung"> & {
-  einwilligung: FLKontaktKenntnisnahme;
+  // Null on a seat the editor opened: the save that seats the person stamps who did.
+  einwilligung: Omit<FLKontaktKenntnisnahme, "eingetragen_von"> & { eingetragen_von: FLKontaktKenntnisnahme["eingetragen_von"] | null };
 };
 
 /**

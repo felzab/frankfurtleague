@@ -202,7 +202,7 @@ export function kontaktGeburtsdatumLeer(bestaetigtAm: string | null, ohneLabel =
 }
 
 type EingetragenVonOption = {
-  readonly value: NonNullable<FLKontaktKenntnisnahme["eingetragen_von"]>;
+  readonly value: FLKontaktKenntnisnahme["eingetragen_von"];
   readonly label: string;
 };
 

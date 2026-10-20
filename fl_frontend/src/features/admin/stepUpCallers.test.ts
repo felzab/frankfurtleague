@@ -147,7 +147,6 @@ type Drive = { render: () => ReactNode; reach?: (user: User) => Promise<void>; p
 const REFEREE_ID = "6890a1b2c3d4e5f607800001";
 const BESTAETIGT = {
   umfang: "kader_oeffentlich" as const,
-  erteilt_von: "volljaehrig" as const,
   datum: "2026-09-22",
   bestaetigt_am: "2026-09-22",
   text_version: "2026-09-schiedsrichterseite",
@@ -174,7 +173,6 @@ const seat = (vorname: string, email: string, bestaetigtAm: string | null = null
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
   einwilligung: kenntnisnahme({
-    erfasst_von: bestaetigtAm === null ? ("administrativ" as const) : ("person" as const),
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: bestaetigtAm,

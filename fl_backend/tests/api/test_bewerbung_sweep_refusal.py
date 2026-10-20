@@ -166,7 +166,6 @@ class TestTheReminderMark:
                 id="reminded once",
             ),
             pytest.param(kontakte(trainer=None), bestaetigungen(trainer=None), "erased", id="erased"),
-            pytest.param(kontakte(), None, "no bookkeeping", id="an application stored before the flow"),
         ],
     )
     def test_a_seat_that_has_spoken_been_reminded_or_been_emptied_is_not_reminded(self, kontakte_block: Any, bookkeeping: Any, why: str):

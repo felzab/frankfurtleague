@@ -112,12 +112,8 @@ export const KONTAKTE_FACETS: readonly Facet<AdminKontakteRow>[] = [
     label: "Eingetragen",
     options: EINGETRAGEN_VON_OPTIONS.map(({ value, label }) => ({ value, label })),
     /* Across all three seats, because the row is now the club: a club answers every herkunft one of
-       its people was seated by. Seats holding nobody, or seated before the field, answer with none. */
-    read: (row) => [
-      ...new Set(
-        row.seats.flatMap((seat) => (seat.person?.einwilligung.eingetragen_von == null ? [] : [seat.person.einwilligung.eingetragen_von])),
-      ),
-    ],
+       its people was seated by. Seats holding nobody answer with none. */
+    read: (row) => [...new Set(row.seats.flatMap((seat) => (seat.person === null ? [] : [seat.person.einwilligung.eingetragen_von])))],
   },
 ];
 

@@ -63,7 +63,6 @@ const person = (vorname: string, email: string, bestaetigtAm: string | null = nu
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
   einwilligung: kenntnisnahme({
-    erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: bestaetigtAm,

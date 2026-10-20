@@ -19,6 +19,7 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from tests import documents
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import bestaetigte_kenntnisnahme
 from tests.worker import worker_database
 
 SAISON_ID = "2026"
@@ -32,7 +33,7 @@ KONTAKTPERSON = {
     "email": "a.koerner@example.de",
     "telefon": "+49 170 1234567",
     "geburtsdatum": "1984-05-09",
-    "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"},
+    "einwilligung": bestaetigte_kenntnisnahme(),
 }
 
 

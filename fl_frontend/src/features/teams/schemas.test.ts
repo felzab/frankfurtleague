@@ -425,7 +425,6 @@ const SERVED_KENNTNISNAHME = {
   umfang: "kontaktdaten_whatsapp",
   text_version: "2026-10-bestaetigungsseite-verwaltung",
   datum: "2026-10-02",
-  erfasst_von: "person",
   bestaetigt_am: "2026-10-02",
   medien: true,
   eingetragen_von: "liga",

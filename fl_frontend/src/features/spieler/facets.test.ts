@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { applyFacets, offeredOptions, readFacetSelection } from "@/shared/utils/facets";
+import { applyFacets, readFacetSelection } from "@/shared/utils/facets";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import { orderStufen, STUFE_OPTIONS } from "./constants.ts";
@@ -111,26 +111,5 @@ describe("the late-entry marker among the role filter's values", () => {
 
     assert.deepEqual(selection.rolle, ["nachnominiert"], "the value the panel offers is not the one a filtered read carries");
     assert.deepEqual(applyFacets([NACHNOMINIERT, ON_AN_ALLOWED_STUFE], OFFERED, selection), [NACHNOMINIERT]);
-  });
-
-  /* The superseded value is in no saved link's control: a bookmark or a pasted URL still carries it,
-     and dropped it would answer the WHOLE list with no chip saying the filter went. */
-  it("answers a link naming the marker's earlier value with the same rows", () => {
-    const earlier = readFacetSelection(OFFERED, new URLSearchParams("rolle=nachgetragen"));
-    const current = readFacetSelection(OFFERED, new URLSearchParams("rolle=nachnominiert"));
-    const rows = [NACHNOMINIERT, ON_AN_ALLOWED_STUFE];
-
-    assert.deepEqual(earlier.rolle, ["nachgetragen"], "the earlier value is dropped from the selection, so the link narrows nothing");
-    assert.deepEqual(applyFacets(rows, OFFERED, earlier), applyFacets(rows, OFFERED, current));
-    assert.deepEqual(applyFacets(rows, OFFERED, earlier), [NACHNOMINIERT]);
-  });
-
-  /* Without this the value is selected and named by nothing: the chip reads bare and the panel
-     offers no row to press again (`fl_frontend/src/shared/utils/facets.ts :: offeredOptions`). */
-  it("keeps the earlier value labelled while it is picked, and offers it at no other time", () => {
-    const picked = offeredOptions(ROLLE_FACET!, ["nachgetragen"]).map((option) => option.value);
-
-    assert.ok(picked.includes("nachgetragen"), "a link's own value is selected with nothing naming it");
-    assert.ok(!offeredOptions(ROLLE_FACET!, []).some((option) => option.value === "nachgetragen"), "the panel offers a superseded value");
   });
 });

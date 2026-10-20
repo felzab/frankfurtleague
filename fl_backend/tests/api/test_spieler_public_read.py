@@ -31,7 +31,7 @@ from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
-from tests.documents import saison_spieler_document, spieler_document
+from tests.documents import eigene_einwilligung_document, saison_spieler_document, spieler_document
 from tests.openapi_document import build_document
 from tests.worker import worker_database
 
@@ -76,8 +76,10 @@ STORED_SURNAMES = ("Müller", "Adler", "Öztürk", "Weber")
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def _consent(umfang: str, *, bestaetigt_am: str | None = "2026-01-20", erteilt_von: str = "erziehungsberechtigt") -> dict[str, Any]:
-    return {"umfang": umfang, "erteilt_von": erteilt_von, "datum": "2026-01-15", "bestaetigt_am": bestaetigt_am}
+def _consent(umfang: str, **fields: Any) -> dict[str, Any]:
+    """A record its person confirmed under `umfang`, `fields` laid over it."""
+
+    return {**eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-01-20", umfang=umfang), **fields}
 
 
 def _spieler(key: str, vorname: str, nachname: str | None, *, inactive_since: str | None = None) -> dict[str, Any]:
@@ -715,12 +717,9 @@ class MaskedRow(NamedTuple):
 MASKED_SQUAD = {
     "Offen": MaskedRow(ObjectId("6890a1b2c3d4e5f607390031"), "Alina", "Falk", _consent("kader_oeffentlich"), "Alina", "F."),
     "Intern": MaskedRow(ObjectId("6890a1b2c3d4e5f607390032"), "Bruno", "Gerber", _consent("intern"), None, None),
+    # A record is born confirmed, so the unconfirmed one is a stamp a hand edit blanked.
     "Unbestaetigt": MaskedRow(
-        ObjectId("6890a1b2c3d4e5f607390033"), "Carla", "Hoffmann", _consent("kader_oeffentlich", bestaetigt_am=None), None, None
-    ),
-    # The carry-over population owner step 13 counts, pinned at the state that count expects to find.
-    "Uebernommen": MaskedRow(
-        ObjectId("6890a1b2c3d4e5f607390034"), "Dario", "Jansen", _consent("kader_oeffentlich", erteilt_von="bestandsuebernahme"), "Dario", "J."
+        ObjectId("6890a1b2c3d4e5f607390033"), "Carla", "Hoffmann", _consent("kader_oeffentlich", bestaetigt_am=""), None, None
     ),
     # A row whose name is not stored at all, under a record that DOES publish: an absent name is not
     # a consent decision, and the mask must not invent one either way.

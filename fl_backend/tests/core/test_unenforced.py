@@ -8,7 +8,6 @@ import pytest
 from bson import ObjectId
 
 from app.api.aktionen.schemas import FLAktion, FLAktionMitStand
-from app.api.registrierungen.schemas import FLRegistrierungBestaetigungPayload
 from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLSaison, FLSaisonRules
@@ -56,7 +55,6 @@ from app.api.spiele.services import (
     slots_booked_against,
 )
 from app.api.spieler.admin_router import delete_saison_spieler, delete_spieler
-from app.api.spieler.schemas import FLSpieler
 from app.api.spieler.services import find_squad_refusal, mark_shared_nummern
 from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn, patch_spieltag
 from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal, with_expected_matches
@@ -685,24 +683,8 @@ class TestAPersonWithNoSquadRow:
         }
 
 
-class TestAPupilStoredWithNoBirthdate:
-    """That the one write judging a date demands one, that a stored person needs no key, and that the league's age reaches no squad module."""
-
-    def test_the_write_that_judges_a_date_demands_one_while_the_person_does_not(self):
-        """The asymmetry this entry is about: a pupil cannot answer their confirmation dateless, and the person it becomes may carry none."""
-
-        assert FLRegistrierungBestaetigungPayload.model_fields["geburtsdatum"].is_required()
-        assert not FLSpieler.model_fields["geburtsdatum"].is_required()
-
-    def test_a_stored_person_carrying_no_key_still_validates(self):
-        schema = COLLECTION_VALIDATORS[Collection.SPIELER]["$jsonSchema"]
-
-        # The floor: this collection DOES require keys, so the absence below is the field going
-        # unrequired rather than a validator that asks nothing of anybody.
-        assert schema["required"]
-
-        assert "geburtsdatum" in schema["properties"]
-        assert "geburtsdatum" not in schema["required"]
+class TestAPupilsAgeNoSquadRuleJudges:
+    """That the league's age reaches no squad module: the floor is judged at the registration alone."""
 
     def test_the_leagues_age_reaches_no_squad_module(self):
         """Both thresholds are named constants, so where a module can read either is where an age can be judged."""

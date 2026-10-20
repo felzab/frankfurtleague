@@ -265,7 +265,5 @@ export const ZUSTELLUNG_QUEUE_TINT: PillTone = "danger";
  * administrator meets the fact where their eye already is, rather than on a page they never open.
  */
 export function hatUnerreichbarenSitz({ bestaetigungen }: Pick<FLBewerbung, "bestaetigungen">): boolean {
-  if (bestaetigungen === null) return false;
-
   return Object.values(bestaetigungen).some((verlauf) => istDauerhaftUnzustellbar(verlauf?.zustellung ?? null));
 }

@@ -13,7 +13,7 @@ const gespeichert = (vorname: string, email: string): FLKontaktperson => ({
   email,
   telefon: "069 501",
   geburtsdatum: null,
-  einwilligung: kenntnisnahme({ erfasst_von: "administrativ", text_version: "1", datum: "2026-10-03", bestaetigt_am: null }),
+  einwilligung: kenntnisnahme({ text_version: "1", datum: "2026-10-03", bestaetigt_am: null }),
 });
 const gesendet = (vorname: string, email: string, telefon = "069 501"): FLKontaktpersonPayload => ({
   vorname,
@@ -53,7 +53,7 @@ describe("whether a contacts save may move a seat's link", () => {
       ...STORED,
       ansprechperson: {
         ...anna,
-        einwilligung: { ...anna.einwilligung, erfasst_von: "person" as const, bestaetigt_am: "2026-10-03" },
+        einwilligung: { ...anna.einwilligung, bestaetigt_am: "2026-10-03" },
       },
     };
 

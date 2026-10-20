@@ -121,9 +121,7 @@ def _seat(email: str, *, confirmed: bool = True) -> dict[str, Any]:
         "Ortrud" if confirmed else "Ida",
         bestaetigt_am="2026-09-03" if confirmed else None,
         geburtsdatum=ADULT if confirmed else None,
-        einwilligung={"umfang": "kontaktdaten_whatsapp", "medien": True, "erfasst_von": "person", "text_version": SEAT_LABEL}
-        if confirmed
-        else {},
+        einwilligung={"umfang": "kontaktdaten_whatsapp", "medien": True, "text_version": SEAT_LABEL} if confirmed else {},
     )
     return {**seat, "email": email}
 

@@ -19,7 +19,7 @@ from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
-from app.api.schiedsrichter.services import compose_bestaetigung, compose_einwilligung
+from app.api.schiedsrichter.services import compose_bestaetigung
 from app.api.teams.schemas import kontakte_stand_of
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -30,7 +30,7 @@ from tests.actor_tokens import ACTOR_TOKEN_CONTRACT, SignedActor, actor_claims, 
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import rules_document, saison_document, saison_team_document
+from tests.documents import eigene_einwilligung_document, kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -173,20 +173,14 @@ class TestTheClubsContacts:
     def test_emptying_a_confirmed_seat_from_an_older_sign_in_is_refused_and_empties_nothing(self, mongo_replica_set_url: str):
         """Its own link is spent, but its links on the team's open match confirmations die with it, which no read here rules out."""
 
-        confirmed = {
-            "vorname": "Ida",
-            "nachname": "Musterfrau",
-            "email": "ida@example.com",
-            "telefon": "+4917010000001",
-            "geburtsdatum": "1984-05-09",
-            "einwilligung": {
-                "umfang": "kontaktdaten",
-                "text_version": LAUFENDE_FASSUNGEN["bewerbung"],
-                "datum": "2026-03-01",
-                "erfasst_von": "person",
-                "bestaetigt_am": "2026-03-02",
-            },
-        }
+        confirmed = kontaktperson_document(
+            "Ida",
+            bestaetigt_am="2026-03-02",
+            einwilligung={"text_version": LAUFENDE_FASSUNGEN["bewerbung"], "datum": "2026-03-01"},
+            nachname="Musterfrau",
+            email="ida@example.com",
+            telefon="+4917010000001",
+        )
         seated = {**self.NOBODY, "trainer": confirmed}
 
         async def seed(database: AsyncDatabase) -> None:
@@ -233,7 +227,7 @@ def a_referee(*, confirmed: bool = False, retired: bool = False) -> dict[str, An
         "bestaetigung": compose_bestaetigung(token_hash=hash_token("seeded-referee"), today="2026-03-20"),
         **(
             {
-                "einwilligung": compose_einwilligung(umfang="intern", medien=False, text_version="v1", today="2026-03-21"),
+                "einwilligung": eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-21", umfang="intern"),
                 "geburtsdatum": "1984-05-09",
             }
             if confirmed

@@ -80,7 +80,6 @@ class TestWhichSaveIsRefused:
             # One mailbox: a domain has no case (RFC 5321 §2.4).
             pytest.param(stored_row(einwilligung=confirmed()), "Anna.Alt@schule.de", False, id="confirmed-and-unmoved"),
             pytest.param(stored_row(einwilligung=None), NEW, False, id="unconfirmed-and-moved"),
-            pytest.param(stored_row(einwilligung={**confirmed(), "bestaetigt_am": None}), NEW, False, id="awaiting-its-answer"),
         ],
     )
     def test_only_a_confirmed_referees_moved_address(self, stored: Mapping[str, Any], payload_email: str, refused: bool):

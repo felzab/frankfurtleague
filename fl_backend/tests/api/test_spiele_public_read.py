@@ -130,6 +130,7 @@ def team_document() -> dict[str, Any]:
         "description": "",
         "website_url": "https://beta.example.org",
         "address": {"strasse": "Beispielweg", "hausnummer": "1", "plz": "60311", "stadtteil": "Innenstadt", "stadt": "Frankfurt"},
+        "schulform": None,
         "gruppe": "A",
         "statistik": {},
         "austritt": dict(AUSTRITT),

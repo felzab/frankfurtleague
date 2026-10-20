@@ -33,7 +33,6 @@ from app.api.schiedsrichter.services import (
     build_ghost_schiedsrichter,
     build_unplayed_assignment_filter,
     compose_bestaetigung,
-    compose_einwilligung,
     first_stamped,
 )
 from app.api.spiele.schemas import (
@@ -57,7 +56,7 @@ from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import rules_document, saison_document, spiel_document
+from tests.documents import eigene_einwilligung_document, rules_document, saison_document, spiel_document
 from tests.erasure import erased
 from tests.payloads import spiel_patch_body
 from tests.records import record_collections
@@ -164,7 +163,7 @@ def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
         # Seeded because the erasure adds no `$set` for any of the three: a row carrying none of
         # them would let a nulling write pass every case below.
         "bestaetigung": compose_bestaetigung(token_hash=TOKEN_HASHES[schiedsrichter_id], today=MINTED_ON),
-        "einwilligung": compose_einwilligung(umfang="kader_oeffentlich", medien=True, text_version="v1", today=MINTED_ON),
+        "einwilligung": eigene_einwilligung_document(text_version="v1", bestaetigt_am=MINTED_ON, medien=True),
         "geburtsdatum": GEBURTSDATUM,
     }
 

@@ -32,7 +32,7 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
-from tests.documents import ban_document, rules_document, saison_document, team_document
+from tests.documents import ban_document, eigene_einwilligung_document, rules_document, saison_document, team_document
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
@@ -62,14 +62,9 @@ TEAM_NAME = "Adler"
 
 
 def einwilligung(*, bestaetigt_am: str = MAILED_ON_THE_MARK) -> dict[str, Any]:
-    return {
-        "umfang": "kader_oeffentlich",
-        "erteilt_von": "volljaehrig",
-        "datum": bestaetigt_am,
-        "bestaetigt_am": bestaetigt_am,
-        "text_version": "2026-09-spielerseite",
-        "medien": False,
-    }
+    stored = eigene_einwilligung_document(text_version="2026-09-spielerseite", bestaetigt_am=MAILED_ON_THE_MARK)
+
+    return {**stored, "bestaetigt_am": bestaetigt_am}
 
 
 def bestaetigung(registrierung_id: ObjectId, *, frist: str = "2026-04-05", **overrides: Any) -> dict[str, Any]:

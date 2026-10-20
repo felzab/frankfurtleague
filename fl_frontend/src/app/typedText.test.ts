@@ -20,6 +20,7 @@ import { filesUnder } from "@/core/treeWalk.ts";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
 import { FLTeamSchema } from "@/features/teams/schemas.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { bestaetigteEinwilligung } from "@/shared/testing/einwilligung.ts";
 import { laufendeKontaktFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { parseModule } from "@/shared/testing/jsxReader.ts";
 import { membershipAnswer } from "@/shared/testing/membershipFixtures.ts";
@@ -162,8 +163,8 @@ const LISTED: Readonly<Record<string, Record<string, unknown>>> = {
         vorname: "Ada",
         nachname: null,
         inactive_since: null,
-        geburtsdatum: null,
-        einwilligung: null,
+        geburtsdatum: "2009-05-04",
+        einwilligung: bestaetigteEinwilligung(),
         email: null,
         adresswechsel: null,
         adresswechsel_abgelaufen: false,

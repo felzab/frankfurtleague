@@ -52,8 +52,6 @@ export function AdminBewerbungView({
   const [grundGetippt, setGrundGetippt] = useState(false);
   const [boxGetippt, setBoxGetippt] = useState(false);
 
-  // `null` for an application submitted before the workflow: it carries no per-seat state, and the
-  // acceptance is not closed against one.
   const staende = bestaetigungsStand(bewerbung);
   const hindernis = zusageHindernis(staende, teamName);
 
@@ -77,18 +75,16 @@ export function AdminBewerbungView({
         </header>
 
         <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-6 xl:mx-0 xl:max-w-none">
-          {staende !== null && (
-            <BewerbungBestaetigungStrip
-              bewerbungId={bewerbung.id}
-              neubesetzung={neubesetzung}
-              staende={staende}
-              frist={bewerbung.bestaetigungsfrist}
-              fristAbgelaufen={fristAbgelaufen}
-              isOpen={isOpen}
-              isDirty={grundGetippt}
-              onGetipptChange={setBoxGetippt}
-            />
-          )}
+          <BewerbungBestaetigungStrip
+            bewerbungId={bewerbung.id}
+            neubesetzung={neubesetzung}
+            staende={staende}
+            frist={bewerbung.bestaetigungsfrist}
+            fristAbgelaufen={fristAbgelaufen}
+            isOpen={isOpen}
+            isDirty={grundGetippt}
+            onGetipptChange={setBoxGetippt}
+          />
 
           <BewerbungAngabenPanel
             bewerbung={bewerbung}
