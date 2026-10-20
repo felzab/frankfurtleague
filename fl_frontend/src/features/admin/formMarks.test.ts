@@ -27,7 +27,7 @@ import { getGermanTodayStr } from "@/shared/utils/date.ts";
 import type { FLEinladungAnsichtResponse, FLRegistrierungBestaetigungAnsichtResponse } from "@/features/registrierungen/schemas";
 import type { FLSchiedsrichterBestaetigungAnsichtResponse } from "@/features/schiedsrichter/schemas";
 import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 /* Nothing here is saved: every write is held unanswered, and every read of the page stands still. */
 doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: () => new Promise(() => undefined) });
@@ -148,6 +148,10 @@ const REFEREE = {
   default_payment: 25,
   kontakt: { email: "pia@example.org", telefon: null },
   inactive_since: null,
+  geburtsdatum: "1990-01-01",
+  einwilligung: bestaetigteEinwilligung(),
+  bestaetigung: null,
+  adresswechsel: null,
 };
 const OFFER = [
   { gruppe: "A" as const, occupied: 1, capacity: 4 },
@@ -211,7 +215,7 @@ const FORMS: Record<string, FormCase> = {
           spielort: { id: VENUE.id, name: VENUE.name, address: ADDRESS, default_mietpreis: 40 },
           isRetired: false,
           pageHeader: { title: VENUE.name },
-        } as never),
+        } satisfies ComponentProps<typeof AdminSpielortEditForm>),
       );
     },
     expected: ["aria INPUT:Standard-Mietpreis", "name address.plz", "name address.stadt", "name address.strasse", "name name"],
@@ -235,9 +239,10 @@ const FORMS: Record<string, FormCase> = {
             adresswechsel: null,
             abgelaufen: { bestaetigung: false, adresswechsel: false },
           },
+          istFassungBekannt: true,
           isRetired: false,
           pageHeader: { title: REFEREE.name },
-        } as never),
+        } satisfies ComponentProps<typeof AdminSchiedsrichterEditForm>),
       );
     },
     expected: ["aria INPUT:Standard-Honorar", "name kontakt.email", "name name"],
@@ -277,8 +282,9 @@ const FORMS: Record<string, FormCase> = {
             membership: withMembership ? membership : null,
           },
           teams: [TEAM_A, TEAM_B],
+          istFassungBekannt: true,
           pageHeader: { title: "Lena Meier" },
-        } as never);
+        } satisfies ComponentProps<typeof AdminSpielerEditForm>);
       const rostered = await marksOf(editor(true));
       document.body.innerHTML = "";
       const unrostered = await marksOf(editor(false));
@@ -348,7 +354,7 @@ const FORMS: Record<string, FormCase> = {
           erlaubteStufen: ["Q1"],
           heldRollen: {},
           kaderHref: `/bereich/team/${TEAM_A.teamId}/2026/kader`,
-        } as never),
+        } satisfies ComponentProps<typeof KaderZeileEditForm>),
       );
     },
     expected: [],
@@ -490,7 +496,7 @@ const FORMS: Record<string, FormCase> = {
           },
           hasDrawnSpiele: false,
           spieltagBound: { startMax: null, endMin: null },
-        } as never),
+        } satisfies ComponentProps<typeof AdminSaisonEditView>),
       );
     },
     expected: [
@@ -528,7 +534,7 @@ const FORMS: Record<string, FormCase> = {
           },
           saisonSpan: { start: "2026-08-01", end: "2027-06-30" },
           pageHeader: { title: "1. Spieltag" },
-        } as never),
+        } satisfies ComponentProps<typeof AdminSpieltagEditForm>),
       );
     },
     expected: ["aria spinbutton:Beginn", "aria spinbutton:Ende"],
@@ -537,7 +543,8 @@ const FORMS: Record<string, FormCase> = {
     module: "features/spiele/components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx",
     marks: async () => {
       const { AdminEditSpielDataForm } = await import("@/features/spiele/components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx");
-      const editor = (spiel: unknown) =>
+      const { FLSpielAdminSchema } = await import("@/features/spiele/schemas.ts");
+      const editor = (spiel: ComponentProps<typeof AdminEditSpielDataForm>["spielData"]) =>
         h(AdminEditSpielDataForm, {
           spielData: spiel,
           teams: [],
@@ -546,13 +553,15 @@ const FORMS: Record<string, FormCase> = {
           saisonSpiele: [spiel],
           numberOfGroups: 2,
           isFinishedSaison: false,
+          isActiveSaison: false,
           today: "2026-09-14",
+          isSpielSweepOn: false,
           categorize: () => new Set<never>(),
           pageHeader: { title: "Spiel 1" },
-        } as never);
-      const open = await marksOf(editor(spielFields({ id: "6890a1b2c3d4e5f607182901", saison_id: "2026" })));
+        } satisfies ComponentProps<typeof AdminEditSpielDataForm>);
+      const open = await marksOf(editor(FLSpielAdminSchema.parse(spielFields({ id: "6890a1b2c3d4e5f607182901", saison_id: "2026" }))));
       document.body.innerHTML = "";
-      const level = await marksOf(editor(LEVEL_KNOCKOUT));
+      const level = await marksOf(editor(FLSpielAdminSchema.parse(LEVEL_KNOCKOUT)));
 
       return [...open.map((mark) => `open ${mark}`), ...level.map((mark) => `level ${mark}`)];
     },
@@ -625,7 +634,8 @@ const FORMS: Record<string, FormCase> = {
           schulen: [{ id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" }],
           isSchulenLesbar: true,
           vergebeneFarben: [],
-        } as never),
+          siteKey: TEST_SITE_KEY,
+        } satisfies ComponentProps<typeof BewerbungForm>),
         async (into) => {
           await openEverySwitch(into);
           const picker = document.querySelector<HTMLSelectElement>('select[name="team_id"]');
@@ -685,6 +695,7 @@ const FORMS: Record<string, FormCase> = {
     marks: async () => {
       const { BestaetigungFormPanel } = await import("@/features/bewerbungen/components/views/BestaetigungFormPanel.tsx");
       const { laufendeKontaktFassung } = await import("@/shared/testing/einwilligungAnswers.ts");
+      const { MEDIEN_MIN_ALTER } = await import("@/features/registrierungen/constants.ts");
       return marksOf(
         h(BestaetigungFormPanel, {
           fassung: laufendeKontaktFassung(),
@@ -693,8 +704,9 @@ const FORMS: Record<string, FormCase> = {
           saison: "2026",
           rolle: "Ansprechperson",
           mindestalter: 18,
+          medienMindestalter: MEDIEN_MIN_ALTER,
           onAbschluss: () => undefined,
-        } as never),
+        } satisfies ComponentProps<typeof BestaetigungFormPanel>),
         async (into) => {
           await typeFirstDate(30, into);
           await openEverySwitch(into);
@@ -741,10 +753,11 @@ const FORMS: Record<string, FormCase> = {
           neubesetzung: laufendeNeubesetzung(),
           staende: await staende(),
           frist: "2099-12-31",
+          fristAbgelaufen: false,
           isOpen: true,
           isDirty: false,
           onGetipptChange: () => undefined,
-        } as never),
+        } satisfies ComponentProps<typeof BewerbungBestaetigungStrip>),
         async (into) => {
           const user = userEvent.setup();
           const reseat = screen.queryByRole("button", { name: "Neu besetzen: Trainer" });
@@ -967,7 +980,7 @@ const FORMS: Record<string, FormCase> = {
           saisonOptions: [{ saisonId: "2026", offer: OFFER }],
           defaultSaisonId: "2026",
           onClose: () => undefined,
-        } as never),
+        } satisfies ComponentProps<typeof AdminCreateTeamForm>),
       );
     },
     expected: [
