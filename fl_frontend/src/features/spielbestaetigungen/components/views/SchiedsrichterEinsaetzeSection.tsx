@@ -224,50 +224,52 @@ function Antwort({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string;
         </Button>
       </div>
 
-      <Disclosure>
-        <Disclosure.Heading level={3}>
-          <Disclosure.Trigger
-            aria-label={benannt("Absagen", wofuer)}
-            className="flex w-fit items-center gap-x-2 fluid-sm font-bold text-foreground"
-            {...focusSlot(ABSAGEN)}>
-            Absagen
-            <Disclosure.Indicator className="shrink-0 text-foreground-muted">
-              <ChevronsDownWide
-                aria-hidden="true"
-                className="size-5"
-              />
-            </Disclosure.Indicator>
-          </Disclosure.Trigger>
-        </Disclosure.Heading>
-        <Disclosure.Content>
-          <Disclosure.Body className="flex flex-col gap-y-4 pt-3">
-            {/* One line, as the endpoint stores it: a line break is refused rather than kept. */}
-            <TextField
-              name="begruendung"
-              value={begruendung}
-              onChange={setBegruendung}
-              onBlur={() => validatePaths("absage", absage, ["begruendung"])}
-              maxLength={SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH}>
-              <Label className={FIELD_LABEL_CLASSES}>Begründung</Label>
-              <Input className={FIELD_INPUT_CLASSES} />
-              <FieldError className={FIELD_ERROR_CLASSES} />
-              <Hint
-                mode="field"
-                text="Nur die Verwaltung der Liga liest sie. Nenne darin keine Namen."
-              />
-            </TextField>
+      {/* Around the whole disclosure: the decline is sent from its submit, which a slot on the trigger alone misses. */}
+      <div {...focusSlot(ABSAGEN)}>
+        <Disclosure>
+          <Disclosure.Heading level={3}>
+            <Disclosure.Trigger
+              aria-label={benannt("Absagen", wofuer)}
+              className="flex w-fit items-center gap-x-2 fluid-sm font-bold text-foreground">
+              Absagen
+              <Disclosure.Indicator className="shrink-0 text-foreground-muted">
+                <ChevronsDownWide
+                  aria-hidden="true"
+                  className="size-5"
+                />
+              </Disclosure.Indicator>
+            </Disclosure.Trigger>
+          </Disclosure.Heading>
+          <Disclosure.Content>
+            <Disclosure.Body className="flex flex-col gap-y-4 pt-3">
+              {/* One line, as the endpoint stores it: a line break is refused rather than kept. */}
+              <TextField
+                name="begruendung"
+                value={begruendung}
+                onChange={setBegruendung}
+                onBlur={() => validatePaths("absage", absage, ["begruendung"])}
+                maxLength={SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH}>
+                <Label className={FIELD_LABEL_CLASSES}>Begründung</Label>
+                <Input className={FIELD_INPUT_CLASSES} />
+                <FieldError className={FIELD_ERROR_CLASSES} />
+                <Hint
+                  mode="field"
+                  text="Nur die Verwaltung der Liga liest sie. Nenne darin keine Namen."
+                />
+              </TextField>
 
-            <div className="flex w-full flex-col items-stretch sm:flex-row sm:justify-end">
-              <Button
-                type="submit"
-                isPending={isPending}
-                className={formButton({ intent: "submit", stacks: true })}>
-                {isPending && gedrueckt === "absage" ? "Sendet..." : "Absage senden"}
-              </Button>
-            </div>
-          </Disclosure.Body>
-        </Disclosure.Content>
-      </Disclosure>
+              <div className="flex w-full flex-col items-stretch sm:flex-row sm:justify-end">
+                <Button
+                  type="submit"
+                  isPending={isPending}
+                  className={formButton({ intent: "submit", stacks: true })}>
+                  {isPending && gedrueckt === "absage" ? "Sendet..." : "Absage senden"}
+                </Button>
+              </div>
+            </Disclosure.Body>
+          </Disclosure.Content>
+        </Disclosure>
+      </div>
     </Form>
   );
 }
