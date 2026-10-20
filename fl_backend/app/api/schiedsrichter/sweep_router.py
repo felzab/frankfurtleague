@@ -55,9 +55,9 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Seventeen commands a due change moving a pupil row and a referee row, the dearer kind a share mixes, each the round trip
-# plus at most 1.84 ms (lapses timed locally, 2026-10-16): this fits `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a
-# 37 ms round trip (`docs/backend/spec.md :: I322`).
+# Seventeen commands for a due change moving a pupil row and a referee row, the dearer kind, each a round trip plus at
+# most 1.84 ms (lapses timed, 2026-10-16): fits `app/core/middlewares.py :: REQUEST_DEADLINE_S` at 37 ms
+# (`docs/backend/spec.md :: I322`).
 ADRESSWECHSEL_PER_PASS: Final = 15
 
 # Which collection a row is read from, carried beside its id through the one page every kind shares.
@@ -67,10 +67,9 @@ _COLLECTION_OF: Final = {SCHIEDSRICHTER: Collection.SCHIEDSRICHTER, SPIELER: Col
 
 
 def _pipeline(*, now: datetime, nach: Any, groesse: int) -> list[dict[str, Any]]:
-    """Every lapsed and due change after `nach`, both lanes in one `_id` order, at most `groesse`, beside how many in all, as ONE document.
+    """Every lapsed and due change after `nach`, both lanes in one `_id` order, at most `groesse`, with the count, as ONE document.
 
-    One keyset over two collections: an `ObjectId` the driver generates is unique across them. No index serves either
-    instant: both collections are a league's people, and the pass reads every pending block anyway.
+    A driver's `ObjectId` is unique across both collections; no index serves the instants, both holding a league's people.
     """
 
     def kinds(art: str, lapsed: Mapping[str, Any], due: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -177,7 +176,7 @@ async def _make_the_due_change_take_effect(
         bestand = await read_the_bestand(ersetzte, records=records, session=session)
         traeger = bestand.zeile(collection, row["_id"])
 
-        # Every judgement the confirmation makes, at the end of the waiting time as at its start (`docs/backend/spec.md :: I825`).
+        # Every judgement the confirmation makes, at the end of the waiting time as at its start (`docs/backend/spec.md :: I795`).
         if bool(gesperrt) or vergeben or not holds_an_address(ersetzte) or traeger is None:
             await discard_the_change_in_session(
                 collection=collection,

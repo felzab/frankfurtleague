@@ -5,8 +5,8 @@ A change belongs to an address, so the person's start, an administrator's, the n
 pass read one set and move it in one write; each lane's router keeps its own refusals.
 
 Invariants:
-- The effect moves the set's every record in its caller's transaction, and nothing else (`docs/backend/spec.md :: I823`).
-- A start ends every other change pending on the set's rows (`docs/backend/spec.md :: I822`).
+- The effect moves the set's every record in its caller's transaction, and nothing else (`docs/backend/spec.md :: I793`).
+- A start ends every other change pending on the set's rows (`docs/backend/spec.md :: I792`).
 """
 
 from collections.abc import Callable, Mapping, Sequence
@@ -84,7 +84,7 @@ class Zeile:
 
 @dataclass(frozen=True, kw_only=True)
 class Bestand:
-    """Every record an address holds as its person's own, the records a change moves (`docs/backend/spec.md :: I823`)."""
+    """Every record an address holds as its person's own, the records a change moves (`docs/backend/spec.md :: I793`)."""
 
     identifier: str
     spieler: Mapping[str, Any] | None
@@ -229,7 +229,7 @@ async def start_the_change_in_session(
     stamp: str,
     session: AsyncClientSession,
 ) -> None:
-    """End every other change pending on the set's rows, then write the carrier's block whole (`docs/backend/spec.md :: I822`)."""
+    """End every other change pending on the set's rows, then write the carrier's block whole (`docs/backend/spec.md :: I792`)."""
 
     for zeile in bestand.zeilen:
         if zeile.block is None or (zeile.collection, zeile.row["_id"]) == (traeger.collection, traeger.row["_id"]):
@@ -302,7 +302,7 @@ async def move_the_address_in_session(
     schluessel: SecretStr,
     session: AsyncClientSession,
 ) -> Mitteilung:
-    """Move every record of `bestand` to `neue` in the caller's transaction, ending the change (`docs/backend/spec.md :: I823`).
+    """Move every record of `bestand` to `neue` in the caller's transaction, ending the change (`docs/backend/spec.md :: I793`).
 
     One patch per row, never a fan-out, so each row's own history keeps the write that moved it (`docs/backend/spec.md :: I40`).
     """

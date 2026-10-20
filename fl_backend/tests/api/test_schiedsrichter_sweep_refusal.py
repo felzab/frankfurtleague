@@ -13,9 +13,9 @@ from app.core.middlewares import REQUEST_DEADLINE_S
 COMMANDS_A_REFEREE = 7
 COMMANDS_A_PUPIL = 7
 
-# A due change taking effect for a person holding a pupil row and a confirmed referee row, pinned by
-# `fl_backend/tests/api/test_schiedsrichter_sweep_execution.py :: TestADueChangeCostsTheCommandsItsShareIsSizedAt`. A person
-# holding more records costs more, and the call's deadline stops it at that change (`docs/backend/spec.md :: I322`).
+# A due change moving a pupil row and a confirmed referee row, pinned by
+# `fl_backend/tests/api/test_schiedsrichter_sweep_execution.py :: TestADueChangeCostsTheCommandsItsShareIsSizedAt`. More
+# records cost more, and the call's deadline stops it at that change (`docs/backend/spec.md :: I322`).
 COMMANDS_A_DUE_PERSON = 17
 
 # The call's other command, one aggregate answering one document at any size, pinned on the wire by

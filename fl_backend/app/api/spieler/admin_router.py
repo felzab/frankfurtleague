@@ -276,7 +276,7 @@ async def post_adresswechsel(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLSpielerAdresswechselMintResponse:
     """
-    Start a change of the address this pupil signs in on, for a person who can no longer sign in, answering its raw links once.
+    Start a change of the address this pupil signs in on, for a person who cannot sign in, answering its raw links once.
 
     **Nothing moves here.** Without a `grund` the change asks the address on file first: the caller mails it the request with
     its stop link, and nothing goes to the new mailbox until that address approves on its account page. With a `grund`,

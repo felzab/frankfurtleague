@@ -500,10 +500,9 @@ SCHIEDSRICHTER_UNBESTAETIGT = "REQ-SCHIEDSRICHTER-014"
 
 
 def find_bestaetigte_adresse_refusal(*, stored: Mapping[str, Any], payload_email: str) -> WriteRefusal | None:
-    """`REQ-SCHIEDSRICHTER-011`: a save moving a CONFIRMED referee's address to another mailbox, which only an address change moves.
+    """`REQ-SCHIEDSRICHTER-011`: a save moving a CONFIRMED referee's address, on which their sign-in is keyed: only an address change moves it.
 
-    The address is what the person's sign-in and records are keyed on, so the save is refused whole rather than landing
-    the rest: an editor stale on the address would otherwise lose its other fields silently.
+    Refused whole: landing the rest, an editor stale on the address would lose its other fields unseen.
     """
 
     if not is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)) or not _address_moves(stored=stored, payload_email=payload_email):
@@ -667,8 +666,8 @@ def adresswechsel_zustand_of(
 ) -> FLSchiedsrichterAdresswechselZustand:
     """What the new mailbox's link shows, ranked as the press refuses a confirmation.
 
-    A ban on the link's own address first, as `zustand_of` ranks it, then the deadline, then a ban on the replaced
-    address or another pupil signing in on the new one, where the change moves a pupil row too.
+    The link's own address barred first, then the deadline, then the replaced address barred or the new one another
+    pupil's, where a pupil row moves.
     """
 
     if gesperrt:

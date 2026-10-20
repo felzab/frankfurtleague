@@ -507,7 +507,7 @@ async def post_adresswechsel(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLSchiedsrichterAdresswechselMintResponse:
     """
-    Start a change of the address a CONFIRMED referee signs in on, for a person who can no longer sign in, answering its raw links once.
+    Start a change of the address a CONFIRMED referee signs in on, for a person who cannot sign in, answering its raw links once.
 
     The pupil's twin (`POST /spieler/{spieler_id}/adresswechsel`), its `grund`, its two ways and its answer alike: nothing
     moves here, and a change already pending on any record of this address is ended.

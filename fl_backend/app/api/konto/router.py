@@ -340,7 +340,7 @@ async def post_adresswechsel_freigabe(
     """
     Approve a change an administrator started without a reason, minting the new mailbox's link once, for the frontend's server to mail.
 
-    **Nothing reaches the new mailbox before this press** (`docs/backend/spec.md :: I824`). Nothing about the new address is
+    **Nothing reaches the new mailbox before this press** (`docs/backend/spec.md :: I794`). Nothing about the new address is
     judged here either: the approver is owed no answer about it, and the confirmation judges it.
 
     Refused `REQ-AUTH-009` as the start is; 404 where no such change awaits the address's approval; `REQ-SPIELER-002`, or

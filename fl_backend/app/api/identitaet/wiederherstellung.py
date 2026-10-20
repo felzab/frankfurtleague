@@ -412,9 +412,9 @@ def _records_of(database: AsyncDatabase) -> RecordCollections:
 async def _plan_adresswechsel_wirksam(
     line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None
 ) -> Plan:
-    """A change that took effect: moved again where the restored carrier still holds it pending, the effect's own body writing it.
+    """A change that took effect: moved again, by the effect's own body, where the restored carrier still holds it pending.
 
-    A carrier holding no such change is left for review: the address it moved to is held nowhere the replay can read it from.
+    A carrier holding none is left for review: nothing the replay reads holds the address it moved to.
     """
 
     assert line.collection is not None

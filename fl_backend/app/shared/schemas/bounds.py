@@ -139,7 +139,7 @@ SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE: Final = 14
 
 # How long a step of an address change waits from its asking: the new mailbox's link, or the address
 # on file's approval. NIST SP 800-63B-4 `#issuedrecovery` caps an emailed recovery code at 24 hours
-# (read 2026-10-20). One figure for both lanes.
+# (read 2026-10-20).
 ADRESSWECHSEL_GUELTIG_STUNDEN: Final = 24
 
 # A change an administrator started with a reason waits this long after its confirmation, the address

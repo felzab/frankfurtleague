@@ -137,7 +137,7 @@ async def gedrosselt(drossel: Drossel) -> None:
 
 
 async def adresswechsel_gedrosselt(drossel: Drossel) -> None:
-    """`gedrosselt` on the address change's own count (`docs/backend/spec.md :: I828`)."""
+    """`gedrosselt` on the address change's own count (`docs/backend/spec.md :: I797`)."""
 
     await drossel(ADRESSWECHSEL_ZAEHLER)
 

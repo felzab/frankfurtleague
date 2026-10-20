@@ -454,8 +454,8 @@ class TestADeliveryEvent:
 
         assert response.angewendet is True
         # The seed beside it, compared whole: the write touches the record's own path alone, and a
-        # key of the person's bookkeeping it overwrote would be a link this call silently voided. Through BSON, as
-        # the driver hands a stored instant back: naive, in UTC.
+        # key of the person's bookkeeping it overwrote would be a link this call silently voided. Through BSON,
+        # as a stored instant reads back.
         expected = {"zustellung": {"nachricht_id": FIRST_MESSAGE, "stand": "unzustellbar", "grund": "NoEmail", "am": BOUNCED_AT}}
         assert carrier_in(document, TRAEGER[ziel]) == decode(encode({**CARRIER_SEEDS[ziel], **expected}))
 

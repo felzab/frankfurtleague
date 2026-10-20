@@ -342,11 +342,9 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId) -> None:
-    """Details EDITED through the real endpoints, which leave the log holding the pair the edits replaced.
+    """Details EDITED through the real endpoints: the telephone by the editor's save, the address by the referee's own change.
 
-    The telephone through the editor's save, and the address through the referee's own change, the one way a confirmed
-    referee's address moves. Without the edits the log would hold no contact value at all and every assertion below
-    would pass vacuously.
+    Without the edits the log would hold no contact value and every assertion below would pass vacuously.
     """
 
     bisherige = FORMER_KONTAKT[schiedsrichter_id]["email"]

@@ -621,7 +621,7 @@ class TestOneRowCostsTheCommandsItsShareIsSizedAt:
 
 class TestADueChangeCostsTheCommandsItsShareIsSizedAt:
     def test_a_person_holding_a_pupil_row_and_a_confirmed_referee_row_counted_on_the_wire(self, mongo_replica_set_url: str):
-        """The dearer row a share mixes: a due change moving a pupil row and the confirmed referee row the address holds beside it.
+        """The dearer row a share mixes: a due change moving a pupil row and the confirmed referee row beside it.
 
         A command added to the effect turns this red, so the share is judged against the deadline again.
         """

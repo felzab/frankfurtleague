@@ -1039,7 +1039,7 @@ def person_signed_in_before(age_s: int, *, factor: str | None = None) -> dict[st
 
 
 class TestTheAddressChangeAsksAFreshSignIn:
-    """`docs/backend/spec.md :: I820`: a start or an approval from a sign-in or confirmation inside the enrolment window, by either factor."""
+    """`docs/backend/spec.md :: I790`: a start or an approval from a sign-in or confirmation inside the enrolment window, by either factor."""
 
     @pytest.mark.parametrize(("path", "body"), ADDRESS_CHANGE_WRITES)
     def test_an_older_sign_in_is_refused_with_rfc_9470_s_challenge(self, path: str, body: Any):

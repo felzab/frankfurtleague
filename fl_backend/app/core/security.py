@@ -331,10 +331,9 @@ def get_person_confirmation_check(actor: Annotated[ActorClaims, Depends(verify_p
 
 
 def verify_recent_person_confirmation(actor: Annotated[ActorClaims, Depends(verify_person_actor)]) -> None:
-    """Refuse a person's address change from a sign-in or confirmation older than the enrolment window (`docs/backend/spec.md :: I820`).
+    """Refuse a person's address change from a sign-in or confirmation older than the enrolment window (`docs/backend/spec.md :: I790`).
 
-    Either factor, where `get_person_confirmation_check` asks a passkey: the code goes to the address on file, which is
-    the confirmation OWASP's process asks of that address before it is replaced.
+    Either factor: a code reaches the address on file, which OWASP asks to confirm before it is replaced.
     """
 
     if confirmed_before(actor, ENROLMENT_WINDOW_S):
