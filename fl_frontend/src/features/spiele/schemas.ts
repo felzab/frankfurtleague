@@ -327,6 +327,10 @@ export const FLPatchSpielDataPayloadSchema = z.object({
   // The same `$set` reason, and nullable rather than optional: dropping the event is how a fixture
   // goes back on, so "no event" has to travel as a value.
   sonderereignis: FLSonderereignisSchema.nullable(),
+
+  // The referee the editor was served, never one it picked: the save is refused where the fixture books another or
+  // none since (`REQ-BOOKING-003`), so a referee's own decline is not undone by an editor opened before it.
+  schiedsrichter_stand: CustomObjectIdStringSchema.nullable(),
 });
 
 export type FLPatchSpielDataPayload = z.infer<typeof FLPatchSpielDataPayloadSchema>;

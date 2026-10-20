@@ -688,6 +688,7 @@ describe("toPatchPayload", () => {
       "notiz",
       "ort",
       "schiedsrichter",
+      "schiedsrichter_stand",
       "sonderereignis",
       "spiel_id",
       "team1",

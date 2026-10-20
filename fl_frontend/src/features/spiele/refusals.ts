@@ -48,6 +48,15 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
       }),
     };
   }
+  // Never on the picker: the draft's own choice is not at fault, the slot moved under it.
+  if (error.serverErrorCode === "REQ-BOOKING-003") {
+    return {
+      error: buildRefusal({
+        reason: "Die Schiedsrichtereinteilung dieses Spiels hat sich geändert, seit Du es geöffnet hast, etwa weil die Person abgesagt hat",
+        repair: "Lade die Seite neu und trage Deine Änderung dort erneut ein",
+      }),
+    };
+  }
   if (error.serverErrorCode === "REQ-CLASH-001") {
     return {
       error: buildRefusal({
@@ -84,6 +93,8 @@ export const PAARUNGEN_REPLAY_REFUSALS: Readonly<Record<string, string>> = {
     "Ein ursprünglicher Spielort oder Schiedsrichter ist stillgelegt oder gelöscht, und der ursprüngliche Stand würde ihn einem Spiel wieder zuteilen.",
   "REQ-BOOKING-002":
     "Eine ursprünglich eingeteilte Person hat ihren Eintrag nicht bestätigt, und der ursprüngliche Stand würde sie einem Spiel wieder zuteilen.",
+  // Never met in practice: a restore is judged against the fixture's own referee.
+  "REQ-BOOKING-003": "Die Schiedsrichtereinteilung eines Spiels hat sich inzwischen geändert.",
   "REQ-CLASH-001": "Ein ursprünglicher Spielort oder Schiedsrichter ist zu dieser Zeit inzwischen für ein anderes Spiel eingeteilt.",
   "REQ-DATE-001": "Ein ursprüngliches Datum liegt nicht mehr im Zeitraum seines Spieltags.",
   "REQ-ELIGIBILITY-001":
