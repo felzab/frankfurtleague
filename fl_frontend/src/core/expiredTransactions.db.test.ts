@@ -71,7 +71,8 @@ describe("a db file's replica set that fails its start", () => {
   it("fails with Docker's own refusal where no container was created", async () => {
     await assert.rejects(startJudged(replicaSetContainer().withName("refused name")), (failure) => {
       assert.ok(failure instanceof Error, String(failure));
-      assert.match(failure.message, /invalid container name/);
+      // Docker Desktop's engine words it in lower case, Linux's with a capital: one refusal either way.
+      assert.match(failure.message, /invalid container name/i);
       assert.doesNotMatch(failure.message, /log lines/);
       return true;
     });
