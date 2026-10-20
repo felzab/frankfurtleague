@@ -33,6 +33,7 @@ BERICHT_NAME_IN_BEMERKUNGEN: Final = "REQ-BERICHT-005"
 BERICHT_INZWISCHEN_GEAENDERT: Final = "REQ-BERICHT-006"
 BERICHT_SAISON_BEENDET: Final = "REQ-BERICHT-007"
 BERICHT_GRUND_FEHLT: Final = "REQ-BERICHT-008"
+BERICHT_ELFMETER_IN_DER_GRUPPE: Final = "REQ-BERICHT-009"
 
 SEITEN: Final[tuple[FLSpielberichtSeite, ...]] = ("team1", "team2")
 
@@ -264,6 +265,19 @@ def find_saison_beendet_refusal(lage: BerichtLage) -> WriteRefusal | None:
     )
 
 
+def find_elfmeter_in_der_gruppe_refusal(*, spiel_raw: Mapping[str, Any], payload: FLSpielberichtBerichtPayload) -> WriteRefusal | None:
+    """`REQ-BERICHT-009`: a group fixture keeps no shoot-out, so a proposal holding one could never read adopted."""
+
+    if spiel_raw["saison_phase"] != "gruppenphase" or payload.ergebnis_vorschlag.elfmeterschiessen is None:
+        return None
+
+    return WriteRefusal(
+        error_code=BERICHT_ELFMETER_IN_DER_GRUPPE,
+        status=HTTPStatus.CONFLICT,
+        message="a group-phase fixture keeps no shoot-out, and its report proposes none",
+    )
+
+
 def nimmt_einen_bericht(spiel_raw: Mapping[str, Any], *, today: str) -> bool:
     """Whether the fixture takes a report today, as `REQ-BERICHT-001` and `REQ-BERICHT-004` judge a write, refusing nothing."""
 
@@ -388,6 +402,7 @@ def judge_bericht(
 
     refuse(find_nicht_gespielt_refusal(datum=lage.spiel.get("datum"), today=today))
     refuse(find_abgesagt_refusal(sonderereignis=lage.spiel.get("sonderereignis")))
+    refuse(find_elfmeter_in_der_gruppe_refusal(spiel_raw=lage.spiel, payload=payload))
     refuse(find_nicht_im_kader_refusal(lage=lage, neu=neu))
     refuse(find_grund_fehlt_refusal(payload=payload, gespeichert=gespeichert))
     refuse(find_name_in_bemerkungen_refusal(bemerkungen=payload.bemerkungen, names=bericht_namen(lage)))
@@ -396,8 +411,8 @@ def judge_bericht(
 def vorschlag_entspricht(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[str, Any]) -> bool:
     """Whether the stored result is what the proposal proposes.
 
-    A no-show by its event alone, its goals being the forfeit's; a shoot-out, an absent one included, only where the
-    fixture keeps one.
+    A no-show by its event alone, its goals being the forfeit's; the shoot-out too, an absent one included, which a write
+    proposes only where the fixture keeps one (`REQ-BERICHT-009`, and the payload's rule after an unlevel score).
     """
 
     if vorschlag.sonderereignis in SONDEREREIGNIS_NO_SHOW:
@@ -409,9 +424,6 @@ def vorschlag_entspricht(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[
 
     # `app/api/spiele/services.py :: apply_payload_to_spiel`'s rule: a level knockout keeps its shoot-out, so one saved
     # without the proposed shoot-out is not the proposal.
-    if spiel_raw["saison_phase"] == "gruppenphase" or vorschlag.team1_tore != vorschlag.team2_tore:
-        return True
-
     gespeichert = spiel_raw.get("elfmeterschiessen")
 
     return (None if gespeichert is None else FLSpielElfmeterschiessen.model_validate(gespeichert)) == vorschlag.elfmeterschiessen

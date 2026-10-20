@@ -14,6 +14,7 @@ from app.api.spielberichte.schemas import (
 )
 from app.api.spielberichte.services import (
     BERICHT_ABGESAGT,
+    BERICHT_ELFMETER_IN_DER_GRUPPE,
     BERICHT_GRUND_FEHLT,
     BERICHT_NAME_IN_BEMERKUNGEN,
     BERICHT_NICHT_GELEITET,
@@ -33,9 +34,11 @@ from app.api.spielberichte.services import (
     find_nicht_gespielt_refusal,
     find_nicht_im_kader_refusal,
     find_saison_beendet_refusal,
+    judge_bericht,
     neu_genannt,
 )
 from app.api.spiele.schemas import FLPatchSpielePaarungenPayload
+from app.core.exceptions import WriteRefusalException
 from tests.documents import bericht_document
 
 TEAM1 = ObjectId("650000000000000000000201")
@@ -428,8 +431,26 @@ class TestAShootOutIsComparedWhereTheFixtureKeepsOne:
 
         assert bericht_zustand_of(level(1, 1, None), fixture) == "abweichend"
 
-    def test_a_group_fixture_discards_the_proposed_shoot_out(self):
-        assert bericht_zustand_of(level(1, 1, {"team1": 4, "team2": 3}), gespielt(1, 1)) == "uebernommen"
+
+class TestAGroupFixtureTakesNoShootOut:
+    def test_a_group_draw_proposing_one_is_refused(self):
+        vorschlag = FLSpielberichtBerichtPayload.model_validate(
+            payload(
+                0,
+                0,
+                [],
+                ergebnis_vorschlag={"team1_tore": 0, "team2_tore": 0, "elfmeterschiessen": {"team1": 4, "team2": 3}, "sonderereignis": None},
+            )
+        )
+
+        keine = {"team1": set(), "team2": set()}
+
+        # Through the judgement both writes ask, so the rule is held where it is called as well as where it is written.
+        with pytest.raises(WriteRefusalException) as refused:
+            judge_bericht(lage=lage(), payload=vorschlag, gespeichert=None, neu=keine, today=TODAY)
+        judge_bericht(lage=lage(saison_phase="achtelfinale"), payload=vorschlag, gespeichert=None, neu=keine, today=TODAY)
+
+        assert refused.value.error_code == BERICHT_ELFMETER_IN_DER_GRUPPE
 
 
 class TestALaterWriteRaisesTheVersionAndKeepsTheAdoption:

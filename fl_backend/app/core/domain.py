@@ -3289,6 +3289,15 @@ RULES: tuple[Rule, ...] = (
         implemented_by="app.api.spielberichte.services.find_grund_fehlt_refusal",
         tested_by="tests/api/test_spielbericht_shapes.py::TestOnlyANewCautionOwesItsReason",
     ),
+    Rule(
+        code="REQ-BERICHT-009",
+        status=HTTPStatus.CONFLICT,
+        operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",
+        aggregate="Spielbericht",
+        summary="a report on a group-phase fixture proposes no shoot-out, which the fixture never keeps",
+        implemented_by="app.api.spielberichte.services.find_elfmeter_in_der_gruppe_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestAGroupFixtureTakesNoShootOut",
+    ),
 )
 
 

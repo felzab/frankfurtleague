@@ -123,6 +123,9 @@ const NAME_IN_BEMERKUNGEN = "In den Bemerkungen steht ein Name.";
 
 // The form refuses a caution without its reason before the press, so this arrives only where the stored report moved
 // under the page: a reload draws the cards it holds now.
+// The form offers no shoot-out on a group fixture, so this arrives only from a request no page composed.
+const ELFMETER_IN_DER_GRUPPE = buildRefusal({ reason: "Ein Spiel der Gruppenphase hat kein Elfmeterschießen", repair: LADE_DIE_SEITE_NEU });
+
 const GRUND_FEHLT = buildRefusal({
   reason: "Bei einer gelben oder gelb-roten Karte fehlt der Grund",
   repair: "Lade die Seite neu und wähle ihn",
@@ -143,6 +146,7 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
     }),
     "REQ-BERICHT-004": "Dieses Spiel ist ausgefallen oder annulliert. Dafür gibt es keinen Spielbericht.",
     "REQ-BERICHT-008": GRUND_FEHLT,
+    "REQ-BERICHT-009": ELFMETER_IN_DER_GRUPPE,
     "REQ-BERICHT-007": buildRefusal({
       reason: "Die Saison dieses Spiels ist vorbei, und den Spielbericht kannst Du nicht mehr ändern",
       repair: LADE_DIE_SEITE_NEU,
@@ -163,6 +167,7 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
     }),
     "REQ-BERICHT-004": "Das Spiel ist als ausgefallen oder annulliert eingetragen. Dafür gibt es keinen Spielbericht.",
     "REQ-BERICHT-008": GRUND_FEHLT,
+    "REQ-BERICHT-009": ELFMETER_IN_DER_GRUPPE,
     "REQ-BERICHT-006": buildRefusal({
       reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Schiedsrichterin oder dem Schiedsrichter",
       repair: NEU_EINTRAGEN,

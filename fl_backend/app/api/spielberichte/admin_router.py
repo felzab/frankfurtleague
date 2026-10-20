@@ -169,13 +169,14 @@ async def patch_spielbericht(
 
     Refuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); a `bericht_stand`
     other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day is
-    still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a pupil newly named on a side
-    outside that side's live squad of the season (`REQ-BERICHT-003`); a yellow or second yellow card naming no reason,
-    unless the stored report holds that card, by side, pupil and colour, stripped of its reason at the season's end
-    (`REQ-BERICHT-008`); and remarks naming a seat holder of either club, the booked referee or a pupil of either squad
-    (`REQ-BERICHT-005`), last. Each but `REQ-BERICHT-006` is asked again outside the transaction just before answering;
-    a write of the report landing mid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first
-    writes at once are two pages opened on no report: the later is refused.
+    still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out proposed on a
+    group-phase fixture (`REQ-BERICHT-009`); a pupil newly named on a side outside that side's live squad of the season
+    (`REQ-BERICHT-003`); a yellow or second yellow card naming no reason, unless the stored report holds that card, by
+    side, pupil and colour, stripped of its reason at the season's end (`REQ-BERICHT-008`); and remarks naming a seat
+    holder of either club, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each but
+    `REQ-BERICHT-006` is asked again outside the transaction just before answering; a write of the report landing
+    mid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two pages
+    opened on no report: the later is refused.
     """
 
     payload = bericht_data.bericht
