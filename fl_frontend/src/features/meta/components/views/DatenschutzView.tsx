@@ -6,6 +6,7 @@ import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "@/core/brand";
 import { DEIN_BEREICH_TITEL, IMPRESSUM_TITEL, ORGANISATION_TITEL } from "@/core/seitenNamen";
 import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
 import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signInCode";
+import { DAY_MS } from "@/core/timeUnits";
 import {
   BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
   BEWERBUNG_ERINNERUNG_TAGE,
@@ -48,8 +49,7 @@ const EINE_STUNDE = { 1: "eine Stunde" } as const;
 /** The same hour after „nach“, which takes the dative, for the same reason. */
 const NACH_EINER_STUNDE = { 1: "einer Stunde" } as const;
 
-const TAG_MS = 24 * 60 * 60 * 1000;
-const PERSON_LEERLAUF_TAGE = PERSON_LIFETIME.idle / TAG_MS;
+const PERSON_LEERLAUF_TAGE = PERSON_LIFETIME.idle / DAY_MS;
 
 const amSatzanfang = (wort: string): string => `${wort.charAt(0).toUpperCase()}${wort.slice(1)}`;
 

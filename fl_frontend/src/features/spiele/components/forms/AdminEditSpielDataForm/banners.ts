@@ -1,3 +1,4 @@
+import { DAY_MS } from "@/core/timeUnits";
 import { SPIEL_ANFRAGE_VORLAUF_TAGE, SPIEL_BESTAETIGUNG_FRIST_TAGE } from "@/features/spiele/constants";
 
 import type { FLSonderereignis, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
@@ -117,10 +118,8 @@ export type SpielBannerAnsetzung = Record<(typeof ANSETZUNG_QUELLEN)[number], st
 export const ansetzungGeaendert = (draft: SpielBannerAnsetzung, stored: SpielBannerAnsetzung): boolean =>
   ANSETZUNG_QUELLEN.some((quelle) => draft[quelle] !== stored[quelle]);
 
-const MS_PER_DAY = 86_400_000;
-
 /** The days from `today` to `datum`, each `YYYY-MM-DD`: `Date.parse` reads both as a UTC midnight, so the count is exact. */
-export const tageBis = (datum: string, today: string): number => (Date.parse(datum) - Date.parse(today)) / MS_PER_DAY;
+export const tageBis = (datum: string, today: string): number => (Date.parse(datum) - Date.parse(today)) / DAY_MS;
 
 /**
  * Inside the deadline's days and strictly after `today`, the sweep's own floor: a fixture whose day has come is asked

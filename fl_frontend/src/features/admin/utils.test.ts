@@ -340,6 +340,24 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
     ]);
   });
 
+  // The other club's row stays unclosed until the next pass, and noted it would print a silence about a request the
+  // move withdrew, on a card the current row keeps in the tab.
+  it("notes no club by a row about an Ansetzung the fixture has left", () => {
+    const zeilen = [
+      zeile({ frist: "2026-07-29", angefragt_am: "2026-07-22" }),
+      zeile({
+        partei: { art: "team", team_id: ANSETZUNG.team2_id },
+        ansetzung: { ...ANSETZUNG, uhrzeit: "19:00:00" },
+        frist: "2026-07-29",
+        angefragt_am: "2026-07-22",
+      }),
+    ];
+
+    assert.deepEqual(bestaetigungNotizen("bestaetigung_ueberfaellig", [ANGESETZT], saisonBestaetigungen(zeilen, []), TODAY).get(ANGESETZT.id), [
+      "Team A: angefragt am 22.07.2026, keine Antwort",
+    ]);
+  });
+
   it("files a called-off fixture's rows only under abgesagt", () => {
     assert.deepEqual(
       kategorien([zeile({ antwort: VORSCHLAG }), zeile({ frist: "2026-07-20" })], { ...ANGESETZT, sonderereignis: "ausgefallen" }),
