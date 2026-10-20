@@ -1553,6 +1553,7 @@ async def speichern(
         spieltage_collection=database[Collection.SPIELTAGE],
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
         dry_run=False,
     )
 
