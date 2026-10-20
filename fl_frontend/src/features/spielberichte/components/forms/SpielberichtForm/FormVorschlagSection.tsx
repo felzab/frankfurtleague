@@ -61,10 +61,12 @@ export function FormVorschlagSection({
 
   const setEreignis = (next: FLSpielberichtSonderereignis | typeof KEINES) => {
     const sonderereignis = next === KEINES ? null : next;
-    // A no-show's result is the league's: the counts and the shoot-out go with the pick rather than riding into a
-    // save that refuses them.
+    // A no-show's result is the league's: the counts, the shoot-out and the scorers go with the pick rather than riding
+    // into a save that refuses them.
     const nichtantreten = sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2";
-    onChange(nichtantreten ? { sonderereignis, team1Tore: null, team2Tore: null, elfmeterschiessen: null } : { sonderereignis });
+    onChange(
+      nichtantreten ? { sonderereignis, team1Tore: null, team2Tore: null, elfmeterschiessen: null, torschuetzen: [] } : { sonderereignis },
+    );
   };
 
   const setTore = (slot: "team1Tore" | "team2Tore") => (value: number | null) => {
@@ -104,7 +106,7 @@ export function FormVorschlagSection({
         />
 
         {istNichtantreten ? (
-          <p className="muted-hint">Hat ein Team nicht angetreten, trägst Du keine Tore ein: das Ergebnis setzt die Liga.</p>
+          <p className="muted-hint">Ist ein Team nicht angetreten, trägst Du keine Tore ein: Das Ergebnis setzt die Liga.</p>
         ) : (
           <div className={FIELD_PAIR_CLASSES}>
             {(
@@ -115,6 +117,9 @@ export function FormVorschlagSection({
             ).map(({ slot, path, name, value }) => (
               <NumberField
                 key={slot}
+                // Marked by hand: shown, both counts are refused empty by the payload's refinement
+                // (`fl_frontend/src/features/spielberichte/schemas.ts :: berichtPayload`), the leaf taking `null` for a no-show.
+                isRequired
                 minValue={0}
                 name={path}
                 value={value}

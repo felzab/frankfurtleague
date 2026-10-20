@@ -13,15 +13,20 @@ import type { NumberFieldRootProps } from "@heroui/react/number-field";
 function NumberFieldRoot({
   value,
   onChange,
+  isRequired,
   ...props
 }: Omit<NumberFieldRootProps, "value" | "defaultValue" | "onChange" | "isRequired"> & {
   value: number | null;
   onChange: (next: number | null) => void;
+  /** For a rule outside the field's own schema, which each site names, as `Select.tsx` takes it. */
+  isRequired?: boolean;
 }) {
+  const derived = useRequiredMark(props.name, null);
+
   return (
     <HeroUINumberField
       {...props}
-      isRequired={useRequiredMark(props.name, null)}
+      isRequired={isRequired ?? derived}
       value={value ?? Number.NaN}
       // A `null` left in the draft is refused at submit, where every payload schema words its own type
       // check, so the empty box draws German.

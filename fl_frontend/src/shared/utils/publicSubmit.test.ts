@@ -439,9 +439,7 @@ const FORMS: Record<string, PublicForm> = {
     module: "features/spielbestaetigungen/components/views/SpielbestaetigungFormPanel.tsx",
     route: "/api/bestaetigung/spiel",
     render: () => h(SpielbestaetigungFormPanel, { token: "kein-echtes-token", onAbschluss: () => undefined }),
-    submit: async (user) => {
-      await user.click(screen.getByRole("button", { name: /Zusagen/ }));
-    },
+    submit: (user) => pressTwice(user, { resting: "Zusagen", armed: "Ja, zusagen" }),
   },
 };
 

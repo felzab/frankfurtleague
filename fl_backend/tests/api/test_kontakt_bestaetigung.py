@@ -1584,6 +1584,21 @@ class TestTheSaveAnswersWhomItTookOff:
         ]
         assert again.abgaenge == []
 
+    def test_a_paired_trainer_losing_one_seat_is_told_of_it_while_a_person_linked_to_another_seat_is_not(self, mongo_replica_set_url: str):
+        """Jonas moves from the Ansprechperson's seat to the one Ida leaves, so answering every lost seat without the links tells him too."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await save(database, PAIRED)
+
+            return await save(
+                database,
+                {"trainer": person("Ida"), "ansprechperson": person("Klara"), "stellvertretung": person("Jonas"), "trainer_ist_zugleich": None},
+            )
+
+        response = on_a_league(mongo_replica_set_url, body)
+
+        assert [(abgang.rollen, abgang.email) for abgang in response.abgaenge] == [(["stellvertretung"], "ida@example.com")]
+
     def test_a_confirmed_person_moved_to_a_new_mailbox_is_linked_there_and_the_old_one_is_answered(self, mongo_replica_set_url: str):
         """The league's route for a person holding contact seats alone: the new mailbox confirms afresh, and the old one hears it left."""
 

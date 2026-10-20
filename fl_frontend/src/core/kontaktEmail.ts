@@ -203,7 +203,7 @@ export function buildKontaktBestaetigungEmail({
 
 const ABGANG_UEBERSCHRIFT = "Nicht mehr als Kontaktperson eingetragen";
 
-/** What a mailbox a contacts save took off a team's season row is told. No name, as the confirmation names none: behind a typo its reader is a stranger. */
+/** What a mailbox a write took a contact seat or its live link from is told. No name, as the confirmation names none: behind a typo its reader is a stranger. */
 export interface KontaktAbgangData {
   origin: string;
   /** Every seat the mailbox held there, as one phrase, rendered by the caller as `KontaktBestaetigungData.rollenText` is. */
@@ -212,9 +212,10 @@ export interface KontaktAbgangData {
   saisonId: string;
 }
 
-// The link is gone with the seat, and a reader still holding the confirmation or a fixture request
-// would otherwise press it and meet a refusal with no reason.
-const ABGANG_FOLGE = "Links, die Du für diesen Eintrag bekommen hast, funktionieren nicht mehr. Du musst nichts tun.";
+// The two links that die with the seat, never "every link": the team's registration link stays live for the contacts who
+// remain. Unnamed, a dead one is pressed and meets a refusal with no reason.
+const ABGANG_FOLGE =
+  "Der Link zum Bestätigen dieses Eintrags und die Links zum Bestätigen von Spielterminen, die Du dafür bekommen hast, funktionieren nicht mehr. Du musst nichts tun.";
 
 /** The word to a mailbox that its seat on a team's season row is gone: no button, since nothing is left for it to answer. */
 export function buildKontaktAbgangEmail({ origin, rollenText, schule, saisonId }: KontaktAbgangData): KontaktEmail {

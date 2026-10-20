@@ -860,6 +860,9 @@ class FLBewerbungKontaktEmailResponse(BaseAPIResponse):
     rollen: list[FLKontaktRolle]
     token: str
     bestaetigungsfrist: CustomDateString
+    # The mailbox the write took the seats' live link from, for the server action's leaving notice and never the
+    # browser; null where the corrected address folds to that same mailbox, which the fresh link reaches.
+    abgang_email: str | None
 
 
 # --- The retention SWEEP, system tier. The backend decides and prepares, the frontend mails: what

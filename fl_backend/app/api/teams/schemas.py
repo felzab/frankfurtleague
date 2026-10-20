@@ -788,7 +788,7 @@ class FLKontaktMint(BaseModel):
 
 
 class FLKontaktAbgang(BaseModel):
-    """One mailbox a write took off a season row, for the admin action's notice; the route handler reads it and the browser never does."""
+    """One mailbox a write took off a seat of a season row, for the admin's notice; the server action reads it and the browser never does."""
 
     rollen: list[FLKontaktRolle]
     # As the replaced block spelled it: the notice goes where the seat's mail went.

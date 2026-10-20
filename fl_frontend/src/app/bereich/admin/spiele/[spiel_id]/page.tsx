@@ -15,6 +15,7 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 import { nullAfterLoggingUnexplained } from "@/shared/utils/degradedRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
+import type { SpielberichtStand } from "@/features/spielberichte/types";
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
@@ -42,13 +43,14 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
     // cache entry hours old. `null` is "no such fixture"; everything else throws.
     getAdminSpiel(spielId),
     // Uncached for the same reason: „Vorschlag übernehmen“ seeds from the report version standing now. A failed read
-    // leaves the editor without its panel.
-    getAdminSpielbericht(spielId).catch(nullAfterLoggingUnexplained),
+    // is `null`, which the panel says, as the confirmations' panel says its own.
+    runWithIncomingTrace(() => getAdminSpielbericht(spielId).catch(nullAfterLoggingUnexplained)),
   ]);
+  const eingabeOffen = frontend_config.SPIELBERICHT_EINGABE === "on";
   // Read whatever the switch: the triage files a standing report's fixture whatever it reads, and only the adoption
-  // here clears it. Closed, a fixture with no report shows no panel.
-  const spielbericht =
-    berichtRes !== null && (frontend_config.SPIELBERICHT_EINGABE === "on" || berichtRes.bericht !== null) ? berichtRes : null;
+  // here clears it. Closed, a fixture with no report shows no panel, and a standing one offers no correction.
+  const spielbericht: SpielberichtStand | null | undefined =
+    berichtRes === null ? null : eingabeOffen || berichtRes.bericht !== null ? { lesen: berichtRes, korrigierbar: eingabeOffen } : undefined;
 
   if (!spielRes) {
     notFound();

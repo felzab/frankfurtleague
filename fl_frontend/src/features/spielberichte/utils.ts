@@ -3,8 +3,14 @@ import { kaderName, NUMMER_NICHT_HINTERLEGT, SPIELER_ANONYM_LABEL } from "@/feat
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
+import { SPIELBERICHT_ZUSTAENDE_OFFEN, SPIELBERICHT_ZUSTAND_TONE } from "./constants";
+
+import type { PillTone } from "@/shared/components/ui/badges";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLSpielberichtSpieler, FLSpielberichtVorschlag, FLSpielberichtZustandEintrag } from "./schemas";
+import type { FLSpielberichtSpiel, FLSpielberichtSpieler, FLSpielberichtVorschlag, FLSpielberichtZustandEintrag } from "./schemas";
+
+/** A fixture card's word on its report, worn in its state's tone. */
+export type BerichtChip = { readonly text: string; readonly tone: PillTone };
 
 /** The proposal as one line: the score, its shoot-out, and the event, a no-show naming its event alone. */
 export function vorschlagText(vorschlag: FLSpielberichtVorschlag): string {
@@ -19,13 +25,58 @@ export function vorschlagText(vorschlag: FLSpielberichtVorschlag): string {
 }
 
 /**
- * What an administrator's fixture card says of its report, `null` once adopted: the two states the triage files under
- * „Ergebnis vorgeschlagen“, each in its own words.
+ * What an administrator's fixture card says of its report, in its state's tone; `null` for a state awaiting nobody.
+ * `abweichend` reads „nicht übernommen“, never „geändert“: a first report beside a hand-typed result reads it too.
  */
-export function berichtChipText({ zustand, ergebnis_vorschlag }: FLSpielberichtZustandEintrag): string | null {
-  if (zustand === "uebernommen") return null;
+export function berichtChip({ zustand, ergebnis_vorschlag }: FLSpielberichtZustandEintrag): BerichtChip | null {
+  if (!SPIELBERICHT_ZUSTAENDE_OFFEN.has(zustand)) return null;
 
-  return `${zustand === "vorgeschlagen" ? "Ergebnis vorgeschlagen" : "Bericht geändert"} ${vorschlagText(ergebnis_vorschlag)}`;
+  const worte = zustand === "vorgeschlagen" ? "Ergebnis vorgeschlagen" : "Bericht nicht übernommen";
+  return { text: `${worte} ${vorschlagText(ergebnis_vorschlag)}`, tone: SPIELBERICHT_ZUSTAND_TONE[zustand] };
+}
+
+/** A side as the match editor's draft holds it: the club, its goals, and nothing where the slot is open. */
+type EntwurfSeite = { readonly team_id: string; readonly tore: number | null } | null;
+
+/**
+ * Why „Vorschlag übernehmen“ cannot seed the editor's draft, `null` where it can. The goals, the shoot-out and a
+ * no-show's event are by side, so a draft fielding other clubs, or the report's two swapped, would credit the wrong team.
+ */
+export function uebernahmeGesperrt(
+  spiel: Pick<FLSpielberichtSpiel, "team1" | "team2">,
+  entwurf: { team1: EntwurfSeite; team2: EntwurfSeite },
+): string | null {
+  if (entwurf.team1 === null || entwurf.team2 === null) return "Im Formular stehen noch nicht beide Teams.";
+  if (entwurf.team1.team_id !== spiel.team1?.team_id || entwurf.team2.team_id !== spiel.team2?.team_id) {
+    return "Die Teams im Formular sind nicht die des Spielberichts.";
+  }
+
+  return null;
+}
+
+/** Whether the editor's result atoms still hold the proposal „Vorschlag übernehmen“ seeded them with. */
+export function haeltVorschlag(
+  vorschlag: FLSpielberichtVorschlag,
+  entwurf: {
+    team1: EntwurfSeite;
+    team2: EntwurfSeite;
+    elfmeterschiessen: { readonly team1: number | null; readonly team2: number | null } | null;
+    sonderereignis: string | null;
+  },
+): boolean {
+  const { elfmeterschiessen: entwurfElfmeter } = entwurf;
+  const elfmeter = vorschlag.elfmeterschiessen;
+  const gleicherElfmeter =
+    entwurfElfmeter === null || elfmeter === null
+      ? entwurfElfmeter === elfmeter
+      : entwurfElfmeter.team1 === elfmeter.team1 && entwurfElfmeter.team2 === elfmeter.team2;
+
+  return (
+    entwurf.team1?.tore === vorschlag.team1_tore &&
+    entwurf.team2?.tore === vorschlag.team2_tore &&
+    entwurf.sonderereignis === vorschlag.sonderereignis &&
+    gleicherElfmeter
+  );
 }
 
 /** A pupil as a report's reader sees them: shirt number and name, and the erased pupils' sentinel as „anonym“. */
@@ -61,10 +112,13 @@ export const BEMERKUNGEN_PATH = "bericht.bemerkungen";
 // The box's hint already asks for a shirt number, so the message names the fault alone (`docs/frontend/spec.md` §1.12).
 const NAME_IN_BEMERKUNGEN = "In den Bemerkungen steht ein Name.";
 
+// The reload draws the form anew from the report standing now, so the change the press carried has to be entered again.
+const NEU_EINTRAGEN = "Lade die Seite neu und trage Deine Änderung dort erneut ein";
+
 const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
   schiedsrichter: {
     // Ahead of the spine's own reading, whose sentence names a team: the referee's record is what went.
-    "REQ-FUNKTION-001": "Du bist nicht mehr als Schiedsrichter eingetragen. Lade die Seite neu.",
+    "REQ-FUNKTION-001": "Du bist nicht mehr als Schiedsrichterin oder Schiedsrichter eingetragen. Lade die Seite neu.",
     "REQ-BERICHT-001": buildRefusal({ reason: "Dieses Spiel hat noch kein Datum oder noch nicht stattgefunden", repair: LADE_DIE_SEITE_NEU }),
     "REQ-BERICHT-002": buildRefusal({ reason: "Dieses Spiel leitest Du nicht mehr", repair: LADE_DIE_SEITE_NEU }),
     "REQ-BERICHT-003": buildRefusal({
@@ -72,15 +126,25 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
       repair: "Lade die Seite neu und wähle neu",
     }),
     "REQ-BERICHT-004": "Dieses Spiel ist ausgefallen oder annulliert. Dafür gibt es keinen Spielbericht.",
+    "REQ-BERICHT-006": buildRefusal({
+      reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Verwaltung oder von Dir in einem anderen Fenster",
+      repair: NEU_EINTRAGEN,
+    }),
     "DB-COMMON-002": buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: LADE_DIE_SEITE_NEU }),
   },
   admin: {
-    "REQ-BERICHT-001": buildRefusal({ reason: "Das Spiel hat noch kein Datum oder liegt in der Zukunft", repair: "Trag zuerst das Datum ein" }),
+    // A reload, no date to enter: the correction page states an undated or future fixture before any press, so this
+    // arrives only where the fixture moved under the page, and an entered date may be the future one.
+    "REQ-BERICHT-001": buildRefusal({ reason: "Das Spiel hat noch kein Datum oder findet erst noch statt", repair: LADE_DIE_SEITE_NEU }),
     "REQ-BERICHT-003": buildRefusal({
       reason: "Eine gewählte Person steht nicht im Kader ihres Teams",
       repair: "Lade die Seite neu und wähle neu",
     }),
     "REQ-BERICHT-004": "Das Spiel ist als ausgefallen oder annulliert eingetragen. Dafür gibt es keinen Spielbericht.",
+    "REQ-BERICHT-006": buildRefusal({
+      reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Schiedsrichterin oder dem Schiedsrichter",
+      repair: NEU_EINTRAGEN,
+    }),
     "DB-COMMON-002": buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: LADE_DIE_SEITE_NEU }),
   },
 };

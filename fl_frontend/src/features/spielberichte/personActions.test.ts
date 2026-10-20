@@ -40,6 +40,7 @@ const BERICHT = {
     karten: [],
     bemerkungen: null,
   },
+  bericht_stand: null,
 };
 
 beforeEach(() => {

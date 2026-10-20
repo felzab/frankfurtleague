@@ -43,9 +43,10 @@ const OHNE_EINTRAG = {
   berechtigung: { ereignis: "mail.berechtigungshinweis_nicht_zugestellt", error_code: "FE-MAIL-010" },
   // The pupils' season-end note, whose registration is erased before it goes: a pupil it missed.
   saisonende: { ereignis: "mail.saisonendenotiz_nicht_zugestellt", error_code: "FE-MAIL-013" },
-  // A referee's booking onto a fixture, or the notice that it moved: their row holds no seat to record either on.
+  // A referee's booking onto a fixture, or the notice that it moved or that they were taken off it: their row holds no seat
+  // to record any of the three on.
   spielleitung: { ereignis: "mail.spielleitung_nicht_zugestellt", error_code: "FE-MAIL-014" },
-  // The notice to a mailbox a contacts save took off a season row: nobody it went to holds a seat to record it on.
+  // The notice to a mailbox a write took a contact seat or its link from: nobody it went to holds a seat to record it on.
   kontakt_abgang: { ereignis: "mail.kontakt_abgang_nicht_zugestellt", error_code: "FE-MAIL-015" },
 } as const satisfies Record<Extract<ZustellMeldung, { nachricht_id: string }>["ziel"], { ereignis: string; error_code: string }>;
 

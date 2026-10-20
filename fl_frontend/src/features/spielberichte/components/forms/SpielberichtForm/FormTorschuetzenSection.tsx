@@ -10,7 +10,7 @@ import { Switch } from "@/shared/components/ui/Switch";
 
 import { TORSCHUETZE_UNBEKANNT_LABEL } from "../../../constants";
 import { AuswahlSelect } from "./AuswahlSelect";
-import { EntfernenButton, HinzufuegenButton, MinuteField, personOptionen, seitenOptionen } from "./eintragFelder";
+import { EntfernenButton, HinzufuegenButton, MinuteField, ohneKader, personOptionen, seitenOptionen } from "./eintragFelder";
 import { UNBEKANNT } from "./spielberichtDraft";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -28,6 +28,7 @@ export function FormTorschuetzenSection({
   onAdd,
   fieldErrors,
   onValidateFields,
+  istNichtantreten,
 }: {
   kontext: SpielberichtKontext;
   eintraege: readonly TorschuetzeDraft[];
@@ -35,6 +36,8 @@ export function FormTorschuetzenSection({
   onAdd: () => void;
   fieldErrors: FieldErrors;
   onValidateFields: (paths: readonly string[]) => void;
+  /** A no-show takes no scorer, so the section offers none rather than an entry its save refuses. */
+  istNichtantreten: boolean;
 }) {
   const panel = formPanel();
   const listStatus = useFieldStatus<SpielberichtFieldPath>("bericht.torschuetzen");
@@ -54,8 +57,8 @@ export function FormTorschuetzenSection({
             body={{
               lead: "Für jedes Tor ein Eintrag.",
               points: [
-                { term: "Unbekannt:", text: "weißt Du nicht, wer getroffen hat, wähle „unbekannt“." },
-                { term: "Eigentor:", text: "trag das Team der Person ein, die getroffen hat. Das Tor zählt für das andere Team." },
+                { term: "Unbekannt:", text: "Weißt Du nicht, wer getroffen hat, wähle „unbekannt“." },
+                { term: "Eigentor:", text: "Trag das Team der Person ein, die getroffen hat. Das Tor zählt für das andere Team." },
               ],
             }}
           />
@@ -63,7 +66,9 @@ export function FormTorschuetzenSection({
       </div>
 
       <div className={panel.body()}>
-        {eintraege.length > 0 && (
+        {istNichtantreten && <p className="muted-hint">Bei einem Nichtantreten gibt es keine Torschützen.</p>}
+
+        {!istNichtantreten && eintraege.length > 0 && (
           <ul
             aria-label="Torschützen"
             className="flex w-full flex-col gap-3">
@@ -107,6 +112,9 @@ export function FormTorschuetzenSection({
                       error={fieldErrors[`${pfad}.spieler_id`]}
                     />
                   </div>
+                  {ohneKader(kontext, eintrag.seite) && (
+                    <p className="muted-hint">Für dieses Team ist kein Kader hinterlegt. Jedes Tor trägst Du dann als „unbekannt“ ein.</p>
+                  )}
 
                   <div className={FIELD_PAIR_CLASSES}>
                     <MinuteField
@@ -138,11 +146,13 @@ export function FormTorschuetzenSection({
         {/* The count rule's message: it is about the whole list, so it stands under the list rather than on an entry. */}
         {listStatus?.error !== undefined && listStatus.error !== null && <p className={FIELD_ERROR_CLASSES}>{listStatus.error}</p>}
 
-        <HinzufuegenButton
-          label="Tor hinzufügen"
-          anzahl={eintraege.length}
-          onPress={onAdd}
-        />
+        {!istNichtantreten && (
+          <HinzufuegenButton
+            label="Tor hinzufügen"
+            anzahl={eintraege.length}
+            onPress={onAdd}
+          />
+        )}
       </div>
     </section>
   );

@@ -349,9 +349,12 @@ AGGREGATES: tuple[Aggregate, ...] = (
         boundary=(
             "One fixture's report: what the referee recorded of the match. Held true against nothing: it states what the "
             "referee proposed, which stays true however the fixture is corrected afterwards -- so it is in no boundary with "
-            "`spiele`. The report writes no fixture and no fixture write reaches the report; the administrator carries a "
-            "proposal into the fixture by their own save, and the state the report reads in is derived on every read from "
-            "both. What is held is a rule over this collection alone, `uniq_spielbericht_spiel_id`: one report per fixture."
+            "`spiele`. The report writes no fixture; the administrator carries a proposal into the fixture by their own "
+            "save, and the state the report reads in is derived on every read from both. One fixture write reaches the "
+            "report: a save adopting it stamps the version it took, in the save's transaction and only while the report "
+            "still stands at that version, so the stamp records the adoption and holds no rule over the fixture, and a "
+            "report corrected since is left unadopted rather than refusing the save. What is held is a rule over this "
+            "collection alone, `uniq_spielbericht_spiel_id`: one report per fixture."
         ),
     ),
 )
@@ -715,9 +718,10 @@ REFERENCES: tuple[Reference, ...] = (
         note=(
             "Both writers read the fixture the path names and answer 404 for one that does not exist. A fixture "
             "corrected afterwards leaves the report alone, its state being derived on every read against the result as it "
-            "stands. A fixture is removed only with its season's whole draw, by a confirmed replace or an undraw, which a "
-            "submitted report refuses (`REQ-SPIELPLAN-007`); each removes the season's report documents in the same "
-            "transaction (`app/api/saisons/admin_router.py :: undraw_spielplan`)."
+            "stands, unless the save adopts the report, which stamps the version it took "
+            "(`app/api/spielberichte/crud.py :: stamp_the_adoption`). A fixture is removed only with its season's whole "
+            "draw, by a confirmed replace or an undraw, which a submitted report refuses (`REQ-SPIELPLAN-007`); each removes "
+            "the season's report documents in the same transaction (`app/api/saisons/admin_router.py :: undraw_spielplan`)."
         ),
     ),
     Reference(
@@ -1427,6 +1431,29 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "on no payload: every write of the block raises it by one, so an adoption recording the version it took reads "
         "adopted exactly until the next write, whichever field it moves",
         "app.api.spielberichte.services.compose_bericht_update",
+    ),
+    FieldPolicy(
+        Collection.SPIELBERICHTE,
+        "bericht.uebernommene_version",
+        Editability.CONTROL_ONLY,
+        "on no payload: the fixture save carrying `uebernimmt_bericht` writes it inside its own transaction, and only on a "
+        "report still at that version, so a report corrected since the editor read it is left unadopted rather than "
+        "adopted unread",
+        "app.api.spielberichte.crud.stamp_the_adoption",
+    ),
+    FieldPolicy(
+        Collection.SPIELBERICHTE,
+        "bericht.uebernommen_am",
+        Editability.CONTROL_ONLY,
+        "on no payload: written beside `bericht.uebernommene_version`, by the same stamp",
+        "app.api.spielberichte.crud.stamp_the_adoption",
+    ),
+    FieldPolicy(
+        Collection.SPIELBERICHTE,
+        "bericht.uebernommen_von",
+        Editability.CONTROL_ONLY,
+        "on no payload: written beside `bericht.uebernommene_version`, by the same stamp",
+        "app.api.spielberichte.crud.stamp_the_adoption",
     ),
 )
 
@@ -3179,6 +3206,18 @@ RULES: tuple[Rule, ...] = (
         summary="a report's remarks name no seat holder of either club, the booked referee or a pupil of either squad",
         implemented_by="app.api.spielberichte.services.find_name_in_bemerkungen_refusal",
         tested_by="tests/api/test_spielbericht_shapes.py::TestTheRemarksNameNobody",
+    ),
+    Rule(
+        code="REQ-BERICHT-006",
+        status=HTTPStatus.CONFLICT,
+        operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",
+        aggregate="Spielbericht",
+        summary=(
+            "a report write names the version of the report its form was served, or none where none stood, and finds it "
+            "standing, so no form replaces a report its sender never saw"
+        ),
+        implemented_by="app.api.spielberichte.services.find_bericht_stand_refusal",
+        tested_by="tests/api/test_spielbericht_execution.py::TestAFormOpenedBeforeAnotherWrite",
     ),
 )
 

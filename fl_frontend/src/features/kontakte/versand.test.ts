@@ -4,7 +4,7 @@ import { beforeEach, describe, it } from "node:test";
 import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, loggedLines } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { membershipAnswer } from "@/shared/testing/membershipFixtures.ts";
@@ -336,6 +336,8 @@ describe("the contacts save that takes a mailbox off the row", () => {
       notice?.text ?? "",
       /in der Saison 2627 nicht mehr als Ansprechperson und Trainerin oder Trainer für Lessing-Kolleg eingetragen/,
     );
+    // The two links the seat took with it and no more: the team's registration link still opens for the row.
+    assert.match(notice?.text ?? "", /Der Link zum Bestätigen dieses Eintrags und die Links zum Bestätigen von Spielterminen, die Du dafür/);
     assert.doesNotMatch(notice?.text ?? "", /Meier|https?:\/\/\S*token/);
     assert.deepEqual(
       zustellung.map(({ ziel }) => ziel),
@@ -345,13 +347,32 @@ describe("the contacts save that takes a mailbox off the row", () => {
     assert.equal(res.success && res.versandSatz, describeLinkMail("anna@schule.example", "gesendet"), "the notice was reported as a link");
   });
 
-  it("is still a landed save where the notice could not leave", async () => {
+  // The provider sends nothing for a key it holds from the last 24 hours, so a removal undone and saved again the same day
+  // has to arrive under a key of its own.
+  it("keys every save's notice afresh, so the same removal saved twice in a day is sent twice", async () => {
+    save = () => saved([], [abgang("dora@schule.example", ["ansprechperson"])]);
+
+    await patchSaisonTeamKontakteAction(PAYLOAD);
+    await patchSaisonTeamKontakteAction(PAYLOAD);
+
+    const keys = mail.sent.filter(({ to }) => to === "dora@schule.example").map(({ idempotencyKey }) => idempotencyKey);
+    assert.equal(keys.length, 2);
+    assert.ok(keys.every((key) => key !== undefined));
+    assert.notEqual(keys[0], keys[1]);
+  });
+
+  // Filed as every lane no record holds files a send that did not leave, so a search for unsent messages finds it.
+  it("is still a landed save where the notice could not leave, which logs it as an unsent message", async () => {
     save = () => saved([], [abgang("dora@schule.example", ["ansprechperson"])]);
     mail.answerWith(() => "refused");
 
     const res = await patchSaisonTeamKontakteAction(PAYLOAD);
 
     assert.equal(res.success && res.message, "Kontakte gespeichert");
+    assert.deepEqual(
+      loggedLines.filter(({ message }) => message === "kontakt.abgang_failed").map(({ meta }) => (meta as { error_code?: string }).error_code),
+      ["FE-MAIL-002"],
+    );
   });
 });
 

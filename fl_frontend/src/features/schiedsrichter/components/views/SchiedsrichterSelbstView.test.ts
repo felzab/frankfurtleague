@@ -114,10 +114,10 @@ describe("a referee's own page", () => {
       spielberichte: [GELEITET, { ...GELEITET, spiel_id: "6890a1b2c3d4e5f607390102", eingereicht_am: "2026-10-17T18:00:00Z" }],
     });
 
-    const eintragen = screen.getByRole("link", { name: "Spielbericht eintragen: Goethe-Gymnasium gegen Lessing-Gymnasium" });
+    const eintragen = screen.getByRole("link", { name: "Spielbericht eintragen: Goethe-Gymnasium gegen Lessing-Gymnasium am 17.10.2026" });
     assert.equal(eintragen.getAttribute("href"), "/bereich/schiedsrichter/spielbericht/6890a1b2c3d4e5f607390101");
     assert.equal(
-      screen.getByRole("link", { name: "Spielbericht ansehen: Goethe-Gymnasium gegen Lessing-Gymnasium" }).getAttribute("href"),
+      screen.getByRole("link", { name: "Spielbericht ansehen: Goethe-Gymnasium gegen Lessing-Gymnasium am 17.10.2026" }).getAttribute("href"),
       "/bereich/schiedsrichter/spielbericht/6890a1b2c3d4e5f607390102",
     );
   });

@@ -40,6 +40,10 @@ export function personOptionen(kontext: SpielberichtKontext, seite: FLSpielberic
   return genannt === undefined ? kader : [genannt, ...kader];
 }
 
+/** The chosen side fields no live squad, so its picker offers nobody new and the entry says why. */
+export const ohneKader = (kontext: SpielberichtKontext, seite: FLSpielberichtSeite | null): boolean =>
+  seite !== null && kontext.kader[seite].length === 0;
+
 /** The minute box, its refusals arriving by `name` through the form's `validationErrors`. */
 export function MinuteField({
   name,

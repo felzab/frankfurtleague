@@ -117,11 +117,15 @@ export function formPayloadOf(draft: SpielberichtDraft) {
   };
 }
 
-/** The judged draft as the write sends it: „unbekannt“ becomes the null id it stands for. */
-export function wirePayloadOf(draft: SpielberichtDraft): FLSpielberichtPayload {
+/**
+ * The judged draft as the write sends it, on the version of the report the form opened on: „unbekannt“ becomes the
+ * null id it stands for.
+ */
+export function wirePayloadOf(draft: SpielberichtDraft, stand: number | null): FLSpielberichtPayload {
   const form = formPayloadOf(draft);
 
   return {
+    bericht_stand: stand,
     bericht: {
       ...form.bericht,
       // Cast once here, the form schema having refused every null these narrow before a send reaches this.
@@ -156,8 +160,11 @@ export type SpielberichtFieldPath =
 /** What the change list says of a value still to enter, in words: a lone dash would do a word's job. */
 const OFFEN = "offen";
 
-/** A whole list is one row: an entry has no path of its own that survives the one before it being removed. */
-const listText = (eintraege: readonly string[]): string | null => (eintraege.length === 0 ? null : eintraege.join("; "));
+/**
+ * A whole list is one row: an entry has no path of its own that survives the one before it being removed. Parted by a
+ * middle dot, never a semicolon (`docs/frontend/spec.md` §1.12): an entry holds commas.
+ */
+const listText = (eintraege: readonly string[]): string | null => (eintraege.length === 0 ? null : eintraege.join(" · "));
 
 const minuteText = (minute: string): string => (minute === "" ? OFFEN : `${minute}.`);
 

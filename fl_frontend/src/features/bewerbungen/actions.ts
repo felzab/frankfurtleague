@@ -8,6 +8,7 @@ import { APIBadStatusError } from "@/core/errors";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
+import { mailKontaktAbgang } from "@/features/kontakte/notifications";
 import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { linkVersandOf } from "@/features/zustellung/notifications";
@@ -484,6 +485,18 @@ export async function kontaktEmailKorrigierenAction(
     // No tag moves, as on the decline: this moves the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
 
+    // The mailbox the write took a live link from, told as a contacts save tells one it takes off a seat: read off the
+    // write's own answer, and never returned, so the browser holds no address the correction replaced.
+    const { abgang_email: abgangEmail } = korrekturOperation;
+    const abgang =
+      abgangEmail === null
+        ? Promise.resolve()
+        : mailKontaktAbgang({
+            operation: "kontaktEmailKorrigierenAction",
+            saisonId: bewerbung.saison_id,
+            abgang: { email: abgangEmail, rollen: korrekturOperation.rollen, schule: benanntesTeam },
+          });
+
     let zustellung;
     try {
       zustellung = await sendeBestaetigungErneut({
@@ -509,6 +522,7 @@ export async function kontaktEmailKorrigierenAction(
       });
       zustellung = nichtVerschickt(KORREKTUR_OHNE_LINK);
     }
+    await abgang;
 
     return { success: true, ...zustellung };
   });

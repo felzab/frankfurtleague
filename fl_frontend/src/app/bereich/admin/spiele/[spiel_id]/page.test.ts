@@ -165,12 +165,16 @@ describe("the report the match editor reads", () => {
   const BERICHT_ENDPOINT = `/spielberichte/${OBJECT_ID}/admin`;
   const ohneBericht = { ...spielberichtReadFixture(), bericht: null, zustand: null };
 
-  const handed = async (eingabe: "on" | "off", gelesen: Record<string, unknown>): Promise<unknown> => {
+  const handed = async (eingabe: "on" | "off", gelesen: Record<string, unknown> | null): Promise<unknown> => {
     const gesetzt = frontend_config.SPIELBERICHT_EINGABE;
     Reflect.set(frontend_config, "SPIELBERICHT_EINGABE", eingabe);
     answerReadsWith((endpoint, schema, params) => {
       if (endpoint === ENDPOINT) return answer(schema, endpoint, { spiel: stored });
-      if (endpoint === BERICHT_ENDPOINT) return schema.safeParse(gelesen).data;
+      // `null` for a read the network breaks off.
+      if (endpoint === BERICHT_ENDPOINT) {
+        if (gelesen === null) throw backendUnreachable(endpoint);
+        return schema.safeParse(gelesen).data;
+      }
       return EMPTIEST_ANSWER(endpoint, schema, params);
     });
     try {
@@ -181,13 +185,23 @@ describe("the report the match editor reads", () => {
     }
   };
 
-  it("hands the editor a standing report while the switch reads off", async () => {
-    assert.deepEqual(await handed("off", spielberichtReadFixture()), FLSpielberichtAdminResponseSchema.parse(spielberichtReadFixture()));
+  /* Closed, the correction page writes nothing, so the panel offers no way there. */
+  it("hands the editor a standing report while the switch reads off, offering no correction", async () => {
+    assert.deepEqual(await handed("off", spielberichtReadFixture()), {
+      lesen: FLSpielberichtAdminResponseSchema.parse(spielberichtReadFixture()),
+      korrigierbar: false,
+    });
   });
 
-  it("hands it no report where none stands and the switch reads off, and the empty read where it reads on", async () => {
-    assert.equal(await handed("off", ohneBericht), null);
-    assert.deepEqual(await handed("on", ohneBericht), FLSpielberichtAdminResponseSchema.parse(ohneBericht));
+  it("hands it no panel where no report stands and the switch reads off, and the empty read where it reads on", async () => {
+    assert.equal(await handed("off", ohneBericht), undefined);
+    assert.deepEqual(await handed("on", ohneBericht), { lesen: FLSpielberichtAdminResponseSchema.parse(ohneBericht), korrigierbar: true });
+  });
+
+  /* A failed read is not a fixture without a report: the panel says the read failed, as the confirmations' panel does. */
+  it("hands the editor the failed read as such, whatever the switch reads", async () => {
+    assert.equal(await handed("off", null), null);
+    assert.equal(await handed("on", null), null);
   });
 });
 

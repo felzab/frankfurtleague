@@ -76,7 +76,7 @@ function derive(
   categories: readonly ActionRequiredCategory[] = [],
   fieldErrors: Record<string, string> = {},
 ) {
-  return deriveSpielDraftStatus({ stored, draft, expectedCategories: new Set(categories), fieldErrors });
+  return deriveSpielDraftStatus({ stored, draft, uebernimmtBericht: null, expectedCategories: new Set(categories), fieldErrors });
 }
 
 describe("deriveSpielDraftStatus · dirtiness", () => {

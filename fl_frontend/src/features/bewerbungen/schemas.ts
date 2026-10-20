@@ -786,6 +786,7 @@ export const FLBewerbungKontaktEmailResponseSchema = BaseAPIResponseSchema.exten
   rollen: z.array(FLKontaktRolleSchema),
   token: z.string(),
   bestaetigungsfrist: CustomDateStringSchema,
+  abgang_email: z.string().nullable(),
 });
 export type FLBewerbungKontaktEmailResponse = z.infer<typeof FLBewerbungKontaktEmailResponseSchema>;
 
