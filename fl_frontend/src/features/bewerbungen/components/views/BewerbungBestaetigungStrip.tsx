@@ -152,8 +152,8 @@ export function BewerbungBestaetigungStrip({
   /** `null` where the registry could not be read, which closes the reseat with the reason. */
   neubesetzung: Neubesetzung | null;
   staende: readonly SitzBestaetigung[];
-  /** The day an incomplete application is deleted after, or `null` where none is recorded. */
-  frist: string | null;
+  /** The day an incomplete application is deleted after. */
+  frist: string;
   /** The read's judgement of the deadline on the server's day, never this browser's. */
   fristAbgelaufen: boolean;
   /** Whether the application is still `eingereicht` — the one state a re-sent link can be answered in. */

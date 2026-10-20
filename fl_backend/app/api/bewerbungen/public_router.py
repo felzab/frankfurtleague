@@ -458,16 +458,13 @@ async def post_bewerbung(
                 "kontakte": compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today),
                 "trikot": bewerbung_data.trikot.model_dump(mode="json"),
                 "kader": bewerbung_data.kader.model_dump(mode="json"),
-                # Written explicitly for `wunschgegner`'s reason.
+                # Written explicitly, as `team_id` is: the validator requires the key.
                 "stufengroesse": bewerbung_data.stufengroesse,
-                # Written even where the applicant named nobody, though the validator does not require
-                # it: every application this endpoint creates then carries the key, and only the ones
-                # stored before the field lack it.
+                # Written even where the applicant named nobody, for `stufengroesse`'s reason.
                 "wunschgegner": bewerbung_data.wunschgegner,
                 # Null until the triage decides, which is what `status == "eingereicht"` claims.
                 "entscheidung": None,
-                # The deadline and the three hashes, so the sweep and the links have something to
-                # judge; every application stored before this key carries none and is exempt from both.
+                # The deadline and the three hashes, so the sweep and the links have something to judge.
                 "bestaetigungsfrist": bestaetigungsfrist,
                 "bestaetigungen": compose_bestaetigungen(hashes={seat: token_hash for seat, (_, token_hash) in tokens.items()}, today=today),
                 # Left off a keyless press rather than stored null, which the validator's string type refuses.

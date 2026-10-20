@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 from bson import ObjectId
 
-from app.api.bewerbungen.services import compose_bestaetigungen, compose_einwilligung, hash_token
+from app.api.bewerbungen.services import bestaetigungsfrist_from, compose_bestaetigungen, compose_einwilligung, hash_token
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.api.spielbestaetigungen.services import compose_ansetzung, halter_of
@@ -256,22 +256,12 @@ def bewerbung_document(
 ) -> dict[str, Any]:
     """A stored application, its school an existing club by `team_id` or a new one in `schule`.
 
-    Each link is minted from `<link_prefix>-<seat>` on `verschickt_am`, by default the id and the submission day.
-    Without `bestaetigungsfrist` it predates the confirmation flow.
+    Each link is minted from `<link_prefix>-<seat>` on `verschickt_am`, by default the id and the submission day,
+    the deadline counted from the mint.
     """
 
     prefix = str(bewerbung_id) if link_prefix is None else link_prefix
-    bestaetigung = (
-        {}
-        if bestaetigungsfrist is None
-        else {
-            "wunschgegner": None,
-            "bestaetigungsfrist": bestaetigungsfrist,
-            "bestaetigungen": compose_bestaetigungen(
-                hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=verschickt_am or eingereicht_am
-            ),
-        }
-    )
+    gemintet = verschickt_am or eingereicht_am
 
     return {
         "_id": bewerbung_id,
@@ -283,8 +273,11 @@ def bewerbung_document(
         "kontakte": dict(kontakte),
         "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
         "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+        "stufengroesse": 96,
+        "wunschgegner": None,
         "entscheidung": None,
-        **bestaetigung,
+        "bestaetigungsfrist": bestaetigungsfrist if bestaetigungsfrist is not None else bestaetigungsfrist_from(today=gemintet),
+        "bestaetigungen": compose_bestaetigungen(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=gemintet),
         **fields,
     }
 

@@ -493,9 +493,9 @@ def test_a_junction_row_gains_no_bookkeeping_block(mongo_replica_set_url: str):
 
 
 def test_the_clearing_names_the_bookkeeping_only_where_told_to_and_the_digest_always():
-    """The pure half: a row holding no block, an application stored before the flow among them, gets no key created.
+    """The pure half: a season row holding no block gets no key created.
 
-    The digest goes either way: an `$unset` creates nothing, and a blockless application may hold one.
+    The digest goes either way: an `$unset` creates nothing.
     """
 
     assert build_clearing_update(("trainer",)) == {"$set": {"kontakte.trainer": None}, "$unset": {"idempotenz_fingerabdruck": ""}}
@@ -532,37 +532,6 @@ def test_a_seat_held_under_an_address_since_corrected_leaves_the_rows_images(mon
     assert len(log) == 2, "the correction and the clearing each file one image"
     assert all((row["before"]["kontakte"]["trainer"], row["redacted_at"]) == (None, REDACTED_AT) for row in log)
     assert MISTYPED_EMAIL not in str(log)
-
-
-BLOCKLESS_BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607817201")
-BLOCKLESS_TEAM_OID = ObjectId("6890a1b2c3d4e5f607817202")
-
-
-@pytest.mark.db
-def test_an_application_stored_before_the_flow_loses_the_digest_with_the_seat(mongo_replica_set_url: str):
-    """Unset the digest only beside a block and this fails: the application predates links and still holds one."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        # No deadline, so no links: an application the confirmation flow never reached.
-        blockless = documents.bewerbung_document(
-            BLOCKLESS_BEWERBUNG_OID,
-            LATER_SAISON,
-            "eingereicht",
-            kontakte=FORMER_BLOCKS[BEWERBUNG_OID],
-            eingereicht_am="2026-01-05",
-            team_id=BLOCKLESS_TEAM_OID,
-            kader={"voraussichtliche_groesse": 12, "gute_spieler": 3},
-            idempotenz_fingerabdruck="a" * 64,
-        )
-        await database[Collection.BEWERBUNGEN].insert_one(blockless)
-        await call_erasure(database, client)
-
-        return (await stored_rows(database))[BLOCKLESS_BEWERBUNG_OID]
-
-    stored = on_a_league(mongo_replica_set_url, body)
-
-    assert ("bestaetigungen" in stored, "idempotenz_fingerabdruck" in stored) == (False, False)
-    assert stored["kontakte"]["ansprechperson"] is None, "the erasure reached no seat here, so this case proves nothing"
 
 
 @pytest.mark.db

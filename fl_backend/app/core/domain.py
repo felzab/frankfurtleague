@@ -1001,8 +1001,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         # EDITABLE, not CONDITIONAL, and the same as `trikot_farbe`: what a replacement does to both is a
         # clearing rather than a refusal, and what `REQ-KONTAKT-001` refuses is a request.
         Editability.EDITABLE,
-        "brought onto the row by the acceptance, which copies the application's block with every seat held to its own "
-        "stamp (`app.api.teams.services.compose_kontakte_at_entry`); "
+        "brought onto the row by the acceptance, which copies the application's block whole, every seat confirmed by its "
+        "own person before acceptance is allowed (`REQ-BEWERBUNG-013`); "
         "required on the payload with no default, so an omitted block is a 422 rather than three people's records silently "
         "dropped; and cleared by a REPLACEMENT for `trikot_farbe`'s reason, holding the outgoing school's contact details "
         "against another club being personal data nobody there gave. No state of the row refuses it; a save composed "
@@ -2548,7 +2548,7 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation="POST /bewerbungen/{bewerbung_id}/annehmen",
         aggregate="Bewerbung",
-        summary="an application carrying a confirmation block is accepted only once every seat carries its person's own stamp",
+        summary="an application is accepted only once every seat carries its person's own stamp",
         implemented_by="app.api.bewerbungen.services.find_unconfirmed_kontakte_refusal",
         tested_by="tests/api/test_bewerbung_triage_refusal.py::TestEverySeatIsConfirmedBeforeAcceptance",
     ),

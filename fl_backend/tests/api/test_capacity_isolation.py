@@ -111,10 +111,9 @@ def kontaktperson(vorname: str) -> dict[str, Any]:
 
 
 def bewerbung_document(index: int) -> dict[str, Any]:
-    """One submitted application naming an existing club, and carrying no `bestaetigungen` block.
+    """One submitted application naming an existing club, every seat confirmed by its own person.
 
-    An application stored before the confirmation flow is not held to it, so the acceptance below
-    reaches the capacity rule rather than `REQ-BEWERBUNG-013`.
+    Confirmed, so the acceptance below reaches the capacity rule rather than `REQ-BEWERBUNG-013`.
     """
 
     return documents.bewerbung_document(

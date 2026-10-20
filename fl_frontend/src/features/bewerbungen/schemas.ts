@@ -156,17 +156,13 @@ export const FLBewerbungSchema = z.object({
   kontakte: FLSaisonTeamKontakteSchema,
   trikot: FLBewerbungTrikotSchema,
   kader: FLBewerbungKaderSchema,
-  // Null on an application stored before the box shipped, as `bestaetigungen` is: an absent number
-  // is one nobody was asked for, where a zero would read as an Abi-Jahrgang with nobody in it.
-  stufengroesse: z.int().nullable(),
+  stufengroesse: z.int(),
   // A FREE STRING and never a club id: a school may name an applicant the league has not accepted,
   // so nothing here resolves against the roster.
   wunschgegner: z.string().nullable(),
   entscheidung: FLBewerbungEntscheidungZeileSchema.nullable(),
-  // Null on an application stored before the confirmation flow shipped, which is what keeps such an
-  // application acceptable: an absent block is "nothing to confirm" rather than three open seats.
-  bestaetigungen: FLBewerbungBestaetigungenSchema.nullable(),
-  bestaetigungsfrist: CustomDateStringSchema.nullable(),
+  bestaetigungen: FLBewerbungBestaetigungenSchema,
+  bestaetigungsfrist: CustomDateStringSchema,
 });
 export type FLBewerbung = z.infer<typeof FLBewerbungSchema>;
 

@@ -293,11 +293,15 @@ const ENTSCHIEDEN = FLBewerbungSchema.parse({
   },
   trikot: { vorhandener_satz: "Ein Satz", wunschfarbe: null },
   kader: { voraussichtliche_groesse: 14, gute_spieler: 2 },
-  stufengroesse: null,
+  stufengroesse: 96,
   wunschgegner: null,
   entscheidung: null,
-  bestaetigungen: null,
-  bestaetigungsfrist: null,
+  bestaetigungen: {
+    trainer: null,
+    ansprechperson: { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null },
+    stellvertretung: null,
+  },
+  bestaetigungsfrist: "2026-09-15",
 });
 
 /** Both decisions, each pressed as its panel presses it and answered, where it lands, with `document`. */
@@ -358,6 +362,12 @@ const BESETZUNG_OHNE_LINK =
  * The application read, answering `before` until a repair's write has landed and `after` from then
  * on, an `Error` as a read that failed: the message is composed from the read that follows the write.
  */
+/**
+ * A read after the write whose deadline is no calendar day, which the message's date formatting throws
+ * on: the one way a send composed after the write can throw.
+ */
+const UNLESBARE_FRIST = { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: "kein Tag" } };
+
 function readAcrossTheWrite(before: unknown, after: unknown): void {
   readWith(() => {
     const answer = requestsOf(writes).some(({ endpoint }) => MINTS.includes(endpoint)) ? after : before;
@@ -997,26 +1007,9 @@ describe("the re-sent confirmation link", () => {
     assert.equal(cacheCalls.filter(({ name }) => name === "refresh").length, 1, "the page keeps a link the mint has already spent");
   });
 
-  /* The endpoint writes the deadline in the same update that mints the token, so an application
-     answering none afterwards is a contract broken rather than a state to word for an administrator. */
-  it("throws where the write it has just made answers no deadline", async () => {
-    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
-
-    const result = await einwilligungErneutSendenAction(ERNEUT);
-    const thrown = logged.find(([line]) => line === "Admin mutation failed: einwilligungErneutSendenAction")?.[1];
-
-    assert.equal(result.success, false);
-    assert.ok(
-      thrown instanceof Error && /Bestätigungsfrist/.test(thrown.message),
-      "a missing deadline is worded for an administrator rather than thrown",
-    );
-    assert.deepEqual(mailed, [], "a message went out stating no deadline");
-  });
-
-  /* The throw above lands after the mint, which stands behind it as behind a refused send. */
+  /* A send that throws lands after the mint, which stands behind it as behind a refused send. */
   it("refreshes the page after a re-send that threw after the mint", async () => {
-    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
+    readAcrossTheWrite(VOR_DER_REPARATUR, UNLESBARE_FRIST);
     answerWith(() => Promise.resolve(erneutGeschrieben()));
 
     await einwilligungErneutSendenAction(ERNEUT);
@@ -1069,7 +1062,7 @@ describe("the re-sent confirmation link", () => {
       [() => besetzeKontaktSitzAction(SITZ), { acknowledged: 1, token, rollen: ["ansprechperson"] }],
     ] as const) {
       writes.length = 0;
-      readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
+      readAcrossTheWrite(VOR_DER_REPARATUR, UNLESBARE_FRIST);
       answerWith(() => Promise.resolve({ ...answer, bestaetigungsfrist: "2026-09-18" }));
       results.push(await press());
     }
@@ -1144,11 +1137,10 @@ describe("the corrected contact address", () => {
     assert.equal(answerOf(result), KORREKTUR_OHNE_LINK, "the report is not the correction's own");
   });
 
-  /* The send throws where the write it follows answered no deadline, and `runAdminMutation` turns a
-     throw into `success: false` — which raises „Adresse nicht korrigiert“ over an address that is
-     written, with the seat's previous link already dead. */
+  /* A send that throws, and `runAdminMutation` turns a throw into `success: false` — which raises
+     „Adresse nicht korrigiert“ over an address that is written, with the seat's previous link already dead. */
   it("catches a message that threw, the address being stored before it is composed", async () => {
-    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
+    readAcrossTheWrite(VOR_DER_REPARATUR, UNLESBARE_FRIST);
     answerWith(() => Promise.resolve(korrigiert()));
 
     const result = await kontaktEmailKorrigierenAction(KORREKTUR);
@@ -1255,7 +1247,7 @@ describe("the person seated where one stepped out", () => {
   /* The person IS seated whatever the message did, so a failure arm here would tell the
      administrator to seat somebody who is already in the application. */
   it("reports a filled seat whose message did not go as a seat that stands", async () => {
-    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
+    readAcrossTheWrite(VOR_DER_REPARATUR, UNLESBARE_FRIST);
     answerWith(() => Promise.resolve(besetzt()));
     const thrown = await besetzeKontaktSitzAction(SITZ);
 

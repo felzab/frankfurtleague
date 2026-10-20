@@ -362,7 +362,6 @@ _BEWERBUNG_BESTAETIGUNG = _object(
 # The block mirrors `kontakte`'s three slots and stays OUTSIDE it: acceptance copies `kontakte`
 # whole into `saison_teams`, and a hash inside a slot would live there for a season.
 _BEWERBUNG_BESTAETIGUNGEN = _object(
-    nullable=True,
     required=("trainer", "ansprechperson", "stellvertretung"),
     properties={
         "trainer": _BEWERBUNG_BESTAETIGUNG,
@@ -1135,7 +1134,11 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "kontakte",
                 "trikot",
                 "kader",
+                "stufengroesse",
+                "wunschgegner",
                 "entscheidung",
+                "bestaetigungsfrist",
+                "bestaetigungen",
             ),
             properties={
                 "_id": {"bsonType": "objectId"},
@@ -1148,20 +1151,18 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "kontakte": _BEWERBUNG_KONTAKTE,
                 "trikot": _BEWERBUNG_TRIKOT,
                 "kader": _BEWERBUNG_KADER,
-                # How many pupils the school's whole Abi-Jahrgang holds. Out of `required` for
-                # `wunschgegner`'s reason.
-                "stufengroesse": {"bsonType": _INT_OR_NULL},
-                # Free text, a school being free to name an opponent that has not applied. Out of
-                # `required` for `saisons.spielplan`'s reason.
+                # How many pupils the school's whole Abi-Jahrgang holds.
+                "stufengroesse": {"bsonType": "int"},
+                # Free text, a school being free to name an opponent that has not applied, and null
+                # where it names none.
                 "wunschgegner": {"bsonType": _STRING_OR_NULL},
                 "entscheidung": _BEWERBUNG_ENTSCHEIDUNG,
-                # Both out of `required` for `wunschgegner`'s reason. An application with no
-                # `bestaetigungen` block is one the confirmation flow does not apply to.
-                "bestaetigungsfrist": {"bsonType": _STRING_OR_NULL},
+                # Both written by the submission, which mints every seat's link.
+                "bestaetigungsfrist": {"bsonType": "string"},
                 "bestaetigungen": _BEWERBUNG_BESTAETIGUNGEN,
                 # The day the deletion notice was settled -- delivered, or the seat that would read
                 # it emptied. The erasure's second condition: without it a failed erasure mails
-                # again every hour. Out of `required` for `wunschgegner`'s reason.
+                # again every hour. Out of `required`: only the sweep writes it.
                 "loeschung_angekuendigt_am": {"bsonType": _STRING_OR_NULL},
                 **_IDEMPOTENZ_PROPERTIES,
             },
@@ -2152,7 +2153,7 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
     },
     Collection.BEWERBUNGEN: {
         "eingereicht_am": _DAY,
-        "bestaetigungsfrist": _OPTIONAL_DAY,
+        "bestaetigungsfrist": _DAY,
         "schule.team_name": _NON_EMPTY,
         "schule.full_name": _NON_EMPTY,
         "schule.shorthand": _SHORTHAND,

@@ -91,11 +91,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   stored seat holds the same person — the same address and the same name, folded for case and inner
   spacing (`fl_backend/app/api/teams/services.py :: _seat_held_by`). A renamed seat therefore keeps
   nothing of whoever sat in it, a corrected typo costing that person a fresh confirmation because no
-  write can tell the two apart. An acceptance copies a seat's date into the season's junction row only
-  where that seat's own confirmation stamped it
-  (`fl_backend/app/api/teams/services.py :: compose_kontakte_at_entry`), which is what keeps an
-  application stored before the confirmation flow from carrying its applicant's answer into a second
-  collection. **A stored date no confirmation stamped is therefore judged by nothing**, and clearing
+  write can tell the two apart. An acceptance waits for every seat's own confirmation before it copies
+  the seats into the season's junction row
+  (`fl_backend/app/api/bewerbungen/services.py :: find_unconfirmed_kontakte_refusal`), so every date it
+  copies is one its person stamped. **A stored date no confirmation stamped is therefore judged by nothing**, and clearing
   one is the remedy [`backend/spec.md`](backend/spec.md#3-violation--remedy) carries rather than
   something a write can refuse. The consent vocabulary's `volljaehrig`
   (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, and

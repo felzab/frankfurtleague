@@ -86,7 +86,7 @@ export function BewerbungAngabenPanel({
   bewerbung: FLBewerbung;
   teamName: string | null;
   /** `null` for an application submitted before the workflow, whose seats reached no per-seat state. */
-  staende: readonly SitzBestaetigung[] | null;
+  staende: readonly SitzBestaetigung[];
 }) {
   const { schule, kontakte, trikot, kader, wunschgegner, entscheidung } = bewerbung;
   const herkunft = bewerbungHerkunft(bewerbung);
@@ -115,9 +115,7 @@ export function BewerbungAngabenPanel({
           </Angabe>
           <Angabe label="Saison">{bewerbung.saison_id}</Angabe>
           <Angabe label="Eingereicht am">{formatSpielDatum(bewerbung.eingereicht_am)}</Angabe>
-          {/* `Leer` where „Voraussichtliche Kadergröße“ takes none: this field is null on every
-              application stored before it existed, which is not a school leaving a box empty. */}
-          <Angabe label="Größe der Stufe">{bewerbung.stufengroesse === null ? <Leer /> : String(bewerbung.stufengroesse)}</Angabe>
+          <Angabe label="Größe der Stufe">{String(bewerbung.stufengroesse)}</Angabe>
 
           {herkunft === null ? (
             <Angabe label="Angaben zum Team">Die Bewerbung nennt weder eine neue Schule noch ein bestehendes Team.</Angabe>
@@ -143,7 +141,7 @@ export function BewerbungAngabenPanel({
         <div className="flex w-full flex-col gap-y-6">
           {KONTAKT_ROLLEN.map(({ value, label }) => {
             const person = kontakte[value];
-            const stand = staende?.find((sitz) => sitz.rolle === value) ?? null;
+            const stand = staende.find((sitz) => sitz.rolle === value) ?? null;
 
             return (
               <div

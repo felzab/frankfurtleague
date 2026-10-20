@@ -456,8 +456,7 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
     return composed
 
 
-# --- The CONFIRMATION. Every predicate below reads a missing `bestaetigungen` block as "nothing to
-# confirm": an application stored before the flow shipped is neither refused nor swept.
+# --- The CONFIRMATION.
 
 KONTAKT_UMFANG = "kontaktdaten"
 KONTAKT_UMFANG_WHATSAPP = "kontaktdaten_whatsapp"
@@ -673,8 +672,7 @@ def _declined_on(bestaetigungen: Any, seat: str) -> Any:
 def seat_is_answered(*, kontakte: Any, bestaetigungen: Any, seat: str) -> bool:
     """Whether this seat's person has spoken: a stamp on the slot, a decline beside it, or no bookkeeping.
 
-    No bookkeeping is an application stored before the flow, or a seat an erasure emptied; neither
-    has anything left to answer.
+    No bookkeeping is an emptied seat, or a season row's seat no link was minted for: nothing to answer.
     """
 
     if _seat_is_confirmed(kontakte, seat) or _declined_on(bestaetigungen, seat) is not None:
@@ -891,15 +889,8 @@ def ausstehende_seats(*, kontakte: Any) -> list[FLKontaktRolle]:
     return [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in KONTAKT_ROLLEN if not _seat_is_confirmed(kontakte, seat)]
 
 
-def find_unconfirmed_kontakte_refusal(*, kontakte: Any, bestaetigungen: Any) -> WriteRefusal | None:
-    """Why this application is not yet one the league may accept, or `None`.
-
-    An application with NO `bestaetigungen` block passes: every one stored before the flow shipped
-    would otherwise become unacceptable in the same deploy.
-    """
-
-    if not isinstance(bestaetigungen, Mapping):
-        return None
+def find_unconfirmed_kontakte_refusal(*, kontakte: Any) -> WriteRefusal | None:
+    """Why this application is not yet one the league may accept, or `None`."""
 
     outstanding = ausstehende_seats(kontakte=kontakte)
     if outstanding:

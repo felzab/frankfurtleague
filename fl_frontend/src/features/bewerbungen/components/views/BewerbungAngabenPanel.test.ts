@@ -55,12 +55,12 @@ const BEWERBUNG: FLBewerbung = FLBewerbungSchema.parse({
   stufengroesse: 96,
   wunschgegner: "Helmholtzschule",
   entscheidung: null,
-  bestaetigungen: null,
-  bestaetigungsfrist: null,
+  bestaetigungen: { trainer: null, ansprechperson: null, stellvertretung: null },
+  bestaetigungsfrist: "2026-05-15",
 } satisfies FLBewerbung);
 
 const markup = (fields: Partial<FLBewerbung> = {}, teamName: string | null = TEAM_NAME): string =>
-  renderMarkup(BewerbungAngabenPanel, { bewerbung: { ...BEWERBUNG, ...fields }, teamName, staende: null });
+  renderMarkup(BewerbungAngabenPanel, { bewerbung: { ...BEWERBUNG, ...fields }, teamName, staende: [] });
 
 /** One fact's value, cut from the `<dd>` under its own `<dt>`: the same words stand in several rows. */
 const factLine = (html: string, label: string): string => new RegExp(`<dt[^>]*>${label}</dt><dd[^>]*>(.*?)</dd>`, "s").exec(html)?.[1] ?? "";
@@ -198,13 +198,7 @@ describe("the panel a triage decision is taken from", () => {
     assert.equal(textOf(row), "069 12 34 56", "the number is shown stripped rather than as it was typed");
   });
 
-  /* A `null` here is a school that answered nothing rather than one that answered zero, and the panel
-     has one grade for that: compared against a second unanswered row, so neither reads as a blank cell. */
-  it("gives an unanswered number the panel's one empty grade", () => {
-    const unanswered = factLine(markup({ stufengroesse: null }), "Größe der Stufe");
-
-    assert.notEqual(unanswered, "", "the row a school left empty renders as nothing at all");
-    assert.equal(unanswered, factLine(markup({ wunschgegner: null }), "Wunschgegner"), "two unanswered rows carry two different grades");
+  it("shows the cohort size the school stated", () => {
     assert.equal(textOf(factLine(markup(), "Größe der Stufe")), "96");
   });
 

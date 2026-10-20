@@ -965,19 +965,6 @@ class TestAResend:
 
         assert on_a_league(mongo_replica_set_url, body, documents=[decided]) == BEWERBUNG_ALREADY_DECIDED
 
-    def test_an_application_stored_before_the_flow_has_no_seat_to_resend(self, mongo_replica_set_url: str):
-        before_the_flow = bewerbung_document()
-        del before_the_flow["bestaetigungen"]
-        del before_the_flow["bestaetigungsfrist"]
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            with pytest.raises(WriteRefusalException) as conflict:
-                await resend(database, "trainer")
-
-            return conflict.value.error_code
-
-        assert on_a_league(mongo_replica_set_url, body, documents=[before_the_flow]) == BEWERBUNG_SEAT_ALREADY_ANSWERED
-
     def test_a_path_naming_no_seat_is_a_miss(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentNotFoundException):

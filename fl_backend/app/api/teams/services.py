@@ -1033,40 +1033,6 @@ def kontakte_fassungen_gehalten(*, kontakte: Mapping[str, Any] | None, stored: A
     return gehalten
 
 
-def compose_kontakte_at_entry(*, kontakte: Any) -> Any:
-    """The application's contact block as the junction row takes it, every seat held to its own stamp.
-
-    A pre-flow application carries a birthdate its applicant gave about somebody else, and acceptance
-    refuses nothing over it (`docs/backend/spec.md :: I143`).
-    """
-
-    if not isinstance(kontakte, Mapping):
-        return kontakte
-
-    composed = dict(kontakte)
-
-    for slot in KONTAKT_ROLLEN:
-        seat = composed.get(slot)
-        if not isinstance(seat, Mapping):
-            continue
-
-        # A confirmed seat moves whole.
-        if _seat_is_stamped(seat):
-            continue
-
-        # Dropped rather than refused: the entry is legitimate, and nobody can put the date right --
-        # a decided application mints no confirmation link, so the person has no route to enter theirs.
-        stripped: dict[str, Any] = {**seat, "geburtsdatum": None}
-        # Left as it stands where a stored row carries no record at all: a stamp alone would be a
-        # consent record short of the fields every reader of one requires.
-        if (einwilligung := _kenntnisnahme_of(seat)) is not None:
-            stripped["einwilligung"] = als_unbestaetigt(einwilligung)
-
-        composed[slot] = stripped
-
-    return composed
-
-
 # --- The CONFIRMATION LINK a seat an administrator typed in is mailed, stored beside the slot at
 # `bestaetigungen.<slot>` as an application keeps its own.
 

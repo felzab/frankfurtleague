@@ -156,8 +156,7 @@ def bewerbung_document(
 ) -> dict[str, Any]:
     """One submitted application, undecided. Every field the validator requires, and nothing the triage writes.
 
-    No `bestaetigungen` block unless a case adds one: the seeded corpus is an application stored
-    before the confirmation flow, which acceptance is not held to.
+    Every seat is confirmed by its own person, so acceptance is not held back by `REQ-BEWERBUNG-013` unless a case opens one.
     """
 
     stored = documents.bewerbung_document(

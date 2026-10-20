@@ -12,7 +12,7 @@ from pymongo.errors import OperationFailure
 
 from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
-from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter
+from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter, compose_bestaetigungen, hash_token
 from app.api.identitaet.crud import erase_pupil_actor_in_session, unattribute_in_session
 from app.api.registrierungen.services import compose_confirmation_update
 from app.api.teams.schemas import FLGruppenNames
@@ -234,7 +234,13 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             },
             "trikot": {"vorhandener_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
             "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+            "stufengroesse": 96,
+            "wunschgegner": None,
             "entscheidung": None,
+            "bestaetigungsfrist": "2026-02-15",
+            "bestaetigungen": compose_bestaetigungen(
+                hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
+            ),
         },
         "aktionen": {
             "_id": AKTION_OID,

@@ -136,11 +136,11 @@ function bewerbung(id: string, saisonId: string): FLBewerbung {
     kontakte: { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null },
     trikot: { vorhandener_satz: "12 rote Trikots", wunschfarbe: null },
     kader: { voraussichtliche_groesse: 14, gute_spieler: 3 },
-    stufengroesse: null,
+    stufengroesse: 96,
     wunschgegner: null,
     entscheidung: null,
-    bestaetigungen: null,
-    bestaetigungsfrist: null,
+    bestaetigungen: { trainer: null, ansprechperson: null, stellvertretung: null },
+    bestaetigungsfrist: "2026-05-15",
   };
 }
 

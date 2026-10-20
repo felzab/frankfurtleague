@@ -74,7 +74,7 @@ const FULL: AdminBewerbungRow = {
   },
   trikot: { vorhandener_satz: "", wunschfarbe: null },
   kader: { voraussichtliche_groesse: 14, gute_spieler: 3 },
-  stufengroesse: null,
+  stufengroesse: 96,
   wunschgegner: null,
   entscheidung: null,
   bestaetigungen: { ansprechperson: UNZUSTELLBAR, stellvertretung: VERSCHICKT, trainer: VERSCHICKT },
@@ -91,18 +91,14 @@ const WITHOUT_ANSPRECHPERSON: AdminBewerbungRow = {
   bestaetigungen: { ansprechperson: null, stellvertretung: VERSCHICKT, trainer: VERSCHICKT },
 };
 
-/**
- * An application stored before the confirmation flow, whose three seats an erasure has emptied. It
- * carries none of the facts the card's cells are for.
- */
+/** An application whose three seats an erasure has emptied. It carries none of the facts the card's cells are for. */
 const EMPTY: AdminBewerbungRow = {
   ...FULL,
   id: "6890a1b2c3d4e5f607190023",
   schule: null,
   team_id: "6890a1b2c3d4e5f607190099",
   kontakte: { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null },
-  bestaetigungen: null,
-  bestaetigungsfrist: null,
+  bestaetigungen: { trainer: null, ansprechperson: null, stellvertretung: null },
   teamName: "Lessing-Kolleg",
 };
 
@@ -190,16 +186,12 @@ describe("which of the two the card says an application is", () => {
 });
 
 describe("a card whose cells have nothing to hold", () => {
-  /* „0 von 3“ over an application that predates the workflow sends an administrator hunting for
-     links nobody sent, and an eyebrow over an empty cell reads as a value that failed to load. */
-  it("says what is absent instead of counting confirmations nobody asked for", () => {
+  /* An eyebrow over an empty cell reads as a value that failed to load. */
+  it("says what is absent where an erasure emptied the seats", () => {
     const read = text(list([EMPTY]));
 
-    assert.ok(read.includes("Keine Bestätigungen angefragt"), `the cell is empty rather than answered: ${read}`);
-    assert.ok(!read.includes("bestätigt"), "a count stands over an application with no per-seat state");
     assert.ok(read.includes("Keine Kontaktperson"), "the emptied seat reads as a name that failed to load");
     assert.ok(read.includes("E-Mail nicht hinterlegt"), "the emptied seat's address reads as a value that failed to load");
-    for (const leer of ["Keine Bestätigungen angefragt", "Keine Kontaktperson", "E-Mail nicht hinterlegt"])
-      assertLeerMarkup(list([EMPTY]), leer);
+    for (const leer of ["Keine Kontaktperson", "E-Mail nicht hinterlegt"]) assertLeerMarkup(list([EMPTY]), leer);
   });
 });

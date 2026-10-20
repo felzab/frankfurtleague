@@ -226,7 +226,7 @@ class TestATokenNoSeatHolds:
         "bewerbung_raw",
         [
             pytest.param(application(), id="a hash no seat holds"),
-            pytest.param(application(bestaetigungen=None), id="an application with no block"),
+            pytest.param(application(bestaetigungen=None), id="a season row holding no links"),
             pytest.param(
                 application(bestaetigungen={"trainer": None, "ansprechperson": None, "stellvertretung": None}), id="every seat erased"
             ),
@@ -320,7 +320,7 @@ class TestASeatAlreadyAnswered:
                 ),
                 id="declined",
             ),
-            pytest.param(application(bestaetigungen=None), id="an application stored before the flow"),
+            pytest.param(application(bestaetigungen=None), id="a season row holding no links"),
             pytest.param(
                 application(bestaetigungen={**compose_bestaetigungen(hashes=HASHES, today=TODAY), "trainer": None}),
                 id="a seat an erasure emptied",
@@ -524,7 +524,7 @@ class TestAnEmptyStampConfirmsNothing:
             "ansprechperson": kontaktperson_document("Ansgar", bestaetigt_am=YESTERDAY),
             "stellvertretung": kontaktperson_document("Stellan", bestaetigt_am=YESTERDAY),
         }
-        refusal = find_unconfirmed_kontakte_refusal(kontakte=confirmed_but_one, bestaetigungen=BESTAETIGUNGEN)
+        refusal = find_unconfirmed_kontakte_refusal(kontakte=confirmed_but_one)
 
         assert refusal is not None
         assert refusal.error_code == BEWERBUNG_KONTAKTE_UNCONFIRMED
