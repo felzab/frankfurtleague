@@ -443,7 +443,7 @@ describe("which link the editor's page marks as lapsed", () => {
     const id = "68c1f0a2b3c4d5e6f7a8b9e0";
     const shown = await shownIn({ einwilligung: BESTAETIGT }, { bestaetigung_abgelaufen: false, adresswechsel_id: id }, "Kontakt");
 
-    assert.match(shown, /Eine neue Adresse wartet auf ihre Bestätigung\. Zur Änderung/);
+    assert.match(shown, /Für diese Adresse läuft eine Änderung\. Zur Änderung/);
     assert.doesNotMatch(shown, /Link an neue Adresse senden|Änderung verwerfen/, "the editor still starts or ends a change itself");
   });
 });
