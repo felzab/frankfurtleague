@@ -19,13 +19,13 @@ from zoneinfo import ZoneInfo
 
 from bson import ObjectId
 
+from app.api.adresswechsel.services import FLAdresswechselWeg, compose_record
 from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.api.spielbestaetigungen.services import compose_ansetzung, halter_of
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.recording import log_stamp
-from app.shared.adresswechsel import FLAdresswechselWeg, compose_block
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, compose_beleg, compose_geboren
 from tests.config import build_test_config
@@ -479,9 +479,26 @@ def registrierung_bestaetigt(
     }
 
 
-def adresswechsel_document(*, email: str, token_hash: str, day: str, weg: FLAdresswechselWeg = "konto") -> dict[str, Any]:
-    """A pending change's block as a start mints it at noon of `day` in Germany, its stop link a hash nobody holds."""
+def adresswechsel_document(
+    *,
+    adresse: str,
+    email: str,
+    token_hash: str,
+    day: str,
+    weg: FLAdresswechselWeg = "konto",
+    genehmigung: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """A live change's record as a start inserts it at noon of `day` in Germany, its stop link a hash nobody holds."""
 
     started = datetime.fromisoformat(f"{day}T12:00:00").replace(tzinfo=ZoneInfo("Europe/Berlin"))
 
-    return compose_block(email=email, weg=weg, token_hash=token_hash, stopp_hash=hash_token(f"stop-{token_hash}"), grund=None, now=started)
+    return compose_record(
+        adresse=adresse,
+        email=email,
+        weg=weg,
+        token_hash=token_hash,
+        stopp_hash=hash_token(f"stop-{token_hash}"),
+        grund=None,
+        genehmigung=genehmigung,
+        now=started,
+    )

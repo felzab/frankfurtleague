@@ -345,15 +345,9 @@ class FLErasureAnsichtRegistrierung(FLSelbstErasureRegistrierung):
 
 
 class FLErasureAnsichtAdresswechsel(BaseModel):
-    """Another address's referee row whose pending change names this one: the change goes and the row stands."""
+    """Another address's live change naming this one as its new address: the change ends, its address's records standing."""
 
-    schiedsrichter_id: CustomObjectId
-
-
-class FLErasureAnsichtSpielerAdresswechsel(BaseModel):
-    """Another address's pupil row whose pending change names this one, for `FLErasureAnsichtAdresswechsel`'s reason."""
-
-    spieler_id: CustomObjectId
+    adresswechsel_id: CustomObjectId
 
 
 class FLErasureAnsicht(BaseModel):
@@ -368,7 +362,6 @@ class FLErasureAnsicht(BaseModel):
     bewerbungen: list[FLErasureAnsichtBewerbung]
     registrierungen: list[FLErasureAnsichtRegistrierung]
     adresswechsel: list[FLErasureAnsichtAdresswechsel]
-    spieler_adresswechsel: list[FLErasureAnsichtSpielerAdresswechsel]
 
 
 class FLErasureAnsichtResponse(FLErasureAnsicht, BaseAPIResponse):

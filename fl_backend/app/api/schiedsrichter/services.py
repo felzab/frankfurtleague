@@ -1,28 +1,18 @@
 from collections.abc import Mapping, Sequence
-from datetime import datetime
 from http import HTTPStatus
 from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after
 from app.api.kontakte.services import same_address
-from app.api.schiedsrichter.schemas import FLSchiedsrichterAdresswechselZustand, FLSchiedsrichterBestaetigungZustand
+from app.api.schiedsrichter.schemas import FLSchiedsrichterBestaetigungZustand
 from app.api.spiele.schemas import unplayed_filter
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
-from app.shared.adresswechsel import ADRESSWECHSEL_FELD as SHARED_ADRESSWECHSEL_FELD
-from app.shared.adresswechsel import (
-    build_due_terms,
-    build_lapsed_terms,
-    build_pending_terms,
-    build_stopp_terms,
-    build_token_terms,
-    ist_abgelaufen,
-)
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_nachweis import compose_geboren
-from app.shared.folding import canonical_address, mailbox_key, sign_in_identifier
+from app.shared.folding import canonical_address, mailbox_key
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     MEDIEN_MIN_AGE_YEARS,
@@ -187,9 +177,6 @@ SCHIEDSRICHTER_KEINE_ADRESSE = "REQ-SCHIEDSRICHTER-006"
 SCHIEDSRICHTER_ADRESSE_GESPERRT = "REQ-SCHIEDSRICHTER-007"
 SCHIEDSRICHTER_MEDIEN_ALTER = "REQ-SCHIEDSRICHTER-008"
 SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT = "REQ-SCHIEDSRICHTER-009"
-# Its own code and never `-009`'s: that one tells its caller their own mailbox is barred, which here
-# would tell a stranger holding a mistyped address that somebody else's is.
-SCHIEDSRICHTER_ERSETZTE_ADRESSE_GESPERRT = "REQ-SCHIEDSRICHTER-010"
 
 # The carrier key, which `app/api/zustellung/services.py :: ZIEL_PFADE` also spells for this kind.
 # A test holds the two equal: parted, a bounce would be filed under a path no link is stored at.
@@ -359,20 +346,6 @@ def find_bestaetigung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None
     )
 
 
-def find_ersetzte_adresse_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-SCHIEDSRICHTER-010`: the ban list holds the address this change would replace, so moving it would carry the ban's person off it."""
-
-    if not gesperrt:
-        return None
-
-    # 409 where `-009` is 403: the caller is the new mailbox, which the ban need not be about.
-    return WriteRefusal(
-        error_code=SCHIEDSRICHTER_ERSETZTE_ADRESSE_GESPERRT,
-        status=HTTPStatus.CONFLICT,
-        message="this address change can no longer be confirmed; the address on file stays",
-    )
-
-
 def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`. Judged BEFORE any write, so a mistyped year spends nothing."""
 
@@ -491,9 +464,6 @@ def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> boo
 
 # What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
 SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL = "REQ-SCHIEDSRICHTER-011"
-SCHIEDSRICHTER_ADRESSE_UNVERAENDERT = "REQ-SCHIEDSRICHTER-012"
-SCHIEDSRICHTER_NAME_IM_GRUND = "REQ-SCHIEDSRICHTER-013"
-SCHIEDSRICHTER_UNBESTAETIGT = "REQ-SCHIEDSRICHTER-014"
 
 
 def find_bestaetigte_adresse_refusal(*, stored: Mapping[str, Any], payload_email: str) -> WriteRefusal | None:
@@ -543,150 +513,6 @@ def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
         and not is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD))
         and find_missing_address_refusal(email=(stored.get("kontakt") or {}).get("email")) is None
     )
-
-
-# --- The ADDRESS CHANGE's referee lane. The block, its instants and its steps are both lanes'
-# (`app/shared/adresswechsel.py`); what stays here is what a referee's row alone is judged by.
-
-# The carrier key, which `app/api/zustellung/services.py :: ZIEL_PFADE` also spells for this kind.
-ADRESSWECHSEL_FELD: Final = SHARED_ADRESSWECHSEL_FELD
-
-
-def build_adresswechsel_filter(*, token_hash: str) -> Mapping[str, Any]:
-    """The new mailbox's hash alone finds the referee, retired or not: the address is theirs to confirm either way."""
-
-    return build_token_terms(token_hash)
-
-
-def build_stopp_filter(*, stopp_hash: str) -> Mapping[str, Any]:
-    """The address on file's stop hash alone finds the referee, retired or not."""
-
-    return build_stopp_terms(stopp_hash)
-
-
-def build_pending_adresswechsel_filter(schiedsrichter_id: Any, terms: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
-    """One real referee holding a pending change matching `terms`. The filter is the judgement: a referee holding none answers 404."""
-
-    return {**build_referee_filter(schiedsrichter_id), **build_pending_terms(), **(terms or {})}
-
-
-def build_lapsed_adresswechsel_filter(*, now: datetime, schiedsrichter_id: Any = None) -> Mapping[str, Any]:
-    """Every real referee, retired or not, whose change's waiting step lapsed by `now`; given an id, that one alone."""
-
-    if schiedsrichter_id is None:
-        return build_real_referees_filter({**build_pending_terms(), **build_lapsed_terms(now)})
-
-    return build_pending_adresswechsel_filter(schiedsrichter_id, build_lapsed_terms(now))
-
-
-def build_due_adresswechsel_filter(*, now: datetime, schiedsrichter_id: Any = None) -> Mapping[str, Any]:
-    """Every real referee whose confirmed change's waiting time ended by `now`; given an id, that one alone."""
-
-    if schiedsrichter_id is None:
-        return build_real_referees_filter({**build_pending_terms(), **build_due_terms(now)})
-
-    return build_pending_adresswechsel_filter(schiedsrichter_id, build_due_terms(now))
-
-
-def find_adresswechsel_expired_refusal(*, block: Any, now: datetime) -> WriteRefusal | None:
-    """`REQ-SCHIEDSRICHTER-003` on an address change: the step it waits on, its link or its approval, lapsed."""
-
-    if not ist_abgelaufen(block, now=now):
-        return None
-
-    return WriteRefusal(
-        error_code=SCHIEDSRICHTER_TOKEN_EXPIRED,
-        status=HTTPStatus.GONE,
-        message="this step of the address change has lapsed; the change is removed within the hour and may be started afresh",
-    )
-
-
-def find_schiedsrichter_adresse_unveraendert_refusal(*, stored: Any, email: str) -> WriteRefusal | None:
-    """`REQ-SCHIEDSRICHTER-012`: the typed address signs in as the stored one already, so it would ask a mailbox already proved."""
-
-    if not isinstance(stored, str) or sign_in_identifier(email) != sign_in_identifier(stored):
-        return None
-
-    return WriteRefusal(
-        error_code=SCHIEDSRICHTER_ADRESSE_UNVERAENDERT,
-        status=HTTPStatus.CONFLICT,
-        message="this is the email address the referee already holds",
-    )
-
-
-def find_unbestaetigter_wechsel_refusal(*, einwilligung: Any) -> WriteRefusal | None:
-    """`REQ-SCHIEDSRICHTER-014`: an address change for a referee who has not confirmed, whose address is no sign-in yet.
-
-    A refusal of the row's state rather than a 404, as `REQ-SCHIEDSRICHTER-004` refuses a confirmed one's fresh link.
-    """
-
-    if is_confirmed(einwilligung=einwilligung):
-        return None
-
-    return WriteRefusal(
-        error_code=SCHIEDSRICHTER_UNBESTAETIGT,
-        status=HTTPStatus.CONFLICT,
-        message="this referee has not confirmed their entry yet, so their address is corrected in the editor, which mints a fresh link",
-    )
-
-
-def find_schiedsrichter_name_im_grund_refusal(*, nennt_namen: bool) -> WriteRefusal | None:
-    """`REQ-SCHIEDSRICHTER-013`: the pupil's `REQ-SPIELER-009`, for its reason, on this lane's start."""
-
-    if not nennt_namen:
-        return None
-
-    # Naming none of them: the message reaches the refusal's log line.
-    return WriteRefusal(
-        error_code=SCHIEDSRICHTER_NAME_IM_GRUND,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        message="the reason for this address change names the person, and the log keeps every row it files for a year",
-        fields=(("grund",),),
-    )
-
-
-def adresswechsel_image_edits(image: Mapping[str, Any], identifier: str) -> dict[str, None]:
-    """The pending block in one log image of a referee, emptied where it names this mailbox on the fold.
-
-    Another address's block stays, and so does the referee's own record beside it: their earlier
-    consent states are theirs.
-    """
-
-    wechsel = image.get(ADRESSWECHSEL_FELD)
-    email = wechsel.get("email") if isinstance(wechsel, Mapping) else None
-
-    return {ADRESSWECHSEL_FELD: None} if isinstance(email, str) and sign_in_identifier(email) == identifier else {}
-
-
-def adresswechsel_zustand_of(
-    *, wechsel: Mapping[str, Any], now: datetime, gesperrt: bool, ersetzte_gesperrt: bool, vergeben: bool
-) -> FLSchiedsrichterAdresswechselZustand:
-    """What the new mailbox's link shows, ranked as the press refuses a confirmation.
-
-    The link's own address barred first, then the deadline, then the replaced address barred or the new one another
-    pupil's, where a pupil row moves.
-    """
-
-    if gesperrt:
-        return "gesperrt"
-
-    if ist_abgelaufen(wechsel, now=now):
-        return "abgelaufen"
-
-    return "nicht_bestaetigbar" if ersetzte_gesperrt or vergeben else "gueltig"
-
-
-# An INCLUSION, for `BESTAETIGUNG_ANSICHT_FIELDS`' reason. The block's hashes are read and never served, and both
-# addresses for the ban list and the holder check alone.
-ADRESSWECHSEL_ANSICHT_FIELDS: Mapping[str, int] = {"kontakt.email": 1, ADRESSWECHSEL_FELD: 1}
-
-
-def adresswechsel_adressen(raw: Mapping[str, Any]) -> tuple[str, str]:
-    """The address the link was mailed to and the one it would replace, as the ban list is asked about them."""
-
-    wechsel = raw.get(ADRESSWECHSEL_FELD) or {}
-
-    return str(wechsel.get("email") or ""), str((raw.get("kontakt") or {}).get("email") or "")
 
 
 # An INCLUSION and never an exclusion: a base-tier caller holds the whole credential, so the rest

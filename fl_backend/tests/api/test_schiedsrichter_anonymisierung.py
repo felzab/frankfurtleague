@@ -11,19 +11,15 @@ from pymongo.errors import DuplicateKeyError, OperationFailure
 
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.schemas import FLErasureResponse
-from app.api.konto.router import post_adresswechsel as start_the_change
-from app.api.konto.schemas import FLKontoAdresswechselPayload
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.schiedsrichter.admin_router import (
     delete_schiedsrichter,
     patch_schiedsrichter,
     reactivate_schiedsrichter,
 )
-from app.api.schiedsrichter.adresswechsel_router import post_adresswechsel as answer_the_change
 from app.api.schiedsrichter.router import get_schiedsrichter, get_schiedsrichter_by_id
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
-    FLSchiedsrichterAdresswechselAntwortPayload,
     FLSchiedsrichterFilterParams,
     FLSchiedsrichterWriteResponse,
 )
@@ -55,13 +51,14 @@ from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
-from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, spiel_document
 from tests.erasure import erased
 from tests.payloads import spiel_patch_body
-from tests.records import record_collections
 from tests.worker import worker_database
+
+from .adresswechsel_harness import answer as answer_the_change
+from .adresswechsel_harness import start as start_the_change
 
 DATABASE_NAME = worker_database("fl_schiedsrichter_anonymisierung_test")
 
@@ -365,33 +362,9 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
     minted = await start_the_change(
-        identifier=sign_in_identifier(bisherige),
-        adresswechsel_data=FLKontoAdresswechselPayload(email=KONTAKT[schiedsrichter_id]["email"]),
-        records=record_collections(database),
-        spieler_collection=database[Collection.SPIELER],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        aktionen_collection=database[Collection.AKTIONEN],
-        adressanker_collection=database[Collection.ADRESSANKER],
-        db=client,
-        config=build_test_config(),
-        germany_now=NOW,
+        database, client, email=KONTAKT[schiedsrichter_id]["email"], identifier=sign_in_identifier(bisherige), germany_now=NOW
     )
-    await answer_the_change(
-        antwort_data=FLSchiedsrichterAdresswechselAntwortPayload(token=minted.token, antwort="bestaetigt"),
-        records=record_collections(database),
-        spieler_collection=database[Collection.SPIELER],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        sperrliste=ban_list(database),
-        aktionen_collection=database[Collection.AKTIONEN],
-        adressanker_collection=database[Collection.ADRESSANKER],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        db=client,
-        config=build_test_config(),
-        germany_now=NOW,
-    )
+    await answer_the_change(database, client, minted.token, germany_now=NOW)
 
 
 async def a_fixture_with_a_history(database: AsyncDatabase, spiel_id: ObjectId) -> None:
@@ -620,6 +593,7 @@ def test_the_single_read_answers_for_neither_the_erased_referee_nor_the_ghost(mo
                 await get_schiedsrichter_by_id(
                     schiedsrichter_id=schiedsrichter_id,
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                    adresswechsel_collection=database[Collection.ADRESSWECHSEL],
                     today=TODAY,
                 )
                 answers.append("answered")

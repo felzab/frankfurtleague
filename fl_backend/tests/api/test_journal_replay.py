@@ -1,7 +1,7 @@
 """
 API · a restore runs a person's own later choices again: the line each press journals, and the replay writing what the press wrote
 
-A withdrawal, a Widerspruch and a declined address change made after a snapshot are rolled back with the log that recorded
+A withdrawal, a Widerspruch and an address change ended or taking effect after a snapshot are rolled back with the log that recorded
 them; the journal line is all that brings one back (`app/api/identitaet/wiederherstellung.py`). Each case presses as the
 person, puts the record back as the snapshot held it, replays the line, and requires the very record the press left, its
 evidence's instant included; then replays it again and requires nothing to move.
@@ -22,11 +22,11 @@ from httpx2 import AsyncClient
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.adresswechsel.admin_router import delete_adresswechsel as discard_the_change
+from app.api.adresswechsel.services import als_utc
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.wiederherstellung import REPLAY_METHOD, Read, Window, plan_replay, replay_line, run_replay
-from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
 from app.api.spielbestaetigungen.services import halter_of
-from app.api.spieler.admin_router import delete_adresswechsel as discard_for_a_pupil
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -100,6 +100,11 @@ MOVING_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607870022")
 APPLICATION_OID = ObjectId("6890a1b2c3d4e5f607870031")
 DECLINED_APPLICATION_OID = ObjectId("6890a1b2c3d4e5f607870032")
 REGISTRATION_OID = ObjectId("6890a1b2c3d4e5f607870041")
+PUPIL_CHANGE_OID = ObjectId("6890a1b2c3d4e5f607870051")
+REFEREE_CHANGE_OID = ObjectId("6890a1b2c3d4e5f607870052")
+MOVING_PUPIL = "lenore@schule.de"
+MOVING_REFEREE = "baldur@schule.de"
+ADMIN = "verwaltung@frankfurtleague.de"
 
 CONFIRMED_LABEL = "2026-09-schiedsrichterseite-3"
 SEAT_LABEL = "2026-09-bestaetigungsseite-6"
@@ -184,15 +189,7 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SPIELER].insert_many(
         [
             spieler_document(PUPIL_OID, "Ortrud", "Zwiebelmayer", email=PERSON, geburtsdatum=ADULT, einwilligung=_own()),
-            spieler_document(
-                MOVING_PUPIL_OID,
-                "Lenore",
-                "Quastenbach",
-                email="lenore@schule.de",
-                geburtsdatum=ADULT,
-                einwilligung=_own(),
-                adresswechsel=documents.adresswechsel_document(email=NEW_ADDRESS, token_hash=hash_token(PUPIL_ADDRESS_LINK), day=TODAY),
-            ),
+            spieler_document(MOVING_PUPIL_OID, "Lenore", "Quastenbach", email=MOVING_PUPIL, geburtsdatum=ADULT, einwilligung=_own()),
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
@@ -202,13 +199,25 @@ async def _seed(database: AsyncDatabase) -> None:
             ),
             schiedsrichter_document(
                 MOVING_REFEREE_OID,
-                email="baldur@schule.de",
+                email=MOVING_REFEREE,
                 name="Baldur Krautzberger",
                 default_payment=20,
                 einwilligung=_own(),
                 geburtsdatum=ADULT,
-                adresswechsel=documents.adresswechsel_document(email=NEW_ADDRESS, token_hash=hash_token(REFEREE_ADDRESS_LINK), day=TODAY),
             ),
+        ]
+    )
+    # Each moving to `NEW_ADDRESS` on its own link, as the account page starts a change.
+    await database[Collection.ADRESSWECHSEL].insert_many(
+        [
+            {
+                "_id": change_id,
+                **documents.adresswechsel_document(adresse=adresse, email=NEW_ADDRESS, token_hash=hash_token(link), day=TODAY),
+            }
+            for change_id, adresse, link in (
+                (PUPIL_CHANGE_OID, MOVING_PUPIL, PUPIL_ADDRESS_LINK),
+                (REFEREE_CHANGE_OID, MOVING_REFEREE, REFEREE_ADDRESS_LINK),
+            )
         ]
     )
     await database[Collection.REGISTRIERUNGEN].insert_one(
@@ -274,6 +283,7 @@ def _declined(token: str) -> dict[str, Any]:
 
 
 V = f"/api/v{API_VERSION}"
+ANSWER = f"{V}/adresswechsel/bestaetigung"
 
 # Every journalled press, as the person makes it, with the record it changes.
 PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
@@ -333,40 +343,36 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
         ROW_OID,
     ),
     "a referee's declined address": (
-        lambda http, _database: http.post(
-            f"{V}/schiedsrichter/adresswechsel", json={"token": REFEREE_ADDRESS_LINK, "antwort": "abgelehnt"}, headers=BASE_AUTH
-        ),
-        Collection.SCHIEDSRICHTER,
-        MOVING_REFEREE_OID,
+        lambda http, _database: http.post(ANSWER, json={"token": REFEREE_ADDRESS_LINK, "antwort": "abgelehnt"}, headers=BASE_AUTH),
+        Collection.ADRESSWECHSEL,
+        REFEREE_CHANGE_OID,
     ),
     "a pupil's declined address": (
-        lambda http, _database: http.post(
-            f"{V}/spieler/adresswechsel", json={"token": PUPIL_ADDRESS_LINK, "antwort": "abgelehnt"}, headers=BASE_AUTH
-        ),
-        Collection.SPIELER,
-        MOVING_PUPIL_OID,
+        lambda http, _database: http.post(ANSWER, json={"token": PUPIL_ADDRESS_LINK, "antwort": "abgelehnt"}, headers=BASE_AUTH),
+        Collection.ADRESSWECHSEL,
+        PUPIL_CHANGE_OID,
     ),
     "a pupil's stopped address": (
-        lambda http, _database: http.post(
-            f"{V}/spieler/adresswechsel/stopp", json={"token": f"stop-{hash_token(PUPIL_ADDRESS_LINK)}"}, headers=BASE_AUTH
-        ),
-        Collection.SPIELER,
-        MOVING_PUPIL_OID,
+        lambda http, _database: http.post(f"{ANSWER}/stopp", json={"token": f"stop-{hash_token(PUPIL_ADDRESS_LINK)}"}, headers=BASE_AUTH),
+        Collection.ADRESSWECHSEL,
+        PUPIL_CHANGE_OID,
     ),
     "a pupil's address that took effect": (
-        lambda http, _database: http.post(
-            f"{V}/spieler/adresswechsel", json={"token": PUPIL_ADDRESS_LINK, "antwort": "bestaetigt"}, headers=BASE_AUTH
-        ),
-        Collection.SPIELER,
-        MOVING_PUPIL_OID,
+        lambda http, _database: http.post(ANSWER, json={"token": PUPIL_ADDRESS_LINK, "antwort": "bestaetigt"}, headers=BASE_AUTH),
+        Collection.ADRESSWECHSEL,
+        PUPIL_CHANGE_OID,
     ),
     "a referee's address that took effect": (
-        lambda http, _database: http.post(
-            f"{V}/schiedsrichter/adresswechsel", json={"token": REFEREE_ADDRESS_LINK, "antwort": "bestaetigt"}, headers=BASE_AUTH
-        ),
-        Collection.SCHIEDSRICHTER,
-        MOVING_REFEREE_OID,
+        lambda http, _database: http.post(ANSWER, json={"token": REFEREE_ADDRESS_LINK, "antwort": "bestaetigt"}, headers=BASE_AUTH),
+        Collection.ADRESSWECHSEL,
+        REFEREE_CHANGE_OID,
     ),
+}
+
+# The row each effect moved, which the restore puts back beside its change: the effect's replay moves it again.
+MOVED: dict[str, tuple[Collection, ObjectId]] = {
+    "a pupil's address that took effect": (Collection.SPIELER, MOVING_PUPIL_OID),
+    "a referee's address that took effect": (Collection.SCHIEDSRICHTER, MOVING_REFEREE_OID),
 }
 
 # Whose hash each line names: the signed-in person, or the new address of a change declined, stopped or taking effect.
@@ -413,17 +419,20 @@ def restored_and_replayed(url: str, caplog: pytest.LogCaptureFixture, press: str
 
     act, collection, record_id = PRESSES[press]
 
+    restored = [(collection, record_id), *([MOVED[press]] if press in MOVED else [])]
+
     async def steps(http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> dict[str, Any]:
-        snapshot = await _record(database, collection, record_id)
+        snapshots = [await _record(database, *where) for where in restored]
         with caplog.at_level(logging.INFO):
             response = await act(http, database)
         lines = journalled(caplog)
-        pressed = await _record(database, collection, record_id)
+        pressed = [await _record(database, *where) for where in restored]
 
-        # The restore, for this record: the snapshot's document back in place of the one the press left.
-        await database[collection].replace_one({"_id": record_id}, snapshot)
+        # The restore, for these records: the snapshot's documents back in place of the ones the press left.
+        for (held_in, held_id), snapshot in zip(restored, snapshots, strict=True):
+            await database[held_in].replace_one({"_id": held_id}, snapshot)
         replayed = [(await replay_line(_entry(line), client, database, schluessel=KEY, now=REPLAY_NOW, window=WINDOW)).stand for line in lines]
-        after_one = await _record(database, collection, record_id)
+        after_one = [await _record(database, *where) for where in restored]
         again = [(await replay_line(_entry(line), client, database, schluessel=KEY, now=REPLAY_NOW, window=WINDOW)).stand for line in lines]
         rows = await database[Collection.AKTIONEN].find({"document_id": record_id, "request.method": REPLAY_METHOD}).to_list()
 
@@ -434,11 +443,18 @@ def restored_and_replayed(url: str, caplog: pytest.LogCaptureFixture, press: str
             "replayed": replayed,
             "after_one": after_one,
             "again": again,
-            "after_two": await _record(database, collection, record_id),
+            "after_two": [await _record(database, *where) for where in restored],
             "rows": rows,
         }
 
     return served(url, steps)
+
+
+def _ended_at(record: dict[str, Any], am: datetime) -> dict[str, Any]:
+    """`record` as ended at `am`, as the database hands an instant back."""
+
+    assert als_utc(record["beendet"]["am"]) != am, "the press and the replay ran at one instant, so the case compares nothing"
+    return {**record, "beendet": {**record["beendet"], "am": am.replace(tzinfo=None)}}
 
 
 class TestEachPressAndItsReplay:
@@ -456,8 +472,12 @@ class TestEachPressAndItsReplay:
         # No address: the day files keep the line thirty days.
         assert "@" not in outcome["lines"][0]
 
-        assert (outcome["replayed"], outcome["after_one"]) == (["replayed"], outcome["pressed"])
-        assert (outcome["again"], outcome["after_two"]) == (["already done"], outcome["pressed"])
+        # An effect is made again now, as a grant it moves holds nothing from before (`docs/backend/spec.md :: I526`).
+        pressed = [
+            _ended_at(record, REPLAY_NOW) if press in MOVED and index == 0 else record for index, record in enumerate(outcome["pressed"])
+        ]
+        assert (outcome["replayed"], outcome["after_one"]) == (["replayed"], pressed)
+        assert (outcome["again"], outcome["after_two"]) == (["already done"], pressed)
         # One log row, the system's, naming the line it replayed by its act alone: neither its person nor the erasure journal's token.
         assert [(row["actor"], row["request"]) for row in outcome["rows"]] == [
             ({"kind": "system", "email": "SYSTEM"}, {"method": REPLAY_METHOD, "path": f"{line.act()} journalled={JOURNALLED.isoformat()}"})
@@ -511,7 +531,7 @@ class TestARecordTheLineNoLongerFits:
         line = JournalLine(
             person_hash=loeschung_journal_hash(PERSON, schluessel=KEY),
             art="adresswechsel_abgelehnt",
-            collection=Collection.SCHIEDSRICHTER,
+            collection=Collection.ADRESSWECHSEL,
             record_id=ObjectId("6890a1b2c3d4e5f607879999"),
             am=AM,
         )
@@ -565,7 +585,7 @@ class TestTheListing:
             ("2026-10-03T11:30:00+00:00", withdrawal.text()),
             ("2026-10-03T11:40:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} vergessen"),
             # An id bson's own reader would raise `InvalidId` on: counted as unreadable, never a traceback.
-            ("2026-10-03T11:50:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} adresswechsel_abgelehnt spieler/{'z' * 24} am={AM}"),
+            ("2026-10-03T11:50:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} adresswechsel_abgelehnt adresswechsel/{'z' * 24} am={AM}"),
             # After the restore's end: the restored site's own act, which stands as its person made it.
             ("2026-10-03T12:30:01+00:00", on_the_restored_site.text()),
         )
@@ -610,9 +630,7 @@ SENT_AGAIN: dict[str, Callable[[str], dict[str, Any]]] = {
     "a Widerspruch on a season row": lambda day: {
         "bestaetigungen.stellvertretung": compose_kontakt_bestaetigung(token_hash=hash_token("a-new-link"), today=day)
     },
-    "a referee's declined address": lambda day: {
-        ADRESSWECHSEL_FELD: documents.adresswechsel_document(email=NEW_ADDRESS, token_hash=hash_token("asked-again"), day=day)
-    },
+    "a referee's declined address": lambda day: {"token_hash": hash_token("asked-again"), "verschickt_am": day},
 }
 
 
@@ -709,6 +727,27 @@ class TestAnErasureSettlesItsPersonsChoices:
         assert (both_code, alone_code) == (0, 1), both
         assert "    its person's erasure has run: nothing to replay" in both
         assert "    left for review" in alone
+
+    def test_a_line_written_after_an_erasure_of_its_address_is_judged_and_never_settled_by_it(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
+        """An erasure settles the acts before it; a line after it is whoever held the address next, so it is judged as any other."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with caplog.at_level(logging.INFO):
+                withdrawn = await PRESSES["a season seat's withdrawal"][0](http, database)
+                erased = await http.post(ERASURE, headers=_person(PERSON))
+            assert (withdrawn.status_code, erased.status_code) == (200, 200), erased.text
+            withdrawal, erasure = journalled(caplog)
+            return await _listed(
+                _day_file(("2026-10-03T10:00:01+00:00", erasure), ("2026-10-03T10:00:02+00:00", withdrawal)), client, database, apply=False
+            )
+
+        code, listed = served(mongo_replica_set_url, steps)
+
+        assert code == 1, listed
+        assert "    left for review" in listed
+        assert "    its person's erasure has run: nothing to replay" not in listed
 
 
 class TestAnErasedPersonsPseudonym:
@@ -867,7 +906,7 @@ class TestAnErasureAfterAChangeTookEffect:
             pytest.param(
                 "2026-10-03T10:00:00+00:00",
                 0,
-                "its person's erasure has run: nothing to replay",
+                "    no such record",
                 "held in spieler",
                 id="an earlier erasure of the address it moved to",
             ),
@@ -876,14 +915,13 @@ class TestAnErasureAfterAChangeTookEffect:
     def test_a_restore_from_before_the_start_lists_it_at_the_replaced_address(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, erased: str, code: int, listed_line: str, absent: str
     ):
-        """A snapshot from before the start holds the person's records at the address they left, which an erasure already run leaves standing.
+        """A snapshot from before the start holds the person's records at the replaced address, which an erasure run leaves standing.
 
-        An erasure older than the effect is somebody else's, and lists nothing against the person who moved.
+        An earlier erasure of the new address is somebody else's: the line is judged and finds no change.
         """
 
         async def steps(http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             snapshot = await _record(database, Collection.SPIELER, MOVING_PUPIL_OID)
-            del snapshot[ADRESSWECHSEL_FELD]
             with caplog.at_level(logging.INFO):
                 moved = await PRESSES["a pupil's address that took effect"][0](http, database)
                 gone = await http.post(ERASURE, headers=_person(NEW_ADDRESS))
@@ -892,6 +930,7 @@ class TestAnErasureAfterAChangeTookEffect:
 
             # The restore: the pupil as the snapshot held it, before the change was started.
             await database[Collection.SPIELER].replace_one({"_id": MOVING_PUPIL_OID}, snapshot, upsert=True)
+            await database[Collection.ADRESSWECHSEL].delete_one({"_id": PUPIL_CHANGE_OID})
             day = _day_file(("2026-10-03T10:00:01+00:00", effect), (erased, erasure))
             return await _listed(day, client, database, apply=False)
 
@@ -909,8 +948,10 @@ class TestADiscardedChange:
         """Brought back confirmed and due, the hourly pass would make it take effect with nobody pressing anything."""
 
         waiting = {
-            **documents.adresswechsel_document(email=NEW_ADDRESS, token_hash=hash_token(PUPIL_ADDRESS_LINK), day=TODAY, weg="wartezeit"),
-            "token_hash": None,
+            **documents.adresswechsel_document(
+                adresse=MOVING_PUPIL, email=NEW_ADDRESS, token_hash=hash_token(PUPIL_ADDRESS_LINK), day=TODAY, weg="wartezeit"
+            ),
+            "_id": PUPIL_CHANGE_OID,
             "gueltig_bis": None,
             "grund": "Postfach gelöscht, telefonisch bestätigt",
             "bestaetigt_am": datetime(2026, 10, 3, 9, 30, tzinfo=UTC),
@@ -918,27 +959,34 @@ class TestADiscardedChange:
         }
 
         async def steps(_http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].update_one({"_id": MOVING_PUPIL_OID}, {"$set": {ADRESSWECHSEL_FELD: waiting}})
-            snapshot = await _record(database, Collection.SPIELER, MOVING_PUPIL_OID)
+            changes = database[Collection.ADRESSWECHSEL]
+            await changes.replace_one({"_id": PUPIL_CHANGE_OID}, waiting)
+            snapshot = await _record(database, Collection.ADRESSWECHSEL, PUPIL_CHANGE_OID)
             with caplog.at_level(logging.INFO):
-                await discard_for_a_pupil(
-                    spieler_id=MOVING_PUPIL_OID,
-                    spieler_collection=database[Collection.SPIELER],
+                await discard_the_change(
+                    adresswechsel_id=PUPIL_CHANGE_OID,
+                    adresswechsel_collection=changes,
+                    berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+                    berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
                     aktionen_collection=database[Collection.AKTIONEN],
                     db=client,
                     config=CONFIG,
+                    operator=ADMIN,
+                    auth_time=0,
                     germany_now=NOW,
                 )
             [line] = journalled(caplog)
+            discarded = await _record(database, Collection.ADRESSWECHSEL, PUPIL_CHANGE_OID)
 
-            await database[Collection.SPIELER].replace_one({"_id": MOVING_PUPIL_OID}, snapshot)
+            await changes.replace_one({"_id": PUPIL_CHANGE_OID}, snapshot)
             planned = await replay_line(_entry(line), client, database, schluessel=KEY, now=REPLAY_NOW, window=WINDOW)
-            return parse_line(line), planned.stand, await _record(database, Collection.SPIELER, MOVING_PUPIL_OID)
+            return parse_line(line), planned.stand, discarded, await _record(database, Collection.ADRESSWECHSEL, PUPIL_CHANGE_OID)
 
-        line, stand, after = served(mongo_replica_set_url, steps)
+        line, stand, discarded, after = served(mongo_replica_set_url, steps)
 
         assert line is not None
-        assert (line.art, line.collection, line.record_id) == ("adresswechsel_verworfen", Collection.SPIELER, MOVING_PUPIL_OID)
+        assert (line.art, line.collection, line.record_id) == ("adresswechsel_verworfen", Collection.ADRESSWECHSEL, PUPIL_CHANGE_OID)
         assert line.person_hash == loeschung_journal_hash(NEW_ADDRESS, schluessel=KEY)
-        assert stand == "replayed"
-        assert ADRESSWECHSEL_FELD not in after
+        # Ended as the discard ended it, at the discard's own instant.
+        assert (stand, after) == ("replayed", discarded)
+        assert after["beendet"]["art"] == "verworfen"

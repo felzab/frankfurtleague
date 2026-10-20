@@ -9,6 +9,7 @@ once the erasure has answered.
 """
 
 import functools
+import time
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import Any
@@ -20,6 +21,8 @@ from fastapi import FastAPI
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.adresswechsel.admin_router import post_adresswechsel_verwaltung
+from app.api.adresswechsel.schemas import FLAdresswechselVerwaltungPayload
 from app.api.berechtigungen.admin_router import post_berechtigung
 from app.api.berechtigungen.schemas import FLPostBerechtigungPayload
 from app.api.bewerbungen.admin_router import besetze_kontakt_sitz, korrigiere_kontakt_email
@@ -30,8 +33,6 @@ from app.api.registrierungen.public_router import post_registrierung
 from app.api.registrierungen.schemas import FLPostRegistrierungPayload
 from app.api.schiedsrichter.admin_router import patch_schiedsrichter, post_schiedsrichter
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLPostSchiedsrichterPayload
-from app.api.spieler.admin_router import post_adresswechsel
-from app.api.spieler.schemas import FLSpielerAdresswechselPayload
 from app.api.teams.admin_router import patch_saison_team, patch_saison_team_kontakte
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLPatchSaisonTeamPayload, kontakte_stand_of
 from app.core.collections import Collection
@@ -83,6 +84,7 @@ EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607e10002")
 EINLADUNG_TOKEN = "einladung-erasure-isolation"
 BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607e10003")
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607e10004")
+PUPIL_EMAIL = "wraxlington@example.com"
 REFEREE_OID = ObjectId("6890a1b2c3d4e5f607e10005")
 REGISTRATION_OID = ObjectId("6890a1b2c3d4e5f607e10006")
 STEPPED_OUT_OID = ObjectId("6890a1b2c3d4e5f607e10007")
@@ -169,7 +171,7 @@ async def a_league(database: AsyncDatabase) -> None:
     await database[Collection.BEWERBUNGEN].update_one(
         {"_id": STEPPED_OUT_OID}, compose_decline_update(seats=["stellvertretung"], today="2026-03-20")
     )
-    await database[Collection.SPIELER].insert_one(spieler_document(PUPIL_OID, "Wraxlington", "Muster", email="wraxlington@example.com"))
+    await database[Collection.SPIELER].insert_one(spieler_document(PUPIL_OID, "Wraxlington", "Muster", email=PUPIL_EMAIL))
     await database[Collection.SCHIEDSRICHTER].insert_one(
         schiedsrichter_document(REFEREE_OID, email="kraus.bernd@example.com", name=REFEREE_NAME, default_payment=25, einwilligung=None)
     )
@@ -317,16 +319,19 @@ async def a_registration(database: AsyncDatabase, client: AsyncMongoClient) -> A
 
 
 async def a_pending_pupil_address(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    return await post_adresswechsel(
-        spieler_id=PUPIL_OID,
-        adresswechsel_data=FLSpielerAdresswechselPayload(email=TYPED, grund=None),
+    return await post_adresswechsel_verwaltung(
+        adresswechsel_data=FLAdresswechselVerwaltungPayload(adresse=PUPIL_EMAIL, email=TYPED, grund=None),
+        adresswechsel_collection=database[Collection.ADRESSWECHSEL],
         records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
+        operator="verwaltung@frankfurtleague.de",
+        auth_time=int(time.time()),
         germany_now=NOW,
     )
 

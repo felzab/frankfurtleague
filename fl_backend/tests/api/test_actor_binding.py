@@ -361,15 +361,11 @@ PUBLIC_WRITES = [
     # actor and the confirmation's write is recorded under it.
     ("/api/v0/schiedsrichter/bestaetigung/ansicht", "POST"),
     ("/api/v0/schiedsrichter/bestaetigung", "POST"),
-    # The holder of a referee's new mailbox holds no session either, for the same reason.
-    ("/api/v0/schiedsrichter/adresswechsel/ansicht", "POST"),
-    ("/api/v0/schiedsrichter/adresswechsel", "POST"),
-    # The holder of a pupil's new mailbox, for the same reason.
-    ("/api/v0/spieler/adresswechsel/ansicht", "POST"),
-    ("/api/v0/spieler/adresswechsel", "POST"),
-    # The address on file's stop link, a pupil's and a referee's: the link is the whole credential, as the new mailbox's is.
-    ("/api/v0/spieler/adresswechsel/stopp", "POST"),
-    ("/api/v0/schiedsrichter/adresswechsel/stopp", "POST"),
+    # The holder of a new mailbox holds no session either, for the same reason, and the address on file's stop link is the
+    # whole credential, as the new mailbox's is.
+    ("/api/v0/adresswechsel/bestaetigung/ansicht", "POST"),
+    ("/api/v0/adresswechsel/bestaetigung", "POST"),
+    ("/api/v0/adresswechsel/bestaetigung/stopp", "POST"),
     # A pupil answering their own link holds no session either, so both endpoints bind the public
     # actor and the confirmation's write is recorded under it.
     ("/api/v0/registrierungen/bestaetigung/ansicht", "POST"),
@@ -411,7 +407,7 @@ SYSTEM_WRITES = [
     ("/api/v0/berechtigungen/abgleich/angekuendigt", "POST"),
     # Recorded under `SYSTEM`: the rule and the clock delete, never the administrator whose press may run one.
     ("/api/v0/identitaet/loeschung/lauf", "POST"),
-    ("/api/v0/schiedsrichter/sweep/adresswechsel", "POST"),
+    ("/api/v0/adresswechsel/sweep", "POST"),
 ]
 
 # The writes a signed-in person makes on the admin key, binding one of `PERSON_ACTOR_BINDERS` in
@@ -720,6 +716,8 @@ GRANT_WRITES = [
     pytest.param("post", "/api/v0/berechtigungen", id="a grant"),
     pytest.param("delete", f"/api/v0/berechtigungen/{GRANT_ID}", id="a revoke"),
     pytest.param("patch", f"/api/v0/berechtigungen/{GRANT_ID}", id="a tier change"),
+    # It hands a grant over to the confirmed address, as a grant does.
+    pytest.param("post", f"/api/v0/adresswechsel/{GRANT_ID}/genehmigung", id="an approval of a grant's move"),
 ]
 ENROLMENT_WINDOW_S = ENROLMENT_WINDOW_MINUTES * 60
 
@@ -747,17 +745,14 @@ STEP_UP_WRITES = [
     pytest.param("post", "/api/v0/saisons/{saison_id}/einladungen/versand", id="the season's invitation send"),
     pytest.param("post", "/api/v0/schiedsrichter", id="a referee's entry"),
     pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen", id="a referee's fresh link"),
-    pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel", id="a referee's address change asked"),
-    pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen", id="a referee's fresh address link"),
-    pytest.param("delete", "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel", id="a referee's address change discarded"),
     pytest.param("post", "/api/v0/sperrliste", id="a ban"),
     pytest.param("delete", "/api/v0/sperrliste/{sperrliste_id}", id="a ban's lift"),
     pytest.param("post", "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/eintragen", id="a party's Zusage recorded for it"),
     pytest.param("post", "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/verwerfen", id="a club's proposal discarded"),
     pytest.param("patch", "/api/v0/spielberichte/{spiel_id}", id="an administrator's write of a report"),
-    pytest.param("post", "/api/v0/spieler/{spieler_id}/adresswechsel", id="a pupil's address change asked"),
-    pytest.param("post", "/api/v0/spieler/{spieler_id}/adresswechsel/einladen", id="a pupil's fresh address link"),
-    pytest.param("delete", "/api/v0/spieler/{spieler_id}/adresswechsel", id="a pupil's address change discarded"),
+    pytest.param("post", "/api/v0/adresswechsel", id="an address change asked"),
+    pytest.param("post", "/api/v0/adresswechsel/{adresswechsel_id}/einladen", id="an address change's fresh link"),
+    pytest.param("delete", "/api/v0/adresswechsel/{adresswechsel_id}", id="an address change discarded"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons", id="a club's entry into a season"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen", id="a contact seat's fresh link"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/replace", id="a club's replacement"),

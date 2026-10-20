@@ -29,7 +29,6 @@ from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand, 
 # The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
 # month and read a provider's verdict the same way, and a second spelling would drift from it.
 from app.api.sperrliste.services import withheld_actor
-from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
@@ -1025,23 +1024,6 @@ def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: 
 
     # A speaker the stored record names is no truer once the person's own answer renews it.
     return {"$set": {**fields, **erneuert}, "$unset": {f"einwilligung.{field}": "" for field in SPRECHER}}
-
-
-def beendeter_adresswechsel(*, person_raw: Mapping[str, Any], adresse: str) -> str | None:
-    """The pending address an admission writing `adresse` ends, or `None`.
-
-    A change asked over the address in force stands, its notice reached the mailbox proved again here; ending every change
-    would kill a live one at each season's registration.
-    """
-
-    wechsel = person_raw.get(SPIELER_ADRESSWECHSEL_FELD)
-    neue = wechsel.get("email") if isinstance(wechsel, Mapping) else None
-
-    return neue if isinstance(neue, str) and person_raw.get("email") != adresse else None
-
-
-def ohne_adresswechsel(update: Mapping[str, Any]) -> Mapping[str, Any]:
-    return {**update, "$unset": {**update.get("$unset", {}), SPIELER_ADRESSWECHSEL_FELD: ""}}
 
 
 def compose_person(*, spieler_id: Any, registrierung_raw: Mapping[str, Any], adresse: str) -> dict[str, Any]:

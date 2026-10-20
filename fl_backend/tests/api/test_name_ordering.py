@@ -160,7 +160,9 @@ class TestEveryNameListIsOrderedAsGermanReads:
 
     def test_the_club_memberships_read_in_german(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            response = await get_team_memberships(teams_collection=database[Collection.TEAMS])
+            response = await get_team_memberships(
+                teams_collection=database[Collection.TEAMS], adresswechsel_collection=database[Collection.ADRESSWECHSEL]
+            )
 
             return [team.name for team in response.teams]
 

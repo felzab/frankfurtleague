@@ -285,6 +285,14 @@ class FLSaisonTeamBestaetigungenAnsicht(BaseModel):
     stellvertretung: FLSaisonTeamBestaetigungAnsicht | None
 
 
+class FLSaisonTeamAdresswechsel(BaseModel):
+    """The live change of each seat's address, which the address tool shows; null where none stands or the seat is empty."""
+
+    trainer: CustomObjectId | None
+    ansprechperson: CustomObjectId | None
+    stellvertretung: CustomObjectId | None
+
+
 def _project_seat(value: Any) -> Any:
     """One seat with every READ field spelled, absent or not.
 
@@ -544,6 +552,9 @@ class FLTeamMembership(BaseModel):
     kontakte: FLSaisonTeamKontakte | None = None
     # Each seat's link as the editor shows it, the referee editor's twin; defaulted for `kontakte`'s reason.
     bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | None = None
+    # Composed after the read and never projected: a seat stores its address as typed, the change keys it folded.
+    # Defaulted for `kontakte`'s reason.
+    adresswechsel: FLSaisonTeamAdresswechsel | None = None
 
     @computed_field
     @property

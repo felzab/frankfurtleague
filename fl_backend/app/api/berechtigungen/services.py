@@ -5,7 +5,7 @@ Each refusal takes what its caller read inside its own transaction, so a retry a
 judges the list afresh (`docs/backend/spec.md :: I53`).
 """
 
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence, Set
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import Any, Final
@@ -332,3 +332,27 @@ def compose_postausgang(
 
 def compose_announced(*, berechtigung_id: ObjectId, stand: FLBerechtigungStand, now: datetime) -> dict[str, Any]:
     return {"_id": berechtigung_id, "adresse": stand.adresse, "verwaltung": stand.verwaltung, "angekuendigt_am": now}
+
+
+def genehmiger_of(
+    *,
+    verwaltung: str,
+    ausgenommen: Set[str],
+    grants: Sequence[Mapping[str, Any]],
+    announced: Sequence[Mapping[str, Any]],
+    gesperrt: Set[str],
+) -> list[str]:
+    """Every address that could approve an address change moving a grant of `verwaltung`.
+
+    A live, unbarred grant in effect, an owner's in effect for an owner's grant, and neither the changed address nor the
+    change's starter (`ausgenommen`).
+    """
+
+    records = {record["_id"]: record for record in announced}
+    seit = inhaber_seit if verwaltung == "owner" else berechtigt_seit
+
+    return [
+        str(row["adresse"])
+        for row in lebendige(grants)
+        if row["adresse"] not in ausgenommen and row["adresse"] not in gesperrt and seit(row, records.get(row["_id"])) is not None
+    ]

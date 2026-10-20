@@ -100,14 +100,7 @@ SECOND_IMPLEMENTER: Mapping[tuple[str, str], str] = {
             "GET /spielberichte/person",
             "GET /spielberichte/{spiel_id}/bericht",
             "PUT /spielberichte/{spiel_id}/bericht",
-            "POST /konto/adresswechsel",
         )
-    },
-    **{
-        ("REQ-SCHIEDSRICHTER-003", operation): (
-            "an address change's lapsed step is refused through `app/api/schiedsrichter/services.py :: find_adresswechsel_expired_refusal`"
-        )
-        for operation in ("POST /schiedsrichter/adresswechsel", "POST /konto/adresswechsel/freigabe")
     },
 }
 

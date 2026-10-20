@@ -369,7 +369,7 @@ class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
 
         assert set(stored["einwilligung"]) == {"umfang", "erteilt_von", "datum", "bestaetigt_am"}
 
-        parsed = FLSpielerWithMemberships.model_validate({**stored, "adresswechsel_abgelaufen": False, "memberships": []})
+        parsed = FLSpielerWithMemberships.model_validate({**stored, "adresswechsel_id": None, "memberships": []})
 
         assert parsed.einwilligung is not None
         assert (parsed.einwilligung.text_version, parsed.einwilligung.medien) == (None, False)
@@ -378,7 +378,7 @@ class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
         """The other direction: a validator declaring neither key would refuse the record the registration flow is built to write."""
 
         stored = self._written(mongo_url, einwilligung(text_version="liga-2026-03", medien=True))
-        parsed = FLSpielerWithMemberships.model_validate({**stored, "adresswechsel_abgelaufen": False, "memberships": []})
+        parsed = FLSpielerWithMemberships.model_validate({**stored, "adresswechsel_id": None, "memberships": []})
 
         assert parsed.einwilligung is not None
         assert (parsed.einwilligung.text_version, parsed.einwilligung.medien) == ("liga-2026-03", True)

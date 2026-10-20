@@ -1,7 +1,6 @@
-from datetime import datetime
-
 from fastapi import APIRouter, Depends
 
+from app.api.adresswechsel.services import build_address_filter
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichter,
     FLSchiedsrichterFilterParams,
@@ -10,7 +9,6 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterSingleResponse,
 )
 from app.api.schiedsrichter.services import (
-    ADRESSWECHSEL_FELD,
     BESTAETIGUNG_FELD,
     build_real_referees_filter,
     build_referee_filter,
@@ -18,11 +16,11 @@ from app.api.schiedsrichter.services import (
 )
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, build_query, build_sort, pull_many_from_db, pull_one_from_db
-from app.core.dependencies import SchiedsrichterCollection, get_german_date_str, get_germany_now
+from app.core.dependencies import AdresswechselCollection, SchiedsrichterCollection, get_german_date_str
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
-from app.shared.adresswechsel import ist_abgelaufen
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # Admin-guarded, not base: a referee is a pupil, so their contact details and school are admin-tier
@@ -74,8 +72,8 @@ async def get_schiedsrichter(
 async def get_schiedsrichter_by_id(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
+    adresswechsel_collection: AdresswechselCollection,
     today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
 ) -> FLSchiedsrichterSingleResponse:
     """Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).
 
@@ -83,14 +81,20 @@ async def get_schiedsrichter_by_id(
     does an id whose referee has been erased: the document is gone
     (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
 
-    Answers whether the consent link's deadline has passed today, and whether the address change's pending step has lapsed,
-    each by the rule its own clock removes it on, so the editor marks a lapsed link without reading a clock of its own.
+    Answers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a
+    lapsed link without reading a clock of its own; and the live change of the referee's address, which the address tool shows.
     """
 
     schiedsrichter_raw = await pull_one_from_db(collection=schiedsrichter_collection, db_filter=build_referee_filter(schiedsrichter_id))
+    email = (schiedsrichter_raw.get("kontakt") or {}).get("email")
+    offen = (
+        None
+        if not isinstance(email, str)
+        else await adresswechsel_collection.find_one(build_address_filter(sign_in_identifier(email)), {"_id": 1})
+    )
 
     return FLSchiedsrichterSingleResponse(
         schiedsrichter=FLSchiedsrichter(**schiedsrichter_raw),
         bestaetigung_abgelaufen=frist_abgelaufen(schiedsrichter_raw.get(BESTAETIGUNG_FELD), today=today),
-        adresswechsel_abgelaufen=ist_abgelaufen(schiedsrichter_raw.get(ADRESSWECHSEL_FELD), now=germany_now),
+        adresswechsel_id=None if offen is None else offen["_id"],
     )

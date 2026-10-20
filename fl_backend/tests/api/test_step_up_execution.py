@@ -281,13 +281,15 @@ class TestTheRefereesSave:
         """The address link hands the referee's record to whoever holds the new mailbox, as a consent link hands the answer."""
 
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
-            response = await http.post(f"{self.URL}/adresswechsel", headers=OLDER, json={"email": MOVED_EMAIL, "grund": None})
+            response = await http.post(
+                f"/api/v{API_VERSION}/adresswechsel", headers=OLDER, json={"adresse": REFEREE_EMAIL, "email": MOVED_EMAIL, "grund": None}
+            )
             stored = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_ID})
-            return refused(response), stored and (stored["kontakt"]["email"], "adresswechsel" in stored)
+            return refused(response), stored and (stored["kontakt"]["email"], await database[Collection.ADRESSWECHSEL].count_documents({}))
 
         seed = seeding(a_referee(confirmed=True, retired=retired))
 
-        assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, (REFEREE_EMAIL, False))
+        assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, (REFEREE_EMAIL, 0))
 
     @pytest.mark.parametrize(
         ("referee", "email"),
