@@ -408,10 +408,8 @@ async def rename_the_referee(client: AsyncMongoClient, handles: Mapping[Collecti
         spiele_collection=handles[Collection.SPIELE],
         sperrliste=ban_list(handles),
         adressanker_collection=handles[Collection.ADRESSANKER],
-        aktionen_collection=handles[Collection.AKTIONEN],
         db=client,
         today=TODAY,
-        germany_now=NOW,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 

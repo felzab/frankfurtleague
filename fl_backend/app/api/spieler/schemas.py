@@ -1,15 +1,19 @@
 from typing import Annotated, Literal
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
+from pydantic import AfterValidator, AliasChoices, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
+from app.api.berechtigungen.schemas import FLUtcInstant
+from app.api.sperrliste.schemas import ADDRESS_IN_FREE_TEXT
+from app.shared.adresswechsel import FLAdresswechselBisherigZustand, FLAdresswechselWeg
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
+    ERASURE_ANLASS_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
 )
-from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLEinwilligungStandPayload
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
@@ -54,17 +58,42 @@ FLSpielerAdresswechselAntwort = Literal["bestaetigt", "abgelehnt"]
 # application mints is spelled to.
 CustomSpielerToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TOKEN_MAX_LENGTH)]
 
+GRUND_HOLDS_AN_ADDRESS = "Der Grund darf keine E-Mail-Adresse enthalten."
+
+
+def refuse_an_address_in_the_grund(value: str) -> str:
+    """The log keeps the reason twelve months beside the start, so an address typed here outlives every redaction."""
+
+    if ADDRESS_IN_FREE_TEXT.search(value) is not None:
+        raise ValueError(GRUND_HOLDS_AN_ADDRESS)
+
+    return value
+
+
+# How an administrator checked who asks, where the address on file is gone: the erasure occasion's constraint, being
+# copied onto the start's log row as that occasion is, and both lanes' (`app/api/schiedsrichter/schemas.py`).
+CustomAdresswechselGrund = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=ERASURE_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+    AfterValidator(refuse_an_address_in_the_grund),
+]
+
 
 class FLSpielerAdresswechsel(BaseModel):
-    """A pupil's new address waiting on its own mailbox, as the editor reads it -- and NO `token_hash`.
+    """A pupil's new address waiting on its change, as the editor reads it -- and NEITHER hash.
 
-    The hash is the whole credential, and the link's lookup alone reads it.
+    Each hash is a whole credential, and its link's lookup alone reads it.
     """
 
     email: str
+    weg: FLAdresswechselWeg
     verschickt_am: CustomDateString
     # Stored rather than derived from `verschickt_am`: raising the bound must not move a link already sent.
-    frist: CustomDateString
+    gueltig_bis: FLUtcInstant | None
+    freigegeben_am: FLUtcInstant | None
+    grund: str | None
+    bestaetigt_am: FLUtcInstant | None
+    wirksam_ab: FLUtcInstant | None
     # Null on every fresh mint: nothing is yet known about the message the link went out in.
     zustellung: FLBewerbungZustellung | None = None
 
@@ -180,7 +209,7 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
     # seam joining a signed-in person to this row is an equality on the stored value, and a raw write
     # breaks it silently.
     email: str | None = None
-    # Defaulted: only a pupil whose address an administrator asked to move carries one, until its mailbox answers.
+    # Defaulted: only a pupil whose address change is pending carries one, until it takes effect or ends.
     adresswechsel: FLSpielerAdresswechsel | None = None
 
 
@@ -305,31 +334,40 @@ class FLSpielerAdminSingleResponse(FLSpielerSingleResponse):
 
 
 class FLSpielerAdresswechselPayload(BaseModel):
-    """The address an administrator asks a pupil's link to go to. The path names the pupil."""
+    """The address an administrator asks a pupil's change to go to, and the reason where the address on file is gone."""
 
     model_config = ConfigDict(extra="forbid")
 
     email: CustomEmail
+    # Required, null meaning the address on file is asked first: a form forgetting the box must not start the change
+    # that hands the records over without that address.
+    grund: CustomAdresswechselGrund | None
 
 
 class FLSpielerAdresswechselMint(BaseModel):
-    """A freshly minted address link, answered ONCE and stored nowhere, admin-tier whole.
+    """A freshly started or re-sent change's raw links, answered ONCE and stored nowhere, admin-tier whole.
 
-    The raw token exists here and in the new mailbox; the database holds its hash.
+    Each raw token exists here and in its mailbox; the database holds its hash.
     """
 
-    token: str
-    frist: CustomDateString
+    weg: FLAdresswechselWeg
+    # Null on a change asking the address on file first: nothing goes to the new mailbox before its approval.
+    token: str | None
+    # Null on a re-send: the stop link already in the address on file's mailbox keeps working.
+    stopp_token: str | None
+    gueltig_bis: FLUtcInstant
     # Both addresses as the mint's own transaction read them: one a caller read BEFORE the mint may
-    # name a mailbox a rival request has since replaced. The stored one is told a change was asked.
+    # name a mailbox a rival request has since replaced.
     email: CustomNonEmptyString
     bisherige_email: str
-    # Read in the same transaction for both mails' greeting: no admin read serves one pupil by id.
+    # Read in the same transaction for the mails' greeting: no admin read serves one pupil by id.
     vorname: str
+    # Whether the new address already holds records of its own, which the confirmation would join to these.
+    adresse_belegt: bool
 
 
 class FLSpielerAdresswechselMintResponse(BaseAPIResponse):
-    """The request's and the re-send's answer. Never null: where no link may be minted a refusal answers instead."""
+    """The start's and the re-send's answer. Never null: where no link may be minted a refusal answers instead."""
 
     adresswechsel: FLSpielerAdresswechselMint
 
@@ -340,11 +378,27 @@ class FLSpielerAdresswechselAnsichtPayload(BaseModel):
     token: CustomSpielerToken
 
 
+class FLSpielerAdresswechselAnsichtNeu(BaseModel):
+    """What the new mailbox's link opens: its state and its deadline."""
+
+    seite: Literal["neu"]
+    zustand: FLSpielerAdresswechselZustand
+    gueltig_bis: FLUtcInstant
+
+
+class FLSpielerAdresswechselAnsichtBisherig(BaseModel):
+    """What the address on file's stop link opens: the step the change waits on, never whether it could be confirmed."""
+
+    seite: Literal["bisherig"]
+    zustand: FLAdresswechselBisherigZustand
+    gueltig_bis: FLUtcInstant | None
+    wirksam_ab: FLUtcInstant | None
+
+
 class FLSpielerAdresswechselAnsichtResponse(BaseAPIResponse):
     """What one address link opens, declared from nothing (`READ-PUPIL-005`): never a name, either address or the id."""
 
-    zustand: FLSpielerAdresswechselZustand
-    frist: CustomDateString
+    ansicht: Annotated[FLSpielerAdresswechselAnsichtNeu | FLSpielerAdresswechselAnsichtBisherig, Field(discriminator="seite")]
 
 
 class FLSpielerAdresswechselAntwortPayload(BaseModel):
@@ -356,10 +410,32 @@ class FLSpielerAdresswechselAntwortPayload(BaseModel):
     antwort: FLSpielerAdresswechselAntwort
 
 
+class FLAdresswechselMitteilung(BaseModel):
+    """Whom the completion notice goes to: the replaced address and the first name it greets."""
+
+    bisherige_email: str
+    vorname: str
+
+
 class FLSpielerAdresswechselAntwortResponse(BaseAPIResponse):
-    """The answer recorded, and nothing of the row: a leaked link learns only what it posted."""
+    """The answer recorded, and nothing of the row beyond what the frontend's server mails and strips."""
 
     antwort: FLSpielerAdresswechselAntwort
+    # Set where a change waiting after its confirmation now waits until then.
+    wirksam_ab: FLUtcInstant | None
+    # Set where the change took effect, for the frontend's route handler alone, which mails the completion notice and
+    # answers the browser without it: the base tier is the frontend server's (`nginx/shared/site.conf`).
+    mitteilung: FLAdresswechselMitteilung | None
+
+
+class FLSpielerAdresswechselStoppPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: CustomSpielerToken
+
+
+class FLSpielerAdresswechselStoppResponse(BaseAPIResponse):
+    gestoppt: Literal[True]
 
 
 class FLSaisonSpielerResponse(_SaisonSpielerWritable, BaseAPIResponse):
@@ -418,7 +494,7 @@ class FLSpielerWithMemberships(_SpielerPerson):
     email: str | None = None
     # Defaulted for `FLSpieler.adresswechsel`'s reason.
     adresswechsel: FLSpielerAdresswechsel | None = None
-    # The read's own judgement by the rule the confirmation refuses on, so no client compares `frist`
+    # The read's own judgement by the rule the lapse removes on, so no client compares `gueltig_bis`
     # to a clock of its own. Required, so a read forgetting to judge it fails rather than answering false.
     adresswechsel_abgelaufen: bool
     memberships: list[FLSpielerMembership]
