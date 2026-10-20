@@ -705,6 +705,7 @@ const einsatz = (id: string, team2_name: string, zustand: "gueltig" | "zugesagt"
   zustand,
   begruendung: null,
   eingetragen: false,
+  vergangen: false,
 });
 
 const EINSATZ_BETA = "68c1f0a2b3c4d5e6f7a8b9f1";
@@ -1379,8 +1380,8 @@ const LANDINGS: Record<string, Landing> = {
     before: () => h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta"), einsatz(EINSATZ_GAMMA, "SG Gamma")] }),
     press: async (user) => {
       await user.click(screen.getByRole("button", { name: "Absagen: SG Alpha gegen SG Beta am 20.11.2026" }));
-      await user.type(screen.getByRole("textbox", { name: "Begründung" }), "Klassenfahrt");
-      await user.click(screen.getByRole("button", { name: "Absage senden" }));
+      await user.type(screen.getByRole("textbox", { name: /^Begründung/ }), "Klassenfahrt");
+      await user.click(screen.getByRole("button", { name: /^Absage senden/ }));
     },
     after: () =>
       h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta", "abgelehnt"), einsatz(EINSATZ_GAMMA, "SG Gamma")] }),

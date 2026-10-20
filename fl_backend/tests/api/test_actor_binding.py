@@ -390,6 +390,7 @@ SYSTEM_WRITES = [
     ("/api/v0/registrierungen/sweep/{saison_id}", "POST"),
     ("/api/v0/spielbestaetigungen/sweep/{saison_id}", "POST"),
     ("/api/v0/spielbestaetigungen/sweep/{saison_id}/angefragt", "POST"),
+    ("/api/v0/spielbestaetigungen/sweep/{saison_id}/mitgeteilt", "POST"),
     ("/api/v0/bewerbungen/zustellung", "POST"),
     ("/api/v0/bewerbungen/zustellung/angenommen", "POST"),
     ("/api/v0/zustellung", "POST"),

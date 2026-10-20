@@ -229,7 +229,7 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
 # stand in.
 PUBLIC_EMBEDDED_FIELDS = [
     pytest.param(FLSpielOrtFieldPublic, frozenset({"spielort_id", "name", "maps_link"}), id="the venue"),
-    pytest.param(FLSpielSchiedsrichterFieldPublic, frozenset({"schiedsrichter_id", "name", "name_is_public"}), id="the referee"),
+    pytest.param(FLSpielSchiedsrichterFieldPublic, frozenset({"name", "name_is_public"}), id="the referee"),
 ]
 
 # The base-tier FIXTURE's whole membership. Its aggregation projects no allow-list, so the model is
@@ -552,9 +552,11 @@ def test_no_base_tier_body_carries_either_figure_at_any_depth(seeded_url: str, p
     keys = keys_anywhere(response.json())
 
     assert MONEY_KEYS & keys == set(), f"{path} served {sorted(MONEY_KEYS & keys)}"
+    # The booked referee's record id is withheld too (`docs/backend/spec.md :: READ-REFEREE-006`).
+    assert "schiedsrichter_id" not in keys
     # Non-vacuous: both records ARE in the body, so what is asserted above is what they carry rather
     # than an empty result or a venue nothing served.
-    assert {"spielort_id", "schiedsrichter_id"} <= keys
+    assert {"spielort_id", "name_is_public"} <= keys
 
 
 @pytest.mark.db

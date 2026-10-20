@@ -48,7 +48,7 @@ describe("a referee's answer to a row of their own", () => {
     assert.deepEqual(invalidations(), [["updateTag", "spiele"], ["refresh"]]);
   });
 
-  it("refuses a decline without its reason, and an id naming no row, before the backend", async () => {
+  it("refuses a decline without its reason, and a malformed id, before the backend", async () => {
     calls.length = 0;
 
     const ohneGrund = await absagenSpielbestaetigungAction(SPIELBESTAETIGUNG_ID, { begruendung: "  " });

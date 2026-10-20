@@ -879,8 +879,10 @@ def test_no_value_of_theirs_survives_anywhere_in_the_log(mongo_replica_set_url: 
     theirs = (REFEREE_NAMES[SCHIEDSRICHTER_OID], *FORMER_KONTAKT[SCHIEDSRICHTER_OID].values(), *KONTAKT[SCHIEDSRICHTER_OID].values())
 
     assert [value for value in theirs if value in rendered] == []
-    # Their replaced pair, not their live one: only what an edit replaced is ever in the log at all.
+    # Their replaced pair, not their live one: only what an edit replaced is ever in the log at all. Both halves,
+    # each logged by its own write, so neither half of the redaction passes on a log missing that write.
     assert FORMER_KONTAKT[OTHER_SCHIEDSRICHTER_OID]["telefon"] in rendered
+    assert FORMER_KONTAKT[OTHER_SCHIEDSRICHTER_OID]["email"] in rendered
     assert REFEREE_NAMES[OTHER_SCHIEDSRICHTER_OID] in rendered
 
 

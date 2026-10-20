@@ -725,7 +725,12 @@ _SPIELBESTAETIGUNG_ANTWORT = _object(
 _SPIELBESTAETIGUNG_GESCHLOSSEN = _object(
     nullable=True,
     required=("am", "grund"),
-    properties={"am": {"bsonType": "string"}, "grund": {"bsonType": "string", "enum": _SPIELBESTAETIGUNG_GRUENDE}},
+    properties={
+        "am": {"bsonType": "string"},
+        "grund": {"bsonType": "string", "enum": _SPIELBESTAETIGUNG_GRUENDE},
+        # Optional: only a closing owing a notice holds one, until the pass is told it went or gives it up.
+        "mitteilung": _object(nullable=True, required=("versuche",), properties={"versuche": {"bsonType": "int"}}),
+    },
 )
 
 
@@ -1763,6 +1768,14 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "spielbestaetigungen_antwort_von_halter",
         (("antwort.von.halter", ASCENDING),),
         "the reasons a leaving contact typed, from whichever seat",
+    ),
+    # Read on every load of a referee's own panel, and inside every referee erasure's transaction, neither stating a
+    # fixture the season-leading index could narrow by.
+    SupportIndex(
+        Collection.SPIELBESTAETIGUNGEN,
+        "spielbestaetigungen_partei_schiedsrichter_id_saison_id",
+        (("partei.schiedsrichter_id", ASCENDING), ("saison_id", ASCENDING)),
+        "a referee's own rows, on their panel and at their erasure",
     ),
     SupportIndex(
         Collection.SPIELBERICHTE,

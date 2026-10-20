@@ -203,7 +203,7 @@ def _grund_now(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage,
 
     austritte = {row.get("team_id"): str(datum) for row in lage.vereine if (datum := (row.get("austritt") or {}).get("datum")) is not None}
 
-    return grund_to_close(row=spielbestaetigung_raw, spiel=lage.spiel, austritte=austritte, today=today)
+    return grund_to_end(row=spielbestaetigung_raw, spiel=lage.spiel, austritte=austritte, today=today)
 
 
 def _past_frist(*, spielbestaetigung_raw: Mapping[str, Any], today: str) -> bool:
@@ -231,10 +231,10 @@ def zustand_of(
     if gesperrt:
         return "gesperrt"
 
-    # Closed, by the reason stored; open, by the one the close would store.
+    # Closed, by the reason stored; open or a discard still holding its question, by the one the close would store.
     grund = (
         geschlossen["grund"]
-        if isinstance(geschlossen, Mapping)
+        if isinstance(geschlossen, Mapping) and geschlossen["grund"] not in GRUENDE_ANSWERED_FOR_THE_STAND
         else _grund_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage, today=today)
     )
 
@@ -242,6 +242,10 @@ def zustand_of(
     # told every seat its link is void, so no seat reopening it may be told nothing is owed.
     if grund in GRUENDE_UNGUELTIG:
         return "ungueltig"
+
+    # Ahead of the answer too: an agreement to a fixture called off since would send its party to the ground.
+    if grund == "abgesagt":
+        return "abgesagt"
 
     if isinstance(antwort, Mapping):
         return "zugesagt" if antwort["art"] == "zugesagt" else "abgelehnt"
@@ -658,6 +662,21 @@ def build_eigene_zeilen_filter(*, saison_ids: Sequence[str], schiedsrichter_ids:
     return {"saison_id": {"$in": list(saison_ids)}, **build_referee_rows_filter(schiedsrichter_ids)}
 
 
+def current_rows(rows: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """Each fixture's newest row alone: a move, a reinstatement or a re-booking asks afresh, and the earlier row is history.
+
+    One card per fixture on the referee's panel, by `_id`, which the pass mints in order (`docs/backend/spec.md :: I836`).
+    """
+
+    newest: dict[Any, Mapping[str, Any]] = {}
+    for row in rows:
+        held = newest.get(row["spiel_id"])
+        if held is None or row["_id"] > held["_id"]:
+            newest[row["spiel_id"]] = row
+
+    return list(newest.values())
+
+
 def schiedsrichter_zustand_of(
     *, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage, today: str
 ) -> FLSpielbestaetigungSchiedsrichterZustand:
@@ -923,9 +942,9 @@ def erinnerung_tage(*, today: str) -> list[str]:
 
 
 def build_erinnerung_filter(*, saison_id: str, today: str, inserted: Sequence[Any]) -> dict[str, Any]:
-    """The season's open rows owed a message: a team row's reminder due today, or an unstamped request (`docs/backend/spec.md :: I765`).
+    """The season's open rows owed a message: a team row's reminder due today, or an unstamped request still answerable.
 
-    Never a row this pass inserted, nor reminded on its request's day (`:: I767`); asked again until its deadline.
+    Never a row this pass inserted, nor reminded on its request's day (`docs/backend/spec.md :: I765`, `:: I767`).
     """
 
     return {
@@ -933,7 +952,8 @@ def build_erinnerung_filter(*, saison_id: str, today: str, inserted: Sequence[An
         **build_answerable_filter(),
         "_id": {"$nin": list(inserted)},
         "$or": [
-            {"angefragt_am": None, "frist": {"$gte": today}},
+            {"angefragt_am": None, "partei.art": "team", "frist": {"$gte": today}},
+            {"angefragt_am": None, "partei.art": "schiedsrichter", "ansetzung.datum": {"$gte": today}},
             {
                 "partei.art": "team",
                 "frist": {"$in": erinnerung_tage(today=today)},
@@ -961,8 +981,50 @@ def compose_seats_update(*, hashes: Mapping[str, str]) -> dict[str, Any]:
     return {"$set": {f"kontakte.{seat}": compose_seat_entry(token_hash=token_hash) for seat, token_hash in hashes.items()}}
 
 
-def compose_closing_update(*, grund: FLSpielbestaetigungGrund, today: str) -> dict[str, Any]:
-    return {"$set": {"geschlossen": {"am": today, "grund": grund}}}
+def compose_closing_update(*, grund: FLSpielbestaetigungGrund, today: str, mitteilung: bool = False) -> dict[str, Any]:
+    """The closing, holding the notice it owes its party where `mitteilung` (`docs/backend/spec.md :: I834`)."""
+
+    geschlossen: dict[str, Any] = {"am": today, "grund": grund}
+    if mitteilung:
+        geschlossen["mitteilung"] = {"versuche": 0}
+
+    return {"$set": {"geschlossen": geschlossen}}
+
+
+# --- The NOTICES a close owes, each held on its closed row until a pass that answered it is told it went.
+
+# The passes that hand a notice out before the next gives it up, the grants' outbox's figure
+# (`app/api/berechtigungen/services.py :: VERSUCHE_HOECHSTENS`): at the hourly pass, a day of answers none stamped.
+MITTEILUNG_VERSUCHE_HOECHSTENS: Final = 24
+
+
+def notice_owed(*, row: Mapping[str, Any], grund: FLSpielbestaetigungGrund, today: str) -> bool:
+    """Whether closing this row for `grund` owes its party a notice (`docs/backend/spec.md :: I780`, `:: I835`).
+
+    Only a party its request or Einteilung was mailed to; a referee change and a call-off only about a day still to come.
+    """
+
+    if row.get("angefragt_am") is None:
+        return False
+
+    if grund == "ansetzung_geaendert":
+        return True
+
+    return grund in ("schiedsrichter_gewechselt", "abgesagt") and not _day_passed(ansetzung=row["ansetzung"], today=today)
+
+
+def build_mitteilung_filter(*, saison_id: str) -> dict[str, Any]:
+    """The season's closed rows still owing a notice; every other row holds no mark, or a null one."""
+
+    return {"saison_id": saison_id, "geschlossen.mitteilung": {"$ne": None}}
+
+
+def mitteilung_spent(*, row: Mapping[str, Any], today: str) -> bool:
+    """Whether a pass gives a held notice up: handed out the cap's number of times, or about a day gone by."""
+
+    return int(row["geschlossen"]["mitteilung"]["versuche"]) >= MITTEILUNG_VERSUCHE_HOECHSTENS or _day_passed(
+        ansetzung=row["ansetzung"], today=today
+    )
 
 
 # --- A seat write's void: its team's rows' entries, answered and closed ones too, of every seat whose holder the write moves.
