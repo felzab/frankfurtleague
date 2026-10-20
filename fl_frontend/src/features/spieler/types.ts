@@ -1,11 +1,4 @@
-import type {
-  FLPatchSaisonSpielerPayload,
-  FLPostSaisonSpielerPayload,
-  FLSpielerAdresswechsel,
-  FLSpielerPosition,
-  FLSpielerRolle,
-  FLSpielerStufe,
-} from "./schemas";
+import type { FLPatchSaisonSpielerPayload, FLPostSaisonSpielerPayload, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "./schemas";
 
 /** Mirrors `FLSpielerSortOptions`: every option is a field the base tier serves, and it serves neither `nachname` whole nor `stufe` at all. */
 type FLSpielerSortingOptions = "vorname" | "nummer" | "position";
@@ -82,8 +75,8 @@ export type SpielerSaisonMembership = {
 export type SpielerSaisonContext = Pick<SpielerSaisonMembership, "saisonId" | "saisonStatus">;
 
 /**
- * The stored person the editor opens on. The address and its pending change travel beside the draft
- * and in no payload: they move through their own link, never through the save.
+ * The stored person the editor opens on. The address and the id of a change pending at it travel beside the
+ * draft and in no payload: the address moves through the change alone, never through the save.
  */
 export type AdminSpielerStored = {
   id: string;
@@ -92,9 +85,7 @@ export type AdminSpielerStored = {
   inactive_since: string | null;
   geburtsdatum: string | null;
   email: string | null;
-  adresswechsel: FLSpielerAdresswechsel | null;
-  /** The read's judgement of the pending link's deadline, never this browser's day. */
-  adresswechsel_abgelaufen: boolean;
+  adresswechsel_id: string | null;
 };
 
 /** Where a retired squad row's return to the club it names stands; the editor and the list each word a refusal for their own reader. */

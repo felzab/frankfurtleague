@@ -1,29 +1,17 @@
 "use server";
 
 import { isFreshlySignedIn } from "@/core/auth";
-import { describeAdresswechselMail } from "@/features/spieler/notifications";
 import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { returnMayMint, saveMayMint } from "./linkMint";
-import {
-  beantrageSchiedsrichterAdresswechsel,
-  deleteSchiedsrichter,
-  einladeAdresswechsel,
-  einladeSchiedsrichter,
-  patchSchiedsrichter,
-  postSchiedsrichter,
-  reactivateSchiedsrichter,
-  verwirfAdresswechsel,
-} from "./mutations";
-import { describeLinkMail, mailSchiedsrichterAdresswechsel, mailSchiedsrichterLink } from "./notifications";
+import { deleteSchiedsrichter, einladeSchiedsrichter, patchSchiedsrichter, postSchiedsrichter, reactivateSchiedsrichter } from "./mutations";
+import { describeLinkMail, mailSchiedsrichterLink } from "./notifications";
 import { getSchiedsrichterById } from "./queries";
 import {
   KEINE_ADRESSE,
-  mapAdresswechselAntragRefusal,
-  mapAdresswechselRefusal,
   mapBestaetigteAdresseRefusal,
   mapEinladenRefusal,
   mapGesperrteAdresseRefusal,
@@ -35,9 +23,6 @@ import {
 import {
   FLPatchSchiedsrichterPayloadSchema,
   FLPostSchiedsrichterPayloadSchema,
-  FLSchiedsrichterAdresswechselEinladenPayloadSchema,
-  FLSchiedsrichterAdresswechselPayloadSchema,
-  FLSchiedsrichterAdresswechselVerwerfenPayloadSchema,
   FLSchiedsrichterEinladenPayloadSchema,
   FLSchiedsrichterKeyPayloadSchema,
   hatAdresse,
@@ -47,14 +32,11 @@ import type { FLSchiedsrichterPayloadDraft } from "@/features/schiedsrichter/sch
 import type { FLKontakt } from "@/shared/schemas";
 import type { ActionResult } from "@/shared/types/types";
 import type { UndoOutcome } from "@/shared/utils/adminUndo";
-import type { HinweisVersand, LinkVersand } from "@/shared/utils/linkVersand";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type {
   FLPatchSchiedsrichterPayload,
   FLPostSchiedsrichterPayload,
   FLSchiedsrichter,
-  FLSchiedsrichterAdresswechselEinladenPayload,
-  FLSchiedsrichterAdresswechselPayload,
-  FLSchiedsrichterAdresswechselVerwerfenPayload,
   FLSchiedsrichterEinladenPayload,
   FLSchiedsrichterKeyPayload,
 } from "./schemas";
@@ -296,130 +278,6 @@ export async function einladeSchiedsrichterAction(
       // administrator has to act on when the message did not leave.
       message: `${describeLinkMail(mint.email, versand)} Der vorherige Link gilt nicht mehr.`,
       versand: versand,
-    };
-  });
-}
-
-/**
- * An administrator's start of a confirmed referee's change, the pupil's twin
- * (`fl_frontend/src/features/spieler/actions.ts :: beantrageSpielerAdresswechselAction`): the save
- * refuses to move that address, so this is the only way in.
- */
-export async function beantrageAdresswechselAction(
-  rawPayload: FLSchiedsrichterAdresswechselPayload,
-): Promise<ActionResult<{ versand: LinkVersand | null; hinweis: HinweisVersand | null }>> {
-  return runAdminMutation("beantrageAdresswechselAction", { stepUp: true }, async () => {
-    const validated = FLSchiedsrichterAdresswechselPayloadSchema.safeParse(rawPayload);
-
-    if (!validated.success) {
-      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
-    }
-
-    // No tag moves: no cached read holds a referee's address, the pending one least of all.
-    let mintOperation;
-    try {
-      mintOperation = await beantrageSchiedsrichterAdresswechsel(validated.data);
-    } catch (error) {
-      const refusal = mapAdresswechselAntragRefusal(error);
-      if (refusal !== null) return refusalResult(refusal);
-      throw error;
-    }
-
-    if (!mintOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Änderung wurde nicht angelegt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
-    const wechsel = mintOperation.adresswechsel;
-    const versand = await mailSchiedsrichterAdresswechsel({
-      operation: "beantrageAdresswechselAction",
-      schiedsrichterId: validated.data.id,
-      mint: wechsel,
-      anlass: "empfang",
-    });
-
-    return {
-      success: true,
-      // The address the mint names, never the one typed, for the pupil's twin's reason.
-      message: describeAdresswechselMail(wechsel, versand),
-      versand: versand.link,
-      hinweis: versand.hinweis,
-    };
-  });
-}
-
-/**
- * A fresh link to the pending address: the earlier link is dead either way. The address on file is not
- * mailed again, its stop link still working.
- */
-export async function einladeAdresswechselAction(
-  rawPayload: FLSchiedsrichterAdresswechselEinladenPayload,
-): Promise<ActionResult<{ versand: LinkVersand | null; hinweis: HinweisVersand | null }>> {
-  return runAdminMutation("einladeAdresswechselAction", { stepUp: true }, async () => {
-    const validated = FLSchiedsrichterAdresswechselEinladenPayloadSchema.safeParse(rawPayload);
-
-    if (!validated.success) {
-      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
-    }
-
-    let mintOperation;
-    try {
-      mintOperation = await einladeAdresswechsel(validated.data);
-    } catch (error) {
-      const refusal = mapAdresswechselRefusal(error);
-      if (refusal !== null) return { success: false, error: refusal };
-      throw error;
-    }
-
-    if (!mintOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht gesendet", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
-    // The address as the mint read it in its own transaction, never as any earlier read had it.
-    const wechsel = mintOperation.adresswechsel;
-    const versand = await mailSchiedsrichterAdresswechsel({
-      operation: "einladeAdresswechselAction",
-      schiedsrichterId: validated.data.id,
-      mint: wechsel,
-      anlass: "erneut",
-    });
-
-    return {
-      success: true,
-      message: `${describeAdresswechselMail(wechsel, versand)} Der vorherige Link gilt nicht mehr.`,
-      versand: versand.link,
-      hinweis: versand.hinweis,
-    };
-  });
-}
-
-/** Discards the pending address and its link; the stored address stays, and nobody is mailed. */
-export async function verwirfAdresswechselAction(
-  rawPayload: FLSchiedsrichterAdresswechselVerwerfenPayload,
-): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
-  return runAdminMutation("verwirfAdresswechselAction", { stepUp: true }, async () => {
-    const validated = FLSchiedsrichterAdresswechselVerwerfenPayloadSchema.safeParse(rawPayload);
-
-    if (!validated.success) {
-      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
-    }
-
-    let operation;
-    try {
-      operation = await verwirfAdresswechsel(validated.data);
-    } catch (error) {
-      const refusal = mapAdresswechselRefusal(error);
-      if (refusal !== null) return { success: false, error: refusal };
-      throw error;
-    }
-
-    if (!operation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Änderung wurde nicht verworfen", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
-    return {
-      success: true,
-      updated_document: operation.updated_document,
-      message: "Der Link an die neue Adresse gilt nicht mehr. Die bisherige Adresse bleibt.",
     };
   });
 }

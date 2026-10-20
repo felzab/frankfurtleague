@@ -5,10 +5,11 @@ import { headers } from "next/headers";
 
 import { adresswechselZeitpunkt } from "@/core/adresswechsel";
 import { deleteOwnAccount, getKontoSession } from "@/core/auth";
+import { KONTAKT_EMAIL } from "@/core/brand";
 import { recordWriteSent } from "@/core/requestScope";
+import { mailAdresswechsel, mailGenehmigungWartet } from "@/features/adresswechsel/notifications";
+import { mapKontoAdresswechselRefusal, mapKontoFreigabeRefusal, mapKontoStoppRefusal } from "@/features/adresswechsel/refusals";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
-import { mailSchiedsrichterAdresswechsel } from "@/features/schiedsrichter/notifications";
-import { mailSpielerAdresswechsel } from "@/features/spieler/notifications";
 import { invalidatesOnWrite, refusalResult, stepUpRequired } from "@/shared/utils/adminMutation";
 import { enrolmentUntil } from "@/shared/utils/kontoMutation";
 import { runPersonRecordMutation } from "@/shared/utils/personMutation";
@@ -16,10 +17,9 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { beantrageKontoAdresswechsel, eraseEigeneDaten, gibKontoAdresswechselFrei, stoppeKontoAdresswechsel } from "./mutations";
 import { getLoeschungAnsicht } from "./queries";
-import { LETZTE_INHABERIN, mapKontoAdresswechselRefusal, mapKontoFreigabeRefusal, mapKontoStoppRefusal, mapLoeschungRefusal } from "./refusals";
+import { LETZTE_INHABERIN, mapLoeschungRefusal } from "./refusals";
 import { FLKontoAdresswechselPayloadSchema } from "./schemas";
 
-import type { FLSpielerAdresswechselMint } from "@/features/spieler/schemas";
 import type { ActionResult } from "@/shared/types/types";
 import type { StepUpRequired } from "@/shared/utils/adminMutation";
 import type { LinkVersand } from "@/shared/utils/linkVersand";
@@ -95,31 +95,33 @@ export async function loescheKontoAction(token: string): Promise<ActionResult> {
 /** What the account page is told of a link it mailed: the outcome alone, never a token or an address. */
 type AdresswechselGesendet = ActionResult<{ versand: LinkVersand }>;
 
-/**
- * Either lane's mailer, by the carrier the backend chose: the token is looked up in that lane's collection,
- * so its page and its delivery tag are that lane's.
- */
-function mailAdresswechsel(operation: string, art: "spieler" | "schiedsrichter", id: string, mint: FLSpielerAdresswechselMint) {
-  return art === "spieler"
-    ? mailSpielerAdresswechsel({ operation: operation, spielerId: id, mint: mint, anlass: "empfang" })
-    : mailSchiedsrichterAdresswechsel({ operation: operation, schiedsrichterId: id, mint: mint, anlass: "empfang" });
-}
+/** Said where the address holds a grant: the change waits for another administrator too, the old address signing in meanwhile. */
+const GENEHMIGUNG_SATZ =
+  "Weil Deine Adresse Zugang zur Verwaltung hat, muss außerdem eine andere Person aus der Verwaltung zustimmen. Bis dahin meldest Du Dich weiter mit dieser Adresse an.";
 
 /**
  * One sentence for a link sent and one the ban list kept: naming the ban would tell a stranger typing the
- * address that it is known here. A failed send says so, a fresh start replacing the change.
+ * address that it is known here. Each repair is one the page then offers: the start's change is taken back
+ * and started again, and an approval's link is the league's to send again.
  */
-function gesendetSatz(versand: LinkVersand, gueltigBis: string, mitHinweis: boolean): { versand: LinkVersand; message: string } {
+function gesendetSatz(versand: LinkVersand, gueltigBis: string, art: "start" | "freigabe"): { versand: LinkVersand; message: string } {
   if (versand === "fehlgeschlagen") {
     return {
       versand: versand,
-      message: "Der Link an die neue Adresse ging nicht raus. Versuch es erneut: Ein neuer Link ersetzt den alten.",
+      message:
+        art === "start"
+          ? "Der Link an die neue Adresse ging nicht raus. Zieh die Änderung zurück und gib die Adresse erneut ein: Ein neuer Link ersetzt den alten."
+          : `Der Link an die neue Adresse ging nicht raus. Die Verwaltung kann ihn erneut senden, schreib uns an ${KONTAKT_EMAIL}.`,
     };
   }
   if (versand === "zurueckgehalten") return { versand: versand, message: ZURUECKGEHALTEN };
 
   const bitte = `Bestätige die neue Adresse über den Link in der E-Mail an sie, bis ${adresswechselZeitpunkt(gueltigBis)}.`;
-  const sonst = mitHinweis ? " Kommt keine an, prüfe die Adresse und versuch es erneut. Deine bisherige Adresse bekommt einen Hinweis." : "";
+  // Only the start's notice goes to the address on file; the approval's request went at the administrator's start.
+  const sonst =
+    art === "start"
+      ? " Kommt keine E-Mail an, prüfe die Adresse oben. Ist sie falsch, zieh die Änderung zurück und gib sie neu ein. Deine bisherige Adresse bekommt einen Hinweis."
+      : "";
   return { versand: "gesendet", message: `${bitte}${sonst}` };
 }
 
@@ -131,8 +133,8 @@ async function istFrischBestaetigt(): Promise<boolean> {
 
 /**
  * The person's own start of a change from the account page, inside the enrolment window
- * (`docs/frontend/spec.md :: I411`): the link goes to the new address, and a notice with a stop link to
- * the one signed in.
+ * (`docs/frontend/spec.md :: I806`): the link goes to the new address, a notice with a stop link to the
+ * one signed in, and where a grant moves, word to the administrators who may approve it.
  */
 export async function starteAdresswechselAction(rawPayload: { email: string }): Promise<AdresswechselGesendet | StepUpRequired> {
   return runPersonRecordMutation("starteAdresswechselAction", async () => {
@@ -154,14 +156,18 @@ export async function starteAdresswechselAction(rawPayload: { email: string }): 
       throw error;
     }
 
-    const { link } = await mailAdresswechsel("starteAdresswechselAction", mint.art, mint.id, {
-      ...mint,
-      weg: "konto",
-      adresse_belegt: false,
-    });
+    const [{ link }] = await Promise.all([
+      mailAdresswechsel({ operation: "starteAdresswechselAction", mint: { ...mint, weg: "konto" }, anlass: "empfang" }),
+      mailGenehmigungWartet({ operation: "starteAdresswechselAction", genehmiger: mint.genehmiger }),
+    ]);
 
     // `link` is never null here: the person's start mints both tokens.
-    return { success: true, ...gesendetSatz(link ?? "fehlgeschlagen", mint.gueltig_bis, true) };
+    const gesendet = gesendetSatz(link ?? "fehlgeschlagen", mint.gueltig_bis, "start");
+    return {
+      success: true,
+      versand: gesendet.versand,
+      message: mint.genehmiger.length === 0 ? gesendet.message : `${gesendet.message} ${GENEHMIGUNG_SATZ}`,
+    };
   });
 }
 
@@ -185,16 +191,13 @@ export async function gibAdresswechselFreiAction(): Promise<AdresswechselGesende
 
     // No stop token: the notice with its stop link went out at the start. The address on file is the
     // signed-in one, and the greeting it would carry is never built without a notice to send.
-    const { link } = await mailAdresswechsel("gibAdresswechselFreiAction", freigabe.art, freigabe.id, {
-      ...freigabe,
-      weg: "freigabe",
-      stopp_token: null,
-      bisherige_email: subject.email,
-      vorname: "",
-      adresse_belegt: false,
+    const { link } = await mailAdresswechsel({
+      operation: "gibAdresswechselFreiAction",
+      mint: { ...freigabe, weg: "freigabe", stopp_token: null, bisherige_email: subject.email, vorname: "" },
+      anlass: "empfang",
     });
 
-    return { success: true, ...gesendetSatz(link ?? "fehlgeschlagen", freigabe.gueltig_bis, false) };
+    return { success: true, ...gesendetSatz(link ?? "fehlgeschlagen", freigabe.gueltig_bis, "freigabe") };
   });
 }
 

@@ -1847,9 +1847,15 @@ export async function endSessionsOfAddress(address: string): Promise<boolean> {
   // Answered from the stamp, never the deletion, so a failed deletion keeps the mail it owes (`:: I517`).
   if (account === null) return false;
 
+  await deleteEndedSessions(adapter, account.id);
+  return true;
+}
+
+/** The rows of sessions an account's stamp has already ended. Never thrown from: the stamp is what ends them. */
+async function deleteEndedSessions(adapter: Pick<DBTransactionAdapter, "deleteMany">, userId: string): Promise<void> {
   try {
     // By the account, never by a token: no session's cookie value leaves the store for this.
-    await adapter.deleteMany({ model: "session", where: [{ field: "userId", value: account.id }] });
+    await adapter.deleteMany({ model: "session", where: [{ field: "userId", value: userId }] });
   } catch (failed) {
     // Logged and left: the rows stand served by no lane, and the landing deletes each its browser brings back.
     logger.error("auth.ended_sessions_not_deleted", undefined, {
@@ -1857,7 +1863,36 @@ export async function endSessionsOfAddress(address: string): Promise<boolean> {
       name: failed instanceof Error ? failed.name : "unknown",
     });
   }
-  return true;
+}
+
+/** Where an address change's effect left the replaced address's account: moved, none there, or the new address holding its own. */
+export type KontoUmzug = "umgezogen" | "keines" | "belegt";
+
+/**
+ * Moves the replaced address's account to the new one in place, its passkeys keyed by the account with it, and
+ * ends every session it held. The league's confirmed link is the verification the library's own change of
+ * address would mail, so this is that change's completing write (`better-auth/api :: verifyEmail`) without its round.
+ */
+export async function carryAccount(bisherige: string, neue: string): Promise<KontoUmzug> {
+  const { adapter, internalAdapter } = await auth.$context;
+  try {
+    // Matched and written on the sign-in fold, which every sign-in stores. The stamp rides the same write, so no
+    // session opened at the replaced address is served at the new one; the library's revocations each act on the
+    // session a request carries, and none of the three callers holds this account's.
+    const account = await internalAdapter.updateUserByEmail(asSignInIdentifier(bisherige), {
+      email: asSignInIdentifier(neue),
+      emailVerified: true,
+      [SESSIONS_ENDED_FIELD]: new Date(),
+    });
+    if (account === null) return "keines";
+
+    await deleteEndedSessions(adapter, account.id);
+    return "umgezogen";
+  } catch (failed) {
+    // `user_email_uidx` refusing a second account: the new address signs in to its own, the old one waits for the account sweep.
+    if (failed instanceof MongoServerError && failed.code === DUPLICATE_KEY && "email" in (failed.keyPattern ?? {})) return "belegt";
+    throw failed;
+  }
 }
 
 /**

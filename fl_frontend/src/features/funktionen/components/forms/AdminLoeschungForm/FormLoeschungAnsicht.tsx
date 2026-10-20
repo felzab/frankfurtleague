@@ -24,7 +24,7 @@ const nameOf = (vorname: string, nachname: string | null): string => (nachname =
  * that say nothing of their gender: the reveal is read before anybody knows whose data it is.
  */
 function zeilenOf(
-  { spieler, schiedsrichter, sitze, bewerbungen, registrierungen, adresswechsel, spieler_adresswechsel, verwaltung }: LoeschungAnsicht,
+  { spieler, schiedsrichter, sitze, bewerbungen, registrierungen, adresswechsel, verwaltung }: LoeschungAnsicht,
   saisonHref: (path: string) => string,
 ): Zeile[] {
   return [
@@ -51,14 +51,10 @@ function zeilenOf(
           ? `Registrierung für die Saison ${saison_id}: ${nameOf(vorname, nachname)}`
           : `Registrierung bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
     })),
-    // A pending change names no person of its own, so its line opens the record it waits on.
-    ...adresswechsel.map(({ schiedsrichter_id }) => ({
-      text: "Eine noch nicht bestätigte Adressänderung einer Schiedsrichterin oder eines Schiedsrichters auf diese Adresse",
-      href: saisonHref(`/bereich/admin/schiedsrichter/${schiedsrichter_id}`),
-    })),
-    ...spieler_adresswechsel.map(({ spieler_id }) => ({
-      text: "Eine noch nicht bestätigte Adressänderung einer Spielerin oder eines Spielers auf diese Adresse",
-      href: saisonHref(`/bereich/admin/spieler/${spieler_id}`),
+    // A pending change names no person of its own, so its line opens the change in the address tool.
+    ...adresswechsel.map(({ adresswechsel_id }) => ({
+      text: "Eine noch nicht bestätigte Adressänderung auf diese Adresse",
+      href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechsel_id}`),
     })),
     ...(verwaltung === null
       ? []

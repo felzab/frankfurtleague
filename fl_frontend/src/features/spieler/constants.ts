@@ -233,6 +233,3 @@ export const KADER_AUSTRAGEN_FOLGE = "Der Kadereintrag bleibt gespeichert. Zurü
 export function kaderAustragenHinweis(saisonId: string): string {
   return `Der Spieler verschwindet aus dem Kader der Saison ${saisonId}. ${KADER_AUSTRAGEN_FOLGE}`;
 }
-
-/** The address box's press, which the refusal of a taken address names: one spelling, so a reworded press takes the sentence with it. */
-export const ADRESSE_AENDERN = "Adresse ändern";
