@@ -779,6 +779,29 @@ const FORMS: Record<string, FormCase> = {
     // The reason is optional, so it carries no mark.
     expected: ["aria spinbutton:Neuer Anpfiff", "aria spinbutton:Neues Datum", "star Neuer Anpfiff drawn", "star Neues Datum drawn"],
   },
+  "a referee's decline on their panel": {
+    module: "features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx",
+    marks: async () => {
+      const { SchiedsrichterEinsaetzeSection } =
+        await import("@/features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx");
+      const einsatz = {
+        id: "68c1f0a2b3c4d5e6f7a8b9f1",
+        spiel_id: "68c1f0a2b3c4d5e6f7a8b9f9",
+        schiedsrichter_id: "68c1f0a2b3c4d5e6f7a8b9f8",
+        ansetzung: { team1_name: "SG Alpha", team2_name: "SG Beta", datum: "2026-11-20", uhrzeit: "14:30:00", spielort: null },
+        zustand: "gueltig" as const,
+        begruendung: null,
+      };
+      return marksOf(h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz] }), async (into) => {
+        // The reason box stands behind the disclosure, which is what offers it.
+        await userEvent.setup().click(screen.getByRole("button", { name: /^Absagen/ }));
+        await settle();
+        marksOn(into);
+      });
+    },
+    // A decline takes no answer without its reason, so the box is marked.
+    expected: ["name begruendung", "star Begründung drawn"],
+  },
   "the referee's confirmation": {
     module: "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
     marks: async () => {

@@ -24,9 +24,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.wiederherstellung import REPLAY_METHOD, Read, Window, plan_replay, replay_line, run_replay
-from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD, compose_adresswechsel
+from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
 from app.api.spielbestaetigungen.services import halter_of
-from app.api.spieler.services import compose_spieler_adresswechsel
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -40,6 +39,7 @@ from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from app.shared.einwilligung_nachweis import nachweis_stand_of
+from tests import documents
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, BASE_AUTH
@@ -183,7 +183,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 email="lenore@schule.de",
                 geburtsdatum=ADULT,
                 einwilligung=_own(),
-                adresswechsel=compose_spieler_adresswechsel(email=NEW_ADDRESS, token_hash=hash_token(PUPIL_ADDRESS_LINK), today=TODAY),
+                adresswechsel=documents.adresswechsel_document(email=NEW_ADDRESS, token_hash=hash_token(PUPIL_ADDRESS_LINK), day=TODAY),
             ),
         ]
     )
@@ -199,7 +199,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 default_payment=20,
                 einwilligung=_own(),
                 geburtsdatum=ADULT,
-                adresswechsel=compose_adresswechsel(email=NEW_ADDRESS, token_hash=hash_token(REFEREE_ADDRESS_LINK), today=TODAY),
+                adresswechsel=documents.adresswechsel_document(email=NEW_ADDRESS, token_hash=hash_token(REFEREE_ADDRESS_LINK), day=TODAY),
             ),
         ]
     )
@@ -338,15 +338,39 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
         Collection.SPIELER,
         MOVING_PUPIL_OID,
     ),
+    "a pupil's stopped address": (
+        lambda http, _database: http.post(
+            f"{V}/spieler/adresswechsel/stopp", json={"token": f"stop-{hash_token(PUPIL_ADDRESS_LINK)}"}, headers=BASE_AUTH
+        ),
+        Collection.SPIELER,
+        MOVING_PUPIL_OID,
+    ),
+    "a pupil's address that took effect": (
+        lambda http, _database: http.post(
+            f"{V}/spieler/adresswechsel", json={"token": PUPIL_ADDRESS_LINK, "antwort": "bestaetigt"}, headers=BASE_AUTH
+        ),
+        Collection.SPIELER,
+        MOVING_PUPIL_OID,
+    ),
+    "a referee's address that took effect": (
+        lambda http, _database: http.post(
+            f"{V}/schiedsrichter/adresswechsel", json={"token": REFEREE_ADDRESS_LINK, "antwort": "bestaetigt"}, headers=BASE_AUTH
+        ),
+        Collection.SCHIEDSRICHTER,
+        MOVING_REFEREE_OID,
+    ),
 }
 
-# Whose hash each line names: the signed-in person, or the address whose link was declined.
+# Whose hash each line names: the signed-in person, or the new address of a change declined, stopped or taking effect.
 PERSONS = {
     "a pending registration's withdrawal": REGISTRANT,
     "a Widerspruch on an application": DECLINER,
     "a Widerspruch on a season row": DECLINER,
     "a referee's declined address": NEW_ADDRESS,
     "a pupil's declined address": NEW_ADDRESS,
+    "a pupil's stopped address": NEW_ADDRESS,
+    "a pupil's address that took effect": NEW_ADDRESS,
+    "a referee's address that took effect": NEW_ADDRESS,
 }
 
 Steps = Callable[[AsyncClient, AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -576,7 +600,7 @@ SENT_AGAIN: dict[str, Callable[[str], dict[str, Any]]] = {
         "bestaetigungen.stellvertretung": compose_kontakt_bestaetigung(token_hash=hash_token("a-new-link"), today=day)
     },
     "a referee's declined address": lambda day: {
-        ADRESSWECHSEL_FELD: compose_adresswechsel(email=NEW_ADDRESS, token_hash=hash_token("asked-again"), today=day)
+        ADRESSWECHSEL_FELD: documents.adresswechsel_document(email=NEW_ADDRESS, token_hash=hash_token("asked-again"), day=day)
     },
 }
 

@@ -16,13 +16,15 @@ export const ANTWORT_LABELS: Record<AntwortStand, { label: string; tone: Feedbac
   ueberfaellig: { label: "Überfällig", tone: "danger" },
 };
 
-// `verworfen` in the discard control's own word, so the readout and the press name one act alike.
+// `verworfen` in the discard control's own word, so the readout and the press name one act alike; a referee's own
+// decline in the answer's word above, never „abgesagt“, which `abgesagt` here says of a called-off fixture.
 export const SCHLIESSGRUND_LABELS: Record<FLSpielbestaetigungGrund, string> = {
   ansetzung_geaendert: "Termin geändert",
   austritt: "Team ausgetreten",
   spiel_entschieden: "Spiel entschieden",
   abgesagt: "Spiel abgesagt",
   schiedsrichter_gewechselt: "Schiedsrichter gewechselt",
+  schiedsrichter_abgelehnt: "Schiedsrichter hat abgelehnt",
   verworfen: "Vorschlag verworfen",
   spiel_vergangen: "Spieltag vorbei",
 };

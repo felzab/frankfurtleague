@@ -7,6 +7,8 @@ import { SAISON_ID_LENGTH } from "../saisons/constants";
 import { FLSaisonPhaseSchema } from "../saisons/schemas";
 import { FLSpielSchema } from "../spiele/schemas";
 
+import type { FLSpiel } from "../spiele/schemas";
+
 export const FLSpieltagSchema = z.object({
   id: CustomObjectIdStringSchema,
 
@@ -26,7 +28,8 @@ export const FLSpieltagSchema = z.object({
 export type FLSpieltag = z.infer<typeof FLSpieltagSchema>;
 
 export const FLSpieltagWithSpieleSchema = FLSpieltagSchema.extend({ spiele: z.array(FLSpielSchema) });
-export type FLSpieltagWithSpiele = z.infer<typeof FLSpieltagWithSpieleSchema>;
+// Either tier's fixtures, as `fl_frontend/src/features/spiele/schemas.ts :: FLSpiel` types them.
+export type FLSpieltagWithSpiele = Omit<z.infer<typeof FLSpieltagWithSpieleSchema>, "spiele"> & { spiele: FLSpiel[] };
 
 export const FLSpielplanSchema = z.object({
   spieltage: z.array(FLSpieltagWithSpieleSchema),

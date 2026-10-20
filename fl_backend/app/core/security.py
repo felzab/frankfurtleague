@@ -330,6 +330,16 @@ def get_person_confirmation_check(actor: Annotated[ActorClaims, Depends(verify_p
     return refuse_unconfirmed
 
 
+def verify_recent_person_confirmation(actor: Annotated[ActorClaims, Depends(verify_person_actor)]) -> None:
+    """Refuse a person's address change from a sign-in or confirmation older than the enrolment window (`docs/backend/spec.md :: I790`).
+
+    Either factor: a code reaches the address on file, which OWASP asks to confirm before it is replaced.
+    """
+
+    if confirmed_before(actor, ENROLMENT_WINDOW_S):
+        raise confirmation_required(actor, ENROLMENT_WINDOW_S)
+
+
 # Whether a folded identifier is on the ban list: what a person's route asks beside the token.
 BanLookup = Callable[[str], Awaitable[bool]]
 

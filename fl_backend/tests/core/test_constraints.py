@@ -142,6 +142,7 @@ from app.core.constraints import (
     diagnose_failure,
 )
 from app.core.recording import Actor, AktorFunktion, LoggedAct, Operation, PersonActor
+from app.shared.adresswechsel import FLAdresswechselWeg
 from app.shared.einwilligung_nachweis import WAHLEN
 from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomOptionalString, parse_empty_string_to_none
@@ -515,6 +516,9 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     (Collection.SCHIEDSRICHTER, ("adresswechsel", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.SPIELER, ("adresswechsel", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.EINLADUNGEN, ("versand", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    # How a change takes effect, one Literal for both lanes' blocks.
+    (Collection.SCHIEDSRICHTER, ("adresswechsel",), "weg", get_args(FLAdresswechselWeg), False),
+    (Collection.SPIELER, ("adresswechsel",), "weg", get_args(FLAdresswechselWeg), False),
     (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.SAISON_TEAMS, ("bestaetigungen", "trainer", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.SAISON_TEAMS, ("bestaetigungen", "ansprechperson", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
@@ -689,9 +693,9 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     # The raw token's hash is the whole credential and no model declares it, so the link cannot be
     # recovered from the editor's read of the block beside it.
     (Collection.SCHIEDSRICHTER, ("bestaetigung",)): frozenset({"token_hash"}),
-    # The address link's hash, for the confirmation link's reason.
-    (Collection.SCHIEDSRICHTER, ("adresswechsel",)): frozenset({"token_hash"}),
-    (Collection.SPIELER, ("adresswechsel",)): frozenset({"token_hash"}),
+    # The address change's two links' hashes, the new mailbox's and the stop link's, for the confirmation link's reason.
+    (Collection.SCHIEDSRICHTER, ("adresswechsel",)): frozenset({"token_hash", "stopp_hash"}),
+    (Collection.SPIELER, ("adresswechsel",)): frozenset({"token_hash", "stopp_hash"}),
     # Served on a read, every live link of the season would be recoverable from an admin page. The
     # action log's pre-image of a REVOKED row serves one, safely: the hash rebuilds nothing, and
     # that operation revoked the row it imaged.

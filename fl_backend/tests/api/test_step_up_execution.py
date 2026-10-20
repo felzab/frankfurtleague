@@ -275,13 +275,13 @@ class TestTheRefereesSave:
         assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, (REFEREE_EMAIL, hash_token("seeded-referee")))
 
     @pytest.mark.parametrize("retired", [False, True], ids=("serving", "retired"))
-    def test_a_confirmed_referee_s_moved_address_from_an_older_sign_in_is_refused_and_asks_nobody(
+    def test_a_confirmed_referee_s_address_change_from_an_older_sign_in_is_refused_and_asks_nobody(
         self, mongo_replica_set_url: str, retired: bool
     ):
         """The address link hands the referee's record to whoever holds the new mailbox, as a consent link hands the answer."""
 
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
-            response = await http.patch(self.URL, headers=OLDER, json=a_save(MOVED_EMAIL))
+            response = await http.post(f"{self.URL}/adresswechsel", headers=OLDER, json={"email": MOVED_EMAIL, "grund": None})
             stored = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_ID})
             return refused(response), stored and (stored["kontakt"]["email"], "adresswechsel" in stored)
 

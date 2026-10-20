@@ -6,17 +6,25 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 
+import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { schiedsrichterSelbst } from "@/shared/testing/selbstFixtures.ts";
 
+import type { FLSpielbestaetigungSelbst } from "@/features/spielbestaetigungen/schemas.ts";
 import type { FLSchiedsrichterSelbst } from "../../schemas.ts";
+
+// Every argument recorded: the decline's reason rides in its second.
+const { calls, answered } = doubleEveryAction({ payloadOf: (args) => args });
+doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SchiedsrichterSelbstView } = await import("./SchiedsrichterSelbstView.tsx");
 const { FLSchiedsrichterSelbstSchema } = await import("../../schemas.ts");
+const { EINSAETZE_LEER } = await import("@/features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx");
 
 // The school and the phone filled, so each of the panel's rows shows a stored value.
 const SCHIEDSRICHTERIN: FLSchiedsrichterSelbst = FLSchiedsrichterSelbstSchema.parse({
@@ -25,8 +33,20 @@ const SCHIEDSRICHTERIN: FLSchiedsrichterSelbst = FLSchiedsrichterSelbstSchema.pa
   kontakt: { telefon: "069 1234567", email: "mara@example.org" },
 });
 
-const renderView = (schiedsrichter: readonly FLSchiedsrichterSelbst[] = [SCHIEDSRICHTERIN]) =>
-  render(underNext(h(SchiedsrichterSelbstView, { schiedsrichter })));
+/** One open row of the referee's, as their own read serves it. */
+const EINSATZ: FLSpielbestaetigungSelbst = {
+  id: "6890a1b2c3d4e5f607390051",
+  spiel_id: "6890a1b2c3d4e5f607390061",
+  schiedsrichter_id: SCHIEDSRICHTERIN.schiedsrichter_id,
+  ansetzung: { team1_name: "Ernst-Reuter-Schule", team2_name: "Goethe-Gymnasium", datum: "2026-11-20", uhrzeit: "14:30:00", spielort: null },
+  zustand: "gueltig",
+  begruendung: null,
+};
+
+const renderView = (
+  schiedsrichter: readonly FLSchiedsrichterSelbst[] = [SCHIEDSRICHTERIN],
+  einsaetze: readonly FLSpielbestaetigungSelbst[] = [],
+) => render(underNext(h(SchiedsrichterSelbstView, { schiedsrichter, einsaetze })));
 
 describe("a referee's own page", () => {
   /* The person tier's read, read by the person it names: the whole name and their own contact details. */
@@ -71,5 +91,76 @@ describe("a referee's own page", () => {
 
     const pointer = within(container).getByRole("link", { name: "Konto" }).closest("p")?.textContent ?? "";
     assert.ok(pointer.includes("im Spielplan") && pointer.includes("auf der Website"), pointer);
+  });
+});
+
+describe("a referee's fixtures on their own page", () => {
+  /* The section's empty state stands only where the list is empty: one drawn unconditionally passes the first half alone. */
+  it("lists a booked fixture above the referee's data, and says so where none is booked", () => {
+    const { unmount } = renderView([SCHIEDSRICHTERIN], [EINSATZ]);
+    const [einsaetze, angaben] = screen.getAllByRole("heading", { level: 2 });
+
+    assert.equal(einsaetze?.textContent, "Deine Einsätze");
+    assert.equal(angaben?.textContent, "Deine Angaben");
+    assert.ok(screen.getByText("Ernst-Reuter-Schule gegen Goethe-Gymnasium"));
+    assert.equal(screen.queryAllByText(EINSAETZE_LEER).length, 0, "a referee booked on a fixture is told they are booked on none");
+    unmount();
+
+    renderView([SCHIEDSRICHTERIN], []);
+    assert.ok(screen.getByText(EINSAETZE_LEER));
+  });
+
+  /* Two rows each offer both answers, so each control names its fixture beside its words (WCAG 2.5.3). */
+  it("offers an open row both answers, each named for its fixture", () => {
+    renderView([SCHIEDSRICHTERIN], [EINSATZ]);
+
+    for (const worte of ["Zusagen", "Absagen"]) {
+      assert.ok(screen.getByRole("button", { name: `${worte}: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 20.11.2026` }));
+    }
+  });
+
+  /* A spent row offers nothing to press, and a decline shows the reason the referee gave. */
+  it("shows a spent row's answer in place of the controls", () => {
+    renderView(
+      [SCHIEDSRICHTERIN],
+      [
+        { ...EINSATZ, zustand: "zugesagt" },
+        { ...EINSATZ, id: "6890a1b2c3d4e5f607390052", zustand: "abgelehnt", begruendung: "Klassenfahrt" },
+        { ...EINSATZ, id: "6890a1b2c3d4e5f607390053", zustand: "ungueltig" },
+      ],
+    );
+
+    assert.equal(screen.queryAllByRole("button", { name: /^(Zusagen|Absagen)/ }).length, 0, "a spent row offers an answer");
+    for (const wort of ["Zugesagt", "Abgesagt", "Klassenfahrt", "Nicht mehr gültig: Termin oder Einteilung haben sich geändert"]) {
+      assert.ok(screen.getByText(wort), `the spent rows do not show „${wort}“`);
+    }
+  });
+
+  /* The endpoint takes no decline without its reason, so the form sends none: the box says why instead. */
+  it("sends a decline with its reason, and none without one", async () => {
+    const user = userEvent.setup();
+    renderView([SCHIEDSRICHTERIN], [EINSATZ]);
+    await user.click(screen.getByRole("button", { name: /^Absagen/ }));
+    calls.length = 0;
+
+    await user.click(screen.getByRole("button", { name: "Absage senden" }));
+    await act(answered);
+    assert.deepEqual(calls, [], "a decline without its reason was sent");
+    assert.ok(screen.getByText("Bitte gib einen Grund für Deine Absage an."));
+
+    await user.type(screen.getByRole("textbox", { name: "Begründung" }), "Klassenfahrt");
+    await user.click(screen.getByRole("button", { name: "Absage senden" }));
+    await act(answered);
+    assert.deepEqual(calls, [{ action: "absagenSpielbestaetigungAction", payload: [EINSATZ.id, { begruendung: "Klassenfahrt" }] }]);
+  });
+
+  it("sends an acceptance for the row pressed", async () => {
+    const user = userEvent.setup();
+    renderView([SCHIEDSRICHTERIN], [EINSATZ]);
+    calls.length = 0;
+
+    await user.click(screen.getByRole("button", { name: /^Zusagen/ }));
+    await act(answered);
+    assert.deepEqual(calls, [{ action: "zusagenSpielbestaetigungAction", payload: [EINSATZ.id] }]);
   });
 });

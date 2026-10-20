@@ -34,7 +34,13 @@ from app.core.constraints import (
 from app.shared.schemas.bounds import TEAM_DESCRIPTION_MAX_LENGTH
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import bericht_document, spiel_document, spielbericht_document, spielbestaetigung_document
+from tests.documents import (
+    adresswechsel_document,
+    bericht_document,
+    spiel_document,
+    spielbericht_document,
+    spielbestaetigung_document,
+)
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -1132,8 +1138,8 @@ def counted(reports: Mapping[Collection, constraints.RelationReport]) -> dict[st
     }
 
 
-# A pending address change as the mint stores it, its deadline overridden per case.
-ADRESSWECHSEL = {"email": "neu@example.invalid", "token_hash": "a" * 64, "verschickt_am": "2026-03-16", "frist": "2026-03-30"}
+# A pending address change as the start stores it, its day overridden per case: its instants are dates, which every read takes.
+ADRESSWECHSEL = adresswechsel_document(email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16")
 
 
 def test_the_values_a_list_refuses_report_a_clean_database_as_clean(mongo_url: str):
@@ -1168,7 +1174,7 @@ def test_the_values_a_list_refuses_are_counted_where_the_validators_store_them(m
         # A null forename is `NAMELESS_PERSON_RULE`'s, so this report leaves it.
         await database.spieler.insert_many(
             [
-                valid_document("spieler", adresswechsel={**ADRESSWECHSEL, "frist": "30.03.2026"}),
+                valid_document("spieler", adresswechsel={**ADRESSWECHSEL, "verschickt_am": "2026-02-31"}),
                 valid_document("spieler", _id=ObjectId(), vorname=None),
             ]
         )
@@ -1178,7 +1184,7 @@ def test_the_values_a_list_refuses_are_counted_where_the_validators_store_them(m
 
     assert on_the_shipped_schema(mongo_url, body) == {
         "registrierungen": (1, [["vorname", "bestaetigung.frist"]]),
-        "spieler": (1, [["adresswechsel.frist"]]),
+        "spieler": (1, [["adresswechsel.verschickt_am"]]),
         "saison_spieler": (1, [["inactive_since"]]),
     }
 

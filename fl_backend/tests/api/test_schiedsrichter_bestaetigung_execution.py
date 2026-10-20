@@ -182,10 +182,8 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
         spiele_collection=database[Collection.SPIELE],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],
-        aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=today,
-        germany_now=NOW,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 

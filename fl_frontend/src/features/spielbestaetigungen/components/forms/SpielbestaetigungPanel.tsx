@@ -312,7 +312,10 @@ function EintragenSection({ zeile, name }: { zeile: FLSpielbestaetigung; name: s
         }}
         onBlur={() => setLaengeFehler(fehler)}
         isInvalid={(antwortFehler ?? laengeFehler) !== null ? true : undefined}>
-        <Label className={FIELD_LABEL_CLASSES}>Begründung für die Zusage</Label>
+        {/* The party heard after the visible words, as `benannt` names the presses: two open rows hold a box each. */}
+        <Label className={FIELD_LABEL_CLASSES}>
+          Begründung für die Zusage<span className="sr-only">: {name}</span>
+        </Label>
         <Input
           placeholder="z.B. Die Trainerin hat am Telefon zugesagt."
           className={FIELD_INPUT_CLASSES}

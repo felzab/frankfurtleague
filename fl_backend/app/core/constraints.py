@@ -400,34 +400,73 @@ _SCHIEDSRICHTER_BESTAETIGUNG = _object(
     },
 )
 
-# A confirmed referee's address waiting on its own mailbox. Never `_SCHIEDSRICHTER_BESTAETIGUNG`:
+# How a change takes effect, mirrored by `app/shared/adresswechsel.py :: FLAdresswechselWeg`.
+_ADRESSWECHSEL_WEGE = ["konto", "freigabe", "wartezeit"]
+
+# A confirmed referee's address waiting on its change. Never `_SCHIEDSRICHTER_BESTAETIGUNG`:
 # nothing reminds about this link, and the address it proves is the block's own.
 _SCHIEDSRICHTER_ADRESSWECHSEL = _object(
     nullable=True,
-    required=("email", "token_hash", "verschickt_am", "frist"),
+    required=(
+        "email",
+        "weg",
+        "token_hash",
+        "stopp_hash",
+        "verschickt_am",
+        "gueltig_bis",
+        "freigegeben_am",
+        "grund",
+        "bestaetigt_am",
+        "wirksam_ab",
+    ),
     properties={
         "email": {"bsonType": "string"},
-        "token_hash": {"bsonType": "string"},
+        "weg": {"bsonType": "string", "enum": _ADRESSWECHSEL_WEGE},
+        # Null while a change awaits the address on file's approval, and once spent on a change that waits.
+        "token_hash": {"bsonType": _STRING_OR_NULL},
+        "stopp_hash": {"bsonType": "string"},
         "verschickt_am": {"bsonType": "string"},
-        # STORED for `_SCHIEDSRICHTER_BESTAETIGUNG`'s reason.
-        "frist": {"bsonType": "string"},
+        # STORED for `_SCHIEDSRICHTER_BESTAETIGUNG`'s reason, an instant where that one is a day.
+        "gueltig_bis": {"bsonType": ["date", "null"]},
+        "freigegeben_am": {"bsonType": ["date", "null"]},
+        "grund": {"bsonType": _STRING_OR_NULL},
+        "bestaetigt_am": {"bsonType": ["date", "null"]},
+        "wirksam_ab": {"bsonType": ["date", "null"]},
         # Out of `required` for `_BEWERBUNG_BESTAETIGUNG`'s reason.
         "zustellung": _ZUSTELLUNG,
     },
 )
 
-# A pupil's new address waiting on its own mailbox. Spelled out rather than assigned
+# A pupil's new address waiting on its change. Spelled out rather than assigned
 # `_SCHIEDSRICHTER_ADRESSWECHSEL`, for `_SAISON_REGISTRIERUNG`'s reason: one name over both blocks
 # would let a widening of either widen the other silently.
 _SPIELER_ADRESSWECHSEL = _object(
     nullable=True,
-    required=("email", "token_hash", "verschickt_am", "frist"),
+    required=(
+        "email",
+        "weg",
+        "token_hash",
+        "stopp_hash",
+        "verschickt_am",
+        "gueltig_bis",
+        "freigegeben_am",
+        "grund",
+        "bestaetigt_am",
+        "wirksam_ab",
+    ),
     properties={
         "email": {"bsonType": "string"},
-        "token_hash": {"bsonType": "string"},
+        "weg": {"bsonType": "string", "enum": _ADRESSWECHSEL_WEGE},
+        # Null while a change awaits the address on file's approval, and once spent on a change that waits.
+        "token_hash": {"bsonType": _STRING_OR_NULL},
+        "stopp_hash": {"bsonType": "string"},
         "verschickt_am": {"bsonType": "string"},
-        # STORED for `_SCHIEDSRICHTER_BESTAETIGUNG`'s reason.
-        "frist": {"bsonType": "string"},
+        # STORED for `_SCHIEDSRICHTER_BESTAETIGUNG`'s reason, an instant where that one is a day.
+        "gueltig_bis": {"bsonType": ["date", "null"]},
+        "freigegeben_am": {"bsonType": ["date", "null"]},
+        "grund": {"bsonType": _STRING_OR_NULL},
+        "bestaetigt_am": {"bsonType": ["date", "null"]},
+        "wirksam_ab": {"bsonType": ["date", "null"]},
         # Out of `required` for `_BEWERBUNG_BESTAETIGUNG`'s reason.
         "zustellung": _ZUSTELLUNG,
     },
@@ -1650,6 +1689,19 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("adresswechsel.token_hash", ASCENDING),),
         "the pupil address page's lookup, driven by strangers",
     ),
+    # PLAIN for the token hash's reason above, a null hash being a key no digest equals.
+    SupportIndex(
+        Collection.SCHIEDSRICHTER,
+        "schiedsrichter_adresswechsel_stopp_hash",
+        (("adresswechsel.stopp_hash", ASCENDING),),
+        "the referee address page's stop lookup, driven by strangers",
+    ),
+    SupportIndex(
+        Collection.SPIELER,
+        "spieler_adresswechsel_stopp_hash",
+        (("adresswechsel.stopp_hash", ASCENDING),),
+        "the pupil address page's stop lookup, driven by strangers",
+    ),
     # Not a unique one, though a hash collides with nothing: a revoked row keeps its hash, so the
     # key holds as many rows as the team has been reissued links.
     SupportIndex(
@@ -2228,7 +2280,6 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "einwilligung.datum": _OPTIONAL_DAY,
         "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
         "adresswechsel.verschickt_am": _DAY,
-        "adresswechsel.frist": _DAY,
     },
     Collection.SPERRLISTE: {
         "grund": _NON_EMPTY,
@@ -2292,7 +2343,6 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "inactive_since": _OPTIONAL_DAY,
         "geburtsdatum": _OPTIONAL_DAY,
         "adresswechsel.verschickt_am": _DAY,
-        "adresswechsel.frist": _DAY,
     },
     Collection.SPIELORTE: {
         "name": _NON_EMPTY,

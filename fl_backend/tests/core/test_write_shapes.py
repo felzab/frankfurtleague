@@ -681,6 +681,8 @@ class TestEveryReadInsideATransactionCarriesIt:
 HANDED_OUTSIDE_THE_TRANSACTION: Mapping[str, tuple[str, ...]] = {
     "app/api/saisons/admin_router.py :: judge_and_write_the_rules hands movable_figures": ("session", "None"),
     "app/api/saisons/admin_router.py :: judge_and_roll_the_league_over hands the_targets_status": ("session", "None"),
+    # The fixture a discarded decline is about, which the discard reads and never writes.
+    "app/api/spielbestaetigungen/admin_router.py :: discard_the_proposal hands judged": ("session", "None"),
     # The fixture a confirmation answers about, which the answer reads and never writes.
     "app/api/spielbestaetigungen/router.py :: answer_for_the_seat hands pull_ansetzung_lage": ("session", "None"),
     # Every refusal past the ban, over the clubs, matchday and bookings the answer reads and never writes.

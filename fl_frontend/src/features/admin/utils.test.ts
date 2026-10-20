@@ -22,7 +22,7 @@ const SPIEL: FLSpiel = FLSpielSchema.parse(
     datum: "2026-07-20",
     uhrzeit: "18:00:00",
     ort: { spielort_id: "6890a1b2c3d4e5f607182934", name: "Sportplatz Ost", maps_link: "x" },
-    schiedsrichter: { schiedsrichter_id: "6890a1b2c3d4e5f607182935", name: "Ref" },
+    schiedsrichter: { schiedsrichter_id: "6890a1b2c3d4e5f607182935", name: "Ref", name_is_public: true },
     ergebnis: "2:1",
   }),
 );
@@ -241,6 +241,37 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
     const partei = { art: "schiedsrichter" as const, schiedsrichter_id: "6890a1b2c3d4e5f607182935" };
 
     assert.deepEqual(kategorien([zeile({ partei, kontakte: null, frist: "2026-07-20" })]), []);
+  });
+
+  describe("a referee's own decline", () => {
+    const partei = { art: "schiedsrichter" as const, schiedsrichter_id: "6890a1b2c3d4e5f607182935" };
+    const ABGELEHNT = { art: "abgelehnt", am: "2026-07-28", von: { art: "schiedsrichter" }, vorschlag: null, begruendung: null };
+    const abgelehnt = zeile({
+      partei,
+      kontakte: null,
+      antwort: ABGELEHNT,
+      geschlossen: { am: "2026-07-28", grund: "schiedsrichter_abgelehnt" },
+    });
+    const OHNE = { ...ANGESETZT, schiedsrichter: null };
+
+    it("files the slot it emptied under schiedsrichter_abgesagt as well as the missing referee", () => {
+      assert.deepEqual(kategorien([abgelehnt], OHNE), ["schiedsrichter_missing", "schiedsrichter_abgesagt"]);
+    });
+
+    // The read serves a fixture's rows newest first: a referee booked since and taken off again left the slot empty.
+    it("files it only while it is the fixture's newest referee row", () => {
+      const danach = zeile({
+        id: "6890a1b2c3d4e5f607182a02",
+        partei: { ...partei, schiedsrichter_id: "6890a1b2c3d4e5f607182936" },
+        kontakte: null,
+      });
+
+      assert.deepEqual(kategorien([danach, abgelehnt], OHNE), ["schiedsrichter_missing"]);
+    });
+
+    it("files nothing once the slot holds a referee again", () => {
+      assert.deepEqual(kategorien([abgelehnt]), []);
+    });
   });
 
   it("notes each proposal beside its card by the proposing club and the date it proposes", () => {

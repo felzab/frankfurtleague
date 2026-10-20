@@ -73,6 +73,15 @@ export interface SpielNeueAnsetzungData {
   readonly empfaenger: SpielEmpfaenger;
 }
 
+/** What a referee taken off a fixture after their Einteilung went out is told: the slot they were told of, as they know it. */
+export interface SpielEinteilungAufgehobenData {
+  readonly origin: string;
+  readonly team1: string;
+  readonly team2: string;
+  readonly altDatumText: string;
+  readonly altUhrzeitText: string;
+}
+
 /** The referee's own panel, the address `fl_frontend/src/features/funktionen/utils.ts` opens their Funktion on. */
 const SCHIEDSRICHTER_PANEL_PATH = "/bereich/schiedsrichter";
 
@@ -80,6 +89,7 @@ const ANFRAGE_UEBERSCHRIFT = "Spieltermin bestätigen";
 const ERINNERUNG_UEBERSCHRIFT = "Erinnerung: Spieltermin bestätigen";
 const EINTEILUNG_UEBERSCHRIFT = "Einteilung als Schiedsrichterin oder Schiedsrichter";
 const NEU_UEBERSCHRIFT = "Spiel neu angesetzt";
+const AUFGEHOBEN_UEBERSCHRIFT = "Einteilung aufgehoben";
 
 /** Every seat of a team is mailed alike, so the close says who else read it. */
 const TEAM_EMPFAENGER_SATZ = "Diese E-Mail geht an die Kontaktpersonen Deines Teams.";
@@ -326,5 +336,51 @@ export function buildSpielNeueAnsetzungEmail({
     subject: `Neu angesetzt: ${fakten.team1} gegen ${fakten.team2}`,
     html: html,
     text: [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(site, [empfaengerSatz, ANTWORT_SATZ_TEXT])].join("\n"),
+  };
+}
+
+/**
+ * The word to a referee that their Einteilung is lifted, whoever took them off the fixture: no button, since nothing is
+ * left for them to answer, and no name, since the address may have changed hands since the Einteilung.
+ */
+export function buildSpielEinteilungAufgehobenEmail({
+  origin,
+  team1,
+  team2,
+  altDatumText,
+  altUhrzeitText,
+}: SpielEinteilungAufgehobenData): SpielEmail {
+  const site = mailOrigin(origin);
+  const fakten = {
+    team1: einzeilig(team1),
+    team2: einzeilig(team2),
+    datum: einzeilig(altDatumText),
+    uhrzeit: einzeilig(altUhrzeitText),
+  };
+  const folge = "Deine Einteilung zu diesem Spiel gilt nicht mehr. Du musst nichts tun.";
+
+  const aufgehoben = (markup: boolean): string => {
+    const termin = markup
+      ? strong(`${escapeHtml(fakten.datum)} um ${escapeHtml(fakten.uhrzeit)} Uhr`)
+      : `${fakten.datum} um ${fakten.uhrzeit} Uhr`;
+
+    return `Hallo, für das Spiel ${paarung(fakten.team1, fakten.team2, markup)} am ${termin} bist Du nicht mehr als Schiedsrichterin oder Schiedsrichter eingeteilt.`;
+  };
+
+  const html = renderKarte({
+    titel: `${BRAND_NAME}: ${AUFGEHOBEN_UEBERSCHRIFT}`,
+    ueberschrift: escapeHtml(AUFGEHOBEN_UEBERSCHRIFT),
+    bloecke: [paragraph(aufgehoben(true)), paragraph(escapeHtml(folge))],
+    aktionen: [],
+    fuss: `${EINZEL_EMPFAENGER_SATZ} ${ANTWORT_SATZ_HTML}`,
+    origin: site,
+  });
+
+  const oben = [`${BRAND_NAME}: ${AUFGEHOBEN_UEBERSCHRIFT}`, "", aufgehoben(false), "", folge];
+
+  return {
+    subject: `Nicht mehr eingeteilt: ${fakten.team1} gegen ${fakten.team2}`,
+    html: html,
+    text: [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(site, [EINZEL_EMPFAENGER_SATZ, ANTWORT_SATZ_TEXT])].join("\n"),
   };
 }

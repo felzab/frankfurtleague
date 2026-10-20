@@ -671,8 +671,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   past their own erasure until it is deleted with the season's contact data
   ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)). The reason an administrator
   types when recording a party's agreement on its behalf is the same field, unchecked too, and is
-  keyed on no address at all, so no erasure reaches it and only the season's end deletes it
-  (`docs/backend/spec.md :: I775`); the reason box's hint asks for
+  keyed on no address at all, so no contact's erasure reaches it (`docs/backend/spec.md :: I775`): on
+  a club's row only the season's end deletes it, and on a referee's row the referee's erasure takes
+  it sooner with the row (`docs/backend/spec.md :: I761`); the reason box's hint asks for
   no names, nothing enforces it, and the published notice says a name may stand in the reason
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19, the unchecked text 2026-10-20. A referee's
   remarks on a match (`spielberichte.bericht.bemerkungen`) are refused, when written, every name either
@@ -928,8 +929,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   its day, the answering role and a proposed date stay, naming nobody, and the rows have no clock of
   their own, a season's fixtures being kept as the league's record. A person's erasure or
   Widerspruch takes their part sooner ([section 5](#5-erasure-reaches-everyone-who-asks)). A
-  referee's rows hold the referee's id and no seat, a decline's reason going at the season's end as
-  above, and stand while the referee's row does, their erasure removing them (`docs/backend/spec.md :: I761`). The published notice tabulates it
+  referee's rows hold the referee's id and no seat, a reason on one, the referee's decline's or an
+  administrator's answer's, going at the season's end as above, and stand while the referee's row does, their erasure removing them (`docs/backend/spec.md :: I761`). The published notice tabulates it
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19.
 - **Timers in the frontend process are what turn those clocks from an intention into a mechanism**
   (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, calling

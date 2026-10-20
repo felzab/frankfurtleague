@@ -15,7 +15,15 @@ from zoneinfo import ZoneInfo
 import pytest
 from fastapi.routing import APIRoute
 
-from app.core.drosselung import TAGESBUDGETS, gedrosselt, get_drossel, sekunden_bis_tagesende, tagesende
+from app.core.drosselung import (
+    TAGESBUDGETS,
+    ZAEHLER_BUDGETS,
+    adresswechsel_gedrosselt,
+    gedrosselt,
+    get_drossel,
+    sekunden_bis_tagesende,
+    tagesende,
+)
 from app.core.recording import AktorFunktion
 from app.core.security import PERSON_ACTOR_BINDERS
 from app.main import RefusalDriver, _dependency_calls, dependency_refusals
@@ -23,7 +31,7 @@ from tests.core.app_source import application, declared, module_of, resolve_call
 
 from .test_actor_binding import ROUTES_BY_OPERATION, SAFE_METHODS, binds_a_person
 from .test_admin_guard import strip_convertors
-from .test_drosselung_execution import CONSENTS, COUNTED_ON_EVERY_CALL, Consent
+from .test_drosselung_execution import ADDRESS_CHANGE_COUNTED, CONSENTS, COUNTED_ON_EVERY_CALL, Consent
 
 BERLIN = ZoneInfo("Europe/Berlin")
 
@@ -38,7 +46,11 @@ UNCOUNTED_PERSON_WRITES: Mapping[tuple[str, str], str] = {
     ("/api/v0/bewerbungen/{bewerbung_id:objectid}/person/einwilligung", "PATCH"): "withdraw-only, and a withdrawal is never counted",
     ("/api/v0/registrierungen/selbst/{registrierung_id:objectid}/einwilligung", "PATCH"): "withdraw-only, and a withdrawal is never counted",
     ("/api/v0/identitaet/selbst/erasure", "POST"): "an erasure, like a withdrawal, is never counted or refused (Art. 17 DSGVO)",
+    ("/api/v0/konto/adresswechsel", "DELETE"): "a stop hands nothing over, and is refused nothing but a change already gone",
 }
+
+# Every call each declaration on a route counts, the count it counts on being the dependency's own concern.
+GEDROSSELT = (gedrosselt, adresswechsel_gedrosselt)
 
 
 def counts(route: APIRoute) -> bool:
@@ -48,7 +60,7 @@ def counts(route: APIRoute) -> bool:
 
 
 def declares_gedrosselt(route: APIRoute) -> bool:
-    return any(dependency.call is gedrosselt for dependency in route.dependant.dependencies)
+    return any(dependency.call in GEDROSSELT for dependency in route.dependant.dependencies)
 
 
 def drossel_parameters(route: APIRoute) -> list[str]:
@@ -101,7 +113,8 @@ def test_a_route_counts_one_way_and_after_its_binder(path: str, method: str):
 
     if declares_gedrosselt(route):
         binders = [index for index, call in enumerate(calls) if any(call is binder for binder in PERSON_ACTOR_BINDERS.values())]
-        assert binders and binders[0] < calls.index(gedrosselt), f"{method} {path} counts before its binder names the person"
+        counting = next(index for index, call in enumerate(calls) if call in GEDROSSELT)
+        assert binders and binders[0] < counting, f"{method} {path} counts before its binder names the person"
 
 
 def _calls(function: ast.AST, name: str) -> bool:
@@ -137,7 +150,9 @@ def test_the_execution_suite_drives_exactly_the_operations_the_count_is_publishe
     """
 
     consents = [value for param in CONSENTS for value in param.values if isinstance(value, Consent)]
-    sent = [("PATCH", consent.path) for consent in consents] + [(param.values[0], param.values[1]) for param in COUNTED_ON_EVERY_CALL]
+    sent = [("PATCH", consent.path) for consent in consents] + [
+        (param.values[0], param.values[1]) for param in [*COUNTED_ON_EVERY_CALL, *ADDRESS_CHANGE_COUNTED]
+    ]
     driven = {
         (strip_convertors(path), method.lower())
         for sent_method, url in sent
@@ -164,7 +179,7 @@ def test_every_funktion_has_a_ceiling():
     """A Funktion with none would raise inside the count rather than refuse at a number."""
 
     assert set(TAGESBUDGETS) == set(get_args(AktorFunktion))
-    assert all(ceiling > 0 for ceiling in TAGESBUDGETS.values())
+    assert all(ceiling > 0 for ceiling in ZAEHLER_BUDGETS.values())
 
 
 @pytest.mark.parametrize(

@@ -232,9 +232,9 @@ async def sweep_saison(
     season-after rule stops keeping this season's pupils: a running season keeps both, and a later season planned and never run
     holds neither back. A season whose id is not a four-digit year fails the whole pass rather than running the four clocks
     that need no later season, because a pass that skipped those two quietly would leave both stopped for ever with nothing
-    anywhere saying so. From that moment every pass also strips the season's fixture confirmation team rows, on the rows and in
-    their log images, of whatever is still left on them: every seat's link entry, each reason whoever gave it, and a contact's
-    holder digest; which way each answer went, its day and the answering role stay as the season's record. The strip is a
+    anywhere saying so. From that moment every pass also strips the season's fixture confirmation rows, referees' too, on
+    the rows and in their log images, of what is left on them: every seat's link entry, each reason whoever gave it, and a
+    contact's holder digest; which way each answer went, its day and the answering role stay as the season's record. The strip is a
     transaction of its own after the blocks' share: one that fails is logged under the season's id and counted in
     `fehlgeschlagen`, and the blocks clear all the same.
 

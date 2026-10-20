@@ -66,8 +66,13 @@ const {
 const { buildSchiedsrichterAdresswechselEmail, buildSchiedsrichterAdresswechselHinweisEmail, buildSchiedsrichterBestaetigungEmail } =
   await import("./schiedsrichterEmail.ts");
 const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
-const { buildSpielAnfrageEmail, buildSpielEinteilungEmail, buildSpielErinnerungEmail, buildSpielNeueAnsetzungEmail } =
-  await import("./spielEmail.ts");
+const {
+  buildSpielAnfrageEmail,
+  buildSpielEinteilungAufgehobenEmail,
+  buildSpielEinteilungEmail,
+  buildSpielErinnerungEmail,
+  buildSpielNeueAnsetzungEmail,
+} = await import("./spielEmail.ts");
 const { buildSpielerAdresswechselEmail, buildSpielerAdresswechselHinweisEmail } = await import("./spielerEmail.ts");
 const { art21Satz, escapeHtml, FALLBACK_SATZ, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
 const { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
@@ -280,6 +285,14 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       altDatumText: "20.11.2026",
       altUhrzeitText: "14:30",
       empfaenger: "team",
+    }),
+  buildSpielEinteilungAufgehobenEmail: (origin) =>
+    buildSpielEinteilungAufgehobenEmail({
+      origin: origin,
+      team1: "Ernst-Reuter-Schule",
+      team2: "Goethe-Gymnasium",
+      altDatumText: "20.11.2026",
+      altUhrzeitText: "14:30",
     }),
   buildBerechtigungEmail: (origin) =>
     buildBerechtigungEmail(

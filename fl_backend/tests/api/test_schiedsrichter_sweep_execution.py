@@ -1,14 +1,14 @@
 """
-API · the lapsed pending address, a referee's or a pupil's, removed by its clock against the shipped validators
+API · the address change's clock, a referee's or a pupil's, against the shipped validators
 
-A confirmed referee's pending address and a pupil's go the day after their link's deadline, as an
-administrator's discard takes each. The share's sizing is `tests/api/test_schiedsrichter_sweep_refusal.py`'s.
+A pending change whose step lapsed goes within the hour, as an administrator's discard takes it, and a confirmed change
+whose waiting time ended takes effect, judged again. The share's sizing is `tests/api/test_schiedsrichter_sweep_refusal.py`'s.
 """
 
 import re
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -20,29 +20,36 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.schiedsrichter.schemas import FLAdresswechselSweepParams
-from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD, build_ghost_schiedsrichter, compose_adresswechsel, compose_einwilligung
+from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD, build_ghost_schiedsrichter, compose_einwilligung
 from app.api.schiedsrichter.sweep_router import ADRESSWECHSEL_PER_PASS, sweep_adresswechsel
-from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_ghost_spieler, compose_spieler_adresswechsel
+from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_ghost_spieler
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
 from app.core.exception_handlers import DATABASE_FAILED, UNHANDLED_CRASH, UNKNOWN_OUTCOME
+from app.shared.schemas.bounds import ADRESSWECHSEL_WARTEZEIT_TAGE
+from tests import documents
+from tests.bans import ban_list
+from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, schiedsrichter_document, spieler_document
+from tests.records import record_collections
 from tests.whole_database import where_held
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
-from .test_schiedsrichter_sweep_refusal import COMMANDS_A_PUPIL, COMMANDS_A_REFEREE, OTHER_COMMANDS
+from .test_schiedsrichter_sweep_refusal import COMMANDS_A_DUE_PERSON, COMMANDS_A_PUPIL, COMMANDS_A_REFEREE, OTHER_COMMANDS
 
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_schiedsrichter_sweep_test")
 
-TODAY = "2026-04-16"
-# Minted on these days, the link's deadline is yesterday and today, for a referee's and a pupil's alike.
-MINTED_TO_LAPSE_YESTERDAY = "2026-04-01"
-MINTED_TO_LAPSE_TODAY = "2026-04-02"
+# Minted at noon on these days, the link lapsed at noon today, half an hour before `NOW`, and lapses tomorrow.
+MINTED_TO_LAPSE_YESTERDAY = "2026-04-15"
+MINTED_TO_LAPSE_TODAY = "2026-04-16"
 NOW = datetime(2026, 4, 16, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+# Confirmed this long ago, a change waiting is due by `NOW` or still waits.
+CONFIRMED_TO_BE_DUE = NOW - timedelta(days=ADRESSWECHSEL_WARTEZEIT_TAGE, minutes=1)
+CONFIRMED_TO_WAIT = NOW - timedelta(days=ADRESSWECHSEL_WARTEZEIT_TAGE) + timedelta(minutes=1)
 # Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`.
 REDACTED_AT = "2026-04-16T10:30:00+00:00"
 
@@ -67,7 +74,7 @@ def a_referee(position: int, *, minted: str | None, **fields: Any) -> dict[str, 
     wechsel = (
         {}
         if minted is None
-        else {ADRESSWECHSEL_FELD: compose_adresswechsel(email=pending(position), token_hash=hash_token(f"t{position}"), today=minted)}
+        else {ADRESSWECHSEL_FELD: documents.adresswechsel_document(email=pending(position), token_hash=hash_token(f"t{position}"), day=minted)}
     )
 
     return schiedsrichter_document(
@@ -90,12 +97,29 @@ def a_pupil(position: int, *, minted: str, **fields: Any) -> dict[str, Any]:
         f"Muster {position}",
         email=on_file(position),
         **{
-            SPIELER_ADRESSWECHSEL_FELD: compose_spieler_adresswechsel(
-                email=pending(position), token_hash=hash_token(f"t{position}"), today=minted
+            SPIELER_ADRESSWECHSEL_FELD: documents.adresswechsel_document(
+                email=pending(position), token_hash=hash_token(f"t{position}"), day=minted
             )
         },
         **fields,
     )
+
+
+def confirmed_on(row: dict[str, Any], bestaetigt_am: datetime) -> dict[str, Any]:
+    """`row`'s change started with a reason and confirmed at `bestaetigt_am`, as the new mailbox's press leaves it."""
+
+    feld = ADRESSWECHSEL_FELD if "kontakt" in row else SPIELER_ADRESSWECHSEL_FELD
+    waiting = {
+        **row[feld],
+        "weg": "wartezeit",
+        "token_hash": None,
+        "gueltig_bis": None,
+        "grund": "Postfach gelöscht, telefonisch bestätigt",
+        "bestaetigt_am": bestaetigt_am,
+        "wirksam_ab": bestaetigt_am + timedelta(days=ADRESSWECHSEL_WARTEZEIT_TAGE),
+    }
+
+    return {**row, feld: waiting}
 
 
 async def with_history(database: AsyncDatabase, *rows: dict[str, Any]) -> None:
@@ -131,14 +155,18 @@ def on_a_league(url: str, body: Body) -> Any:
 async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any = None, **replaced: Any) -> Any:
     return await sweep_adresswechsel(
         params=FLAdresswechselSweepParams(nach=nach),
-        **{
-            "schiedsrichter_collection": database[Collection.SCHIEDSRICHTER],
-            "spieler_collection": database[Collection.SPIELER],
-            "aktionen_collection": database[Collection.AKTIONEN],
-            **replaced,
-        },
+        records=record_collections(database, **replaced),
+        spieler_collection=replaced.get("spieler_collection", database[Collection.SPIELER]),
+        schiedsrichter_collection=replaced.get("schiedsrichter_collection", database[Collection.SCHIEDSRICHTER]),
+        saison_teams_collection=replaced.get("saison_teams_collection", database[Collection.SAISON_TEAMS]),
+        bewerbungen_collection=replaced.get("bewerbungen_collection", database[Collection.BEWERBUNGEN]),
+        registrierungen_collection=replaced.get("registrierungen_collection", database[Collection.REGISTRIERUNGEN]),
+        sperrliste=ban_list(database),
+        aktionen_collection=database[Collection.AKTIONEN],
+        adressanker_collection=database[Collection.ADRESSANKER],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         db=client,
-        today=TODAY,
+        config=build_test_config(),
         germany_now=NOW,
     )
 
@@ -183,7 +211,7 @@ def stored_before_its_validator(collection: Collection, row: Mapping[str, Any]) 
     }
 
 
-class TestALapsedAddressGoesTheDayAfterItsDeadline:
+class TestALapsedAddressGoesOnceItsDeadlinePassed:
     def test_the_referees_block_and_its_address_in_the_images_go_and_the_rest_stands(self, mongo_replica_set_url: str):
         """A bystander's pending address, still running, keeps its block and its images whole."""
 
@@ -213,11 +241,8 @@ class TestALapsedAddressGoesTheDayAfterItsDeadline:
         assert [(image["before"][ADRESSWECHSEL_FELD]["email"], image["redacted_at"]) for image in bystander_images] == [(pending(2), None)]
         assert held == {pending(1): [], pending(2): ["aktionen", "schiedsrichter"], on_file(1): ["aktionen", "schiedsrichter"]}
 
-    def test_the_pupils_block_goes_the_day_after_its_deadline_and_stands_on_the_day_itself(self, mongo_replica_set_url: str):
-        """The notice's „Ist er abgelaufen, löschen wir die Adresse am Tag danach“.
-
-        Read the deadline with `$lte` and the second goes on its deadline's own day, while its link still opens.
-        """
+    def test_the_pupils_block_goes_past_its_deadline_and_stands_before_it(self, mongo_replica_set_url: str):
+        """Judged on the instant, as its confirmation refuses: a link still opening keeps its change."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await with_history(database, a_pupil(1, minted=MINTED_TO_LAPSE_YESTERDAY), a_pupil(2, minted=MINTED_TO_LAPSE_TODAY))
@@ -284,6 +309,59 @@ class TestALapsedAddressGoesTheDayAfterItsDeadline:
         assert (referee_ghost, pupil_ghost) == (build_ghost_schiedsrichter(), build_ghost_spieler())
 
 
+class TestADueChangeTakesEffect:
+    """A change an administrator started with a reason moves its person once the waiting time ended, judged again then."""
+
+    def test_the_due_change_moves_the_record_and_names_whom_to_notify(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await with_history(
+                database,
+                confirmed_on(a_referee(1, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_BE_DUE),
+                confirmed_on(a_pupil(2, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_WAIT),
+            )
+            answer = await sweep(database, client)
+
+            return (
+                answer,
+                await database[Collection.SCHIEDSRICHTER].find_one({"_id": numbered(1)}),
+                await database[Collection.SPIELER].find_one({"_id": numbered(2)}),
+            )
+
+        answer, referee, waiting = on_a_league(mongo_replica_set_url, body)
+
+        assert (answer.entfernt, answer.verworfen, answer.verbleibend, answer.nach) == (0, 0, 0, None)
+        assert [(entry.bisherige_email, entry.vorname) for entry in answer.wirksam] == [(on_file(1), "Schiedsrichter")]
+        assert (referee["kontakt"]["email"], ADRESSWECHSEL_FELD in referee) == (pending(1), False)
+        # The change still in its waiting time stands, untouched.
+        assert (waiting["email"], waiting[SPIELER_ADRESSWECHSEL_FELD]["email"]) == (on_file(2), pending(2))
+
+    def test_a_ban_on_either_address_refuses_it_and_removes_the_change(self, mongo_replica_set_url: str):
+        """The confirmation's own judgement at the end of the wait: a barred person moves no record off the address the ban keys on."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await with_history(
+                database,
+                confirmed_on(a_pupil(1, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_BE_DUE),
+                confirmed_on(a_pupil(2, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_BE_DUE),
+            )
+            await database[Collection.SPERRLISTE].insert_many(
+                [documents.ban_document(on_file(1), bis="2026"), documents.ban_document(pending(2), bis="2026")]
+            )
+            answer = await sweep(database, client)
+
+            return (
+                answer,
+                [await database[Collection.SPIELER].find_one({"_id": numbered(position)}) for position in (1, 2)],
+                await where_held(database, pending(1), pending(2)),
+            )
+
+        answer, pupils, held = on_a_league(mongo_replica_set_url, body)
+
+        assert (answer.verworfen, answer.wirksam, answer.verbleibend) == (2, [], 0)
+        assert [(pupil["email"], SPIELER_ADRESSWECHSEL_FELD in pupil) for pupil in pupils] == [(on_file(1), False), (on_file(2), False)]
+        assert held == {pending(1): [], pending(2): []}
+
+
 class WrittenAfterTheRead:
     """A collection writing `rival` once the call's page read has answered and before any row's own transaction."""
 
@@ -306,18 +384,18 @@ class WrittenAfterTheRead:
 
 class TestEachChangeIsJudgedAgainInItsOwnTransaction:
     @pytest.mark.parametrize(
-        ("collection", "feld", "row", "compose"),
+        ("collection", "feld", "row"),
         [
-            pytest.param(Collection.SCHIEDSRICHTER, ADRESSWECHSEL_FELD, a_referee, compose_adresswechsel, id="a referee's"),
-            pytest.param(Collection.SPIELER, SPIELER_ADRESSWECHSEL_FELD, a_pupil, compose_spieler_adresswechsel, id="a pupil's"),
+            pytest.param(Collection.SCHIEDSRICHTER, ADRESSWECHSEL_FELD, a_referee, id="a referee's"),
+            pytest.param(Collection.SPIELER, SPIELER_ADRESSWECHSEL_FELD, a_pupil, id="a pupil's"),
         ],
     )
     def test_a_link_sent_again_after_the_read_keeps_its_block(
-        self, mongo_replica_set_url: str, collection: Collection, feld: str, row: Callable[..., dict[str, Any]], compose: Callable[..., Any]
+        self, mongo_replica_set_url: str, collection: Collection, feld: str, row: Callable[..., dict[str, Any]]
     ):
         """Remove the change by its pending filter rather than its lapsed one and this fails: the fresh link and its address go."""
 
-        fresh = compose(email=pending(1), token_hash=hash_token("fresh"), today=TODAY)
+        fresh = documents.adresswechsel_document(email=pending(1), token_hash=hash_token("fresh"), day=MINTED_TO_LAPSE_TODAY)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[collection].insert_one(row(1, minted=MINTED_TO_LAPSE_YESTERDAY))
@@ -332,10 +410,10 @@ class TestEachChangeIsJudgedAgainInItsOwnTransaction:
 
             return (answer.entfernt, answer.verbleibend), await database[collection].find_one({"_id": numbered(1)})
 
-        counts, row = on_a_league(mongo_replica_set_url, body)
+        counts, kept = on_a_league(mongo_replica_set_url, body)
 
         assert counts == (0, 0)
-        assert row is not None and row.get(feld) == fresh
+        assert kept is not None and kept[feld]["token_hash"] == fresh["token_hash"]
 
 
 class TestEachCallTakesAShare:
@@ -404,7 +482,7 @@ class TestOneRecordHoldsBackNoOther:
         ]
         # Located by the frame that raised it, and never by its message, which can quote a value.
         [(level, line)] = failures
-        removed = rf"The lapsed address change of referee {numbered(1)} was not removed: NotTheDatabases in find_one at .+\.py:\d+"
+        removed = rf"The lapsed address change of referee {numbered(1)} saw no removal: NotTheDatabases in find_one at .+\.py:\d+"
         assert (level, re.fullmatch(removed, line) is not None) == ("ERROR", True), line
 
     def test_a_refused_removal_is_passed_over_and_the_next_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -539,6 +617,40 @@ class TestOneRowCostsTheCommandsItsShareIsSizedAt:
         few, twice = on_a_league(mongo_replica_set_url, body)
 
         assert (twice - few) / FEW == commands
+
+
+class TestADueChangeCostsTheCommandsItsShareIsSizedAt:
+    def test_a_person_holding_a_pupil_row_and_a_confirmed_referee_row_counted_on_the_wire(self, mongo_replica_set_url: str):
+        """The dearer row a share mixes: a due change moving a pupil row and the confirmed referee row beside it.
+
+        A command added to the effect turns this red, so the share is judged against the deadline again.
+        """
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, float]:
+            async def counted(due: int) -> tuple[Any, Counter[str]]:
+                await database[Collection.SCHIEDSRICHTER].delete_many({"_id": {"$ne": build_ghost_schiedsrichter()["_id"]}})
+                await database[Collection.SPIELER].delete_many({"_id": {"$ne": build_ghost_spieler()["_id"]}})
+                await database[Collection.AKTIONEN].delete_many({})
+                for position in range(due):
+                    await with_history(
+                        database,
+                        confirmed_on(a_pupil(2 * position, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_BE_DUE),
+                        # The same person refereeing under the same address, as the runbook's „a referee is a pupil“ holds.
+                        a_referee(2 * position + 1, minted=None, kontakt={"telefon": None, "email": on_file(2 * position)}),
+                    )
+
+                return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
+
+            # One call first, so the running season the ban list asks is cached for both counted ones alike.
+            await counted(1)
+            (_, few), (answer, twice) = await counted(FEW), await counted(2 * FEW)
+
+            return answer, (twice.total() - few.total()) / FEW
+
+        answer, per_person = on_a_league(mongo_replica_set_url, body)
+
+        assert len(answer.wirksam) == 2 * FEW
+        assert per_person == COMMANDS_A_DUE_PERSON
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:

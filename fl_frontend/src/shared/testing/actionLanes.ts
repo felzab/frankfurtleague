@@ -15,5 +15,6 @@ export const PERSON_ACTION_MODULES: ReadonlySet<string> = new Set([
   "features/konto/personActions.ts",
   "features/registrierungen/personActions.ts",
   "features/schiedsrichter/personActions.ts",
+  "features/spielbestaetigungen/personActions.ts",
   "features/spieler/personActions.ts",
 ]);

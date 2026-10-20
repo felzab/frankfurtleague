@@ -8,7 +8,7 @@ import PencilToSquare from "@gravity-ui/icons/PencilToSquare";
 import { Button } from "@heroui/react/button";
 
 import { ANTWORT_LABELS, SCHIEDSRICHTER_PARTEI } from "@/features/spielbestaetigungen/constants";
-import { antwortStand, geltendeBestaetigungen } from "@/features/spielbestaetigungen/utils";
+import { antwortStand, geltendeBestaetigungen, schiedsrichterAbsage } from "@/features/spielbestaetigungen/utils";
 import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { BRAND_ICON_BUTTON_CLASSES } from "@/shared/components/ui/brandTile";
@@ -167,7 +167,10 @@ export function SpielCard({
   );
 }
 
-/** One chip per party asked about the Ansetzung the fixture holds, in the card's order: team 1, team 2, the referee. */
+/**
+ * One chip per party asked about the Ansetzung the fixture holds, in the card's order: team 1, team 2, the referee,
+ * whose own decline keeps its chip while the slot stays empty.
+ */
 function AntwortChips({
   spielData,
   bestaetigungen,
@@ -187,7 +190,10 @@ function AntwortChips({
       name: spielData.team2?.name,
       zeile: zeilen.find((zeile) => zeile.partei.art === "team" && zeile.partei.team_id === spielData.team2?.team_id),
     },
-    { name: SCHIEDSRICHTER_PARTEI, zeile: zeilen.find((zeile) => zeile.partei.art === "schiedsrichter") },
+    {
+      name: SCHIEDSRICHTER_PARTEI,
+      zeile: zeilen.find((zeile) => zeile.partei.art === "schiedsrichter") ?? schiedsrichterAbsage(bestaetigungen, spielData),
+    },
   ].flatMap(({ name, zeile }) => (name === undefined || zeile === undefined ? [] : [{ name, zeile }]));
 
   if (parteien.length === 0) return null;
