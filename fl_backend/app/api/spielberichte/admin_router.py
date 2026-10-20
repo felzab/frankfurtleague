@@ -101,6 +101,7 @@ async def get_spielberichte(
 async def get_spielbericht_admin(
     spiel_id: CustomRouteObjectId,
     spiele_collection: SpieleCollection,
+    saisons_collection: SaisonsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spieler_collection: SpielerCollection,
@@ -117,6 +118,7 @@ async def get_spielbericht_admin(
     async with db.start_session(snapshot=True) as session:
         lage = await pull_bericht_lage(
             spiele_collection=spiele_collection,
+            saisons_collection=saisons_collection,
             saison_spieler_collection=saison_spieler_collection,
             saison_teams_collection=saison_teams_collection,
             spiel_id=spiel_id,
@@ -146,6 +148,7 @@ async def patch_spielbericht(
     spiel_id: CustomRouteObjectId,
     bericht_data: Annotated[FLSpielberichtPayload, Body()],
     spiele_collection: SpieleCollection,
+    saisons_collection: SaisonsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spieler_collection: SpielerCollection,
@@ -181,6 +184,7 @@ async def patch_spielbericht(
 
         lage = await pull_bericht_lage(
             spiele_collection=spiele_collection,
+            saisons_collection=saisons_collection,
             saison_spieler_collection=saison_spieler_collection,
             saison_teams_collection=saison_teams_collection,
             spiel_id=spiel_id,
@@ -210,6 +214,7 @@ async def patch_spielbericht(
         # For the referee's write's reason (`docs/backend/spec.md :: I118`).
         jetzt = await pull_bericht_lage(
             spiele_collection=spiele_collection,
+            saisons_collection=saisons_collection,
             saison_spieler_collection=saison_spieler_collection,
             saison_teams_collection=saison_teams_collection,
             spiel_id=spiel_id,

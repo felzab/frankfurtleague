@@ -72,12 +72,16 @@ VEREIN_FIELDS: Mapping[str, int] = {
 async def pull_bericht_lage(
     *,
     spiele_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
     saison_spieler_collection: AsyncCollection,
     saison_teams_collection: AsyncCollection,
     spiel_id: ObjectId,
     session: AsyncClientSession | None,
 ) -> BerichtLage:
-    """The fixture, both clubs' squads and season rows, under `session`; `DB-COMMON-001` for a fixture that does not exist."""
+    """The fixture, its season's status, both clubs' squads and season rows, under `session`.
+
+    `DB-COMMON-001` for a fixture that does not exist.
+    """
 
     spiel = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": spiel_id}, projection=dict(SPIEL_FIELDS), session=session)
     team_ids = [team_id for seite in SEITEN if (team_id := team_id_of(spiel, seite)) is not None]
@@ -96,7 +100,9 @@ async def pull_bericht_lage(
         session=session,
     )
 
-    return BerichtLage(spiel=spiel, kader=kader, vereine=vereine)
+    saison = await saisons_collection.find_one({"_id": saison_id}, projection={"_id": 0, "status": 1}, session=session)
+
+    return BerichtLage(spiel=spiel, kader=kader, vereine=vereine, saison_status=None if saison is None else saison.get("status"))
 
 
 async def pull_genannt(

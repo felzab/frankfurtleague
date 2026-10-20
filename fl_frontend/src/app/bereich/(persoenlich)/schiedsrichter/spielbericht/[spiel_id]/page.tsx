@@ -8,6 +8,7 @@ import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { logPageVerweigert } from "@/features/funktionen/verweigert";
 import { kontextOf } from "@/features/spielberichte/components/forms/SpielberichtForm/spielberichtDraft";
 import { SpielberichtForm } from "@/features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm";
+import { SpielberichtLesenView } from "@/features/spielberichte/components/views/SpielberichtLesenView";
 import { SCHIEDSRICHTER_HREF, SpielberichtZustandView } from "@/features/spielberichte/components/views/SpielberichtZustandView";
 import { SPIELBERICHT_GESCHLOSSEN } from "@/features/spielberichte/constants";
 import { getSchiedsrichterSpielbericht } from "@/features/spielberichte/queries";
@@ -52,6 +53,9 @@ export default async function SchiedsrichterSpielberichtPage({ params }: NextPag
       return <SpielberichtZustandView title="Dieses Spiel leitest Du nicht mehr." />;
     throw error;
   }
+
+  // After the fixture's season the referee reads the report and writes it no more (`REQ-BERICHT-007`).
+  if (read.abgeschlossen) return <SpielberichtLesenView lesen={read} />;
 
   const { spiel } = read;
   // The backend's two refusals a page can foresee from the fixture it serves, stated before any press meets them.

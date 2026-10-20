@@ -102,6 +102,19 @@ describe("the referee's report page", () => {
     assert.ok((await rendered()).text.includes("Dieses Spiel ist ausgefallen oder annulliert."));
   });
 
+  /* After the fixture's season the backend refuses the referee's write and serves no squad: a form would offer pickers
+     with nobody in them and a save that is refused. */
+  it("shows the report read-only once the fixture's season has ended", async () => {
+    eingabe = "on";
+    answering({ ...LESEN, abgeschlossen: true, kader: { team1: [], team2: [] }, genannt: [...LESEN.kader.team1, ...LESEN.kader.team2] });
+
+    const { text } = await rendered();
+
+    assert.ok(text.includes("Die Saison dieses Spiels ist vorbei."), text);
+    assert.ok(text.includes("9 · Lina Berg"), "the scorer the report names is not shown by name");
+    assert.ok(!text.includes("Tor hinzufügen") && !text.includes("Speichern"), "the form renders after the season");
+  });
+
   it("tells a referee the fixture is booked to somebody else, and sends one whose record went to the landing", async () => {
     eingabe = "on";
     answerReadsWith(() => {

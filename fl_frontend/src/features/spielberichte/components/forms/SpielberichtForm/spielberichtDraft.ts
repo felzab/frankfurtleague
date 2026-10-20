@@ -11,9 +11,9 @@ import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   FLKartenFarbe,
   FLKartenGrund,
+  FLSpielberichtAnsicht,
   FLSpielberichtBerichtPayload,
   FLSpielberichtPayload,
-  FLSpielberichtSchiedsrichterResponse,
   FLSpielberichtSeite,
   FLSpielberichtSonderereignis,
   FLSpielberichtSpieler,
@@ -322,9 +322,7 @@ export function deriveSpielberichtDraftStatus({
 }
 
 /** The form's view of a report read, either reader's: a side not yet filled is named as the cards name it. */
-export function kontextOf(
-  read: Pick<FLSpielberichtSchiedsrichterResponse, "spiel" | "kader" | "genannt" | "seiten_geaendert">,
-): SpielberichtKontext {
+export function kontextOf(read: Pick<FLSpielberichtAnsicht, "spiel" | "kader" | "genannt" | "seiten_geaendert">): SpielberichtKontext {
   return {
     team1Name: read.spiel.team1?.name ?? PLACEHOLDER.slot,
     team2Name: read.spiel.team2?.name ?? PLACEHOLDER.slot,

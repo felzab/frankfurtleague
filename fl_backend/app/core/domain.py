@@ -3268,6 +3268,15 @@ RULES: tuple[Rule, ...] = (
         implemented_by="app.api.spielberichte.services.find_bericht_stand_refusal",
         tested_by="tests/api/test_spielbericht_execution.py::TestAFormOpenedBeforeAnotherWrite",
     ),
+    Rule(
+        code="REQ-BERICHT-007",
+        status=HTTPStatus.CONFLICT,
+        operation="PUT /spielberichte/{spiel_id}/bericht",
+        aggregate="Spielbericht",
+        summary="a referee writes a fixture's report while its season runs, and only reads it once the season has ended",
+        implemented_by="app.api.spielberichte.services.find_saison_beendet_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestTheRefereeWritesWhileTheSeasonRuns",
+    ),
 )
 
 

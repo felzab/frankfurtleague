@@ -26,6 +26,7 @@ from app.api.spielberichte.services import (
     BERICHT_NICHT_GELEITET,
     BERICHT_NICHT_GESPIELT,
     BERICHT_NICHT_IM_KADER,
+    BERICHT_SAISON_BEENDET,
 )
 from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel_data, patch_spiele_paarungen
 from app.api.spiele.schemas import (
@@ -201,6 +202,7 @@ def bericht(
 def handles(database: AsyncDatabase, **replaced: Any) -> dict[str, Any]:
     return {
         "spiele_collection": database[Collection.SPIELE],
+        "saisons_collection": database[Collection.SAISONS],
         "saison_spieler_collection": database[Collection.SAISON_SPIELER],
         "saison_teams_collection": database[Collection.SAISON_TEAMS],
         "spieler_collection": database[Collection.SPIELER],
@@ -409,6 +411,10 @@ async def nothing(_: AsyncDatabase) -> None:
     return None
 
 
+async def end_the_season(database: AsyncDatabase) -> None:
+    await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "past"}})
+
+
 class TestEachRefusalWritesNothing:
     @pytest.mark.parametrize(
         ("email", "before", "body", "code"),
@@ -495,6 +501,7 @@ class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
         [
             pytest.param("referee", retire_the_referee, FUNKTION_NICHT_GEHALTEN, id="the-referee-s-record-retired"),
             pytest.param("referee", take_the_referee_off, BERICHT_NICHT_GELEITET, id="the-referee-taken-off"),
+            pytest.param("referee", end_the_season, BERICHT_SAISON_BEENDET, id="the-season-ended"),
             *(
                 pytest.param(writer, rival, code, id=f"{writer}-{name}")
                 for writer in ("referee", "admin")
@@ -583,6 +590,22 @@ class TestTheReads:
         assert (form.kader.team1, form.kader.team2) == ([], [])
         assert form.bericht is not None
         assert sorted((spieler.spieler_id, spieler.nachname) for spieler in form.genannt) == [(LINA, "Krause"), (MIA, "Westphal")]
+
+    def test_after_the_season_the_referee_reads_the_report_alone(self, mongo_replica_set_url: str):
+        """Played and standing, so only the season's end decides: the persons the report names, no squad to pick from."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await put(database, client, bericht())
+            before = await form_read(database, client)
+            await end_the_season(database)
+            return before, await form_read(database, client)
+
+        before, after = on_the_league(mongo_replica_set_url, body)
+
+        assert (before.abgeschlossen, after.abgeschlossen) == (False, True)
+        assert (after.kader.team1, after.kader.team2) == ([], [])
+        assert after.bericht == before.bericht
+        assert sorted((spieler.spieler_id, spieler.nachname) for spieler in after.genannt) == [(LINA, "Krause"), (MIA, "Westphal")]
 
     def test_the_referee_s_list_holds_their_played_fixtures_and_whether_a_report_stands(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

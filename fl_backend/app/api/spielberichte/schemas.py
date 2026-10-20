@@ -276,6 +276,9 @@ class _SpielberichtAnsicht(BaseAPIResponse):
 class FLSpielberichtSchiedsrichterResponse(_SpielberichtAnsicht):
     """The booked referee's form: the remarks and the card reasons included, and no `zustand`."""
 
+    # The fixture's season has ended: the page shows the report and offers no write (`REQ-BERICHT-007`).
+    abgeschlossen: bool
+
 
 class FLSpielberichtAdminResponse(_SpielberichtAnsicht):
     """The administrator's panel, with the state the report reads in. Null exactly where no block stands."""

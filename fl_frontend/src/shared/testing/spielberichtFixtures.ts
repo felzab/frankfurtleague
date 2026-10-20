@@ -47,6 +47,8 @@ export const spielberichtReadFixture = (overrides: Record<string, unknown> = {})
   genannt: [],
   bericht: berichtFixture(),
   seiten_geaendert: [],
+  // Each reader's own field; the other's mirror drops it.
+  abgeschlossen: false,
   zustand: "vorgeschlagen",
   ...overrides,
 });

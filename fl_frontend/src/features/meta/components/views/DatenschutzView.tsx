@@ -602,9 +602,10 @@ export function DatenschutzView() {
             Administratorinnen und Administratoren der Liga.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Die Schiedsrichterin oder der Schiedsrichter eines Spiels sieht ab dem Spieltag für den Spielbericht die Kader beider Teams mit Vor-
-            und Nachnamen und Rückennummer, auch ohne eine Einwilligung zur Veröffentlichung: Das gehört zur Spielleitung, veröffentlicht wird
-            dabei nichts.
+            Die Schiedsrichterin oder der Schiedsrichter eines Spiels sieht ab dem Spieltag bis zum Ende der Saison für den Spielbericht die
+            Kader beider Teams mit Vor- und Nachnamen und Rückennummer, auch ohne eine Einwilligung zur Veröffentlichung: Das gehört zur
+            Spielleitung, veröffentlicht wird dabei nichts. Nach der Saison sieht sie oder er nur noch den eigenen Spielbericht und kann ihn
+            nicht mehr ändern.
           </p>
           <p className={ABSATZ_CLASSES}>
             Nach dem Spiel trägt die Schiedsrichterin oder der Schiedsrichter einen Spielbericht ein: das Ergebnis, zu jedem Tor die Minute und

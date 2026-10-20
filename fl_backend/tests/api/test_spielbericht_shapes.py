@@ -19,6 +19,7 @@ from app.api.spielberichte.services import (
     BERICHT_NICHT_GELEITET,
     BERICHT_NICHT_GESPIELT,
     BERICHT_NICHT_IM_KADER,
+    BERICHT_SAISON_BEENDET,
     BerichtLage,
     bericht_namen,
     bericht_zustand_of,
@@ -30,6 +31,7 @@ from app.api.spielberichte.services import (
     find_nicht_geleitet_refusal,
     find_nicht_gespielt_refusal,
     find_nicht_im_kader_refusal,
+    find_saison_beendet_refusal,
     neu_genannt,
 )
 from app.api.spiele.schemas import FLPatchSpielePaarungenPayload
@@ -79,8 +81,9 @@ def spiel(**fields: Any) -> dict[str, Any]:
     }
 
 
-def lage(**spiel_fields: Any) -> BerichtLage:
+def lage(*, saison_status: str = "active", **spiel_fields: Any) -> BerichtLage:
     return BerichtLage(
+        saison_status=saison_status,
         spiel=spiel(**spiel_fields),
         kader=[
             {"spieler_id": LIVE1, "team_id": TEAM1, "vorname": "Lina", "nachname": "Krause", "nummer": "7", "inactive_since": None},
@@ -198,6 +201,15 @@ class TestOnlyTheBookedRefereeReports:
         assert refused_with(
             BERICHT_NICHT_GELEITET, find_nicht_geleitet_refusal(spiel_raw=spiel(schiedsrichter=booked), schiedsrichter_ids=[SCHIEDSRICHTER])
         )
+
+
+class TestTheRefereeWritesWhileTheSeasonRuns:
+    @pytest.mark.parametrize("saison_status", ["active", "future"])
+    def test_a_season_not_yet_over_takes_their_write(self, saison_status: str):
+        assert find_saison_beendet_refusal(lage(saison_status=saison_status)) is None
+
+    def test_a_season_over_is_refused(self):
+        assert refused_with(BERICHT_SAISON_BEENDET, find_saison_beendet_refusal(lage(saison_status="past")))
 
 
 class TestANewlyNamedPupilIsInTheSquad:

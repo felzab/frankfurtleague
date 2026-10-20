@@ -135,6 +135,10 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
       repair: "Lade die Seite neu und wähle neu",
     }),
     "REQ-BERICHT-004": "Dieses Spiel ist ausgefallen oder annulliert. Dafür gibt es keinen Spielbericht.",
+    "REQ-BERICHT-007": buildRefusal({
+      reason: "Die Saison dieses Spiels ist vorbei, und den Spielbericht kannst Du nicht mehr ändern",
+      repair: LADE_DIE_SEITE_NEU,
+    }),
     "REQ-BERICHT-006": buildRefusal({
       reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Verwaltung oder von Dir in einem anderen Fenster",
       repair: NEU_EINTRAGEN,

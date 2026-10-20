@@ -246,20 +246,28 @@ export const FLSpielberichtKaderSchema = z.object({
 });
 
 /**
- * `genannt` names the pupils the stored block holds outside both live squads, so an older entry keeps its name;
- * `seiten_geaendert` the sides fielding another club than the report's last write found there.
+ * What both readers' reads hold. `genannt` names the pupils the stored block holds outside both live squads, so an
+ * older entry keeps its name; `seiten_geaendert` the sides fielding another club than the report's last write found.
  */
-export const FLSpielberichtSchiedsrichterResponseSchema = BaseAPIResponseSchema.extend({
+const spielberichtAnsicht = {
   spiel: FLSpielberichtSpielSchema,
   kader: FLSpielberichtKaderSchema,
   genannt: z.array(FLSpielberichtSpielerSchema),
   bericht: FLSpielberichtBerichtSchema.nullable(),
   seiten_geaendert: z.array(FLSpielberichtSeiteSchema),
+};
+export type FLSpielberichtAnsicht = z.infer<z.ZodObject<typeof spielberichtAnsicht>>;
+
+/** `abgeschlossen` once the fixture's season has ended: the report reads, both squads empty, and takes no write. */
+export const FLSpielberichtSchiedsrichterResponseSchema = BaseAPIResponseSchema.extend({
+  ...spielberichtAnsicht,
+  abgeschlossen: z.boolean(),
 });
 export type FLSpielberichtSchiedsrichterResponse = z.infer<typeof FLSpielberichtSchiedsrichterResponseSchema>;
 
 /** `zustand` is null exactly where no block stands. */
-export const FLSpielberichtAdminResponseSchema = FLSpielberichtSchiedsrichterResponseSchema.extend({
+export const FLSpielberichtAdminResponseSchema = BaseAPIResponseSchema.extend({
+  ...spielberichtAnsicht,
   zustand: FLSpielberichtZustandSchema.nullable(),
 });
 export type FLSpielberichtAdminResponse = z.infer<typeof FLSpielberichtAdminResponseSchema>;

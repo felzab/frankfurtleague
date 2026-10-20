@@ -5,6 +5,7 @@ from typing import Any, Final, NamedTuple
 
 from bson import ObjectId
 
+from app.api.bewerbungen.services import season_has_ended
 from app.api.identitaet.services import holds_a_name, namen_aus
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
@@ -29,6 +30,7 @@ BERICHT_ABGESAGT: Final = "REQ-BERICHT-004"
 BERICHT_NAME_IN_BEMERKUNGEN: Final = "REQ-BERICHT-005"
 # Both writes replace the whole block, so a form opened before another write would put back what that write changed.
 BERICHT_INZWISCHEN_GEAENDERT: Final = "REQ-BERICHT-006"
+BERICHT_SAISON_BEENDET: Final = "REQ-BERICHT-007"
 
 SEITEN: Final[tuple[FLSpielberichtSeite, ...]] = ("team1", "team2")
 
@@ -50,12 +52,13 @@ SPIEL_FIELDS: Final[Mapping[str, int]] = {
 
 
 class BerichtLage(NamedTuple):
-    """What one report is judged against: the fixture, both clubs' squad rows of the season, and their season rows."""
+    """What one report is judged against: the fixture, both clubs' squad rows of the season, their season rows, and the season's status."""
 
     spiel: Mapping[str, Any]
     # Every squad row of the two clubs in the season, ausgetragen ones too, each joined to its pupil's names.
     kader: Sequence[Mapping[str, Any]]
     vereine: Sequence[Mapping[str, Any]]
+    saison_status: str | None
 
 
 def build_bericht_kader_pipeline(*, saison_id: str, team_ids: Sequence[ObjectId]) -> list[Mapping[str, Any]]:
@@ -237,6 +240,25 @@ def find_abgesagt_refusal(*, sonderereignis: str | None) -> WriteRefusal | None:
         error_code=BERICHT_ABGESAGT,
         status=HTTPStatus.CONFLICT,
         message="the fixture is called off or struck out, and carries no report",
+    )
+
+
+def ist_abgeschlossen(lage: BerichtLage) -> bool:
+    """Whether the fixture's season has ended, after which its referee reads the report and writes it no more."""
+
+    return season_has_ended(saison_status=lage.saison_status)
+
+
+def find_saison_beendet_refusal(lage: BerichtLage) -> WriteRefusal | None:
+    """`REQ-BERICHT-007`: the referee writes while the fixture's season runs; the administrator's correction is not asked."""
+
+    if not ist_abgeschlossen(lage):
+        return None
+
+    return WriteRefusal(
+        error_code=BERICHT_SAISON_BEENDET,
+        status=HTTPStatus.CONFLICT,
+        message="the fixture's season has ended, and its referee's report only reads",
     )
 
 
