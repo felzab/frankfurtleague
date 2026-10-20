@@ -14,6 +14,7 @@ import { registerDoubles } from "@/core/exportingModule.ts";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
+import { spielbestaetigungFields } from "@/shared/testing/fixtures.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderUnderWrite } from "@/shared/testing/postWrite.ts";
@@ -21,6 +22,7 @@ import { retirementWrites } from "@/shared/testing/retirementWrites.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
+import type { SpielbestaetigungFields } from "@/shared/testing/fixtures.ts";
 import type { UserEvent } from "@testing-library/user-event";
 import type { ReactNode } from "react";
 
@@ -65,6 +67,8 @@ const { EinwilligungPanel } = await import("@/features/konto/components/forms/Ei
 const { EinwilligungForm } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungForm.tsx");
 const { patchBewerbungEinwilligungAction } = await import("@/features/kontakte/personActions.ts");
 const { patchRegistrierungEinwilligungAction } = await import("@/features/registrierungen/personActions.ts");
+const { SpielbestaetigungPanel } = await import("@/features/spielbestaetigungen/components/forms/SpielbestaetigungPanel.tsx");
+const { FLSpielbestaetigungSchema } = await import("@/features/spielbestaetigungen/schemas.ts");
 
 /** One write whose control leaves the page, from the page before it to the page its refresh draws. */
 type Landing = {
@@ -692,6 +696,44 @@ const kontoRegistrierung = (medien: boolean) =>
         }),
       },
     ],
+  });
+
+const OFFEN_TEAM1 = spielbestaetigungFields();
+const OFFEN_TEAM2 = spielbestaetigungFields({ id: "6890a1b2c3d4e5f607182a02", partei: { art: "team", team_id: "6890a1b2c3d4e5f607182933" } });
+const VORSCHLAG_TEAM1 = spielbestaetigungFields({
+  antwort: {
+    art: "abgelehnt",
+    am: "2026-07-28",
+    von: { art: "kontakt", rolle: "trainer" },
+    vorschlag: { datum: "2026-08-07", uhrzeit: "17:00:00" },
+    begruendung: null,
+  },
+});
+const ZUSAGE_DER_VERWALTUNG = {
+  art: "zugesagt",
+  am: "2026-07-30",
+  von: { art: "admin" },
+  vorschlag: null,
+  begruendung: "Am Telefon zugesagt.",
+};
+
+/** A fixture's confirmations panel over `zeilen`, about the Ansetzung `spielbestaetigungFields` names. */
+const bestaetigungPanel = (zeilen: SpielbestaetigungFields[]) =>
+  h(SpielbestaetigungPanel, {
+    stand: { zeilen: zeilen.map((zeile) => FLSpielbestaetigungSchema.parse(zeile)), gelaufenAm: null },
+    spiel: {
+      id: "6890a1b2c3d4e5f607182930",
+      datum: "2026-08-05",
+      uhrzeit: "18:00:00",
+      ort: null,
+      team1: { team_id: "6890a1b2c3d4e5f607182932", name: "SG Alpha" },
+      team2: { team_id: "6890a1b2c3d4e5f607182933", name: "SG Beta" },
+    },
+    parteien: { teams: [], schiedsrichter: [] },
+    today: "2026-07-30",
+    isSpielSweepOn: true,
+    isActiveSaison: true,
+    onVorschlagUebernehmen: () => undefined,
   });
 
 const LANDINGS: Record<string, Landing> = {
@@ -1353,6 +1395,23 @@ const LANDINGS: Record<string, Landing> = {
     },
     after: () => h(FormPersonLoeschenSection),
     lands: () => openStop("Person löschen"),
+  },
+  /* The settled row loses its press, so the next open row's takes the focus, closed until its own reason is typed. */
+  "a confirmation's settle, on the next open row's press": {
+    before: () => bestaetigungPanel([OFFEN_TEAM1, OFFEN_TEAM2]),
+    press: async (user) => {
+      const [box] = screen.getAllByRole("textbox", { name: "Begründung für die Zusage" });
+      await user.type(box ?? assert.fail("the first open row offers no reason box"), "Am Telefon zugesagt.");
+      await pressTwice(user, { resting: "Auf Zusage setzen: SG Alpha", armed: "Ja, auf Zusage setzen" });
+    },
+    after: () => bestaetigungPanel([{ ...OFFEN_TEAM1, antwort: ZUSAGE_DER_VERWALTUNG }, OFFEN_TEAM2]),
+    lands: () => openStop("Auf Zusage setzen: SG Beta"),
+  },
+  "a proposal's discard, the last press, on the panel's heading": {
+    before: () => bestaetigungPanel([VORSCHLAG_TEAM1]),
+    press: (user) => pressTwice(user, { resting: "Vorschlag verwerfen: SG Alpha", armed: "Ja, Vorschlag verwerfen" }),
+    after: () => bestaetigungPanel([{ ...VORSCHLAG_TEAM1, geschlossen: { am: "2026-07-30", grund: "verworfen" } }]),
+    lands: () => heading("Spielbestätigungen"),
   },
 };
 

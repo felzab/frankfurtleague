@@ -18,6 +18,7 @@ import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { laufendeKontaktFassung } from "@/shared/testing/einwilligungAnswers.ts";
+import { spielbestaetigungFields } from "@/shared/testing/fixtures.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { CONDITIONALLY_STEPPED_UP, STEP_UP_CALLERS, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
@@ -145,6 +146,7 @@ const M = {
   teamErsatz: "features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx",
   sperre: "features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx",
   sperren: "features/sperrliste/components/forms/AdminCreateSperreForm.tsx",
+  spielbestaetigung: "features/spielbestaetigungen/components/forms/SpielbestaetigungPanel.tsx",
   zugangEntziehen: "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx",
   zugangStufe: "features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx",
   einladung: "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx",
@@ -171,6 +173,7 @@ const C = {
   teamErsatz: await component(M.teamErsatz, "FormTeamErsatzSection"),
   sperre: await component(M.sperre, "AdminSperreAufhebenPanel"),
   sperren: await component(M.sperren, "AdminCreateSperreForm"),
+  spielbestaetigung: await component(M.spielbestaetigung, "SpielbestaetigungPanel"),
   zugangEntziehen: await component(M.zugangEntziehen, "AdminBerechtigungEntziehenPanel"),
   zugangStufe: await component(M.zugangStufe, "AdminBerechtigungStufePanel"),
   einladung: await component(M.einladung, "FormEinladungSection"),
@@ -213,6 +216,27 @@ const registrierungenList = () =>
         },
       ],
       adresse: { team_id: TEAM_ID, saison_id: "2627" },
+    }),
+  );
+
+/** A fixture's confirmations panel holding one row of team 1's, about the Ansetzung `spielbestaetigungFields` names. */
+const spielbestaetigungPanel = (antwort: unknown) =>
+  underNext(
+    el(C.spielbestaetigung, {
+      stand: { zeilen: [spielbestaetigungFields({ antwort })], gelaufenAm: null },
+      spiel: {
+        id: "6890a1b2c3d4e5f607182930",
+        datum: "2026-08-05",
+        uhrzeit: "18:00:00",
+        ort: null,
+        team1: { team_id: "6890a1b2c3d4e5f607182932", name: "SG Alpha" },
+        team2: { team_id: "6890a1b2c3d4e5f607182933", name: "SG Beta" },
+      },
+      parteien: { teams: [], schiedsrichter: [] },
+      today: "2026-07-30",
+      isSpielSweepOn: true,
+      isActiveSaison: true,
+      onVorschlagUebernehmen: () => undefined,
     }),
   );
 
@@ -499,6 +523,25 @@ const PANELS: Record<string, Arming[]> = {
           },
         }),
       resting: "Adresse sperren",
+    },
+  ],
+  [M.spielbestaetigung]: [
+    {
+      render: () => spielbestaetigungPanel(null),
+      // The settle's reason first, as its closed press asks.
+      reach: (user) => user.type(screen.getByRole("textbox", { name: "Begründung für die Zusage" }), "Am Telefon zugesagt."),
+      resting: "Auf Zusage setzen: SG Alpha",
+    },
+    {
+      render: () =>
+        spielbestaetigungPanel({
+          art: "abgelehnt",
+          am: "2026-07-28",
+          von: { art: "kontakt", rolle: "trainer" },
+          vorschlag: { datum: "2026-08-07", uhrzeit: "17:00:00" },
+          begruendung: null,
+        }),
+      resting: "Vorschlag verwerfen: SG Alpha",
     },
   ],
   [M.zugangEntziehen]: [
