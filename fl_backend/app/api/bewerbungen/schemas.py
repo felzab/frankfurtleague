@@ -157,7 +157,7 @@ class FLBewerbungTrikot(BaseModel):
     """
 
     vorhandener_satz: str
-    wunschfarbe: FLTrikotFarbe | None
+    wunschfarbe: FLTrikotFarbe
 
 
 class FLBewerbungKader(BaseModel):
@@ -478,9 +478,6 @@ class FLBewerbungTrikotPayload(FLBewerbungTrikot):
     # No floor: a school that owns no kit writes nothing here, so the empty string is the honest
     # answer. A ceiling all the same -- an anonymous caller writes it, and it is stored.
     vorhandener_satz: str = Field(max_length=BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH)
-    # Required here and NULLABLE on the stored shape: an applicant names the colour they want, while
-    # the administrator who assigns the real one at acceptance may leave it open.
-    wunschfarbe: FLTrikotFarbe
 
 
 class FLBewerbungKaderPayload(FLBewerbungKader):

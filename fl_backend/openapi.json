@@ -14390,39 +14390,32 @@
             "title": "Vorhandener Satz"
           },
           "wunschfarbe": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "schwarz",
-                  "weiss",
-                  "grau",
-                  "braun",
-                  "bordeaux",
-                  "rot",
-                  "koralle",
-                  "orange",
-                  "gold",
-                  "gelb",
-                  "limette",
-                  "hellgruen",
-                  "gruen",
-                  "smaragd",
-                  "tuerkis",
-                  "cyan",
-                  "hellblau",
-                  "meerblau",
-                  "blau",
-                  "dunkelblau",
-                  "flieder",
-                  "violett",
-                  "magenta",
-                  "rosa"
-                ]
-              },
-              {
-                "type": "null"
-              }
+            "type": "string",
+            "enum": [
+              "schwarz",
+              "weiss",
+              "grau",
+              "braun",
+              "bordeaux",
+              "rot",
+              "koralle",
+              "orange",
+              "gold",
+              "gelb",
+              "limette",
+              "hellgruen",
+              "gruen",
+              "smaragd",
+              "tuerkis",
+              "cyan",
+              "hellblau",
+              "meerblau",
+              "blau",
+              "dunkelblau",
+              "flieder",
+              "violett",
+              "magenta",
+              "rosa"
             ],
             "title": "Wunschfarbe"
           }

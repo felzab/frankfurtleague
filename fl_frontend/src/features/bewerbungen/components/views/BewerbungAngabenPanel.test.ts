@@ -50,7 +50,7 @@ const BEWERBUNG: FLBewerbung = FLBewerbungSchema.parse({
     trainer: null,
     trainer_ist_zugleich: null,
   },
-  trikot: { vorhandener_satz: "Zwei Sätze", wunschfarbe: null },
+  trikot: { vorhandener_satz: "Zwei Sätze", wunschfarbe: "rot" },
   kader: { voraussichtliche_groesse: 14, gute_spieler: 2 },
   stufengroesse: 96,
   wunschgegner: "Helmholtzschule",

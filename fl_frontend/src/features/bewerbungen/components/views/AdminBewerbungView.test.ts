@@ -70,7 +70,7 @@ const OFFEN: FLBewerbung = FLBewerbungSchema.parse({
     trainer: person("Clara", "2026-09-03"),
     trainer_ist_zugleich: null,
   },
-  trikot: { vorhandener_satz: "Ein Satz", wunschfarbe: null },
+  trikot: { vorhandener_satz: "Ein Satz", wunschfarbe: "rot" },
   kader: { voraussichtliche_groesse: 14, gute_spieler: 2 },
   stufengroesse: 96,
   wunschgegner: null,
