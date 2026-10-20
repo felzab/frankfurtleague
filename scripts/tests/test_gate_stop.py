@@ -512,3 +512,56 @@ def test_a_pool_s_directory_is_named_for_its_reclaim_before_it_exists(tmp_path: 
     assert witness.exists(), "the directory was created before anything ran that could name it"
     assert witness.read_bytes().decode("utf-8") == done.stdout, "the directory existed before the run kept its name"
     assert (tmp_path / "scratch" / Path(done.stdout).name / "units.tsv").is_file(), done.stdout
+
+
+# `scripts/gate/verify.sh :: gate_exit` over one pool directory whose manifest holds one unit's status.
+GATE_EXIT_FIXTURE: Final = """set -uo pipefail
+step_worker() {{ return 1; }}
+worker() {{ return 1; }}
+cleanup() {{ :; }}
+detail() {{ printf '%s\\n' "$@"; }}
+DB_RUN_MARKER=""
+POOLS_REGISTRY=""
+POOL_DIRS=("{directory}")
+{crashed_units}
+{gate_exit}
+trap gate_exit EXIT
+exit {ending}
+"""
+# What a unit's bash records when the stop's SIGTERM reaches it before its trap is set: Windows
+# shifts the signal into the exit code, and POSIX's `Popen` answers it negated.
+SIGNALLED_BEFORE_ITS_TRAP: Final = "3840"
+POSIX_SIGNALLED: Final = "-15"
+
+
+@pytest.mark.parametrize(
+    ("ending", "unit_status", "kept"),
+    [
+        (INTERRUPTED, SIGNALLED_BEFORE_ITS_TRAP, False),
+        (INTERRUPTED, POSIX_SIGNALLED, False),
+        (INTERRUPTED, "5", True),
+        (1, SIGNALLED_BEFORE_ITS_TRAP, True),
+    ],
+    ids=[
+        "a Windows kill in an interrupted run",
+        "a POSIX kill in an interrupted run",
+        "a crash in an interrupted run",
+        "a kill behind a verdict",
+    ],
+)
+def test_an_interrupted_run_reads_a_unit_killed_by_its_stop_as_no_crash(ending: int, unit_status: str, kept: bool, tmp_path: Path) -> None:
+    """Read as a crash, every unit the stop reached early was blamed and its directory kept; only the stop's own kills are spared."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    pool = tmp_path / "pool"
+    pool.mkdir()
+    (pool / "manifest.tsv").write_bytes(f"unit\t{unit_status}\t0\t1\n".encode("ascii"))
+    fixture = GATE_EXIT_FIXTURE.format(
+        directory=pool.as_posix(),
+        crashed_units=lift_function(VERIFY, "crashed_units"),
+        gate_exit=lift_function(VERIFY, "gate_exit"),
+        ending=ending,
+    )
+    done = run_shell(BASH, write_shell(tmp_path / "exit.sh", fixture), env=base_env())
+    assert done.returncode == ending, done.stdout + done.stderr
+    assert pool.exists() is kept, done.stdout + done.stderr
+    assert (f"the unit unit crashed with status {unit_status}" in done.stderr) is kept, done.stderr

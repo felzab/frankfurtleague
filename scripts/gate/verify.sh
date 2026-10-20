@@ -140,12 +140,15 @@ step_worker() { [[ -n "$STEP_UNIT" ]]; }
 # failed check never runs. Never add INT or TERM — `_lib.sh` owns them, and re-trapping either
 # loses the interrupted closing statement.
 cleanup() { :; }
-# Each unit a pool recorded as crashed, as `name status`: past 2, an interrupt aside.
-crashed_units() { # $1 a pool directory
+# Each unit a pool recorded as crashed, as `name status`: past 2, an interrupt aside. In a run that
+# ends interrupted, a kill (`unit_replay`'s past 255) is the stop's, which reached the unit before
+# its trap was set.
+crashed_units() { # $1 a pool directory · $2 the status this run ends on
   local name unit_status rest
   [[ -r "$1/manifest.tsv" ]] || return 0
   while IFS=$'\t' read -r name unit_status rest; do
-    if [[ "$unit_status" =~ ^[0-9]+$ ]] && (( unit_status >= 3 && unit_status != 130 )); then
+    if [[ "$unit_status" =~ ^[0-9]+$ ]] && (( unit_status >= 3 && unit_status != 130 )) \
+      && ! (( $2 == 130 && unit_status > 255 )); then
       printf '%s %s\n' "$name" "$unit_status"
     fi
   done < "$1/manifest.tsv"
@@ -170,7 +173,7 @@ gate_exit() {
     else
       # A unit's crash behind an earlier verdict is read by nothing else: the run ended first.
       for dir in "${POOL_DIRS[@]}"; do
-        crashed="$(crashed_units "$dir")"
+        crashed="$(crashed_units "$dir" "$status")"
         if [[ -z "$crashed" ]]; then rm -rf "$dir" || true; continue; fi
         while IFS=" " read -r name unit_status; do
           detail "the ${name} unit crashed with status ${unit_status} behind the ending above" >&2
