@@ -136,10 +136,8 @@ export type FLSpielerMembership = z.infer<typeof FLSpielerMembershipSchema>;
 export const FLAdresswechselWegSchema = z.enum(["konto", "freigabe", "wartezeit"]);
 
 /**
- * Mirrors a pupil's pending address change, the referee's twin
- * (`fl_frontend/src/features/schiedsrichter/schemas.ts :: FLSchiedsrichterAdresswechselSchema`). Neither
- * hash: the credentials are read by the confirming and the stopping queries alone. Each instant is null
- * where its `weg` has no such step or has not reached it.
+ * Mirrors a pupil's pending address change, the referee's under its own name. Neither hash: only the
+ * confirming and stopping queries read them. An instant is null where its `weg` has not reached that step.
  */
 export const FLSpielerAdresswechselSchema = z.object({
   // The address on its way in, which nothing but the editor shows: no read keys on it until it takes effect.
@@ -354,8 +352,7 @@ export const FLSpielerAdresswechselAnsichtPayloadSchema = z.object({
 export type FLSpielerAdresswechselAnsichtPayload = z.infer<typeof FLSpielerAdresswechselAnsichtPayloadSchema>;
 
 /**
- * What an address link is told before any press, on its own side: the new mailbox's standing and
- * deadline, or the stage the stop of the address on file meets. Never a name or either address: a
+ * What an address link is told before any press, on its own side. Never a name or either address: a
  * leaked link learns no mailbox to write to (`READ-PUPIL-005`).
  */
 export const FLSpielerAdresswechselAnsichtNeuSchema = z.object({

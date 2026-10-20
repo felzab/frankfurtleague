@@ -106,23 +106,20 @@ function mailAdresswechsel(operation: string, art: "spieler" | "schiedsrichter",
 }
 
 /**
- * One sentence for a link that went out and for one the ban list kept: telling the person their new
- * address is barred would answer a stranger typing it whether an address is known here. A failed send
- * says so, its repair being a fresh start, which replaces the change.
+ * One sentence for a link sent and one the ban list kept: naming the ban would tell a stranger typing the
+ * address that it is known here. A failed send says so, a fresh start replacing the change.
  */
 function gesendetSatz(versand: LinkVersand, gueltigBis: string, mitHinweis: boolean): { versand: LinkVersand; message: string } {
   if (versand === "fehlgeschlagen") {
     return {
       versand: versand,
-      message: "Der Link an die neue Adresse ging nicht raus. Versuch es noch einmal: Ein neuer Link ersetzt den alten.",
+      message: "Der Link an die neue Adresse ging nicht raus. Versuch es erneut: Ein neuer Link ersetzt den alten.",
     };
   }
   if (versand === "zurueckgehalten") return { versand: versand, message: ZURUECKGEHALTEN };
 
   const bitte = `Bestätige die neue Adresse über den Link in der E-Mail an sie, bis ${adresswechselZeitpunkt(gueltigBis)}.`;
-  const sonst = mitHinweis
-    ? " Kommt keine an, prüfe die Adresse und versuch es noch einmal. Deine bisherige Adresse bekommt einen Hinweis."
-    : "";
+  const sonst = mitHinweis ? " Kommt keine an, prüfe die Adresse und versuch es erneut. Deine bisherige Adresse bekommt einen Hinweis." : "";
   return { versand: "gesendet", message: `${bitte}${sonst}` };
 }
 

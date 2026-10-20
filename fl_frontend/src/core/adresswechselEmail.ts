@@ -32,10 +32,8 @@ const ADRESSWECHSEL_PFAD: Readonly<Record<AdresswechselArt, string>> = {
 };
 
 /**
- * The one place an address page's link is spelled, the new mailbox's and the stop link alike: one page
- * tells the two apart by which hash the token matches. `token` is the parameter name because
- * `nginx/shared/http.conf :: $credential_free_uri` matches that name; a second spelling reaches the
- * access line and the referer unredacted.
+ * The one spelling of an address page's link, the stop link's too, the page telling them apart by hash.
+ * `token`, because `nginx/shared/http.conf :: $credential_free_uri` redacts that name alone.
  */
 export function adresswechselLink(origin: string, art: AdresswechselArt, token: string): string {
   return `${origin}${ADRESSWECHSEL_PFAD[art]}?token=${encodeURIComponent(token)}`;
@@ -69,9 +67,8 @@ export interface AdresswechselLinkData {
 }
 
 /**
- * The link to the new address. It asks nothing but whether the mailbox is theirs, and greets nobody by
- * name: this mailbox has proved nothing yet, and behind a mistyped address it is a stranger's. It
- * names no lane, since the change moves every record the address holds.
+ * The link to the new address, asking only whether the mailbox is theirs. It greets nobody: behind a
+ * mistyped address its reader is a stranger. It names no lane, the change moving every record.
  */
 export function buildAdresswechselEmail({ origin, art, token, weg, gueltigBis }: AdresswechselLinkData): AdresswechselEmail {
   const site = mailOrigin(origin);
@@ -213,9 +210,8 @@ export function buildAdresswechselHinweisEmail({
 const WIRKSAM_BETREFF = `Deine E-Mail-Adresse bei der ${BRAND_NAME} wurde geändert`;
 
 /**
- * The completion notice to the replaced address. No control and no new address: the change is done, and
- * a reader who repudiates it is owed a way to say so (NIST SP 800-63B-4, read 2026-10-20: "clear
- * instructions, including contact information, in case the recipient repudiates the event").
+ * The completion notice: no control and no new address, but a way to repudiate the change (NIST SP
+ * 800-63B-4, read 2026-10-20: "clear instructions, including contact information").
  */
 export function buildAdresswechselWirksamEmail({
   origin,

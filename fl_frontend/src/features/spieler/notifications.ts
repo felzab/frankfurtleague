@@ -17,9 +17,8 @@ import type { FLAdresswechselMitteilung, FLSpielerAdresswechselMint } from "./sc
 // Outside `actions.ts`, which is `"use server"` and whose every export is a callable endpoint: exported
 // there, this would mail a link to whatever address a caller hands it, past every guard.
 /**
- * Never thrown from: the block is written and the tokens spent by now, and a caller told otherwise
- * reports a mint that happened as failed. A message goes only for a token the mint answered: no link
- * before an approval, no notice on a re-send, whose stop link already sits in that mailbox.
+ * Never thrown from, the tokens being spent by now. A message goes only for a token the mint answered:
+ * no link before an approval, no notice on a re-send, whose stop link already sits in that mailbox.
  */
 export async function mailSpielerAdresswechsel({
   operation,
@@ -118,9 +117,8 @@ async function sendeHinweis(
 }
 
 /**
- * What the administrator is told about a change's messages, both lanes' editors alike: naming the new
- * address and never the stored one. The notice's failure is said, as the stop link it carries is the
- * address on file's only way to refuse a change somebody else asked for.
+ * What the administrator is told of a change's messages, both lanes alike, naming the new address alone.
+ * A failed notice is said: its stop link is the address on file's one way to refuse the change.
  */
 export function describeAdresswechselMail(
   mint: Pick<FLSpielerAdresswechselMint, "email" | "gueltig_bis" | "adresse_belegt">,

@@ -40,7 +40,7 @@ import type { ZodType } from "zod";
 export const LINK_AN_NEUE_ADRESSE = "Link an neue Adresse senden";
 
 /** The address hint, both editors alike: a person who can sign in changes it on their own account page. */
-export const ADRESSE_HINWEIS = `Mit dieser Adresse meldet sich die Person an. Eine neue trägt sie selbst in ihrem Konto ein. Hier nur, wenn sie sich nicht mehr anmelden kann: Ohne Grund muss sie die neue mit ihrer bisherigen Adresse freigeben; mit Grund gilt die neue erst ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung.`;
+export const ADRESSE_HINWEIS = `Mit dieser Adresse meldet sich die Person an. Eine neue trägt sie selbst in ihrem Konto ein. Hier nur, wenn sie sich nicht mehr anmelden kann: Ohne Grund muss sie die neue mit ihrer bisherigen Adresse freigeben. Mit Grund gilt die neue erst ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung.`;
 
 /** The two ways an administrator starts a change: the address on file asked first, or a recorded reason and a waiting time. */
 type Weg = "fragen" | "unerreichbar";
@@ -65,12 +65,9 @@ type Fehler = { satz: AdresswechselFehler; zu: { email: string; grund: string } 
 export const istAndereAdresse = (entwurf: string, gespeicherteAdresse: string): boolean =>
   entwurf.trim() !== "" && asSignInIdentifier(entwurf) !== asSignInIdentifier(gespeicherteAdresse);
 
-/**
- * The administrator's start of a change, both lanes' editors alike: the box `fl_frontend/src/features/
- * bewerbungen/components/views/BewerbungBestaetigungStrip.tsx :: AdresseKorrigieren` opens, without its
- * `<Form>`, since this one stands inside the editor's and a form may hold no other. Enter is taken here
- * for the same reason, or it would submit the editor's draft.
- */
+// `fl_frontend/src/features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx :: AdresseKorrigieren`'s box,
+// without its `<Form>`: this one stands inside the editor's, and Enter is taken here or it submits the draft.
+/** The administrator's start of a change, both lanes' editors alike. */
 export function AdresswechselBeantragen({
   gespeicherteAdresse,
   isDirty,

@@ -132,9 +132,8 @@ export async function reactivateSpielerAction(
 }
 
 /**
- * An administrator's start of a change, for a person who can no longer sign in: without a reason the
- * address on file is asked to approve it first, with one the new mailbox is asked and a waiting time
- * follows. The address on file is told either way, with a link that stops the change.
+ * An administrator's start of a change for a person who cannot sign in: without a reason the address on
+ * file approves it first, with one a waiting time follows the confirmation. Either way it gets a stop link.
  */
 export async function beantrageSpielerAdresswechselAction(
   rawPayload: FLSpielerAdresswechselPayload,

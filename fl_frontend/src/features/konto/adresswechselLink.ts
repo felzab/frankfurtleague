@@ -3,9 +3,8 @@
 import type { FLSpielerAdresswechselAnsichtResponse } from "@/features/spieler/schemas";
 
 /**
- * Every state the new mailbox's link can be in but open, both lanes' pages alike: a change belongs to an
- * address. No `bestaetigt`, an answer removing what the link opens; „ungueltig“ is this side's, for a
- * token the read refused, which matched neither side.
+ * Every state the new mailbox's link can be in but open, either lane's. No `bestaetigt`, an answer
+ * removing what the link opens; „ungueltig“ is a token the read refused, which matched neither side.
  */
 export type AdresswechselLinkZustand = "abgelaufen" | "ungueltig" | "gesperrt" | "nicht_bestaetigbar";
 

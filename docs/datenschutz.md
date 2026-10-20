@@ -275,8 +275,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   person's sign-in and every record of theirs are keyed on: moved at once, it would hand those
   records to whoever holds a mistyped or a hijacked address. Ruled 2026-10-04, the process re-ruled
   2026-10-20. The person starts a change on their account page after confirming themselves by a
-  passkey or a code to the address on file; an administrator starts one only for a person who can
-  no longer sign in, either asking the address on file to approve it there first or, with a
+  passkey or a code to the address on file; only for a person who cannot sign in, either asking the address on file to approve it there first or, with a
   recorded reason, holding its effect a week past its confirmation. The address on file is mailed
   a link that stops the change at its start and a notice once it took effect, and neither names
   the new address; until a change takes effect the new address reaches nothing of the person's

@@ -30,9 +30,8 @@ const urteil = (spielerId: string, email: string, grund: string | null): Adressw
 };
 
 /**
- * Behind „Adresse ändern“, an administrator's start of a change for a pupil who can no longer sign in.
- * The save bar never carries one: **the stored address stays in force until the change takes effect**,
- * so this press is the only way in.
+ * Behind „Adresse ändern“, an administrator's start of a change for a pupil who cannot sign in. The save
+ * never carries one: **the stored address stays in force until the change takes effect**.
  */
 export function FormAdresseSection({
   spielerId,

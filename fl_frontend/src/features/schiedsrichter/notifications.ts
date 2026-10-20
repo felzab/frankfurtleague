@@ -53,9 +53,8 @@ export async function mailSchiedsrichterLink({
 }
 
 /**
- * Never thrown from: the block is written and the tokens spent by now, and a caller told otherwise
- * reports a mint that happened as failed. A message goes only for a token the mint answered: no link
- * before an approval, no notice on a re-send, whose stop link already sits in that mailbox.
+ * Never thrown from, the tokens being spent by now. A message goes only for a token the mint answered:
+ * no link before an approval, no notice on a re-send, whose stop link already sits in that mailbox.
  */
 export async function mailSchiedsrichterAdresswechsel({
   operation,

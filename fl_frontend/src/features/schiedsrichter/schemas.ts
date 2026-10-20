@@ -396,8 +396,8 @@ export const FLSchiedsrichterSelbstEinwilligungResponseSchema = BaseAPIResponseS
 export type FLSchiedsrichterSelbstEinwilligungResponse = z.infer<typeof FLSchiedsrichterSelbstEinwilligungResponseSchema>;
 
 /**
- * One share of the referees' and pupils' pending changes whose step lapsed or whose waiting time ended. `nach` is where the
- * pass's next call starts, null once it reached the end; `verbleibend` counts the failed too, so it never ends a pass.
+ * One share of the pending changes lapsed or due. `nach` is where the next call starts, null at the end;
+ * `verbleibend` counts the failed too, so it never ends a pass.
  */
 export const FLSchiedsrichterAdresswechselSweepResponseSchema = BaseAPIResponseSchema.extend({
   entfernt: z.int().nonnegative(),

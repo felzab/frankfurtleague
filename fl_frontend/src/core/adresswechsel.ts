@@ -1,7 +1,7 @@
 /**
- * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: how long a link of an address change stays
- * open, the step it waits on lapsing at that hour, so a page and a mail state the instant the backend
- * refuses at. One figure for both lanes, a change belonging to an address rather than to a record.
+ * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: how long an address change's link stays open,
+ * so a page and a mail state the instant the backend refuses at. One figure for both lanes: a change
+ * belongs to an address.
  */
 export const ADRESSWECHSEL_GUELTIG_STUNDEN = 24;
 

@@ -52,9 +52,8 @@ function stufeOf(wechsel: FLSpielerAdresswechsel): "freigabe" | "neue_adresse" |
 }
 
 /**
- * Shown only while a change is pending, both lanes' editors alike. **The address above is still in
- * force**, which this panel says beside the controls ending the wait. The re-send is offered only while
- * the new mailbox is asked: a change awaiting its approval, or confirmed and waiting, has no link to send.
+ * A pending change, both lanes' editors alike, **the address above still in force**. The re-send is
+ * offered only while the new mailbox is asked: before an approval, or once confirmed, no link exists.
  */
 export function AdresswechselWartet({
   adresswechsel,

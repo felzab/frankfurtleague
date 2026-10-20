@@ -61,7 +61,7 @@ export function FormKontaktSection({
   onFieldLeft,
 }: {
   kontakt: FLKontakt;
-  /** Set for a confirmed referee, whose address the save no longer carries. */
+  /** Set for a confirmed referee, whose address the save does not carry. */
   bestaetigt: BestaetigteAdresse | null;
   onChange: (next: FLKontakt) => void;
   onFieldLeft: (paths: readonly string[]) => void;
