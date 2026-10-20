@@ -2,7 +2,15 @@ import "server-only";
 
 import { unstable_rethrow } from "next/navigation";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, isContractBreak, UnreadGrantError } from "@/core/errors";
+import {
+  APIBadStatusError,
+  APIMalformedDataError,
+  APINetworkError,
+  ApiUnsentError,
+  isContractBreak,
+  requestOf,
+  UnreadGrantError,
+} from "@/core/errors";
 import { logger } from "@/core/logging";
 
 import { isRuleRefusal } from "./actionError";
@@ -27,8 +35,8 @@ export function logCodedFailure(message: string, error: unknown, untypedCode: "F
   const digest: unknown = error instanceof Error ? Reflect.get(error, "digest") : undefined;
   logger.error(message, error, {
     error_code: typed ? error.code : untypedCode,
-    server_error_code: error instanceof APIBadStatusError ? error.serverErrorCode : undefined,
-    status: error instanceof APIBadStatusError || error instanceof APIMalformedDataError ? error.statusCode : undefined,
+    // The failed call's own trace, which the backend's line carries; the logger falls back to the request's scope.
+    ...requestOf(error),
     digest: typeof digest === "string" ? digest : undefined,
   });
 }

@@ -23,7 +23,7 @@ const REQUEST = {
   endpoint: "/einwilligung/seiten",
   method: "GET",
   readOnly: true,
-  traceId: "0",
+  traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
 };
 
 const answeredWith = (statusCode: number, serverErrorCode: string) =>
@@ -55,12 +55,13 @@ describe("a page's degraded read's rejection handler", () => {
     );
   });
 
-  it("logs a failure the API answered with a 5xx under the error's own code and status", () => {
+  /* The handler runs outside the request's scope, so the call's own trace is what joins the line to the backend's. */
+  it("logs a failure the API answered with a 5xx under the error's own code, status and trace", () => {
     assert.equal(nullUnlessContractBreak(answeredWith(500, "DB-FAIL-001")), null);
 
     assert.deepEqual(
-      lines.map(({ meta }) => [meta?.error_code, meta?.status, meta?.server_error_code]),
-      [["FE-API-001", 500, "DB-FAIL-001"]],
+      lines.map(({ meta }) => [meta?.error_code, meta?.status, meta?.server_error_code, meta?.trace_id]),
+      [["FE-API-001", 500, "DB-FAIL-001", REQUEST.traceId]],
     );
   });
 
