@@ -143,7 +143,6 @@ export const FLRegistrierungBestaetigungAnsichtResponseSchema = BaseAPIResponseS
   // The age the media switch is offered from, served for `mindestalter`'s reason: a copy of this
   // side's own would offer the switch where the endpoint refuses the answer.
   medien_mindestalter: MedienMindestalterSchema,
-  // Whether the returning pupil's page takes a stored birthdate rather than asking one; false on the new pupil's.
 });
 export type FLRegistrierungBestaetigungAnsichtResponse = z.infer<typeof FLRegistrierungBestaetigungAnsichtResponseSchema>;
 export type FLRegistrierungSeite = FLRegistrierungBestaetigungAnsichtResponse["seite"];

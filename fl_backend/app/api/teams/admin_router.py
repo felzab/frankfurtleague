@@ -454,10 +454,9 @@ async def post_saison_team(
             "saison_id": saison_team_data.saison_id,
             "team_id": team_id,
             "gruppe": saison_team_data.gruppe,
-            # Required by the validator and by `FLTeam`, so a row without it is unreadable.
+            # These three required by the validator and by `FLTeamMembership`, so a row without one
+            # is unreadable; entry carries no departure, kit or people yet.
             "austritt": None,
-            # Written as nulls although the validator does not require the keys: entry carries
-            # neither, and a row that states so is easier to read back than one that omits them.
             "trikot_farbe": None,
             "kontakte": None,
             # Copied rather than joined on read (`docs/backend/spec.md :: I95`): once the season is
@@ -565,9 +564,8 @@ async def patch_saison_team(
         async with transaction_session(db) as session:
             existing_raw, updated_raw = await session.with_transaction(move_the_club)
 
-    # `kontakte` below is the one field read off the AFTER image, no payload carrying the block.
-    # `.get` covers a row whose key is ABSENT; a block PRESENT in a shape this model cannot describe
-    # still refuses, a keyword being validated like any other value.
+    # `kontakte` below is the one field read off the AFTER image, no payload carrying the block. A
+    # block in a shape this model cannot describe refuses, a keyword being validated like any other value.
 
     # Assembled after the commit rather than inside the callback, so such a block answers 500 for a
     # write that landed rather than aborting a correct move over a field this endpoint never touches.
