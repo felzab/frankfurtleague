@@ -196,7 +196,7 @@ describe("a create dialog the match editor opens", () => {
 
   /* A referee just created is unconfirmed, and the save refuses an unconfirmed referee: booking it would offer a save
      that cannot succeed. Listed rather than hidden, and the toast says why the picker stays empty. */
-  it("lists a referee it creates as not yet confirmed, books none, and says when they can be", async () => {
+  it("lists a referee it creates as not yet confirmed, and books none", async () => {
     const user = userEvent.setup();
     await renderEditor(user, { schiedsrichter: [REFEREE] });
     await user.click(pickerTrigger("Schiedsrichter"));
