@@ -12,7 +12,7 @@ finding, and so is an exact match naming a URL nothing in the tree answers.
 
 Invariants:
 - The population is `ROUTE_FILES` and the code-generated metadata conventions `METADATA` places,
-  with `PAGE_FILES` joining it for the exact matches a page answers and nothing else.
+  with `PAGE_FILES` joining it for an exact match's URL and a link page's meter.
 - A reserved metadata name this reader cannot place refuses; an image convention supplied as an
   image file runs no module and stands outside the population.
 """
@@ -53,9 +53,22 @@ ROUTE_FILES: Final = ("route.ts", "route.tsx", "route.js", "route.jsx")
 # metadata convention, and two lists here would drift a metadata file out of the walk in silence.
 CODE_EXTENSIONS: Final = tuple(Path(name).suffix for name in ROUTE_FILES)
 
-# A page is charged to no location, a link page's meter being `nginx/edge_test.sh`'s to drive, and is
-# read for one question alone: whether an exact-match location names a URL this tree still answers.
+# A page is charged to no location but a link page's, and every page is read for whether an
+# exact-match location names a URL this tree still answers.
 PAGE_FILES: Final = tuple(f"page{suffix}" for suffix in CODE_EXTENSIONS)
+
+# A link page is one whose own module names `token` and its search parameters, the hook's spelling
+# included: every minted link carries `token=` literally, which `nginx/shared/http.conf ::
+# $credential_free_uri` relies on too. One reading it through another module goes unseen.
+LINK_TOKEN_RE: Final = re.compile(r"\btoken\b")
+LINK_QUERY_RE: Final = re.compile(r"searchParams", re.IGNORECASE)
+
+# The pair `nginx/shared/http.conf` declares for the link pages, metering every request and method,
+# which a link page's own location and its twin's must both name.
+LINK_ZONES: Final = frozenset({"linkseite", "linkseite48"})
+
+# The prefix of a `limit_req` argument naming its zone.
+ZONE: Final = "zone="
 
 # A prefix location matches on the URI string, so the catch-all covers every handler there is.
 # Counting it as coverage would leave this check unable to fail.
@@ -172,10 +185,17 @@ class Location:
 
     exact: bool
     path: str
-    metered: bool
+    # The zones its `limit_req` lines name, which a link page is judged by and every other route by
+    # whether there is one at all.
+    zones: frozenset[str]
     line: int
     # Answered at the edge with a client error and forwarded nowhere, so nothing behind it is reached.
     refuses: bool = False
+
+    @property
+    def metered(self) -> bool:
+        """Whether any `limit_req` line meters this block."""
+        return bool(self.zones)
 
     def matches(self, uri: str) -> bool:
         """Whether this block answers `uri`, by nginx's own string comparison rather than by segment."""
@@ -303,7 +323,7 @@ def read_location(directive: Directive, source: str, redirected: frozenset[str] 
         raise NginxSyntax(f"{source}:{directive.line}: a location with no block under it")
     if any(child.name == "location" for child in block):
         raise NginxSyntax(f"{source}:{directive.line}: a location nested inside a location, whose match order this reader does not resolve")
-    metered = any(child.name == "limit_req" for child in block)
+    zones = frozenset(arg.removeprefix(ZONE) for child in block if child.name == "limit_req" for arg in child.args if arg.startswith(ZONE))
     # Refused rather than read as a prefix: `@fallback` would cover every handler whose URL starts
     # with it, which is none of them, and reading it as coverage is the one direction this check
     # may not fail in.
@@ -313,17 +333,17 @@ def read_location(directive: Directive, source: str, redirected: frozenset[str] 
             return None
         raise NginxSyntax(f"{source}:{directive.line}: the named location {path!r}, which no request URI and no error_page reaches")
     if any(child.name == "return" for child in block):
-        return refusing(directive, block, metered, source)
+        return refusing(directive, block, zones, source)
     if len(directive.args) == 1:
-        return Location(False, path, metered, directive.line)
+        return Location(False, path, zones, directive.line)
     if len(directive.args) == 2:
         modifier, path = directive.args
         if modifier == "=":
-            return Location(True, path, metered, directive.line)
+            return Location(True, path, zones, directive.line)
         # `^~` still matches a prefix; a regex matches on something this reader cannot compare a
         # directory tree against, so it refuses rather than calling the handler uncovered.
         if modifier == "^~":
-            return Location(False, path, metered, directive.line)
+            return Location(False, path, zones, directive.line)
         raise NginxSyntax(f"{source}:{directive.line}: the location modifier {modifier!r}, which selects by something other than a path prefix")
     raise NginxSyntax(f"{source}:{directive.line}: a location taking {len(directive.args)} argument(s)")
 
@@ -332,7 +352,7 @@ def read_location(directive: Directive, source: str, redirected: frozenset[str] 
 REFUSAL: Final = re.compile(r"^4\d\d$")
 
 
-def refusing(directive: Directive, block: tuple[Directive, ...], metered: bool, source: str) -> Location:
+def refusing(directive: Directive, block: tuple[Directive, ...], zones: frozenset[str], source: str) -> Location:
     """An exact match refusing with one bare client error.
 
     Any other answering location refuses the run: a prefix refusal covers handlers no row names, and a redirect
@@ -343,7 +363,7 @@ def refusing(directive: Directive, block: tuple[Directive, ...], metered: bool, 
         raise NginxSyntax(f"{source}:{directive.line}: a location answering with `return` that is no exact match forwarding nothing")
     if len(answers) != 1 or len(answers[0].args) != 1 or not REFUSAL.match(answers[0].args[0]):
         raise NginxSyntax(f"{source}:{directive.line}: a location answering with something other than one bare client error")
-    return Location(True, directive.args[1], metered, directive.line, refuses=True)
+    return Location(True, directive.args[1], zones, directive.line, refuses=True)
 
 
 def locations(tree: tuple[Directive, ...], source: str) -> tuple[Location, ...]:
@@ -439,6 +459,46 @@ def pages(app_dir: Path) -> tuple[Handler, ...]:
         url, head, dynamic = url_of(page.parent.relative_to(app_dir).parts, page)
         found.append(Handler(page, url, head, dynamic))
     return tuple(found)
+
+
+def link_pages(found: tuple[Handler, ...]) -> tuple[Handler, ...]:
+    """Every page reading a mailed link's token from its search parameters."""
+    linked: list[Handler] = []
+    for page in found:
+        # Bytes, as the configuration is read, so no platform's decoding default decides the match.
+        text = page.path.read_bytes().decode("utf-8")
+        if LINK_TOKEN_RE.search(text) and LINK_QUERY_RE.search(text):
+            linked.append(page)
+    return tuple(linked)
+
+
+def answering_location(uri: str, where: tuple[Location, ...]) -> Location | None:
+    """The location nginx chooses for `uri`: its exact match, else its longest prefix, the catch-all included."""
+    for one in where:
+        if one.exact and one.path == uri:
+            return one
+    candidates = [one for one in where if not one.exact and uri.startswith(one.path)]
+    return max(candidates, key=lambda one: len(one.path)) if candidates else None
+
+
+def unmetered_links(linked: tuple[Handler, ...], where: tuple[Location, ...], root: Path, conf: str) -> list[Finding]:
+    """Every link page whose URL, or its trailing-slash twin, reaches a location not naming `LINK_ZONES`."""
+    findings: list[Finding] = []
+    for page in linked:
+        for uri in (page.url, page.url + TRAILING_SLASH):
+            location = answering_location(uri, where)
+            if location is not None and LINK_ZONES <= location.zones:
+                continue
+            reached = "no location" if location is None else f"`location {'= ' if location.exact else ''}{location.path}`"
+            findings.append(
+                Finding(
+                    "fail",
+                    f"{shown(page.path, root)} reads a link's token, and {uri} reaches {reached} in {conf}, which does not meter it on "
+                    f"{', '.join(sorted(LINK_ZONES))}\n"
+                    f"{CONTINUATION}put the page under a prefix carrying that pair, or give it an exact match and its twin carrying it",
+                )
+            )
+    return findings
 
 
 def metadata(app_dir: Path) -> tuple[Metadata, ...]:
@@ -744,7 +804,9 @@ def main() -> int:
 
     try:
         found = handlers(app_dir)
-        answering = found + pages(app_dir)
+        paged = pages(app_dir)
+        answering = found + paged
+        linked = link_pages(paged)
         served = metadata(app_dir)
         # Bytes, so no platform's newline translation reaches a path this reader then compares.
         where = locations(parse(conf_path.read_bytes().decode("utf-8"), conf_path.name), conf_path.name)
@@ -763,6 +825,7 @@ def main() -> int:
     findings, used = account(found, where, root, conf_path.name)
     findings += unused(used, where) + unclaimed(served) + twins(where) + unanswered(found)
     findings += orphaned(where, answering, served) + undeclared(where, answering, served)
+    findings += unmetered_links(linked, where, root, conf_path.name)
 
     code = report_findings(findings)
     if findings:
@@ -770,14 +833,15 @@ def main() -> int:
         print("      exact-match location carrying limit_req, a prefix location with a recorded reason, or")
         print("      a handler check_public_routes.py :: INTERNAL records that an exact match refuses,")
         print("      and a metadata convention is taken unmetered where check_public_routes.py :: METADATA")
-        print("      says why. The rule is docs/ops/spec.md, section 1.3; the reasons are :: REASONS.")
+        print("      says why. A page reading a link's token sits where :: LINK_ZONES meters it and its twin.")
+        print("      The rule is docs/ops/spec.md, section 1.3; the reasons are :: REASONS.")
         return code
 
     metered = sum(1 for one in where if one.exact and one.metered and not one.refuses)
     print(
         f"      {len(found)} route handler(s) accounted for, {len(served)} metadata convention(s) taken unmetered, "
         f"{metered} metered exact-match location(s), {len(REASONS)} recorded reason(s), "
-        f"{len(INTERNAL)} handler(s) refused at the edge"
+        f"{len(INTERNAL)} handler(s) refused at the edge, {len(linked)} link page(s) on the link pages' pair"
     )
     return code
 

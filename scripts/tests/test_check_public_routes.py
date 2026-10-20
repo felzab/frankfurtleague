@@ -475,6 +475,55 @@ def test_a_recorded_answer_no_location_names_is_a_finding(monkeypatch):
     assert "named by no exact-match location" in details(findings)
 
 
+SERVER_READ = "export default async function Page(props) {\n  const { token } = await props.searchParams;\n}\n"
+LINK_PAIR = "        limit_req zone=linkseite burst=60 nodelay;\n        limit_req zone=linkseite48 burst=600 nodelay;\n"
+
+
+def link_page(url: str, text: str = SERVER_READ) -> Path:
+    """An App Router tree holding one page at `url`, its module `text`."""
+    app = new_root("check-public-routes-") / "app"
+    app.mkdir(parents=True)
+    write(app, url.strip("/") + "/page.tsx", text)
+    return app
+
+
+def unmetered(app: Path, where: tuple) -> list:
+    """What the link-page rule says about a planted tree and a planted set of locations."""
+    return routes.unmetered_links(routes.link_pages(routes.pages(app)), where, app.parent, SOURCE)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [SERVER_READ, '"use client";\nexport default function Page() {\n  return useSearchParams().get("token");\n}\n'],
+    ids=["server-page", "client-hook"],
+)
+def test_a_link_page_only_the_catch_all_answers_is_a_finding(text):
+    """The page and its twin each, under both spellings of the read, the hook's being what a case-blind match exists for."""
+    findings = unmetered(link_page("/neu", text), served(METERED, CATCH_ALL))
+
+    assert severities(findings) == ["fail", "fail"]
+    assert "/neu reaches `location /`" in details(findings)
+
+
+def test_a_link_page_whose_twin_another_pair_meters_is_a_finding():
+    """Metered is not enough: the twin's own zone pair passes any rule asking only for a `limit_req`."""
+    where = served(block("location = /neu", LINK_PAIR, PASS), exact("/neu/"), CATCH_ALL)
+
+    findings = unmetered(link_page("/neu"), where)
+
+    assert severities(findings) == ["fail"]
+    assert "/neu/ reaches `location = /neu/`" in details(findings)
+
+
+def test_the_repository_own_link_pages_are_on_the_link_pair():
+    """The resting state the red cases above are measured against; an empty population would pass every page unread."""
+    _, where, name = repository_own()
+    linked = routes.link_pages(routes.pages(routes.REPO_ROOT / routes.APP_ROUTER))
+
+    assert linked
+    assert routes.unmetered_links(linked, where, routes.REPO_ROOT, name) == []
+
+
 def test_the_repository_own_exact_matches_all_name_something():
     """The real pair, where the page locations and the recorded probe are what a handler walk misses."""
     found, where, _ = repository_own()
@@ -746,6 +795,16 @@ def test_a_pair_a_page_answers_reaches_the_exit_contract_too(monkeypatch):
     app = tree("/signin", file="page.tsx")
 
     assert run_main(app, "server {\n" + exact("/signin") + exact("/signin/") + CATCH_ALL + "}\n", monkeypatch) == 0
+
+
+def test_an_unmetered_link_page_reaches_the_exit_contract(monkeypatch):
+    """The link-page rule reaches a reader through `main` alone, and a run that never calls it exits zero.
+
+    The catch-all alone, since an exact match the planted tree does not answer is a finding of its own.
+    """
+    app = link_page("/neu")
+
+    assert run_main(app, "server {\n" + CATCH_ALL + "}\n", monkeypatch) == 1
 
 
 def test_a_finding_exits_one(monkeypatch):

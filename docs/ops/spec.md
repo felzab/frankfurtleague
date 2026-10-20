@@ -311,9 +311,9 @@ convention's, or a path recorded at `scripts/checks/check_public_routes.py :: EL
 liveness probe is the one entry of — a block the walk cannot place otherwise outlives the file that
 answered it, still metering a URL nothing serves. **That recorded path rots both ways** and either
 is a finding: it is named by no exact-match location, or a file in the tree has started answering
-it, so the row records what the accounting already reads. Pages are read for that direction alone,
-what meters a link page being `nginx/edge_test.sh`'s to drive, and a dynamic segment at the top level excuses nothing: its
-static head is the root, which would cover every exact match there is.
+it, so the row records what the accounting already reads. Pages are read for that direction and
+for the link pages' pair below, and a dynamic segment at the top level excuses nothing: its static
+head is the root, which would cover every exact match there is.
 
 **Next's code-generated metadata conventions are accounted for beside the handlers and taken
 unmetered**: `/sitemap.xml`, `/robots.txt` and `/manifest.webmanifest` reach Next through the
@@ -394,8 +394,10 @@ view from the backend, so one network reloading a link page spends database oper
 league shares. No page links to one, so a visit is one request rather than a navigation's fan-out,
 which is what a zone at `location /` would refuse. **`/bestaetigung/` is a prefix because every page
 under it is a link page**, so a page added there is metered the day it exists; a link page added
-anywhere else needs an exact match and its twin, as `/registrierung` and `/loeschung` have. Each
-block restates `location /`'s ceiling and action pair and declares no `proxy_set_header`,
+anywhere else needs an exact match and its twin, as `/registrierung` and `/loeschung` have.
+**`scripts/checks/check_public_routes.py :: LINK_ZONES` holds every page whose own module reads
+`token` from its search parameters to a location naming that pair, at its URL and at its twin's**; a
+page reading the token through another module goes unseen. Each block restates `location /`'s ceiling and action pair and declares no `proxy_set_header`,
 `add_header` or `error_page`, each of which would replace an inherited set. `nginx/edge_test.sh`
 floods one link page past the burst, then fails any link page, twin, double slash, dot segment,
 percent-encoded letter, `HEAD` or JSON post that is not refused with the edge's own `429`.
