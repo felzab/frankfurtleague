@@ -1400,6 +1400,45 @@ async function renderSchiedsrichterPage(): Promise<{ rerenderSaved: () => Promis
   };
 }
 
+async function renderSpielerPage(): Promise<{ rerenderSaved: () => Promise<void> }> {
+  const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
+  const props = spielerProps();
+  const page = (vorname: string): ReactNode =>
+    underNext(h(AdminSpielerEditView, { ...props, spieler: { ...props.spieler, vorname: vorname } }), { router, search: "saison_id=2026" });
+  const { rerender } = render(page(SPIELER.vorname));
+
+  return {
+    // What the save's refresh hands the page: the stored record moved, which re-keys the editor under the view.
+    rerenderSaved: () => act(async () => void rerender(page("Lena-Marie"))),
+  };
+}
+
+describe("a pupil page's save", () => {
+  /* The referee's twin, for the pupil's key: without it the refresh keeps the boxes on the first props, and the next
+     save writes the old name back. */
+  it("shows the saved values once the refresh hands the page the stored record", async () => {
+    answerWith(() => Promise.resolve({ success: true, message: "Gespeichert." }));
+    try {
+      const user = userEvent.setup();
+      const { rerenderSaved } = await renderSpielerPage();
+      await typeInto(user, box("Vorname"), "Lena-Marie");
+      calls.length = 0;
+
+      await saveThrough(user);
+      await rerenderSaved();
+
+      assert.deepEqual(written(), ["patchSpielerAction"], "the save did not write, so its refresh is not judged");
+      assert.equal(
+        screen.getByRole<HTMLInputElement>("textbox", { name: "Vorname", hidden: true }).value,
+        "Lena-Marie",
+        "the box shows the value from before the save over the saved one",
+      );
+    } finally {
+      answerWith(REFUSED);
+    }
+  });
+});
+
 describe("a referee page's save", () => {
   /* The save's refresh remounts the editor on the stored record, so the boxes read what was saved rather than the props
      they first rendered with, which a later save would write back. */
