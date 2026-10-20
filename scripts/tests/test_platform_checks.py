@@ -13,7 +13,7 @@ import contextlib
 import json
 import subprocess
 import sys
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -159,10 +159,10 @@ def _unbindable(reason: str) -> dict[str, str]:
     return {"reason": reason}
 
 
-def _run(rows: dict[str, Reason] | None = None, write_rows: dict[str, str] | None = None) -> tuple[int, list[Reported]]:
+def _run(rows: Mapping[str, Reason] | None = None, write_rows: dict[str, str] | None = None) -> tuple[int, list[Reported]]:
     """The checker's exit code over the fixture as it stands, and every finding it printed."""
     root = _gate().root
-    command = (sys.executable, str(root / DRIVER), json.dumps(rows or {}), json.dumps(write_rows or {}))
+    command = (sys.executable, str(root / DRIVER), json.dumps(dict(rows or {})), json.dumps(write_rows or {}))
     done = subprocess.run(command, cwd=root, capture_output=True, text=True, encoding="utf-8", check=False)
     assert done.returncode in (RED, GREEN), "the driver crashed:" + NL + done.stdout + done.stderr
     found: list[Reported] = []
