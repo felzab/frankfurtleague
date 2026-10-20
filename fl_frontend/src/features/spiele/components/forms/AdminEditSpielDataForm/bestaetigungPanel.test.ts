@@ -119,6 +119,25 @@ describe("a proposal carried into the match editor", () => {
   });
 });
 
+describe("the settle's reason box in the match editor", () => {
+  /* The panel sits inside the editor's form, so an Enter its box let through would submit the fixture's save. */
+  it("sends nothing on an Enter in the box, though the draft would save", async () => {
+    const user = userEvent.setup();
+    renderEditor({ stand: { zeilen: [zeile()], gelaufenAm: "2026-11-01" } });
+
+    await user.type(screen.getByRole("textbox", { name: "Notiz zum Spiel" }), "Halle getauscht");
+    await user.type(screen.getByRole("textbox", { name: "Begründung für die Zusage: SG Alpha" }), "Am Telefon{Enter}");
+    await act(async () => settled());
+
+    assert.deepEqual(
+      calls.map((call) => call.action).filter((action) => action !== "previewAdminSpielDataAction"),
+      [],
+      "an Enter in the reason box sent a write",
+    );
+    assert.equal(screen.queryAllByRole("button", { name: "Trotzdem speichern" }).length, 0, "an Enter in the reason box asked to save");
+  });
+});
+
 describe("the confirmations' panel in the match editor", () => {
   it("offers the press on a row about the Ansetzung the fixture holds, and none on one it has left", () => {
     renderEditor({

@@ -361,7 +361,25 @@ describe("buildActionRequiredSections", () => {
   });
 
   // Declaration order is render order, so a category declared out of its urgency renders out of it.
-  it("runs from the blocking categories to the cancellations, urgency never rising", () => {
+  // Declaration order is the tabs' order, so a move within one urgency reorders them as surely as one across.
+  it("runs from the blocking categories to the cancellations in the planned order", () => {
+    assert.deepEqual(Object.keys(ACTION_REQUIRED_LABELS), [
+      "bracket_fault",
+      "besetzung_missing",
+      "vorschlag_offen",
+      "bestaetigung_ueberfaellig",
+      "bestaetigung_sofort",
+      "ergebnis_pending",
+      "datum_missing",
+      "uhrzeit_missing",
+      "ort_missing",
+      "schiedsrichter_missing",
+      "schiedsrichter_abgesagt",
+      "abgesagt",
+    ]);
+  });
+
+  it("never lets urgency rise down the table", () => {
     const RANG: Record<FLActionUrgency, number> = { blocking: 0, results: 1, details: 2, none: 3 };
     const raenge = Object.values(ACTION_REQUIRED_LABELS).map((label) => RANG[label.urgency]);
 
@@ -369,7 +387,6 @@ describe("buildActionRequiredSections", () => {
       raenge,
       [...raenge].sort((a, b) => a - b),
     );
-    assert.equal(Object.keys(ACTION_REQUIRED_LABELS).at(-1), "abgesagt");
   });
 
   it("returns an empty section rather than omitting it", () => {
