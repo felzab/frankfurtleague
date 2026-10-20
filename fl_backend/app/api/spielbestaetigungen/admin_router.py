@@ -118,7 +118,8 @@ async def eintragen_spielbestaetigung(
         refuse(find_eintragen_refusal(spielbestaetigung_raw=row))
 
         try:
-            # The state term too, as a seat's press writes: whichever of two answers writes second matches nothing.
+            # The state term as a seat's press writes it (`docs/backend/spec.md :: I755`). A seat's answer committing under
+            # this one conflicts with the write instead, and the retry's read above refuses.
             return await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": spielbestaetigung_id, **build_answerable_filter()},

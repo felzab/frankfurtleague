@@ -89,8 +89,8 @@ def compose_ansetzung(spiel: Mapping[str, Any]) -> dict[str, Any]:
 def build_answerable_filter() -> dict[str, Any]:
     """A row the answer may write: neither answered nor closed, the reach of `uniq_spielbestaetigung_offen`.
 
-    The first press binds because this filter rides on the write itself, so two seats pressing at once
-    are one answer.
+    Repeated on the write after the read's judgement; a rival answer committing between them conflicts, and the retry
+    judges (`docs/backend/spec.md :: I755`).
     """
 
     return {"antwort": None, "geschlossen": None}
@@ -500,7 +500,7 @@ def compose_antwort_update(
 
 
 # --- The ADMINISTRATOR's settle and discard. Each check judges the row read in-session and its write's filter
-# says the same again, so a party's answer committing between the two leaves the row as that party wrote it.
+# says the same again; a party's answer committing between the two conflicts with the write, whose retry refuses.
 
 ANSETZUNG_NICHT_EINTRAGBAR = "REQ-ANSETZUNG-013"
 ANSETZUNG_NICHT_VERWERFBAR = "REQ-ANSETZUNG-014"
