@@ -220,7 +220,7 @@ def _withdrawable(block: Mapping[str, Any], line: JournalLine) -> dict[FLEinwill
     made = datetime.fromisoformat(line.am)
 
     def set_since(wahl: FLEinwilligungWahl) -> bool:
-        evidenced = beleg_of(block, wahl, stamp=log_stamp)
+        evidenced = beleg_of(block, wahl)
         return evidenced is not None and evidenced[0] > made
 
     return {wahl: wert for wahl, wert in line.wahlen.items() if ist_erteilt(wahl, block.get(wahl)) and not set_since(wahl)}

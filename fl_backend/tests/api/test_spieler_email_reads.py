@@ -25,6 +25,7 @@ from app.api.spieler.selbst_router import get_selbst, patch_einwilligung
 from app.core.collections import Collection
 from app.core.drosselung import get_drossel
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.einwilligung_nachweis import nachweis_stand_of
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
@@ -190,7 +191,8 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
                 "umfang": "intern",
                 "medien": False,
                 "text_version": LAUFENDE_FASSUNGEN["konto_spieler"],
-                "nachweis_stand": {"umfang": None, "medien": None},
+                # The stand the account page served for the record as the corpus seeds it.
+                "nachweis_stand": nachweis_stand_of(bloecke=[documents.EINWILLIGUNG]),
             }
         ),
         identifier=FOLDED_EMAIL,

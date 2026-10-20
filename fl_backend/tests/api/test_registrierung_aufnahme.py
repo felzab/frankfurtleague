@@ -357,6 +357,15 @@ def a_stored_person(spieler_id: ObjectId, *, email: str | None = FOLDED_EMAIL, *
     return documents.spieler_document(spieler_id, stored.pop("vorname", "Thessaly"), stored.pop("nachname", "Okonkwo-Brandt"), **stored)
 
 
+# A person's record as their own confirmation under an older label left it, both choices granted, and the evidence it left.
+STORED_AM = "2026-01-20T11:00:00+00:00"
+STORED_GRANT = {"am": STORED_AM, "text_version": "2025-09"}
+
+
+def granted_under_an_older_label() -> dict[str, Any]:
+    return documents.eigene_einwilligung_document(text_version="2025-09", bestaetigt_am="2026-01-20", am=STORED_AM, medien=True)
+
+
 class TestWhatAnAdmissionWrites:
     def test_a_new_person_is_written_with_the_folded_address_and_the_registrations_record(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -679,7 +688,9 @@ class TestThePersonAnAdmissionNames:
         stored_id = ObjectId()
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id))
+            await database[Collection.SPIELER].insert_one(
+                a_stored_person(stored_id, einwilligung={**granted_under_an_older_label(), "medien": False})
+            )
             registrierung_id = await seed(database, registrierung_document())
             fresh = (await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id}) or {})["einwilligung"]
             await admit(database, client, registrierung_id)
@@ -689,7 +700,15 @@ class TestThePersonAnAdmissionNames:
         fresh, einwilligung = on_a_league(mongo_replica_set_url, body)
 
         assert fresh["nachweis"], "the registration carries no evidence, so nothing proves it was carried"
-        assert einwilligung == fresh
+        # The narrowed scope names the grant the stored record held, which its own confirmation evidenced.
+        assert fresh["umfang"] == "intern", "the registration narrows nothing, so no grant ends here"
+        assert einwilligung == {
+            **fresh,
+            "nachweis": {
+                **fresh["nachweis"],
+                "umfang": {**fresh["nachweis"]["umfang"], "erteilt_zuvor": STORED_GRANT},
+            },
+        }
 
     def test_a_withdrawal_the_person_made_after_confirming_the_registration_stands(self, mongo_replica_set_url: str):
         """The interleaving the per-choice renewal exists for: media granted at the registration, withdrawn on the account page, then admitted.
@@ -703,9 +722,7 @@ class TestThePersonAnAdmissionNames:
         )["$set"]["einwilligung"]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(
-                a_stored_person(stored_id, einwilligung={**documents.EINWILLIGUNG, "text_version": "2025-09", "medien": True})
-            )
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=granted_under_an_older_label()))
             registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
             stored = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]
             press = compose_person_move(
@@ -720,23 +737,23 @@ class TestThePersonAnAdmissionNames:
         einwilligung = on_a_league(mongo_replica_set_url, body)
 
         # The withdrawal is newer than the registration's grant, so it stands with its own evidence,
-        # naming the stored grant it ended by that record's confirmation day.
+        # naming the stored grant it ended.
         assert (einwilligung["medien"], einwilligung["nachweis"]["medien"]) == (
             False,
             {
                 "am": "2026-04-01T09:00:00+00:00",
                 "text_version": KONTO_LABEL,
-                "erteilt_zuvor": {"am": "2026-01-19T23:00:00+00:00", "text_version": "2025-09"},
+                "erteilt_zuvor": STORED_GRANT,
             },
         )
         # The scope set at the registration is newer than the person's stored grant, so it is renewed,
-        # naming that grant by its record's confirmation day.
+        # naming that grant.
         assert (einwilligung["umfang"], einwilligung["nachweis"]["umfang"]) == (
             "intern",
             {
                 "am": "2026-03-31T08:00:00+00:00",
                 "text_version": "2026-09",
-                "erteilt_zuvor": {"am": "2026-01-19T23:00:00+00:00", "text_version": "2025-09"},
+                "erteilt_zuvor": STORED_GRANT,
             },
         )
         assert (einwilligung["bestaetigt_am"], einwilligung["text_version"]) == ("2026-03-31", "2026-09")
@@ -750,9 +767,7 @@ class TestThePersonAnAdmissionNames:
         )["$set"]["einwilligung"]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(
-                a_stored_person(stored_id, einwilligung={**documents.EINWILLIGUNG, "text_version": "2025-09", "medien": True})
-            )
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=granted_under_an_older_label()))
             registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
             await patch_registrierung_einwilligung(
                 registrierung_id=registrierung_id,
@@ -776,14 +791,14 @@ class TestThePersonAnAdmissionNames:
 
         einwilligung = on_a_league(mongo_replica_set_url, body)
 
-        # Carried onto the person, the withdrawal ends the grant the PERSON's record held, named by that
-        # record's confirmation day, as the account page's own press on it would.
+        # Carried onto the person, the withdrawal ends the grant the PERSON's record held, as the account
+        # page's own press on it would.
         assert (einwilligung["medien"], einwilligung["nachweis"]["medien"]) == (
             False,
             {
                 "am": "2026-04-01T07:00:00+00:00",
                 "text_version": KONTO_LABEL,
-                "erteilt_zuvor": {"am": "2026-01-19T23:00:00+00:00", "text_version": "2025-09"},
+                "erteilt_zuvor": STORED_GRANT,
             },
         )
 
@@ -951,7 +966,7 @@ class TestAReturningRegistration:
 
     # Confirmed under an older label, its media grant standing, so a renewal of either choice or a
     # restamp of the label would each move a byte.
-    HELD = {**documents.EINWILLIGUNG, "text_version": "2025-09", "medien": True}
+    HELD = granted_under_an_older_label()
 
     @pytest.mark.parametrize("namesake", [False, True], ids=("a new person", "an addressless namesake the body names"))
     def test_its_person_moved_off_the_address_before_the_admission_admits_nobody(self, mongo_replica_set_url: str, namesake: bool):

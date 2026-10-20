@@ -243,8 +243,7 @@ def spieler() -> PayloadFactory:
             "rolle": None,
             "team_id": TEAM_ID,
             "inactive_since": None,
-            # Collected rather than carried over, so the default corpus is the case the rule is for.
-            "einwilligung": {**EINWILLIGUNG, "erteilt_von": "erziehungsberechtigt"},
+            "einwilligung": dict(EINWILLIGUNG),
         }
     )
 
