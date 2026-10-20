@@ -1457,6 +1457,7 @@ const SCOPED_BANS = [
         "registrierungen",
         "schiedsrichter",
         "sperrliste",
+        "spielberichte",
         "spielbestaetigungen",
         "spielorte",
       ].map((slice) => `src/features/${slice}/queries.ts`),

@@ -9,5 +9,6 @@ export const RECORD_CLAIMS: ReadonlyMap<string, string> = new Map([
   ["konto :: loescheKontoAction", "POST /identitaet/selbst/erasure"],
   ["registrierungen :: patchRegistrierungEinwilligungAction", "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"],
   ["schiedsrichter :: patchSchiedsrichterEinwilligungAction", "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung"],
+  ["spielberichte :: putSpielberichtAction", "PUT /spielberichte/{spiel_id}/bericht"],
   ["spieler :: patchSpielerEinwilligungAction", "PATCH /spieler/selbst/einwilligung"],
 ]);

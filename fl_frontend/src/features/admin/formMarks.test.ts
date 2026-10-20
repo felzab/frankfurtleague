@@ -19,6 +19,7 @@ import { side, spielFields } from "@/shared/testing/fixtures.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
+import { spielberichtReadFixture } from "@/shared/testing/spielberichtFixtures.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
 import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
@@ -281,6 +282,34 @@ const FORMS: Record<string, FormCase> = {
       return [...rostered.map((mark) => `rostered ${mark}`), ...unrostered.map((mark) => `unrostered ${mark}`)];
     },
     expected: ["rostered name vorname", "unrostered name vorname", "unrostered star Team suppressed"],
+  },
+  "the match report": {
+    module: "features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.tsx",
+    marks: async () => {
+      const { SpielberichtForm } = await import("@/features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.tsx");
+      const { kontextOf } = await import("@/features/spielberichte/components/forms/SpielberichtForm/spielberichtDraft.ts");
+      const { FLSpielberichtSchiedsrichterResponseSchema } = await import("@/features/spielberichte/schemas.ts");
+      const lesen = FLSpielberichtSchiedsrichterResponseSchema.parse(spielberichtReadFixture());
+      return marksOf(
+        h(SpielberichtForm, {
+          leser: "schiedsrichter",
+          spielId: lesen.spiel.spiel_id,
+          kontext: kontextOf(lesen),
+          stored: lesen.bericht,
+          header: { title: "Spielbericht" },
+          zurueckHref: "/bereich/schiedsrichter",
+        }),
+      );
+    },
+    // An entry's fields by their index, which every entry of a list shares; the reason is a red card's to leave out.
+    expected: [
+      "name bericht.karten.0.minute",
+      "name bericht.torschuetzen.0.minute",
+      "star Farbe suppressed",
+      "star Minute suppressed",
+      "star Spielerin oder Spieler suppressed",
+      "star Team suppressed",
+    ],
   },
   "a seat holder's squad row editor": {
     module: "features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm.tsx",

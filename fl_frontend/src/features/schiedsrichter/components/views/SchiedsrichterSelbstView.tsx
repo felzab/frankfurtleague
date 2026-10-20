@@ -1,12 +1,14 @@
 import Link from "next/link";
 
 import { KONTO_HREF } from "@/core/kontoHref";
+import { SchiedsrichterSpielberichteSection } from "@/features/spielberichte/components/views/SchiedsrichterSpielberichteSection";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { textLink } from "@/shared/components/ui/textLink";
 
 import { SchiedsrichterAngaben } from "../ui/SchiedsrichterAngaben";
 
+import type { FLSpielberichtPersonEintrag } from "@/features/spielberichte/schemas";
 import type { FLSchiedsrichterSelbst } from "../../schemas";
 
 /**
@@ -14,12 +16,21 @@ import type { FLSchiedsrichterSelbst } from "../../schemas";
  * in the Spielplan is changed on the account page, so this page links there rather than offering a
  * second control.
  */
-export function SchiedsrichterSelbstView({ schiedsrichter }: { schiedsrichter: readonly FLSchiedsrichterSelbst[] }) {
+export function SchiedsrichterSelbstView({
+  schiedsrichter,
+  spielberichte,
+}: {
+  schiedsrichter: readonly FLSchiedsrichterSelbst[];
+  /** The played fixtures a report is due for, `null` while `SPIELBERICHT_EINGABE` reads off. */
+  spielberichte: readonly FLSpielberichtPersonEintrag[] | null;
+}) {
   const panel = formPanel();
 
   return (
     <div className="w-full p-6 sm:p-8">
       <div className="mx-auto flex w-full max-w-page flex-col gap-6">
+        <SchiedsrichterSpielberichteSection spiele={spielberichte} />
+
         {schiedsrichter.map((eintrag) => (
           <section
             key={eintrag.schiedsrichter_id}

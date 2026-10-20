@@ -21,6 +21,7 @@ import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { nextRouter, underNext } from "@/shared/testing/nextContexts.ts";
+import { BERICHT_SPIEL_ID, spielberichtReadFixture } from "@/shared/testing/spielberichtFixtures.ts";
 import { CONDITIONALLY_STEPPED_UP, STEP_UP_CALLERS, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
 
 import type { StepUpPress } from "@/shared/testing/stepUpWrites.ts";
@@ -85,6 +86,9 @@ const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatus
 const { AdminKontakteEditForm } = await import("@/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx");
 const { FormKontaktEinladen } = await import("@/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktEinladen.tsx");
 const { FormAdresseSection } = await import("@/features/spieler/components/forms/AdminSpielerEditForm/FormAdresseSection.tsx");
+const { SpielberichtForm } = await import("@/features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.tsx");
+const { kontextOf } = await import("@/features/spielberichte/components/forms/SpielberichtForm/spielberichtDraft.ts");
+const { FLSpielberichtAdminResponseSchema } = await import("@/features/spielberichte/schemas.ts");
 const { FormAdresswechselSection: SpielerAdresswechselSection } =
   await import("@/features/spieler/components/forms/AdminSpielerEditForm/FormAdresswechselSection.tsx");
 
@@ -300,6 +304,26 @@ const retype = (label: string, value: string) => async (user: User) => {
 
 /** Every one-press caller of the registry, and a case of the conditional ones on a call that asks nothing. */
 const DRIVES: Record<string, Drive[]> = {
+  // The administrator's correction of a report; the referee's save through the same form holds no step-up.
+  "features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.tsx :: patchAdminSpielberichtAction": [
+    {
+      render: () =>
+        underNext(
+          h(SpielberichtForm, {
+            leser: "admin",
+            spielId: BERICHT_SPIEL_ID,
+            kontext: kontextOf(FLSpielberichtAdminResponseSchema.parse(spielberichtReadFixture())),
+            stored: FLSpielberichtAdminResponseSchema.parse(spielberichtReadFixture()).bericht,
+            header: { title: "Spielbericht" },
+            zurueckHref: "/bereich/admin",
+          }),
+          { router: nextRouter() },
+        ),
+      reach: retype("Bemerkungen zum Spiel", "Nach dem Spiel kam es zu einem Protest."),
+      press: "Speichern",
+      asks: true,
+    },
+  ],
   "features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx :: einwilligungErneutSendenAction": [
     { render: () => strip(false), press: "Link erneut senden: Trainer", asks: true },
   ],

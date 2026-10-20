@@ -12,6 +12,7 @@ import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { schiedsrichterSelbst } from "@/shared/testing/selbstFixtures.ts";
 
+import type { FLSpielberichtPersonEintrag } from "@/features/spielberichte/schemas.ts";
 import type { FLSchiedsrichterSelbst } from "../../schemas.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
@@ -25,8 +26,19 @@ const SCHIEDSRICHTERIN: FLSchiedsrichterSelbst = FLSchiedsrichterSelbstSchema.pa
   kontakt: { telefon: "069 1234567", email: "mara@example.org" },
 });
 
-const renderView = (schiedsrichter: readonly FLSchiedsrichterSelbst[] = [SCHIEDSRICHTERIN]) =>
-  render(underNext(h(SchiedsrichterSelbstView, { schiedsrichter })));
+const renderView = (
+  schiedsrichter: readonly FLSchiedsrichterSelbst[] = [SCHIEDSRICHTERIN],
+  spielberichte: readonly FLSpielberichtPersonEintrag[] | null = null,
+) => render(underNext(h(SchiedsrichterSelbstView, { schiedsrichter, spielberichte })));
+
+const GELEITET: FLSpielberichtPersonEintrag = {
+  spiel_id: "6890a1b2c3d4e5f607390101",
+  datum: "2026-10-17",
+  uhrzeit: "15:00:00",
+  team1_name: "Goethe-Gymnasium",
+  team2_name: "Lessing-Gymnasium",
+  eingereicht_am: null,
+};
 
 describe("a referee's own page", () => {
   /* The person tier's read, read by the person it names: the whole name and their own contact details. */
@@ -71,5 +83,25 @@ describe("a referee's own page", () => {
 
     const pointer = within(container).getByRole("link", { name: "Konto" }).closest("p")?.textContent ?? "";
     assert.ok(pointer.includes("im Spielplan") && pointer.includes("auf der Website"), pointer);
+  });
+
+  /* Each played fixture leads to its own report, and the press names the fixture it opens. */
+  it("links each fixture's report under its pairing, open or sent", () => {
+    renderView([SCHIEDSRICHTERIN], [GELEITET, { ...GELEITET, spiel_id: "6890a1b2c3d4e5f607390102", eingereicht_am: "2026-10-17T18:00:00Z" }]);
+
+    const eintragen = screen.getByRole("link", { name: "Spielbericht eintragen: Goethe-Gymnasium gegen Lessing-Gymnasium" });
+    assert.equal(eintragen.getAttribute("href"), "/bereich/schiedsrichter/spielbericht/6890a1b2c3d4e5f607390101");
+    assert.equal(
+      screen.getByRole("link", { name: "Spielbericht ansehen: Goethe-Gymnasium gegen Lessing-Gymnasium" }).getAttribute("href"),
+      "/bereich/schiedsrichter/spielbericht/6890a1b2c3d4e5f607390102",
+    );
+  });
+
+  /* Closed, the section names why it offers nothing, so a referee does not read an empty season. */
+  it("offers no report link while the reports are closed, and says so", () => {
+    renderView([SCHIEDSRICHTERIN], null);
+
+    assert.equal(screen.queryAllByRole("link", { name: /^Spielbericht/ }).length, 0);
+    assert.ok(screen.getByText(/noch nicht freigeschaltet/));
   });
 });

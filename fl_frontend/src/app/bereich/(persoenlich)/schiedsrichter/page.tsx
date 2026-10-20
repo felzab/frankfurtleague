@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
+import { frontend_config } from "@/core/config";
 import { funktionenOf } from "@/core/funktionen";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { logPageVerweigert } from "@/features/funktionen/verweigert";
 import { SchiedsrichterSelbstView } from "@/features/schiedsrichter/components/views/SchiedsrichterSelbstView";
 import { getSchiedsrichterSelbst } from "@/features/schiedsrichter/queries";
+import { getSchiedsrichterSpielberichte } from "@/features/spielberichte/queries";
 import { isFunktionLost } from "@/shared/utils/actionError";
 
 export default async function PersoenlichSchiedsrichterPage() {
@@ -20,8 +22,13 @@ export default async function PersoenlichSchiedsrichterPage() {
   }
 
   let selbst;
+  let spielberichte;
   try {
-    selbst = await getSchiedsrichterSelbst();
+    // Nothing read while the reports are closed: the section then says why it offers no fixture.
+    [selbst, spielberichte] = await Promise.all([
+      getSchiedsrichterSelbst(),
+      frontend_config.SPIELBERICHT_EINGABE === "on" ? getSchiedsrichterSpielberichte() : null,
+    ]);
   } catch (error) {
     // The row went between the page's own check and the backend's, which is the check above failing
     // late: the same landing. Every other failure is the area's boundary's.
@@ -29,5 +36,10 @@ export default async function PersoenlichSchiedsrichterPage() {
     redirect("/bereich");
   }
 
-  return <SchiedsrichterSelbstView schiedsrichter={selbst.schiedsrichter} />;
+  return (
+    <SchiedsrichterSelbstView
+      schiedsrichter={selbst.schiedsrichter}
+      spielberichte={spielberichte?.spiele ?? null}
+    />
+  );
 }
