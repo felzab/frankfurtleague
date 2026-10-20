@@ -426,6 +426,8 @@ class TestAProposalBeforeToday:
 DECLINED = {**ANSWERED, "art": "abgelehnt", "vorschlag": {"datum": "2027-05-15", "uhrzeit": "17:00:00"}, "begruendung": "Halle belegt"}
 REFEREE_ROW = {"partei": {"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}}
 CLOSED = {"geschlossen": {"am": TODAY, "grund": "ansetzung_geaendert"}}
+# The Ansetzung `spiel()` stood at before its hour moved.
+LEFT = compose_ansetzung(spiel(uhrzeit="17:00:00"))
 
 
 class TestWhatTheAdministratorMaySettleAndDiscard:
@@ -442,11 +444,12 @@ class TestWhatTheAdministratorMaySettleAndDiscard:
             pytest.param({**REFEREE_ROW, "antwort": DECLINED}, False, False, id="a-referees-decline"),
             pytest.param({**CLOSED, "antwort": DECLINED}, False, False, id="a-decline-closed-since"),
             pytest.param(CLOSED, False, False, id="closed-unanswered"),
+            pytest.param({"antwort": DECLINED, "ansetzung": LEFT}, False, False, id="a-decline-about-an-ansetzung-left"),
         ],
     )
     def test_each_row_state_meets_its_code(self, row: dict[str, Any], settles: bool, discards: bool):
         eintragen = find_eintragen_refusal(spielbestaetigung_raw=zeile(**row))
-        verwerfen = find_verwerfen_refusal(spielbestaetigung_raw=zeile(**row))
+        verwerfen = find_verwerfen_refusal(spielbestaetigung_raw=zeile(**row), spiel=spiel())
 
         assert (eintragen is None, verwerfen is None) == (settles, discards)
         assert eintragen is None or (eintragen.error_code, eintragen.status) == (ANSETZUNG_NICHT_EINTRAGBAR, HTTPStatus.CONFLICT)

@@ -988,6 +988,7 @@ async def verwerfen(
     return await verwerfen_spielbestaetigung(
         spielbestaetigung_id=row_id,
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
+        spiele_collection=database[Collection.SPIELE],
         db=client,
         today=TODAY,
     )
@@ -1097,6 +1098,35 @@ class TestTheDiscard:
             return outcome, (await row_now(database, ROW1))["geschlossen"]["grund"], confirmations.judged
 
         assert on_a_fixture(mongo_replica_set_url, body) == (ANSETZUNG_NICHT_VERWERFBAR, "ansetzung_geaendert", 2)
+
+    def test_a_decline_about_an_ansetzung_the_fixture_left_is_refused_and_closes_nothing(self, mongo_replica_set_url: str):
+        """Closed `verworfen`, it would spare the row the pass's `ansetzung_geaendert` and its club the move's notice."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"uhrzeit": "19:30:00"}})
+            outcome = await outcome_of(verwerfen(database, client, ROW1))
+
+            return outcome, (await row_now(database, ROW1))["geschlossen"]
+
+        assert on_a_fixture(mongo_replica_set_url, body) == (ANSETZUNG_NICHT_VERWERFBAR, None)
+
+    def test_a_move_landing_inside_the_discard_refuses_it(self, mongo_replica_set_url: str):
+        """The discard writes no fixture, so the move raises no conflict: only the re-read outside the transaction sees it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
+
+            async def move() -> None:
+                await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"uhrzeit": "19:30:00"}})
+
+            confirmations = ConfirmationsRunningARivalBeforeTheWrite(database[Collection.SPIELBESTAETIGUNGEN], move)
+            outcome = await outcome_of(verwerfen(database, client, ROW1, spielbestaetigungen=confirmations))
+            confirmations.assert_landed_inside(serially=0)
+
+            return outcome, (await row_now(database, ROW1))["geschlossen"], confirmations.passes
+
+        assert on_a_fixture(mongo_replica_set_url, body) == (ANSETZUNG_NICHT_VERWERFBAR, None, 1)
 
 
 # What the administrator's read resolves of a row: every stored path but a seat's hashes and the answer's holder.

@@ -550,7 +550,7 @@ def verwerfen_refusal() -> WriteRefusal:
     return WriteRefusal(
         error_code=ANSETZUNG_NICHT_VERWERFBAR,
         status=HTTPStatus.CONFLICT,
-        message="only an open club decline carrying a proposed date can be discarded",
+        message="only an open club decline carrying a proposed date, about the fixture's current Ansetzung, can be discarded",
     )
 
 
@@ -573,8 +573,8 @@ def build_triage_rows_filter(*, saison_id: str, today: str) -> dict[str, Any]:
     }
 
 
-def find_verwerfen_refusal(*, spielbestaetigung_raw: Mapping[str, Any]) -> WriteRefusal | None:
-    """`build_verwerfbar_filter` asked of the row read."""
+def find_verwerfen_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> WriteRefusal | None:
+    """`build_verwerfbar_filter` asked of the row read, and the row about the fixture as it stands (`docs/backend/spec.md :: I786`)."""
 
     partei, antwort = spielbestaetigung_raw.get("partei") or {}, spielbestaetigung_raw.get("antwort") or {}
     if (
@@ -582,6 +582,7 @@ def find_verwerfen_refusal(*, spielbestaetigung_raw: Mapping[str, Any]) -> Write
         and antwort.get("art") == "abgelehnt"
         and antwort.get("vorschlag") is not None
         and spielbestaetigung_raw.get("geschlossen") is None
+        and ansetzung_stand_of(spiel) == spielbestaetigung_raw["ansetzung"]["stand"]
     ):
         return None
 

@@ -2985,7 +2985,7 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation="POST /spielbestaetigungen/{spielbestaetigung_id}/verwerfen",
         aggregate="Spielbestaetigung",
-        summary="a discard closes only a club's open decline that proposes another date",
+        summary="a discard closes only a club's open decline that proposes another date, about the fixture's current Ansetzung",
         implemented_by="app.api.spielbestaetigungen.services.find_verwerfen_refusal",
         tested_by="tests/api/test_spielbestaetigung_refusal.py::TestWhatTheAdministratorMaySettleAndDiscard",
     ),

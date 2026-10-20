@@ -15,6 +15,7 @@ from app.api.spielbestaetigungen.schemas import (
 )
 from app.api.spielbestaetigungen.services import (
     ADMIN_FIELDS,
+    ANSETZUNG_QUELLEN,
     build_answerable_filter,
     build_verwerfbar_filter,
     compose_closing_update,
@@ -26,7 +27,7 @@ from app.api.spielbestaetigungen.services import (
 )
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
-from app.core.dependencies import DBClient, SaisonsCollection, SpielbestaetigungenCollection, get_german_date_str
+from app.core.dependencies import DBClient, SaisonsCollection, SpielbestaetigungenCollection, SpieleCollection, get_german_date_str
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.routing import by_id
@@ -144,6 +145,7 @@ async def eintragen_spielbestaetigung(
 async def verwerfen_spielbestaetigung(
     spielbestaetigung_id: CustomRouteObjectId,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    spiele_collection: SpieleCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielbestaetigungVerwerfenResponse:
@@ -153,21 +155,28 @@ async def verwerfen_spielbestaetigung(
     IRREVERSIBLE: the decline stays as the club gave it, and the row is closed `verworfen`, which is that club's one
     answer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture
     counts it as the club's agreement, the league having kept the date, until a pass closes it again as it closes an
-    agreement beside it. Refused for any other row -- open, agreed,
-    declined without a proposal, a referee's, or closed (`REQ-ANSETZUNG-014`).
+    agreement beside it. Refused for any other row -- open, agreed, declined without a proposal, a referee's, closed, or
+    about an Ansetzung the fixture has left, the fixture moving while this request runs included (`REQ-ANSETZUNG-014`):
+    the confirmation pass closes that row and tells its club of the move.
     """
+
+    async def judged(row: Mapping[str, Any], session: AsyncClientSession | None) -> None:
+        spiel = await pull_one_from_db(
+            collection=spiele_collection, db_filter={"_id": row["spiel_id"]}, projection=list(ANSETZUNG_QUELLEN.values()), session=session
+        )
+        refuse(find_verwerfen_refusal(spielbestaetigung_raw=row, spiel=spiel))
 
     async def discard_the_proposal(session: AsyncClientSession) -> Mapping[str, Any]:
         row = await pull_one_from_db(
             collection=spielbestaetigungen_collection,
             db_filter={"_id": spielbestaetigung_id},
-            projection=["partei", "antwort", "geschlossen"],
+            projection=["spiel_id", "partei", "ansetzung.stand", "antwort", "geschlossen"],
             session=session,
         )
-        refuse(find_verwerfen_refusal(spielbestaetigung_raw=row))
+        await judged(row, session)
 
         try:
-            return await patch_one_in_db(
+            discarded = await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": spielbestaetigung_id, **build_verwerfbar_filter()},
                 update=compose_closing_update(grund="verworfen", today=today),
@@ -176,6 +185,12 @@ async def verwerfen_spielbestaetigung(
             )
         except DocumentNotFoundException as miss:
             raise WriteRefusalException(verwerfen_refusal()) from miss
+
+        # The fixture is judged and not written, so a move landing under this transaction raises no conflict: judged
+        # again outside it before answering (`docs/backend/spec.md :: I118`).
+        await judged(row, None)
+
+        return discarded
 
     async with transaction_session(db) as session:
         updated_raw = await session.with_transaction(discard_the_proposal)
