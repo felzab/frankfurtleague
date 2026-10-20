@@ -17986,13 +17986,26 @@
           "schule": {
             "type": "string",
             "title": "Schule"
+          },
+          "bleibt_als": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Bleibt Als"
           }
         },
         "type": "object",
         "required": [
           "rollen",
           "email",
-          "schule"
+          "schule",
+          "bleibt_als"
         ],
         "title": "FLKontaktAbgang",
         "description": "One mailbox a write took off a seat of a season row, for the admin's notice; the server action reads it and the browser never does."

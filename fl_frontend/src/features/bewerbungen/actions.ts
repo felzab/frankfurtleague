@@ -480,7 +480,8 @@ export async function kontaktEmailKorrigierenAction(
         : mailKontaktAbgang({
             operation: "kontaktEmailKorrigierenAction",
             saisonId: bewerbung.saison_id,
-            abgang: { email: abgangEmail, rollen: korrekturOperation.rollen, schule: benanntesTeam },
+            // Every seat the person held moves with the address, and no other person shares a mailbox with them.
+            abgang: { email: abgangEmail, rollen: korrekturOperation.rollen, schule: benanntesTeam, bleibt_als: [] },
           });
 
     const zustellung = await sendeBestaetigungErneut({

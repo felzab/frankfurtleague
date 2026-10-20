@@ -87,6 +87,7 @@ export async function mailKontaktAbgang({
         ...buildKontaktAbgangEmail({
           origin: frontend_config.AUTH_URL,
           rollenText: rollenText(abgang.rollen),
+          bleibtText: abgang.bleibt_als.length === 0 ? null : rollenText(abgang.bleibt_als),
           schule: abgang.schule,
           saisonId: saisonId,
         }),

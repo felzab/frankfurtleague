@@ -116,7 +116,12 @@ const saved = (bestaetigungen: unknown[], abgaenge: unknown[] = []) => ({
 });
 
 /** A mailbox the save took off the row, as the backend answers it. */
-const abgang = (email: string, rollen: string[]) => ({ rollen, email, schule: "Lessing-Kolleg" });
+const abgang = (email: string, rollen: string[], bleibtAls: string[] = []) => ({
+  rollen,
+  email,
+  schule: "Lessing-Kolleg",
+  bleibt_als: bleibtAls,
+});
 
 /** The club's membership read, holding `kontakte` for the season the payload names. */
 const holding = (kontakte: unknown) => () => ({
@@ -345,6 +350,20 @@ describe("the contacts save that takes a mailbox off the row", () => {
       "the notice was recorded on a seat as the newcomer's link is",
     );
     assert.equal(res.success && res.versandSatz, describeLinkMail("anna@schule.example", "gesendet"), "the notice was reported as a link");
+  });
+
+  /* The Trainer's pairing alone lets one mailbox hold two seats, and the seat it keeps keeps its links: told it left the row
+     and its links died, the reader would take a live link for a dead one. */
+  it("tells a mailbox still seated on the row which seat it keeps, and that its links stand", async () => {
+    save = () => saved([], [abgang("dora@schule.example", ["ansprechperson"], ["trainer"])]);
+
+    await patchSaisonTeamKontakteAction(PAYLOAD);
+
+    const notice = mail.sent.find(({ to }) => to === "dora@schule.example");
+    assert.equal(notice?.subject, "Du bist nicht mehr als Ansprechperson für Lessing-Kolleg eingetragen");
+    assert.match(notice?.text ?? "", /Nicht mehr als Ansprechperson eingetragen/);
+    assert.match(notice?.text ?? "", /Als Trainerin oder Trainer bleibst Du für Lessing-Kolleg eingetragen, dafür ändert sich nichts\./);
+    assert.doesNotMatch(notice?.text ?? "", /Nicht mehr als Kontaktperson|funktionieren nicht mehr/);
   });
 
   // The provider sends nothing for a key it holds from the last 24 hours, so a removal undone and saved again the same day
