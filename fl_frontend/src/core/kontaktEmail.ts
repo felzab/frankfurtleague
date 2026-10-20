@@ -203,7 +203,7 @@ export function buildKontaktBestaetigungEmail({
 
 const ABGANG_UEBERSCHRIFT = "Nicht mehr als Kontaktperson eingetragen";
 
-/** What a mailbox a contacts save took off a team's season row is told. No name, as the confirmation names none: behind a typo its reader is a stranger. */
+/** What a mailbox a write took a contact seat or its live link from is told. No name, as the confirmation names none: behind a typo its reader is a stranger. */
 export interface KontaktAbgangData {
   origin: string;
   /** Every seat the mailbox held there, as one phrase, rendered by the caller as `KontaktBestaetigungData.rollenText` is. */

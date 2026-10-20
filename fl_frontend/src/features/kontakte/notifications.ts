@@ -66,8 +66,8 @@ export async function mailKontaktLink({
 }
 
 /**
- * The notice to a mailbox a save took off the row, never thrown from: the save has landed. On the lane no record holds
- * (`fl_frontend/src/core/kontaktAbgangTag.ts`), since the seat's own delivery record now describes its next holder.
+ * The notice to a mailbox a write took a seat or its live link from, never thrown from: the write has landed. On the lane
+ * no record holds (`fl_frontend/src/core/kontaktAbgangTag.ts`), since the seat's own delivery record now describes another mailbox.
  */
 export async function mailKontaktAbgang({
   operation,
