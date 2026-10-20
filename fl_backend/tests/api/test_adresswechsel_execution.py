@@ -809,6 +809,21 @@ class TestTheApproval:
 
         assert (refused, entfernt, record["beendet"]["art"]) == (ADRESSWECHSEL_ABGELAUFEN, 1, "abgelaufen")
 
+    def test_a_confirmed_change_with_a_waiting_time_unapproved_a_week_after_its_start_lapses_at_the_pass(self, mongo_replica_set_url: str):
+        """Its waiting time ends after its approval's week, so the pass meets it lapsed, never due."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            started = await administrator_starts(database, client, grund=GRUND, operator=OWNER)
+            await answer(database, client, started.token)
+            swept = await sweep(database, client, germany_now=AFTER_THE_WEEK)
+            return swept, await change(database, started.id)
+
+        swept, record = on_a_person(mongo_replica_set_url, body)
+
+        assert (swept.entfernt, swept.verworfen, swept.wirksam, swept.verbleibend) == (1, [], [], 0)
+        assert (record["beendet"]["art"], record["email"], record["grund"]) == ("abgelaufen", None, None)
+
 
 class TestTheContactsEditorsRead:
     def test_each_seat_names_its_address_s_live_change_and_none_once_it_ended(self, mongo_replica_set_url: str):

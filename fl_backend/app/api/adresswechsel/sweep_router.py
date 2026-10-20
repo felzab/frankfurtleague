@@ -16,7 +16,7 @@ from app.api.adresswechsel.schemas import (
     FLAdresswechselSweepResponse,
     FLAdresswechselVerworfenMitteilung,
 )
-from app.api.adresswechsel.services import build_due_terms, build_lapsed_terms
+from app.api.adresswechsel.services import build_due_terms, build_lapsed_terms, ist_abgelaufen
 from app.api.identitaet.lookup import RecordCollections, SubjektLookup
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, sperrliste_saison
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -67,7 +67,9 @@ def _pipeline(*, now: datetime, nach: Any, groesse: int) -> list[dict[str, Any]]
 
     return [
         {"$match": {"$or": [build_lapsed_terms(now), build_due_terms(now)]}},
-        {"$project": {"_id": 1, "faellig": {"$eq": [{"$type": "$wirksam_ab"}, "date"]}}},
+        # What `ist_abgelaufen` labels a lapse by: a confirmed change whose approval's week passed holds a `wirksam_ab` too,
+        # and is no due change for that (`docs/backend/spec.md :: I693`).
+        {"$project": {"_id": 1, "gueltig_bis": 1, "genehmigung.bis": 1, "genehmigung.genehmigt_am": 1}},
         {"$facet": {"seite": seite if nach is None else [{"$match": {"_id": {"$gt": nach}}}, *seite], "anzahl": [{"$count": "anzahl"}]}},
     ]
 
@@ -240,7 +242,9 @@ async def sweep_adresswechsel(
         # One past the share, so a call ending exactly at the share's last row can tell whether any follow.
         pipeline=_pipeline(now=germany_now, nach=params.nach, groesse=ADRESSWECHSEL_PER_PASS + 1),
     )
-    seite, anzahl = gelesen["seite"], sum(row["anzahl"] for row in gelesen["anzahl"])
+    # The lapse and the due terms are disjoint, so the lapse's own judgement parts them.
+    seite = [{"_id": row["_id"], "faellig": not ist_abgelaufen(row, now=germany_now)} for row in gelesen["seite"]]
+    anzahl = sum(row["anzahl"] for row in gelesen["anzahl"])
     stamp = log_stamp(germany_now)
     # Outside every change's transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`), and only where a due change
     # asks the ban list: a page of lapses reads no season.
