@@ -47,10 +47,10 @@ POSIX: Final = sys.platform != "win32"
 # A second's grace is nothing beside a build running to its end for a reader who has gone.
 CALLER_POLL_S: Final = 1.0
 
-# Above the widest green runner unit, the db tier's 129 s (2026-10-20); a cold local unit crossing it, unmeasured,
-# costs a line. A pytest unit adds `scripts/gate/verify.sh :: FAULTHANDLER_S`; the sum sits inside every pooled job's
-# timeout (`scripts/tests/test_gate_pool.py :: test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout`).
-STALL_S: Final = 300.0
+# The first poll multiple past `scripts/gate/verify.sh :: FAULTHANDLER_S`, so a pytest notice carries the stack and no
+# green runner unit is named; a cold local unit crossing it costs a line. Held inside every pooled job's timeout
+# (`scripts/tests/test_gate_pool.py :: test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout`).
+STALL_S: Final = 185.0
 # A notice waits on this too, held inside the same timeout by
 # `scripts/tests/test_gate_pool.py :: test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout`.
 STALL_POLL_S: Final = 5.0
