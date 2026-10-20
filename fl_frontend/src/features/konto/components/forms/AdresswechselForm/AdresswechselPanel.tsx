@@ -87,7 +87,7 @@ function offenSatz(offen: FLKontoAdresswechselOffen): string {
 /**
  * The account page's address control: the person's own start, and a pending change's approval and stop.
  * A start or an approval hands the records over, so each asks a confirmation first
- * (`docs/frontend/spec.md :: I801`); the stop asks nothing.
+ * (`docs/frontend/spec.md :: I805`); the stop asks nothing.
  */
 export function AdresswechselPanel({
   adresswechsel,

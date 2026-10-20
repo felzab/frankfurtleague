@@ -675,6 +675,13 @@ const CONFIRMED_ON_A_PERSON_ROUTE: Readonly<Record<string, string>> = {
   "POST /konto/adresswechsel/freigabe": "gibAdresswechselFreiAction",
 };
 
+/**
+ * Per administrator's route publishing the confirmation refusal whose action opens behind a switch this sweep leaves
+ * closed, the action sending it, driven in its slice's suite, which doubles the switch
+ * (`fl_frontend/src/features/spielberichte/actions.test.ts`).
+ */
+const CONFIRMED_IN_ITS_OWN_SUITE: Readonly<Record<string, string>> = { "PATCH /spielberichte/{spiel_id}": "patchAdminSpielberichtAction" };
+
 describe("a write the backend refuses for want of a recent confirmation", () => {
   /* Read off the document rather than kept by hand: an operation that starts publishing the refusal
      and is driven by nothing answers its caller with the generic fallback. */
@@ -683,7 +690,14 @@ describe("a write the backend refuses for want of a recent confirmation", () => 
       .filter(({ answers }) => answers.some(({ code }) => code === "REQ-AUTH-009"))
       .map(({ operation }) => operation);
 
-    assert.deepEqual(publishing.sort(), [...Object.keys(CONFIRMED_BY_THE_BACKEND), ...Object.keys(CONFIRMED_ON_A_PERSON_ROUTE)].sort());
+    assert.deepEqual(
+      publishing.sort(),
+      [
+        ...Object.keys(CONFIRMED_BY_THE_BACKEND),
+        ...Object.keys(CONFIRMED_ON_A_PERSON_ROUTE),
+        ...Object.keys(CONFIRMED_IN_ITS_OWN_SUITE),
+      ].sort(),
+    );
   });
 
   /* The session is inside the spine's window, so only the backend refuses: the answer has to be the

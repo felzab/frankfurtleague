@@ -12,6 +12,7 @@ export const RECORD_CLAIMS: ReadonlyMap<string, string> = new Map([
   ["konto :: stoppeAdresswechselAction", "DELETE /konto/adresswechsel"],
   ["registrierungen :: patchRegistrierungEinwilligungAction", "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"],
   ["schiedsrichter :: patchSchiedsrichterEinwilligungAction", "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung"],
+  ["spielberichte :: putSpielberichtAction", "PUT /spielberichte/{spiel_id}/bericht"],
   ["spielbestaetigungen :: absagenSpielbestaetigungAction", "POST /spielbestaetigungen/{spielbestaetigung_id}/antwort"],
   ["spielbestaetigungen :: zusagenSpielbestaetigungAction", "POST /spielbestaetigungen/{spielbestaetigung_id}/antwort"],
   ["spieler :: patchSpielerEinwilligungAction", "PATCH /spieler/selbst/einwilligung"],

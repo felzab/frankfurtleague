@@ -418,6 +418,7 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
   "features/berechtigungen/components/forms/AdminCreateBerechtigungForm.tsx": { postBerechtigungAction: "create" },
   "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx": { deleteBerechtigungAction: "two-press" },
   "features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx": { patchBerechtigungAction: "two-press" },
+  "features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.tsx": { patchAdminSpielberichtAction: "one-press" },
   "features/spieler/components/forms/AdminSpielerEditForm/FormAdresseSection.tsx": { beantrageSpielerAdresswechselAction: "one-press" },
   "features/spieler/components/forms/AdminSpielerEditForm/FormAdresswechselSection.tsx": {
     einladeSpielerAdresswechselAction: "one-press",

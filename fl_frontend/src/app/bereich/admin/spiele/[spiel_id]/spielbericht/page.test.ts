@@ -1,0 +1,72 @@
+import assert from "node:assert/strict";
+import { beforeEach, describe, it } from "node:test";
+
+import { createElement as h } from "react";
+
+import { registerDoubles } from "@/core/exportingModule.ts";
+import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
+import { answerReadsWith, clearSteps, EMPTIEST_ANSWER, readsOf, renderPage, steps } from "@/shared/testing/pageHarness.ts";
+import { textOf } from "@/shared/testing/renderTest.ts";
+import { BERICHT_SPIEL_ID, spielberichtReadFixture } from "@/shared/testing/spielberichtFixtures.ts";
+
+/** The reports' switch as the doubled config answers it, which a case sets: off where it sets nothing, as production. */
+let eingabe = "off";
+
+// A getter, so a case can move the switch the one loaded module reads.
+registerDoubles({
+  modules: {
+    "core/config.ts": {
+      frontend_config: {
+        get SPIELBERICHT_EINGABE() {
+          return eingabe;
+        },
+      },
+    },
+  },
+});
+
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent.
+doubleActionRequest();
+doubleEveryAction();
+
+/* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
+const { default: AdminSpielberichtPage } = await import("./page.tsx");
+
+const PROPS = { params: Promise.resolve({ spiel_id: BERICHT_SPIEL_ID }), searchParams: Promise.resolve({}) };
+const ENDPOINT = `/spielberichte/${BERICHT_SPIEL_ID}/admin`;
+
+/** The page as its render leaves it, as text, with every backend read the render made. */
+async function rendered(): Promise<{ text: string; reads: string[] }> {
+  clearSteps();
+  const markup = await renderPage(underNext(h(AdminSpielberichtPage, PROPS), { search: "saison_id=2026" }));
+  return { text: textOf(markup, " "), reads: readsOf(steps).map(({ endpoint }) => endpoint) };
+}
+
+beforeEach(() => {
+  eingabe = "off";
+  answerReadsWith((endpoint, schema, params) =>
+    endpoint === ENDPOINT ? spielberichtReadFixture() : EMPTIEST_ANSWER(endpoint, schema, params),
+  );
+});
+
+describe("the administrator's report correction page", () => {
+  /* The correction enters pupils into a report as the referee's form does, so the switch closes it as well. */
+  it("renders the closed state and no form while the switch reads off", async () => {
+    const { text, reads } = await rendered();
+
+    assert.deepEqual(reads, [ENDPOINT]);
+    assert.ok(text.includes("Der Spielbericht ist noch nicht freigeschaltet"), text);
+    assert.ok(!text.includes("Tor hinzufügen"), "the correction renders with the switch off");
+  });
+
+  it("opens the correction on the stored report once the switch reads on", async () => {
+    eingabe = "on";
+
+    const { text } = await rendered();
+
+    for (const wert of ["Goethe-Gymnasium gegen Lessing-Gymnasium", "Tor hinzufügen", "Karte hinzufügen", "Bemerkungen zum Spiel"]) {
+      assert.ok(text.includes(wert), `„${wert}“ is missing`);
+    }
+  });
+});

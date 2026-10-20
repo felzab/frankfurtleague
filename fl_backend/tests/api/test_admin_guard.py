@@ -201,6 +201,8 @@ ADMIN_READS = [
     # beside them carry every surname whole.
     ("/api/v0/spielberichte/{spiel_id}/admin", "get"),
     ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
+    # Every report's proposed result, which the public result never serves (`READ-BERICHT-002`).
+    ("/api/v0/spielberichte", "get"),
 ]
 
 

@@ -715,8 +715,9 @@ REFERENCES: tuple[Reference, ...] = (
         note=(
             "Both writers read the fixture the path names and answer 404 for one that does not exist. A fixture "
             "corrected afterwards leaves the report alone, its state being derived on every read against the result as it "
-            "stands. A fixture is removed only with its season's whole draw, by a confirmed replace or an undraw, and each "
-            "removes the season's reports in the same transaction (`app/api/saisons/admin_router.py :: undraw_spielplan`)."
+            "stands. A fixture is removed only with its season's whole draw, by a confirmed replace or an undraw, which a "
+            "submitted report refuses (`REQ-SPIELPLAN-007`); each removes the season's report documents in the same "
+            "transaction (`app/api/saisons/admin_router.py :: undraw_spielplan`)."
         ),
     ),
     Reference(
@@ -1757,6 +1758,15 @@ RULES: tuple[Rule, ...] = (
         summary="an undraw reaches no season but a `future` one that holds nothing recorded against a fixture",
         implemented_by="app.api.saisons.services.find_undraw_refusal",
         tested_by="tests/api/test_undraw_refusal.py::TestAnUndrawRunsOnlyInsideItsWindow",
+    ),
+    Rule(
+        code="REQ-SPIELPLAN-007",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /saisons/{saison_id}/spielplan · DELETE /saisons/{saison_id}/spielplan",
+        aggregate="Saison",
+        summary="a replace or an undraw reaches no season holding a submitted match report",
+        implemented_by="app.api.saisons.services.find_berichte_refusal",
+        tested_by="tests/api/test_undraw_refusal.py::TestASubmittedReportKeepsTheSpielplan",
     ),
     Rule(
         code="REQ-SWAP-001",

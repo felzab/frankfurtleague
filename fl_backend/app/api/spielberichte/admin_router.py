@@ -50,7 +50,7 @@ router = APIRouter(
 def _admin_ansicht(
     lage: BerichtLage, *, genannt: Sequence[FLSpielberichtSpieler], dokument: Mapping[str, Any] | None
 ) -> FLSpielberichtAdminResponse:
-    ansicht = compose_ansicht(lage, genannt=genannt, dokument=dokument)
+    ansicht = compose_ansicht(lage, kader_offen=True, genannt=genannt, dokument=dokument)
     bericht = ansicht["bericht"]
     zustand = None if bericht is None else bericht_zustand_of(FLSpielberichtBericht.model_validate(bericht), lage.spiel)
 
@@ -116,7 +116,11 @@ async def get_spielbericht_admin(
         )
         dokument = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
         genannt = await pull_genannt(
-            spieler_collection=spieler_collection, lage=lage, bericht=None if dokument is None else dokument.get("bericht"), session=session
+            spieler_collection=spieler_collection,
+            lage=lage,
+            kader_offen=True,
+            bericht=None if dokument is None else dokument.get("bericht"),
+            session=session,
         )
 
     return _admin_ansicht(lage, genannt=genannt, dokument=dokument)
@@ -145,14 +149,16 @@ async def patch_spielbericht(
     """
     Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.
 
-    Every write raises its `version`, so a report adopted before reads `abweichend` until it is adopted again. Who first
-    wrote the report stays recorded; a report an administrator writes first records an administrator, naming nobody.
+    Every write changing it raises its `version`, so a report adopted before reads `abweichend` until it is adopted
+    again, and a write changing nothing writes nothing. Who first wrote the report stays recorded; a report an
+    administrator writes first records an administrator, naming nobody.
 
     Refuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); one undated or whose
     day is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a pupil newly named on
     a side outside that side's live squad of the season (`REQ-BERICHT-003`); and remarks naming a seat holder of either
     club, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each is asked again outside the
-    transaction just before answering. Two first writes at once are one report and one `DB-COMMON-002`.
+    transaction just before answering. Two first writes at once are one report: the later is written over the earlier,
+    as a correction is.
     """
 
     payload = bericht_data.bericht
@@ -182,7 +188,9 @@ async def patch_spielbericht(
             now=now,
             session=session,
         )
-        genannt = await pull_genannt(spieler_collection=spieler_collection, lage=lage, bericht=dokument.get("bericht"), session=session)
+        genannt = await pull_genannt(
+            spieler_collection=spieler_collection, lage=lage, kader_offen=True, bericht=dokument.get("bericht"), session=session
+        )
 
         # For the referee's write's reason (`docs/backend/spec.md :: I118`).
         jetzt = await pull_bericht_lage(

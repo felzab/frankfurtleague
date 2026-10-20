@@ -7,6 +7,7 @@ import type { FLSpielStatus } from "./schemas";
  */
 export type ActionRequiredCategory =
   | "ergebnis_pending"
+  | "ergebnis_vorschlag"
   | "besetzung_missing"
   | "vorschlag_offen"
   | "bestaetigung_ueberfaellig"

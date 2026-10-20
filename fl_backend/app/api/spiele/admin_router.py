@@ -9,6 +9,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.saisons.crud import pull_current_saison_id, pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielberichte.crud import pull_zustaende
+from app.api.spielberichte.services import BERICHT_ZUSTAENDE_OFFEN
 from app.api.spielbestaetigungen.services import ansetzung_stand_of, build_triage_rows_filter
 from app.api.spiele.crud import (
     advance_bracket_winners,
@@ -235,7 +236,7 @@ async def get_spiele_action_required(
     # A report awaiting the administrator sits on a fixture the read above passes over -- one played today, or one whose
     # result stands -- so it is unioned in as a fault's is; the reports' own read serves the states.
     berichte = await pull_zustaende(spielberichte_collection=spielberichte_collection, saison_id=saison_id)
-    offen = [eintrag.spiel_id for eintrag in berichte if eintrag.zustand != "uebernommen" and eintrag.spiel_id not in by_id]
+    offen = [eintrag.spiel_id for eintrag in berichte if eintrag.zustand in BERICHT_ZUSTAENDE_OFFEN and eintrag.spiel_id not in by_id]
     if offen:
         berichtet_raw = await aggregate_many_from_db(
             collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id, "_id": {"$in": offen}})
