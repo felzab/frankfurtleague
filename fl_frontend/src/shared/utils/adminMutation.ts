@@ -1,7 +1,9 @@
 import { refresh, updateTag } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
+import { NextResponse } from "next/server";
 
 import { isFreshlySignedIn, judgeAdminRequest } from "@/core/auth";
+import { frontend_config } from "@/core/config";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { declareWriteTags, requestWriteSent, requestWriteTags } from "@/core/requestScope";
@@ -28,6 +30,18 @@ const BERECHTIGUNG_UNGELESEN_ERNEUT = `${BERECHTIGUNG_UNGELESEN} ${VERSUCHE_ES_E
 
 /** The administrator a guarded body runs for, as the guard resolved them. */
 export type AdminSession = NonNullable<Awaited<ReturnType<typeof getAdminSession>>>;
+
+/**
+ * `null` for this site's own page. Such a route spends a credential or ends a session, so a browser too old to
+ * label its request is judged by the pinned origin, never the caller's.
+ */
+export function crossSiteRefusal(request: Request): NextResponse | null {
+  const secFetchSite = request.headers.get("sec-fetch-site");
+  if (secFetchSite === "same-origin") return null;
+  if (secFetchSite === null && request.headers.get("origin") === new URL(frontend_config.AUTH_URL).origin) return null;
+
+  return new NextResponse(null, { status: 403 });
+}
 
 /** The server's answer to a change sent after the step-up window closed; the page asks before it sends one. */
 const STEP_UP_REQUIRED = "Bestätige zuerst, dass Du es bist.";

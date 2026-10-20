@@ -1,7 +1,7 @@
 "use client";
 
 import { KONTO_HREF } from "@/core/kontoHref";
-import { signOutAction } from "@/features/auth/actions";
+import { signOut } from "@/features/auth/signOut";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
 import { ShellHeading } from "@/shared/components/layout/shell/ShellHeading";
 import { SidemenuEntries } from "@/shared/components/layout/sidemenu/SidemenuNavLinks";
@@ -18,7 +18,7 @@ import type { TeamIconName } from "../../constants";
 const teamPrefixOf = ({ team_id, saison_id }: AddressParams): string => teamHref(String(team_id), String(saison_id));
 
 /**
- * A client wrapper for `AdminShell`'s reason: the icons and the sign-out action cross no server
+ * A client wrapper for `AdminShell`'s reason: the icons and the sign-out cross no server
  * boundary as props. What the seats decide arrives as slots, each streamed on its own.
  */
 export function TeamShell({
@@ -50,7 +50,7 @@ export function TeamShell({
       fallbackTitle={TEAM_SHELL_FALLBACK.label}
       fallbackHint={TEAM_SHELL_FALLBACK.hint}
       kontoHref={KONTO_HREF}
-      onSignOut={signOutAction}>
+      onSignOut={signOut}>
       {children}
     </AppShell>
   );

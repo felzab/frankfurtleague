@@ -76,6 +76,19 @@ describe("what a sign-out tells the reader", () => {
     assert.deepEqual(seen.pushed, []);
   });
 
+  /* An answer something in front of this application gave: the request may have reached the route and ended the session. */
+  it("says nobody can tell whether a sign-out of unknown outcome ended the session, and goes nowhere", async () => {
+    const seen = await signOut(async () => ({ success: false, error: "Prüfe die Verbindung und versuche es erneut.", outcome: "unknown" }));
+
+    await waitFor(() => assert.equal(raised.length, 1));
+    assert.deepEqual(
+      raised.map(({ variant, title, description }) => ({ variant, title, description })),
+      [{ variant: "danger", title: "Abmeldung unklar", description: "Lade die Seite neu, um zu sehen, ob Du noch angemeldet bist." }],
+    );
+    assert.deepEqual(left, [], "a sign-out nobody can vouch for left the page");
+    assert.deepEqual(seen.pushed, []);
+  });
+
   it("names a refusal under the negated title", async () => {
     const seen = await signOut(async () => ({ success: false, error: "Versuche es erneut." }));
 

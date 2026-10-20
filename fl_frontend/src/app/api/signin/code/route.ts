@@ -6,13 +6,13 @@ import { z } from "zod";
 
 import { ADDRESS_ATTEMPTS_EXHAUSTED, forgiveCodeAttempt, readAdmittedSession, signInWithCode } from "@/core/auth";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
-import { frontend_config } from "@/core/config";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
 import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING } from "@/core/passkeyRefusal";
 import { CODE_FAILURE_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "@/core/signInCode";
 import { GESPERRT, OHNE_EINTRAG } from "@/features/auth/passkeyAnswers";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
+import { crossSiteRefusal } from "@/shared/utils/adminMutation";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import type { NextRequest } from "next/server";
@@ -89,17 +89,10 @@ async function alreadySignedIn(requestHeaders: Headers, email: string): Promise<
  * this path's edge zones bound them (`docs/frontend/spec.md :: I444`).
  */
 export async function POST(request: NextRequest) {
-  const secFetchSite = request.headers.get("sec-fetch-site");
-  if (secFetchSite !== null && secFetchSite !== "same-origin") {
-    return new NextResponse(null, { status: 403 });
-  }
-
   // This SPENDS a credential, so a cross-site post of an attacker's own code would sign the reader
-  // into the attacker's account. A browser too old to label its request falls back to the pinned
-  // origin, never the caller's.
-  if (secFetchSite === null && request.headers.get("origin") !== new URL(frontend_config.AUTH_URL).origin) {
-    return new NextResponse(null, { status: 403 });
-  }
+  // into the attacker's account.
+  const crossSite = crossSiteRefusal(request);
+  if (crossSite !== null) return crossSite;
 
   let raw: unknown;
   try {
