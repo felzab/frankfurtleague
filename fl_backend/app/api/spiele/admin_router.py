@@ -9,8 +9,8 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.crud import pull_current_saison_id, pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spielberichte.crud import pull_zustaende, stamp_the_adoption
-from app.api.spielberichte.services import BERICHT_ZUSTAENDE_OFFEN
+from app.api.spielberichte.crud import pull_zustaende, restore_the_adoption, stamp_the_adoption
+from app.api.spielberichte.services import BERICHT_ZUSTAENDE_OFFEN, seiten_of
 from app.api.spielbestaetigungen.services import ansetzung_stand_of, build_triage_rows_filter
 from app.api.spiele.crud import (
     advance_bracket_winners,
@@ -43,6 +43,7 @@ from app.api.spiele.schemas import (
     FLSpielJoinedAdmin,
     FLSpielJoinedAdminListAdapter,
     FLSpielListAdapter,
+    FLSpielPriorBericht,
     FLSpielReleasedSide,
 )
 from app.api.spiele.services import (
@@ -299,6 +300,8 @@ async def _write_spiel_data(
     spielberichte_collection: AsyncCollection,
     dry_run: bool,
     adoption: Adoption | None,
+    # An undo's: the adoption the save it undoes stamped over.
+    restore: FLSpielPriorBericht | None,
 ) -> list[FLPatchSpielDataResponse]:
     """One implementation behind every write route, so a narrowed restore meets every rule a wholesale save does.
 
@@ -509,13 +512,27 @@ async def _write_spiel_data(
 
         # Here and with the session, never after the commit or off it: a save refused or rolled back stamps nothing.
         if adoption is not None:
-            await stamp_the_adoption(
+            # After every entry's resolution, which can re-field the adopted fixture's sides too.
+            gespeichert = await pull_one_from_db(
+                collection=spiele_collection,
+                db_filter={"_id": adoption.spiel_id},
+                projection={"team1.team_id": 1, "team2.team_id": 1},
+                session=session,
+            )
+            prior_bericht = await stamp_the_adoption(
                 spielberichte_collection=spielberichte_collection,
                 spiel_id=adoption.spiel_id,
                 version=adoption.version,
+                seiten=seiten_of(gespeichert),
                 now=adoption.now,
                 session=session,
             )
+            # The adopted fixture is the one the save names, whose report leads.
+            reports[0] = reports[0].model_copy(update={"prior_bericht": prior_bericht})
+
+        # In the replay's transaction: the report reads adopted exactly while the result the undo takes back stands.
+        if restore is not None:
+            await restore_the_adoption(spielberichte_collection=spielberichte_collection, prior=restore, session=session)
 
         return reports
 
@@ -567,8 +584,10 @@ async def patch_spiel_data(
     leading the list, and carrying the fields beyond its Paarung that this payload replaced.
 
     With `uebernimmt_bericht`, the save also stamps the fixture's Spielbericht adopted at that version, in the same
-    transaction. A report corrected since that version is left unstamped, and the save lands all the same: nothing is
-    refused for it. A `dry_run` stamps nothing.
+    transaction. A report corrected since that version, or written about other clubs than the save leaves on the
+    fixture, is left unstamped, and the save lands all the same: nothing is refused for it. A stamp answers the
+    adoption it replaced in `prior_bericht`, which the undo sends back; null where nothing was stamped. A `dry_run`
+    stamps nothing.
     """
 
     written = await _write_spiel_data(
@@ -584,6 +603,7 @@ async def patch_spiel_data(
         spielberichte_collection=spielberichte_collection,
         dry_run=dry_run,
         adoption=None if uebernimmt_bericht is None else Adoption(spiel_id=spiel_id, version=uebernimmt_bericht, now=now),
+        restore=None,
     )
 
     return written[0]
@@ -626,6 +646,10 @@ async def patch_spiele_paarungen(
     somebody moved since that save survives. Every refusal, and the resolution itself, are
     `PATCH /spiele/{spiel_id}`'s.
 
+    `bericht` is the undone save's `prior_bericht`: the Spielbericht adoption that save stamped over is put back in
+    the same transaction, while the report still stands at the version stamped, so a report adopted by the save reads
+    as it did before it. A report corrected since keeps the stamp, its raised version reading past it already.
+
     `advanced_to` and `released_sides` report what the replay cost fixtures it was NOT asked to
     restore; one it puts back afterwards is the order doing its work rather than a loss. No
     `dry_run`: what these bodies would move is what the save they undo already reported.
@@ -643,8 +667,9 @@ async def patch_spiele_paarungen(
         schiedsrichter_collection=schiedsrichter_collection,
         spielberichte_collection=spielberichte_collection,
         dry_run=False,
-        # An undo restores fixtures and stamps no report: a report's state is derived against whatever result it restores.
+        # An undo stamps no report: it puts back the adoption the save it undoes stamped over.
         adoption=None,
+        restore=payload.bericht,
     )
 
     # Where each fixture sits in the replay, which is what tells a rewrite this list repairs further

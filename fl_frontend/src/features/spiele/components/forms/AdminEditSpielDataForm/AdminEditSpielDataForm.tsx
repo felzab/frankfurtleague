@@ -7,7 +7,7 @@ import { parseDate, parseTime } from "@internationalized/date";
 
 import { AdminCreateSchiedsrichterForm } from "@/features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm";
 import { AdminSpielberichtPanel } from "@/features/spielberichte/components/views/AdminSpielberichtPanel";
-import { haeltVorschlag, uebernahmeGesperrt } from "@/features/spielberichte/utils";
+import { eingesetztStand, haeltVorschlag, uebernahmeGesperrt } from "@/features/spielberichte/utils";
 import { SpielbestaetigungPanel } from "@/features/spielbestaetigungen/components/forms/SpielbestaetigungPanel";
 import { spielAnsetzung } from "@/features/spielbestaetigungen/utils";
 import { AdminCreateSpielortForm } from "@/features/spielorte/components/forms/AdminCreateSpielortForm";
@@ -460,10 +460,14 @@ export function AdminEditSpielDataForm({
         const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
 
         offerUndo({
-          // Every fixture from the SAVE's own answer, in the order it reported them: the props this
-          // render was served are older than the save, so an undo built from them would revert a field
-          // another writer moved.
-          undo: () => undoAdminSpielEditAction({ paarungen: res.priorPaarungen ?? [], saison_id: spielData.saison_id }),
+          // Every fixture, and the report adoption it stamped, from the SAVE's own answer in its order: the props this
+          // render was served are older than the save, so an undo built from them would revert a field another writer moved.
+          undo: () =>
+            undoAdminSpielEditAction({
+              paarungen: res.priorPaarungen ?? [],
+              bericht: res.priorBericht ?? null,
+              saison_id: spielData.saison_id,
+            }),
           message: res.message,
           fallback: "Die Spieldaten wurden aktualisiert.",
           warn: affected.length > 0,
@@ -605,9 +609,11 @@ export function AdminEditSpielDataForm({
                 stand={spielbericht}
                 onUebernehmen={uebernehmeVorschlag}
                 uebernahmeGesperrt={
-                  spielbericht === null ? null : uebernahmeGesperrt(spielbericht.lesen.spiel, { team1: team1Payload, team2: team2Payload })
+                  spielbericht?.lesen.bericht == null
+                    ? null
+                    : uebernahmeGesperrt(spielbericht.lesen.bericht.seiten, { team1: team1Payload, team2: team2Payload })
                 }
-                istEingesetzt={uebernimmtBericht !== null}
+                eingesetzt={eingesetztStand(uebernimmtBericht, spielbericht?.lesen.bericht?.version ?? null)}
                 hatEntwurf={isDirty}
               />
             )}

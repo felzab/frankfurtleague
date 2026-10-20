@@ -57,7 +57,9 @@ const EDIT = {
  */
 describe("the match's writes", () => {
   it("send the dry run with its flag and marked a read, and the save without either", async () => {
-    answerWith(() => Promise.resolve({ acknowledged: 1, advanced_to: [], released_sides: [], bracket_faults: [], prior_paarungen: [] }));
+    answerWith(() =>
+      Promise.resolve({ acknowledged: 1, advanced_to: [], released_sides: [], bracket_faults: [], prior_paarungen: [], prior_bericht: null }),
+    );
     const edit = { ...EDIT, notiz: "Platz 2" };
     const { spiel_id, ...fields } = edit;
 
@@ -84,7 +86,9 @@ describe("the match's writes", () => {
 
   /* A seed lost on the way stamps nothing, and nothing else tells the administrator the report was not adopted. */
   it("send the save seeded from a report with that report's version, and an unreadable seed as no seed", async () => {
-    answerWith(() => Promise.resolve({ acknowledged: 1, advanced_to: [], released_sides: [], bracket_faults: [], prior_paarungen: [] }));
+    answerWith(() =>
+      Promise.resolve({ acknowledged: 1, advanced_to: [], released_sides: [], bracket_faults: [], prior_paarungen: [], prior_bericht: null }),
+    );
 
     assert.equal((await patchAdminSpielDataAction(EDIT, "2026", 3)).success, true);
     assert.equal((await patchAdminSpielDataAction(EDIT, "2026", "3")).success, true, "an unreadable seed cost the edit");

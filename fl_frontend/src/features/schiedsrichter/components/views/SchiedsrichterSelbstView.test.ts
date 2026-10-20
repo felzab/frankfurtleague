@@ -127,7 +127,7 @@ describe("a referee's own page", () => {
     renderView([SCHIEDSRICHTERIN], { spielberichte: null });
 
     assert.equal(screen.queryAllByRole("link", { name: /^Spielbericht/ }).length, 0);
-    assert.ok(screen.getByText(/noch nicht freigeschaltet/));
+    assert.ok(screen.getByText(/gerade nicht freigeschaltet/));
   });
 });
 

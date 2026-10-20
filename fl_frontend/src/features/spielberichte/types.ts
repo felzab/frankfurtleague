@@ -8,3 +8,6 @@ export type SpielberichtStand = {
   lesen: FLSpielberichtAdminResponse;
   korrigierbar: boolean;
 };
+
+/** Whether the editor's draft holds a seeded proposal: of the report's version standing now, of an older one, or none. */
+export type Eingesetzt = "aktuell" | "veraltet" | null;

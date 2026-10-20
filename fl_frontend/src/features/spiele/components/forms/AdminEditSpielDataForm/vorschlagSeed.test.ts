@@ -44,8 +44,8 @@ const ohneErgebnis = (fields: Record<string, unknown> = {}): FLSpielAdmin =>
     }),
   );
 
-const editor = (spielData: FLSpielAdmin = ohneErgebnis(), vorschlag?: Record<string, unknown>) => {
-  const gelesen = spielberichtReadFixture();
+const editor = (spielData: FLSpielAdmin = ohneErgebnis(), vorschlag?: Record<string, unknown>, gelesenFelder: Record<string, unknown> = {}) => {
+  const gelesen = spielberichtReadFixture(gelesenFelder);
   const bericht = vorschlag === undefined ? gelesen.bericht : { ...gelesen.bericht, ergebnis_vorschlag: vorschlag };
   return underNext(
     h(AdminEditSpielDataForm, {
@@ -173,6 +173,55 @@ describe("carrying a report's proposal into the match editor", () => {
       );
     });
   }
+
+  /* A correction upstream fields Schiller on the fixture and in the draft seeded from it alike, while the report credits
+     Goethe: judged against the fixture's served sides, the press would carry Goethe's goals onto Schiller. */
+  it("offers no press where the fixture fields other clubs than the report was written about, and says why", () => {
+    const schiller = "68c1f0a2b3c4d5e6f7a8b9a3";
+    const spielData = ohneErgebnis({ team1: side(schiller, { name: "Schiller-Schule", shorthand: "SS", tore: null }) });
+    const gelesen = spielberichtReadFixture();
+    render(
+      editor(spielData, undefined, {
+        zustand: "teams_geaendert",
+        spiel: { ...gelesen.spiel, team1: { team_id: schiller, name: "Schiller-Schule" } },
+      }),
+    );
+
+    const press =
+      screen
+        .getAllByRole<HTMLButtonElement>("button", { name: /^Vorschlag übernehmen/ })
+        .find((button) => button.textContent === "Vorschlag übernehmen") ?? assert.fail("the panel renders no press");
+    assert.ok(press.disabled, "the press carries a report about Goethe onto Schiller");
+    assert.ok(screen.getAllByText(/Die Teams im Formular sind nicht die des Spielberichts/).length > 0, "the closed press names no reason");
+    assert.ok(screen.getByText("Teams geändert"), "the panel names no state of its own");
+    assert.ok(screen.getByText(/für andere Teams geschrieben/), "the panel does not say the report is about other teams");
+  });
+
+  /* Any write on the page refreshes it, so a newer report can arrive under the mounted editor: the badge would vouch for
+     the newer proposal while the boxes hold the older one, and the save would stamp nothing. */
+  it("withdraws the badge and says so once a newer report stands than the one the seed was taken from", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(editor());
+    await user.click(screen.getByRole("button", { name: "Vorschlag übernehmen" }));
+    assert.ok(screen.getByText("Eingesetzt"), "the premise: the seed took");
+
+    const gelesen = spielberichtReadFixture();
+    rerender(
+      editor(
+        ohneErgebnis(),
+        { team1_tore: 3, team2_tore: 0, elfmeterschiessen: null, sonderereignis: null },
+        { bericht: { ...gelesen.bericht, version: 2 } },
+      ),
+    );
+
+    assert.equal(screen.queryAllByText("Eingesetzt").length, 0, "the badge vouches for a proposal the draft does not hold");
+    assert.ok(screen.getByText(/seit Du seinen Vorschlag eingesetzt hast/), "the panel does not say the report changed since the seed");
+    assert.equal(
+      screen.getByRole<HTMLInputElement>("textbox", { name: /Goethe-Gymnasium/ }).value,
+      "1",
+      "the premise: the draft holds the older seed",
+    );
+  });
 
   /* The save stamps the report as adopted, so a goal typed over the seed is the administrator's result and must not be
      recorded as the report's. */

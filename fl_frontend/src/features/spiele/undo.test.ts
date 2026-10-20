@@ -35,7 +35,7 @@ const anEntry = (spiel_id: string) => ({
 
 const RESTORED = { acknowledged: 1, advanced_to: [], released_sides: [], bracket_faults: [] };
 
-const aReplayOf = (...ids: string[]) => ({ saison_id: SAISON_ID, paarungen: ids.map(anEntry) });
+const aReplayOf = (...ids: string[]) => ({ saison_id: SAISON_ID, paarungen: ids.map(anEntry), bericht: null });
 
 /** The sentence an answer carries, success or not, which a case matches against. */
 const wordsOf = (answer: Awaited<ReturnType<typeof undoAdminSpielEditAction>>): string => (answer.success ? answer.message : answer.error);
@@ -79,6 +79,22 @@ describe("the match save's undo, driven", () => {
     );
   });
 
+  /* The report the save adopted goes back with the fixtures it moved: left out, the report reads adopted on a result the
+     replay took back. */
+  it("carries the save's prior report adoption to the endpoint untouched", async () => {
+    const bericht = {
+      spiel_id: SPIEL_ID,
+      version: 2,
+      uebernommen_am: "2026-10-17T18:00:00Z",
+      uebernommen_von: { art: "admin" as const },
+      uebernommene_version: 1,
+    };
+
+    await undoAdminSpielEditAction({ ...aReplayOf(SPIEL_ID), bericht });
+
+    assert.deepEqual((JSON.parse(calls[0]?.body ?? "null") as { bericht: unknown }).bericht, bericht);
+  });
+
   it("clears every cached read the restored fixtures reach, and reads the page again", async () => {
     await undoAdminSpielEditAction(aReplayOf(SPIEL_ID));
 
@@ -97,7 +113,7 @@ describe("the match save's undo, driven", () => {
   });
 
   it("refuses a body naming no fixture, which no save produced", async () => {
-    const answered = await undoAdminSpielEditAction({ saison_id: SAISON_ID, paarungen: [] });
+    const answered = await undoAdminSpielEditAction({ saison_id: SAISON_ID, paarungen: [], bericht: null });
 
     assert.equal(answered.success, false);
     // Nothing sent: an empty replay reported as a restore would tell the admin their change was taken

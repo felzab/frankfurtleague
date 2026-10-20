@@ -5,6 +5,7 @@ from typing import Annotated, Any, Final, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, model_validator
 
+from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.teams.schemas import FLAustritt, FLAustrittType, FLGruppenNames
 from app.shared.schemas.bounds import (
     LIST_LIMIT_DEFAULT,
@@ -674,8 +675,37 @@ class FLPatchSpielPaarungPayload(_SpielRestore):
         )
 
 
+class FLSpielPriorBerichtVon(BaseModel):
+    art: Literal["admin"]
+
+
+class FLSpielPriorBericht(BaseModel):
+    """A Spielbericht's adoption as it stood before a save stamped it at `version`: what an undo of that save puts back.
+
+    Lax, as `FLSpielPriorOrt` is, for its reason: a response reaches it too.
+    """
+
+    spiel_id: CustomObjectId
+    version: int = Field(ge=1)
+    uebernommen_am: FLUtcInstant | None
+    uebernommen_von: FLSpielPriorBerichtVon | None
+    uebernommene_version: Annotated[int, Field(ge=1)] | None
+
+    @model_validator(mode="after")
+    def an_earlier_adoption_or_none(self) -> FLSpielPriorBericht:
+        """The three stand together, as one stamp writes them, and name no version past the one stamped over them."""
+
+        gesetzt = {self.uebernommen_am is None, self.uebernommen_von is None, self.uebernommene_version is None}
+        if len(gesetzt) != 1:
+            raise ValueError("Eine Übernahme nennt Zeitpunkt, Urheber und Fassung zusammen oder keins davon.")
+        if self.uebernommene_version is not None and self.uebernommene_version > self.version:
+            raise ValueError("Eine frühere Übernahme liegt nicht hinter dem Stand, den die Übernahme ersetzt hat.")
+
+        return self
+
+
 class FLPatchSpielePaarungenPayload(BaseModel):
-    """Restore every fixture one save moved, in the order the report named them."""
+    """Restore every fixture one save moved, in the order the report named them, and the report adoption it stamped."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -683,6 +713,10 @@ class FLPatchSpielePaarungenPayload(BaseModel):
     # produced. The ceiling is the season read's, no legitimate replay naming more fixtures than one
     # season can hold.
     paarungen: list[FLPatchSpielPaarungPayload] = Field(min_length=1, max_length=LIST_LIMIT_DEFAULT)
+
+    # The save's `prior_bericht`, null where it stamped nothing. Required: an undo forgetting it leaves the report adopted
+    # on a result the undo took back.
+    bericht: FLSpielPriorBericht | None
 
     @model_validator(mode="after")
     def one_entry_per_fixture(self) -> FLPatchSpielePaarungenPayload:
@@ -694,6 +728,15 @@ class FLPatchSpielePaarungenPayload(BaseModel):
         named = [entry.spiel_id for entry in self.paarungen]
         if len(set(named)) != len(named):
             raise ValueError("Eine Rücknahme nennt jedes Spiel genau einmal.")
+
+        return self
+
+    @model_validator(mode="after")
+    def the_report_of_a_restored_fixture(self) -> FLPatchSpielePaarungenPayload:
+        """The adoption a save stamped is its own fixture's, which leads the list its undo replays."""
+
+        if self.bericht is not None and self.bericht.spiel_id != self.paarungen[0].spiel_id:
+            raise ValueError("Eine Rücknahme stellt nur den Spielbericht des Spiels zurück, das sie zuerst nennt.")
 
         return self
 
@@ -913,6 +956,9 @@ class FLPatchSpielDataResponse(BaseAPIResponse):
     # name is restored once, and neither reports the sides.
     # ORDER-BEARING: the fixture the request named leads it (`docs/backend/spec.md :: I215`).
     prior_paarungen: list[FLSpielPriorPaarung] = Field(default_factory=list)
+
+    # What the undo sends back of the report this save stamped adopted; null where it stamped none.
+    prior_bericht: FLSpielPriorBericht | None = None
 
 
 class FLPatchSpielePaarungenResponse(BaseAPIResponse):

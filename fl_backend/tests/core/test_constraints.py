@@ -62,6 +62,7 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtKarte,
     FLSpielberichtSeite,
+    FLSpielberichtSeiten,
     FLSpielberichtSonderereignis,
     FLSpielberichtTorschuetze,
     FLSpielberichtUebernommenVon,
@@ -308,6 +309,7 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.SPIELBERICHTE, ("bericht", "karten"), FLSpielberichtKarte, frozenset()),
     (Collection.SPIELBERICHTE, ("bericht", "eingereicht_von"), (FLSpielberichtVonSchiedsrichter, FLSpielberichtVonAdmin), frozenset()),
     (Collection.SPIELBERICHTE, ("bericht", "uebernommen_von"), FLSpielberichtUebernommenVon, frozenset()),
+    (Collection.SPIELBERICHTE, ("bericht", "seiten"), FLSpielberichtSeiten, frozenset()),
     # The junction's declared shape; nothing validates a stored row through it.
     (Collection.SAISON_SPIELER, (), FLSaisonSpielerRow, frozenset()),
     (Collection.SPERRLISTE, (), FLSperrlisteEintrag, frozenset()),

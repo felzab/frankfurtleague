@@ -75,7 +75,7 @@ describe("the referee's report page", () => {
     const { text, reads } = await rendered();
 
     assert.deepEqual(reads, []);
-    assert.ok(text.includes("Der Spielbericht ist noch nicht freigeschaltet"), text);
+    assert.ok(text.includes("Der Spielbericht ist gerade nicht freigeschaltet"), text);
     assert.ok(!text.includes("Tor hinzufügen"), "the form renders with the switch off");
   });
 

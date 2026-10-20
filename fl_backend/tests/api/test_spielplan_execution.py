@@ -941,9 +941,17 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
 
 
 def a_report(saison_id: str, *, bericht: bool = True) -> dict[str, Any]:
-    """A fixture's report document, submitted or holding no report; the fixture itself need not exist for the removal's filter."""
+    """A report document on no fixture, submitted or holding no report: the removal's filter reads the season alone."""
 
     return documents.spielbericht_document({"_id": ObjectId(), "saison_id": saison_id}, **({} if bericht else {"bericht": None}))
+
+
+async def report_a_drawn_fixture(database: AsyncDatabase) -> None:
+    """A submitted report on a fixture the draw holds: the refusal counts only a report whose fixture stands."""
+
+    spiel = await database[Collection.SPIELE].find_one({"saison_id": SAISON_ID})
+    assert spiel is not None, "the premise: the season is drawn"
+    await database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(spiel))
 
 
 class TestAReplaceTakesTheSeasonsReports:
@@ -979,7 +987,7 @@ class TestASubmittedReportKeepsTheSpielplanFromAReplace:
     def test_the_replace_is_refused_and_removes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             drawn = await call_draw(database, client)
-            await database[Collection.SPIELBERICHTE].insert_one(a_report(SAISON_ID))
+            await report_a_drawn_fixture(database)
             outcome = await outcome_of(call_draw(database, client, replace=True, today=REDRAWN_TODAY))
 
             return drawn, outcome, await watermark_now(database)
@@ -992,9 +1000,7 @@ class TestASubmittedReportKeepsTheSpielplanFromAReplace:
     def test_a_report_submitted_mid_replace_is_counted_again_outside_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             drawn = await call_draw(database, client)
-            berichte = BerichteRunningARivalBeforeTheirRemoval(
-                database[Collection.SPIELBERICHTE], lambda: database[Collection.SPIELBERICHTE].insert_one(a_report(SAISON_ID))
-            )
+            berichte = BerichteRunningARivalBeforeTheirRemoval(database[Collection.SPIELBERICHTE], lambda: report_a_drawn_fixture(database))
             outcome = await outcome_of(call_draw(database, client, replace=True, today=REDRAWN_TODAY, spielberichte_collection=berichte))
             berichte.assert_landed_inside(serially=0)
 

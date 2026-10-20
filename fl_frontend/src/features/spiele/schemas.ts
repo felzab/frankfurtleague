@@ -592,11 +592,32 @@ export type FLSpielPriorPaarung = z.infer<typeof FLSpielPriorPaarungSchema>;
 export const FLPatchSpielPaarungPayloadSchema = FLSpielPriorPaarungSchema;
 export type FLPatchSpielPaarungPayload = z.infer<typeof FLPatchSpielPaarungPayloadSchema>;
 
+// German though no person types these: the undo answers a body it cannot read with its own sentence.
+export const FLSpielPriorBerichtVonSchema = z.object({ art: z.literal("admin", { error: "Die Übernahme nennt keinen gültigen Urheber." }) });
+
+/**
+ * The Spielbericht adoption a save stamped over, as the save answers it and its undo sends it back untouched. The
+ * instant stays the wire's string: parsed here, it would come back in another spelling of the same moment.
+ */
+export const FLSpielPriorBerichtSchema = z.object({
+  spiel_id: CustomObjectIdStringSchema,
+  version: z.int({ error: "Der Stand des Spielberichts fehlt." }).min(1, { error: "Der Stand des Spielberichts fehlt." }),
+  uebernommen_am: z.string().nullable(),
+  uebernommen_von: FLSpielPriorBerichtVonSchema.nullable(),
+  uebernommene_version: z
+    .int({ error: "Die frühere Übernahme nennt keinen Stand." })
+    .min(1, { error: "Die frühere Übernahme nennt keinen Stand." })
+    .nullable(),
+});
+export type FLSpielPriorBericht = z.infer<typeof FLSpielPriorBerichtSchema>;
+
 /** Every fixture one save moved, in the order it reported them — one request, and one transaction behind it. */
 export const FLPatchSpielePaarungenPayloadSchema = z.object({
   // Never empty: the report this replays leads with the fixture the save named, so an empty list is
   // a body no save produced and a replay over it would answer as a restore having written nothing.
   paarungen: z.array(FLPatchSpielPaarungPayloadSchema).min(1).max(PAARUNGEN_MAX),
+  // The save's `prior_bericht`, null where it stamped nothing: the report it adopted reads adopted until this goes back.
+  bericht: FLSpielPriorBerichtSchema.nullable(),
 });
 
 export type FLPatchSpielePaarungenPayload = z.infer<typeof FLPatchSpielePaarungenPayloadSchema>;
@@ -616,6 +637,7 @@ export const FLPatchSpielDataResponseSchema = BaseAPIResponseSchema.extend({
   // The three above are what an admin READS; this is what the undo SENDS. One entry per fixture, so
   // a fixture both of the first two name is restored once rather than twice.
   prior_paarungen: z.array(FLSpielPriorPaarungSchema),
+  prior_bericht: FLSpielPriorBerichtSchema.nullable(),
 });
 
 export type FLPatchSpielDataResponse = z.infer<typeof FLPatchSpielDataResponseSchema>;
