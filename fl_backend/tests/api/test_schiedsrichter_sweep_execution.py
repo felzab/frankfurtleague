@@ -361,6 +361,23 @@ class TestADueChangeTakesEffect:
         assert [(pupil["email"], SPIELER_ADRESSWECHSEL_FELD in pupil) for pupil in pupils] == [(on_file(1), False), (on_file(2), False)]
         assert held == {pending(1): [], pending(2): []}
 
+    def test_a_new_address_the_sentinel_was_given_by_hand_refuses_it_once(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """The holder read takes `uniq_spieler_email`'s whole population, so the effect never meets the index and errs every hour."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await with_history(database, confirmed_on(a_pupil(1, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_BE_DUE))
+            await database[Collection.SPIELER].update_one({"_id": build_ghost_spieler()["_id"]}, {"$set": {"email": pending(1)}})
+            with caplog.at_level("WARNING"):
+                first, second = await sweep(database, client), await sweep(database, client)
+
+            return first, second, await database[Collection.SPIELER].find_one({"_id": numbered(1)})
+
+        first, second, pupil = on_a_league(mongo_replica_set_url, body)
+
+        assert ((first.verworfen, first.wirksam), (second.verworfen, second.verbleibend)) == ((1, []), (0, 0))
+        assert (pupil["email"], SPIELER_ADRESSWECHSEL_FELD in pupil) == (on_file(1), False)
+        assert [record.getMessage() for record in caplog.records if record.levelname == "ERROR"] == []
+
 
 class WrittenAfterTheRead:
     """A collection writing `rival` once the call's page read has answered and before any row's own transaction."""
@@ -590,6 +607,66 @@ class TestTheDeadlineStopsTheCall:
                 f"Database deadline passed at the lapsed address change of referee {numbered(2)}: the call stops, and the rest stay due",
             )
         ]
+
+    def test_a_change_dearer_than_the_budgets_row_moves_nothing_and_stays_due(self, mongo_replica_set_url: str):
+        """No retention rule bounds what one address holds, so a share can meet a change dearer than the one it is sized at.
+
+        Stalled at its last registration, after its pupil row and the rest were written: the transaction takes them all back.
+        """
+
+        registrations = [
+            documents.registrierung_document(
+                ObjectId(),
+                on_file(2),
+                saison_id="2026",
+                team_id=ObjectId(),
+                vorname="Quintessa",
+                nachname="Muster 2",
+                token=f"registration-{number}",
+                eingereicht_am="2026-04-14",
+                frist="2026-04-21",
+            )
+            for number in range(3)
+        ]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await with_history(
+                database,
+                confirmed_on(a_pupil(1, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_BE_DUE),
+                confirmed_on(a_pupil(2, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_BE_DUE),
+            )
+            await database[Collection.REGISTRIERUNGEN].insert_many(registrations)
+            stalled = StallsItsMove(database[Collection.REGISTRIERUNGEN], str(registrations[-1]["_id"]))
+            with pymongo.timeout(SHORT_DEADLINE_S):
+                answer = await sweep(database, client, registrierungen_collection=stalled)
+
+            return (
+                answer,
+                await database[Collection.SPIELER].find_one({"_id": numbered(2)}),
+                await database[Collection.REGISTRIERUNGEN].distinct("email", {"_id": {"$in": [row["_id"] for row in registrations]}}),
+            )
+
+        answer, dear, moved = on_a_league(mongo_replica_set_url, body)
+
+        assert ([entry.bisherige_email for entry in answer.wirksam], answer.verbleibend, answer.nach) == ([on_file(1)], 1, numbered(2))
+        assert (dear["email"], dear[SPIELER_ADRESSWECHSEL_FELD]["email"], moved) == (on_file(2), pending(2), [on_file(2)])
+
+
+class StallsItsMove:
+    """A collection whose in-session move of one record sleeps on the server, past the deadline the call runs under."""
+
+    def __init__(self, collection: Any, stalled: str) -> None:
+        self._collection = collection
+        self._stalled = stalled
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def find_one_and_update(self, filter: Mapping[str, Any], *args: Any, **kwargs: Any) -> Any:
+        if self._stalled in str(filter):
+            filter = {**filter, "$where": STALL}
+
+        return await self._collection.find_one_and_update(filter, *args, **kwargs)
 
 
 FEW = ADRESSWECHSEL_PER_PASS // 2

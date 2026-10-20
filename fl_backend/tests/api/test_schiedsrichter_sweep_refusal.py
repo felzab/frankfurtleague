@@ -14,9 +14,9 @@ COMMANDS_A_REFEREE = 7
 COMMANDS_A_PUPIL = 7
 
 # A due change moving a pupil row and a confirmed referee row, pinned by
-# `fl_backend/tests/api/test_schiedsrichter_sweep_execution.py :: TestADueChangeCostsTheCommandsItsShareIsSizedAt`. More
-# records cost more, and the call's deadline stops it at that change (`docs/backend/spec.md :: I322`).
-COMMANDS_A_DUE_PERSON = 17
+# `fl_backend/tests/api/test_schiedsrichter_sweep_execution.py :: TestADueChangeCostsTheCommandsItsShareIsSizedAt`. No
+# retention rule bounds an address's records, so a dearer change meets the deadline, moving nothing (`:: TestTheDeadlineStopsTheCall`).
+COMMANDS_A_DUE_PERSON = 21
 
 # The call's other command, one aggregate answering one document at any size, pinned on the wire by
 # `fl_backend/tests/api/test_schiedsrichter_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
@@ -25,7 +25,8 @@ OTHER_COMMANDS = 1
 # The running season a page holding a due change asks once, where the season cache holds none.
 SEASON_READ = 1
 
-# The per-command cost, the largest of two windows timing whole calls locally, 2026-10-16.
+# The per-command cost, the largest of two windows timing whole calls of lapses locally, 2026-10-16; a due change's
+# commands timed lower, 2026-10-20.
 PER_COMMAND_S = 0.00184
 
 # The round trip `sweep_router.ADRESSWECHSEL_PER_PASS`'s comment sizes the share for.
@@ -35,7 +36,7 @@ ROUND_TRIP_S = 0.037
 def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names():
     """A share raised past its budget passes every case counting its own rows, and times out a whole call in production.
 
-    Sized at the dearest row, a share being any mix of lapses and due changes.
+    Sized at the dearest of a lapse and a due change moving a pupil row and a referee row, a share mixing them.
     """
 
     dearest = max(COMMANDS_A_REFEREE, COMMANDS_A_PUPIL, COMMANDS_A_DUE_PERSON)
