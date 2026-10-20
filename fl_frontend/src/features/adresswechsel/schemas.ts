@@ -171,10 +171,12 @@ export type FLAdresswechselSweepResponse = z.infer<typeof FLAdresswechselSweepRe
 /** Mirrors `FLAdresswechselVerwaltungAnsichtPayload`: exactly one key, the address typed or a change's id from a link. */
 export const FLAdresswechselVerwaltungAnsichtPayloadSchema = z
   .object({
-    adresse: KontaktEmailSchema.optional(),
-    adresswechsel_id: CustomObjectIdStringSchema.optional(),
+    // Nullable as well as optional, mirroring `CustomEmail | None` and `CustomObjectId | None`: the backend
+    // reads a null key as an absent one, so the one-key check below does too.
+    adresse: KontaktEmailSchema.nullable().optional(),
+    adresswechsel_id: CustomObjectIdStringSchema.nullable().optional(),
   })
-  .refine(({ adresse, adresswechsel_id }) => (adresse === undefined) !== (adresswechsel_id === undefined), {
+  .refine(({ adresse, adresswechsel_id }) => (adresse == null) !== (adresswechsel_id == null), {
     error: "Gib eine E-Mail-Adresse ein.",
   });
 export type FLAdresswechselVerwaltungAnsichtPayload = z.infer<typeof FLAdresswechselVerwaltungAnsichtPayloadSchema>;
