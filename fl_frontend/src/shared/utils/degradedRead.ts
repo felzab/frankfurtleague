@@ -15,17 +15,14 @@ export function explainsItself(error: unknown): boolean {
   return error instanceof APINetworkError || error instanceof ApiUnsentError || isRefusal(error);
 }
 
-/**
- * A failure's error line, carrying the codes a thrown API error holds and `untypedCode` for anything else. A throw out
- * of a `"use cache"` fill arrives as a plain `Error` carrying Next's digest, which joins this line to Next's own line
- * of the original (`docs/frontend/spec.md` §1.2).
- */
 export function logCodedFailure(message: string, error: unknown, untypedCode: "FE-ACT-001" | "FE-RSC-001"): void {
   const typed =
     error instanceof APIBadStatusError ||
     error instanceof APINetworkError ||
     error instanceof APIMalformedDataError ||
     error instanceof ApiUnsentError;
+  // A `"use cache"` fill's throw arrives as a plain `Error` carrying Next's digest, which joins this line to Next's
+  // own line of the original (`docs/frontend/spec.md` §1.2).
   const digest: unknown = error instanceof Error ? Reflect.get(error, "digest") : undefined;
   logger.error(message, error, {
     error_code: typed ? error.code : untypedCode,
