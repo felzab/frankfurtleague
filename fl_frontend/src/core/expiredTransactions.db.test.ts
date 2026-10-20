@@ -7,8 +7,9 @@ import { describe, it } from "node:test";
 import { runAsTestFile } from "./childTestRun.ts";
 import { replicaSetContainer, startJudged } from "./expiredTransactions.ts";
 
-// mongod refuses an option it does not know as it parses its command line, and only its log names it.
-const REFUSED_OPTION = "--refusedAtStart";
+// Logged by a shell standing in for mongod, which exits as a refusing mongod does: mongod's own refusal
+// depends on the host, since it refuses some kernels before it reads its command line.
+const EXIT_MARKER = "logged before exiting at start";
 
 /** Kept outside `src`, where no sweep over db suites can take its text for this file's own. */
 const LEFT_TO_EXPIRE = path.resolve(import.meta.dirname, "..", "..", "scripts", "fixtures", "expiredTransactionLeft.mjs.txt");
@@ -59,11 +60,13 @@ describe("a db file's replica set that fails its start", () => {
 
   it("fails in the port wait naming the container's last log lines, and removes the container", async () => {
     const name = `fl-unbound-${randomUUID()}`;
-    // With no network nothing is published, however soon mongod exits. The image's own entrypoint hands
-    // the option to mongod ahead of the replica set's command.
-    const unbound = replicaSetContainer().withName(name).withNetworkMode("none").withEntrypoint(["docker-entrypoint.sh", REFUSED_OPTION]);
+    // With no network nothing is published, however soon the container exits.
+    const unbound = replicaSetContainer()
+      .withName(name)
+      .withNetworkMode("none")
+      .withEntrypoint(["sh", "-c", `echo '${EXIT_MARKER}'; exit 1`]);
 
-    await rejectsNaming(startJudged(unbound), /ports to be bound/, REFUSED_OPTION);
+    await rejectsNaming(startJudged(unbound), /ports to be bound/, EXIT_MARKER);
     // Docker refuses a container a name another still holds, so this start reaches its health check only once the first is gone.
     await rejectsNaming(startJudged(unhealthy().withName(name)), /^Health check failed/, UNHEALTHY_MARKER);
   });

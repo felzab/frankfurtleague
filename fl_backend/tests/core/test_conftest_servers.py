@@ -6,8 +6,9 @@ import pytest
 
 import tests.conftest as harness
 
-# mongod refuses an option it does not know as it parses its command line, and only its log names it.
-REFUSED_OPTION = "--refusedAtStart"
+# Logged by a shell standing in for mongod, which exits as a refusing mongod does: mongod's own refusal
+# depends on the host, since it refuses some kernels before it reads its command line.
+EXIT_MARKER = "logged before exiting at start"
 
 SERVERS = pytest.mark.parametrize("server", [harness._standalone_mongod, harness._replica_set_mongod], ids=["standalone", "replica_set"])
 
@@ -16,7 +17,7 @@ Server = Callable[[], AbstractContextManager[str]]
 
 @pytest.fixture
 def refused_at_start(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
-    """Every container of `MONGO_IMAGE` the test creates, each handed `REFUSED_OPTION` after its own command."""
+    """Every container of `MONGO_IMAGE` the test creates, each a shell logging `EXIT_MARKER` and exiting 1."""
 
     from testcontainers.core.docker_client import DockerClient
 
@@ -27,7 +28,7 @@ def refused_at_start(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
         # The reaper's image passes untouched: a refused reaper fails the start before mongod runs.
         if image != harness.MONGO_IMAGE:
             return create(client, image, command, **kwargs)
-        container = create(client, image, f"{command or ''} {REFUSED_OPTION}".lstrip(), **kwargs)
+        container = create(client, image, ["-c", f"echo '{EXIT_MARKER}'; exit 1"], **{**kwargs, "entrypoint": "sh"})
         created.append(container)
         return container
 
@@ -43,7 +44,7 @@ def test_a_server_exiting_at_start_fails_naming_its_log_and_leaves_no_container(
     with pytest.raises(RuntimeError) as excinfo, server():
         pass
 
-    assert REFUSED_OPTION in str(excinfo.value), f"the container's log never reached the error: {excinfo.value}"
+    assert EXIT_MARKER in str(excinfo.value), f"the container's log never reached the error: {excinfo.value}"
     assert refused_at_start, "no container of the image was created, so nothing was refused"
     for container in refused_at_start:
         with pytest.raises(NotFound):
