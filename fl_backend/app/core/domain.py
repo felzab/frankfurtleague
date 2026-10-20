@@ -1371,6 +1371,22 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "changed referee, or whose day went by without any of those, and an administrator discarding a proposal stamps "
         "it on the declining row, each composing the reason itself",
     ),
+    FieldPolicy(
+        Collection.SPIELBERICHTE,
+        "bericht",
+        Editability.CONDITIONAL,
+        "written whole by the booked referee or an administrator once the fixture is dated, its day has come and it was "
+        "not called off: a report is the account of a match that took place",
+        "app.api.spielberichte.services.find_nicht_gespielt_refusal",
+    ),
+    FieldPolicy(
+        Collection.SPIELBERICHTE,
+        "bericht.version",
+        Editability.COMPOSED,
+        "on no payload: every write of the block raises it by one, so an adoption recording the version it took reads "
+        "adopted exactly until the next write, whichever field it moves",
+        "app.api.spielberichte.services.compose_bericht_update",
+    ),
 )
 
 
@@ -2771,12 +2787,14 @@ RULES: tuple[Rule, ...] = (
             "GET /teams/{team_id}/saisons/{saison_id}/person/sitze · GET /spieler/selbst · PATCH /spieler/selbst/einwilligung · "
             "GET /schiedsrichter/selbst · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
             "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung · "
-            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"
+            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung · "
+            "GET /spielberichte/person · GET /spielberichte/{spiel_id}/bericht · PUT /spielberichte/{spiel_id}/bericht"
         ),
         aggregate="Saison",
         summary=(
             "a team's panel is read and changed only by a person holding a contact seat on that team in an `active` or `future` "
-            "season, and a person's own consent record only from the address it was confirmed under"
+            "season, a person's own consent record only from the address it was confirmed under, and a referee's report only "
+            "by a confirmed, live referee record the address holds"
         ),
         implemented_by="app.api.identitaet.services.find_funktion_refusal",
         tested_by="tests/api/test_kader_person.py::TestASeatNotHeld",
@@ -2951,6 +2969,51 @@ RULES: tuple[Rule, ...] = (
         summary="a declining club's proposed date is today or later",
         implemented_by="app.api.spielbestaetigungen.services.find_vorschlag_vergangen_refusal",
         tested_by="tests/api/test_spielbestaetigung_refusal.py::TestAProposalBeforeToday",
+    ),
+    Rule(
+        code="REQ-BERICHT-001",
+        status=HTTPStatus.CONFLICT,
+        operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",
+        aggregate="Spielbericht",
+        summary="a fixture's report is written once its fixture is dated and its day has come",
+        implemented_by="app.api.spielberichte.services.find_nicht_gespielt_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestAReportFollowsTheMatchDay",
+    ),
+    Rule(
+        code="REQ-BERICHT-002",
+        status=HTTPStatus.FORBIDDEN,
+        operation="GET /spielberichte/{spiel_id}/bericht · PUT /spielberichte/{spiel_id}/bericht",
+        aggregate="Spielbericht",
+        summary="a referee reads and writes the report of a fixture booked to one of their own records alone",
+        implemented_by="app.api.spielberichte.services.find_nicht_geleitet_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestOnlyTheBookedRefereeReports",
+    ),
+    Rule(
+        code="REQ-BERICHT-003",
+        status=HTTPStatus.CONFLICT,
+        operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",
+        aggregate="Spielbericht",
+        summary="a pupil a report newly names on a side is in that side's live squad of the fixture's season",
+        implemented_by="app.api.spielberichte.services.find_nicht_im_kader_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestANewlyNamedPupilIsInTheSquad",
+    ),
+    Rule(
+        code="REQ-BERICHT-004",
+        status=HTTPStatus.CONFLICT,
+        operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",
+        aggregate="Spielbericht",
+        summary="a fixture called off or struck out takes no report",
+        implemented_by="app.api.spielberichte.services.find_abgesagt_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestACalledOffFixtureTakesNoReport",
+    ),
+    Rule(
+        code="REQ-BERICHT-005",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",
+        aggregate="Spielbericht",
+        summary="a report's remarks name no seat holder of either club, the booked referee or a pupil of either squad",
+        implemented_by="app.api.spielberichte.services.find_name_in_bemerkungen_refusal",
+        tested_by="tests/api/test_spielbericht_shapes.py::TestTheRemarksNameNobody",
     ),
 )
 

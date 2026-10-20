@@ -47,6 +47,8 @@ from app.api.schiedsrichter.person_router import router as schiedsrichter_person
 from app.api.schiedsrichter.router import router as schiedsrichter_router
 from app.api.schiedsrichter.sweep_router import router as schiedsrichter_sweep_router
 from app.api.sperrliste.admin_router import router as sperrliste_admin_router
+from app.api.spielberichte.admin_router import router as spielberichte_admin_router
+from app.api.spielberichte.person_router import router as spielberichte_person_router
 from app.api.spielbestaetigungen.router import router as spielbestaetigungen_router
 from app.api.spielbestaetigungen.sweep_router import router as spielbestaetigungen_sweep_router
 from app.api.spiele.admin_router import router as spiele_admin_router
@@ -142,6 +144,7 @@ WRITE_ROUTERS = (
     identitaet_admin_router,
     sperrliste_admin_router,
     berechtigungen_admin_router,
+    spielberichte_admin_router,
 )
 # Its own group because it belongs to neither: base-tier and mixed read/write, so either tuple's
 # comment would go false about the tier or the methods.
@@ -182,6 +185,7 @@ PERSON_ROUTERS = (
     schiedsrichter_person_router,
     konto_router,
     identitaet_person_router,
+    spielberichte_person_router,
 )
 
 # Spelled as `fl_frontend/src/core/api.ts :: FetchOptions` spells its `authType`, the value being
@@ -595,7 +599,7 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
         allow_origins=config.api_cors_allowed_origins_list,
         allow_credentials=True,
         # Every method the routers serve: one omitted is a preflight rejection waiting to happen.
-        allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["*"],
     )
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.api_trusted_hosts_list)

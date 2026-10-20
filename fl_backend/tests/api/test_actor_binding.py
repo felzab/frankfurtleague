@@ -424,6 +424,7 @@ PERSON_WRITES: list[tuple[str, str]] = [
     ("/api/v0/bewerbungen/{bewerbung_id:objectid}/person/einwilligung", "PATCH"),
     ("/api/v0/registrierungen/selbst/{registrierung_id:objectid}/einwilligung", "PATCH"),
     ("/api/v0/identitaet/selbst/erasure", "POST"),
+    ("/api/v0/spielberichte/{spiel_id:objectid}/bericht", "PUT"),
 ]
 
 # Split by the methods `SAFE_METHODS` names as recording nothing, since a read binding no actor
@@ -743,6 +744,7 @@ STEP_UP_WRITES = [
     pytest.param("delete", "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel", id="a referee's address change discarded"),
     pytest.param("post", "/api/v0/sperrliste", id="a ban"),
     pytest.param("delete", "/api/v0/sperrliste/{sperrliste_id}", id="a ban's lift"),
+    pytest.param("patch", "/api/v0/spielberichte/{spiel_id}", id="an administrator's write of a report"),
     pytest.param("post", "/api/v0/spieler/{spieler_id}/adresswechsel", id="a pupil's address change asked"),
     pytest.param("post", "/api/v0/spieler/{spieler_id}/adresswechsel/einladen", id="a pupil's fresh address link"),
     pytest.param("delete", "/api/v0/spieler/{spieler_id}/adresswechsel", id="a pupil's address change discarded"),

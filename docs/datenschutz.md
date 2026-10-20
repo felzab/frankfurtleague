@@ -658,7 +658,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
   past their own erasure until it is deleted with the season's contact data
   ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)); the reason box's hint asks for
   no names, nothing enforces it, and the published notice says a name may stand in the reason
-  (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19, the unchecked text 2026-10-20. The request an
+  (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19, the unchecked text 2026-10-20. A referee's
+  remarks on a match (`spielberichte.bericht.bemerkungen`) are refused, when written, every name either
+  club's three seats, the booked referee and either squad's pupils of the season hold, matched as the
+  request below is (`fl_backend/app/api/spielberichte/services.py :: find_name_in_bemerkungen_refusal`);
+  a name written otherwise, or a person outside the fixture, stays in them for as long as the report
+  stands, which is as long as its fixture. The request an
   administrator's erasure answers
   (`aktionen.anlass`) stands on every log row that erasure files, for the log's twelve months
   (`docs/backend/spec.md :: I683`, `:: I119`). It is refused where it holds an address

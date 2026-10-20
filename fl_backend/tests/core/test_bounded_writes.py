@@ -30,6 +30,7 @@ from app.api.identitaet.crud import erase_if_still_due
 from app.api.sperrliste import crud as sperrliste_crud
 from app.api.sperrliste.admin_router import _pull_the_season_a_ban_counts_from
 from app.api.sperrliste.lookup import adressen_gesperrt, hash_gesperrt, hashes_gesperrt
+from app.api.spielberichte.crud import anchor_the_pupils_named
 from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, anchor_the_referees_told, anchor_the_seats_minted
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.crud import anchor_a_booked_referee, anchor_a_booked_venue, pull_booked_referee, pull_booked_venue
@@ -161,6 +162,10 @@ CALLERS: dict[str, frozenset[str]] = {
     ),
     # The pass's close, which reads its notices' mailboxes off season rows an erasure empties.
     "anchor_the_mailboxes_told": frozenset({"app/api/spielbestaetigungen/sweep_router.py :: close"}),
+    # Both writers of a report, for every pupil they newly name.
+    "anchor_the_pupils_named": frozenset(
+        {"app/api/spielberichte/person_router.py :: write_the_report", "app/api/spielberichte/admin_router.py :: write_the_report"}
+    ),
 }
 
 # The callers no `with_transaction` is handed, each run by `transaction_session` inside every attempt
@@ -184,6 +189,7 @@ ANCHORS: tuple[tuple[Callable[..., Any], str], ...] = (
     (anchor_the_seats_minted, "saison_teams_collection"),
     (anchor_the_referees_told, "schiedsrichter_collection"),
     (anchor_the_mailboxes_told, "saison_teams_collection"),
+    (anchor_the_pupils_named, "spieler_collection"),
 )
 
 ANCHORING_FUNCTIONS = tuple(function for function, _ in ANCHORS)

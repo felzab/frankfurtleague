@@ -6987,6 +6987,199 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/spielberichte": {
+      "get": {
+        "summary": "Every report of a season and the state it reads in",
+        "description": "Every report of one season holding a block, each with its state against its fixture and what it proposes.\n\nFor the triage. Scoped to `saison_id`, the active season when none is named, which answers 404 while no season is\nactive.",
+        "operationId": "get_spielberichte_api_v0_spielberichte_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielberichteSaisonResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/spielberichte/{spiel_id}/admin": {
+      "get": {
+        "summary": "One fixture's report, whole, for an administrator",
+        "description": "One fixture's report as the editor's panel reads it, whole, with the state it reads in.\n\nBeside it the fixture, both clubs' live squads of the season and the pupils the report names outside them. The\nreport and its state are null where no report stands; `DB-COMMON-001` only for a fixture that does not exist.",
+        "operationId": "get_spielbericht_admin_api_v0_spielberichte__spiel_id__admin_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spiel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spiel Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielberichtAdminResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/spielberichte/{spiel_id}": {
+      "patch": {
+        "summary": "Write one fixture's report as an administrator",
+        "description": "Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.\n\nEvery write raises its `version`, so a report adopted before reads `abweichend` until it is adopted again. Who first\nwrote the report stays recorded; a report an administrator writes first records an administrator, naming nobody.\n\nRefuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); one undated or whose\nday is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a pupil newly named on\na side outside that side's live squad of the season (`REQ-BERICHT-003`); and remarks naming a seat holder of either\nclub, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each is asked again outside the\ntransaction just before answering. Two first writes at once are one report and one `DB-COMMON-002`.",
+        "operationId": "patch_spielbericht_api_v0_spielberichte__spiel_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spiel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spiel Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielberichtPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielberichtAdminResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERICHT-001.REQ-BERICHT-003.REQ-BERICHT-004"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-BERICHT-005.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
     "/api/v0/bewerbungen/fenster": {
       "get": {
         "summary": "The Saison currently accepting applications",
@@ -10154,6 +10347,176 @@
             "HTTPBearer": []
           }
         ],
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/spielberichte/person": {
+      "get": {
+        "summary": "The fixtures a signed-in referee reports on",
+        "description": "The `active` season's fixtures booked to the signed-in referee whose day has come, newest first.\n\nBooked to any confirmed, live referee record of the address, each with when its report was first sent, null where\nnone stands.\n\nA fixture called off or struck out is left out, having no report. Empty while no season is `active`. Refused\n`REQ-FUNKTION-001` where the address holds no confirmed, live referee record.",
+        "operationId": "get_spielberichte_person_api_v0_spielberichte_person_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielberichtePersonResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/spielberichte/{spiel_id}/bericht": {
+      "get": {
+        "summary": "One fixture's report as its referee reads it",
+        "description": "What the booked referee's report form reads.\n\nThe fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored\nreport, its remarks and card reasons included, or null.\n\nServed for a fixture still to come or called off too, whose page says why it takes no report. Refused\n`REQ-FUNKTION-001` where the address holds no confirmed, live referee record, and `REQ-BERICHT-002` where the fixture\nis booked to none of its records; `DB-COMMON-001` for a fixture that does not exist.",
+        "operationId": "get_spielbericht_bericht_api_v0_spielberichte__spiel_id__bericht_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spiel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spiel Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielberichtSchiedsrichterResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-BERICHT-002.REQ-FUNKTION-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      },
+      "put": {
+        "summary": "Write one fixture's report as its referee",
+        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe proposed result, the scorers, the cards and the remarks. The first write creates it; every write raises its\n`version`, so a report the\nadministrator adopted reads `abweichend` again until it is adopted anew. Writes no fixture: the result is the\nadministrator's to save.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records\n(`REQ-BERICHT-002`); one undated or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out\n(`REQ-BERICHT-004`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil\nthe report already named on that side staying (`REQ-BERICHT-003`); and remarks naming a seat holder of either club,\nthe booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal after the first is asked\nagain outside the transaction just before answering, so a write landing mid-press on what was judged refuses the\nreport rather than letting it stand. Two first writes at once are one report and one `DB-COMMON-002`.",
+        "operationId": "put_spielbericht_bericht_api_v0_spielberichte__spiel_id__bericht_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spiel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spiel Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielberichtPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielberichtSchiedsrichterResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERICHT-001.REQ-BERICHT-003.REQ-BERICHT-004"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-BERICHT-005.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-BERICHT-002.REQ-FUNKTION-001"
+          },
+          "429": {
+            "$ref": "#/components/responses/429.REQ-DROSSELUNG-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
         "x-fl-tier": "admin"
       }
     },
@@ -24145,6 +24508,848 @@
         "title": "FLSpielTeamFieldPayload",
         "description": "One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the server composes them from the season's `saison_teams` row\n(`docs/backend/spec.md :: I3`). A submitted copy is IGNORED rather than refused, as\n`docs/backend/spec.md :: I114` allows."
       },
+      "FLSpielberichtAdminResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spiel": {
+            "$ref": "#/components/schemas/FLSpielberichtSpiel"
+          },
+          "kader": {
+            "$ref": "#/components/schemas/FLSpielberichtKader"
+          },
+          "genannt": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtSpieler"
+            },
+            "type": "array",
+            "title": "Genannt"
+          },
+          "bericht": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielberichtBericht"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "zustand": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "vorgeschlagen",
+                  "uebernommen",
+                  "abweichend"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zustand"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel",
+          "kader",
+          "genannt",
+          "bericht",
+          "zustand"
+        ],
+        "title": "FLSpielberichtAdminResponse",
+        "description": "The administrator's panel, with the state the report reads in. Null exactly where no block stands."
+      },
+      "FLSpielberichtBericht": {
+        "properties": {
+          "ergebnis_vorschlag": {
+            "$ref": "#/components/schemas/FLSpielberichtVorschlag"
+          },
+          "torschuetzen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtTorschuetze"
+            },
+            "type": "array",
+            "title": "Torschuetzen"
+          },
+          "karten": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtKarte"
+            },
+            "type": "array",
+            "title": "Karten"
+          },
+          "bemerkungen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bemerkungen"
+          },
+          "eingereicht_am": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Eingereicht Am"
+          },
+          "eingereicht_von": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielberichtVonSchiedsrichter"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielberichtVonAdmin"
+              }
+            ],
+            "title": "Eingereicht Von",
+            "discriminator": {
+              "propertyName": "art",
+              "mapping": {
+                "admin": "#/components/schemas/FLSpielberichtVonAdmin",
+                "schiedsrichter": "#/components/schemas/FLSpielberichtVonSchiedsrichter"
+              }
+            }
+          },
+          "geaendert_am": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Geaendert Am"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "uebernommen_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uebernommen Am"
+          },
+          "uebernommen_von": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielberichtUebernommenVon"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "uebernommene_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uebernommene Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ergebnis_vorschlag",
+          "torschuetzen",
+          "karten",
+          "bemerkungen",
+          "eingereicht_am",
+          "eingereicht_von",
+          "geaendert_am",
+          "version",
+          "uebernommen_am",
+          "uebernommen_von",
+          "uebernommene_version"
+        ],
+        "title": "FLSpielberichtBericht",
+        "description": "The referee's account of one match, one proposal: a correction returns all of it to proposed.\n\n`version` rises with every write and the adoption records the one it took, so adopted means the two are equal,\nwhatever a clock says."
+      },
+      "FLSpielberichtBerichtPayload": {
+        "properties": {
+          "ergebnis_vorschlag": {
+            "$ref": "#/components/schemas/FLSpielberichtVorschlag"
+          },
+          "torschuetzen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtTorschuetze"
+            },
+            "type": "array",
+            "maxItems": 60,
+            "title": "Torschuetzen"
+          },
+          "karten": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtKarte"
+            },
+            "type": "array",
+            "maxItems": 60,
+            "title": "Karten"
+          },
+          "bemerkungen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bemerkungen"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ergebnis_vorschlag",
+          "torschuetzen",
+          "karten",
+          "bemerkungen"
+        ],
+        "title": "FLSpielberichtBerichtPayload"
+      },
+      "FLSpielberichtKader": {
+        "properties": {
+          "team1": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtSpieler"
+            },
+            "type": "array",
+            "title": "Team1"
+          },
+          "team2": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtSpieler"
+            },
+            "type": "array",
+            "title": "Team2"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team1",
+          "team2"
+        ],
+        "title": "FLSpielberichtKader",
+        "description": "Each side's live squad of the season, the pupils a new entry may name."
+      },
+      "FLSpielberichtKarte": {
+        "properties": {
+          "seite": {
+            "type": "string",
+            "enum": [
+              "team1",
+              "team2"
+            ],
+            "title": "Seite"
+          },
+          "spieler_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spieler Id"
+          },
+          "minute": {
+            "type": "string",
+            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
+            "title": "Minute"
+          },
+          "farbe": {
+            "type": "string",
+            "enum": [
+              "gelb",
+              "gelb_rot",
+              "rot"
+            ],
+            "title": "Farbe"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "foulspiel",
+                  "unsportlichkeit",
+                  "handspiel",
+                  "meckern",
+                  "spielverzoegerung",
+                  "wiederholtes_foulspiel",
+                  "grobes_foulspiel",
+                  "taetlichkeit",
+                  "beleidigung",
+                  "notbremse"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seite",
+          "spieler_id",
+          "minute",
+          "farbe",
+          "grund"
+        ],
+        "title": "FLSpielberichtKarte"
+      },
+      "FLSpielberichtPayload": {
+        "properties": {
+          "bericht": {
+            "$ref": "#/components/schemas/FLSpielberichtBerichtPayload"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bericht"
+        ],
+        "title": "FLSpielberichtPayload",
+        "description": "The whole `bericht` block, written wholesale by the referee's PUT and the administrator's PATCH alike."
+      },
+      "FLSpielberichtPersonEintrag": {
+        "properties": {
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "datum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum"
+          },
+          "uhrzeit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uhrzeit"
+          },
+          "team1_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team1 Name"
+          },
+          "team2_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team2 Name"
+          },
+          "eingereicht_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eingereicht Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_id",
+          "datum",
+          "uhrzeit",
+          "team1_name",
+          "team2_name",
+          "eingereicht_am"
+        ],
+        "title": "FLSpielberichtPersonEintrag",
+        "description": "One played fixture booked to the signed-in referee, and whether their report stands."
+      },
+      "FLSpielberichtSchiedsrichterResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spiel": {
+            "$ref": "#/components/schemas/FLSpielberichtSpiel"
+          },
+          "kader": {
+            "$ref": "#/components/schemas/FLSpielberichtKader"
+          },
+          "genannt": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtSpieler"
+            },
+            "type": "array",
+            "title": "Genannt"
+          },
+          "bericht": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielberichtBericht"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel",
+          "kader",
+          "genannt",
+          "bericht"
+        ],
+        "title": "FLSpielberichtSchiedsrichterResponse",
+        "description": "The booked referee's form: the remarks and the card reasons included, no derived state."
+      },
+      "FLSpielberichtSpiel": {
+        "properties": {
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "saison_phase": {
+            "type": "string",
+            "enum": [
+              "gruppenphase",
+              "achtelfinale",
+              "viertelfinale",
+              "halbfinale",
+              "finale"
+            ],
+            "title": "Saison Phase"
+          },
+          "datum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datum"
+          },
+          "uhrzeit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uhrzeit"
+          },
+          "team1": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielberichtTeam"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team2": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielberichtTeam"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ausgefallen",
+                  "nichtantreten_team1",
+                  "nichtantreten_team2",
+                  "abgebrochen",
+                  "annulliert"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sonderereignis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_id",
+          "saison_id",
+          "saison_phase",
+          "datum",
+          "uhrzeit",
+          "team1",
+          "team2",
+          "sonderereignis"
+        ],
+        "title": "FLSpielberichtSpiel",
+        "description": "The fixture a report is about, as its form states it: no money, no booking, no result."
+      },
+      "FLSpielberichtSpieler": {
+        "properties": {
+          "spieler_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spieler Id"
+          },
+          "vorname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vorname"
+          },
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler_id",
+          "vorname",
+          "nachname",
+          "nummer"
+        ],
+        "title": "FLSpielberichtSpieler",
+        "description": "A pupil a report may name or names. Both names null on the erased pupils' sentinel alone."
+      },
+      "FLSpielberichtTeam": {
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "name"
+        ],
+        "title": "FLSpielberichtTeam"
+      },
+      "FLSpielberichtTorschuetze": {
+        "properties": {
+          "seite": {
+            "type": "string",
+            "enum": [
+              "team1",
+              "team2"
+            ],
+            "title": "Seite"
+          },
+          "spieler_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{24}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spieler Id"
+          },
+          "minute": {
+            "type": "string",
+            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
+            "title": "Minute"
+          },
+          "eigentor": {
+            "type": "boolean",
+            "title": "Eigentor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seite",
+          "spieler_id",
+          "minute",
+          "eigentor"
+        ],
+        "title": "FLSpielberichtTorschuetze",
+        "description": "One goal. A null `spieler_id` is a scorer nobody named, never an erased one, whose entry names the sentinel."
+      },
+      "FLSpielberichtUebernommenVon": {
+        "properties": {
+          "art": {
+            "type": "string",
+            "const": "admin",
+            "title": "Art"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art"
+        ],
+        "title": "FLSpielberichtUebernommenVon"
+      },
+      "FLSpielberichtVonAdmin": {
+        "properties": {
+          "art": {
+            "type": "string",
+            "const": "admin",
+            "title": "Art"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art"
+        ],
+        "title": "FLSpielberichtVonAdmin",
+        "description": "An administrator who wrote the block first, naming nobody, as an administrator's settle does."
+      },
+      "FLSpielberichtVonSchiedsrichter": {
+        "properties": {
+          "art": {
+            "type": "string",
+            "const": "schiedsrichter",
+            "title": "Art"
+          },
+          "schiedsrichter_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Schiedsrichter Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art",
+          "schiedsrichter_id"
+        ],
+        "title": "FLSpielberichtVonSchiedsrichter"
+      },
+      "FLSpielberichtVorschlag": {
+        "properties": {
+          "team1_tore": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team1 Tore"
+          },
+          "team2_tore": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team2 Tore"
+          },
+          "elfmeterschiessen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielElfmeterschiessen"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "abgebrochen",
+                  "nichtantreten_team1",
+                  "nichtantreten_team2"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sonderereignis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team1_tore",
+          "team2_tore",
+          "elfmeterschiessen",
+          "sonderereignis"
+        ],
+        "title": "FLSpielberichtVorschlag",
+        "description": "The referee's proposed result, which only the administrator's own save applies.\n\nBoth counts null on a no-show alone: the save composes its goals from the season's forfeit, which typed goals\ncould never equal."
+      },
+      "FLSpielberichtZustandEintrag": {
+        "properties": {
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "vorgeschlagen",
+              "uebernommen",
+              "abweichend"
+            ],
+            "title": "Zustand"
+          },
+          "ergebnis_vorschlag": {
+            "$ref": "#/components/schemas/FLSpielberichtVorschlag"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_id",
+          "zustand",
+          "ergebnis_vorschlag"
+        ],
+        "title": "FLSpielberichtZustandEintrag",
+        "description": "One fixture's report as the triage reads it: its state and what it proposes."
+      },
+      "FLSpielberichtePersonResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spiele": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtPersonEintrag"
+            },
+            "type": "array",
+            "title": "Spiele"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiele"
+        ],
+        "title": "FLSpielberichtePersonResponse"
+      },
+      "FLSpielberichteSaisonResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spielberichte": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtZustandEintrag"
+            },
+            "type": "array",
+            "title": "Spielberichte"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielberichte"
+        ],
+        "title": "FLSpielberichteSaisonResponse",
+        "description": "Every report of one season that holds a block, each with its state."
+      },
       "FLSpielbestaetigungAnsichtAnsetzung": {
         "properties": {
           "team1_name": {
@@ -27890,6 +29095,31 @@
           }
         }
       },
+      "403.REQ-AUTH-008.REQ-BERICHT-002.REQ-FUNKTION-001": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-AUTH-008",
+                        "REQ-BERICHT-002",
+                        "REQ-FUNKTION-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "403.REQ-AUTH-008.REQ-EINWILLIGUNG-004.REQ-FUNKTION-001": {
         "description": "Forbidden",
         "content": {
@@ -28379,6 +29609,32 @@
                         "DB-COMMON-002",
                         "REQ-BERECHTIGUNG-003",
                         "REQ-BERECHTIGUNG-007"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.DB-COMMON-002.REQ-BERICHT-001.REQ-BERICHT-003.REQ-BERICHT-004": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-BERICHT-001",
+                        "REQ-BERICHT-003",
+                        "REQ-BERICHT-004"
                       ]
                     }
                   }
@@ -29603,6 +30859,30 @@
                     "error_code": {
                       "enum": [
                         "REQ-ANSETZUNG-007",
+                        "REQ-VAL-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "422.REQ-BERICHT-005.REQ-VAL-001": {
+        "description": "Unprocessable Content",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-BERICHT-005",
                         "REQ-VAL-001"
                       ]
                     }

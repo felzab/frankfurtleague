@@ -73,6 +73,7 @@ REFEREE = ObjectId("6890a1b2c3d4e5f607930021")
 # No squad row holds it, so an admitted squad edit meets the handler's own 404 and writes nothing.
 NOT_IN_THE_SQUAD = ObjectId("6890a1b2c3d4e5f607930099")
 ANY_REGISTRIERUNG = ObjectId("6890a1b2c3d4e5f607930098")
+ANY_SPIEL = ObjectId("6890a1b2c3d4e5f607930097")
 
 # One mailbox writing as all three kinds of person, so a count is seen to be the kind's and not the mailbox's.
 PERSON = "anna.drossel@schule.de"
@@ -88,6 +89,14 @@ YOUNG_BIRTHDATE = "2110-05-09"
 API = f"/api/v{API_VERSION}"
 KADER_ROW = f"{API}/spieler/kader/{TEAM_A}/{ACTIVE_SAISON}/{NOT_IN_THE_SQUAD}"
 KADER_EDIT = {"nummer": "11", "position": "Tor", "stufe": "Q1", "rolle": None}
+SPIELBERICHT = {
+    "bericht": {
+        "ergebnis_vorschlag": {"team1_tore": 0, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
+        "torschuetzen": [],
+        "karten": [],
+        "bemerkungen": None,
+    }
+}
 
 CEILING_LINE = "A person reached their daily write ceiling"
 
@@ -309,18 +318,21 @@ class TestTheCeilingUnderConcurrency:
 
 # Every route counting each call, each refused at an exhausted count before its handler reads the body.
 COUNTED_ON_EVERY_CALL = [
-    pytest.param("PATCH", KADER_ROW, KADER_EDIT, id="a squad row's edit"),
-    pytest.param("DELETE", KADER_ROW, None, id="a squad row's austragen"),
-    pytest.param("POST", f"{API}/registrierungen/{ANY_REGISTRIERUNG}/aufnehmen", {}, id="an admission"),
-    pytest.param("POST", f"{API}/registrierungen/{ANY_REGISTRIERUNG}/ablehnen", {}, id="a decline"),
+    pytest.param("PATCH", KADER_ROW, KADER_EDIT, "kontakt", id="a squad row's edit"),
+    pytest.param("DELETE", KADER_ROW, None, "kontakt", id="a squad row's austragen"),
+    pytest.param("POST", f"{API}/registrierungen/{ANY_REGISTRIERUNG}/aufnehmen", {}, "kontakt", id="an admission"),
+    pytest.param("POST", f"{API}/registrierungen/{ANY_REGISTRIERUNG}/ablehnen", {}, "kontakt", id="a decline"),
+    pytest.param("PUT", f"{API}/spielberichte/{ANY_SPIEL}/bericht", SPIELBERICHT, "schiedsrichter", id="a referee's report"),
 ]
 
 
 class TestAnExhaustedCount:
-    @pytest.mark.parametrize(("method", "path", "body"), COUNTED_ON_EVERY_CALL)
-    def test_each_route_counting_every_call_refuses_until_midnight(self, mongo_replica_set_url: str, method: str, path: str, body: Any):
+    @pytest.mark.parametrize(("method", "path", "body", "funktion"), COUNTED_ON_EVERY_CALL)
+    def test_each_route_counting_every_call_refuses_until_midnight(
+        self, mongo_replica_set_url: str, method: str, path: str, body: Any, funktion: AktorFunktion
+    ):
         async def steps(database: AsyncDatabase) -> tuple[Response, dict[str, int]]:
-            await exhaust(database, "kontakt", PERSON)
+            await exhaust(database, funktion, PERSON)
             async with app_client(mongo_replica_set_url, app=_first(), now=NOW) as http:
                 response = await http.request(method, path, json=body, headers=as_person(PERSON))
             return response, await counts(database)
@@ -328,7 +340,7 @@ class TestAnExhaustedCount:
         response, stored = seeded(mongo_replica_set_url, steps)
 
         assert refused_until_midnight(response), response.text
-        assert stored == {count_id("kontakt", PERSON): TAGESBUDGETS["kontakt"] + 1}
+        assert stored == {count_id(funktion, PERSON): TAGESBUDGETS[funktion] + 1}
 
     def test_another_person_and_the_same_person_s_other_funktion_keep_their_own_count(self, mongo_replica_set_url: str):
         """The control and the two keys at once: every answer below but the first would be a 429 were the count shared."""
