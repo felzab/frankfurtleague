@@ -23327,7 +23327,7 @@
           "stellvertretung"
         ],
         "title": "FLSaisonTeamAdresswechsel",
-        "description": "The live change of each seat's address, which the address tool shows; null where none stands or the seat is empty."
+        "description": "The live change of each confirmed seat's address, which the address tool shows.\n\nNull where none stands, the seat is empty, or its person never confirmed it, the change moving nothing of theirs."
       },
       "FLSaisonTeamBestaetigungAnsicht": {
         "properties": {
@@ -30349,6 +30349,7 @@
           "austritt",
           "trikot_farbe",
           "kontakte",
+          "adresswechsel",
           "kontakte_stand"
         ],
         "title": "FLTeamMembership",

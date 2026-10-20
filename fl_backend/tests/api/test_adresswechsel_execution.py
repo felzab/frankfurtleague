@@ -924,8 +924,11 @@ class TestTheApproval:
 
 
 class TestTheContactsEditorsRead:
-    def test_each_seat_names_its_address_s_live_change_and_none_once_it_ended(self, mongo_replica_set_url: str):
-        """The Ansprechperson typed otherwise and the Stellvertretung both fold to the changed address; the trainer's seat is empty."""
+    def test_each_confirmed_seat_names_its_address_s_live_change_and_none_once_it_ended(self, mongo_replica_set_url: str):
+        """The confirmed Ansprechperson, typed otherwise, folds to the changed address and names its change.
+
+        The Stellvertretung folds to it too but never confirmed, so the change moves nothing of it and names it nothing.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def seats() -> Any:
@@ -940,7 +943,7 @@ class TestTheContactsEditorsRead:
 
         minted, live, ended = on_a_person(mongo_replica_set_url, body)
 
-        assert live is not None and (live.trainer, live.ansprechperson, live.stellvertretung) == (None, minted, minted)
+        assert live is not None and (live.trainer, live.ansprechperson, live.stellvertretung) == (None, minted, None)
         assert ended is not None and (ended.trainer, ended.ansprechperson, ended.stellvertretung) == (None, None, None)
 
 
