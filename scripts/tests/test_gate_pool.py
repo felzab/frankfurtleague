@@ -8,6 +8,7 @@ drives the module as a subprocess, for `scripts/tests/conftest.py :: withdraw`'s
 
 from __future__ import annotations
 
+import math
 import os
 import re
 import subprocess
@@ -18,6 +19,7 @@ from typing import Final
 
 import pytest
 from conftest import BASH, WINDOWS, base_env, copy_scripts, declared, lift_function, new_root, write_shell
+from test_check_gate_budget import committed, job_bodies
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 POOL: Final = SCRIPTS / "gate" / "gate_pool.py"
@@ -666,20 +668,86 @@ def test_a_named_thread_s_stalled_frame_survives_the_notice_s_tail(tmp_path: Pat
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 # A `do_<check>` body's opening, whichever shape `scripts/tests/conftest.py :: lift_function` reads.
 BODY_RE: Final = re.compile(r"^(do_\w+)\(\) +\{", re.MULTILINE)
+DUMPS: Final = '-o "faulthandler_timeout=${FAULTHANDLER_S}"'
+
+
+def _faulthandler_s(text: str) -> int:
+    assigned = re.search(r"^FAULTHANDLER_S=([0-9]+)$", text, re.MULTILINE)
+    assert assigned is not None, "scripts/gate/verify.sh no longer assigns FAULTHANDLER_S a whole number of seconds"
+    return int(assigned.group(1))
 
 
 def test_every_gate_pytest_dumps_a_stalled_case_s_stack_before_the_pool_names_its_step() -> None:
     """Two bounds in order: a dump later than the notice leaves the notice carrying no stack, and a step without one carries none ever."""
     text = VERIFY.read_text(encoding="utf-8")
-    assigned = re.search(r"^FAULTHANDLER_S=([0-9]+)$", text, re.MULTILINE)
-    assert assigned is not None, "scripts/gate/verify.sh no longer assigns FAULTHANDLER_S a whole number of seconds"
-    faulthandler = int(assigned.group(1))
+    faulthandler = _faulthandler_s(text)
     assert faulthandler < float(declared(POOL, "STALL_S")), "the stack would be dumped after the notice that should carry it"
     bodies = [lift_function(VERIFY, name) for name in BODY_RE.findall(text)]
     running = [body for body in bodies if "-m pytest" in body]
     assert len(running) >= 3, "the scripts, backend and db pytest bodies are no longer found, so nothing below is checked"
-    bare = [body.splitlines()[0] for body in running if '-o "faulthandler_timeout=${FAULTHANDLER_S}"' not in body]
+    bare = [body.splitlines()[0] for body in running if DUMPS not in body]
     assert not bare, f"a gate pytest dumps no stack when a case stalls: {bare}"
+
+
+WORKFLOW: Final = SCRIPTS.parent / ".github" / "workflows" / "verify.yml"
+# A scope's pooled checks, each named bare or through one of the lists `verify.sh` declares.
+STARTS_RE: Final = re.compile(r"\bstart_steps --([a-z-]+) ([^;\n]+)")
+LIST_RE: Final = re.compile(r"^([A-Z_]+)=\(([^)]*)\)$", re.MULTILINE)
+LISTED_RE: Final = re.compile(r'^"\$\{([A-Z_]+)\[@\]\}"$')
+UNIT_RE: Final = re.compile(r"^[a-z_]+$")
+SCOPE_RUN_RE: Final = re.compile(r"^        run: \./scripts/gate/verify\.sh --([a-z-]+)$", re.MULTILINE)
+TIMEOUT_RE: Final = re.compile(r"^    timeout-minutes: ([0-9]+)$", re.MULTILINE)
+
+
+def _pooled_units(text: str) -> dict[str, set[str]]:
+    """Each scope that starts checks through a pool, against every check it starts there."""
+    lists = {name: members.split() for name, members in LIST_RE.findall(text)}
+    code = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
+    pooled: dict[str, set[str]] = {}
+    for scope, named in STARTS_RE.findall(code):
+        for word in named.split():
+            listed = LISTED_RE.match(word)
+            if listed is not None:
+                assert listed[1] in lists, f"start_steps --{scope} expands {listed[1]}, which verify.sh declares on no line of its own"
+                pooled.setdefault(scope, set()).update(lists[listed[1]])
+            else:
+                assert UNIT_RE.match(word), f"start_steps --{scope} names `{word}`, which this reader cannot resolve to a check"
+                pooled.setdefault(scope, set()).add(word)
+    return pooled
+
+
+def test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout() -> None:
+    """A job its timeout ends names no unit, so a stall starting as late as the job's budget is named inside it.
+
+    A pytest unit is named `FAULTHANDLER_S` later than any other: its dump restarts the silence.
+    """
+    text = VERIFY.read_text(encoding="utf-8")
+    faulthandler = _faulthandler_s(text)
+    stall, poll = float(declared(POOL, "STALL_S")), float(declared(POOL, "STALL_POLL_S"))
+    # The first poll after a unit's last write marks it, and the notice comes at the first poll `STALL_S` past that.
+    silent = poll + math.ceil(stall / poll) * poll
+    pooled = _pooled_units(text)
+    started = set().union(*pooled.values())
+    dumping = {name.removeprefix("do_") for name in BODY_RE.findall(text) if DUMPS in lift_function(VERIFY, name)}
+    assert dumping, "no gate pytest dumps its stack, so the delay it adds below is never counted"
+    assert dumping <= started, f"a gate pytest runs where no notice reaches its stack: {sorted(dumping - started)}"
+    rows = committed()
+    held: set[str] = set()
+    late: list[str] = []
+    for job, body in job_bodies(WORKFLOW.read_text(encoding="utf-8")).items():
+        for scope in (scope for scope in SCOPE_RUN_RE.findall(body) if scope in pooled):
+            timeout = TIMEOUT_RE.search(body)
+            assert timeout is not None, f"`{job}` sets no timeout-minutes of its own, so this case cannot read when GitHub ends it"
+            assert job in rows, f"`{job}` has no row in .github/gate-wall-clock.tsv to read its budget from"
+            # Nothing bounds the green span of a job carrying no budget, so its timeout alone is held.
+            budget = rows[job].budget if rows[job].budget is not None else 0
+            dump = faulthandler if pooled[scope] & dumping else 0
+            named = budget + dump + silent
+            if named >= int(timeout[1]) * 60:
+                late.append(f"`{job}`: budget {budget} s + dump {dump} s + silence {silent:g} s = {named:g} s, against {timeout[1]} minutes")
+            held.add(scope)
+    assert held == set(pooled), f"scopes that pool and that no job runs, so nothing here read their timeout: {sorted(set(pooled) - held)}"
+    assert not late, "a stall would be ended by the job's timeout before it is named:\n" + "\n".join(late)
 
 
 # The default full run's shape, the db scope one worker of several: its tier has a case past

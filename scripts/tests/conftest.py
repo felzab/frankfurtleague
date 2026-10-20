@@ -215,10 +215,10 @@ def lift_function(script: Path, name: str, indent: str = "") -> str:
     opens = re.compile(re.escape(indent) + re.escape(name) + r"\(\) +\{")
     start = next((i for i, line in enumerate(lines) if opens.match(line)), -1)
     assert start >= 0, f"{_cited(script)} no longer defines {name}"
-    # bash terminates a brace group's list before its `}`, so a body on the opening line ends the
-    # function there. Read off the terminator, not a bare `}`, which a parameter expansion ends a
-    # line with too.
-    if re.search(r";\s*\}$", lines[start].rstrip()):
+    # bash ends a brace group's list before its `}`, so a body on the opening line ends the function:
+    # read off that terminator, never a bare `}` closing a parameter expansion. A comment may follow;
+    # `}#` is one word.
+    if re.search(r";\s*\}(\s+#.*)?$", lines[start].rstrip()):
         return lines[start].removeprefix(indent)
     # A body the opening line does not close leaves its braces deeper than the group's own
     # (`scripts/lib/_lib.sh :: require_file`), and the walk below would take the next function's

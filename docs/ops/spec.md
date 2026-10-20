@@ -876,7 +876,11 @@ is named while it runs and never ended or failed**: the outermost pool prints wh
 and the end of its capture, nested pools' notices relayed through it, and a pytest step's capture
 carries every thread's stack (`scripts/gate/verify.sh :: FAULTHANDLER_S`), the stalled thread's whole
 (`scripts/gate/gate_pool.py :: shown`). That names a synchronous case's stalled frame; an async
-case's suspended coroutine is on no thread, so its dump shows only the event loop. **The pool ends its units rather than outliving them**
+case's suspended coroutine is on no thread, so its dump shows only the event loop. In CI the notice
+lands before the job's timeout ends the job, which names no unit, for a stall starting anywhere
+inside the job's budget
+(`scripts/tests/test_gate_pool.py :: test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout`).
+**The pool ends its units rather than outliving them**
 (`scripts/gate/gate_pool.py :: terminate`), down to the build a unit was waiting on. **On Windows,
 where no signal reaches a gate past its launching shell, the job object `scripts/gate/gate_watch.py`
 holds does the same**: every process the gate started ends once the gate ends, an interrupt
