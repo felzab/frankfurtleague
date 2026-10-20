@@ -235,14 +235,14 @@ ANGEFRAGT_OTHER_COMMANDS = 3
 SWEEP_GET_MORES = 14
 
 
-# `tests/api/test_bewerbung_sweep_refusal.py`'s per-command cost, timed locally 2026-09-23.
+# Each call's per-command cost, the widest of fifteen whole passes at a full share timed locally, 2026-10-20.
 @pytest.mark.parametrize(
     ("rows", "other_commands", "per_command_s", "round_trip_s"),
     [
         pytest.param(
-            CLOSES_PER_PASS + MINTS_PER_PASS + REMINDERS_PER_PASS, SWEEP_OTHER_COMMANDS + SWEEP_GET_MORES, 0.00135, 0.036, id="the sweep"
+            CLOSES_PER_PASS + MINTS_PER_PASS + REMINDERS_PER_PASS, SWEEP_OTHER_COMMANDS + SWEEP_GET_MORES, 0.00148, 0.036, id="the sweep"
         ),
-        pytest.param(ANFRAGEN_LISTED_PER_PASS, ANGEFRAGT_OTHER_COMMANDS, 0.00101, 0.038, id="/angefragt"),
+        pytest.param(ANFRAGEN_LISTED_PER_PASS, ANGEFRAGT_OTHER_COMMANDS, 0.00132, 0.038, id="/angefragt"),
     ],
 )
 def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names(

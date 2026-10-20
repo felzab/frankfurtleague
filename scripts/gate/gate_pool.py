@@ -47,9 +47,9 @@ POSIX: Final = sys.platform != "win32"
 # A second's grace is nothing beside a build running to its end for a reader who has gone.
 CALLER_POLL_S: Final = 1.0
 
-# Above the widest green whole local run on record, 8m 00s cold on 2026-10-03, so no unit's own silence
-# reaches it. A notice and never a verdict: a slow unit costs a line.
-STALL_S: Final = 600.0
+# Above the widest green unit on a runner, the db tier's 129 s (2026-10-20); a cold local unit, unmeasured, may
+# cross it and costs a line. A pytest unit is named at this plus `scripts/gate/verify.sh :: FAULTHANDLER_S`.
+STALL_S: Final = 300.0
 STALL_POLL_S: Final = 5.0
 # The end of a capture a notice shows.
 STALL_TAIL_LINES: Final = 100

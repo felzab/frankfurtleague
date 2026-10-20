@@ -12899,7 +12899,7 @@
               "pattern": "^[0-9a-fA-F]{24}$"
             },
             "type": "array",
-            "maxItems": 84,
+            "maxItems": 83,
             "title": "Bewerbung Ids"
           }
         },
@@ -13026,7 +13026,7 @@
               "pattern": "^[0-9a-fA-F]{24}$"
             },
             "type": "array",
-            "maxItems": 84,
+            "maxItems": 83,
             "title": "Bewerbung Ids"
           }
         },
@@ -24465,7 +24465,7 @@
               "pattern": "^[0-9a-fA-F]{24}$"
             },
             "type": "array",
-            "maxItems": 84,
+            "maxItems": 83,
             "title": "Spielbestaetigung Ids"
           }
         },
