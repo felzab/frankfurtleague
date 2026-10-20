@@ -24,7 +24,7 @@ const bestaetigungToken = z
  * Restated from `fl_backend/app/api/spielbestaetigungen/schemas.py :: ANFRAGEN_LISTED_PER_PASS` and held to the
  * `maxItems` the stamp's payload publishes by `fl_frontend/src/core/payloadBounds.test.ts`.
  */
-const ANFRAGEN_LISTED_PER_PASS = 84;
+const ANFRAGEN_LISTED_PER_PASS = 83;
 
 export const FLSpielbestaetigungAntwortArtSchema = z.enum(["zugesagt", "abgelehnt"], {
   error: "Bitte sag zu oder schlag einen anderen Termin vor.",

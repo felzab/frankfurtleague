@@ -81,11 +81,11 @@ router = APIRouter(
 
 # Both shares at three commands a row beside the 75 of the worst call erasing one page per clock
 # (`tests/api/test_bewerbung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
-# 267 commands at a 36 ms round trip plus 1.35 ms take 9.97 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
+# 267 commands at a 36 ms round trip plus 1.38 ms take 9.98 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 39
 
 # A season at its rules' capacity takes more passes. Below the reminders': the season's end strip writes once per set
-# of fields its images hold and once per list image, and 26 would make 270, 10.08 s.
+# of fields its images hold and once per list image, and 26 would make 270, 10.09 s.
 BLOCKS_CLEARED_PER_PASS: Final = 25
 
 
