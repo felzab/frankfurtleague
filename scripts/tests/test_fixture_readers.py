@@ -12,6 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final
 
+import pytest
 from conftest import lift_function, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parents[1]
@@ -28,9 +29,42 @@ ALIGNED: Final = 'aligned()   { printf "%s" "$1";  }'
 # longer ends on it.
 COMMENTED: Final = 'commented() { printf "%s" "$1"; } # why it reads so'
 
-# The one-liner ahead of the block, which is the arrangement a walk mis-reads: with no closing line
+# Each ended on its own line by what follows the brace -- an `&`, a redirection, a `;` -- so a reader
+# keyed to a line ending on the brace walks on to the block below.
+BACKGROUNDED: Final = "backgrounded() { sleep 1 & }"
+REDIRECTED: Final = 'redirected() { printf "%s" "$1"; } >&2'
+TERMINATED: Final = 'terminated() { printf "%s" "$1"; };'
+
+# Each holding a `; }` bash reads as text, inside quotes or inside a parameter expansion, so the body
+# runs on to a closing line of its own.
+QUOTED: Final = ("quoted() { printf '%s; } # %s\\n' \"$1\"", '  printf "and this"', "}")
+EXPANDED: Final = ('expanded() { printf "%s" ${1:-;} # the default', '  printf "and this"', "}")
+
+# The one-liners ahead of the blocks, which is the arrangement a walk mis-reads: with no closing line
 # of its own the first lift runs on to the second function's.
-MIXED: Final = "\n".join(("#!/usr/bin/env bash", ONE_LINE, "", ALIGNED, "", COMMENTED, "", "a_block() {", '  printf "not this"', "}", ""))
+MIXED: Final = "\n".join(
+    (
+        "#!/usr/bin/env bash",
+        ONE_LINE,
+        "",
+        ALIGNED,
+        "",
+        COMMENTED,
+        "",
+        BACKGROUNDED,
+        REDIRECTED,
+        TERMINATED,
+        "",
+        *QUOTED,
+        "",
+        *EXPANDED,
+        "",
+        "a_block() {",
+        '  printf "not this"',
+        "}",
+        "",
+    )
+)
 
 NESTED: Final = "\n".join(("#!/usr/bin/env bash", "outer() {", "  " + INDENTED, "  inner x", "}", ""))
 
@@ -51,6 +85,65 @@ UNCLOSED: Final = "\n".join(
         "",
     )
 )
+
+# A one-liner sharing its line with the next definition's opening, which leaves that line unclosed.
+SHARED: Final = "\n".join(("#!/usr/bin/env bash", 'shared() { printf "%s" "$1"; }; other() {', '  printf "not this"', "}", ""))
+
+# A block whose closing line opens and closes another definition, ahead of a block of its own.
+SHARED_CLOSING: Final = "\n".join(
+    ("#!/usr/bin/env bash", "shared_closing() {", '  printf "%s" "$1"', '}; other() { printf "not this"; }', "", "a_block() {", "  :", "}", "")
+)
+
+# Each a block closed by a line holding more than its brace -- a redirection, a `;`, a comment, a
+# quoted brace -- so a reader keyed to a bare `}` line walks on into the next function.
+REDIRECTED_BLOCK: Final = ("redirected_block() {", '  printf "%s" "$1"', "} >&2")
+TERMINATED_BLOCK: Final = ("terminated_block() {", '  printf "%s" "$1"', "};")
+COMMENTED_BLOCK: Final = ("commented_block() {", '  printf "%s" "$1"', "} # why it reads so")
+QUOTED_CLOSER: Final = ("quoted_closer() {", '  printf "%s" "$1"', '} > "}.log"')
+
+# Each holding a bare `}` line bash reads as text, so a reader keyed to one hands back half the body.
+HEREDOC_BLOCK: Final = ("heredoc_block() {", "  cat <<EOF", "}", "EOF", '  printf "and this"', "}")
+STRING_BLOCK: Final = ("string_block() {", '  printf "%s" "first', "}", 'last"', "}")
+
+# A definition's opening line written as the text of an earlier function's here-document, ahead of
+# the definition itself.
+WRITTEN: Final = ("written() {", '  printf "%s" "$1"', "}")
+
+BLOCKS: Final = "\n".join(
+    (
+        "#!/usr/bin/env bash",
+        *REDIRECTED_BLOCK,
+        *TERMINATED_BLOCK,
+        *COMMENTED_BLOCK,
+        *QUOTED_CLOSER,
+        "",
+        *HEREDOC_BLOCK,
+        "",
+        *STRING_BLOCK,
+        "",
+        "writer() {",
+        "  cat <<'EOF'",
+        "written() { printf 'not this'; }",
+        "EOF",
+        "}",
+        "",
+        *WRITTEN,
+        "",
+    )
+)
+
+# A here-document opened on a one-liner's line: bash parses the line, warning that the document runs
+# past it.
+HEREDOC_ONE_LINER: Final = "\n".join(
+    ("#!/usr/bin/env bash", "heredoc_one_liner() { cat <<EOF; }", "not this", "EOF", "", "a_block() {", '  printf "not this"', "}", "")
+)
+
+# A block whose brace shares its last body line, ahead of code at the margin that closes on a bare `}`.
+SHARED_CLOSER: Final = "\n".join(("#!/usr/bin/env bash", "shared_closer() {", '  printf "%s" "$1"; }', "", "{", '  printf "not this"', "}", ""))
+
+# BLOCKS' writer ahead of an unclosed quote: where the script does not parse, every line reads as
+# code, the written-out text among them.
+UNPARSED: Final = BLOCKS + 'printf "%s" "unclosed\n'
 
 
 def test_a_one_line_function_is_lifted_without_the_block_below_it(tmp_path: Path) -> None:
@@ -74,10 +167,44 @@ def test_a_one_line_function_with_a_trailing_comment_is_lifted_whole(tmp_path: P
     assert lift_function(script, "commented") == COMMENTED
 
 
+@pytest.mark.parametrize("line", [BACKGROUNDED, REDIRECTED, TERMINATED], ids=["ampersand", "redirection", "semicolon"])
+def test_a_one_line_function_ended_by_what_follows_its_brace_is_lifted_whole(line: str, tmp_path: Path) -> None:
+    script = write_shell(tmp_path / "mixed.sh", MIXED)
+
+    assert lift_function(script, line.split("(")[0]) == line
+
+
+@pytest.mark.parametrize("block", [QUOTED, EXPANDED], ids=["quoted", "expanded"])
+def test_a_brace_bash_reads_as_text_leaves_the_body_running_to_its_closing_line(block: tuple[str, ...], tmp_path: Path) -> None:
+    """Read as closed, the lift hands back the opening line alone, and a sweep never reads the rest of the body."""
+    script = write_shell(tmp_path / "mixed.sh", MIXED)
+
+    assert lift_function(script, block[0].split("(")[0]) == "\n".join(block)
+
+
 def test_a_block_function_is_lifted_from_its_opening_line_to_its_closing_one(tmp_path: Path) -> None:
     script = write_shell(tmp_path / "mixed.sh", MIXED)
 
     assert lift_function(script, "a_block") == 'a_block() {\n  printf "not this"\n}'
+
+
+@pytest.mark.parametrize(
+    "block",
+    [REDIRECTED_BLOCK, TERMINATED_BLOCK, COMMENTED_BLOCK, QUOTED_CLOSER, HEREDOC_BLOCK, STRING_BLOCK],
+    ids=["redirection", "semicolon", "comment", "quoted-brace", "heredoc", "string"],
+)
+def test_a_block_is_lifted_to_the_line_bash_closes_it_on(block: tuple[str, ...], tmp_path: Path) -> None:
+    """Over-lifted, a sweep counts the next function's body as this one's; under-lifted, it never reads the rest."""
+    script = write_shell(tmp_path / "blocks.sh", BLOCKS)
+
+    assert lift_function(script, block[0].split("(")[0]) == "\n".join(block)
+
+
+def test_an_opening_line_bash_reads_as_text_is_passed_over_for_the_definition(tmp_path: Path) -> None:
+    """Taken as the definition, the text an earlier function writes out runs in the caller's shell as the gate's."""
+    script = write_shell(tmp_path / "blocks.sh", BLOCKS)
+
+    assert lift_function(script, "written") == "\n".join(WRITTEN)
 
 
 def test_an_indented_one_line_function_is_lifted_dedented(tmp_path: Path) -> None:
@@ -109,6 +236,66 @@ def test_a_body_the_opening_line_never_closes_is_refused_by_its_name(tmp_path: P
         assert "unclosed" in str(refusal), refusal
     else:
         raise AssertionError("a function whose body outruns its opening line was lifted anyway")
+
+
+def test_a_one_line_function_sharing_its_line_with_another_definition_is_refused_by_its_name(tmp_path: Path) -> None:
+    """The line bash leaves open is the other definition's, so walking on from it hands back that function's body as this one's."""
+    script = write_shell(tmp_path / "shared.sh", SHARED)
+
+    try:
+        lift_function(script, "shared")
+    except AssertionError as refusal:
+        assert "shared" in str(refusal), refusal
+    else:
+        raise AssertionError("a function sharing its opening line with another definition was lifted anyway")
+
+
+def test_a_block_sharing_its_closing_line_with_another_definition_is_refused_by_its_name(tmp_path: Path) -> None:
+    """bash reads that line whole, so the run ending on it parses and carries the other function's body as this one's."""
+    script = write_shell(tmp_path / "shared_closing.sh", SHARED_CLOSING)
+
+    try:
+        lift_function(script, "shared_closing")
+    except AssertionError as refusal:
+        assert "shared_closing" in str(refusal), refusal
+    else:
+        raise AssertionError("a block sharing its closing line with another definition was lifted anyway")
+
+
+def test_a_here_document_opened_on_a_one_line_functions_line_is_refused_by_its_name(tmp_path: Path) -> None:
+    """bash parses that line with a warning alone, so a reader taking a parse for the end hands back the line without its document."""
+    script = write_shell(tmp_path / "heredoc.sh", HEREDOC_ONE_LINER)
+
+    try:
+        lift_function(script, "heredoc_one_liner")
+    except AssertionError as refusal:
+        assert "heredoc_one_liner" in str(refusal), refusal
+    else:
+        raise AssertionError("a one-line function whose here-document runs past its line was lifted anyway")
+
+
+def test_a_script_bash_does_not_parse_whole_is_refused_by_the_function_s_name(tmp_path: Path) -> None:
+    """Over such a script the written-out opening line reads as code and is lifted as the definition."""
+    script = write_shell(tmp_path / "unparsed.sh", UNPARSED)
+
+    try:
+        lift_function(script, "written")
+    except AssertionError as refusal:
+        assert "written" in str(refusal), refusal
+    else:
+        raise AssertionError("a function was lifted out of a script whose code and text bash could not tell apart")
+
+
+def test_a_block_closing_where_no_closer_is_read_is_refused_rather_than_lifted_into_the_code_below(tmp_path: Path) -> None:
+    """The next line at the margin closing cleanly is a brace group's, so the walk would hand back code that is no part of the function."""
+    script = write_shell(tmp_path / "shared_closer.sh", SHARED_CLOSER)
+
+    try:
+        lift_function(script, "shared_closer")
+    except AssertionError as refusal:
+        assert "shared_closer" in str(refusal), refusal
+    else:
+        raise AssertionError("a block lifted through the code after its own end was handed back as the function")
 
 
 def test_the_gates_own_one_line_function_comes_back_as_one_line() -> None:

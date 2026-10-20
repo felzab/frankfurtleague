@@ -58,6 +58,7 @@ from tests.core.app_source import DRIVER_WRITES
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import (
     ban_document,
+    bericht_document,
     bewerbung_document,
     eigene_einwilligung_document,
     kontakte_document,
@@ -69,6 +70,7 @@ from tests.documents import (
     saison_team_document,
     schiedsrichter_document,
     spiel_document,
+    spielbericht_document,
     spielbestaetigung_document,
     spieler_document,
     team_document,
@@ -256,6 +258,37 @@ async def edited(database: AsyncDatabase, collection: Collection, document_id: A
     """One recorded edit, so the log holds the document's image as it stood: a seed alone writes no log row."""
 
     await patch_one_in_db(collection=database[collection], db_filter={"_id": document_id}, update=update, return_document=ReturnDocument.BEFORE)
+
+
+# The reports a referee sent, one of theirs an undraw of an earlier season took, and another referee's.
+THEIR_REPORT_OID = ObjectId("6890a1b2c3d4e5f607b000b1")
+OTHER_REPORT_OID = ObjectId("6890a1b2c3d4e5f607b000b2")
+THEIR_REMARKS = "Flutlicht fiel in der 70. Minute aus."
+
+
+def a_report(report_id: ObjectId, schiedsrichter_id: ObjectId, *, spiel_id: ObjectId, saison_id: str = SAISON_ID) -> dict[str, Any]:
+    return spielbericht_document(
+        {"_id": spiel_id, "saison_id": saison_id},
+        _id=report_id,
+        bericht=bericht_document(eingereicht_von={"art": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id}, bemerkungen=THEIR_REMARKS),
+    )
+
+
+async def their_reports(database: AsyncDatabase) -> None:
+    """Each kind of log image naming them as a report's sender: two corrections' and an undraw's array."""
+
+    reports = database[Collection.SPIELBERICHTE]
+    await reports.insert_many(
+        [
+            a_report(THEIR_REPORT_OID, REFEREE_OID, spiel_id=THEIR_SPIEL_OID),
+            a_report(OTHER_REPORT_OID, OTHER_REFEREE_OID, spiel_id=OTHER_SPIEL_OID),
+            a_report(ObjectId(), REFEREE_OID, spiel_id=ObjectId(), saison_id=UNDRAWN_SAISON_ID),
+        ]
+    )
+    await edited(database, Collection.SPIELBERICHTE, THEIR_REPORT_OID, {"$inc": {"bericht.version": 1}})
+    await edited(database, Collection.SPIELBERICHTE, OTHER_REPORT_OID, {"$inc": {"bericht.version": 1}})
+    async with database.client.start_session() as session:
+        await delete_many_from_db(collection=reports, db_filter={"saison_id": UNDRAWN_SAISON_ID}, session=session)
 
 
 async def the_one(database: AsyncDatabase, collection: Collection, db_filter: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
@@ -462,6 +495,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     await edited(database, Collection.BEWERBUNGEN, DECIDED_BY_THEM_OID, {"$set": {"wunschgegner": "Gast-Schule"}})
     await edited(database, Collection.REGISTRIERUNGEN, DECLINED_BY_THEM_OID, {"$set": {"nummer": "12"}})
     await their_confirmations(database)
+    await their_reports(database)
 
     # Written AS the person: their own record as a pupil, and another pupil's squad row as a seat holder.
     await acting(
@@ -866,6 +900,26 @@ class TestWhatStandsBesideThem:
             [(GHOST_SCHIEDSRICHTER_ID, None), (OTHER_REFEREE_OID, OTHER_REASON)],
             key=str,
         )
+
+    def test_their_reports_stand_naming_the_ghost_in_the_document_and_every_image(self, mongo_replica_set_url: str):
+        """The report is the league's record of the match: it stays, its remarks with it, and another referee's report is theirs."""
+
+        def sender(image: Mapping[str, Any]) -> Any:
+            return image["bericht"]["eingereicht_von"]["schiedsrichter_id"]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await erased_over_http(mongo_replica_set_url)
+
+            reports = await database[Collection.SPIELBERICHTE].find().sort("_id").to_list(length=None)
+            logged = await database[Collection.AKTIONEN].find({"collection": str(Collection.SPIELBERICHTE)}).to_list(length=None)
+            images = [image for row in logged for image in (row["before"] if isinstance(row["before"], list) else [row["before"]]) if image]
+
+            return [(row["_id"], sender(row), row["bericht"]["bemerkungen"]) for row in reports], sorted(map(sender, images), key=str)
+
+        reports, images = on_a_league(mongo_replica_set_url, body)
+
+        assert reports == [(THEIR_REPORT_OID, GHOST_SCHIEDSRICHTER_ID, THEIR_REMARKS), (OTHER_REPORT_OID, OTHER_REFEREE_OID, THEIR_REMARKS)]
+        assert images == sorted([GHOST_SCHIEDSRICHTER_ID, GHOST_SCHIEDSRICHTER_ID, OTHER_REFEREE_OID], key=str)
 
     def test_only_their_day_counts_go(self, mongo_replica_set_url: str):
         """Every day of theirs, the one the TTL monitor may not have reached included, and another person's count of today stands."""

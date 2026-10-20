@@ -26,6 +26,7 @@ import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { doubleTurnstile } from "@/shared/testing/turnstileDouble.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
+import { formatSpielDatum } from "@/shared/utils/format.ts";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
@@ -127,9 +128,7 @@ const GEOEFFNET: SpielerBestaetigungGeoeffnet = {
   seite: FASSUNG.seite,
   mindestalter: MIN_ALTER,
   medien_mindestalter: MEDIEN_ALTER,
-  geburtsdatum: null,
-  umfang: null,
-  medien: null,
+  geburtsdatum_gespeichert: false,
 };
 
 /** A birthdate this many whole years before the German day the page judges by, moved later by `tageSpaeter`. */
@@ -152,16 +151,11 @@ const bestaetigungSeite = (ansicht: SpielerBestaetigungGeoeffnet = GEOEFFNET): s
 /** The returning pupil's page's words, off the registry for `FASSUNG`'s reason. */
 const WIEDERKEHREND: SpielerWiederkehrendFassung = laufendeSpielerWiederkehrendFassung();
 
-/**
- * A link the backend resolved to a person it holds, confirmed, at this address and name: the stored
- * pair is media on, so a page reading it as a draft would send a grant.
- */
+/** A link the backend resolved to a person it holds, confirmed, at this address and name, a birthdate stored. */
 const WIEDERKEHREND_GEOEFFNET: SpielerBestaetigungGeoeffnet = {
   ...GEOEFFNET,
   seite: WIEDERKEHREND.seite,
-  geburtsdatum: "2008-09-01",
-  umfang: "intern",
-  medien: true,
+  geburtsdatum_gespeichert: true,
 };
 
 const wiederkehrendeSeite = (ansicht: SpielerBestaetigungGeoeffnet = WIEDERKEHREND_GEOEFFNET): string =>
@@ -580,7 +574,7 @@ describe("what the two public pages say about a refusal no box of theirs can tak
 
 /* No control renders the token, so its refusal reaches the pupil in the blocked press's toast or nowhere. */
 describe("a confirmation press over a token the page cannot send", () => {
-  const satz = buildRegistrierungBestaetigungPayloadSchema(MIN_ALTER, FASSUNG.seite).shape.token.safeParse("").error?.issues[0]?.message;
+  const satz = buildRegistrierungBestaetigungPayloadSchema(MIN_ALTER, FASSUNG.seite, false).shape.token.safeParse("").error?.issues[0]?.message;
 
   for (const [wie, token] of [
     ["empty", ""],
@@ -627,12 +621,10 @@ describe("which of the confirmation page's words its stamped version covers", ()
     assert.doesNotMatch(textOf(STANDING, " "), /\{\w+\}/, "the consent text spells a placeholder at its reader");
   });
 
-  it("takes the switch's label off that same version, and points the button at the stamped four", () => {
+  // The switch's own words are the version's too: the media switch case finds it by them.
+  it("points the button at the stamped four", () => {
     const describedBy = [...STANDING.matchAll(/aria-describedby="([^"]*)"/g)].flatMap((hit) => (hit[1] ?? "").split(" "));
-    // The switch stands only for a pupil of the media age, so its words are read on that page.
-    const volljaehrig = bestaetigungSeite({ ...GEOEFFNET, geburtsdatum: geborenVor(MEDIEN_ALTER), umfang: "intern", medien: false });
 
-    assert.ok(textOf(volljaehrig).includes(FASSUNG.schalter), "the switch says something the stamped version does not hold");
     assert.ok(
       describedBy.some((id) => {
         const from = STANDING.indexOf(`id="${id}"`);
@@ -811,41 +803,9 @@ describe("the three answers the confirmation page collects", () => {
     await user.click(tag!);
     await user.keyboard(getippt(geborenVor(MEDIEN_ALTER + 2)));
 
-    const schalter = screen.getByRole("switch", { name: new RegExp(FASSUNG.schalter.slice(0, 20)) }) as HTMLInputElement;
+    const schalter = screen.getByRole("switch", { name: FASSUNG.schalter }) as HTMLInputElement;
 
     assert.equal(schalter.checked, false, "the media consent is pre-selected, so nobody gave it");
-  });
-
-  /* A stored pair is the returning page's to show, never this page's to start from: a chip or a switch
-     opening on it is a consent nobody gave here, and a press would stamp it as given today. */
-  it("starts from nothing on the new pupil's page, whatever pair the read served", () => {
-    const html = bestaetigungSeite({ ...GEOEFFNET, geburtsdatum: geborenVor(MEDIEN_ALTER + 2), umfang: "intern", medien: true });
-    const schalter = /<input\b[^>]*name="medien"[^>]*>/.exec(html)?.[0] ?? "";
-
-    assert.notEqual(schalter, "", "the date offers the switch, so this case compares nothing without it");
-    assert.doesNotMatch(schalter, /\bchecked\b/, "the media switch opens on the served answer");
-    assert.deepEqual(
-      scopeChips(html).filter((chip) => /aria-checked="true"/.test(chip.tag)),
-      [],
-      "the page opens on the served scope",
-    );
-  });
-
-  /* One mailbox behind two pupils: the read narrows by the folded name as well as the address, so it
-     answers nothing stored for a person of another name. */
-
-  /* This page must then ASK, never show the sibling's date back as though it were this reader's. */
-  it("asks for everything again where the read answered no stored answers", () => {
-    const html = bestaetigungSeite({ ...GEOEFFNET, geburtsdatum: null, umfang: null, medien: null });
-    const schalter = /<input\b[^>]*name="medien"[^>]*>/.exec(html)?.[0] ?? "";
-
-    assert.ok(html.includes('name="geburtsdatum"'), "the page shows a date back instead of asking for one");
-    assert.doesNotMatch(schalter, /\bchecked\b/, "the media switch opens as though a consent had been given");
-    assert.deepEqual(
-      scopeChips(html).filter((chip) => /aria-checked="true"/.test(chip.tag)),
-      [],
-      "the page opens on a scope nobody at this address chose",
-    );
   });
 
   it("bounds the date control by the floor the link answered rather than a constant of its own", () => {
@@ -906,7 +866,7 @@ describe("how a pupil operates the confirmation page without a pointer", () => {
     await user.keyboard(getippt(geborenVor(MEDIEN_ALTER + 2)));
     (document.activeElement as HTMLElement | null)?.blur();
 
-    const medien = screen.getByRole("switch", { name: new RegExp(FASSUNG.schalter.slice(0, 20)) });
+    const medien = screen.getByRole("switch", { name: FASSUNG.schalter });
 
     for (const control of [datum, wahl, medien]) assert.ok(control, "a control resolves by no accessible name");
 
@@ -966,13 +926,7 @@ describe("the media switch, offered from the media age alone", () => {
     ansicht: SpielerBestaetigungGeoeffnet,
     vorDemDruck?: (user: ReturnType<typeof userEvent.setup>) => Promise<void>,
   ) {
-    const antwort = {
-      success: true,
-      ergebnis: "bestaetigt",
-      geburtsdatum: ansicht.geburtsdatum ?? "2000-01-01",
-      umfang: "intern",
-      medien: false,
-    };
+    const antwort = { success: true, ergebnis: "bestaetigt", geburtsdatum: "2000-01-01", umfang: "intern", medien: false };
     fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify(antwort), { status: 200 })));
     const bisher = fetchMock.mock.callCount();
 
@@ -995,25 +949,40 @@ describe("the media switch, offered from the media age alone", () => {
     assert.equal(schalterIn(bestaetigungSeite()), "", "a pupil of unknown age is offered a consent the write refuses below the media age");
   });
 
-  it("offers no switch to a pupil whose read date is a day short of the media age", () => {
-    const html = bestaetigungSeite({ ...GEOEFFNET, geburtsdatum: geborenVor(MEDIEN_ALTER, 1) });
+  /** Whether the switch stands once this date is typed. */
+  async function schalterNachDatum(datum: string): Promise<boolean> {
+    const user = userEvent.setup();
+    const { unmount } = render(
+      h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: GEOEFFNET, token: "kein-echtes-token" }, fassung: FASSUNG }),
+    );
+    const [tag] = screen.getAllByRole("spinbutton");
+    await user.click(tag!);
+    await user.keyboard(getippt(datum));
+    const steht = screen.queryByRole("switch") !== null;
+    unmount();
 
-    assert.equal(schalterIn(html), "", "a pupil under the media age is offered the media switch");
+    return steht;
+  }
+
+  it("offers no switch to a pupil whose typed date is a day short of the media age", async () => {
+    assert.equal(await schalterNachDatum(geborenVor(MEDIEN_ALTER, 1)), false, "a pupil under the media age is offered the media switch");
   });
 
-  it("offers the switch to a pupil whose read date is the media age to the day", () => {
-    const html = bestaetigungSeite({ ...GEOEFFNET, geburtsdatum: geborenVor(MEDIEN_ALTER) });
-
-    assert.notEqual(schalterIn(html), "", "a pupil of the media age is refused the switch the ruling offers them");
+  it("offers the switch to a pupil whose typed date is the media age to the day", async () => {
+    assert.equal(
+      await schalterNachDatum(geborenVor(MEDIEN_ALTER)),
+      true,
+      "a pupil of the media age is refused the switch the ruling offers them",
+    );
   });
 
   it("withdraws the switch and its yes when the typed date moves below the media age", async () => {
-    const gesendet = await gesendetBeiDruck({ ...GEOEFFNET, geburtsdatum: null }, async (user) => {
+    const gesendet = await gesendetBeiDruck(GEOEFFNET, async (user) => {
       await user.click(screen.getByRole("radio", { name: FASSUNG.bedienelemente.intern }));
       const [tag] = screen.getAllByRole("spinbutton");
       await user.click(tag!);
       await user.keyboard(getippt(geborenVor(MEDIEN_ALTER + 2)));
-      await user.click(screen.getByRole("switch", { name: new RegExp(FASSUNG.schalter.slice(0, 20)) }));
+      await user.click(screen.getByRole("switch", { name: FASSUNG.schalter }));
 
       await user.click(tag!);
       await user.keyboard(getippt(geborenVor(MEDIEN_ALTER - 1)));
@@ -1033,9 +1002,12 @@ describe("the media switch, offered from the media age alone", () => {
 describe("the returning pupil's confirmation page", () => {
   const STANDING = wiederkehrendeSeite();
 
-  /** The body the press sends, and the panel it lands on, the route answering as it does for this page. */
-  async function gedrueckt(ansicht: SpielerBestaetigungGeoeffnet = WIEDERKEHREND_GEOEFFNET) {
-    const antwort = { success: true, ergebnis: "bestaetigt", geburtsdatum: ansicht.geburtsdatum ?? "2008-09-01", umfang: null, medien: null };
+  /**
+   * The body the press sends, and the panel it lands on, the route answering as it does for this page. `datum`
+   * is the date typed first, which the page asks where none is stored.
+   */
+  async function gedrueckt(ansicht: SpielerBestaetigungGeoeffnet = WIEDERKEHREND_GEOEFFNET, datum: string | null = null) {
+    const antwort = { success: true, ergebnis: "bestaetigt", geburtsdatum: datum, umfang: null, medien: null };
     fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify(antwort), { status: 200 })));
     const bisher = fetchMock.mock.callCount();
 
@@ -1043,6 +1015,11 @@ describe("the returning pupil's confirmation page", () => {
     const { unmount } = render(
       h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: ansicht, token: "kein-echtes-token" }, fassung: WIEDERKEHREND }),
     );
+    if (datum !== null) {
+      const [tag] = screen.getAllByRole("spinbutton");
+      await user.click(tag!);
+      await user.keyboard(getippt(datum));
+    }
     await user.click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
     await act(fetchMock.answered);
     await screen.findByRole("heading", { name: "Registrierung bestätigt" });
@@ -1059,15 +1036,15 @@ describe("the returning pupil's confirmation page", () => {
     return { gesendet, panel };
   }
 
-  /* The choices stand on the person's own record, so a control for either here would take an answer
-     the page then stamps as given today over whatever the person moved since. */
-  it("asks no choice, and shows the stored pair read-only beside the way to the account page", () => {
+  /* A control for either choice would take an answer the page stamps as given today over whatever the
+     person moved since; and the holder of the link is not yet known to be that person. */
+  it("asks no choice and shows none, naming the way to the account page", () => {
     const text = textOf(STANDING, " ");
 
     assert.ok(!STANDING.includes('role="radiogroup"'), "the returning page offers the publication scopes");
     assert.ok(!STANDING.includes('name="umfang"') && !STANDING.includes('name="medien"'), "the returning page renders a choice's control");
-    assert.ok(text.includes(WIEDERKEHREND.bedienelemente.intern), "the stored scope is not shown in its label's words");
-    assert.match(text, /Fotos, Videos und Interviews\s*erlaubt/, "the stored media answer is not shown");
+    assert.ok(!Object.values(FASSUNG.bedienelemente).some((scope) => text.includes(scope)), "the page shows a publication scope");
+    assert.doesNotMatch(text, /Fotos, Videos und Interviews\s*(erlaubt|nicht erlaubt)/, "the page shows a media answer");
     assert.ok(STANDING.includes(`href="${KONTO_HREF}"`), "the page names no way to the account page, where the choices are changed");
   });
 
@@ -1076,11 +1053,14 @@ describe("the returning pupil's confirmation page", () => {
     assert.match(STANDING, /<h3[^>]*>Deine Einwilligung<\/h3>/);
   });
 
-  it("shows a stored birthdate rather than asking again, and asks one where none is stored", () => {
+  it("says a birthdate is stored rather than asking again, and asks one where none is stored", () => {
     assert.ok(!STANDING.includes('name="geburtsdatum"'), "the page asks for a date the league already holds");
-    assert.ok(textOf(STANDING).includes("01.09.2008"), "the stored date is not shown at all");
     assert.ok(
-      wiederkehrendeSeite({ ...WIEDERKEHREND_GEOEFFNET, geburtsdatum: null }).includes('name="geburtsdatum"'),
+      textOf(STANDING, " ").includes("Dein Geburtsdatum ist bei uns schon gespeichert. Du siehst es in Deinem Konto."),
+      "the page does not say the date is stored",
+    );
+    assert.ok(
+      wiederkehrendeSeite({ ...WIEDERKEHREND_GEOEFFNET, geburtsdatum_gespeichert: false }).includes('name="geburtsdatum"'),
       "no date is asked where none is stored",
     );
   });
@@ -1102,20 +1082,35 @@ describe("the returning pupil's confirmation page", () => {
 
   /* The stale re-grant this page exists to end: a press carrying the pair the page opened on stamps it
      later than a withdrawal made meanwhile on the account page, and the admission carries it. */
-  it("sends neither choice, under its own page's label", async () => {
+  it("sends neither choice nor the stored date, under its own page's label", async () => {
     const { gesendet } = await gedrueckt();
 
     assert.equal(gesendet.length, 1, "the press sent nothing, so this case compares nothing");
     assert.deepEqual([gesendet[0]?.["umfang"], gesendet[0]?.["medien"]], [null, null], "the press sent a choice the page did not ask");
+    assert.equal(gesendet[0]?.["geburtsdatum"], null, "the press sent a date where the page asked none");
     assert.equal(gesendet[0]?.["text_version"], WIEDERKEHREND.textVersion, "the press names a label other than its page's");
   });
 
-  /* The answer carries no choice, the page having sent none, so the panel states the pair that stands. */
-  it("states the stored pair in the answer panel", async () => {
+  /* A person the league holds with no birthdate is asked one here, and the press is the only way it reaches them. */
+  it("sends the typed date where none is stored, and shows it in the answer panel", async () => {
+    const datum = geborenVor(MIN_ALTER + 1);
+    const { gesendet, panel } = await gedrueckt({ ...WIEDERKEHREND_GEOEFFNET, geburtsdatum_gespeichert: false }, datum);
+
+    assert.equal(gesendet.length, 1, "the press sent nothing, so this case compares nothing");
+    assert.equal(gesendet[0]?.["geburtsdatum"], datum, "the press dropped the date the page asked");
+    assert.deepEqual([gesendet[0]?.["umfang"], gesendet[0]?.["medien"]], [null, null], "the press sent a choice the page did not ask");
+    assert.ok(panel.includes(formatSpielDatum(datum)), "the answer panel leaves out the date typed on this page");
+  });
+
+  it("says in the answer panel that the stored answers stand, and states none of them", async () => {
     const { panel } = await gedrueckt();
 
-    assert.ok(panel.includes(WIEDERKEHREND.bedienelemente.intern), "the answer panel drops the standing scope");
-    assert.match(panel, /Fotos, Videos und Interviews\s*erlaubt/, "the answer panel drops the standing media answer");
+    assert.ok(
+      panel.includes("Deine gespeicherten Angaben gelten weiter. Du siehst sie in Deinem Konto."),
+      "the panel says nothing of what stands",
+    );
+    assert.ok(!Object.values(FASSUNG.bedienelemente).some((scope) => panel.includes(scope)), "the panel shows a publication scope");
+    assert.doesNotMatch(panel, /Fotos, Videos und Interviews\s*(erlaubt|nicht erlaubt)/, "the panel shows a media answer");
   });
 });
 

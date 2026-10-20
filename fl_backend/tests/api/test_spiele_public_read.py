@@ -7,7 +7,7 @@ import pytest
 from bson import ObjectId
 from fastapi import FastAPI
 from httpx2 import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient
 
 from app.api.spiele.schemas import (
@@ -34,7 +34,7 @@ from app.main import create_app
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database_sync
-from tests.documents import saison_team_document, spiel_document
+from tests.documents import eigene_einwilligung_document, saison_team_document, schiedsrichter_document, spiel_document
 
 from .conftest import unwritten
 
@@ -114,6 +114,8 @@ def joined_document() -> dict[str, Any]:
         "team1": {**document["team1"], "austritt": None, AUSTRITT_TYPE_KEY: None},
         "team2": {**document["team2"], "austritt": dict(AUSTRITT), AUSTRITT_TYPE_KEY: AUSTRITT["type"]},
         "ansetzung_bestaetigt": None,
+        # A referee publishing their name and never asked about this fixture: both gates pass, so the reduction is what is left.
+        "schiedsrichter": {**document["schiedsrichter"], "name_is_public": True, "einsatz_bestaetigt": None},
     }
 
 
@@ -203,6 +205,16 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
         database = a_clean_database_sync(client, mongo_replica_set_url, database_name)
         database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
         database[Collection.SPIELE].insert_one(stored_document())
+        # Publishing their name, so the reduction is what the base tier serves rather than a withheld null.
+        database[Collection.SCHIEDSRICHTER].insert_one(
+            schiedsrichter_document(
+                SCHIEDSRICHTER_ID,
+                email="ada.kern@example.com",
+                name=SCHIEDSRICHTER_NAME,
+                default_payment=PAYMENT,
+                einwilligung=eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-01"),
+            )
+        )
         database[Collection.SAISON_TEAMS].insert_one(junction_row())
 
         with unwritten(mongo_replica_set_url, database_name):
@@ -216,7 +228,7 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
 # stand in.
 PUBLIC_EMBEDDED_FIELDS = [
     pytest.param(FLSpielOrtFieldPublic, frozenset({"spielort_id", "name", "maps_link"}), id="the venue"),
-    pytest.param(FLSpielSchiedsrichterFieldPublic, frozenset({"schiedsrichter_id", "name"}), id="the referee"),
+    pytest.param(FLSpielSchiedsrichterFieldPublic, frozenset({"schiedsrichter_id", "name", "name_is_public"}), id="the referee"),
 ]
 
 # The base-tier FIXTURE's whole membership. Its aggregation projects no allow-list, so the model is
@@ -355,6 +367,18 @@ class TestTheFixtureShapes:
 
         assert parsed.schiedsrichter is not None and parsed.schiedsrichter.name == SCHIEDSRICHTER_NAME
 
+    def test_a_referee_block_the_join_never_judged_is_refused(self):
+        """Required as `ansetzung_bestaetigt` is: served without its verdict, a read that skipped the gate would publish every referee."""
+
+        document = joined_document()
+        unjudged = {
+            **document,
+            "schiedsrichter": {key: value for key, value in document["schiedsrichter"].items() if key != "einsatz_bestaetigt"},
+        }
+
+        with pytest.raises(ValidationError):
+            FLSpielJoined.model_validate(unjudged)
+
     def test_the_admin_fixture_keeps_both(self):
         """The other end of the split: one document, two models, and only `FLSpielJoinedAdmin` reads the figures out of it."""
 
@@ -464,7 +488,9 @@ class TestTheSurnameReduction:
     def test_the_base_tier_shape_applies_it(self, stored: str, served: str):
         """The rule reaches a caller through the model, so a reducer nothing calls would pass the case above."""
 
-        assert FLSpielSchiedsrichterFieldPublic.model_validate({"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": stored}).name == served
+        published = {"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": stored, "name_is_public": True}
+
+        assert FLSpielSchiedsrichterFieldPublic.model_validate(published).name == served
 
 
 class TestThePageThatPublishesTheWithdrawal:

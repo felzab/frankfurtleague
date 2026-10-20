@@ -295,9 +295,6 @@ class FLSchiedsrichterBestaetigungAnsichtResponse(BaseAPIResponse):
     """
 
     zustand: FLSchiedsrichterBestaetigungZustand
-    # The wording the stored record cites, so a reopened link shows the version answered under
-    # rather than the one the page would show today.
-    text_version: CustomOptionalString
     mindestalter: int
     # Served for `mindestalter`'s reason: the page offers the media switch only from this age, and a
     # copy of its own would offer it where the write refuses.

@@ -39,6 +39,7 @@ const { AdresseGesperrt, LinkUnlesbar } = await import("@/features/bewerbungen/c
 const { unshownRefusal } = await import("@/shared/hooks/useServerFieldErrors.ts");
 const { BLOCKED_SUBMIT_TITLE } = await import("@/shared/hooks/useDraftFieldErrors.ts");
 const { buildSchiedsrichterBestaetigungPayloadSchema } = await import("@/features/schiedsrichter/schemas.ts");
+const { SCHIEDSRICHTER_ANONYM_LABEL } = await import("@/features/schiedsrichter/constants.ts");
 
 const TOKEN = "abc123";
 /** The floor this fixture's read serves: the page judges by it, the one the link was minted under. */
@@ -55,7 +56,6 @@ const OFFEN: SchiedsrichterBestaetigungStart = {
   ansicht: {
     acknowledged: 1,
     zustand: "gueltig",
-    text_version: FASSUNG,
     mindestalter: MINDESTALTER,
     medien_mindestalter: MEDIEN_ALTER,
     frist: "2026-10-05",
@@ -348,9 +348,9 @@ describe("what the press sends", () => {
     assert.equal(zeile.nextElementSibling?.textContent, "nicht erlaubt");
   });
 
-  /* The answer as the permission it is, as the media row reads one: the public fixture read consults no
-     consent record, so a word for a hidden name would promise what the schedule does not do. */
-  it("reads the publication answer back as a permission, never as a name the schedule hides", async () => {
+  /* What the schedule then shows, which the fixture read decides by this answer: a permission word would leave
+     the referee to guess what stands at their fixtures instead. */
+  it("reads the publication answer back as what the schedule shows", async () => {
     answerEveryFetch({ success: true, umfang: "intern", medien: false, bestaetigt_am: "2026-09-21" });
 
     render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
@@ -362,7 +362,7 @@ describe("what the press sends", () => {
     await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
 
     const zeile = await screen.findByText("Name im Spielplan");
-    assert.equal(zeile.nextElementSibling?.textContent, "nicht erlaubt");
+    assert.equal(zeile.nextElementSibling?.textContent, SCHIEDSRICHTER_ANONYM_LABEL);
   });
 });
 

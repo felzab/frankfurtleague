@@ -175,6 +175,8 @@ LEAGUE: dict[Collection, list[dict[str, Any]]] = {
             "default_payment": 20,
             "kontakt": {"telefon": "+49 69 1234567", "email": "koerner.anna@example.com"},
             "inactive_since": None,
+            # Confirmed by its own person, as every referee a save may book is.
+            "einwilligung": documents.eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-01-20"),
             "bounded_writes": 1,
         }
     ],

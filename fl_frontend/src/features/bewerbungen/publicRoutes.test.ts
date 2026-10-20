@@ -52,7 +52,7 @@ import { ABLEHNEN_LABEL, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./con
 import type { KontaktAbsatzSchluessel } from "@/core/einwilligungSeiten.ts";
 import type { ReactElement, ReactNode } from "react";
 import type { BestaetigungStart } from "./components/views/BestaetigungView.tsx";
-import type { FLBewerbungFensterResponse, FLKontaktRolle } from "./schemas.ts";
+import type { FLBewerbungEinwilligungAnsichtResponse, FLBewerbungFensterResponse, FLKontaktRolle } from "./schemas.ts";
 import type { LinkZustand } from "./types.ts";
 
 // The browser's own `fetch` rather than the transport's module, so the panel's answer arrives through
@@ -257,7 +257,6 @@ const pageFor = (rolle: FLKontaktRolle, zugleich_rolle: FLKontaktRolle | null, m
         schule: "Lessing-Kolleg",
         rolle: rolle,
         zugleich_rolle: zugleich_rolle,
-        text_version: KONTAKT_LABEL,
         laufende_fassung: KONTAKT_LABEL,
         mindestalter: mindestalter,
         medien_mindestalter: MEDIEN_MIN_ALTER,
@@ -936,11 +935,10 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     schule: "Lessing-Kolleg",
     rolle: "ansprechperson",
     zugleich_rolle: null,
-    text_version: KONTAKT_LABEL,
     laufende_fassung: KONTAKT_LABEL,
     mindestalter: VERTRETUNG_MIN_ALTER,
     medien_mindestalter: MEDIEN_MIN_ALTER,
-  } as const;
+  } as const satisfies FLBewerbungEinwilligungAnsichtResponse;
 
   /** The reader's own facts, each distinctive enough that finding one in the markup means this reader. */
   const OWN_VALUES = ["Lessing-Kolleg", "2026", "Ansprechperson"];
@@ -1419,11 +1417,10 @@ const OFFEN = {
   schule: "Lessing-Kolleg",
   rolle: "ansprechperson",
   zugleich_rolle: null,
-  text_version: KONTAKT_LABEL,
   laufende_fassung: KONTAKT_LABEL,
   mindestalter: BEWERBUNG_MIN_ALTER,
   medien_mindestalter: MEDIEN_MIN_ALTER,
-} as const;
+} as const satisfies FLBewerbungEinwilligungAnsichtResponse;
 
 describe("what a link to a barred address opens on", () => {
   it("is the shared barred page and nothing beside it", () => {
@@ -1533,11 +1530,10 @@ describe("the words the two contact pages are handed", () => {
     schule: "Lessing-Kolleg",
     rolle: "ansprechperson",
     zugleich_rolle: null,
-    text_version: KONTAKT_LABEL,
     laufende_fassung: KONTAKT_LABEL,
     mindestalter: VERTRETUNG_MIN_ALTER,
     medien_mindestalter: MEDIEN_MIN_ALTER,
-  } as const;
+  } as const satisfies FLBewerbungEinwilligungAnsichtResponse;
 
   /**
    * Every read answered as the backend would: `laufend` overriding each page's running label, `ansichtNennt` and

@@ -69,9 +69,10 @@ def name_is_public(einwilligung: Mapping[str, Any] | None) -> bool:
     return einwilligung.get("umfang") == "kader_oeffentlich" and is_confirmed(einwilligung)
 
 
-# `name_is_public`'s three inputs as a Mongo expression. By `$type` rather than `$eq: null`, for
-# `PUBLIC_NACHNAME`'s reason: an absent key and a stored null are one state to a read.
-_NAME_IS_PUBLIC: Mapping[str, Any] = {
+# `name_is_public`'s three inputs as a Mongo expression, over whichever person's document the stage
+# runs on. By `$type` rather than `$eq: null`, for `PUBLIC_NACHNAME`'s reason: an absent key and a
+# stored null are one state to a read.
+NAME_IS_PUBLIC: Mapping[str, Any] = {
     "$and": [
         {"$eq": [{"$type": "$einwilligung"}, "object"]},
         {"$eq": ["$einwilligung.umfang", "kader_oeffentlich"]},
@@ -86,8 +87,8 @@ _NAME_IS_PUBLIC: Mapping[str, Any] = {
 # further would withhold the squad slot rather than the name. The record is read here and projected
 # nowhere.
 PUBLIC_PERSON: Mapping[str, Any] = {
-    "vorname": {"$cond": {"if": _NAME_IS_PUBLIC, "then": "$vorname", "else": None}},
-    "nachname": {"$cond": {"if": _NAME_IS_PUBLIC, "then": PUBLIC_NACHNAME, "else": None}},
+    "vorname": {"$cond": {"if": NAME_IS_PUBLIC, "then": "$vorname", "else": None}},
+    "nachname": {"$cond": {"if": NAME_IS_PUBLIC, "then": PUBLIC_NACHNAME, "else": None}},
 }
 
 

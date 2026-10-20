@@ -67,6 +67,7 @@ from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session, remove_pending_addresses_in_session
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
 from app.api.sperrliste.lookup import BanList
+from app.api.spielberichte.crud import repoint_referee_reports_in_session
 from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_session
 from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session, remove_pending_pupil_addresses_in_session
@@ -569,6 +570,11 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
         run=erase_referee_confirmations_in_session,
     ),
     ErasureStep(
+        reaches=frozenset({Collection.SPIELBERICHTE, Collection.AKTIONEN}),
+        personengruppe="schiedsrichter",
+        run=repoint_referee_reports_in_session,
+    ),
+    ErasureStep(
         reaches=frozenset({Collection.SCHIEDSRICHTER, Collection.SPIELE, Collection.AKTIONEN}),
         personengruppe="schiedsrichter",
         run=erase_referee_in_session,
@@ -630,6 +636,7 @@ async def erase_everything(
     schiedsrichter_collection: AsyncCollection,
     spiele_collection: AsyncCollection,
     spielbestaetigungen_collection: AsyncCollection,
+    spielberichte_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
     drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
@@ -712,6 +719,16 @@ async def erase_everything(
     if _runs(erase_referee_confirmations_in_session, scope):
         await erase_referee_confirmations_in_session(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
+            aktionen_collection=aktionen_collection,
+            schiedsrichter_ids=[row["_id"] for row in subject.schiedsrichter],
+            stamp=stamp,
+            session=session,
+        )
+
+    # Repointed rather than removed, as the fixtures are: a report is the league's record of the match, after the ghost stands.
+    if _runs(repoint_referee_reports_in_session, scope):
+        await repoint_referee_reports_in_session(
+            spielberichte_collection=spielberichte_collection,
             aktionen_collection=aktionen_collection,
             schiedsrichter_ids=[row["_id"] for row in subject.schiedsrichter],
             stamp=stamp,
@@ -967,6 +984,7 @@ async def erase_if_still_due(
     schiedsrichter_collection: AsyncCollection,
     spiele_collection: AsyncCollection,
     spielbestaetigungen_collection: AsyncCollection,
+    spielberichte_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
     drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
@@ -1033,6 +1051,7 @@ async def erase_if_still_due(
         schiedsrichter_collection=schiedsrichter_collection,
         spiele_collection=spiele_collection,
         spielbestaetigungen_collection=spielbestaetigungen_collection,
+        spielberichte_collection=spielberichte_collection,
         registrierungen_collection=registrierungen_collection,
         drosselung_collection=drosselung_collection,
         aktionen_collection=aktionen_collection,

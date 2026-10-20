@@ -697,7 +697,6 @@ def adresswechsel_adressen(raw: Mapping[str, Any]) -> tuple[str, str]:
 # of the row is what must not reach them (`docs/backend/spec.md :: READ-REFEREE-002`).
 BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     f"{EINWILLIGUNG_FELD}.bestaetigt_am": 1,
-    f"{EINWILLIGUNG_FELD}.text_version": 1,
     f"{BESTAETIGUNG_FELD}.frist": 1,
     # For the ban list alone, as the answer's read takes it: the response model declares no field to
     # carry it.

@@ -276,8 +276,8 @@ class TestTheRetirementKeepsTheDayItAlreadyCarries:
 # `find_booking_refusal` judges.
 A_FIXTURE_HELD_BY_THE_OTHER_REFEREE: dict[str, Any] = fixture_document(OTHER_SCHIEDSRICHTER_OID, ARCHIVED_SPIEL_OID, 9)
 
-THE_GHOST = BookedReferee(name=None, inactive_since=GHOST_INACTIVE_SINCE)
-A_RETIRED_REFEREE = BookedReferee(name=REFEREE_NAMES[SCHIEDSRICHTER_OID], inactive_since=AN_EARLIER_RETIREMENT)
+THE_GHOST = BookedReferee(name=None, inactive_since=GHOST_INACTIVE_SINCE, bestaetigt=False)
+A_RETIRED_REFEREE = BookedReferee(name=REFEREE_NAMES[SCHIEDSRICHTER_OID], inactive_since=AN_EARLIER_RETIREMENT, bestaetigt=True)
 
 
 def booking_refusal(booked: BookedReferee, schiedsrichter_id: ObjectId):

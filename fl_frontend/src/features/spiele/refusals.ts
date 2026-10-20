@@ -6,8 +6,8 @@ import { CLASH_BUFFER_TEXT } from "./constants";
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /**
- * The refusals a match write answers here. `REQ-DATE-001` lands on `datum`, the field that caused it;
- * the rest travel as a message, naming no single control. Every other code falls to
+ * The refusals a match write answers here. `REQ-DATE-001` and `REQ-BOOKING-002` land on the field that
+ * caused each; the rest travel as a message, naming no single control. Every other code falls to
  * `fl_frontend/src/shared/utils/actionError.ts :: OCCUPANT_REFUSALS`.
  */
 export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
@@ -15,6 +15,15 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
 
   if (error.serverErrorCode === "REQ-DATE-001") {
     return { fieldErrors: { datum: "Dieses Datum liegt außerhalb des Spieltags." } };
+  }
+  // The referee alone, so the picker takes it: a kept one too, which a lifted call-off or a cleared result books again.
+  if (error.serverErrorCode === "REQ-BOOKING-002") {
+    return {
+      fieldErrors: {
+        // One sentence: picking another referee is the box's own repair (`docs/frontend/spec.md` §1.12).
+        "schiedsrichter.schiedsrichter_id": "Diese Schiedsrichterin oder dieser Schiedsrichter hat den eigenen Eintrag noch nicht bestätigt.",
+      },
+    };
   }
   if (error.serverErrorCode === "REQ-RESULT-001") {
     return {
@@ -73,6 +82,8 @@ export const PAARUNGEN_REPLAY_REFUSALS: Readonly<Record<string, string>> = {
   // No „inzwischen“: the row can have retired before the save being undone, as one a reopening kept booked has.
   "REQ-BOOKING-001":
     "Ein ursprünglicher Spielort oder Schiedsrichter ist stillgelegt oder gelöscht, und der ursprüngliche Stand würde ihn einem Spiel wieder zuteilen.",
+  "REQ-BOOKING-002":
+    "Eine ursprünglich eingeteilte Person hat ihren Eintrag nicht bestätigt, und der ursprüngliche Stand würde sie einem Spiel wieder zuteilen.",
   "REQ-CLASH-001": "Ein ursprünglicher Spielort oder Schiedsrichter ist zu dieser Zeit inzwischen für ein anderes Spiel eingeteilt.",
   "REQ-DATE-001": "Ein ursprüngliches Datum liegt nicht mehr im Zeitraum seines Spieltags.",
   "REQ-ELIGIBILITY-001":

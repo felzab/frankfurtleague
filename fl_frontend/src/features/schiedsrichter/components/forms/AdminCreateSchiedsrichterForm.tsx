@@ -30,8 +30,8 @@ const EMPTY_DRAFT: SchiedsrichterDraft = {
 };
 
 /**
- * `onCreated` hands back the finished record: the match editor selects what it just created, and
- * its picker's list still comes from the last server render.
+ * `onCreated` hands back the finished record: the match editor lists what it just created, its picker's
+ * list still coming from the last server render.
  */
 export function AdminCreateSchiedsrichterForm({
   onClose,

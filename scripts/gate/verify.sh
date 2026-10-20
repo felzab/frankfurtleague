@@ -266,7 +266,7 @@ GATE_WIDTH_BACKEND_PYTEST=6
 # Past this a stalled pytest case's stack is dumped; `scripts/gate/gate_pool.py :: STALL_S` later its
 # step is named, inside every pooled CI job's timeout
 # (`scripts/tests/test_gate_pool.py :: test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout`).
-# Above the db tier's 129 s runner span, which bounds any case's.
+# Above the db tier's 129 s runner span (2026-10-20), which bounds any case's.
 FAULTHANDLER_S=180
 
 # --- what a unit runs --------------------------------------------------------------------------------
@@ -936,12 +936,12 @@ check's own name. Checks: scripts/checks/docs_gate/kernel.py :: CHECKS" \
   # whose scopes are `format frontend docs` and `ops docs`, and `docs` is the one a diff touching
   # either selects.
 
-  step "docs · every route handler and metadata convention is metered or accounted for"
+  step "docs · every route handler, link page and metadata convention is metered or accounted for"
   unit_join public_routes
   if run_checker collect "scripts/checks/check_public_routes.py" "The route accounting is out. Above is a handler whose exact match meters nothing, one no
 location names, a dynamic subtree no prefix covers, a prefix charged to no recorded reason, a
-reason charging nothing, a declared metadata convention no file serves, or one half of a
-trailing-slash pair standing without the other." \
+reason charging nothing, a declared metadata convention no file serves, a link page off the link
+pages' pair, or one half of a trailing-slash pair standing without the other." \
     unit_replay public_routes; then
     ok "every route handler is accounted for at the edge"
   else

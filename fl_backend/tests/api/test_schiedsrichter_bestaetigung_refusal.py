@@ -171,13 +171,12 @@ class TestWhatALeakedLinkLearns:
         assert asked_of_the_ban_list <= read
         assert not {key.partition(".")[0] for key in read - asked_of_the_ban_list} & withheld
 
-    def test_the_view_declares_exactly_the_five_names_it_may_answer(self):
+    def test_the_view_declares_exactly_the_four_names_it_may_answer(self):
         """An EQUALITY, not a subset: a field added to this model reaches a caller holding nothing but a token."""
 
         assert set(FLSchiedsrichterBestaetigungAnsichtResponse.model_fields) == {
             "acknowledged",
             "zustand",
-            "text_version",
             "mindestalter",
             "medien_mindestalter",
             "frist",

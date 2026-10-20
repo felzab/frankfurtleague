@@ -8,11 +8,15 @@ import type { FLSpielStatus } from "./schemas";
 export type ActionRequiredCategory =
   | "ergebnis_pending"
   | "besetzung_missing"
+  | "vorschlag_offen"
+  | "bestaetigung_ueberfaellig"
+  | "bestaetigung_sofort"
   | "bracket_fault"
   | "datum_missing"
   | "uhrzeit_missing"
   | "ort_missing"
   | "schiedsrichter_missing"
+  | "schiedsrichter_abgesagt"
   | "abgesagt";
 
 type FLSpieleSortingOptions = "datum" | "uhrzeit" | "spiel_nr" | "saison_phase";

@@ -1,10 +1,156 @@
+import { ansetzungGeaendert } from "@/features/spiele/components/forms/AdminEditSpielDataForm/banners";
 import { CLASH_BUFFER_TEXT } from "@/features/spiele/constants";
+import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { formatSpielDatum, formatUhrzeit, NICHT_HINTERLEGT } from "@/shared/utils/format";
+import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
+import type { SpielBannerAnsetzung } from "@/features/spiele/components/forms/AdminEditSpielDataForm/banners";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLSpielbestaetigungAnsichtResponse, FLSpielbestaetigungVon } from "./schemas";
+import type { AntwortStand } from "./constants";
+import type { FLSpielbestaetigung, FLSpielbestaetigungAnsichtResponse, FLSpielbestaetigungTermin, FLSpielbestaetigungVon } from "./schemas";
+
+/** Who answered, as a readout rather than a sentence: a seat's long label agrees with no one article. */
+export function beantwortetVon(von: FLSpielbestaetigungVon): string {
+  if (von.art === "admin") return "Verwaltung der Liga";
+  if (von.art === "schiedsrichter") return "Schiedsrichterin oder Schiedsrichter";
+  return KONTAKT_ROLLEN.find((eintrag) => eintrag.value === von.rolle)?.langform ?? NICHT_HINTERLEGT;
+}
+
+export const terminText = (termin: FLSpielbestaetigungTermin): string =>
+  `${formatSpielDatum(termin.datum)} um ${formatUhrzeit(termin.uhrzeit)} Uhr`;
+
+/** The inputs of a fixture's stand, as a stored fixture and a draft alike carry them. */
+type AnsetzungsQuelle = {
+  datum: string | null;
+  uhrzeit: string | null;
+  ort: { spielort_id: string } | null;
+  team1: { team_id: string } | null;
+  team2: { team_id: string } | null;
+};
+
+export const spielAnsetzung = (spiel: AnsetzungsQuelle): SpielBannerAnsetzung => ({
+  datum: spiel.datum,
+  uhrzeit: spiel.uhrzeit,
+  spielortId: spiel.ort?.spielort_id ?? null,
+  team1Id: spiel.team1?.team_id ?? null,
+  team2Id: spiel.team2?.team_id ?? null,
+});
+
+const zeilenAnsetzung = ({ ansetzung }: FLSpielbestaetigung): SpielBannerAnsetzung => ({
+  datum: ansetzung.datum,
+  uhrzeit: ansetzung.uhrzeit,
+  spielortId: ansetzung.spielort_id,
+  team1Id: ansetzung.team1_id,
+  team2Id: ansetzung.team2_id,
+});
+
+export function groupBestaetigungenBySpielId(
+  bestaetigungen: readonly FLSpielbestaetigung[],
+): ReadonlyMap<string, readonly FLSpielbestaetigung[]> {
+  const grouped = new Map<string, FLSpielbestaetigung[]>();
+  for (const zeile of bestaetigungen) grouped.set(zeile.spiel_id, [...(grouped.get(zeile.spiel_id) ?? []), zeile]);
+
+  return grouped;
+}
+
+/**
+ * Unclosed, and about the Ansetzung the fixture holds: a row about one it left stays open until the next pass, and
+ * counted it would chip and queue an answer to a date gone.
+ */
+export function geltendeBestaetigungen(
+  bestaetigungen: readonly FLSpielbestaetigung[],
+  spiel: AnsetzungsQuelle & { id: string },
+): FLSpielbestaetigung[] {
+  const jetzt = spielAnsetzung(spiel);
+
+  return bestaetigungen.filter(
+    (zeile) => zeile.spiel_id === spiel.id && zeile.geschlossen === null && !ansetzungGeaendert(zeilenAnsetzung(zeile), jetzt),
+  );
+}
+
+// The three triage predicates over a row `geltendeBestaetigungen` kept, each a club's row alone: a referee answers
+// until the match day rather than by the row's deadline, and their decline is a category of its own.
+
+export const istVorschlagOffen = (zeile: FLSpielbestaetigung): boolean =>
+  zeile.partei.art === "team" && zeile.antwort?.art === "abgelehnt" && zeile.antwort.vorschlag !== null;
+
+export const istUeberfaellig = (zeile: FLSpielbestaetigung, today: string): boolean =>
+  zeile.partei.art === "team" && zeile.antwort === null && zeile.frist < today;
+
+/**
+ * Due on the day it is asked: no mint day is stored, so a row due today and asked today or not yet stands for one
+ * minted inside the deadline's days. The backend's queue reads the same three fields.
+ */
+export const istSofortFaellig = (zeile: FLSpielbestaetigung, today: string): boolean =>
+  zeile.partei.art === "team" &&
+  zeile.antwort === null &&
+  zeile.frist === today &&
+  (zeile.angefragt_am === null || zeile.angefragt_am === today);
+
+/**
+ * The referee's own decline while the slot it emptied stays empty. Never among `geltendeBestaetigungen`: the decline
+ * closes its row in its own write. The newest referee row decides (the read serves newest first), so a later booking
+ * ends it.
+ */
+export function schiedsrichterAbsage(
+  bestaetigungen: readonly FLSpielbestaetigung[],
+  spiel: { id: string; schiedsrichter: object | null },
+): FLSpielbestaetigung | undefined {
+  if (spiel.schiedsrichter !== null) return undefined;
+  const zeile = bestaetigungen.find((kandidat) => kandidat.spiel_id === spiel.id && kandidat.partei.art === "schiedsrichter");
+
+  return zeile?.geschlossen?.grund === "schiedsrichter_abgelehnt" ? zeile : undefined;
+}
+
+export function antwortStand(zeile: FLSpielbestaetigung, today: string): AntwortStand {
+  if (zeile.antwort !== null) return zeile.antwort.art;
+  return istUeberfaellig(zeile, today) ? "ueberfaellig" : "offen";
+}
+
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * Due and unrun: armed, the season running, the day ahead, and no stamp since yesterday (`docs/ops/runbooks.md` §9).
+ * Guarded on the stamp alone, it would warn on every fixture no pass ever visits.
+ */
+export function laufUeberfaellig({
+  isSpielSweepOn,
+  isActiveSaison,
+  datum,
+  gelaufenAm,
+  today,
+}: {
+  isSpielSweepOn: boolean;
+  isActiveSaison: boolean;
+  datum: string | null;
+  gelaufenAm: string | null;
+  today: string;
+}): boolean {
+  if (!isSpielSweepOn || !isActiveSaison || datum === null || datum <= today) return false;
+  // `Date.parse` reads `YYYY-MM-DD` as a UTC midnight, so the day before is exact whatever the browser's zone.
+  const gestern = new Date(Date.parse(today) - MS_PER_DAY).toISOString().slice(0, 10);
+
+  return gelaufenAm === null || gelaufenAm < gestern;
+}
+
+/**
+ * The settle's and the discard's state refusals: the panel showed a state read earlier, so the repair is the reload.
+ * `null` hands every other code to the shared reader.
+ */
+export function mapSpielbestaetigungAdminRefusal(error: unknown): { error: string } | null {
+  if (!isRefusal(error)) return null;
+
+  switch (error.serverErrorCode) {
+    case "REQ-ANSETZUNG-013":
+      return { error: buildRefusal({ reason: "Diese Anfrage ist inzwischen beantwortet oder geschlossen", repair: LADE_DIE_SEITE_NEU }) };
+    case "REQ-ANSETZUNG-014":
+      return { error: buildRefusal({ reason: "Diese Antwort trägt keinen offenen Terminvorschlag mehr", repair: LADE_DIE_SEITE_NEU }) };
+    default:
+      return null;
+  }
+}
 
 /**
  * What one link opens, narrowed before the page: an answerable link carries the whole view, an
@@ -95,6 +241,48 @@ export function mapAnsetzungRefusal(error: unknown): SpielbestaetigungRefusal | 
           repair: `Schlag einen anderen Tag vor, oder eine Uhrzeit mit mindestens ${CLASH_BUFFER_TEXT} Abstand`,
         }),
       };
+    default:
+      return null;
+  }
+}
+
+/** A referee's two answers' toast titles, each failure the negation of its success (`docs/frontend/spec.md :: I250`). */
+export const ZUSAGE_GESPEICHERT = "Deine Zusage ist gespeichert";
+export const ZUSAGE_NICHT_GESPEICHERT = "Deine Zusage wurde nicht gespeichert";
+export const ABSAGE_GESPEICHERT = "Deine Absage ist gespeichert";
+export const ABSAGE_NICHT_GESPEICHERT = "Deine Absage wurde nicht gespeichert";
+
+/** Every spent row's repair: the panel re-read shows the row as it stands, which a refused press never redraws. */
+const NEU_LADEN = "Lade die Seite neu.";
+
+/**
+ * A referee's answer's refusals, as their own panel words them: the link page's column reads a club's link, which a
+ * referee holds none of. `null` where the code is none of these, which the person spine answers.
+ */
+export function mapSchiedsrichterAntwortRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors; unplacedError?: string } | null {
+  if (!isRefusal(error)) return null;
+
+  switch (error.serverErrorCode) {
+    // The body shape is mirrored, so a refusal the reason box cannot take is of a page older than the running one.
+    case "REQ-VAL-002":
+    case "REQ-VAL-001":
+      return refusedPayloadAnswer(error, "Lade die Seite neu und antworte erneut.");
+    // Ahead of the shared reader's sentence, which names a team.
+    case "REQ-FUNKTION-001":
+      return { error: `Du bist nicht mehr als Schiedsrichterin oder Schiedsrichter eingetragen. ${NEU_LADEN}` };
+    case "REQ-ANSETZUNG-015":
+      return { error: `Für dieses Spiel bist Du nicht eingeteilt. ${NEU_LADEN}` };
+    case "REQ-ANSETZUNG-002":
+      return { error: `Auf diese Einteilung hast Du schon geantwortet. ${NEU_LADEN}` };
+    case "REQ-ANSETZUNG-009":
+      return { error: `Diese Einteilung ist schon abgeschlossen. ${NEU_LADEN}` };
+    case "REQ-ANSETZUNG-005":
+      return { error: `Das Spiel ist entschieden oder abgesagt, oder ein Team spielt nicht mehr mit. ${NEU_LADEN}` };
+    case "REQ-ANSETZUNG-004":
+      return { error: `Das Spiel hat einen neuen Termin, oder Du bist nicht mehr eingeteilt. ${NEU_LADEN}` };
+    // A referee's answer keeps no deadline, so the day alone spends it.
+    case "REQ-ANSETZUNG-003":
+      return { error: `Das Spiel liegt schon in der Vergangenheit. ${NEU_LADEN}` };
     default:
       return null;
   }

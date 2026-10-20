@@ -61,7 +61,7 @@ async def get_bestaetigung_ansicht(
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterBestaetigungAnsichtResponse:
     """
-    Answer what this token opens: the link's state and deadline, both age floors, and the wording's version.
+    Answer what this token opens: the link's state and deadline, and both age floors.
 
     **Nothing else** (`READ-REFEREE-002`): never a name, the school, the contact details, the fee, the birthdate or the
     entry's id, all of which are behind `READ-CONTACT-001`. The link went to an address an administrator typed and nobody has
@@ -92,7 +92,6 @@ async def get_bestaetigung_ansicht(
 
     return FLSchiedsrichterBestaetigungAnsichtResponse(
         zustand=zustand_of(einwilligung=einwilligung, bestaetigung=bestaetigung, today=today, gesperrt=bool(gesperrt)),
-        text_version=None if not isinstance(einwilligung, dict) else einwilligung.get("text_version"),
         # Served rather than retyped on the page: the floor the write is judged by is the one the
         # paragraph a person reads before consenting has to state.
         mindestalter=SCHIEDSRICHTER_MIN_AGE_YEARS,
@@ -128,8 +127,8 @@ async def post_bestaetigung(
     consent from a referee below `medien_mindestalter` (`REQ-SCHIEDSRICHTER-008`) -- the label and the last two judged
     before anything is written, so a reloaded page or a mistyped year spends nothing.
 
-    **The caller drops the cached fixture list after a successful answer**, ahead of the fixture read joining this
-    record. Nothing here can: a withheld name would go on being served for as long as that entry lives.
+    **The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:
+    a withheld name would go on being served for as long as that entry lives.
     """
 
     token_hash = hash_token(antwort_data.token)

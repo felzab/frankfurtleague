@@ -99,6 +99,7 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/saisons/{saison_id}/loeschung/vorschau": "how many pupils an activation deletes, counted and never named",
     "/api/v0/schiedsrichter": f"referees, {_PERSON_RECORDS}",
     "/api/v0/schiedsrichter/{schiedsrichter_id:objectid}": f"one referee, {_PERSON_RECORDS}",
+    "/api/v0/spielbestaetigungen": 'fixture confirmations, an administrator\'s answer recorded as `{art: "admin"}` with no address',
     "/api/v0/spiele/action_required": "fixtures",
     "/api/v0/spiele/list/admin": "fixtures",
     "/api/v0/spiele/{spiel_id:objectid}": "a save's dry run, which reports the fixtures it would move",
@@ -107,6 +108,7 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/spieler/memberships": f"players and their squad rows, {_PERSON_RECORDS}",
     "/api/v0/spieler/selbst": "the signed-in pupil's own record, which carries no address",
     "/api/v0/schiedsrichter/selbst": "the signed-in referee's own records, served to that person alone",
+    "/api/v0/spielbestaetigungen/selbst": "the signed-in referee's own fixture assignments, which carry nobody's address",
     "/api/v0/konto/einwilligungen": "the signed-in person's own consent records, served to that person alone",
     "/api/v0/konto/adresswechsel": "the signed-in person's own pending address change, served to that person alone",
     "/api/v0/identitaet/selbst/erasure/ansicht": "the signed-in person's own records an erasure would remove, by name and with no address",
@@ -118,6 +120,10 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/teams/list/admin": f"clubs and their contact seats, {_PERSON_RECORDS}",
     "/api/v0/teams/memberships": "clubs and their seasons",
     "/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/person/sitze": "one team's seat holders by name, as the seat holders read them",
+    "/api/v0/spielberichte": "a season's reports by state, naming nobody",
+    "/api/v0/spielberichte/{spiel_id:objectid}/admin": "one fixture's report, its administrator named by kind alone",
+    "/api/v0/spielberichte/{spiel_id:objectid}/bericht": "one fixture's report as its referee reads it, its administrator named by kind",
+    "/api/v0/spielberichte/person": "the signed-in referee's played fixtures, naming nobody",
 }
 
 

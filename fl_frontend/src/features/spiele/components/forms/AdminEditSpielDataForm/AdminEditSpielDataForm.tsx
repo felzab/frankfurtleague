@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { parseDate, parseTime } from "@internationalized/date";
 
 import { AdminCreateSchiedsrichterForm } from "@/features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm";
+import { SpielbestaetigungPanel } from "@/features/spielbestaetigungen/components/forms/SpielbestaetigungPanel";
+import { spielAnsetzung } from "@/features/spielbestaetigungen/utils";
 import { AdminCreateSpielortForm } from "@/features/spielorte/components/forms/AdminCreateSpielortForm";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
@@ -31,7 +33,6 @@ import { FormAnsetzungSection } from "./FormAnsetzungSection";
 import { FormErgebnisSection } from "./FormErgebnisSection";
 import { FormMatchupSection } from "./FormMatchupSection";
 import { FormNotizSection } from "./FormNotizSection";
-import { toSchiedsrichterDraft } from "./FormSchiedsrichterSection";
 import { FormSonderereignisSection } from "./FormSonderereignisSection";
 import { toOrtDraft } from "./FormSpielortSection";
 import { SpielExpectedProvider } from "./SpielExpectedContext";
@@ -40,6 +41,7 @@ import { useVoidPreview } from "./useVoidPreview";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
+import type { SpielbestaetigungenStand } from "@/features/spielbestaetigungen/types";
 import type { FLSpielDraftFields } from "@/features/spiele/draftStatus";
 import type {
   FLPatchSpielDataPayload,
@@ -80,6 +82,7 @@ export function AdminEditSpielDataForm({
   isActiveSaison,
   today,
   isSpielSweepOn,
+  bestaetigungen,
   categorize,
   pageHeader,
 }: {
@@ -95,6 +98,8 @@ export function AdminEditSpielDataForm({
   today: string;
   /** `SPIEL_SWEEP` reads `on`, so the confirmations' pass runs at all. */
   isSpielSweepOn: boolean;
+  /** The fixture's confirmations, `null` where their read failed; absent, the editor mounts no panel for them. */
+  bestaetigungen?: SpielbestaetigungenStand | null;
   /** Rendered inside the scroll container, so it scrolls while the action bar stays put. */
   pageHeader: EditPageHeaderContent;
   /**
@@ -267,13 +272,7 @@ export function AdminEditSpielDataForm({
     team1Id: team1Payload?.team_id ?? null,
     team2Id: team2Payload?.team_id ?? null,
   };
-  const storedAnsetzung: SpielBannerAnsetzung = {
-    datum: spielData.datum,
-    uhrzeit: spielData.uhrzeit,
-    spielortId: spielData.ort?.spielort_id ?? null,
-    team1Id: spielData.team1?.team_id ?? null,
-    team2Id: spielData.team2?.team_id ?? null,
-  };
+  const storedAnsetzung = spielAnsetzung(spielData);
 
   // The void and release entries name fixtures the dry run actually voided, never possibilities —
   // so a `null` preview contributes no fixture, never "nothing would be lost", and a failed one says so.
@@ -585,6 +584,23 @@ export function AdminEditSpielDataForm({
               onSonderereignisChange={setSonderereignis}
               banners={banners}
             />
+
+            {bestaetigungen !== undefined && (
+              <SpielbestaetigungPanel
+                stand={bestaetigungen}
+                spiel={spielData}
+                parteien={{ teams: teams, schiedsrichter: schiedsrichter }}
+                today={today}
+                isSpielSweepOn={isSpielSweepOn}
+                isActiveSaison={isActiveSaison}
+                // Into the two atoms `resetDraftToStored` restores, never a remount: every other unsaved edit stays,
+                // a discard drops the proposal with them, and Speichern still judges and offers its undo.
+                onVorschlagUebernehmen={(termin) => {
+                  setDatum(parseDate(termin.datum));
+                  setUhrzeit(parseTime(termin.uhrzeit));
+                }}
+              />
+            )}
           </EditFormLayout>
 
           <FormActionBar
@@ -639,9 +655,9 @@ export function AdminEditSpielDataForm({
         heading="Schiedsrichter anlegen">
         <AdminCreateSchiedsrichterForm
           onClose={closeCreating}
+          // Listed and never selected: a referee just created is unconfirmed, which the save refuses (`REQ-BOOKING-002`).
           onCreated={(referee) => {
             setCreatedSchiedsrichter((previous) => [...previous, referee]);
-            setSchiedsrichterPayload(toSchiedsrichterDraft(referee));
           }}
         />
       </FormModal>

@@ -185,13 +185,13 @@ describe("what the editor shows about a referee's own confirmation", () => {
     assert.match(words({ bestaetigung: BLOCK, einwilligung: BESTAETIGT, geburtsdatum: null }), /Geburtsdatum Nicht hinterlegt/);
   });
 
-  /* A live row with no confirmed record still stands in the public schedule by its shortened name: the
-     fixture read consults no consent record, so the panel promises no hidden name. */
+  /* A live row with no confirmed record can be booked onto no fixture, so the panel says that rather than how a
+     schedule it never reaches would name it. */
   it("says what an outstanding confirmation means, rather than leaving the panel empty", () => {
     const text = words({ bestaetigung: BLOCK });
 
     assert.match(text, /noch nicht bestätigt/);
-    assert.match(text, /erster Namensteil und der Anfangsbuchstabe des nächsten/);
+    assert.match(text, /Einteilen lässt sie sich erst, wenn sie bestätigt hat/);
     assert.ok(!text.includes(SCHIEDSRICHTER_ANONYM_LABEL), text);
   });
 

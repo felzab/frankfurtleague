@@ -1,11 +1,42 @@
+import { cache } from "react";
+
+import { apiClient } from "@/core/api";
 import { ContractBreakError } from "@/core/errors";
+import { runAdminRead } from "@/shared/utils/adminRead";
 import { getGermanTodayStr } from "@/shared/utils/date";
+import { runPersonRead } from "@/shared/utils/personRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { postSpielbestaetigungAnsicht } from "./mutations";
+import { FLSpielbestaetigungenListResponseSchema, FLSpielbestaetigungenSelbstResponseSchema } from "./schemas";
 import { mapAnsetzungAnsichtRefusal } from "./utils";
 
+import type { FLSpielbestaetigungenListResponse, FLSpielbestaetigungenSelbstResponse } from "./schemas";
+import type { FLSpielbestaetigungenFilterParams } from "./types";
 import type { SpielbestaetigungAnsicht } from "./utils";
+
+/** Uncached, as every admin-tier read is: `"use cache"` keys on the arguments, never on the administrator asking. */
+export async function getSpielbestaetigungen(filters: FLSpielbestaetigungenFilterParams): Promise<FLSpielbestaetigungenListResponse> {
+  return runAdminRead(() =>
+    apiClient<FLSpielbestaetigungenListResponse>("/spielbestaetigungen", FLSpielbestaetigungenListResponseSchema, {
+      authType: "admin",
+      params: filters,
+    }),
+  );
+}
+
+/**
+ * The signed-in referee's own rows, refused `REQ-FUNKTION-001` where the backend holds no confirmed referee record
+ * for the address the page's own check passed.
+ */
+// Never `"use cache"`, which keys on the arguments rather than the caller (`docs/frontend/spec.md` §1.2).
+export const getEigeneSpielbestaetigungen = cache(async (): Promise<FLSpielbestaetigungenSelbstResponse> =>
+  runPersonRead(() =>
+    apiClient<FLSpielbestaetigungenSelbstResponse>("/spielbestaetigungen/selbst", FLSpielbestaetigungenSelbstResponseSchema, {
+      authType: "admin",
+    }),
+  ),
+);
 
 /**
  * One link's standing, read on every open and stored nowhere: a GET records nothing, not even a

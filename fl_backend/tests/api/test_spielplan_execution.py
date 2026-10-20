@@ -215,6 +215,7 @@ async def call_draw(
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(replace=replace, shape=shape),
         today=today,
@@ -934,6 +935,26 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
     )
 
     return documents.spielbestaetigung_document(fixture, partei={"art": "team", "team_id": home})
+
+
+class TestAReplaceTakesTheSeasonsReports:
+    def test_the_seasons_reports_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
+        """Drop the replace's report delete and this fails: a report would name a fixture the replace removed."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
+            await call_draw(database, client)
+            await database[Collection.SPIELBERICHTE].insert_many(
+                [documents.spielbericht_document({"_id": ObjectId(), "saison_id": saison_id}) for saison_id in (SAISON_ID, NEIGHBOUR_SAISON_ID)]
+            )
+            await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
+
+            berichte = database[Collection.SPIELBERICHTE]
+            return (
+                await berichte.count_documents({"saison_id": SAISON_ID}),
+                await berichte.count_documents({"saison_id": NEIGHBOUR_SAISON_ID}),
+            )
+
+        assert on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
 
 
 class TestAReplaceTakesTheSeasonsConfirmations:

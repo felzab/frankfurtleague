@@ -14,6 +14,7 @@ import { registerDoubles } from "@/core/exportingModule.ts";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
+import { spielbestaetigungFields } from "@/shared/testing/fixtures.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderUnderWrite } from "@/shared/testing/postWrite.ts";
@@ -21,6 +22,7 @@ import { retirementWrites } from "@/shared/testing/retirementWrites.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
+import type { SpielbestaetigungFields } from "@/shared/testing/fixtures.ts";
 import type { UserEvent } from "@testing-library/user-event";
 import type { ReactNode } from "react";
 
@@ -60,11 +62,14 @@ const { FormGruppenSwapSection } = await import("@/features/saisons/components/f
 const { FormTeamErsatzSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx");
 const { FormSpielplanSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx");
 const { RegistrierungenView } = await import("@/features/registrierungen/components/views/RegistrierungenView.tsx");
+const { SchiedsrichterEinsaetzeSection } = await import("@/features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx");
 const { FormPersonLoeschenSection } = await import("@/features/funktionen/components/forms/AdminLoeschungForm/FormPersonLoeschenSection.tsx");
 const { EinwilligungPanel } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungPanel.tsx");
 const { EinwilligungForm } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungForm.tsx");
 const { patchBewerbungEinwilligungAction } = await import("@/features/kontakte/personActions.ts");
 const { patchRegistrierungEinwilligungAction } = await import("@/features/registrierungen/personActions.ts");
+const { SpielbestaetigungPanel } = await import("@/features/spielbestaetigungen/components/forms/SpielbestaetigungPanel.tsx");
+const { FLSpielbestaetigungSchema } = await import("@/features/spielbestaetigungen/schemas.ts");
 
 /** One write whose control leaves the page, from the page before it to the page its refresh draws. */
 type Landing = {
@@ -657,6 +662,19 @@ const kontoBewerbung = (medien: boolean, whatsapp = false) =>
   });
 
 const REGISTRIERUNG_ID = "68c1f0a2b3c4d5e6f7a8b952";
+/** One of a referee's own rows on their panel, open unless a case answers it. */
+const einsatz = (id: string, team2_name: string, zustand: "gueltig" | "zugesagt" = "gueltig") => ({
+  id,
+  spiel_id: "68c1f0a2b3c4d5e6f7a8b9f9",
+  schiedsrichter_id: "68c1f0a2b3c4d5e6f7a8b9f8",
+  ansetzung: { team1_name: "SG Alpha", team2_name, datum: "2026-11-20", uhrzeit: "14:30:00", spielort: null },
+  zustand,
+  begruendung: null,
+});
+
+const EINSATZ_BETA = "68c1f0a2b3c4d5e6f7a8b9f1";
+const EINSATZ_GAMMA = "68c1f0a2b3c4d5e6f7a8b9f2";
+
 const REGISTRIERUNG_TITEL = "Als Spielerin oder Spieler: Registrierung für SG Alpha, Saison 2026";
 
 /** A pending registration on the account page: withdraw-only, its scope chips beside its media switch. */
@@ -692,6 +710,44 @@ const kontoRegistrierung = (medien: boolean) =>
         }),
       },
     ],
+  });
+
+const OFFEN_TEAM1 = spielbestaetigungFields();
+const OFFEN_TEAM2 = spielbestaetigungFields({ id: "6890a1b2c3d4e5f607182a02", partei: { art: "team", team_id: "6890a1b2c3d4e5f607182933" } });
+const VORSCHLAG_TEAM1 = spielbestaetigungFields({
+  antwort: {
+    art: "abgelehnt",
+    am: "2026-07-28",
+    von: { art: "kontakt", rolle: "trainer" },
+    vorschlag: { datum: "2026-08-07", uhrzeit: "17:00:00" },
+    begruendung: null,
+  },
+});
+const ZUSAGE_DER_VERWALTUNG = {
+  art: "zugesagt",
+  am: "2026-07-30",
+  von: { art: "admin" },
+  vorschlag: null,
+  begruendung: "Am Telefon zugesagt.",
+};
+
+/** A fixture's confirmations panel over `zeilen`, about the Ansetzung `spielbestaetigungFields` names. */
+const bestaetigungPanel = (zeilen: SpielbestaetigungFields[]) =>
+  h(SpielbestaetigungPanel, {
+    stand: { zeilen: zeilen.map((zeile) => FLSpielbestaetigungSchema.parse(zeile)), gelaufenAm: null },
+    spiel: {
+      id: "6890a1b2c3d4e5f607182930",
+      datum: "2026-08-05",
+      uhrzeit: "18:00:00",
+      ort: null,
+      team1: { team_id: "6890a1b2c3d4e5f607182932", name: "SG Alpha" },
+      team2: { team_id: "6890a1b2c3d4e5f607182933", name: "SG Beta" },
+    },
+    parteien: { teams: [], schiedsrichter: [] },
+    today: "2026-07-30",
+    isSpielSweepOn: true,
+    isActiveSaison: true,
+    onVorschlagUebernehmen: () => undefined,
   });
 
 const LANDINGS: Record<string, Landing> = {
@@ -1281,6 +1337,19 @@ const LANDINGS: Record<string, Landing> = {
     after: () => registrierungen([REG_MIA]),
     lands: () => screen.getByRole("button", { name: "Aufnehmen: Mia Schmidt" }),
   },
+  "a referee's acceptance on their panel, on the next open row's acceptance": {
+    before: () => h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta"), einsatz(EINSATZ_GAMMA, "SG Gamma")] }),
+    press: (user) => user.click(screen.getByRole("button", { name: "Zusagen: SG Alpha gegen SG Beta am 20.11.2026" })),
+    after: () =>
+      h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta", "zugesagt"), einsatz(EINSATZ_GAMMA, "SG Gamma")] }),
+    lands: () => screen.getByRole("button", { name: "Zusagen: SG Alpha gegen SG Gamma am 20.11.2026" }),
+  },
+  "a referee's last open row's acceptance, on the section's heading": {
+    before: () => h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta")] }),
+    press: (user) => user.click(screen.getByRole("button", { name: "Zusagen: SG Alpha gegen SG Beta am 20.11.2026" })),
+    after: () => h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz(EINSATZ_BETA, "SG Beta", "zugesagt")] }),
+    lands: () => heading("Deine Einsätze"),
+  },
   "an application seat's media withdrawal on the account page, closing its switch, on the record's heading": {
     answers: {
       patchBewerbungEinwilligungAction: { success: true, message: "Gespeichert.", nachweis_stand: { umfang: null, medien: "x".repeat(64) } },
@@ -1353,6 +1422,23 @@ const LANDINGS: Record<string, Landing> = {
     },
     after: () => h(FormPersonLoeschenSection),
     lands: () => openStop("Person löschen"),
+  },
+  /* The settled row loses its press, so the next open row's takes the focus, closed until its own reason is typed. */
+  "a confirmation's settle, on the next open row's press": {
+    before: () => bestaetigungPanel([OFFEN_TEAM1, OFFEN_TEAM2]),
+    press: async (user) => {
+      const [box] = screen.getAllByRole("textbox", { name: "Begründung für die Zusage" });
+      await user.type(box ?? assert.fail("the first open row offers no reason box"), "Am Telefon zugesagt.");
+      await pressTwice(user, { resting: "Auf Zusage setzen: SG Alpha", armed: "Ja, auf Zusage setzen" });
+    },
+    after: () => bestaetigungPanel([{ ...OFFEN_TEAM1, antwort: ZUSAGE_DER_VERWALTUNG }, OFFEN_TEAM2]),
+    lands: () => openStop("Auf Zusage setzen: SG Beta"),
+  },
+  "a proposal's discard, the last press, on the panel's heading": {
+    before: () => bestaetigungPanel([VORSCHLAG_TEAM1]),
+    press: (user) => pressTwice(user, { resting: "Vorschlag verwerfen: SG Alpha", armed: "Ja, Vorschlag verwerfen" }),
+    after: () => bestaetigungPanel([{ ...VORSCHLAG_TEAM1, geschlossen: { am: "2026-07-30", grund: "verworfen" } }]),
+    lands: () => heading("Spielbestätigungen"),
   },
 };
 

@@ -3,9 +3,12 @@ import { apiClient } from "@/core/api";
 import {
   FLSpielbestaetigungAnsichtResponseSchema,
   FLSpielbestaetigungAntwortResponseSchema,
+  FLSpielbestaetigungEintragenResponseSchema,
+  FLSpielbestaetigungSchiedsrichterAntwortResponseSchema,
   FLSpielbestaetigungSweepAngefragtResponseSchema,
   FLSpielbestaetigungSweepResponseSchema,
   FLSpielbestaetigungSweepSaisonsResponseSchema,
+  FLSpielbestaetigungVerwerfenResponseSchema,
 } from "./schemas";
 
 import type {
@@ -13,10 +16,16 @@ import type {
   FLSpielbestaetigungAnsichtResponse,
   FLSpielbestaetigungAntwortPayload,
   FLSpielbestaetigungAntwortResponse,
+  FLSpielbestaetigungEintragenPayload,
+  FLSpielbestaetigungEintragenResponse,
+  FLSpielbestaetigungSchiedsrichterAntwortPayload,
+  FLSpielbestaetigungSchiedsrichterAntwortResponse,
   FLSpielbestaetigungSweepAngefragtPayload,
   FLSpielbestaetigungSweepAngefragtResponse,
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungSweepSaisonsResponse,
+  FLSpielbestaetigungVerwerfenPayload,
+  FLSpielbestaetigungVerwerfenResponse,
 } from "./schemas";
 
 /**
@@ -39,6 +48,22 @@ export async function postSpielbestaetigung(payload: FLSpielbestaetigungAntwortP
     authType: "base",
     body: JSON.stringify(payload),
   });
+}
+
+/** A referee's answer to a row of their own, on the person lane: the signed-in address is what the backend authorises. */
+export async function postSpielbestaetigungAntwort(
+  spielbestaetigungId: string,
+  payload: FLSpielbestaetigungSchiedsrichterAntwortPayload,
+): Promise<FLSpielbestaetigungSchiedsrichterAntwortResponse> {
+  return apiClient<FLSpielbestaetigungSchiedsrichterAntwortResponse>(
+    `/spielbestaetigungen/${spielbestaetigungId}/antwort`,
+    FLSpielbestaetigungSchiedsrichterAntwortResponseSchema,
+    {
+      method: "POST",
+      authType: "admin",
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
 /**
@@ -78,4 +103,22 @@ export async function postSpielbestaetigungSweepAngefragt(
       body: JSON.stringify(payload),
     },
   );
+}
+
+export async function eintragenSpielbestaetigung({
+  id,
+  ...fields
+}: FLSpielbestaetigungEintragenPayload): Promise<FLSpielbestaetigungEintragenResponse> {
+  return apiClient<FLSpielbestaetigungEintragenResponse>(`/spielbestaetigungen/${id}/eintragen`, FLSpielbestaetigungEintragenResponseSchema, {
+    method: "POST",
+    authType: "admin",
+    body: JSON.stringify(fields),
+  });
+}
+
+export async function verwerfenSpielbestaetigung({ id }: FLSpielbestaetigungVerwerfenPayload): Promise<FLSpielbestaetigungVerwerfenResponse> {
+  return apiClient<FLSpielbestaetigungVerwerfenResponse>(`/spielbestaetigungen/${id}/verwerfen`, FLSpielbestaetigungVerwerfenResponseSchema, {
+    method: "POST",
+    authType: "admin",
+  });
 }

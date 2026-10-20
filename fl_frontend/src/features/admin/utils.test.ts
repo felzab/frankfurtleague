@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { side, spielFields } from "@/shared/testing/fixtures.ts";
+import { side, spielbestaetigungFields, spielFields } from "@/shared/testing/fixtures.ts";
 
+import { FLSpielbestaetigungSchema } from "../spielbestaetigungen/schemas.ts";
 import { FLSpielSchema } from "../spiele/schemas.ts";
-import { ACTION_REQUIRED_LABELS, buildActionRequiredSections, categorizeActionRequired } from "./utils.ts";
+import { ACTION_REQUIRED_LABELS, bestaetigungNotizen, buildActionRequiredSections, categorizeActionRequired } from "./utils.ts";
 
+import type { SpielbestaetigungFields } from "@/shared/testing/fixtures.ts";
+import type { FLSpielbestaetigung } from "../spielbestaetigungen/schemas.ts";
 import type { FLSpiel } from "../spiele/schemas.ts";
+import type { FLActionUrgency } from "./utils.ts";
 
 const TODAY = "2026-07-30";
 
@@ -18,7 +22,7 @@ const SPIEL: FLSpiel = FLSpielSchema.parse(
     datum: "2026-07-20",
     uhrzeit: "18:00:00",
     ort: { spielort_id: "6890a1b2c3d4e5f607182934", name: "Sportplatz Ost", maps_link: "x" },
-    schiedsrichter: { schiedsrichter_id: "6890a1b2c3d4e5f607182935", name: "Ref" },
+    schiedsrichter: { schiedsrichter_id: "6890a1b2c3d4e5f607182935", name: "Ref", name_is_public: true },
     ergebnis: "2:1",
   }),
 );
@@ -30,7 +34,7 @@ function makeSpiel(overrides: Partial<FLSpiel> = {}): FLSpiel {
 }
 
 describe("categorizeActionRequired", () => {
-  it("returns all eight categories even when nothing needs attention", () => {
+  it("returns every category even when nothing needs attention", () => {
     const result = categorizeActionRequired([makeSpiel()], TODAY);
 
     assert.deepEqual(Object.keys(result), Object.keys(ACTION_REQUIRED_LABELS));
@@ -171,9 +175,135 @@ describe("categorizeActionRequired", () => {
   });
 });
 
+describe("categorizeActionRequired over the fixture confirmations", () => {
+  // Dated after TODAY and otherwise SPIEL, so the rows below are about the Ansetzung it holds.
+  const ANGESETZT = makeSpiel({ datum: "2026-08-05", ergebnis: null });
+  const ANSETZUNG = {
+    datum: "2026-08-05",
+    uhrzeit: "18:00:00",
+    spielort_id: "6890a1b2c3d4e5f607182934",
+    team1_id: "6890a1b2c3d4e5f607182932",
+    team2_id: "6890a1b2c3d4e5f607182933",
+    stand: "0".repeat(64),
+  };
+  const zeile = (overrides: Partial<SpielbestaetigungFields> = {}): FLSpielbestaetigung =>
+    FLSpielbestaetigungSchema.parse(spielbestaetigungFields({ ansetzung: ANSETZUNG, ...overrides }));
+  const VORSCHLAG = {
+    art: "abgelehnt",
+    am: "2026-07-28",
+    von: { art: "kontakt", rolle: "trainer" },
+    vorschlag: { datum: "2026-08-07", uhrzeit: "17:00:00" },
+    begruendung: null,
+  };
+
+  const kategorien = (zeilen: FLSpielbestaetigung[], spiel: FLSpiel = ANGESETZT): string[] =>
+    Object.entries(categorizeActionRequired([spiel], TODAY, [], zeilen))
+      .filter(([, spiele]) => spiele.length > 0)
+      .map(([category]) => category);
+
+  it("files a club's decline carrying a proposal under vorschlag_offen", () => {
+    assert.deepEqual(kategorien([zeile({ antwort: VORSCHLAG })]), ["vorschlag_offen"]);
+  });
+
+  it("files an unanswered club's row past its deadline under bestaetigung_ueberfaellig", () => {
+    assert.deepEqual(kategorien([zeile({ frist: "2026-07-29" })]), ["bestaetigung_ueberfaellig"]);
+  });
+
+  // Strict <: the deadline's own day is still the club's to answer on.
+  it("leaves a row due today out of the overdue category", () => {
+    assert.ok(!kategorien([zeile({ frist: TODAY, angefragt_am: "2026-07-27" })]).includes("bestaetigung_ueberfaellig"));
+  });
+
+  it("files a row due on the day it was asked, or not yet asked, under bestaetigung_sofort", () => {
+    assert.deepEqual(kategorien([zeile({ frist: TODAY, angefragt_am: TODAY })]), ["bestaetigung_sofort"]);
+    assert.deepEqual(kategorien([zeile({ frist: TODAY, angefragt_am: null })]), ["bestaetigung_sofort"]);
+  });
+
+  // Asked on an earlier day, the row had its deadline's days: a reminder's business, not the administrator's.
+  it("leaves a row asked before its deadline's day out of bestaetigung_sofort", () => {
+    assert.deepEqual(kategorien([zeile({ frist: TODAY, angefragt_am: "2026-07-27" })]), []);
+  });
+
+  // The next hourly pass closes these, so until then they speak for nothing the fixture holds.
+  it("counts no closed row and no row about an Ansetzung the fixture has left", () => {
+    const geschlossen = zeile({ antwort: VORSCHLAG, geschlossen: { am: "2026-07-29", grund: "verworfen" } });
+    const verlegt = zeile({ antwort: VORSCHLAG, ansetzung: { ...ANSETZUNG, uhrzeit: "19:00:00" } });
+
+    assert.deepEqual(kategorien([geschlossen, verlegt, zeile({ ansetzung: { ...ANSETZUNG, datum: "2026-08-04" } })]), []);
+  });
+
+  it("counts no row of another fixture", () => {
+    assert.deepEqual(kategorien([zeile({ antwort: VORSCHLAG, spiel_id: "6890a1b2c3d4e5f607182999" })]), []);
+  });
+
+  // A referee's answer is bound by the match day rather than the row's deadline.
+  it("never files a referee's row as overdue", () => {
+    const partei = { art: "schiedsrichter" as const, schiedsrichter_id: "6890a1b2c3d4e5f607182935" };
+
+    assert.deepEqual(kategorien([zeile({ partei, kontakte: null, frist: "2026-07-20" })]), []);
+  });
+
+  describe("a referee's own decline", () => {
+    const partei = { art: "schiedsrichter" as const, schiedsrichter_id: "6890a1b2c3d4e5f607182935" };
+    const ABGELEHNT = { art: "abgelehnt", am: "2026-07-28", von: { art: "schiedsrichter" }, vorschlag: null, begruendung: null };
+    const abgelehnt = zeile({
+      partei,
+      kontakte: null,
+      antwort: ABGELEHNT,
+      geschlossen: { am: "2026-07-28", grund: "schiedsrichter_abgelehnt" },
+    });
+    const OHNE = { ...ANGESETZT, schiedsrichter: null };
+
+    it("files the slot it emptied under schiedsrichter_abgesagt as well as the missing referee", () => {
+      assert.deepEqual(kategorien([abgelehnt], OHNE), ["schiedsrichter_missing", "schiedsrichter_abgesagt"]);
+    });
+
+    // The read serves a fixture's rows newest first: a referee booked since and taken off again left the slot empty.
+    it("files it only while it is the fixture's newest referee row", () => {
+      const danach = zeile({
+        id: "6890a1b2c3d4e5f607182a02",
+        partei: { ...partei, schiedsrichter_id: "6890a1b2c3d4e5f607182936" },
+        kontakte: null,
+      });
+
+      assert.deepEqual(kategorien([danach, abgelehnt], OHNE), ["schiedsrichter_missing"]);
+    });
+
+    it("files nothing once the slot holds a referee again", () => {
+      assert.deepEqual(kategorien([abgelehnt]), []);
+    });
+  });
+
+  it("notes each proposal beside its card by the proposing club and the date it proposes", () => {
+    assert.deepEqual(bestaetigungNotizen("vorschlag_offen", [ANGESETZT], [zeile({ antwort: VORSCHLAG })], TODAY).get(ANGESETZT.id), [
+      "Vorschlag von Team A: 07.08.2026 um 17:00 Uhr",
+    ]);
+  });
+
+  // A row never mailed past its deadline is no club's silence, which is why the request is stamped after its send.
+  it("notes an overdue club by the day it was asked, or as never asked", () => {
+    const zeilen = [
+      zeile({ frist: "2026-07-29", angefragt_am: "2026-07-22" }),
+      zeile({ partei: { art: "team", team_id: ANSETZUNG.team2_id }, frist: "2026-07-29", angefragt_am: null }),
+    ];
+
+    assert.deepEqual(bestaetigungNotizen("bestaetigung_ueberfaellig", [ANGESETZT], zeilen, TODAY).get(ANGESETZT.id), [
+      "Team A: angefragt am 22.07.2026, keine Antwort",
+      "Team B: Anfrage nicht verschickt",
+    ]);
+  });
+
+  it("files a called-off fixture's rows only under abgesagt", () => {
+    assert.deepEqual(
+      kategorien([zeile({ antwort: VORSCHLAG }), zeile({ frist: "2026-07-20" })], { ...ANGESETZT, sonderereignis: "ausgefallen" }),
+      ["abgesagt"],
+    );
+  });
+});
+
 describe("buildActionRequiredSections", () => {
   const build = (spiele: FLSpiel[], bracketFaults: Parameters<typeof categorizeActionRequired>[2] = []) =>
-    buildActionRequiredSections({ spiele, today: TODAY, bracketFaults: bracketFaults ?? [] });
+    buildActionRequiredSections({ spiele, today: TODAY, bracketFaults: bracketFaults ?? [], bestaetigungen: [] });
 
   it("returns every category, in the label table's order", () => {
     const sections = build([]);
@@ -194,11 +324,16 @@ describe("buildActionRequiredSections", () => {
     assert.doesNotMatch(`${name} ${desc}`, /Aufstellung/);
   });
 
-  it("leads with the blocking categories and ends with the cancellations", () => {
-    const order = Object.keys(ACTION_REQUIRED_LABELS);
+  // Declaration order is render order, so a category declared out of its urgency renders out of it.
+  it("runs from the blocking categories to the cancellations, urgency never rising", () => {
+    const RANG: Record<FLActionUrgency, number> = { blocking: 0, results: 1, details: 2, none: 3 };
+    const raenge = Object.values(ACTION_REQUIRED_LABELS).map((label) => RANG[label.urgency]);
 
-    assert.deepEqual(order.slice(0, 3), ["bracket_fault", "besetzung_missing", "ergebnis_pending"]);
-    assert.equal(order.at(-1), "abgesagt");
+    assert.deepEqual(
+      raenge,
+      [...raenge].sort((a, b) => a - b),
+    );
+    assert.equal(Object.keys(ACTION_REQUIRED_LABELS).at(-1), "abgesagt");
   });
 
   it("returns an empty section rather than omitting it", () => {

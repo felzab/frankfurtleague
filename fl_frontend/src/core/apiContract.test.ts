@@ -82,6 +82,8 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSpielbestaetigungAntwortArt: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielbestaetigungZustand: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielbestaetigungSeite: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLSpielbestaetigungGrund: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLSpielbestaetigungSchiedsrichterZustand: "a Pydantic Literal alias, inlined as an enum at each use site",
 
   // Both fields are path segments of `POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut`,
   // so the request carries no body for FastAPI to describe.
@@ -101,6 +103,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSpielQuelle: "the discriminated union is published inline on each teamN_quelle; both variants are paired",
 
   FLSpielbestaetigungVon: "the discriminated union is published inline on each answer's `beantwortet_von`; all three variants are paired",
+  FLSpielbestaetigungPartei: "the discriminated union is published inline on each row's `partei`; both variants are paired",
 
   FLAktor: "the discriminated union is published inline on the actor of FLAktion and FLAktionMitStand; both variants are paired",
 
@@ -127,6 +130,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSchiedsrichterAdresswechselVerwerfenPayload: "the address change's DELETE takes its id from the path and has no request body",
   FLSpielerAdresswechselEinladenPayload: "the pupil's address link re-send POST takes its id from the path and has no request body",
   FLSpielerAdresswechselVerwerfenPayload: "the pupil's address change DELETE takes its id from the path and has no request body",
+  FLSpielbestaetigungVerwerfenPayload: "the discard POST takes its id from the path and has no request body",
   FLSperrlisteKeyPayload: "the ban's DELETE takes the id from the path and has no request body",
   FLBerechtigungKeyPayload: "the grant's DELETE takes the id from the path and has no request body",
   FLVerwaltung: "a Pydantic Literal alias, inlined as an enum at each use site",
@@ -134,6 +138,7 @@ const FRONTEND_ONLY: Record<string, string> = {
 
   // One form creates the row and its junction: without one the club is invisible (backend spec I11).
   FLCreateTeamFormPayload: "the create action's own argument; the action splits it into two requests",
+  SchiedsrichterAbsage: "the decline action's own argument; the action wraps it in the answer's payload",
 };
 
 /**
@@ -147,6 +152,7 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLPatchSchiedsrichterPayload: ["id"],
   FLAnnehmenBewerbungPayload: ["id"],
   FLAblehnenBewerbungPayload: ["id"],
+  FLSpielbestaetigungEintragenPayload: ["id"],
   FLPatchSpielortPayload: ["id"],
   FLPatchBerechtigungPayload: ["id"],
   FLPatchSpielDataPayload: ["spiel_id"],
@@ -349,7 +355,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 360;
+const EXPECTED_PAIRS = 377;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

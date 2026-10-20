@@ -274,7 +274,7 @@ class TestTheCreateIsTheInvitation:
 
         view = on_a_league(mongo_replica_set_url, body, referees=[])
 
-        assert (view.zustand, view.text_version) == ("gueltig", None)
+        assert view.zustand == "gueltig"
         assert "Pierluigi" not in view.model_dump_json()
 
     def test_a_banned_address_leaves_no_referee_behind(self, mongo_replica_set_url: str):

@@ -23,6 +23,7 @@ from app.api.spiele.schemas import (
     FLSpielListAdapter,
 )
 from app.api.spiele.services import (
+    BOOKING_UNCONFIRMED_REFEREE,
     BOOKING_UNKNOWN_RESOURCE,
     ELIGIBILITY_DISQUALIFIED,
     FIXTURE_DOUBLE_BOOKED,
@@ -313,6 +314,8 @@ SPIELORT_UNKNOWN = ObjectId("6890a1b2c3d4e5f6072200b9")
 
 SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f6072200c1")
 SCHIEDSRICHTER_RETIRED = ObjectId("6890a1b2c3d4e5f6072200c2")
+# Entered by an administrator, its person's confirmation not yet in.
+SCHIEDSRICHTER_UNBESTAETIGT = ObjectId("6890a1b2c3d4e5f6072200c3")
 
 RETIRED_ON = "2026-02-01"
 
@@ -320,6 +323,7 @@ VENUES = {SPIELORT: ("Sportplatz Ost", None), SPIELORT_RETIRED: ("Bezirkssportan
 REFEREES = {
     SCHIEDSRICHTER: ("A. Referee", None),
     SCHIEDSRICHTER_RETIRED: ("B. Whistle", RETIRED_ON),
+    SCHIEDSRICHTER_UNBESTAETIGT: ("C. Pfiff", None),
     # Every erasure's fixtures end here, and it is the one referee row with no name
     # (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
     GHOST_SCHIEDSRICHTER_ID: (None, GHOST_INACTIVE_SINCE),
@@ -354,6 +358,12 @@ def referee_documents() -> list[dict[str, Any]]:
             "default_payment": DEFAULT_PAYMENT,
             "kontakt": {"telefon": None, "email": None},
             "inactive_since": inactive_since,
+            # Every named row confirmed by its person but the one a case books unconfirmed; the ghost holds no record.
+            "einwilligung": (
+                None
+                if schiedsrichter_id in (SCHIEDSRICHTER_UNBESTAETIGT, GHOST_SCHIEDSRICHTER_ID)
+                else documents.eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-01-20")
+            ),
         }
         for schiedsrichter_id, (name, inactive_since) in REFEREES.items()
     ]
@@ -527,6 +537,20 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
             return refused.value.error_code
 
         assert on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag()) == BOOKING_UNKNOWN_RESOURCE
+
+    def test_booking_a_referee_whose_person_has_not_confirmed_is_refused(self, mongo_replica_set_url: str):
+        """The confirmation is read off the referee's own record in the save's transaction, never off the payload."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            assigned = {"schiedsrichter_id": SCHIEDSRICHTER_UNBESTAETIGT, "payment": 20}
+            spiel_data = await payload_for(database, GRUPPE_FILLING, schiedsrichter=assigned)
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await call_patch(database, client, GRUPPE_FILLING, spiel_data)
+
+            return refused.value.error_code, (await spiele_now(database))[GRUPPE_FILLING_NR]["schiedsrichter"]
+
+        assert on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag()) == (BOOKING_UNCONFIRMED_REFEREE, None)
 
     @pytest.mark.parametrize("dry_run", [pytest.param(True, id="preview"), pytest.param(False, id="save")])
     @pytest.mark.parametrize(
@@ -1109,6 +1133,8 @@ async def faults_now(database: AsyncDatabase) -> list[FLBracketFault]:
         saisons_collection=database[Collection.SAISONS],
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
         saison_id=SAISON_ID,
         today=TODAY,
     )

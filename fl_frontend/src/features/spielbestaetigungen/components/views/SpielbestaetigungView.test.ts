@@ -16,6 +16,7 @@ import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
+import type { FLSpielbestaetigungAnsichtResponse } from "../../schemas.ts";
 import type { SpielbestaetigungStart } from "./SpielbestaetigungView.tsx";
 
 /* The real module hands its raising to HeroUI's queue rather than back to the case that caused it. */
@@ -47,7 +48,7 @@ const ANSICHT = {
   frist: "2026-10-31",
   vorschlag: null,
   beantwortet_von: null,
-} as const;
+} as const satisfies FLSpielbestaetigungAnsichtResponse;
 
 const OFFEN: SpielbestaetigungStart = { zustand: "gueltig", token: TOKEN, ansicht: ANSICHT };
 

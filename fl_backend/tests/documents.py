@@ -13,7 +13,7 @@ Invariants:
 
 import copy
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Final
 from zoneinfo import ZoneInfo
 
@@ -156,6 +156,31 @@ def spielbestaetigung_document(spiel: Mapping[str, Any], *, partei: Mapping[str,
         "geschlossen": None,
         **fields,
     }
+
+
+def bericht_document(**fields: Any) -> dict[str, Any]:
+    """A referee's first, unadopted report of a 1:0 won by `team1`: one named scorer, one caution with its reason."""
+
+    am = datetime(2026, 3, 15, 20, tzinfo=UTC)
+
+    return {
+        "ergebnis_vorschlag": {"team1_tore": 1, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
+        "torschuetzen": [{"seite": "team1", "spieler_id": ObjectId(), "minute": "23", "eigentor": False}],
+        "karten": [{"seite": "team2", "spieler_id": ObjectId(), "minute": "45+2", "farbe": "gelb", "grund": "foulspiel"}],
+        "bemerkungen": None,
+        "eingereicht_am": am,
+        "eingereicht_von": {"art": "schiedsrichter", "schiedsrichter_id": ObjectId()},
+        "geaendert_am": am,
+        "version": 1,
+        "uebernommen_am": None,
+        "uebernommen_von": None,
+        "uebernommene_version": None,
+        **fields,
+    }
+
+
+def spielbericht_document(spiel: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
+    return {"_id": ObjectId(), "saison_id": spiel["saison_id"], "spiel_id": spiel["_id"], "bericht": bericht_document(), **fields}
 
 
 def kontakt_antwort_document(rolle: str, adresse: str, *, begruendung: str | None, am: str = "2026-04-01", **fields: Any) -> dict[str, Any]:

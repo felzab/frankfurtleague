@@ -13,9 +13,11 @@ from pymongo.errors import ExecutionTimeout, OperationFailure
 
 from app.api.bewerbungen.services import SWEEP_PAGE, days_after, hash_token
 from app.api.schiedsrichter.services import compose_bestaetigung
+from app.api.spielbestaetigungen.person_router import post_schiedsrichter_antwort
 from app.api.spielbestaetigungen.router import post_spielbestaetigung
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAntwortPayload,
+    FLSpielbestaetigungSchiedsrichterAntwortPayload,
     FLSpielbestaetigungSweepAngefragtPayload,
     FLSpielbestaetigungSweepResponse,
     FLSpielbestaetigungTermin,
@@ -58,6 +60,7 @@ from tests.documents import ban_document, kontaktperson_document
 from tests.erasure import erased
 from tests.isolation import InterleavedCollection
 from tests.payloads import spiel_patch_body
+from tests.records import record_collections
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
@@ -631,6 +634,10 @@ class TestARefereeChangeClosesTheirRowAlone:
         old = row_of(stored, schiedsrichter_id=SCHIEDSRICHTER)
         assert old["geschlossen"]["grund"] == "schiedsrichter_gewechselt"
         assert [einteilung.address for einteilung in second.einteilungen] == [OTHER_REFEREE_EMAIL]
+        # The referee taken off is told so at their own address, about the slot they were booked for.
+        assert [(notice.spielbestaetigung_id, notice.address, notice.alt.datum) for notice in second.schiedsrichter_gewechselt] == [
+            (old["_id"], REFEREE_EMAIL, NEXT_WEEK)
+        ]
         assert (second.schiedsrichter_neue_ansetzungen, second.anfragen, second.geschlossen) == ([], [], 1)
 
 
@@ -1915,3 +1922,123 @@ class TestAnEinteilungNeverStampedIsToldAgain:
         # The premise: the erasure ran under the reminder's read and took the referee's row with it.
         assert (interleaved.passes, stored) == (1, [])
         assert answer.einteilungen == []
+
+
+# --- A REFEREE TAKEN OFF a fixture after their Einteilung went out.
+
+
+async def told_and_taken_off(database: AsyncDatabase, client: AsyncMongoClient, *, stamped: bool = True) -> None:
+    """The first pass asks the referee, its request is stamped as mailed or not, and the fixture is handed to another referee."""
+
+    await sweep(database, client)
+    if stamped:
+        await angefragt(database, client, [row["_id"] for row in await rows(database)])
+    await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"schiedsrichter": booked(OTHER_SCHIEDSRICHTER)}})
+
+
+class TestARefereeTakenOffIsToldOnlyWhereTheyWereTold:
+    def test_a_referee_never_mailed_is_told_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await told_and_taken_off(database, client, stamped=False)
+            return await sweep(database, client)
+
+        second = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        # The premise: the row closed for the referee change all the same.
+        assert (second.geschlossen, second.schiedsrichter_gewechselt) == (1, [])
+
+    def test_a_day_gone_by_tells_nobody(self, mongo_replica_set_url: str):
+        """A correction of who officiated a match already played is no booking taken away."""
+
+        after_the_day = days_after(day=NEXT_WEEK, days=1)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await told_and_taken_off(database, client)
+            return await sweep(database, client, today=after_the_day), await rows(database, **{"partei.schiedsrichter_id": SCHIEDSRICHTER})
+
+        second, (old,) = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        assert old["geschlossen"] == {"am": after_the_day, "grund": "schiedsrichter_gewechselt"}
+        assert second.schiedsrichter_gewechselt == []
+
+    def test_their_own_decline_tells_them_nothing(self, mongo_replica_set_url: str):
+        """The decline took them off and closed the row in one write, so no pass meets the row open."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            await angefragt(database, client, [row["_id"] for row in await rows(database)])
+            await database[Collection.SCHIEDSRICHTER].update_one(
+                {"_id": SCHIEDSRICHTER},
+                {"$set": {"einwilligung": documents.eigene_einwilligung_document(text_version="v1", bestaetigt_am=YESTERDAY)}},
+            )
+            (own,) = await rows(database, **{"partei.schiedsrichter_id": SCHIEDSRICHTER})
+            await post_schiedsrichter_antwort(
+                spielbestaetigung_id=own["_id"],
+                antwort_data=FLSpielbestaetigungSchiedsrichterAntwortPayload(antwort="abgelehnt", begruendung="Verhindert"),
+                identifier=REFEREE_EMAIL,
+                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                spiele_collection=database[Collection.SPIELE],
+                saison_teams_collection=database[Collection.SAISON_TEAMS],
+                records=record_collections(database),
+                db=client,
+                today=TODAY,
+            )
+            return await sweep(database, client)
+
+        second = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        assert (second.geschlossen, second.schiedsrichter_gewechselt) == (0, [])
+
+
+class ConfirmationsRunningARivalAtTheErasuresRead(InterleavedCollection):
+    """The confirmations a referee's erasure reads its rows off, a rival run once after that read and before its removal."""
+
+    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
+        cursor = await self._collection.aggregate(*args, **kwargs)
+        await self.run_the_rival()
+        return cursor
+
+
+class TestATakenOffRefereesErasureAndTheCloseCross:
+    """The close writes the very row the erasure removes, so the two conflict and one runs again: no anchor is owed (`I760`'s is a mint's)."""
+
+    def test_an_erasure_landing_inside_the_close_leaves_nobody_told(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await told_and_taken_off(database, client)
+
+            async def erase_the_referee() -> None:
+                await erased(database, client, REFEREE_EMAIL, germany_now=NOW)
+
+            interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SCHIEDSRICHTER], erase_the_referee)
+            answer = await a_pass_through(database, client, schiedsrichter=cast(Any, interleaved))
+
+            return interleaved, answer, await rows(database, **{"partei.art": "schiedsrichter"})
+
+        interleaved, answer, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        # Serially the erased referee's row is gone before the close reads any address, so it reads none.
+        interleaved.assert_landed_inside(serially=0)
+        assert answer.schiedsrichter_gewechselt == []
+        assert [row["partei"]["schiedsrichter_id"] for row in stored] == [OTHER_SCHIEDSRICHTER]
+
+    def test_a_close_landing_inside_the_erasure_leaves_no_row_of_theirs(self, mongo_replica_set_url: str):
+        """The close commits first and its notice stands, the order being close then erasure; the row it closed goes with them."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await told_and_taken_off(database, client)
+            answers: list[Any] = []
+
+            async def a_pass() -> None:
+                answers.append(await sweep(database, client))
+
+            interleaved = ConfirmationsRunningARivalAtTheErasuresRead(database[Collection.SPIELBESTAETIGUNGEN], a_pass)
+            await erased(database, client, REFEREE_EMAIL, germany_now=NOW, spielbestaetigungen_collection=interleaved)
+
+            return interleaved, answers, await rows(database, **{"partei.schiedsrichter_id": SCHIEDSRICHTER})
+
+        interleaved, (answer,), stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        # Serially the erasure reads its rows once; the second read is its run again after the close's write.
+        interleaved.assert_landed_inside(serially=1)
+        assert [notice.address for notice in answer.schiedsrichter_gewechselt] == [REFEREE_EMAIL]
+        assert stored == []

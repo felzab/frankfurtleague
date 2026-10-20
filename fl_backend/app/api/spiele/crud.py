@@ -59,6 +59,7 @@ from app.api.teams.services import (
     offered_gruppen,
 )
 from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_one_in_db, pull_many_from_db, refuse
+from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
 
@@ -327,11 +328,13 @@ async def pull_booked_referee(
     if schiedsrichter_id is None:
         return None
 
-    row = await schiedsrichter_collection.find_one({"_id": schiedsrichter_id}, {"name": 1, "inactive_since": 1}, session=session)
+    row = await schiedsrichter_collection.find_one(
+        {"_id": schiedsrichter_id}, {"name": 1, "inactive_since": 1, "einwilligung.bestaetigt_am": 1}, session=session
+    )
     if row is None:
         return None
 
-    return BookedReferee(name=row["name"], inactive_since=row["inactive_since"])
+    return BookedReferee(name=row["name"], inactive_since=row["inactive_since"], bestaetigt=is_confirmed(row.get("einwilligung")))
 
 
 async def anchor_a_booked_venue(
