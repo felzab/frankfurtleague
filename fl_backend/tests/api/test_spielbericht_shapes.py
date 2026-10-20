@@ -459,7 +459,7 @@ class TestAGroupFixtureTakesNoShootOut:
             )
         )
 
-        keine = {"team1": set(), "team2": set()}
+        keine: dict[FLSpielberichtSeite, set[ObjectId]] = {"team1": set(), "team2": set()}
 
         # Through the judgement both writes ask, so the rule is held where it is called as well as where it is written.
         with pytest.raises(WriteRefusalException) as refused:
