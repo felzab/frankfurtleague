@@ -152,6 +152,13 @@ where the row carries the stamp the expiry reads (I119).\
 **Trap:** it is not a `Bestätigung`, though its link lives in that family's address range, `/bestaetigung/spiel`: a Bestätigung is one person's answer to their own link about their own record, while this is a club's answer about a fixture's date, given by whichever seat presses first, and it confirms nothing about the person pressing — which is why the address reads as the compound and never as „Bestätigung“ alone. "Open" means two things: the answer and the unique index read a row as open while neither `antwort` nor `geschlossen` holds a value, and the sweep's close while `geschlossen` alone is empty, so an answer a move overtook still records why it stopped applying. `frist` is the day the team's answer is due, `SPIEL_BESTAETIGUNG_FRIST_TAGE` before the match or the day it is asked where the match is nearer than that (`fl_backend/app/api/spielbestaetigungen/services.py :: frist_of`), stored per row so a changed bound moves no request already sent; it is not the link's lifetime counted from a mint.\
 **See:** `Ansetzung` for what a row answers about, `vorschlag`, `halter` and `Zusage` for three of its words, `Bestätigung` for the person's own link it is not, and `fl_backend/app/core/domain.py :: AGGREGATES` for why it stands outside the season's boundary.
 
+### `Spielbericht` — the booked referee's report of one played fixture
+
+**Is:** one document per fixture in `spielberichte`, its `bericht` the referee's account: a proposed result (`ergebnis_vorschlag`), one scorer entry per goal, the cards with their colour and, on a caution, their reason, and remarks for what no field holds. The whole block is one proposal, and the fixture's result is never written from it: the administrator carries it into the editor and saves it there.\
+**In code:** `fl_backend/app/core/collections.py :: Collection.SPIELBERICHTE`, read through `fl_backend/app/api/spielberichte/schemas.py :: FLSpielbericht` over the validator in `fl_backend/app/core/constraints.py`.\
+**Trap:** a null scorer is one nobody named, and an erased pupil's entry names the sentinel instead, so the two never read alike. `version` counts the block's writes and the adoption stores the one it took (`uebernommene_version`); it is no `Fassung`, which is a consent wording. Its `ergebnis_vorschlag` is a result, never the date a club's `vorschlag` proposes. The public result stays `spiele.ergebnis` alone.\
+**See:** the `Ergebnis` entry for the result the administrator saves, and `fl_backend/app/core/domain.py :: AGGREGATES` for why the report stands outside the season's boundary.
+
 ---
 
 ## Attributes and values
