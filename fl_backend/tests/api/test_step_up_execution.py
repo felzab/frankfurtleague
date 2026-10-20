@@ -30,7 +30,7 @@ from tests.actor_tokens import ACTOR_TOKEN_CONTRACT, SignedActor, actor_claims, 
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import eigene_einwilligung_document, rules_document, saison_document, saison_team_document
+from tests.documents import eigene_einwilligung_document, kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -173,20 +173,14 @@ class TestTheClubsContacts:
     def test_emptying_a_confirmed_seat_from_an_older_sign_in_is_refused_and_empties_nothing(self, mongo_replica_set_url: str):
         """Its own link is spent, but its links on the team's open match confirmations die with it, which no read here rules out."""
 
-        confirmed = {
-            "vorname": "Ida",
-            "nachname": "Musterfrau",
-            "email": "ida@example.com",
-            "telefon": "+4917010000001",
-            "geburtsdatum": "1984-05-09",
-            "einwilligung": {
-                "umfang": "kontaktdaten",
-                "text_version": LAUFENDE_FASSUNGEN["bewerbung"],
-                "datum": "2026-03-01",
-                "erfasst_von": "person",
-                "bestaetigt_am": "2026-03-02",
-            },
-        }
+        confirmed = kontaktperson_document(
+            "Ida",
+            bestaetigt_am="2026-03-02",
+            einwilligung={"text_version": LAUFENDE_FASSUNGEN["bewerbung"], "datum": "2026-03-01"},
+            nachname="Musterfrau",
+            email="ida@example.com",
+            telefon="+4917010000001",
+        )
         seated = {**self.NOBODY, "trainer": confirmed}
 
         async def seed(database: AsyncDatabase) -> None:

@@ -688,15 +688,21 @@ describe("the club filter a link into the contacts list preselects", () => {
     );
   });
 
-  /* Who seated a person is the one origin a seat keeps from now on; a seat seated before the field
-     names nobody, so it answers no origin rather than a guessed one. */
+  /* Who seated a person is the one origin a seat keeps. */
   it("reads who seated each person, across the club's seats", () => {
     const geseated = (eingetragen_von: FLKontaktperson["einwilligung"]["eingetragen_von"]) => ({
       ...kontaktperson("Tim"),
       einwilligung: { ...kontaktperson("Tim").einwilligung, eingetragen_von },
     });
     const [row] = buildKontaktRows(
-      [club({ trainer: geseated("bewerbung"), ansprechperson: geseated("liga"), stellvertretung: geseated(null), trainer_ist_zugleich: null })],
+      [
+        club({
+          trainer: geseated("bewerbung"),
+          ansprechperson: geseated("liga"),
+          stellvertretung: geseated("liga"),
+          trainer_ist_zugleich: null,
+        }),
+      ],
       SAISON,
     );
     const facet = buildKontakteFacets([]).find((each) => each.param === "einwilligung");

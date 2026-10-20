@@ -19,11 +19,11 @@ from zoneinfo import ZoneInfo
 
 from bson import ObjectId
 
-from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
+from app.api.bewerbungen.services import compose_bestaetigungen, compose_einwilligung, hash_token
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.api.spielbestaetigungen.services import compose_ansetzung, halter_of
-from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.api.teams.schemas import KONTAKT_ROLLEN, FLKontaktEingetragenVon
 from app.core.recording import log_stamp
 from app.shared.adresswechsel import FLAdresswechselWeg, compose_block
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
@@ -341,30 +341,24 @@ def kontaktperson_document(
     bestaetigt_am: str | None = None,
     einwilligung: Mapping[str, Any] | None = None,
     am: str | None = None,
+    eingetragen_von: FLKontaktEingetragenVon = "bewerbung",
     **fields: Any,
 ) -> dict[str, Any]:
-    """One contact seat as the submission stores it, or, given `bestaetigt_am`, as its own person's confirmation left it.
+    """One contact seat as its seating stores it, or, given `bestaetigt_am`, as its own person's confirmation left it.
 
     `einwilligung` holds the record's keys a case sets itself, its label and choices among them, laid over the seat's own.
     """
 
-    seated: dict[str, Any] = {
-        "umfang": "kontaktdaten",
-        "erfasst_von": "administrativ",
-        "text_version": "v3",
-        "datum": "2026-03-20",
-        "bestaetigt_am": None,
-    }
+    seated = compose_einwilligung(text_version="v3", today="2026-03-20", eingetragen_von=eingetragen_von)
     if bestaetigt_am is None:
         block = {**seated, **(einwilligung or {})}
     elif not bestaetigt_am:
         # A blank stamp, which only a hand edit stores and every reader takes for none: nobody answered.
-        block = {**seated, "erfasst_von": "person", "bestaetigt_am": bestaetigt_am, **(einwilligung or {})}
+        block = {**seated, "bestaetigt_am": bestaetigt_am, **(einwilligung or {})}
     else:
         # As `app/api/bewerbungen/services.py :: compose_confirmation_update` answers the seat: both
-        # choices with their evidence, judged against the seat as seated, and no stored speaker.
-        answered = {key: value for key, value in seated.items() if key != "erfasst_von"}
-        block = {**answered, "bestaetigt_am": bestaetigt_am, "medien": False, **(einwilligung or {})}
+        # choices with their evidence, judged against the seat as seated.
+        block = {**seated, "bestaetigt_am": bestaetigt_am, **(einwilligung or {})}
         if NACHWEIS not in block:
             beleg_am = am if am is not None else bestaetigt_um(bestaetigt_am)
             block[NACHWEIS] = {
@@ -381,6 +375,16 @@ def kontaktperson_document(
         "einwilligung": block,
         **fields,
     }
+
+
+def bestaetigte_kenntnisnahme(*, text_version: str = "v1", datum: str = "2026-01-15", bestaetigt_am: str = "2026-01-16") -> dict[str, Any]:
+    """A seat's record as its applicant's seating and then its own person's confirmation left it, for a seat a case spells itself."""
+
+    return dict(
+        kontaktperson_document("Kenntnis", bestaetigt_am=bestaetigt_am, einwilligung={"text_version": text_version, "datum": datum})[
+            "einwilligung"
+        ]
+    )
 
 
 def ban_document(address: str, *, bis: str, **fields: Any) -> dict[str, Any]:

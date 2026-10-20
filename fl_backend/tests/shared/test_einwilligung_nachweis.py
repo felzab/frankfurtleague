@@ -5,7 +5,6 @@ import pytest
 
 from app.api.bewerbungen.services import compose_einwilligung
 from app.api.registrierungen.services import compose_person_update
-from app.api.teams.schemas import FLKontaktKenntnisnahme
 from app.shared.einwilligung_nachweis import (
     compose_beleg,
     compose_erneuert,
@@ -50,14 +49,8 @@ MEDIA_WITHDRAWN: Final[Mapping[str, Any]] = {
 # The same record as the referee's press composes it, before `compose_geboren` evidences it.
 AS_PRESSED: Final[Mapping[str, Any]] = {key: value for key, value in CONFIRMED.items() if key != "nachweis"}
 
-# A contact seat's record as the application wrote it, before the field `medien` existed.
-SEAT_BEFORE_MEDIEN: Final[Mapping[str, Any]] = {
-    "umfang": "kontaktdaten",
-    "erfasst_von": "administrativ",
-    "text_version": "2026-09-bestaetigung-5",
-    "datum": "2026-03-20",
-    "bestaetigt_am": None,
-}
+# A contact seat's record as the application seated its person, nobody having answered.
+SEATED: Final[Mapping[str, Any]] = compose_einwilligung(text_version="2026-09-bestaetigung-5", today="2026-03-20", eingetragen_von="bewerbung")
 
 
 class TestWhichValueGrants:
@@ -116,7 +109,7 @@ class TestTheEvidenceOfOneChoice:
     def test_a_seat_answered_without_whatsapp_keeps_no_earlier_grant(self):
         """`kontaktdaten` withholds, so a seat's first answer declining WhatsApp is a withdrawal of nothing."""
 
-        assert compose_beleg(gespeichert=SEAT_BEFORE_MEDIEN, wahl="umfang", wert="kontaktdaten", am=LATER, text_version="v6") == {
+        assert compose_beleg(gespeichert=SEATED, wahl="umfang", wert="kontaktdaten", am=LATER, text_version="v6") == {
             "am": LATER,
             "text_version": "v6",
         }
@@ -321,12 +314,3 @@ class TestTheStandAPressEchoes:
         }
 
         assert nachweis_stand_of(bloecke=[CONFIRMED, MEDIA_WITHDRAWN])["medien"] != nachweis_stand_of(bloecke=[CONFIRMED, moved])["medien"]
-
-
-class TestARecordStoredBeforeItsEvidence:
-    """No migration: every record stored before the field reads as one no person has answered."""
-
-    def test_a_seat_reads_empty_evidence_and_no_media_consent(self):
-        read = FLKontaktKenntnisnahme.model_validate(SEAT_BEFORE_MEDIEN)
-
-        assert (read.nachweis.umfang, read.nachweis.medien, read.medien) == (None, None, False)

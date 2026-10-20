@@ -146,8 +146,8 @@ export const FLKontaktKenntnisnahmeSchema = z.object({
   // The seat's consent to photographs, video and interviews, answered apart from `umfang`.
   medien: z.boolean(),
   // Who seated the person, which decides the page the seat's link opens: the applicant on the form or
-  // the league. Null on a seat stored before the field, never a guess here.
-  eingetragen_von: z.enum(["bewerbung", "liga"]).nullable(),
+  // the league.
+  eingetragen_von: z.enum(["bewerbung", "liga"]),
   nachweis: FLEinwilligungNachweiseSchema,
 });
 export type FLKontaktKenntnisnahme = z.infer<typeof FLKontaktKenntnisnahmeSchema>;

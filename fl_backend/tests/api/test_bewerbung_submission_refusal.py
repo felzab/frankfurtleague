@@ -66,7 +66,7 @@ from app.shared.schemas.bounds import (
     TEAM_NAME_MAX_LENGTH,
     TEAM_WEBSITE_URL_MAX_LENGTH,
 )
-from tests.documents import ADDRESS
+from tests.documents import ADDRESS, bestaetigte_kenntnisnahme, kontaktperson_document
 
 # Fixed rather than generated, so a failure names the same club every run. Its own hex range, as
 # every other module in this suite carves one.
@@ -474,11 +474,10 @@ class TestNoBirthdateOnAnyPayload:
 
         assert "geburtsdatum" not in composed.model_dump(mode="json")
 
-    @pytest.mark.parametrize("stored", [pytest.param({}, id="no key"), pytest.param({"geburtsdatum": None}, id="a null")])
-    def test_a_stored_contact_with_no_date_still_reads(self, stored: Mapping[str, Any]):
-        """A seat is stored without one until its person confirms, so a required field here would 500 the triage over one."""
+    def test_a_stored_contact_with_no_date_still_reads(self):
+        """A seat is stored with a null one until its person confirms, so a non-null field here would 500 the triage over one."""
 
-        record = {**person(), **stored, "einwilligung": {**JUNCTION_EINWILLIGUNG, "erfasst_von": "administrativ"}}
+        record = {**person(), "geburtsdatum": None, "einwilligung": kontaktperson_document("Quillhilde")["einwilligung"]}
 
         assert FLKontaktperson.model_validate(record).geburtsdatum is None
 
@@ -997,7 +996,8 @@ class TestNoCeilingReachesTheReadSide:
         long_name = "A" * (KONTAKT_NAME_MAX_LENGTH * 3)
         stored = {
             **person(vorname=long_name, nachname=long_name),
-            "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v3", "datum": TODAY},
+            "geburtsdatum": "1984-05-09",
+            "einwilligung": bestaetigte_kenntnisnahme(text_version="v3", datum=TODAY, bestaetigt_am=TODAY),
         }
 
         assert len(FLKontaktperson.model_validate(stored).vorname) == KONTAKT_NAME_MAX_LENGTH * 3

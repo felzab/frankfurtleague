@@ -58,7 +58,7 @@ from tests.app_client import app_client
 from tests.config import ADMIN_KEY, ADMINISTRATORS, TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, DRIVER_WRITES, api_routes, app_calls, callee, parsed
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import rules_document, saison_document, saison_team_document
+from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.openapi_document import build_document
 from tests.worker import worker_database
 
@@ -346,20 +346,7 @@ def _seeded_link(team_id: ObjectId) -> dict[str, Any]:
 
 
 def _junction_row(team_id: ObjectId) -> dict[str, Any]:
-    trainer = {
-        "vorname": TEAM_NAMES[team_id],
-        "nachname": "Mustermann",
-        "email": f"{TEAM_NAMES[team_id].lower()}@example.com",
-        "telefon": "+49 69 1234567",
-        "geburtsdatum": "1980-05-04",
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "person",
-            "text_version": "v1",
-            "datum": "2026-01-15",
-            "bestaetigt_am": "2026-03-20",
-        },
-    }
+    trainer = kontaktperson_document(TEAM_NAMES[team_id], bestaetigt_am="2026-03-20", nachname="Mustermann", telefon="+49 69 1234567")
 
     return saison_team_document(
         SAISON_ID,

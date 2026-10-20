@@ -35,6 +35,7 @@ from app.shared.schemas.kontakt import CustomEmail
 from tests import documents
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.documents import bestaetigte_kenntnisnahme
 from tests.erasure import erased
 from tests.plans import plans_of_sent_reads
 from tests.wire import commands_sent
@@ -154,7 +155,7 @@ def person(nachname: str, telefon: str) -> dict[str, Any]:
         "email": email,
         "telefon": telefon,
         "geburtsdatum": "1979-03-14",
-        "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-05"},
+        "einwilligung": bestaetigte_kenntnisnahme(datum="2026-01-05"),
     }
 
 

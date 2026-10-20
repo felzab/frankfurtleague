@@ -271,20 +271,16 @@ _REGISTRIERUNG_EINWILLIGUNG = _object(
 # A CONTACT person's record, and never `_EINWILLIGUNG` above: that one records what may be
 # published about a pupil, and one shared sub-schema would let either enum widen the other.
 _KONTAKT_KENNTNISNAHME = _object(
-    required=("umfang", "text_version", "datum"),
+    required=("umfang", "text_version", "datum", "bestaetigt_am", "medien", "eingetragen_von"),
     properties={
         "umfang": {"bsonType": "string", "enum": _KONTAKT_KENNTNISNAHME_UMFANG},
         # For `_EINWILLIGUNG`'s `erteilt_von`'s reason.
         "erfasst_von": {"bsonType": _STRING_OR_NULL, "enum": [*_KONTAKT_KENNTNISNAHME_QUELLEN, None]},
         "text_version": {"bsonType": "string"},
         "datum": {"bsonType": "string"},
-        # Out of `required` for `wunschgegner`'s reason: every record stored before the field lacks
-        # the key, and a decision re-validates the whole document.
         "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
-        # Out of `required` for `bestaetigt_am`'s reason.
         "medien": {"bsonType": "bool"},
-        # Out of `required` for `bestaetigt_am`'s reason, and null only as the read model spells an absent key.
-        "eingetragen_von": {"bsonType": _STRING_OR_NULL, "enum": [*_KONTAKT_EINGETRAGEN_VON, None]},
+        "eingetragen_von": {"bsonType": "string", "enum": _KONTAKT_EINGETRAGEN_VON},
         "nachweis": _NACHWEIS,
     },
 )
@@ -292,14 +288,14 @@ _KONTAKT_KENNTNISNAHME = _object(
 # Required TOGETHER, as `_EINWILLIGUNG` is: a person the league cannot reach is not a contact, and a
 # set of details carrying no record is one nobody was told the league holds.
 _KONTAKTPERSON = _object(
-    required=("vorname", "nachname", "email", "telefon", "einwilligung"),
+    required=("vorname", "nachname", "email", "telefon", "geburtsdatum", "einwilligung"),
     properties={
         "vorname": {"bsonType": "string"},
         "nachname": {"bsonType": "string"},
         "email": {"bsonType": "string"},
         "telefon": {"bsonType": "string"},
-        # Nullable and out of `required`: the date arrives with the confirmation, and "required once
-        # confirmed" is no type or enum (`docs/backend/spec.md :: I141`), so nothing here says it.
+        # Nullable: the date arrives with the confirmation, and "non-null once confirmed" is no type or
+        # enum (`docs/backend/spec.md :: I141`), so nothing here says it.
         "geburtsdatum": {"bsonType": _STRING_OR_NULL},
         "einwilligung": _KONTAKT_KENNTNISNAHME,
     },
@@ -2104,7 +2100,7 @@ async def report_nameless_persons(db: AsyncDatabase) -> RelationReport:
     # stays the validator report's alone.
     nameless = {
         "_id": {"$ne": GHOST_SPIELER_ID},
-        "$or": [{field: {"$type": "null"}} for field in ("vorname", "geburtsdatum", "einwilligung")],
+        "$or": [{"vorname": {"$type": "null"}}, {"geburtsdatum": {"$type": "null"}}, {"einwilligung": {"$type": "null"}}],
     }
     collection = db[Collection.SPIELER]
 

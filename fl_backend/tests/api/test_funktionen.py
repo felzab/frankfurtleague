@@ -13,7 +13,7 @@ from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
-from tests.documents import EINWILLIGUNG, rules_document, saison_document, saison_team_document, spieler_document
+from tests.documents import EINWILLIGUNG, kontaktperson_document, rules_document, saison_document, saison_team_document, spieler_document
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -55,7 +55,6 @@ GROSS_STORED = "GROSS.SITZ@schule.de"
 ZWEI_TEAMS = "zwei.teams@schule.de"
 ZEITEN = "zeiten.sitz@schule.de"
 OHNE_STEMPEL = "ohne.stempel@schule.de"
-OHNE_SCHLUESSEL = "ohne.schluessel@schule.de"
 ZUGLEICH = "zugleich.sitz@schule.de"
 NUR_OFFEN = "nur.offen@schule.de"
 GEMISCHT = "gemischt@schule.de"
@@ -96,15 +95,9 @@ REFEREE_OHNE_RECORD_OID = ObjectId("6890a1b2c3d4e5f607830034")
 REFEREE_NULL_RECORD_OID = ObjectId("6890a1b2c3d4e5f607830035")
 REFEREE_LEER_OID = ObjectId("6890a1b2c3d4e5f607830037")
 
-KENNTNISNAHME: dict[str, Any] = {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-05"}
 
-
-def _seat(email: str, *, bestaetigt_am: str | None = STAMP, keyed: bool = True) -> dict[str, Any]:
-    """`keyed=False` stores a record carrying no `bestaetigt_am` KEY, the shape `_KONTAKT_KENNTNISNAHME`'s `required` admits."""
-
-    einwilligung = {**KENNTNISNAHME, "bestaetigt_am": bestaetigt_am} if keyed else dict(KENNTNISNAHME)
-
-    return {"vorname": "Anna", "nachname": "Müller", "email": email, "telefon": "+49 69 5550101", "einwilligung": einwilligung}
+def _seat(email: str, *, bestaetigt_am: str | None = STAMP) -> dict[str, Any]:
+    return kontaktperson_document("Anna", bestaetigt_am=bestaetigt_am, nachname="Müller", email=email, telefon="+49 69 5550101")
 
 
 def _junction(
@@ -187,7 +180,6 @@ async def _seed(database: AsyncDatabase) -> None:
                 ROW_NAME_B,
                 trainer=_seat(ZWEI_TEAMS),
                 ansprechperson=_seat(OHNE_STEMPEL, bestaetigt_am=None),
-                stellvertretung=_seat(OHNE_SCHLUESSEL, keyed=False),
             ),
             _junction(
                 ROW_PAST_A_OID,
@@ -348,11 +340,6 @@ class TestTheConfirmationNarrowing:
 
         assert is_empty(answer)
         assert answer.unbestaetigt is False
-
-    def test_a_seat_whose_record_carries_no_stamp_key_grants_nothing(self, seeded_league: str):
-        """The shape a predicate written as `!= None` over a projected field passes: the key is absent rather than null."""
-
-        assert answered(seeded_league, OHNE_SCHLUESSEL).sitze == []
 
     def test_one_address_in_two_slots_is_answered_only_the_slot_it_confirmed(self, seeded_league: str):
         """Kills a confirmation judged per row: `trainer_ist_zugleich` seats this person twice, and only the Trainer seat is stamped."""

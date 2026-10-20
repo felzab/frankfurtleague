@@ -203,15 +203,14 @@ class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable):
     umfang: FLKontaktKenntnisnahmeUmfang
     # For `app/api/spieler/schemas.py :: FLEinwilligung.erteilt_von`'s reason.
     erfasst_von: FLKontaktKenntnisnahmeQuelle | None = None
-    # The day this person confirmed the seat themselves; null until they do. Defaulted for
-    # `FLTeam.schulform`'s reason: a record stored before the field carries no key.
-    bestaetigt_am: CustomOptionalDateString = None
+    # The day this person confirmed the seat themselves; null until they do.
+    bestaetigt_am: CustomOptionalDateString
     # The one consent on this record, to photographs, video and interviews, and on the READ model
-    # alone for `umfang`'s reason. Defaulted for `bestaetigt_am`'s.
-    medien: bool = False
+    # alone for `umfang`'s reason.
+    medien: bool
     # Written once, by the write that seats the person, and moved by nothing else: which confirmation
-    # page the seat's link opens. Defaulted for `bestaetigt_am`'s reason.
-    eingetragen_von: FLKontaktEingetragenVon | None = None
+    # page the seat's link opens.
+    eingetragen_von: FLKontaktEingetragenVon
     # Each choice's evidence, empty until the seat's person answers, for `FLEinwilligung.nachweis`'s reasons.
     nachweis: FLEinwilligungNachweise = Field(default_factory=FLEinwilligungNachweise)
 
@@ -227,8 +226,8 @@ class FLKontaktperson(BaseModel):
     # form's wording.
     telefon: str
     # Null until the person types it on their own confirmation page, so the public form never asks
-    # for it (`docs/backend/spec.md :: I141`). Defaulted for `FLTeam.schulform`'s reason.
-    geburtsdatum: CustomOptionalDateString = None
+    # for it (`docs/backend/spec.md :: I141`).
+    geburtsdatum: CustomOptionalDateString
     einwilligung: FLKontaktKenntnisnahme
 
 
@@ -286,11 +285,7 @@ class FLSaisonTeamBestaetigungenAnsicht(BaseModel):
 
 
 def _project_seat(value: Any) -> Any:
-    """One seat with every READ field spelled, absent or not.
-
-    Every defaulted field arrived after rows existed, so a row missing its key has to answer the same
-    token as one storing what the read model reads there.
-    """
+    """One seat with every READ field spelled, so the token reads the stored block as the read model does."""
 
     # `parse_empty_string_to_none` at every leaf, the coercion the read model makes on the way in: a
     # stored blank it nulls would answer a token no read can mint, and that row would refuse every
@@ -300,30 +295,19 @@ def _project_seat(value: Any) -> Any:
         # seat alike.
         return parse_empty_string_to_none(value)
 
-    projected: dict[str, Any] = {field: _projected_leaf(FLKontaktperson, value, field) for field in FLKontaktperson.model_fields}
+    projected: dict[str, Any] = {field: _projected_leaf(value, field) for field in FLKontaktperson.model_fields}
     einwilligung = projected.get("einwilligung")
     if isinstance(einwilligung, Mapping):
         # Never `nachweis`: it moves only with a choice or a stamp the token already holds, and its
         # nested defaults would part a stored block's token from its read's.
         projected["einwilligung"] = {
-            field: _projected_leaf(FLKontaktKenntnisnahme, einwilligung, field)
-            for field in FLKontaktKenntnisnahme.model_fields
-            if field != "nachweis"
+            field: _projected_leaf(einwilligung, field) for field in FLKontaktKenntnisnahme.model_fields if field != "nachweis"
         }
 
     return projected
 
 
-def _projected_leaf(model: type[BaseModel], stored: Mapping[str, Any], field: str) -> Any:
-    """One field as the read model answers it, an absent key reading as the field's default.
-
-    Never `None` there: `medien` reads `false`, and null would answer a token no read mints.
-    """
-
-    info = model.model_fields[field]
-    if field not in stored and not info.is_required():
-        return info.get_default(call_default_factory=True)
-
+def _projected_leaf(stored: Mapping[str, Any], field: str) -> Any:
     return parse_empty_string_to_none(stored.get(field))
 
 

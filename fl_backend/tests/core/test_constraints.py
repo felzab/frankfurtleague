@@ -586,7 +586,7 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
         False,
     ),
     # Who seated the person, at every seat's home: the page its link opens is read off it.
-    *((collection, block, "eingetragen_von", get_args(FLKontaktEingetragenVon), True) for collection, block in SEAT_RECORD_HOMES),
+    *((collection, block, "eingetragen_von", get_args(FLKontaktEingetragenVon), False) for collection, block in SEAT_RECORD_HOMES),
 ]
 
 

@@ -1,7 +1,7 @@
 import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
-from typing import Any, cast
+from typing import Any, Final, cast
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -66,7 +66,7 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, ADMIN_KEY, build_test_config, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, ban_document, rules_document, saison_document, saison_team_document, team_document
+from tests.documents import ADDRESS, ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document, team_document
 from tests.erasure import erased
 from tests.isolation import InterleavedCollection, Rival
 from tests.worker import worker_database
@@ -114,17 +114,14 @@ NEW_SCHOOL_NAME, NEW_SCHOOL_SHORTHAND = "Zorbanax", "ZX"
 RULES: Mapping[str, Any] = rules_document(number_of_groups=2, teams_per_group=2)
 
 
+# The seat as its applicant named the person under the form's label, and as that person then confirmed it.
+SEATED: Final = {"text_version": "v1", "datum": "2026-01-15"}
+
+
 def kontaktperson(vorname: str) -> dict[str, Any]:
     """One of the three people an application is filled in by, in the shape the junction stores them."""
 
-    return {
-        "vorname": vorname,
-        "nachname": f"{vorname}-Mustermann",
-        "email": f"{vorname.lower()}@example.com",
-        "telefon": "+49 69 1234567",
-        "geburtsdatum": "1980-05-04",
-        "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"},
-    }
+    return kontaktperson_document(vorname, bestaetigt_am="2026-01-16", einwilligung=SEATED, telefon="+49 69 1234567", geburtsdatum="1980-05-04")
 
 
 # Distinct per slot, so a block copied across with two slots swapped fails rather than compares equal.
@@ -352,12 +349,8 @@ class TestAnAcceptanceEntersTheSchool:
         # The club's name as it stands TODAY, copied at entry rather than joined on read.
         assert (rows[0]["team_id"], rows[0]["name"], rows[0]["shorthand"]) == (EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND)
 
-    def test_the_three_people_reach_the_junction_row_without_a_date_no_seat_of_theirs_stamped(self, mongo_replica_set_url: str):
-        """They arrive WITH the season's row rather than being typed in after it, which is what `/bereich/admin/kontakte` then reads.
-
-        The seeded corpus is a pre-flow application, whose dates its applicant gave for three other
-        people.
-        """
+    def test_the_three_people_reach_the_junction_row_as_they_confirmed(self, mongo_replica_set_url: str):
+        """They arrive WITH the season's row rather than being typed in after it, which is what `/bereich/admin/kontakte` then reads."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await accept(database, client, PICKED_BEWERBUNG)
@@ -369,23 +362,7 @@ class TestAnAcceptanceEntersTheSchool:
         submitted, entered = on_a_league(mongo_replica_set_url, body)
 
         # Against the seed as well as against the application, so a copy of an emptied block cannot pass.
-        # Spelled out: unstamped, and the stored speaker dropped, since no write names who answered.
-        assert submitted == KONTAKTE
-        assert entered == {
-            slot: (
-                {
-                    **seat,
-                    "geburtsdatum": None,
-                    "einwilligung": {
-                        **{field: value for field, value in seat["einwilligung"].items() if field != "erfasst_von"},
-                        "bestaetigt_am": None,
-                    },
-                }
-                if isinstance(seat, dict)
-                else seat
-            )
-            for slot, seat in KONTAKTE.items()
-        }
+        assert submitted == entered == KONTAKTE
 
     def test_who_seated_each_person_reaches_the_junction_row_unchanged(self, mongo_replica_set_url: str):
         """It decides which page a seat's link opens once the application is gone, so a stamped seat and an unstamped one carry it alike.

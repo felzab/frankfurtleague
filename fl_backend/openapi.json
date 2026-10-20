@@ -17324,21 +17324,13 @@
           },
           "medien": {
             "type": "boolean",
-            "title": "Medien",
-            "default": false
+            "title": "Medien"
           },
           "eingetragen_von": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "bewerbung",
-                  "liga"
-                ]
-              },
-              {
-                "type": "null"
-              }
+            "type": "string",
+            "enum": [
+              "bewerbung",
+              "liga"
             ],
             "title": "Eingetragen Von"
           },
@@ -17350,7 +17342,10 @@
         "required": [
           "umfang",
           "text_version",
-          "datum"
+          "datum",
+          "bestaetigt_am",
+          "medien",
+          "eingetragen_von"
         ],
         "title": "FLKontaktKenntnisnahme",
         "description": "Which wording this person was shown, and how the record came to be held.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's\n`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely\n(`docs/glossary.md :: Einwilligung`)."
@@ -17507,6 +17502,7 @@
           "nachname",
           "email",
           "telefon",
+          "geburtsdatum",
           "einwilligung"
         ],
         "title": "FLKontaktperson",

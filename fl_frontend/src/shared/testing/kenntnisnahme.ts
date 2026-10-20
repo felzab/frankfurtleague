@@ -5,7 +5,7 @@
 const UNVARIED = {
   umfang: "kontaktdaten",
   medien: false,
-  eingetragen_von: null,
+  eingetragen_von: "bewerbung",
   nachweis: { umfang: null, medien: null },
 } as const;
 

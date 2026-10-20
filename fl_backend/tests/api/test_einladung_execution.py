@@ -26,7 +26,7 @@ from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import ban_document, rules_document, saison_document, saison_team_document
+from tests.documents import ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.holds import HeldCollection
 from tests.worker import worker_database
 
@@ -69,20 +69,7 @@ AUSTRITT: Mapping[str, Any] = {"type": "rueckzug", "grund": "Zu wenige Spieler",
 
 
 def kontaktperson(vorname: str, email: str, *, bestaetigt_am: str | None) -> dict[str, Any]:
-    return {
-        "vorname": vorname,
-        "nachname": f"{vorname}-Mustermann",
-        "email": email,
-        "telefon": "+49 69 1234567",
-        "geburtsdatum": "1980-05-04",
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "person",
-            "text_version": "v1",
-            "datum": "2026-01-15",
-            "bestaetigt_am": bestaetigt_am,
-        },
-    }
+    return kontaktperson_document(vorname, bestaetigt_am=bestaetigt_am, email=email, telefon="+49 69 1234567")
 
 
 def kontakte(*, trainer: Any = None, ansprechperson: Any = None) -> dict[str, Any]:

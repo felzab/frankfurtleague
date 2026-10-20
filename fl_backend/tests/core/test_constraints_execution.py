@@ -37,6 +37,7 @@ from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_
 from tests.documents import (
     adresswechsel_document,
     bericht_document,
+    kontaktperson_document,
     spiel_document,
     spielbericht_document,
     spielbestaetigung_document,
@@ -110,16 +111,13 @@ LATER_DECLARED_INDEX = "uniq_shorthand"
 ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
 
 
+# The seat as its applicant named the person under the form's label, and as that person then confirmed it.
+SEATED: Final = {"text_version": "v1", "datum": "2026-01-15"}
+
+
 def kontaktperson(vorname: str) -> dict[str, Any]:
     """A function rather than a constant: the nested consent has to be fresh per slot too, which a `dict()` of a shared one is not."""
-    return {
-        "vorname": vorname,
-        "nachname": f"{vorname}-Mustermann",
-        "email": f"{vorname.lower()}@example.com",
-        "telefon": "+49 69 1234567",
-        "geburtsdatum": "1980-05-04",
-        "einwilligung": {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-15"},
-    }
+    return kontaktperson_document(vorname, bestaetigt_am="2026-01-16", einwilligung=SEATED, telefon="+49 69 1234567", geburtsdatum="1980-05-04")
 
 
 def valid_documents() -> dict[str, dict[str, Any]]:

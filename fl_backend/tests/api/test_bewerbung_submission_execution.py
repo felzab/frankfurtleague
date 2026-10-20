@@ -16,7 +16,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.bewerbungen.public_router import post_bewerbung
-from app.api.bewerbungen.router import get_bewerbung_by_id
 from app.api.bewerbungen.schemas import FLBewerbung, FLPostBewerbungPayload
 from app.api.bewerbungen.services import (
     BEWERBUNG_ADRESSE_GESPERRT,
@@ -1168,70 +1167,6 @@ class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheYearGroup:
             # `TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheOpponentField :: test_a_decision_on_one_is_still_accepted`:
             # without it the setup insert fails before the update this case is named for is reached.
             created = await database[Collection.BEWERBUNGEN].insert_one(_application_before_the_year_group(), bypass_document_validation=True)
-            try:
-                await database[Collection.BEWERBUNGEN].update_one(
-                    {"_id": created.inserted_id},
-                    {"$set": {"status": "abgelehnt", "entscheidung": {"getroffen_am": TODAY, "von": "admin", "grund": "kein Platz"}}},
-                )
-            except OperationFailure as failure:
-                assert failure.code == DOCUMENT_VALIDATION_FAILED, f"expected a validation failure, got {failure.code}"
-                return "rejected"
-            return "accepted"
-
-        assert on_a_league(mongo_replica_set_url, body) == "accepted"
-
-
-def _application_before_the_confirmation_fields() -> dict[str, Any]:
-    """One application with no birthdate key and no stamp key on any seat.
-
-    Wider than what the old form left, a date on every seat, so a read surviving this survives that.
-    """
-
-    document = _application_without_a_wish()
-
-    for seat in ("trainer", "ansprechperson", "stellvertretung"):
-        del document["kontakte"][seat]["geburtsdatum"]
-        del document["kontakte"][seat]["einwilligung"]["bestaetigt_am"]
-
-    return document
-
-
-class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheConfirmationFields:
-    """`geburtsdatum` and `bestaetigt_am` are outside the validator's `required`, and every stored application depends on it.
-
-    The `wunschgegner` precedent, and the `.claude/rules/backend.md` trap in the other direction: a
-    model widened where its hand-written copy was not.
-    """
-
-    def test_a_document_carrying_neither_key_is_accepted_and_the_admin_read_answers_it(self, mongo_replica_set_url: str):
-        """Through the endpoint rather than the raw document: the read is where a required field would 500 the whole triage."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            created = await database[Collection.BEWERBUNGEN].insert_one(_application_before_the_confirmation_fields())
-            response = await get_bewerbung_by_id(
-                bewerbung_id=created.inserted_id,
-                bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                sperrliste=ban_list(database),
-                today=TODAY,
-            )
-
-            return response.bewerbung.kontakte.trainer
-
-        trainer = on_a_league(mongo_replica_set_url, body)
-
-        assert trainer is not None
-        assert (trainer.geburtsdatum, trainer.einwilligung.bestaetigt_am) == (None, None)
-
-    def test_a_decision_on_one_is_still_accepted(self, mongo_replica_set_url: str):
-        """The failure that would ship silently: a decision re-validates the whole document, keys it never wrote included."""
-
-        async def body(database: AsyncDatabase) -> str:
-            # Past the validator, for the reason at
-            # `TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheOpponentField :: test_a_decision_on_one_is_still_accepted`:
-            # without it the setup insert fails before the update this case is named for is reached.
-            created = await database[Collection.BEWERBUNGEN].insert_one(
-                _application_before_the_confirmation_fields(), bypass_document_validation=True
-            )
             try:
                 await database[Collection.BEWERBUNGEN].update_one(
                     {"_id": created.inserted_id},

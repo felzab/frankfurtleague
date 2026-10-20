@@ -88,7 +88,14 @@ def stored(vorname: str) -> dict[str, Any]:
 
     sent = person(vorname)
 
-    return {**sent, "geburtsdatum": None, "einwilligung": {**sent["einwilligung"], "erfasst_von": "administrativ", "bestaetigt_am": None}}
+    return documents.kontaktperson_document(
+        vorname,
+        einwilligung={"text_version": sent["einwilligung"]["text_version"], "datum": sent["einwilligung"]["datum"]},
+        eingetragen_von="liga",
+        nachname=sent["nachname"],
+        email=sent["email"],
+        telefon=sent["telefon"],
+    )
 
 
 SEATED = {"trainer": "Ida", "ansprechperson": "Jonas", "stellvertretung": "Klara"}

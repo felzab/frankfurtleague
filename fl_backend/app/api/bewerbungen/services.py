@@ -519,9 +519,8 @@ def _per_seat(block: str, *fields: str) -> dict[str, int]:
     return {f"{block}.{seat}.{field}": 1 for seat in KONTAKT_ROLLEN for field in fields}
 
 
-# What decides which page a seat's link opens (`kontakt_seite_of`): who seated its person, and the
-# day a record stored before that field carries.
-KONTAKT_SEITE_FIELDS: Final = ("einwilligung.eingetragen_von", "einwilligung.datum")
+# What decides which page a seat's link opens (`kontakt_seite_of`): who seated its person.
+KONTAKT_SEITE_FIELDS: Final = ("einwilligung.eingetragen_von",)
 
 
 # What an answer moves on each seat, read before it: a withdrawal keeps the grant it ended.
@@ -1053,17 +1052,13 @@ def build_eigene_bewerbung_filter(identifier: str) -> Mapping[str, Any]:
 KontaktSeite = Literal["bestaetigung_kontakt", "bestaetigung_kontakt_verwaltung", "bestaetigung_kontakt_saison"]
 
 
-def kontakt_seite_of(*, einwilligung: Any, sonst_vom_bewerber: bool, verwaltet: KontaktSeite) -> KontaktSeite:
+def kontakt_seite_of(*, einwilligung: Mapping[str, Any], verwaltet: KontaktSeite) -> KontaktSeite:
     """The page this seat's link opens: the applicant's where the applicant named the person, else its home's own.
 
-    Read off `eingetragen_von`, which nothing after the seating moves; a record stored before it takes
-    the caller's reading of its home.
+    Read off `eingetragen_von`, which nothing after the seating moves.
     """
 
-    eingetragen_von = einwilligung.get("eingetragen_von") if isinstance(einwilligung, Mapping) else None
-    vom_bewerber = eingetragen_von == "bewerbung" if eingetragen_von in get_args(FLKontaktEingetragenVon) else sonst_vom_bewerber
-
-    return "bestaetigung_kontakt" if vom_bewerber else verwaltet
+    return "bestaetigung_kontakt" if einwilligung.get("eingetragen_von") == "bewerbung" else verwaltet
 
 
 def _einwilligung_of(kontakte: Any, seat: str) -> Mapping[str, Any]:
@@ -1074,13 +1069,7 @@ def _einwilligung_of(kontakte: Any, seat: str) -> Mapping[str, Any]:
 
 
 def bewerbung_kontakt_seite(*, bewerbung_raw: Mapping[str, Any], seat: str) -> KontaktSeite:
-    einwilligung = _einwilligung_of(bewerbung_raw.get("kontakte"), seat)
-
-    # Before `eingetragen_von`: the submission stamps its own day on every seat it writes, and a reseat the
-    # day it seats somebody, so a seat dated otherwise was filled by an administrator.
-    vom_bewerber = einwilligung.get("datum") == bewerbung_raw.get("eingereicht_am")
-
-    return kontakt_seite_of(einwilligung=einwilligung, sonst_vom_bewerber=vom_bewerber, verwaltet="bestaetigung_kontakt_verwaltung")
+    return kontakt_seite_of(einwilligung=_einwilligung_of(bewerbung_raw.get("kontakte"), seat), verwaltet="bestaetigung_kontakt_verwaltung")
 
 
 def antwort_seite(*, seiten: Sequence[KontaktSeite], verwaltet: KontaktSeite) -> KontaktSeite:
@@ -1099,17 +1088,9 @@ def bewerbung_antwort_seite(*, bewerbung_raw: Mapping[str, Any], seats: Sequence
 
 
 def saison_kontakt_seite(*, row: Mapping[str, Any], seat: str) -> KontaktSeite:
-    """The page a season row's seat opens.
+    """The page a season row's seat opens: the applicant's for a person the applicant named, else the row's own."""
 
-    A seat stored before `eingetragen_von` opens the season row's own page, whoever named its person:
-    the applicant's page promises a deletion and a message that a season row's link never brings.
-    """
-
-    return kontakt_seite_of(
-        einwilligung=_einwilligung_of(row.get("kontakte"), seat),
-        sonst_vom_bewerber=False,
-        verwaltet="bestaetigung_kontakt_saison",
-    )
+    return kontakt_seite_of(einwilligung=_einwilligung_of(row.get("kontakte"), seat), verwaltet="bestaetigung_kontakt_saison")
 
 
 def saison_antwort_seite(*, row: Mapping[str, Any], seats: Sequence[str]) -> KontaktSeite:

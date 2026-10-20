@@ -209,11 +209,7 @@ export function BewerbungAngabenPanel({
                           grade; a confirmation or a Widerspruch is the fact itself. */}
                       {stand === null ? (
                         <>
-                          {person.einwilligung.eingetragen_von === null ? (
-                            <Leer>{eingetragenVonLabel(null)}</Leer>
-                          ) : (
-                            eingetragenVonLabel(person.einwilligung.eingetragen_von)
-                          )}
+                          {eingetragenVonLabel(person.einwilligung.eingetragen_von)}
                           {`, ${formatSpielDatum(person.einwilligung.datum)}`}
                         </>
                       ) : stand.stand.art === "bestaetigt" || stand.stand.art === "abgelehnt" ? (

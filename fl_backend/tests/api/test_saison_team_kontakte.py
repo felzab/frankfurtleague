@@ -18,7 +18,6 @@ from app.api.teams.schemas import (
     FLKontaktpersonPayload,
     FLKontaktRolle,
     FLPatchSaisonTeamKontaktePayload,
-    FLSaisonTeamKontakte,
     FLTeamMembership,
 )
 from app.api.teams.services import (
@@ -109,14 +108,20 @@ def person(vorname: str, *, email: str | None = None, text_version: str = RUNNIN
 def stored_person(
     vorname: str, *, email: str | None = None, erfasst_von: str = "administrativ", bestaetigt_am: str | None = None
 ) -> dict[str, Any]:
-    """The same person as a row HOLDS them, provenance and birthdate included."""
+    """The same person as a row HOLDS them, provenance and birthdate included, the league having seated them."""
 
     sent = person(vorname, email=email, text_version=STORED_LABEL)
 
     return {
         **sent,
         "geburtsdatum": GEBURTSDATUM,
-        "einwilligung": {**sent["einwilligung"], "erfasst_von": erfasst_von, "bestaetigt_am": bestaetigt_am},
+        "einwilligung": {
+            **sent["einwilligung"],
+            "erfasst_von": erfasst_von,
+            "bestaetigt_am": bestaetigt_am,
+            "medien": False,
+            "eingetragen_von": "liga",
+        },
     }
 
 
@@ -150,16 +155,13 @@ def as_kept(stored: dict[str, Any]) -> dict[str, Any]:
     return {**stored, "einwilligung": unbestaetigt(stored["einwilligung"])}
 
 
-# The shape every row held before the stamp existed: a dated `person` on each seat, and no stamp key
-# at all.
+# Three seats as the league seated them, nobody having answered.
 SEEDED_KONTAKTE: dict[str, Any] = {
-    slot: {
-        **person(vorname, text_version=STORED_LABEL),
-        "geburtsdatum": GEBURTSDATUM,
-        "einwilligung": {**person(vorname, text_version=STORED_LABEL)["einwilligung"], "erfasst_von": "person"},
-    }
-    for slot, vorname in (("trainer", "Ida"), ("ansprechperson", "Jonas"), ("stellvertretung", "Klara"))
-} | {"trainer_ist_zugleich": None}
+    "trainer": stored_person("Ida"),
+    "ansprechperson": stored_person("Jonas"),
+    "stellvertretung": stored_person("Klara"),
+    "trainer_ist_zugleich": None,
+}
 
 # The Trainer holding the Ansprechperson's seat too, so the two blocks are one person's.
 NEW_KONTAKTE: dict[str, Any] = {
@@ -923,15 +925,7 @@ class TestTheTokenNamesWhatTheEditorWasServed:
         write judging it would stop agreeing after a restart.
         """
 
-        assert kontakte_stand_of(SEEDED_KONTAKTE) == "05b1776c54d66b663c3fa97476da8f0cd342cc9d4c3f3fc20e2b750e933d1561"
-
-    def test_a_row_predating_the_optional_fields_answers_the_token_of_one_spelling_them_null(self):
-        """The whole reason the token is not taken over the document: `SEEDED_KONTAKTE` carries no `bestaetigt_am` key at all."""
-
-        served = FLSaisonTeamKontakte.model_validate(SEEDED_KONTAKTE).model_dump(mode="json")
-
-        assert served != SEEDED_KONTAKTE, "the read model fills in no key, so this case proves nothing"
-        assert kontakte_stand_of(served) == kontakte_stand_of(SEEDED_KONTAKTE)
+        assert kontakte_stand_of(SEEDED_KONTAKTE) == "340d28a99606ad09343f2fa9977eec183f8acd221330337dab6b75dda1c13bc0"
 
     def test_a_stored_blank_answers_the_token_of_the_null_the_read_model_makes_of_it(self):
         """`CustomOptionalDateString` nulls a blank on the way in, and the write judges the raw document.

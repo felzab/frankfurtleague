@@ -98,9 +98,8 @@ describe("the panel a triage decision is taken from", () => {
   for (const [von, label] of [
     ["bewerbung", "Mit der Bewerbung eingetragen"],
     ["liga", "Von der Liga eingetragen"],
-    [null, "Herkunft nicht hinterlegt"],
   ] as const) {
-    it(`names a seat stored as ${String(von)} by who seated it, „${label}“`, () => {
+    it(`names a seat stored as ${von} by who seated it, „${label}“`, () => {
       const ansprechperson = BEWERBUNG.kontakte.ansprechperson;
       assert.ok(ansprechperson !== null);
       const html = markup({
@@ -111,7 +110,6 @@ describe("the panel a triage decision is taken from", () => {
       });
 
       assert.match(textOf(factLine(html, "Kenntnisnahme")), new RegExp(`^${label}, `));
-      if (von === null) assertLeerMarkup(factLine(html, "Kenntnisnahme"), label);
     });
   }
 
