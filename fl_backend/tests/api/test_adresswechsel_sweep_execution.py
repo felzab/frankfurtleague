@@ -19,7 +19,7 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.adresswechsel.schemas import FLAdresswechselPostausgangResponse, FLAdresswechselSweepParams, FLAdresswechselZugestelltPayload
-from app.api.adresswechsel.services import compose_postausgang, wirksam_ab_von
+from app.api.adresswechsel.services import compose_genehmigung, compose_postausgang, wirksam_ab_von
 from app.api.adresswechsel.sweep_router import (
     ADRESSWECHSEL_PER_PASS,
     post_adresswechsel_postausgang,
@@ -345,6 +345,34 @@ class TestEachCallTakesAShare:
 
         assert answers == [(ADRESSWECHSEL_PER_PASS, 1, numbered(ADRESSWECHSEL_PER_PASS - 1)), (1, 0, None)]
         assert later == (0, 0, None)
+
+    def test_changes_parked_on_an_approval_take_no_share(self, mongo_replica_set_url: str):
+        """A share and one more confirmed, each owing its approval while its address holds a grant: one call, ending the pass.
+
+        Read onto the page, they would fill the share and send every due change behind them to a later call.
+        """
+
+        def parked(position: int) -> dict[str, Any]:
+            return {
+                **a_change(position, minted=MINTED_TO_LAPSE_TODAY),
+                "weg": "konto",
+                "gueltig_bis": None,
+                "bestaetigt_am": CONFIRMED_TO_WAIT,
+                "genehmigung": compose_genehmigung(verwaltung="administration", gestartet_von=on_file(position), now=CONFIRMED_TO_WAIT),
+            }
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            positions = range(ADRESSWECHSEL_PER_PASS + 1)
+            await database[Collection.ADRESSWECHSEL].insert_many([parked(position) for position in positions])
+            await database[Collection.BERECHTIGUNGEN].insert_many(
+                [{**grants_for_the_suite()[1], "_id": ObjectId(), "adresse": on_file(position)} for position in positions]
+            )
+            return await sweep(database, client), await live(database)
+
+        answer, standing = on_a_league(mongo_replica_set_url, body)
+
+        assert (answer.wirksam, answer.verbleibend, answer.nach) == (0, 0, None)
+        assert len(standing) == ADRESSWECHSEL_PER_PASS + 1
 
 
 class NotTheDatabases(Exception):
