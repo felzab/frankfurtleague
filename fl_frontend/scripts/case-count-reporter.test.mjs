@@ -161,9 +161,20 @@ describe("the case-count reporter", () => {
     assert.equal(started, false, "the named file that exists started under a refused run");
   });
 
-  it("runs a named path, a route folder's spelling among them, beside a wildcard matching nothing", () => {
+  it("runs a named path, a route folder's escaped spelling among them, beside a wildcard matching nothing", () => {
     assert.deepEqual(run(["cases.test.mjs", "*.nothing.mjs"]), { status: 0, said: "" });
-    assert.deepEqual(run([path.join(ROUTE_FOLDER, "page.test.mjs")]), { status: 0, said: "" });
+    // Refused below were this matching nothing, so the pass is the file's own.
+    assert.deepEqual(run(["(public)/[[]saison_id]/page.test.mjs"]), { status: 0, said: "" });
+  });
+
+  /* The runner reads a dynamic segment's brackets as a character class, so the literal spelling ran no file and
+     passed, whatever file sat at it. */
+  it("refuses a route folder's literal spelling before any file starts, naming the escape", () => {
+    const { status, said, started } = refusedRun(["marks.test.mjs", "(public)/[saison_id]/page.test.mjs"]);
+
+    assert.equal(status, REFUSED);
+    assert.match(said, /^✖ \(public\)\/\[saison_id\]\/page\.test\.mjs matched no file: the runner reads its brackets/m);
+    assert.equal(started, false, "the named file that matched started under a refused run");
   });
 
   /* The bare suite and the database tier hand test:base their own patterns, some matching nothing in a

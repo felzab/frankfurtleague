@@ -22,7 +22,7 @@ import { FLTeamMembershipSchema, FLTeamWithMembershipsSchema } from "@/features/
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
-import { doubleActionRequest, doubleEveryAction, doubleToasts, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, doubleEveryAction, doubleToasts, loggedErrorCodes, loggedErrorTraces } from "@/shared/testing/actionDoubles.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { membershipAnswer } from "@/shared/testing/membershipFixtures.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
@@ -30,6 +30,7 @@ import {
   answer,
   answerReadsWith,
   clearSteps,
+  EDGE_TRACE_ID,
   EMPTIEST_ANSWER,
   OBJECT_ID,
   pageBody,
@@ -415,6 +416,7 @@ describe("the editor's shape", () => {
       assert.equal((body.props as { laufendesLabel: unknown }).laufendesLabel, null, "a failed read reached the editor as a label");
       // Untyped, as a bug in the read's narrowing throws: only this line tells it from a read that failed.
       assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
+      assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
     } finally {
       seitenAntwort = undefined;
     }

@@ -201,6 +201,23 @@ describe("the person spine's record entry", () => {
     assert.deepEqual(answer, { success: false, error: SITZ_WEG });
   });
 
+  it("answers the backend's want of a confirmation as the step-up, its line under the error's own codes", async () => {
+    setSubject(person());
+    const refused = refusedOn("POST /identitaet/selbst/erasure", "REQ-AUTH-009");
+
+    const answer = await runPersonRecordMutation("probeAction", () => Promise.reject(refused));
+
+    assert.equal("stepUp" in answer && answer.stepUp, true);
+    const line = loggedLines.find(({ message }) => message === "Person mutation refused for want of a confirmation: probeAction");
+    assert.deepEqual(line?.meta, {
+      error_code: "FE-API-001",
+      status: refused.statusCode,
+      server_error_code: "REQ-AUTH-009",
+      trace_id: refused.traceId,
+      digest: undefined,
+    });
+  });
+
   it("answers a write of unknown outcome as unanswered, and refreshes", async () => {
     setSubject(person());
 

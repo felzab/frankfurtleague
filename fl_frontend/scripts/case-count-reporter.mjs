@@ -11,7 +11,7 @@ export const REFUSED = 2;
 
 /**
  * A pattern's wildcard. Brackets and parentheses are left out: Next's route folders spell them in
- * named paths, which are matched literally and as the runner's glob alike below.
+ * named paths, which the runner reads as a glob all the same, so the glob below judges each.
  */
 const WILDCARD = /[*?{]/;
 
@@ -26,8 +26,13 @@ export function refusalOf(named) {
 
   return (
     named
-      .filter((argument) => !WILDCARD.test(argument) && !existsSync(path.resolve(argument)) && globSync(argument).length === 0)
-      .map((argument) => `${argument} matched no file: the run named it and would run nothing for it.`)
+      // Never spared for a file at its literal spelling: the runner reads `[saison_id]` as a character class.
+      .filter((argument) => !WILDCARD.test(argument) && globSync(argument).length === 0)
+      .map((argument) =>
+        existsSync(path.resolve(argument))
+          ? `${argument} matched no file: the runner reads its brackets as a character class, so write each [ as [[] to name it.`
+          : `${argument} matched no file: the run named it and would run nothing for it.`,
+      )
       .join("\n") || null
   );
 }

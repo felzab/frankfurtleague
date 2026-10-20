@@ -26,6 +26,7 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
 
   const saisonId = await resolveSaisonId(props.searchParams);
 
+  // Unlogged: the body makes this read uncaught, so its failure reaches the error boundary, which logs it.
   const teamRes = await getTeam(team_id, { saison_id: saisonId }).catch(() => null);
   const teamData = teamRes?.team;
   if (!teamData) return NOT_FOUND_METADATA;

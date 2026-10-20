@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
 import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
+import { APINetworkError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
@@ -53,6 +54,11 @@ const ORIGIN = "http://localhost:3000";
 /** Every argument each logger call was handed, whatever its level. */
 const logged: unknown[][] = [];
 const record = (...args: unknown[]): void => void logged.push(args);
+/** The fields of each line the acceptance's read of the colliding application wrote. */
+const collisionReadLines = (): { error_code?: unknown }[] =>
+  logged
+    .filter(([message]) => message === "An application's collision read failed and its refusal takes the shared words")
+    .map(([, , meta]) => meta as { error_code?: unknown });
 const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: ORIGIN } };
 const LOGGER_DOUBLE = { logger: { debug: record, info: record, warn: record, error: record } };
 
@@ -191,12 +197,37 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
   });
 
   /* Neither sentence without the application: each tells the admin to repair something that may not be at fault. */
-  it("leaves the duplicate key to the shared reader where the application cannot be read", async () => {
+  it("leaves the duplicate key to the shared reader, logging nothing, where the network never answered the application's read", async () => {
     const collision = refusedOn(ANNEHMEN_OPERATION, DUPLICATE_KEY);
     answerWith(() => Promise.reject(collision));
-    readWith(() => Promise.reject(new Error("the read failed")));
+    readWith(() =>
+      Promise.reject(
+        new APINetworkError({
+          message: "Network request failed.",
+          url: "http://backend/bewerbungen",
+          method: "GET",
+          readOnly: true,
+          traceId: "c".repeat(32),
+          isTimeout: true,
+        }),
+      ),
+    );
 
     assert.equal(errorOf(await annehmenBewerbungAction(ANNAHME)), toActionErrorResult(collision).error);
+    assert.deepEqual(collisionReadLines(), []);
+  });
+
+  /* A bug in the read words the refusal as the shared reader does, which only its line tells apart. */
+  it("leaves the duplicate key to the shared reader, logging the read's untyped failure", async () => {
+    const collision = refusedOn(ANNEHMEN_OPERATION, DUPLICATE_KEY);
+    answerWith(() => Promise.reject(collision));
+    readWith(() => Promise.reject(new TypeError("Cannot read properties of undefined (reading 'bewerbung')")));
+
+    assert.equal(errorOf(await annehmenBewerbungAction(ANNAHME)), toActionErrorResult(collision).error);
+    assert.deepEqual(
+      collisionReadLines().map((meta) => meta.error_code),
+      ["FE-ACT-001"],
+    );
   });
 
   /* The loop above pins that it is answered, this what it says. Which of the school's fields

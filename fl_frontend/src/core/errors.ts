@@ -209,8 +209,8 @@ export class ContractBreakError extends Error {
 
 /**
  * Whether an error says the backend answered against what this frontend was built for, never that
- * a read failed. Told apart only outside a `"use cache"` scope, whose throws a production build
- * redacts (`docs/frontend/spec.md` §1.2).
+ * a read failed. Told apart only outside a `"use cache"` scope, whose throws lose their class in every
+ * build (`docs/frontend/spec.md` §1.2).
  */
 export function isContractBreak(error: unknown): boolean {
   return error instanceof ContractBreakError || error instanceof APIMalformedDataError;

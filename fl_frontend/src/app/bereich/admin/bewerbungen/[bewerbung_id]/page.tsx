@@ -52,17 +52,19 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
     getTeamMemberships(),
     // `null` where either registry read failed: the reseat alone needs them, so it closes and the
     // decision above it stands. Words it cannot key reach the error boundary (`docs/frontend/spec.md :: I649`).
-    Promise.all([
-      // Per request, as every stamper reads the running label: a deploy moves it.
-      runWithIncomingTrace(() => getLaufendesLabel("bewerbung")),
-      // The administration's page, which a person an administrator seats is asked on.
-      runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_kontakt_verwaltung")),
-    ]).then(
-      ([formLabel, seite]) => ({
-        textVersion: formLabel,
-        absaetze: gekeyteFassung(seite, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL).absaetze,
-      }),
-      nullUnlessContractBreak,
+    runWithIncomingTrace(() =>
+      Promise.all([
+        // Per request, as every stamper reads the running label: a deploy moves it.
+        getLaufendesLabel("bewerbung"),
+        // The administration's page, which a person an administrator seats is asked on.
+        getLaufendeFassung("bestaetigung_kontakt_verwaltung"),
+      ]).then(
+        ([formLabel, seite]) => ({
+          textVersion: formLabel,
+          absaetze: gekeyteFassung(seite, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL).absaetze,
+        }),
+        nullUnlessContractBreak,
+      ),
     ),
   ]);
 

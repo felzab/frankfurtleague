@@ -10,9 +10,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
-import { doubleLogger, doubleToasts, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
+import { doubleLogger, doubleToasts, loggedErrorCodes, loggedErrorTraces } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
-import { answerReadsWith, pageBody } from "@/shared/testing/pageHarness.ts";
+import { answerReadsWith, backendUnreachable, EDGE_TRACE_ID, pageBody } from "@/shared/testing/pageHarness.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
@@ -196,12 +196,13 @@ describe("the pupil's address page over an open link's read", () => {
 });
 
 describe("the pupil's address page over a read that did not answer", () => {
-  it("opens on its own state where the read failed, rather than calling a live link void", async () => {
-    answerReadsWith(() => {
-      throw new TypeError("fetch failed");
+  it("opens on its own state where the network never answered the read, rather than calling a live link void", async () => {
+    answerReadsWith((endpoint) => {
+      throw backendUnreachable(endpoint, "POST");
     });
 
     assert.deepEqual(await pageStart(), { zustand: "unlesbar" });
+    assert.deepEqual(loggedErrorCodes(), [], "a read the network never answered was logged as a fault");
   });
 
   /* A bug in the read's narrowing opens the same panel as a read that failed, so only its line tells them apart. */
@@ -212,6 +213,7 @@ describe("the pupil's address page over a read that did not answer", () => {
 
     assert.deepEqual(await pageStart(), { zustand: "unlesbar" });
     assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
+    assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
   });
 
   /* An answer off its schema is a broken contract, never a failed read: the error boundary logs it, and the reload panel would hide it. */
