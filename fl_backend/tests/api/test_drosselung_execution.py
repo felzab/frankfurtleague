@@ -96,7 +96,8 @@ SPIELBERICHT = {
         "torschuetzen": [],
         "karten": [],
         "bemerkungen": None,
-    }
+    },
+    "bericht_stand": None,
 }
 
 CEILING_LINE = "A person reached their daily write ceiling"

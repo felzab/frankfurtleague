@@ -22,8 +22,16 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtVon,
     FLSpielberichtVonAdmin,
 )
-from app.api.spielberichte.services import BerichtLage, bericht_zustand_of, compose_ansicht, judge_bericht, neu_genannt
+from app.api.spielberichte.services import (
+    BerichtLage,
+    bericht_zustand_of,
+    compose_ansicht,
+    find_bericht_stand_refusal,
+    judge_bericht,
+    neu_genannt,
+)
 from app.core.config import API_VERSION
+from app.core.crud import refuse
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
@@ -153,12 +161,17 @@ async def patch_spielbericht(
     again, and a write changing nothing writes nothing. Who first wrote the report stays recorded; a report an
     administrator writes first records an administrator, naming nobody.
 
-    Refuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); one undated or whose
-    day is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a pupil newly named on
-    a side outside that side's live squad of the season (`REQ-BERICHT-003`); and remarks naming a seat holder of either
-    club, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each is asked again outside the
-    transaction just before answering. Two first writes at once are one report: the later is written over the earlier,
-    as a correction is.
+    `bericht_stand` is the `version` of the report the page was served, null where none stood, as on the referee's
+    write.
+
+    Refuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); a `bericht_stand`
+    other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day
+    is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a pupil newly named on a
+    side outside that side's live squad of the season (`REQ-BERICHT-003`); and remarks naming a seat holder of either
+    club, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each but `REQ-BERICHT-006` is asked
+    again outside the transaction just before answering; a write of the report landing mid-press conflicts with this
+    one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two pages opened on no report: the later is
+    refused.
     """
 
     payload = bericht_data.bericht
@@ -174,7 +187,9 @@ async def patch_spielbericht(
             session=session,
         )
         gespeichert = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
-        neu = neu_genannt(payload, None if gespeichert is None else gespeichert.get("bericht"))
+        block = None if gespeichert is None else gespeichert.get("bericht")
+        neu = neu_genannt(payload, block)
+        refuse(find_bericht_stand_refusal(stand=bericht_data.bericht_stand, gespeichert=block))
         judge_bericht(lage=lage, payload=payload, neu=neu, today=today)
 
         await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*neu.values()), session=session)

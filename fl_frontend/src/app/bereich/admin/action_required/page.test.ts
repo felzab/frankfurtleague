@@ -4,8 +4,19 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { answer, answerReadsWith, EMPTIEST_ANSWER, OBJECT_ID, pageBody, readsOf, saisonFields, steps } from "@/shared/testing/pageHarness.ts";
+import {
+  answer,
+  answerReadsWith,
+  backendUnreachable,
+  EMPTIEST_ANSWER,
+  OBJECT_ID,
+  pageBody,
+  readsOf,
+  saisonFields,
+  steps,
+} from "@/shared/testing/pageHarness.ts";
 
+import type { AnswerSchema, ReadAnswer } from "@/shared/testing/pageHarness.ts";
 import type { NextPageProps } from "@/shared/types/types.ts";
 import type { ReactElement } from "react";
 
@@ -25,7 +36,7 @@ const ABWEICHEND = {
   ergebnis_vorschlag: { team1_tore: 3, team2_tore: 1, elfmeterschiessen: null, sonderereignis: null },
 };
 
-answerReadsWith((endpoint, schema, params) => {
+const antworten = (berichte: ReadAnswer) => (endpoint: string, schema: AnswerSchema, params: Record<string, unknown>) => {
   if (endpoint === "/saisons/list/admin") {
     const saison = {
       ...saisonFields("2026", "active"),
@@ -38,9 +49,12 @@ answerReadsWith((endpoint, schema, params) => {
     };
     return answer(schema, endpoint, { saisons: [saison] });
   }
-  if (endpoint === "/spielberichte") return answer(schema, endpoint, { spielberichte: [ABWEICHEND] });
+  if (endpoint === "/spielberichte") return berichte(endpoint, schema, params);
   return EMPTIEST_ANSWER(endpoint, schema, params);
-});
+};
+const GELESEN: ReadAnswer = (endpoint, schema) => answer(schema, endpoint, { spielberichte: [ABWEICHEND] });
+
+answerReadsWith(antworten(GELESEN));
 
 /* The backend unions a standing report's fixture into the triage whatever the switch reads, so its state is read
    alike: a closed switch handing the view none leaves that fixture under no category. */
@@ -59,5 +73,20 @@ describe("the reports the triage reads", () => {
         .map(({ params }) => params),
       [{ saison_id: "2026" }],
     );
+  });
+
+  /* The confirmations' shape: every other category stands on its own read, and `null` rather than an empty list, which
+     would read as no report waiting. */
+  it("degrades a failed report read to the view's notice rather than taking the page down", async (t) => {
+    answerReadsWith(
+      antworten((endpoint) => {
+        throw backendUnreachable(endpoint);
+      }),
+    );
+    t.after(() => answerReadsWith(antworten(GELESEN)));
+
+    const view = (await pageBody(AdminOverviewPage, PROPS)) as ReactElement<{ spielberichte: unknown }>;
+
+    assert.equal(view.props.spielberichte, null);
   });
 });

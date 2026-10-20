@@ -8,7 +8,7 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
 import { KARTEN_FARBE_LABELS, KARTEN_GRUND_LABELS } from "../../../constants";
 import { AuswahlSelect } from "./AuswahlSelect";
-import { EntfernenButton, HinzufuegenButton, MinuteField, personOptionen, seitenOptionen } from "./eintragFelder";
+import { EntfernenButton, HinzufuegenButton, MinuteField, ohneKader, personOptionen, seitenOptionen } from "./eintragFelder";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLKartenFarbe, FLKartenGrund, FLSpielberichtSeite } from "../../../schemas";
@@ -95,6 +95,11 @@ export function FormKartenSection({
                       error={fieldErrors[`${pfad}.spieler_id`]}
                     />
                   </div>
+                  {ohneKader(kontext, karte.seite) && (
+                    <p className="muted-hint">
+                      Für dieses Team ist kein Kader hinterlegt. Beschreib die Karte dann in den Bemerkungen mit der Rückennummer.
+                    </p>
+                  )}
 
                   <div className={FIELD_PAIR_CLASSES}>
                     <MinuteField
@@ -123,6 +128,9 @@ export function FormKartenSection({
                     options={karte.farbe === "rot" ? [{ id: KEIN_GRUND, label: "Kein Grund" }, ...GRUND_OPTIONEN] : GRUND_OPTIONEN}
                     onChange={(grund) => update(karte.key, { grund: grund === KEIN_GRUND ? null : grund })}
                     error={fieldErrors[`${pfad}.grund`]}
+                    // Marked by hand: a caution's reason is refused empty by the card's refinement
+                    // (`fl_frontend/src/features/spielberichte/schemas.ts :: kartePayload`), the leaf taking `null` for a red.
+                    isRequired={karte.farbe === "gelb" || karte.farbe === "gelb_rot"}
                   />
                 </li>
               );

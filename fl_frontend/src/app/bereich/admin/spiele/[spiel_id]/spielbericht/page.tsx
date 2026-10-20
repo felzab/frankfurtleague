@@ -7,10 +7,11 @@ import { isRecordMissing } from "@/core/errors";
 import { kontextOf } from "@/features/spielberichte/components/forms/SpielberichtForm/spielberichtDraft";
 import { SpielberichtForm } from "@/features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm";
 import { SpielberichtZustandView } from "@/features/spielberichte/components/views/SpielberichtZustandView";
-import { SPIELBERICHT_GESCHLOSSEN } from "@/features/spielberichte/constants";
+import { SPIELBERICHT_GESCHLOSSEN_ADMIN } from "@/features/spielberichte/constants";
 import { getAdminSpielbericht } from "@/features/spielberichte/queries";
 import { resolveSpielId } from "@/features/spiele/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
+import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
@@ -49,7 +50,27 @@ async function AdminSpielberichtContent({ params }: { params: NextPageProps<{ sp
   if (frontend_config.SPIELBERICHT_EINGABE !== "on") {
     return (
       <SpielberichtZustandView
-        title={SPIELBERICHT_GESCHLOSSEN.title}
+        title={SPIELBERICHT_GESCHLOSSEN_ADMIN}
+        aktion={zumSpiel}
+      />
+    );
+  }
+
+  // The write's refusals the fixture already shows, stated before a whole report is typed, as the referee's page does.
+  const { spiel } = lesen;
+  if (spiel.sonderereignis === "ausgefallen" || spiel.sonderereignis === "annulliert") {
+    return (
+      <SpielberichtZustandView
+        title="Das Spiel ist als ausgefallen oder annulliert eingetragen. Dafür gibt es keinen Spielbericht."
+        aktion={zumSpiel}
+      />
+    );
+  }
+  if (spiel.datum === null || spiel.datum > getGermanTodayStr()) {
+    return (
+      <SpielberichtZustandView
+        title={spiel.datum === null ? "Das Spiel hat noch kein Datum." : "Das Spiel hat noch nicht stattgefunden."}
+        hint="Einen Spielbericht gibt es ab dem Spieltag."
         aktion={zumSpiel}
       />
     );

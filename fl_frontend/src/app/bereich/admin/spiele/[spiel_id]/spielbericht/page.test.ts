@@ -56,9 +56,31 @@ describe("the administrator's report correction page", () => {
     const { text, reads } = await rendered();
 
     assert.deepEqual(reads, [ENDPOINT]);
-    assert.ok(text.includes("Der Spielbericht ist noch nicht freigeschaltet"), text);
+    // Never „noch nicht“: the switch can go off again after the league opened it.
+    assert.ok(text.includes("Spielberichte sind gerade nicht freigeschaltet"), text);
     assert.ok(!text.includes("Tor hinzufügen"), "the correction renders with the switch off");
   });
+
+  /* The write refuses each of these (`REQ-BERICHT-001`, `-004`), so the page says so before a whole report is typed, as
+     the referee's page does. */
+  for (const [fall, spiel, satz] of [
+    ["called off", { sonderereignis: "ausgefallen" }, "Das Spiel ist als ausgefallen oder annulliert eingetragen."],
+    ["undated", { datum: null }, "Das Spiel hat noch kein Datum."],
+    ["still to come", { datum: "2999-05-14" }, "Das Spiel hat noch nicht stattgefunden."],
+  ] as const) {
+    it(`states a fixture ${fall} and offers no form`, async () => {
+      eingabe = "on";
+      const gelesen = spielberichtReadFixture();
+      answerReadsWith((endpoint, schema, params) =>
+        endpoint === ENDPOINT ? { ...gelesen, spiel: { ...gelesen.spiel, ...spiel } } : EMPTIEST_ANSWER(endpoint, schema, params),
+      );
+
+      const { text } = await rendered();
+
+      assert.ok(text.includes(satz), text);
+      assert.ok(!text.includes("Tor hinzufügen"), `the correction renders for a fixture ${fall}`);
+    });
+  }
 
   it("opens the correction on the stored report once the switch reads on", async () => {
     eingabe = "on";

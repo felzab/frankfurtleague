@@ -3180,6 +3180,18 @@ RULES: tuple[Rule, ...] = (
         implemented_by="app.api.spielberichte.services.find_name_in_bemerkungen_refusal",
         tested_by="tests/api/test_spielbericht_shapes.py::TestTheRemarksNameNobody",
     ),
+    Rule(
+        code="REQ-BERICHT-006",
+        status=HTTPStatus.CONFLICT,
+        operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",
+        aggregate="Spielbericht",
+        summary=(
+            "a report write names the version of the report its form was served, or none where none stood, and finds it "
+            "standing, so no form replaces a report its sender never saw"
+        ),
+        implemented_by="app.api.spielberichte.services.find_bericht_stand_refusal",
+        tested_by="tests/api/test_spielbericht_execution.py::TestAFormOpenedBeforeAnotherWrite",
+    ),
 )
 
 

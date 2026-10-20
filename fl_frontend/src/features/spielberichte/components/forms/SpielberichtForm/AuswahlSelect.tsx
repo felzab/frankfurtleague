@@ -27,6 +27,7 @@ export function AuswahlSelect<T extends string>({
   onChange,
   error,
   ownLabel,
+  isRequired,
 }: {
   /** The payload path, so a refusal reaches the field by name. */
   name: string;
@@ -38,6 +39,8 @@ export function AuswahlSelect<T extends string>({
   error: string | undefined;
   /** A marker-carrying label rendered in place of the plain one. */
   ownLabel?: ReactNode;
+  /** A mark a rule outside the leaf owes, which the caller names; absent, the schema's own decides. */
+  isRequired?: boolean;
 }) {
   const item = listboxRow();
   const picked = options.find((option) => option.id === value);
@@ -55,6 +58,7 @@ export function AuswahlSelect<T extends string>({
       value={value}
       onChange={handleChange}
       isInvalid={error === undefined ? undefined : true}
+      isRequired={isRequired}
       className="flex w-full flex-col gap-y-1">
       {ownLabel ?? <Label className={FIELD_LABEL_CLASSES}>{label}</Label>}
       <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>

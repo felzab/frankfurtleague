@@ -173,7 +173,7 @@ class FLSpielberichtBerichtPayload(BaseModel):
 
         if vorschlag.sonderereignis in SONDEREREIGNIS_NO_SHOW:
             if vorschlag.team1_tore is not None or vorschlag.team2_tore is not None or vorschlag.elfmeterschiessen is not None:
-                raise ValueError("Bei einem Nichtantreten trägst Du keine Tore ein: das Ergebnis setzt die Liga.")
+                raise ValueError("Bei einem Nichtantreten trägst Du keine Tore ein: Das Ergebnis setzt die Liga.")
             if self.torschuetzen:
                 raise ValueError("Bei einem Nichtantreten gibt es keine Torschützen.")
             return self
@@ -206,6 +206,10 @@ class FLSpielberichtPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     bericht: FLSpielberichtBerichtPayload
+    # A precondition, written nowhere: the version of the report the form was served, null where none stood. Required
+    # with no default, as `kontakte_stand` is: an omitted one would judge nothing
+    # (`app/api/spielberichte/services.py :: find_bericht_stand_refusal`).
+    bericht_stand: int | None
 
 
 # --- The READS. The referee's form and the administrator's panel read one shape: the fixture, both live

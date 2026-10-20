@@ -14,11 +14,11 @@ import { nextRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { BERICHT_SPIEL_ID, spielberichtReadFixture } from "@/shared/testing/spielberichtFixtures.ts";
 
 /* Every save answers as landed; the form reaches the stub along the path it reaches the action. */
-const { calls, answered } = doubleActions({
+const { calls, answered, answerWith } = doubleActions({
   modules: ["/src/features/spielberichte/personActions.ts", "/src/features/spielberichte/actions.ts"],
   payloadOf: (args) => args[1],
 });
-doubleToasts();
+const { raised } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SpielberichtForm } = await import("./SpielberichtForm.tsx");
@@ -27,13 +27,13 @@ const { FLSpielberichtSchiedsrichterResponseSchema } = await import("../../../sc
 
 const LESEN = FLSpielberichtSchiedsrichterResponseSchema.parse(spielberichtReadFixture());
 
-/** The referee's form on the fixture with nothing reported yet. */
-const leer = () =>
+/** The referee's form on the fixture with nothing reported yet, over both squads unless a case names others. */
+const leer = (kader: typeof LESEN.kader = LESEN.kader) =>
   underNext(
     h(SpielberichtForm, {
       leser: "schiedsrichter",
       spielId: BERICHT_SPIEL_ID,
-      kontext: kontextOf(LESEN),
+      kontext: kontextOf({ ...LESEN, kader }),
       stored: null,
       header: { title: "Goethe-Gymnasium gegen Lessing-Gymnasium" },
       zurueckHref: "/bereich/schiedsrichter",
@@ -94,8 +94,83 @@ describe("the referee's report form", () => {
             karten: [],
             bemerkungen: null,
           },
+          bericht_stand: null,
         },
       },
     ]);
+  });
+
+  /* The backend refuses a write composed on another version (`REQ-BERICHT-006`), so the form names the one it opened on:
+     sending none, or the latest, would let it replace a correction its reader never saw. */
+  it("sends the version of the report it opened on", async () => {
+    const user = userEvent.setup();
+    const gelesen = FLSpielberichtSchiedsrichterResponseSchema.parse(spielberichtReadFixture());
+    render(
+      underNext(
+        h(SpielberichtForm, {
+          leser: "schiedsrichter",
+          spielId: BERICHT_SPIEL_ID,
+          kontext: kontextOf(gelesen),
+          stored: gelesen.bericht === null ? null : { ...gelesen.bericht, version: 4 },
+          header: { title: "Goethe-Gymnasium gegen Lessing-Gymnasium" },
+          zurueckHref: "/bereich/schiedsrichter",
+        }),
+        { router: nextRouter() },
+      ),
+    );
+    await user.type(screen.getByRole("textbox", { name: /Bemerkungen zum Spiel/ }), " Nachspielzeit fünf Minuten.");
+    calls.length = 0;
+
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(answered);
+
+    assert.equal(calls.length, 1, "the edited report was not sent");
+    assert.equal(Reflect.get(Object(calls[0]?.payload), "bericht_stand"), 4);
+  });
+
+  /* A no-show takes no scorer: an entry left standing would ride into a save the backend refuses, unseen. */
+  it("drops the scorers with a no-show and offers none", async () => {
+    const user = userEvent.setup();
+    render(leer());
+    await user.click(screen.getByRole("button", { name: "Tor hinzufügen" }));
+
+    await pick(user, screen.getByRole("button", { name: /^Besonderes Ereignis/ }), "Nichtantreten Team 2");
+
+    assert.equal(screen.queryAllByText("Tor 1").length, 0, "the scorer entry survived the no-show");
+    assert.equal(screen.queryAllByRole("button", { name: "Tor hinzufügen" }).length, 0, "a no-show still offers a scorer");
+    assert.ok(screen.getByText("Bei einem Nichtantreten gibt es keine Torschützen."));
+
+    // Gone from the draft and not merely hidden: taking the no-show back finds no entry the referee left behind.
+    await pick(user, screen.getByRole("button", { name: /^Besonderes Ereignis/ }), "Keines");
+    assert.equal(screen.queryAllByText("Tor 1").length, 0, "the hidden scorer entry still stands in the draft");
+  });
+
+  /* The success toast reads „Spielbericht gesendet“, so its failure is that title negated. */
+  it("titles a refused send as not sent", async () => {
+    const user = userEvent.setup();
+    render(leer());
+    await user.type(screen.getByRole("textbox", { name: /Tore Goethe-Gymnasium/ }), "0");
+    await user.type(screen.getByRole("textbox", { name: /Tore Lessing-Gymnasium/ }), "0");
+    answerWith(() => Promise.resolve({ success: false, error: "Dieses Spiel leitest Du nicht mehr. Lade die Seite neu." }));
+    raised.length = 0;
+
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(answered);
+
+    assert.deepEqual(
+      raised.filter(({ variant }) => variant === "danger").map(({ title }) => title),
+      ["Spielbericht nicht gesendet"],
+    );
+  });
+
+  /* A side fielding no squad offers a picker with nobody in it, which says nothing of what the referee does instead. */
+  it("says what to enter where a side has no squad", async () => {
+    const user = userEvent.setup();
+    render(leer({ team1: LESEN.kader.team1, team2: [] }));
+    await user.click(screen.getByRole("button", { name: "Tor hinzufügen" }));
+
+    await pick(user, screen.getByRole("button", { name: /^Team/ }), "Lessing-Gymnasium");
+
+    assert.ok(screen.getByText(/Für dieses Team ist kein Kader hinterlegt\. Jedes Tor trägst Du dann als „unbekannt“ ein\./));
   });
 });

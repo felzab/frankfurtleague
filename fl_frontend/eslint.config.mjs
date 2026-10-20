@@ -1310,6 +1310,10 @@ const SOURCE_BANS = [
       "src/features/spiele/components/forms/AdminEditSpielDataForm/FormSonderereignisSection.tsx",
       "src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx",
       "src/features/spiele/components/forms/AdminEditSpielDataForm/PickOrCreateAutocomplete.tsx",
+      "src/features/spielberichte/components/forms/SpielberichtForm/FormKartenSection.tsx",
+      "src/features/spielberichte/components/forms/SpielberichtForm/FormVorschlagSection.tsx",
+      // Hands its select the mark its caller names, as the wrappers hand HeroUI theirs.
+      "src/features/spielberichte/components/forms/SpielberichtForm/AuswahlSelect.tsx",
     ],
   },
   {

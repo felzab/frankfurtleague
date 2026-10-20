@@ -1,3 +1,4 @@
+import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLKartenFarbe, FLKartenGrund, FLSpielberichtSonderereignis, FLSpielberichtZustand } from "./schemas";
 
 /**
@@ -49,7 +50,22 @@ export const SPIELBERICHT_ZUSTAND_LABELS: Record<FLSpielberichtZustand, string> 
   vorgeschlagen: "Vorgeschlagen",
   uebernommen: "Übernommen",
   abweichend: "Abweichend",
+  abgesagt: "Abgesagt",
 };
+
+/** One tone per state on the panel and on a fixture card alike; `abgesagt` in the fixture status chip's own. */
+export const SPIELBERICHT_ZUSTAND_TONE: Record<FLSpielberichtZustand, PillTone> = {
+  vorgeschlagen: "info",
+  uebernommen: "success",
+  abweichend: "warning",
+  abgesagt: "danger",
+};
+
+/**
+ * The states awaiting the administrator, named rather than read off the others, as the backend's
+ * `BERICHT_ZUSTAENDE_OFFEN` names them: a state added later awaits nobody until it is named here.
+ */
+export const SPIELBERICHT_ZUSTAENDE_OFFEN: ReadonlySet<FLSpielberichtZustand> = new Set(["vorgeschlagen", "abweichend"]);
 
 /** What every report surface says while `SPIELBERICHT_EINGABE` reads off. */
 export const SPIELBERICHT_GESCHLOSSEN = {
@@ -57,5 +73,14 @@ export const SPIELBERICHT_GESCHLOSSEN = {
   hint: "Sobald die Liga ihn freigibt, trägst Du hier das Ergebnis, die Torschützen und die Karten ein.",
 } as const;
 
-/** The closed refusal an action answers with no request sent: the page that offered the press is older than the switch. */
-export const SPIELBERICHT_GESCHLOSSEN_REFUSAL = "Spielberichte sind noch nicht freigeschaltet. Lade die Seite neu.";
+/**
+ * What the administrator's correction page says while the switch reads off. Never „noch nicht“: the switch can go off
+ * again after the league opened it, and a report then standing still leads the administrator here.
+ */
+export const SPIELBERICHT_GESCHLOSSEN_ADMIN = "Spielberichte sind gerade nicht freigeschaltet";
+
+/**
+ * The closed refusal an action answers with no request sent: the page that offered the press is older than the
+ * switch, which went off since, so never „noch nicht“.
+ */
+export const SPIELBERICHT_GESCHLOSSEN_REFUSAL = "Spielberichte sind gerade nicht freigeschaltet. Lade die Seite neu.";
