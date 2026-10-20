@@ -96,13 +96,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/api/bewerbungen/services.py :: find_unconfirmed_kontakte_refusal`), so every date it
   copies is one its person stamped. **A stored date no confirmation stamped is therefore judged by nothing**, and clearing
   one is the remedy [`backend/spec.md`](backend/spec.md#3-violation--remedy) carries rather than
-  something a write can refuse. The consent vocabulary's `volljaehrig`
-  (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`, and
-  `fl_backend/app/core/constraints.py`) pins no age in code and reads as 18, so reading the enum as
-  the rule gets a Trainer's threshold wrong by two years; the two numbers the tree commits to for a
-  contact person are
-  (`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS`) and
-  (`:: VERTRETUNG_MIN_AGE_YEARS`), one per seat in
+  something a write can refuse. The two numbers the tree commits to for a contact person are
+  `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS` and
+  `:: VERTRETUNG_MIN_AGE_YEARS`, one per seat in
   `fl_backend/app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`.
 - **A pupil's birthdate is required, and the pupil's own registration is what supplies it.** Ruled
   2026-09-08: required from the sign-up flow on, so that nobody invents the one field whose purpose
