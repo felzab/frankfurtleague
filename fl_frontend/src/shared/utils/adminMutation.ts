@@ -2,12 +2,13 @@ import { refresh, updateTag } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
 import { isFreshlySignedIn, judgeAdminRequest } from "@/core/auth";
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } from "@/core/errors";
+import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { declareWriteTags, requestWriteSent, requestWriteTags } from "@/core/requestScope";
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
 
 import { ANMELDUNG_ABGELAUFEN, outcomeUnknown, ZUGANG_WEG } from "./actionError";
+import { logCodedFailure } from "./degradedRead";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "./refusal";
 import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
@@ -97,12 +98,7 @@ async function runGuarded<S, T extends { success: boolean }>(
       // A framework control-flow throw (redirect(), notFound()) is a navigation rather than a failure.
       unstable_rethrow(error);
 
-      const typed = error instanceof APIBadStatusError || error instanceof APINetworkError || error instanceof APIMalformedDataError;
-      logger.error(`${guard.lane} mutation failed: ${mutationName}`, error, {
-        error_code: typed || error instanceof ApiUnsentError ? error.code : "FE-ACT-001",
-        server_error_code: error instanceof APIBadStatusError ? error.serverErrorCode : undefined,
-        status: error instanceof APIBadStatusError || error instanceof APIMalformedDataError ? error.statusCode : undefined,
-      });
+      logCodedFailure(`${guard.lane} mutation failed: ${mutationName}`, error, "FE-ACT-001");
 
       // Judged by what this request sent, a server action being a POST whatever it does.
       answer = answerThrow(error, guard.wording);
@@ -240,10 +236,6 @@ function isConfirmationRefused(error: unknown): error is APIBadStatusError {
 function confirmationRefused(mutationName: string, error: unknown): StepUpRequired {
   if (!isConfirmationRefused(error)) throw error;
 
-  logger.error(`Admin mutation refused for want of a confirmation: ${mutationName}`, error, {
-    error_code: error.code,
-    server_error_code: error.serverErrorCode,
-    status: error.statusCode,
-  });
+  logCodedFailure(`Admin mutation refused for want of a confirmation: ${mutationName}`, error, "FE-ACT-001");
   return stepUpRequired();
 }
