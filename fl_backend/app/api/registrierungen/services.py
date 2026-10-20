@@ -850,8 +850,8 @@ def find_unbestaetigt_refusal(*, einwilligung: Any) -> WriteRefusal | None:
 def person_weicht_ab(*, registrierung_raw: Mapping[str, Any], spieler_raw: Mapping[str, Any]) -> bool:
     """Whether the person an address resolves to is named or born otherwise than the registration says.
 
-    A stored birthdate of null is no difference: a record kept before birthdates were asked has
-    nothing to contradict.
+    A stored birthdate of null is no difference: an administrator's edit clears one
+    (`app/api/spieler/admin_router.py :: patch_spieler`), and nothing is left to contradict.
     """
 
     # A blank name names nobody, so it confirms nobody either.
