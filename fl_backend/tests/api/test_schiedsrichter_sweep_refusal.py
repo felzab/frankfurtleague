@@ -36,7 +36,7 @@ ROUND_TRIP_S = 0.037
 def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names():
     """A share raised past its budget passes every case counting its own rows, and times out a whole call in production.
 
-    Sized at the dearest of a lapse and a due change moving a pupil row and a referee row, a share mixing them.
+    Sized at the dearer of a lapse and a due pupil-and-referee change, which a share mixes.
     """
 
     dearest = max(COMMANDS_A_REFEREE, COMMANDS_A_PUPIL, COMMANDS_A_DUE_PERSON)

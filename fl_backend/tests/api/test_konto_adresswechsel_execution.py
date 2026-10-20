@@ -11,7 +11,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -976,7 +976,7 @@ class TestTwoStartsAtOnce:
                 # Another new address than the rival's, so the two meet on the address on file's anchor alone.
                 adresswechsel_data=FLSpielerAdresswechselPayload.model_validate({"email": FOREIGN_EMAIL, "grund": GRUND}),
                 records=record_collections(database),
-                spieler_collection=held,
+                spieler_collection=cast(Any, held),
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                 sperrliste=ban_list(database),
                 adressanker_collection=database[Collection.ADRESSANKER],

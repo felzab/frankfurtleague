@@ -609,9 +609,9 @@ class TestTheDeadlineStopsTheCall:
         ]
 
     def test_a_change_dearer_than_the_budgets_row_moves_nothing_and_stays_due(self, mongo_replica_set_url: str):
-        """No retention rule bounds what one address holds, so a share can meet a change dearer than the one it is sized at.
+        """Nothing bounds what one address holds, so a share can meet a change dearer than the one it is sized at.
 
-        Stalled at its last registration, after its pupil row and the rest were written: the transaction takes them all back.
+        Stalled at its last registration, its pupil row already written: the transaction takes everything back.
         """
 
         registrations = [
