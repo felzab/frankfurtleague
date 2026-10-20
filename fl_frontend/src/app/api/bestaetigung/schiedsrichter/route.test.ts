@@ -50,7 +50,6 @@ const HEUTE = "2026-09-21";
 const ANSICHT = {
   acknowledged: 1,
   zustand: "gueltig" as const,
-  text_version: LAUFEND,
   mindestalter: 16,
   medien_mindestalter: 18,
   frist: "2026-10-05",

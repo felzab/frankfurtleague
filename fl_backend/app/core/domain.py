@@ -1335,10 +1335,10 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.REGISTRIERUNGEN,
         "geburtsdatum",
         Editability.COMPOSED,
-        "on no admin payload: the pupil answers on the confirmation page, whose returning pupil's variant shows the stored date "
-        "back -- matched on the folded address AND the folded name, so a sibling registering from a mailbox shared "
-        "anyway is not shown the stored person's date -- and the write lands in the same `$set` as the consent record it is "
-        "checked for (`REQ-REGISTRIERUNG-007`). No "
+        "on no admin payload: the pupil answers on the confirmation page, whose returning pupil's variant asks none where "
+        "the person holds one and the press writes the stored date, never serving it -- matched on the folded address AND the "
+        "folded name, so a sibling registering from a mailbox shared anyway is not given the stored person's date -- and "
+        "the write lands in the same `$set` as the consent record it is checked for (`REQ-REGISTRIERUNG-007`). No "
         "control puts it back, so a mistyped date is corrected by registering again",
         "app.api.registrierungen.services.find_alter_refusal",
     ),
@@ -2729,7 +2729,10 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /registrierungen/bestaetigung",
         aggregate="Registrierung",
-        summary="a confirmation answers both choices on the new pupil's page and neither on the returning pupil's",
+        summary=(
+            "a confirmation answers both choices on the new pupil's page and neither on the returning pupil's, and a "
+            "birthdate exactly where none is stored"
+        ),
         implemented_by="app.api.registrierungen.services.find_wahlen_refusal",
         tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestTheChoicesThePageAsks",
     ),

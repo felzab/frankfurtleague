@@ -266,7 +266,7 @@ GATE_WIDTH_BACKEND_PYTEST=6
 # Past this a stalled pytest case's stack is dumped; `scripts/gate/gate_pool.py :: STALL_S` later its
 # step is named, inside every pooled CI job's timeout
 # (`scripts/tests/test_gate_pool.py :: test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout`).
-# Above the db tier's 129 s runner span, which bounds any case's.
+# Above the db tier's 129 s runner span (2026-10-20), which bounds any case's.
 FAULTHANDLER_S=180
 
 # --- what a unit runs --------------------------------------------------------------------------------

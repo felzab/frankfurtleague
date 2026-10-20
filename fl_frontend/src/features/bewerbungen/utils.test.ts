@@ -615,7 +615,6 @@ const offenBei = (mindestalter: number) => async (): Promise<EinwilligungAnsicht
     schule: "Ernst-Reuter",
     rolle: "ansprechperson",
     zugleich_rolle: null,
-    text_version: KONTAKT_LABEL,
     laufende_fassung: KONTAKT_LABEL,
     mindestalter: mindestalter,
     medien_mindestalter: 18,

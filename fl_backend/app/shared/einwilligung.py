@@ -485,6 +485,26 @@ _SPIELERSEITE_5: Final[Mapping[str, str]] = MappingProxyType(
 _SPIELERSEITE_WIEDERKEHREND_2: Final[Mapping[str, str]] = MappingProxyType(
     {**_SPIELERSEITE_WIEDERKEHREND, "klickIdentitaet": _SPIELERSEITE_5["klickIdentitaet"]}
 )
+# The returning page once a link serves nothing the person's record holds: the two sentences pointing
+# at a stored answer below the paragraph point at the account page instead.
+_SPIELERSEITE_WIEDERKEHREND_3: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        **_SPIELERSEITE_WIEDERKEHREND_2,
+        "geburtsdatum": (
+            "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an Deinem Geburtsdatum: "
+            "Kennen wir es schon, prüfen wir das gespeicherte, sonst trägst Du es hier ein. Ein falsches Geburtsdatum "
+            "beendet die Teilnahme: Wir sperren das Konto, und mit dieser E-Mail-Adresse ist für fünf volle Saisons "
+            "keine neue Registrierung möglich."
+        ),
+        "einwilligungen": (
+            "Du bist bei uns schon eingetragen, und was Du über die Veröffentlichung Deines Vornamens und des "
+            "Anfangsbuchstabens Deines Nachnamens und über Fotos, Videos und Interviews entschieden hast, gilt "
+            "weiter. Deshalb fragen wir es hier nicht erneut. Wie Du entschieden hast, siehst Du in Deinem Konto, und "
+            "dort kannst Du es jederzeit ändern. Solange Du nicht in der Liga aktiv bist, kannst Du dort eine "
+            "Erlaubnis nur zurücknehmen; nimmt Dein Team Dich auf, kannst Du sie dort auch wieder erteilen."
+        ),
+    }
+)
 _SCHIEDSRICHTERSEITE_4: Final[Mapping[str, str]] = MappingProxyType(
     {
         **_SCHIEDSRICHTERSEITE_3,
@@ -1577,6 +1597,16 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
                 }
             ),
         ),
+        "2026-10-spielerseite-wiederkehrend-3": Fassung(
+            seite="bestaetigung_spieler_wiederkehrend",
+            gilt_ab=date(2026, 10, 21),
+            absaetze=tuple(_SPIELERSEITE_WIEDERKEHREND_3.values()),
+            absaetze_nach_schluessel=_SPIELERSEITE_WIEDERKEHREND_3,
+            # The new pupil page's, offered nothing here: every label states a switch, and this page decides
+            # no stored field with a control, so it names none.
+            schalter=_MEDIEN_SCHALTER,
+            bedienelemente=MappingProxyType({}),
+        ),
         "2026-10-schiedsrichterseite-4": Fassung(
             seite="bestaetigung_schiedsrichter",
             gilt_ab=date(2026, 10, 18),
@@ -1627,7 +1657,7 @@ LAUFENDE_FASSUNGEN: Final[Mapping[Seite, str]] = MappingProxyType(
         "bestaetigung_kontakt_verwaltung": "2026-10-bestaetigungsseite-verwaltung-2",
         "bestaetigung_kontakt_saison": "2026-10-bestaetigungsseite-saison-2",
         "bestaetigung_spieler": "2026-10-spielerseite-5",
-        "bestaetigung_spieler_wiederkehrend": "2026-10-spielerseite-wiederkehrend-2",
+        "bestaetigung_spieler_wiederkehrend": "2026-10-spielerseite-wiederkehrend-3",
         "bestaetigung_schiedsrichter": "2026-10-schiedsrichterseite-4",
         "konto_spieler": "2026-10-konto-spieler",
         "konto_schiedsrichter": "2026-10-konto-schiedsrichter",
