@@ -1123,14 +1123,14 @@ glossary entry is filed with the build.
 | `fl_backend/app/api/berechtigungen/admin_router.py :: patch_berechtigung`    | `fl_frontend/src/features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx`                                             | Outside this entry's scope, below                                                                       |
 
 **The referee's address is judged against the stored record, which is no guard against a stale
-copy.** A confirmed referee's typed address becomes a pending change their new mailbox confirms, and
-an unconfirmed referee's corrected address retires their link and, unless they are retired, mints
-another, each behind the step-up confirmation
-(`fl_backend/app/api/schiedsrichter/services.py :: compose_korrektur_update`). Both compare the
-payload with the row, so an editor still showing an address a rival has since corrected reads as a
-change back to it. An editor typing a third address for a confirmed referee replaces the pending
-change a rival opened, its link dying and its address leaving the log, while the address the row
-reads has not moved. Every other field of that save lands whole.
+copy.** A confirmed referee's save naming another address is refused whole, their address moving
+only through an address change
+(`fl_backend/app/api/schiedsrichter/services.py :: find_bestaetigte_adresse_refusal`), and an
+unconfirmed referee's corrected address retires their link and, unless they are retired, mints
+another, behind the step-up confirmation (`:: compose_korrektur_update`). Both compare the payload
+with the row, so an editor still showing an address a rival has since corrected reads as a change
+back to it: on a confirmed referee the save is refused, and on an unconfirmed one it mints a link
+to the address the rival replaced, every other field of the save landing whole.
 
 **Every undo but the contacts editor's is a second stale write.** Each other undo action replays
 the save's earlier image through a PATCH, so an undo pressed after a rival's save reverts the
