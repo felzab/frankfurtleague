@@ -58,7 +58,8 @@ export type SpielberichtLeser = "schiedsrichter" | "admin";
 /** The remarks' name refusal lands on the box, the one control that can repair it. */
 export const BEMERKUNGEN_PATH = "bericht.bemerkungen";
 
-const NAME_IN_BEMERKUNGEN = "In den Bemerkungen steht ein Name. Beschreib die Person ohne Namen, etwa mit der Rückennummer.";
+// The box's hint already asks for a shirt number, so the message names the fault alone (`docs/frontend/spec.md` §1.12).
+const NAME_IN_BEMERKUNGEN = "In den Bemerkungen steht ein Name.";
 
 const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
   schiedsrichter: {

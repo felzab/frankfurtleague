@@ -22,7 +22,7 @@ export default async function AdminOverviewPage(props: NextPageProps) {
     // The queue's own season, so the two lists disagree about no fixture; degraded rather than awaited whole, the
     // fixtures' categories standing without it.
     runWithIncomingTrace(() => getSpielbestaetigungen({ saison_id: saison.id }).catch(nullUnlessContractBreak)),
-    frontend_config.SPIELBERICHT_EINGABE === "on" ? getSpielberichteZustaende(saison.id) : null,
+    frontend_config.SPIELBERICHT_EINGABE === "on" ? getSpielberichteZustaende({ saison_id: saison.id }) : null,
   ]);
 
   return (

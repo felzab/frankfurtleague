@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachAnswered, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { BERICHT_SPIEL_ID, spielberichtReadFixture } from "@/shared/testing/spielberichtFixtures.ts";
 
 /** The reports' switch as the doubled config answers it, which a case sets: off where it sets nothing, as production. */
@@ -24,12 +24,13 @@ registerDoubles({
 });
 
 /* The real action, its spine and its mutation, called: the request it runs in and the backend client are the doubles. */
-doubleActionRequest();
+const { setFresh } = doubleActionRequest();
 const { answerWith, calls } = doubleApiAnswers();
 
 const { patchAdminSpielberichtAction } = await import("./actions.ts");
 const { SPIELBERICHT_GESCHLOSSEN_REFUSAL } = await import("./constants.ts");
 const { mapSpielberichtRefusal } = await import("./utils.ts");
+const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 
 const BERICHT = {
   bericht: {
@@ -91,5 +92,24 @@ describe("the administrator's report correction", () => {
         }),
       mapped: (refusal) => mapSpielberichtRefusal(refusal, "admin"),
     });
+  });
+
+  /* The step-up sweep cannot open the switch for its own config, so the backend's confirmation refusal is driven here
+     (`fl_frontend/src/shared/utils/adminStepUp.test.ts :: CONFIRMED_IN_ITS_OWN_SUITE`). */
+  it("answers the backend's confirmation refusal as the passkey prompt, and reads the page's figure again", async () => {
+    eingabe = "on";
+    setFresh(true);
+    cacheCalls.length = 0;
+    answerWith(() => Promise.reject(refusedOn("PATCH /spielberichte/{spiel_id}", "REQ-AUTH-009")));
+    const offen = {
+      bericht: { ...BERICHT.bericht, ergebnis_vorschlag: { ...BERICHT.bericht.ergebnis_vorschlag, team1_tore: null, team2_tore: null } },
+    };
+
+    assert.deepEqual(await patchAdminSpielberichtAction(BERICHT_SPIEL_ID, offen), stepUpRequired());
+    assert.deepEqual(
+      cacheCalls.map((call) => call.name),
+      ["refresh"],
+      "the refusal left the page's figure standing, so its next press is refused again",
+    );
   });
 });
