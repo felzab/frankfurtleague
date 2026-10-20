@@ -1191,22 +1191,24 @@ def seats_changing_holder(*, stored: Any, kontakte: Any) -> tuple[FLKontaktRolle
     )
 
 
-def departing_holders(*, stored: Any, kontakte: Any, schule: str) -> list[FLKontaktAbgang]:
-    """By mailbox on the sign-in fold, never `_seat_held_by`'s identity.
+def departing_holders(*, stored: Any, kontakte: Any, owed: Iterable[Sequence[FLKontaktRolle]], schule: str) -> list[FLKontaktAbgang]:
+    """Per seat on the sign-in fold: a Trainer losing the paired seat alone still holds the row, and is told of that seat.
 
-    One re-seated under another name is mailed a new link, which a leaving notice would contradict.
+    A mailbox `owed` links is told nothing: its link mail names the seats it holds now.
     """
 
     stored_block = stored if isinstance(stored, Mapping) else {}
     block = kontakte if isinstance(kontakte, Mapping) else {}
-    staying = {sign_in_identifier(str(seat["email"])) for slot in KONTAKT_ROLLEN if isinstance(seat := block.get(slot), Mapping)}
+    linked = {sign_in_identifier(str(block[seat]["email"])) for seats in owed for seat in seats}
     leaving: dict[str, FLKontaktAbgang] = {}
 
     for slot in KONTAKT_ROLLEN:
-        held = stored_block.get(slot)
-        if not isinstance(held, Mapping) or (folded := sign_in_identifier(str(held["email"]))) in staying:
+        held, seat = stored_block.get(slot), block.get(slot)
+        if not isinstance(held, Mapping) or (folded := sign_in_identifier(str(held["email"]))) in linked:
             continue
-        # One notice per mailbox, the Trainer's second seat beside the first.
+        if isinstance(seat, Mapping) and sign_in_identifier(str(seat["email"])) == folded:
+            continue
+        # One notice per mailbox, every seat it lost beside the first.
         leaving.setdefault(folded, FLKontaktAbgang(rollen=[], email=str(held["email"]), schule=schule)).rollen.append(slot)
 
     return list(leaving.values())

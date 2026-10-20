@@ -1,5 +1,7 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import { frontend_config } from "@/core/config";
 import { KONTAKT_ABGANG_HINWEIS, KONTAKT_ABGANG_TAG } from "@/core/kontaktAbgangTag";
 import { buildKontaktAbgangEmail, buildKontaktBestaetigungEmail } from "@/core/kontaktEmail";
@@ -10,7 +12,6 @@ import { versandAusfallOf } from "@/core/versandAusfall";
 import { rollenText } from "@/features/bewerbungen/notifications";
 import { describeLinkMail } from "@/features/schiedsrichter/notifications";
 import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
-import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
@@ -65,17 +66,15 @@ export async function mailKontaktLink({
 }
 
 /**
- * The notice to a mailbox a save took off the row, never thrown from: the save has landed. On the lane no record holds
- * (`fl_frontend/src/core/kontaktAbgangTag.ts`), since the seat's own delivery record now describes its next holder.
+ * The notice to a mailbox a write took a seat or its live link from, never thrown from: the write has landed. On the lane
+ * no record holds (`fl_frontend/src/core/kontaktAbgangTag.ts`), since the seat's own delivery record now describes another mailbox.
  */
 export async function mailKontaktAbgang({
   operation,
-  saisonTeamId,
   saisonId,
   abgang,
 }: {
   operation: string;
-  saisonTeamId: string;
   saisonId: string;
   abgang: FLKontaktAbgang;
 }): Promise<void> {
@@ -89,8 +88,9 @@ export async function mailKontaktAbgang({
         saisonId: saisonId,
       }),
       tags: { [KONTAKT_ABGANG_TAG]: KONTAKT_ABGANG_HINWEIS },
-      // The day in the key: the body carries no token, so a retried save the same day composes the same message.
-      idempotencyKey: mailIdempotencyKey([KONTAKT_ABGANG_TAG, saisonTeamId, getGermanTodayStr()], abgang.email),
+      // Minted per call, which `deliver`'s retries reuse: a key held for the provider's 24 hours over the row and the day
+      // would swallow the same removal undone and saved again.
+      idempotencyKey: mailIdempotencyKey([KONTAKT_ABGANG_TAG, randomUUID()], abgang.email),
     });
   } catch (error) {
     // A barred or a withheld message is the mailer's own line, as on every lane.
@@ -98,7 +98,7 @@ export async function mailKontaktAbgang({
     if (ausfall === "gesperrt" || ausfall === "zurueckgehalten") return;
     // Name only, never the error: its message can carry the address (`docs/logging/spec.md :: L9`).
     logger.error("kontakt.abgang_failed", undefined, {
-      error_code: "FE-MAIL-015",
+      error_code: "FE-MAIL-002",
       name: error instanceof Error ? error.name : undefined,
       operation: operation,
     });

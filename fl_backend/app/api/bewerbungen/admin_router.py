@@ -63,6 +63,7 @@ from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.core.transactions import transaction_session
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -417,6 +418,9 @@ async def korrigiere_kontakt_email(
     """
     Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.
 
+    **The mailbox the link leaves is answered in `abgang_email`** for the caller to tell, as the contacts editor's save
+    answers one it takes off a seat; null where the corrected address is the same mailbox on the sign-in fold.
+
     The only repair there is for a link the mail provider will not carry: everything else the school typed stays the
     record the decision is taken against. Where one person holds two seats both are corrected, and the confirmation
     deadline restarts from today exactly as a re-send restarts it.
@@ -469,7 +473,7 @@ async def korrigiere_kontakt_email(
         raw, token_hash = mint_token()
         bestaetigungsfrist = bestaetigungsfrist_from(today=today)
 
-        await patch_one_in_db(
+        before = await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter=db_filter,
             update=compose_kontakt_email_update(
@@ -478,12 +482,20 @@ async def korrigiere_kontakt_email(
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
+        # Off the image this write replaced, never the read above it: the address the link left is the one the write moved.
+        alt = str(before["kontakte"][rolle]["email"])
         # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
         await anchor_the_addresses(
             [email_data.email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session
         )
 
-        return FLBewerbungKontaktEmailResponse(email=email_data.email, rollen=list(seats), token=raw, bestaetigungsfrist=bestaetigungsfrist)
+        return FLBewerbungKontaktEmailResponse(
+            email=email_data.email,
+            rollen=list(seats),
+            token=raw,
+            bestaetigungsfrist=bestaetigungsfrist,
+            abgang_email=None if sign_in_identifier(alt) == sign_in_identifier(email_data.email) else alt,
+        )
 
     # A transaction where the re-send beside it takes none: this write moves an address as well as a
     # credential, so a decision landing mid-request must leave neither half standing.

@@ -293,9 +293,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   one, so nobody is stored whom the league may not tell
   (`fl_backend/app/api/teams/services.py :: find_kontakt_sitz_gesperrt_refusal`); a person barred
   after their seating keeps the seat, and their link takes no confirmation
-  (`docs/backend/spec.md :: I505`). A mailbox a save takes off the row is told, naming nobody, that
-  its entry and every link it was sent there are gone; a club's replacement, an erasure, a
+  (`docs/backend/spec.md :: I505`). A mailbox a save takes off a seat is told, naming nobody, that
+  its entry is gone and that its confirmation link and fixture-confirmation links open nothing; the
+  team's registration link stays the team's, shared with the contacts who remain; a club's replacement, an erasure, a
   Widerspruch and the season's end tell nobody (`docs/backend/spec.md :: I807`). Ruled 2026-10-20.
+  An administrator's correction of an application seat's address tells the mailbox its link leaves
+  the same, unless the corrected address is that mailbox (`docs/backend/spec.md :: I812`).
+  Ruled 2026-10-20.
 
 ## 3. The current pupil records are reset once
 
@@ -901,7 +905,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   which nothing deletes (above), past the erasure of the contact person it was mailed to
   ([section 11](#11-open-and-owed-a-decision))
   (`docs/glossary.md :: Zustellstand`, `fl_backend/app/api/zustellung/services.py :: ZIEL_PFADE`).
-  **No delivery state has a clock of its own**, so none outlives the record it hangs on and none is
+  A message about no record kept, on each lane
+  `fl_frontend/src/app/api/mail/zustellung/route.ts :: OHNE_EINTRAG` names, stores no state: any
+  state but delivered is a line in the application's log without the address, and goes with that
+  log. **No delivery state has a clock of its own**, so none outlives the record it hangs on and none is
   kept for its own sake. Ruled 2026-09-08.
 - **A declined application is kept for one month after the decision, its three people's contact
   details included, then deleted. An accepted application is kept for the season it was accepted

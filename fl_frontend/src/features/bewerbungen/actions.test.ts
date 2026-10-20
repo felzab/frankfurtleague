@@ -391,13 +391,14 @@ const erneutGeschrieben = (overrides: object = {}) => ({
   ...overrides,
 });
 
-/** What the correction's write answers where it lands. */
-const korrigiert = () => ({
+/** What the correction's write answers where it lands: by default over an address the fold calls the same mailbox. */
+const korrigiert = (abgangEmail: string | null = null) => ({
   acknowledged: 1,
   email: KORREKTUR.email,
   rollen: ["ansprechperson"],
   token: "token-korrektur",
   bestaetigungsfrist: "2026-09-18",
+  abgang_email: abgangEmail,
 });
 
 /** What the reseat's write answers where it lands, for the seats it filled. */
@@ -1065,7 +1066,10 @@ describe("the re-sent confirmation link", () => {
     results.push(await einwilligungErneutSendenAction(ERNEUT));
 
     for (const [press, answer] of [
-      [() => kontaktEmailKorrigierenAction(KORREKTUR), { acknowledged: 1, token, email: KORREKTUR.email, rollen: ["ansprechperson"] }],
+      [
+        () => kontaktEmailKorrigierenAction(KORREKTUR),
+        { acknowledged: 1, token, email: KORREKTUR.email, rollen: ["ansprechperson"], abgang_email: null },
+      ],
       [() => besetzeKontaktSitzAction(SITZ), { acknowledged: 1, token, rollen: ["ansprechperson"] }],
     ] as const) {
       writes.length = 0;
@@ -1175,6 +1179,37 @@ describe("the corrected contact address", () => {
     await kontaktEmailKorrigierenAction(KORREKTUR);
 
     assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the correction names one seat of a mirrored pair");
+  });
+
+  /* The old link may have reached its mailbox and opened until the write, so that mailbox is told it now opens nothing, on
+     the leaving notice's lane; the browser gets nothing naming it. */
+  it("tells the mailbox the write took the link from, nameless, and hands the browser none of its address", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(korrigiert("anna.alt@example.de")));
+
+    const result = await kontaktEmailKorrigierenAction(KORREKTUR);
+
+    const notice = mailed.find(({ to }) => to === "anna.alt@example.de");
+    assert.deepEqual(notice?.tags, { kontakt_abgang: "hinweis" }, "the mailbox the link left was not told on its lane");
+    assert.match(notice?.text ?? "", new RegExp(`nicht mehr als ${rollenText(["ansprechperson"])} für`));
+    assert.deepEqual(
+      mailed.map(({ to }) => to).sort(),
+      ["anna.alt@example.de", KORREKTUR.email].sort(),
+      "the correction mailed someone beyond the two mailboxes it moved the link between",
+    );
+    assert.doesNotMatch(JSON.stringify(result), /anna\.alt@/);
+  });
+
+  it("tells nobody where the corrected address is the same mailbox", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(korrigiert(null)));
+
+    await kontaktEmailKorrigierenAction(KORREKTUR);
+
+    assert.deepEqual(
+      mailed.map(({ to }) => to),
+      [KORREKTUR.email],
+    );
   });
 
   it("moves no tag", async () => {

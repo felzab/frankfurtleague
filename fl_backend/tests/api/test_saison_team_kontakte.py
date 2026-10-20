@@ -27,6 +27,7 @@ from app.api.teams.services import (
     compose_kontakte_herkunft,
     departing_holders,
     kontakte_stand_of,
+    links_owed,
 )
 from app.core.adressanker import adressanker_id
 from app.core.collections import Collection
@@ -1107,11 +1108,14 @@ class TestTheLabelASaveNames:
 
 
 class TestWhomTheSaveTakesOffTheRow:
-    """The pure half of `abgaenge`: a mailbox leaves only where no seat of the written block holds it."""
+    """The pure half of `abgaenge`, over the block and the links the endpoint composes from the payload."""
 
     @staticmethod
-    def leaving(stored: Any, kontakte: Any) -> list[tuple[list[FLKontaktRolle], str]]:
-        return [(abgang.rollen, abgang.email) for abgang in departing_holders(stored=stored, kontakte=kontakte, schule=TEAM_NAME)]
+    def leaving(stored: Any, sent: Any) -> list[tuple[list[FLKontaktRolle], str]]:
+        kontakte = compose_kontakte_herkunft(kontakte=sent, stored=stored)
+        owed = links_owed(kontakte=kontakte, stored=stored)
+
+        return [(abgang.rollen, abgang.email) for abgang in departing_holders(stored=stored, kontakte=kontakte, owed=owed, schule=TEAM_NAME)]
 
     def test_a_seat_handed_to_another_person_answers_the_mailbox_it_held(self):
         handed = {**RESAVED_AS_RENDERED, "stellvertretung": person("Lea")}
@@ -1142,3 +1146,15 @@ class TestWhomTheSaveTakesOffTheRow:
         moved = {**RESAVED_AS_RENDERED, "ansprechperson": person("Klara"), "stellvertretung": person("Jonas")}
 
         assert self.leaving(SEEDED_KONTAKTE, moved) == []
+
+    def test_a_trainer_losing_the_paired_seat_alone_is_told_of_that_seat(self):
+        """Still seated as the Trainer, so a rule asking whether the mailbox stays anywhere tells them nothing."""
+
+        unpaired = {**NEW_KONTAKTE, "ansprechperson": person("Jonas"), "trainer_ist_zugleich": None}
+
+        assert self.leaving(NEW_KONTAKTE, unpaired) == [(["ansprechperson"], "lea@example.com")]
+
+    def test_a_trainer_keeping_the_paired_seat_alone_is_told_of_the_trainer_seat(self):
+        handed = {**NEW_KONTAKTE, "trainer": person("Jonas"), "trainer_ist_zugleich": None}
+
+        assert self.leaving(NEW_KONTAKTE, handed) == [(["trainer"], "lea@example.com")]
