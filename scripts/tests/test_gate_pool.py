@@ -431,6 +431,22 @@ def test_a_pool_names_itself_where_a_stop_reads_it_before_any_unit_starts(tmp_pa
     assert registry.read_bytes() == result.stdout.strip().encode("ascii") + b"\n"
 
 
+# Exits 0 having left its mark, so a unit that started at all is seen.
+MARKS: Final = "import sys; from pathlib import Path; Path(sys.argv[1]).write_bytes(b'started')"
+
+
+def test_a_pool_naming_itself_after_a_stop_starts_no_unit(tmp_path: Path) -> None:
+    """The stop spares only the pools it read, so a pool it never read is ended under any unit it starts."""
+    registry = tmp_path / "pools"
+    registry.write_bytes(f"{declared(POOL, 'STOPPED')}\n".encode("ascii"))
+    named = f"os.environ[gate_pool.POOLS] = {str(registry)!r}"
+    started = tmp_path / "started"
+    result = _drive((*STALLING, named, f"run_pool(('unit', (sys.executable, '-c', {MARKS!r}, {str(started)!r})))"), tmp_path)
+    assert result.returncode == int(declared(KERNEL, "EXIT_INTERRUPTED")), result.stderr
+    assert [(row[0], row[1]) for row in _rows(tmp_path)] == [("unit", str(declared(POOL, "NOT_STARTED")))]
+    assert not started.exists(), "a pool the stop never read started a unit"
+
+
 def test_a_unit_still_writing_is_never_named_however_long_it_runs(tmp_path: Path) -> None:
     """Silence and not age: an age bound names every slow build and teaches the reader to skip the line."""
     script = tmp_path / "moving.py"

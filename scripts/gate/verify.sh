@@ -576,8 +576,11 @@ declare -A UNIT_STATUS=()
 declare -A UNIT_MS=()
 
 pool_open() {
-  POOL_DIR="$(mktemp -d)"
+  # Kept for the EXIT trap's reclaim before it exists, so no stop lands between the two. `mkdir`
+  # refuses a taken name; the mask is `mktemp -d`'s private mode, which MSYS refuses `mkdir -m`.
+  POOL_DIR="$(mktemp -u)"
   POOL_DIRS+=("$POOL_DIR")
+  (umask 077 && mkdir -- "$POOL_DIR")
   : > "${POOL_DIR}/units.tsv"
 }
 

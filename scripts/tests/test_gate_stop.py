@@ -462,3 +462,53 @@ finally:
 def test_a_tool_started_before_its_shell_s_signal_is_stopped_and_its_trap_s_work_is_not() -> None:
     """Listed once, a shell signalled while starting a tool waited on it for the whole grace and was then ended unreclaimed."""
     _drive_watcher(UNLISTED_TOOL)
+
+
+# `scripts/gate/gate_watch.py :: wind_down`'s order: the stop marked in the registry before the pools
+# named there are read.
+MARKED_FIRST: Final = """import sys, tempfile
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import gate_watch as watch
+registry = Path(tempfile.mkdtemp()) / "pools"
+registry.write_bytes(b"")
+read = []
+named = watch._pools_named
+def reading(path):
+    read.append(path.read_bytes().split())
+    return named(path)
+watch._pools_named = reading
+job = watch.kernel32.CreateJobObjectW(None, None)
+assert watch.wind_down(job, Path(sys.argv[2]).parent / "kill.exe", registry) == 0
+assert read == [[watch.STOPPED.encode("ascii")]], read
+"""
+
+
+def test_a_stop_marks_the_registry_before_it_reads_the_pools_named_there() -> None:
+    """Read first, a pool naming itself in between was neither spared nor told, and was ended under the units it then started."""
+    _drive_watcher(MARKED_FIRST)
+
+
+# `scripts/gate/verify.sh :: pool_open`, its directory's creation witnessed: what `POOL_DIRS` held then.
+POOL_OPEN_FIXTURE: Final = """set -euo pipefail
+POOL_DIRS=()
+mkdir() {{ printf '%s' "${{POOL_DIRS[*]}}" > "{witness}"; command mkdir "$@"; }}
+{pool_open}
+pool_open
+printf '%s' "$POOL_DIR"
+"""
+
+
+def test_a_pool_s_directory_is_named_for_its_reclaim_before_it_exists(tmp_path: Path) -> None:
+    """Created first, a stop landing before the name was kept left the directory behind with nothing to reclaim it."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    witness = tmp_path / "witness"
+    fixture = POOL_OPEN_FIXTURE.format(witness=witness.as_posix(), pool_open=lift_function(VERIFY, "pool_open"))
+    env = base_env()
+    env["TMPDIR"] = (tmp_path / "scratch").as_posix()
+    (tmp_path / "scratch").mkdir()
+    done = run_shell(BASH, write_shell(tmp_path / "open.sh", fixture), env=env)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert witness.exists(), "the directory was created before anything ran that could name it"
+    assert witness.read_bytes().decode("utf-8") == done.stdout, "the directory existed before the run kept its name"
+    assert (tmp_path / "scratch" / Path(done.stdout).name / "units.tsv").is_file(), done.stdout

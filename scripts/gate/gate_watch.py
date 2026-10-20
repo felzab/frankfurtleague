@@ -29,6 +29,7 @@ from typing import Final
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 from checker_kernel import EXIT_INTERRUPTED, EXIT_OK, EXIT_REFUSED, run
+from gate_pool import STOPPED
 
 # The one line the gate waits for before it starts anything, a process it starts earlier being
 # outside the job; a tab and the pools' registry follow it.
@@ -309,15 +310,20 @@ def wind_down(job: int, kill: Path, registry: Path) -> int:
     """Stop the job as SIGTERM stops a POSIX group; answer how many signalled shells outlived `GRACE_S`.
 
     MSYS processes take SIGTERM and natives end; a pool outlives its units as on POSIX, or its shell
-    reclaims the directory they still write. Listed again while it waits: what a shell started after
-    the first listing and before its signal is what its trap waits on.
+    reclaims the directory they still write.
     """
+    # Marked before it is read: a pool naming itself meanwhile finds the mark and starts nothing
+    # (`scripts/gate/gate_pool.py :: announce`), so every pool with units is named here.
+    with registry.open("ab") as named:
+        named.write(f"{STOPPED}\n".encode("ascii"))
     stop = _Stop(job, kill, _pools_named(registry))
     try:
         running = stop.reach(_job_pids(job), first=True)
         deadline = time.monotonic() + GRACE_S
         while running and time.monotonic() < deadline:
             time.sleep(GRACE_POLL_S)
+            # Listed again: what a shell started after the first listing and before its signal is
+            # what its trap waits on.
             running = [handle for handle in running if not _ended(handle)] + stop.reach(_job_pids(job), first=False)
         return len(running)
     finally:
