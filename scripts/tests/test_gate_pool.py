@@ -697,8 +697,8 @@ def test_a_db_case_that_stalls() -> None:
         time.sleep(0.1)
 """
 SHORTENED: Final = (
-    ("gate/verify.sh", "FAULTHANDLER_S=120\n", "FAULTHANDLER_S=1\n"),
-    ("gate/gate_pool.py", "STALL_S: Final = 600.0\n", "STALL_S: Final = 1.0\n"),
+    ("gate/verify.sh", "FAULTHANDLER_S=180\n", "FAULTHANDLER_S=1\n"),
+    ("gate/gate_pool.py", "STALL_S: Final = 300.0\n", "STALL_S: Final = 1.0\n"),
     ("gate/gate_pool.py", "STALL_POLL_S: Final = 5.0\n", "STALL_POLL_S: Final = 0.1\n"),
 )
 # Above the stalled case's own 60 s, so a notice that never came fails here rather than hanging.

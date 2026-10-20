@@ -263,10 +263,10 @@ GATE_WIDTH_DB_PYTEST=6
 # 17.5-17.8s at 8, 20.3-21.5s at 4, 29.5-30.1s at 2 and 46.0-46.6s serial.
 GATE_WIDTH_BACKEND_PYTEST=6
 
-# Past this a pytest case's every thread is dumped into its capture for
-# `scripts/gate/gate_pool.py :: STALL_S`'s notice: below that bound, above the db tier's whole 113 s
-# on a runner, which bounds any one case's.
-FAULTHANDLER_S=120
+# Past this a stalled pytest case's stack is dumped; `scripts/gate/gate_pool.py :: STALL_S` names it
+# STALL_S later. Above the db tier's 129 s runner span, which bounds any case's; the sum, 480 s, is
+# 29 s under the scripts job's headroom.
+FAULTHANDLER_S=180
 
 # --- what a unit runs --------------------------------------------------------------------------------
 
