@@ -42,7 +42,7 @@ async def person_at_the_address(
 ) -> Mapping[str, Any] | None:
     """The one person `uniq_spieler_email` holds to this registration's address, matched on the folded form `spieler.email` stores."""
 
-    # Never the sentinel, whose missing address a hand edit can fill: matched, it picks the pupil's page and what it shows back.
+    # Never the sentinel, whose missing address a hand edit can fill: matched, it picks the pupil's page and the date the press takes.
     return await spieler_collection.find_one(
         build_real_spieler_filter(build_adressen_filter([sign_in_identifier(str(registrierung_raw.get("email") or ""))])),
         projection=list(PERSON_ANSICHT_FIELDS),

@@ -10,7 +10,7 @@ import { alterAusserhalb, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "./consta
 
 import type { NamedTeam } from "@/features/bewerbungen/types";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLEinladungAnsichtResponse, FLPostRegistrierungPayload, FLRegistrierung } from "./schemas";
+import type { FLEinladungAnsichtResponse, FLPostRegistrierungPayload, FLRegistrierung, FLRegistrierungBestaetigungPayload } from "./schemas";
 import type { AdminRegistrierungRow, RegistrierungFormDraft, SpielerLinkZustand } from "./types";
 
 /**
@@ -140,6 +140,15 @@ export function abgewiesenerVersand(): { error?: string; fieldErrors?: FieldErro
 /** `alterAusserhalb` where the link's view serves no floor to name: both bounds, never a number of its own. */
 const ALTER_AUSSERHALB_UNGELESEN = "Mit diesem Geburtsdatum bist Du zu jung oder zu alt.";
 
+/**
+ * The returning pupil's age refusal, judged on the date the league holds rather than one typed here: the page
+ * has no field to correct, and every reopened link takes the same date, so the league is the repair.
+ */
+export const GESPEICHERTES_GEBURTSDATUM_AUSSERHALB = buildRefusal({
+  reason: "Dein bei uns gespeichertes Geburtsdatum liegt außerhalb der Altersgrenzen dieser Saison",
+  repair: `Du siehst es in Deinem Konto. Stimmt es nicht, schreib uns an ${KONTAKT_EMAIL}`,
+});
+
 /** What one refused confirmation asks its caller to do. */
 export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: SpielerLinkZustand };
 
@@ -158,6 +167,7 @@ export type GelesenerLink =
  */
 export async function mapBestaetigungRefusal(
   error: unknown,
+  gesendet: Pick<FLRegistrierungBestaetigungPayload, "geburtsdatum">,
   gelesen: () => Promise<GelesenerLink | null>,
 ): Promise<BestaetigungRefusal | null> {
   if (!isRefusal(error)) return null;
@@ -203,9 +213,12 @@ export async function mapBestaetigungRefusal(
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
     case "REQ-REGISTRIERUNG-012":
       return { zustand: "gesperrt" };
-    // The one refusal that spends no token, so it lands on the field and the typed date survives it;
+    // The one refusal that spends no token, so a typed date's refusal lands on its field and the date survives it;
     // a `zustand` here would swap a live form for a dead-link panel.
     case "REQ-REGISTRIERUNG-007": {
+      // No date sent is the stored one judged: `REQ-REGISTRIERUNG-017` refuses a press sending none where none is stored.
+      if (gesendet.geburtsdatum === null) return { error: GESPEICHERTES_GEBURTSDATUM_AUSSERHALB };
+
       const floor = (await ansicht())?.mindestalter ?? null;
 
       // A view that went unread names no floor: one guessed could send the person to correct a date that was right.

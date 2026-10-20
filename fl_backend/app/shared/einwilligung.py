@@ -1526,7 +1526,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             gilt_ab=date(2026, 10, 12),
             absaetze=tuple(_SPIELERSEITE_WIEDERKEHREND.values()),
             absaetze_nach_schluessel=_SPIELERSEITE_WIEDERKEHREND,
-            # The new pupil page's, offered nothing here: the page labels the choices it shows back with them.
+            # The new pupil page's, offered nothing here: a record citing this label was shown its stored choices in these words.
             schalter=_MEDIEN_SCHALTER,
             bedienelemente=MappingProxyType(
                 {
@@ -1588,7 +1588,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             gilt_ab=date(2026, 10, 18),
             absaetze=tuple(_SPIELERSEITE_WIEDERKEHREND_2.values()),
             absaetze_nach_schluessel=_SPIELERSEITE_WIEDERKEHREND_2,
-            # The new pupil page's, offered nothing here: the page labels the choices it shows back with them.
+            # The new pupil page's, offered nothing here: a record citing this label was shown its stored choices in these words.
             schalter=_MEDIEN_SCHALTER,
             bedienelemente=MappingProxyType(
                 {

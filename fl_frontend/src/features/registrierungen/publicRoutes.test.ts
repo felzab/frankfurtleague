@@ -26,6 +26,7 @@ import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { doubleTurnstile } from "@/shared/testing/turnstileDouble.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
+import { formatSpielDatum } from "@/shared/utils/format.ts";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
@@ -802,7 +803,7 @@ describe("the three answers the confirmation page collects", () => {
     await user.click(tag!);
     await user.keyboard(getippt(geborenVor(MEDIEN_ALTER + 2)));
 
-    const schalter = screen.getByRole("switch", { name: new RegExp(FASSUNG.schalter.slice(0, 20)) }) as HTMLInputElement;
+    const schalter = screen.getByRole("switch", { name: FASSUNG.schalter }) as HTMLInputElement;
 
     assert.equal(schalter.checked, false, "the media consent is pre-selected, so nobody gave it");
   });
@@ -865,7 +866,7 @@ describe("how a pupil operates the confirmation page without a pointer", () => {
     await user.keyboard(getippt(geborenVor(MEDIEN_ALTER + 2)));
     (document.activeElement as HTMLElement | null)?.blur();
 
-    const medien = screen.getByRole("switch", { name: new RegExp(FASSUNG.schalter.slice(0, 20)) });
+    const medien = screen.getByRole("switch", { name: FASSUNG.schalter });
 
     for (const control of [datum, wahl, medien]) assert.ok(control, "a control resolves by no accessible name");
 
@@ -981,7 +982,7 @@ describe("the media switch, offered from the media age alone", () => {
       const [tag] = screen.getAllByRole("spinbutton");
       await user.click(tag!);
       await user.keyboard(getippt(geborenVor(MEDIEN_ALTER + 2)));
-      await user.click(screen.getByRole("switch", { name: new RegExp(FASSUNG.schalter.slice(0, 20)) }));
+      await user.click(screen.getByRole("switch", { name: FASSUNG.schalter }));
 
       await user.click(tag!);
       await user.keyboard(getippt(geborenVor(MEDIEN_ALTER - 1)));
@@ -1001,9 +1002,12 @@ describe("the media switch, offered from the media age alone", () => {
 describe("the returning pupil's confirmation page", () => {
   const STANDING = wiederkehrendeSeite();
 
-  /** The body the press sends, and the panel it lands on, the route answering as it does for this page. */
-  async function gedrueckt(ansicht: SpielerBestaetigungGeoeffnet = WIEDERKEHREND_GEOEFFNET) {
-    const antwort = { success: true, ergebnis: "bestaetigt", geburtsdatum: null, umfang: null, medien: null };
+  /**
+   * The body the press sends, and the panel it lands on, the route answering as it does for this page. `datum`
+   * is the date typed first, which the page asks where none is stored.
+   */
+  async function gedrueckt(ansicht: SpielerBestaetigungGeoeffnet = WIEDERKEHREND_GEOEFFNET, datum: string | null = null) {
+    const antwort = { success: true, ergebnis: "bestaetigt", geburtsdatum: datum, umfang: null, medien: null };
     fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify(antwort), { status: 200 })));
     const bisher = fetchMock.mock.callCount();
 
@@ -1011,6 +1015,11 @@ describe("the returning pupil's confirmation page", () => {
     const { unmount } = render(
       h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: ansicht, token: "kein-echtes-token" }, fassung: WIEDERKEHREND }),
     );
+    if (datum !== null) {
+      const [tag] = screen.getAllByRole("spinbutton");
+      await user.click(tag!);
+      await user.keyboard(getippt(datum));
+    }
     await user.click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
     await act(fetchMock.answered);
     await screen.findByRole("heading", { name: "Registrierung bestätigt" });
@@ -1080,6 +1089,17 @@ describe("the returning pupil's confirmation page", () => {
     assert.deepEqual([gesendet[0]?.["umfang"], gesendet[0]?.["medien"]], [null, null], "the press sent a choice the page did not ask");
     assert.equal(gesendet[0]?.["geburtsdatum"], null, "the press sent a date where the page asked none");
     assert.equal(gesendet[0]?.["text_version"], WIEDERKEHREND.textVersion, "the press names a label other than its page's");
+  });
+
+  /* A person the league holds with no birthdate is asked one here, and the press is the only way it reaches them. */
+  it("sends the typed date where none is stored, and shows it in the answer panel", async () => {
+    const datum = geborenVor(MIN_ALTER + 1);
+    const { gesendet, panel } = await gedrueckt({ ...WIEDERKEHREND_GEOEFFNET, geburtsdatum_gespeichert: false }, datum);
+
+    assert.equal(gesendet.length, 1, "the press sent nothing, so this case compares nothing");
+    assert.equal(gesendet[0]?.["geburtsdatum"], datum, "the press dropped the date the page asked");
+    assert.deepEqual([gesendet[0]?.["umfang"], gesendet[0]?.["medien"]], [null, null], "the press sent a choice the page did not ask");
+    assert.ok(panel.includes(formatSpielDatum(datum)), "the answer panel leaves out the date typed on this page");
   });
 
   it("says in the answer panel that the stored answers stand, and states none of them", async () => {

@@ -345,8 +345,8 @@ function SpielerBestaetigungForm({
   onAbschluss: (abschluss: Abschluss) => void;
 }) {
   const [isPending, startSending] = useTransition();
-  // Nothing preselected, whatever the read served: a media switch that opened on and a scope already
-  // picked are consents nobody gave on this page.
+  // Nothing preselected: a media switch that opened on and a scope already picked are consents nobody
+  // gave on this page.
   const [entwurf, setEntwurf] = useState<{ geburtsdatum: string; umfang: FLEinwilligungUmfang | null; medien: boolean }>({
     geburtsdatum: "",
     umfang: null,
