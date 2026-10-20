@@ -19,6 +19,7 @@ from app.api.bewerbungen.services import days_after
 from app.api.identitaet.schemas import ADRESSE_UNTER_INVALID, ANLASS_HOLDS_AN_ADDRESS, ErasureAdresse, FLErasurePayload
 from app.api.identitaet.services import grants_a_panel
 from app.api.saisons.schemas import FLSaisonStatus, TeamsPerGroup
+from app.api.spielberichte.schemas import MINUTE_PATTERN
 from app.api.spielbestaetigungen.services import ANSETZUNG_QUELLEN, anfrage_is_due
 from app.api.spiele.schemas import MAX_QUALIFIERS
 from app.api.spiele.services import CLASH_BUFFER_MINUTES
@@ -111,6 +112,8 @@ MIRRORED_BOUNDS: Final = (
     # one each row stores.
     Mirror("features/spiele/constants.ts", "SPIEL_BESTAETIGUNG_FRIST_TAGE", "SPIEL_BESTAETIGUNG_FRIST_TAGE"),
     Mirror("features/spiele/constants.ts", "SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH", "SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH"),
+    Mirror("features/spielberichte/constants.ts", "SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH", "SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH"),
+    Mirror("features/spielberichte/constants.ts", "SPIELBERICHT_EINTRAEGE_MAX", "SPIELBERICHT_EINTRAEGE_MAX"),
     Mirror("features/berechtigungen/constants.ts", "ANKUENDIGUNGEN_MAX", "LIST_LIMIT_DEFAULT"),
     # The account sweep's batch: a larger one is refused whole, every pass alike, and nothing is deleted.
     Mirror("features/funktionen/constants.ts", "REFERENZEN_ADRESSEN_MAX", "REFERENZEN_ADRESSEN_MAX"),
@@ -875,6 +878,7 @@ MIRRORED_PATTERNS: Final = (
     ),
     Pattern("features/spiele/schemas.ts", "ERGEBNIS_REGEX", "app/shared/schemas/custom.py :: CustomErgebnisString", ERGEBNIS_RULE),
     Pattern("features/spiele/utils.ts", "ERGEBNIS_PATTERN", "app/shared/schemas/custom.py :: CustomErgebnisString", ERGEBNIS_RULE),
+    Pattern("features/spielberichte/schemas.ts", "MINUTE_REGEX", "app/api/spielberichte/schemas.py :: MINUTE_PATTERN", MINUTE_PATTERN),
 )
 
 

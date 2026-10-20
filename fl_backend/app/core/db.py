@@ -291,3 +291,9 @@ async def get_spielbestaetigungen_collection(
     db: AsyncDatabase = Depends(get_database),
 ) -> AsyncCollection:
     return db[Collection.SPIELBESTAETIGUNGEN]
+
+
+async def get_spielberichte_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.SPIELBERICHTE]

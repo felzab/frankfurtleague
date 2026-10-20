@@ -397,7 +397,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   fixture keeps a name, a school or a contact detail, closed seasons' fixtures included, and nothing
   can be written back onto the person: an edit racing the erasure
   meets the deleted row and is refused as not found. Every erased referee's fixtures share that one
-  row, so no set of fixtures singles a person out. No erasure reaches the ghost: each selects the
+  row, so no set of fixtures singles a person out. Every match report the referee sent names the ghost
+  as its sender too, and stands with its remarks and entries as the league's record of the match
+  (`docs/backend/spec.md :: I788`). No erasure reaches the ghost: each selects the
   records an address holds, and the ghost holds none.
 - **The address route answers every request, because no write stores a pupil or referee row
   without an address.** A pupil row is created only by an admission, which gives it the
@@ -667,7 +669,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
   keyed on no address at all, so no erasure reaches it and only the season's end deletes it
   (`docs/backend/spec.md :: I775`); the reason box's hint asks for
   no names, nothing enforces it, and the published notice says a name may stand in the reason
-  (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19, the unchecked text 2026-10-20. The request an
+  (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19, the unchecked text 2026-10-20. A referee's
+  remarks on a match (`spielberichte.bericht.bemerkungen`) are refused, when written, every name either
+  club's three seats, the booked referee and either squad's pupils of the season hold, matched as the
+  request below is (`fl_backend/app/api/spielberichte/services.py :: find_name_in_bemerkungen_refusal`);
+  a name written otherwise, or a person outside the fixture, stays in them for as long as the report
+  stands, which is as long as its fixture. The request an
   administrator's erasure answers
   (`aktionen.anlass`) stands on every log row that erasure files, for the log's twelve months
   (`docs/backend/spec.md :: I683`, `:: I119`). It is refused where it holds an address

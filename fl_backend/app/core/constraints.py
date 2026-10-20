@@ -11,6 +11,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.schemas import NumberOfGroups, QualifiersPerGroup, TeamsPerGroup
+from app.api.spielberichte.schemas import CustomSpielberichtMinute, FLSpielberichtKarte
 from app.api.spiele.schemas import FLSpielElfmeterschiessen
 from app.api.spieler.schemas import FLSpielerStufe
 from app.core.collections import Collection
@@ -118,6 +119,24 @@ _SPIELBESTAETIGUNG_GRUENDE = [
     "spiel_vergangen",
 ]
 _KONTAKT_ROLLEN = ["trainer", "ansprechperson", "stellvertretung"]
+# Mirror `app/api/spielberichte/schemas.py`'s Literals and discriminators.
+_SPIELBERICHT_SEITEN = ["team1", "team2"]
+_SPIELBERICHT_SONDEREREIGNISSE = ["abgebrochen", "nichtantreten_team1", "nichtantreten_team2"]
+_KARTEN_FARBEN = ["gelb", "gelb_rot", "rot"]
+_KARTEN_GRUENDE = [
+    "foulspiel",
+    "unsportlichkeit",
+    "handspiel",
+    "meckern",
+    "spielverzoegerung",
+    "wiederholtes_foulspiel",
+    "grobes_foulspiel",
+    "taetlichkeit",
+    "beleidigung",
+    "notbremse",
+]
+_SPIELBERICHT_VON = ["schiedsrichter", "admin"]
+_SPIELBERICHT_UEBERNOMMEN_VON = ["admin"]
 
 # Derived, not spelled: these ARE the collection names. The log never records itself, nor the day's
 # write counts, which bypass `app/core/crud.py` (`app/core/drosselung.py`), nor an address's anchor,
@@ -719,6 +738,76 @@ _SPIELBESTAETIGUNG_GESCHLOSSEN = _object(
     nullable=True,
     required=("am", "grund"),
     properties={"am": {"bsonType": "string"}, "grund": {"bsonType": "string", "enum": _SPIELBESTAETIGUNG_GRUENDE}},
+)
+
+
+_SPIELBERICHT_VORSCHLAG = _object(
+    required=("team1_tore", "team2_tore", "elfmeterschiessen", "sonderereignis"),
+    properties={
+        "team1_tore": {"bsonType": _INT_OR_NULL},
+        "team2_tore": {"bsonType": _INT_OR_NULL},
+        "elfmeterschiessen": _SPIEL_ELFMETERSCHIESSEN,
+        "sonderereignis": {"bsonType": _STRING_OR_NULL, "enum": [*_SPIELBERICHT_SONDEREREIGNISSE, None]},
+    },
+)
+
+_SPIELBERICHT_TORSCHUETZE = _object(
+    required=("seite", "spieler_id", "minute", "eigentor"),
+    properties={
+        "seite": {"bsonType": "string", "enum": _SPIELBERICHT_SEITEN},
+        # Null is a scorer nobody named; an erased pupil's entry names the sentinel instead.
+        "spieler_id": {"bsonType": ["objectId", "null"]},
+        "minute": {"bsonType": "string"},
+        "eigentor": {"bsonType": "bool"},
+    },
+)
+
+_SPIELBERICHT_KARTE = _object(
+    required=("seite", "spieler_id", "minute", "farbe", "grund"),
+    properties={
+        "seite": {"bsonType": "string", "enum": _SPIELBERICHT_SEITEN},
+        "spieler_id": {"bsonType": "objectId"},
+        "minute": {"bsonType": "string"},
+        "farbe": {"bsonType": "string", "enum": _KARTEN_FARBEN},
+        "grund": {"bsonType": _STRING_OR_NULL, "enum": [*_KARTEN_GRUENDE, None]},
+    },
+)
+
+_SPIELBERICHT_BERICHT = _object(
+    nullable=True,
+    required=(
+        "ergebnis_vorschlag",
+        "torschuetzen",
+        "karten",
+        "bemerkungen",
+        "eingereicht_am",
+        "eingereicht_von",
+        "geaendert_am",
+        "version",
+        "uebernommen_am",
+        "uebernommen_von",
+        "uebernommene_version",
+    ),
+    properties={
+        "ergebnis_vorschlag": _SPIELBERICHT_VORSCHLAG,
+        "torschuetzen": {"bsonType": "array", "items": _SPIELBERICHT_TORSCHUETZE},
+        "karten": {"bsonType": "array", "items": _SPIELBERICHT_KARTE},
+        "bemerkungen": {"bsonType": _STRING_OR_NULL},
+        # Instants rather than German days: a correction and an adoption on one day are two moments a reader orders.
+        "eingereicht_am": {"bsonType": "date"},
+        # Keyed on `art` as `_SPIELBESTAETIGUNG_PARTEI` is, requiring the discriminator alone for its reason.
+        "eingereicht_von": _object(
+            required=("art",),
+            properties={"art": {"bsonType": "string", "enum": _SPIELBERICHT_VON}, "schiedsrichter_id": {"bsonType": "objectId"}},
+        ),
+        "geaendert_am": {"bsonType": "date"},
+        "version": {"bsonType": "int"},
+        "uebernommen_am": {"bsonType": ["date", "null"]},
+        "uebernommen_von": _object(
+            nullable=True, required=("art",), properties={"art": {"bsonType": "string", "enum": _SPIELBERICHT_UEBERNOMMEN_VON}}
+        ),
+        "uebernommene_version": {"bsonType": _INT_OR_NULL},
+    },
 )
 
 
@@ -1325,6 +1414,17 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             },
         )
     },
+    Collection.SPIELBERICHTE: {
+        "$jsonSchema": _object(
+            required=("_id", "saison_id", "spiel_id", "bericht"),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "saison_id": {"bsonType": "string"},
+                "spiel_id": {"bsonType": "objectId"},
+                "bericht": _SPIELBERICHT_BERICHT,
+            },
+        )
+    },
 }
 
 
@@ -1429,6 +1529,8 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         "one open confirmation per party per Ansetzung",
         partial_filter={"antwort": {"$type": "null"}, "geschlossen": {"$type": "null"}},
     ),
+    # What makes two first writes of one fixture's report one document: the second insert meets this.
+    UniqueIndex(Collection.SPIELBERICHTE, "uniq_spielbericht_spiel_id", ("spiel_id",), "one report per fixture"),
 )
 
 
@@ -1626,6 +1728,12 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "spielbestaetigungen_antwort_von_halter",
         (("antwort.von.halter", ASCENDING),),
         "the reasons a leaving contact typed, from whichever seat",
+    ),
+    SupportIndex(
+        Collection.SPIELBERICHTE,
+        "spielberichte_saison_id",
+        (("saison_id", ASCENDING),),
+        "a season's reports, which the triage's read and a replace's or an undraw's removal filter on",
     ),
 )
 
@@ -1984,6 +2092,9 @@ _TEAMS_PER_GROUP = TypeAdapter(TeamsPerGroup)
 _STUFEN = TypeAdapter(Annotated[list[FLSpielerStufe], Field(min_length=1)])
 # The model whole: its validator refuses a level shoot-out, which no bound on either count states.
 _SHOOTOUT_OR_NULL = TypeAdapter(FLSpielElfmeterschiessen | None)
+_MINUTE = TypeAdapter(CustomSpielberichtMinute)
+# The list whole, for the shoot-out's reason: a card's own validator refuses a caution without its reason.
+_KARTEN = TypeAdapter(list[FLSpielberichtKarte])
 
 # A validator holds types and enums alone (`.claude/rules/backend.md` db), so a hand edit can store an
 # empty name or a day no calendar holds, and a list serving that row answers 500 for every row
@@ -2162,6 +2273,17 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "elfmeterschiessen.team1": _COUNT,
         "elfmeterschiessen.team2": _COUNT,
     },
+    Collection.SPIELBERICHTE: {
+        "bericht.ergebnis_vorschlag.team1_tore": _TORE_OR_NULL,
+        "bericht.ergebnis_vorschlag.team2_tore": _TORE_OR_NULL,
+        "bericht.ergebnis_vorschlag.elfmeterschiessen": _SHOOTOUT_OR_NULL,
+        "bericht.ergebnis_vorschlag.elfmeterschiessen.team1": _COUNT,
+        "bericht.ergebnis_vorschlag.elfmeterschiessen.team2": _COUNT,
+        "bericht.torschuetzen.minute": _MINUTE,
+        "bericht.karten": _KARTEN,
+        "bericht.karten.minute": _MINUTE,
+        "bericht.bemerkungen": _NON_EMPTY_OR_NULL,
+    },
     Collection.SPIELER: {
         "einwilligung.datum": _OPTIONAL_DAY,
         "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
@@ -2206,12 +2328,19 @@ UNSERVABLE_VALUE_RULE = "every value its row models bound is one they admit ({})
 
 
 def _refuses(adapter: TypeAdapter[Any], document: Mapping[str, Any], path: str) -> bool:
-    value: Any = document
-    for step in path.split("."):
+    return _refused_at(adapter, document, path.split("."))
+
+
+def _refused_at(adapter: TypeAdapter[Any], value: Any, steps: list[str]) -> bool:
+    # An array met before the path ends: the rest names a field of every member, as a query's dotted path does.
+    if steps and isinstance(value, list):
+        return any(_refused_at(adapter, member, steps) for member in value)
+
+    if steps:
         # A parent stored null, or a key stored nowhere: the validator's own report names a missing key.
-        if not isinstance(value, Mapping) or step not in value:
+        if not isinstance(value, Mapping) or steps[0] not in value:
             return False
-        value = value[step]
+        return _refused_at(adapter, value[steps[0]], steps[1:])
 
     try:
         adapter.validate_python(value)

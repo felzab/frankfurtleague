@@ -202,6 +202,7 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, saison_id
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(
             shape=FLSpielplanShape(number_of_groups=GROUPS, teams_per_group=TEAMS_PER_GROUP, qualifiers_per_group=QUALIFIERS)

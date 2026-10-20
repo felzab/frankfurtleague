@@ -34,7 +34,7 @@ from app.core.constraints import (
 from app.shared.schemas.bounds import TEAM_DESCRIPTION_MAX_LENGTH
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import spiel_document, spielbestaetigung_document
+from tests.documents import bericht_document, spiel_document, spielbericht_document, spielbestaetigung_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -359,6 +359,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 "stellvertretung": None,
             },
         ),
+        "spielberichte": spielbericht_document({"_id": SPIEL_OID, "saison_id": SAISON_ID}),
         "drosselung": {
             "_id": "kontakt:" + "a" * 64 + ":2026-03-15",
             "n": 1,
@@ -652,6 +653,11 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     "uniq_spielbestaetigung_offen": (
         valid_documents()["spielbestaetigungen"],
         valid_document("spielbestaetigungen", _id=TEAM_OID, kontakte={"trainer": None, "ansprechperson": None, "stellvertretung": None}),
+    ),
+    # Two reports of one fixture differing in their whole block: the index refuses on the fixture alone.
+    "uniq_spielbericht_spiel_id": (
+        valid_documents()["spielberichte"],
+        valid_document("spielberichte", _id=TEAM_OID, bericht=bericht_document(bemerkungen="Zweiter Bericht")),
     ),
     # Two seasons, each `active`: a second row in any other status would pass while the filter matched nothing.
     "uniq_saison_active": (valid_documents()["saisons"], valid_document("saisons", _id="2027", start_date="2027-01-01", end_date="2027-06-30")),
@@ -1209,6 +1215,17 @@ def with_value(collection: str, path: str, value: Any) -> dict[str, Any]:
         pytest.param("spieltage", "position", 0, ["position"], id="a number under its floor"),
         pytest.param("saisons", "rules.teams_per_group", 20, ["rules.teams_per_group"], id="a number over its ceiling"),
         pytest.param("spiele", "elfmeterschiessen", {"team1": 3, "team2": 3}, ["elfmeterschiessen"], id="a validator around a nested model"),
+        # The minute sits on the second entry: a reader stopping at the array, or at its first member, counts nothing.
+        pytest.param(
+            "spielberichte",
+            "bericht.torschuetzen",
+            [
+                {"seite": "team1", "spieler_id": None, "minute": "12", "eigentor": False},
+                {"seite": "team1", "spieler_id": None, "minute": "90 + 3", "eigentor": False},
+            ],
+            ["bericht.torschuetzen.minute"],
+            id="a value inside an array of sub-documents",
+        ),
     ],
 )
 def test_each_collection_counts_a_value_its_read_models_refuse(mongo_url: str, collection: str, path: str, value: Any, fields: list[str]):
