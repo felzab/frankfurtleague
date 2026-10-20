@@ -19,7 +19,7 @@
 # is cut before the merge from the code being merged rather than after it from code already holding
 # the gate. Left out of a row's population, that row alone: a job that did not succeed; a job whose
 # log carries the runner's own retry of an action download, a wait that is GitHub's rather than the
-# tree's; and for a job whose own cache is keyed on the tree
+# tree's; and for a job a cache keyed on the tree speeds
 # (`scripts/checks/check_gate_budget.py :: TREE_KEYED`), every attempt but the first of a push to
 # main, and any pull-request run: a re-run restores everything its first attempt wrote, while a push
 # to main finds warm only what the trees before it left unchanged, so re-runs read at least as warm
@@ -77,7 +77,11 @@
 # attempts of pull-request run 37627541547, the merge commit their stamps name, the tree that run
 # tests being the one main carries after the merge. `scripts` counts 23: one attempt's job failed
 # fetching the pinned shellcheck, so its population is too short to cut into two windows of twelve
-# and the row carries `-` for reference and floor, held by its budget alone.
+# and the row carries `-` for reference and floor, held by its budget alone. `db` and the shards
+# install the frontend from a store and a verdict keyed on the lockfile, so their re-runs never met
+# the cold install main's first push after a lockfile change pays; each row is re-stamped only from
+# twenty-four first attempts of pushes to main, the count its reference and floor need, and until
+# then none of its figures rises.
 #
 # `format`, `frontend` and `images` are cut from the main push runs their stamps count, every one of
 # them carrying the backend's tier over workers and the db scope's two suites started together. Their
