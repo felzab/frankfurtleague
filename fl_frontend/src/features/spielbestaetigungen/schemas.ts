@@ -162,9 +162,8 @@ export const FLSpielbestaetigungAntwortResponseSchema = BaseAPIResponseSchema.ex
 export type FLSpielbestaetigungAntwortResponse = z.infer<typeof FLSpielbestaetigungAntwortResponseSchema>;
 
 /**
- * A referee's own row's states. Never `gesperrt`, the binder refusing a barred person first, nor `vorschlag`: a
- * referee proposes no date. `abgelaufen` is an unanswered row closed for good: its day gone, or its fixture decided,
- * called off or left by a club.
+ * Never `gesperrt`, the binder refusing a barred person first, nor `vorschlag`: a referee proposes no date.
+ * `abgelaufen` is an unanswered row closed for good: its day gone, or its fixture decided, called off or left by a club.
  */
 export const FLSpielbestaetigungSchiedsrichterZustandSchema = z.enum(["gueltig", "zugesagt", "abgelehnt", "abgelaufen", "ungueltig"]);
 export type FLSpielbestaetigungSchiedsrichterZustand = z.infer<typeof FLSpielbestaetigungSchiedsrichterZustandSchema>;
