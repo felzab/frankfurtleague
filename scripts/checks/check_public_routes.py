@@ -64,10 +64,14 @@ LINK_TOKEN_RE: Final = re.compile(r"\btoken\b")
 LINK_QUERY_RE: Final = re.compile(r"searchParams", re.IGNORECASE)
 
 # Every minted link writes `token=` literally (`nginx/shared/http.conf :: $credential_free_uri` relies
-# on it) after a template's origin and the page's path, a literal or a string constant of its module;
-# any other `?token=` refuses rather than dropping a page.
+# on it) after a template's origin and a page path its module spells; any other `?token=` refuses
+# rather than dropping a page.
 TOKEN_QUERY: Final = "?token="
-MINT_RE: Final = re.compile(r"\$\{[^{}]*\}(?:\$\{(?P<name>[A-Za-z_$][\w$]*)\}|(?P<path>/[^`$?\s]*))\?token=")
+MINT_RE: Final = re.compile(r"\$\{[^{}]*\}(?:\$\{(?P<name>[A-Za-z_$][\w$]*)(?P<key>\[[^\[\]{}]+\])?\}|(?P<path>/[^`$?\s]*))\?token=")
+
+# A spread, a computed key or a value that is no literal matches nothing, so a record refuses whole: a
+# value skipped would drop its page.
+RECORD_ENTRY_RE: Final = re.compile(r'\s*(?:[A-Za-z_$][\w$]*|"[^"]*")\s*:\s*"(?P<value>[^"]*)"\s*')
 
 # A test file's spelling under each extension the walk reads: decided for one alone, the other's
 # fixtures read as minters.
@@ -493,14 +497,29 @@ def minted(source: Path) -> tuple[tuple[Path, str], ...]:
         if len(hits) != text.count(TOKEN_QUERY):
             raise RouteShape(f"{module}: a `{TOKEN_QUERY}` behind no origin and page path this reader can place")
         for hit in hits:
-            path = hit["path"]
-            if path is None:
-                declared = re.search(rf"\bconst\s+{re.escape(hit['name'])}\s*(?::[^=]*)?=\s*\"([^\"]*)\"", text)
-                if declared is None:
-                    raise RouteShape(f"{module}: the link path {hit['name']}, which no string constant of this module declares")
-                path = declared[1]
-            found.append((module, path))
+            found += ((module, path) for path in _link_paths(hit, text, module))
     return tuple(found)
+
+
+def _link_paths(hit: re.Match[str], text: str, module: Path) -> tuple[str, ...]:
+    """The page path, or every path a record may hand it, one `MINT_RE` hit places."""
+    if hit["path"] is not None:
+        return (hit["path"],)
+    name = re.escape(hit["name"])
+    if hit["key"] is None:
+        declared = re.search(rf"\bconst\s+{name}\s*(?::[^=]*)?=\s*\"([^\"]*)\"", text)
+        if declared is None:
+            raise RouteShape(f"{module}: the link path {hit['name']}, which no string constant of this module declares")
+        return (declared[1],)
+    record = re.search(rf"\bconst\s+{name}\s*(?::[^=]*)?=\s*\{{(?P<body>[^{{}}]*)\}}", text)
+    # A trailing comma leaves one blank part, and nothing else may be blank.
+    parts = [] if record is None else record["body"].split(",")
+    if parts and parts[-1].strip() == "":
+        parts.pop()
+    entries = [RECORD_ENTRY_RE.fullmatch(part) for part in parts]
+    if not entries or None in entries:
+        raise RouteShape(f"{module}: the link path {hit['name']}{hit['key']}, which no record of string literals in this module declares")
+    return tuple(entry["value"] for entry in entries if entry is not None)
 
 
 def minted_pages(mints: tuple[tuple[Path, str], ...], found: tuple[Handler, ...], root: Path) -> tuple[tuple[Handler, ...], list[Finding]]:
