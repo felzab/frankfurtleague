@@ -152,7 +152,8 @@ async def verwerfen_spielbestaetigung(
 
     IRREVERSIBLE: the decline stays as the club gave it, and the row is closed `verworfen`, which is that club's one
     answer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture
-    counts it as the club's agreement, the league having kept the date. Refused for any other row -- open, agreed,
+    counts it as the club's agreement, the league having kept the date, until a pass closes it again as it closes an
+    agreement beside it. Refused for any other row -- open, agreed,
     declined without a proposal, a referee's, or closed (`REQ-ANSETZUNG-014`).
     """
 

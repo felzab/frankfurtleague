@@ -765,16 +765,13 @@ def _day_passed(*, ansetzung: Mapping[str, Any], today: str) -> bool:
 def grund_to_end(
     *, row: Mapping[str, Any], spiel: Mapping[str, Any], austritte: Mapping[Any, str], today: str
 ) -> FLSpielbestaetigungGrund | None:
-    """Why the pass's close shuts a row holding its party's question, or `None`.
-
-    A discard ends where an agreement would (`docs/backend/spec.md :: I763`), and at its own day's end though the
-    fixture moved: kept, one about an Ansetzung left would fill every pass's page.
-    """
+    """Why the pass's close shuts a row holding its party's question, or `None` (`docs/backend/spec.md :: I785`)."""
 
     grund = grund_to_close(row=row, spiel=spiel, austritte=austritte, today=today)
     if row.get("geschlossen") is None or grund in GRUENDE_ENDING_AN_ANSWER:
         return grund
 
+    # Its own day, though the fixture moved: kept, a discard about an Ansetzung left would fill every pass's page.
     return "spiel_vergangen" if _day_passed(ansetzung=row["ansetzung"], today=today) else None
 
 

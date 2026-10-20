@@ -7204,7 +7204,7 @@
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/verwerfen": {
       "post": {
         "summary": "Discard a club's proposed date",
-        "description": "Close a club's open decline that proposes another date, so the proposal stops asking the administrator to act.\n\nIRREVERSIBLE: the decline stays as the club gave it, and the row is closed `verworfen`, which is that club's one\nanswer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture\ncounts it as the club's agreement, the league having kept the date. Refused for any other row -- open, agreed,\ndeclined without a proposal, a referee's, or closed (`REQ-ANSETZUNG-014`).",
+        "description": "Close a club's open decline that proposes another date, so the proposal stops asking the administrator to act.\n\nIRREVERSIBLE: the decline stays as the club gave it, and the row is closed `verworfen`, which is that club's one\nanswer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture\ncounts it as the club's agreement, the league having kept the date, until a pass closes it again as it closes an\nagreement beside it. Refused for any other row -- open, agreed,\ndeclined without a proposal, a referee's, or closed (`REQ-ANSETZUNG-014`).",
         "operationId": "verwerfen_spielbestaetigung_api_v0_spielbestaetigungen__spielbestaetigung_id__verwerfen_post",
         "security": [
           {
