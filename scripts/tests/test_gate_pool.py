@@ -219,7 +219,7 @@ def _pool(directory: Path, rows: list[tuple[str, ...]], *, merge: bool = False) 
     command = [sys.executable, str(POOL), "--dir", str(directory), "--units", str(units)]
     if merge:
         command.append("--merge")
-    return subprocess.run(command, capture_output=True, text=True, check=False)
+    return subprocess.run(command, capture_output=True, text=True, check=False, env=base_env())
 
 
 def _rows(directory: Path) -> list[list[str]]:
@@ -236,7 +236,7 @@ def _drive(snippet: tuple[str, ...], directory: Path, *, timeout: float | None =
     """
     lines = "\n".join(DRIVER + snippet)
     source = lines.replace("POOL_DIR", repr(str(SCRIPTS / "gate"))).replace("DIRECTORY", repr(str(directory)))
-    return subprocess.run([sys.executable, "-c", source], capture_output=True, text=True, check=False, timeout=timeout)
+    return subprocess.run([sys.executable, "-c", source], capture_output=True, text=True, check=False, timeout=timeout, env=base_env())
 
 
 def test_every_unit_s_own_exit_status_reaches_the_manifest_under_its_own_name(tmp_path: Path) -> None:
@@ -312,6 +312,22 @@ def test_the_two_streams_are_captured_apart_unless_the_caller_asks_for_one(tmp_p
     assert (apart / "streams.err").read_bytes() == b"err"
     assert not (merged / "streams.err").exists()
     assert sorted((merged / "streams.out").read_bytes()) == sorted(b"outerr")
+
+
+def test_a_case_run_inside_a_watched_gate_neither_joins_its_registry_nor_loses_its_stop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A watched Windows gate exports its pools' registry to every tool it starts, this suite's pytest among them."""
+    registry = tmp_path / "gate-pools"
+    registry.write_bytes(b"")
+    monkeypatch.setenv(str(declared(POOL, "POOLS")), str(registry))
+    stopped = _drive(TERMINATE, tmp_path)
+    assert stopped.returncode == 0, stopped.stderr
+    directory = tmp_path / "pool"
+    directory.mkdir()
+    ran = _pool(directory, [("pass", *_exits(0))])
+    assert ran.returncode == 0, ran.stderr
+    assert registry.read_bytes() == b"", "a pool this suite started named itself in the gate's own registry"
 
 
 def test_ending_the_run_stops_every_unit_running_under_it(tmp_path: Path) -> None:
