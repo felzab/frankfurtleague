@@ -1225,8 +1225,8 @@ present scope.
   editor's read served them, and is stored nowhere**, as `kontakte_stand_of` digests each seat as
   the read model answers it. It leaves out a value the server composes from another record — a club,
   venue or referee name fanned into season rows and fixtures — and takes in what the save judges as
-  well as what it writes: the referee's stand covers the pending address change and the confirmation
-  state, which the save decides on while the address the row reads stays put. A version stored on
+  well as what it writes: the referee's stand covers the confirmation state, which the save decides
+  on while the address the row reads stays put. A version stored on
   the record has to be moved by every writer of it and costs a migration, and a digest of the whole
   document refuses an editor for a fan-out it never showed. So the season row keeps two stands, its
   own save's and the contacts save's.
