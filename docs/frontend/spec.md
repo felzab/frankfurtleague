@@ -1096,7 +1096,9 @@ refused before any file starts**, at exit 2: named nothing, node:test runs its w
 the database tier among it, and it drops an unmatched path in silence wherever another matched. The
 reporter refuses at load, being the one module the runner's own process loads (`--import` reaches
 only the files it starts); a wildcard matching nothing stays free, the `test` script's patterns
-holding several. A file whose suite or cases are all skipped stands only
+holding several. **A named path is read as the runner's glob, so a dynamic route segment's `[` is
+written `[[]`** — `src/app/bereich/admin/spiele/[[]spiel_id]/page.test.ts`: spelled literally, its
+brackets are a character class that matches no file. A file whose suite or cases are all skipped stands only
 where a skip names its reason, `{ skip: "…" }`: a bare `describe.skip` or `it.skip` fails it as
 running no case, and a todo case counts as none, its failure failing nothing. **A subset is run by
 naming its files**, never by filtering the whole suite: a name pattern, a skip pattern or `only` over
