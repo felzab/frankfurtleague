@@ -15,7 +15,7 @@ import { einwilligungAnswer } from "@/core/einwilligungDocument.ts";
 import { KONTO_HREF } from "@/core/kontoHref.ts";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken.ts";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants.ts";
-import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleLogger, doubleToasts, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
 import { laufendeSpielerFassung, laufendeSpielerWiederkehrendFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
@@ -42,6 +42,7 @@ const fetchMock = doubleFetch();
 const turnstile = doubleTurnstile();
 
 const { raised } = doubleToasts();
+doubleLogger();
 
 const failureToasts = () =>
   raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description] as [string, string | undefined]);
@@ -329,6 +330,16 @@ describe("the registration page over an invite read that did not answer", () => 
     });
 
     assert.deepEqual(await registrierungStart(), { zustand: "unlesbar" });
+  });
+
+  /* A bug in the read's narrowing opens the same panel as a read that failed, so only its line tells them apart. */
+  it("logs a read that threw untyped, and opens on the same state", async () => {
+    answerReadsWith(() => {
+      throw new TypeError("Cannot read properties of undefined (reading 'zustand')");
+    });
+
+    assert.deepEqual(await registrierungStart(), { zustand: "unlesbar" });
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
   });
 
   /* An answer off its schema is a broken contract, never a failed read: the error boundary logs it, and the reload panel would hide it. */
@@ -733,11 +744,15 @@ describe("which of the confirmation page's words its stamped version covers", ()
     })) as ReactElement<{ start: unknown }>;
 
     assert.deepEqual(body.props.start, { zustand: "unlesbar" });
+    // Untyped, as a bug in the read's narrowing throws: only this line tells it from a read that failed.
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
   });
 
   /* The read failing is a state of its own, which a reload may clear. */
   it("hands the view no words where the words read fails", async () => {
     assert.equal(await handedFassung({ scheitert: true }), null, "a failed words read reached the view as words");
+    // Both pages' words, each untyped as a cached read's throw arrives: only these lines tell them from a bug.
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001", "FE-RSC-001"], "a failure went unlogged");
     assert.equal(
       textOf(
         renderMarkup(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: GEOEFFNET, token: "kein-echtes-token" }, fassung: null }),

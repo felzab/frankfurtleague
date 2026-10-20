@@ -9,7 +9,7 @@ import { createElement as h } from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { doubleActionRequest, doubleActions, doubleToasts, loggedLines } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, doubleActions, doubleToasts, loggedErrorCodes, loggedLines } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
@@ -352,6 +352,8 @@ describe("the referee's editor page", () => {
         null,
         "a failed registry read reached the editor as a verdict",
       );
+      // Untyped, as a cached read's throw arrives: only this line tells it from a bug.
+      assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
     } finally {
       registerFehlt = false;
       stored = { ...RECORD, inactive_since: null };

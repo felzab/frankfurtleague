@@ -3,7 +3,6 @@ import { connection } from "next/server";
 
 import { getGenannteFassung } from "@/core/einwilligung";
 import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL } from "@/core/einwilligungSeiten";
-import { isContractBreak } from "@/core/errors";
 import { BestaetigungView } from "@/features/bewerbungen/components/views/BestaetigungView";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
@@ -67,10 +66,7 @@ async function BestaetigungContent(props: NextPageProps) {
       const worte = gekeyteFassung(fassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL);
       return { zustand: "gueltig", ansicht: gelesen.ansicht, token: token, fassung: worte };
     },
-    (error: unknown): BestaetigungStart => {
-      if (isContractBreak(error)) throw error;
-      return { zustand: "unlesbar" };
-    },
+    (error: unknown): BestaetigungStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
   );
 
   return <BestaetigungView start={start} />;

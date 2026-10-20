@@ -2,10 +2,10 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 
 import { frontend_config } from "@/core/config";
-import { isContractBreak } from "@/core/errors";
 import { RegistrierungView } from "@/features/registrierungen/components/views/RegistrierungView";
 import { getEinladungAnsicht } from "@/features/registrierungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
+import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { RegistrierungStart } from "@/features/registrierungen/types";
@@ -48,10 +48,7 @@ async function RegistrierungContent(props: NextPageProps) {
           (gelesen) => gelesen,
           // A failed read is its own state, the dead-link panel calling a live invite void. A broken contract
           // is no failed read: it reaches the error boundary, which logs it.
-          (error: unknown): RegistrierungStart => {
-            if (isContractBreak(error)) throw error;
-            return { zustand: "unlesbar" };
-          },
+          (error: unknown): RegistrierungStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
         )
       : { zustand: "ungueltig" };
 

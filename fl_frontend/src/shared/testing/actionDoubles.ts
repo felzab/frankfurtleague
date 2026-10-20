@@ -192,6 +192,21 @@ const logAt =
   };
 const SILENT_LOGGER = { logger: { debug: logAt("debug"), info: logAt("info"), warn: logAt("warn"), error: logAt("error") } };
 
+/** The `error_code` of every error line logged since the case began, in order. */
+export const loggedErrorCodes = (): unknown[] =>
+  loggedLines.filter(({ level }) => level === "error").map(({ meta }) => (meta as { error_code?: unknown } | undefined)?.error_code);
+
+/**
+ * Records every line into `loggedLines` for a suite whose subject runs in no action's request, which
+ * `doubleActionRequest` records already. Registered before the subject's `await import`.
+ */
+export function doubleLogger(): void {
+  beforeEach(() => {
+    loggedLines.length = 0;
+  });
+  registerDoubles({ modules: { "core/logging.ts": SILENT_LOGGER } });
+}
+
 /** What the doubled sign-in store's `getAdminSession` answers: an administrator, nobody signed in, or a store that threw this. */
 type AdminSessionDouble = { user: { email: string } } | null | Error;
 

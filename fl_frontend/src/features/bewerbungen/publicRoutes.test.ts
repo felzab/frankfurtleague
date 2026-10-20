@@ -19,7 +19,7 @@ import { filesUnder } from "@/core/treeWalk.ts";
 import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants.ts";
 import { FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles.ts";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap.ts";
-import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleLogger, doubleToasts, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
 import {
   laufendeBewerbungFassung,
   laufendeKontaktFassung,
@@ -58,6 +58,7 @@ const BEWERBUNG = laufendeBewerbungFassung();
 
 /** The toasts, replaced at the module boundary: the real module raises into HeroUI's queue. */
 const { raised } = doubleToasts();
+doubleLogger();
 
 /*
  Every module below is reached AFTER both harnesses above have evaluated: the JSX compile step is
@@ -1630,12 +1631,16 @@ describe("the words the two contact pages are handed", () => {
     backend({ scheitert: `/einwilligung/fassungen/${KONTAKT_LABEL}` });
 
     assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" });
+    // Untyped, as a cached read's throw arrives: only this line tells it from a bug.
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
   });
 
   it("opens a link on the failed read's panel where the link's own read fails", async () => {
     backend({ scheitert: "/bewerbungen/einwilligung/ansicht" });
 
     assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" });
+    // Untyped, as a bug in the read's narrowing throws: only this line tells it from a read that failed.
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
   });
 
   /* The read refuses a view serving a media floor of 0, which would offer the media switch to every age:
@@ -1688,6 +1693,7 @@ describe("the words the two contact pages are handed", () => {
     const html = renderMarkup(BewerbungView, { ...BASE_PROPS, fenster: FENSTER, fassung: null });
 
     assert.equal(fassung, null, "a failed words read reached the form as words");
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
     assert.ok(!html.includes('name="team_id"'), "the page offers a form it holds no words for");
     assert.ok(textOf(html).includes("Wir können das Formular gerade nicht laden"), "the page does not say why no form stands");
   });

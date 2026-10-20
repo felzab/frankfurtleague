@@ -2,11 +2,14 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { einwilligungAnswer } from "@/core/einwilligungDocument.ts";
+import { doubleLogger, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
 import { laufendeSchiedsrichterFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
 
 import type { ReactElement } from "react";
 import type { SchiedsrichterBestaetigungStart } from "./components/views/SchiedsrichterBestaetigungView.tsx";
+
+doubleLogger();
 
 const { default: SchiedsrichterBestaetigungPage } = await import("@/app/(public)/bestaetigung/schiedsrichter/page.tsx");
 
@@ -68,6 +71,8 @@ describe("the words the referee's confirmation page is handed", () => {
   /* The read failing is a state of its own, which a reload may clear. */
   it("opens a link on the failed read's panel where the words read fails", async () => {
     assert.deepEqual(await start({ scheitert: true }), { zustand: "unlesbar" });
+    // Untyped, as a cached read's throw arrives: only this line tells it from a bug.
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
   });
 
   /* A registry answering against what this page was built for is no failed read: only a deploy repairs
@@ -108,5 +113,7 @@ describe("the words the referee's confirmation page is handed", () => {
     })) as ReactElement<{ start: SchiedsrichterBestaetigungStart }>;
 
     assert.deepEqual(body.props.start, { zustand: "unlesbar" });
+    // Untyped, as a bug in the read's narrowing throws: only this line tells it from a read that failed.
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
   });
 });

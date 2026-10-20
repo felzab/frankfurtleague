@@ -9,7 +9,7 @@ import { act, createRef, createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleLogger, doubleToasts, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { answerReadsWith, callPage, clearSteps, EMPTIEST_ANSWER, pageBody, readsOf, steps } from "@/shared/testing/pageHarness.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
@@ -23,6 +23,7 @@ import type { ReactElement } from "react";
 const { raised: toasts } = doubleToasts();
 // The browser's own `fetch`, through which the open page's press reaches its route handler.
 const fetchMock = doubleFetch();
+doubleLogger();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { default: SpielbestaetigungPage, metadata } = await import("./page.tsx");
@@ -152,6 +153,16 @@ describe("what a spent link's page carries", () => {
     });
 
     assert.deepEqual(start, { zustand: "unlesbar" });
+  });
+
+  /* A bug in the read's narrowing opens the same panel as a read that failed, so only its line tells them apart. */
+  it("logs a read that threw untyped, and opens the failed read's panel", async () => {
+    const start = await startFor(() => {
+      throw new TypeError("Cannot read properties of undefined (reading 'zustand')");
+    });
+
+    assert.deepEqual(start, { zustand: "unlesbar" });
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
   });
 
   /* An answered view naming nobody who answered is a broken contract, which the error boundary logs. */
