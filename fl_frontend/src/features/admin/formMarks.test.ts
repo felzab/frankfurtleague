@@ -820,6 +820,7 @@ const FORMS: Record<string, FormCase> = {
         ansetzung: { team1_name: "SG Alpha", team2_name: "SG Beta", datum: "2026-11-20", uhrzeit: "14:30:00", spielort: null },
         zustand: "gueltig" as const,
         begruendung: null,
+        eingetragen: false,
       };
       return marksOf(h(SchiedsrichterEinsaetzeSection, { einsaetze: [einsatz] }), async (into) => {
         // The reason box stands behind the disclosure, which is what offers it.

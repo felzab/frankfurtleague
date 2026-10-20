@@ -278,7 +278,7 @@ async def stamp_the_adoption(
     # REQUIRED: the fixture save's own, so a save that does not commit takes its stamp back with it.
     session: AsyncClientSession,
 ) -> None:
-    """Stamp the report adopted at `version`, matching it only while it still stands there (`docs/backend/spec.md :: I806`).
+    """Stamp the report adopted at `version`, matching it only while it still stands there (`docs/backend/spec.md :: I810`).
 
     `patch_many_in_db` because its miss writes nothing, where `patch_one_in_db`'s raises and takes the fixture's save with it.
     """

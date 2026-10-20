@@ -45,6 +45,8 @@ const OHNE_EINTRAG = {
   saisonende: { ereignis: "mail.saisonendenotiz_nicht_zugestellt", error_code: "FE-MAIL-013" },
   // A referee's booking onto a fixture, or the notice that it moved: their row holds no seat to record either on.
   spielleitung: { ereignis: "mail.spielleitung_nicht_zugestellt", error_code: "FE-MAIL-014" },
+  // The notice to a mailbox a contacts save took off a season row: nobody it went to holds a seat to record it on.
+  kontakt_abgang: { ereignis: "mail.kontakt_abgang_nicht_zugestellt", error_code: "FE-MAIL-015" },
 } as const satisfies Record<Extract<ZustellMeldung, { nachricht_id: string }>["ziel"], { ereignis: string; error_code: string }>;
 
 function signedByProvider(roh: string, headers: Record<string, string>): boolean {

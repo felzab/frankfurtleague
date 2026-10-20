@@ -103,8 +103,8 @@ const minted = (vorname: string, email: string, rollen: string[], token = `token
   zeile,
 });
 
-/** The save's answer: the block as stored and the links it minted. */
-const saved = (bestaetigungen: unknown[]) => ({
+/** The save's answer: the block as stored, the links it minted and the mailboxes it took off the row. */
+const saved = (bestaetigungen: unknown[], abgaenge: unknown[] = []) => ({
   acknowledged: 1,
   saison_id: "2627",
   team_id: TEAM_ID,
@@ -112,7 +112,11 @@ const saved = (bestaetigungen: unknown[]) => ({
   kontakte: GESPEICHERT,
   kontakte_stand: "a1b2",
   bestaetigungen,
+  abgaenge,
 });
+
+/** A mailbox the save took off the row, as the backend answers it. */
+const abgang = (email: string, rollen: string[]) => ({ rollen, email, schule: "Lessing-Kolleg" });
 
 /** The club's membership read, holding `kontakte` for the season the payload names. */
 const holding = (kontakte: unknown) => () => ({
@@ -315,6 +319,42 @@ describe("the contacts save that seats new people", () => {
   });
 });
 
+describe("the contacts save that takes a mailbox off the row", () => {
+  /* Its seat's delivery record describes the seat's next holder, or nobody, so a record written for this message would
+     describe the wrong person. */
+  it("tells it once, naming no person and carrying no control, on the lane no record holds", async () => {
+    save = () =>
+      saved([minted("Anna", "anna@schule.example", ["ansprechperson"])], [abgang("dora@schule.example", ["ansprechperson", "trainer"])]);
+
+    const res = await patchSaisonTeamKontakteAction(PAYLOAD);
+
+    assert.equal(res.success, true);
+    const notice = mail.sent.find(({ to }) => to === "dora@schule.example");
+    assert.deepEqual(notice?.tags, { kontakt_abgang: "hinweis" });
+    assert.equal(notice?.subject, "Du bist nicht mehr als Ansprechperson und Trainerin oder Trainer für Lessing-Kolleg eingetragen");
+    assert.match(
+      notice?.text ?? "",
+      /in der Saison 2627 nicht mehr als Ansprechperson und Trainerin oder Trainer für Lessing-Kolleg eingetragen/,
+    );
+    assert.doesNotMatch(notice?.text ?? "", /Meier|https?:\/\/\S*token/);
+    assert.deepEqual(
+      zustellung.map(({ ziel }) => ziel),
+      ["kontakt"],
+      "the notice was recorded on a seat as the newcomer's link is",
+    );
+    assert.equal(res.success && res.versandSatz, describeLinkMail("anna@schule.example", "gesendet"), "the notice was reported as a link");
+  });
+
+  it("is still a landed save where the notice could not leave", async () => {
+    save = () => saved([], [abgang("dora@schule.example", ["ansprechperson"])]);
+    mail.answerWith(() => "refused");
+
+    const res = await patchSaisonTeamKontakteAction(PAYLOAD);
+
+    assert.equal(res.success && res.message, "Kontakte gespeichert");
+  });
+});
+
 /* A seat handed to another person is a new acceptance, admitted under the running label alone; the
    label the editor's page held may be one a deploy has since moved past (`docs/backend/spec.md :: I610`). */
 describe("the label a contacts save names", () => {
@@ -456,5 +496,15 @@ describe("what an action of this slice hands the browser", () => {
       assert.ok(!keysOf(result).includes("token"), `a result carries a token: ${JSON.stringify(result)}`);
       assert.ok(!JSON.stringify(result).includes("token-"), "a result carries a token's value under another key");
     }
+  });
+
+  /* The page sent the block that held it, but a mailbox another administrator seated since is one this one never saw. */
+  it("carries no address the save took off the row", async () => {
+    save = () => saved([], [abgang("dora@schule.example", ["stellvertretung"])]);
+
+    const res = await patchSaisonTeamKontakteAction(PAYLOAD);
+
+    assert.equal(mail.sent.length, 1, "the save took nobody off, so the scan below reads nothing");
+    assert.ok(!JSON.stringify(res).includes("dora@"), `the result carries the address the save took off: ${JSON.stringify(res)}`);
   });
 });

@@ -359,7 +359,8 @@ export function mapSchiedsrichterAntwortRefusal(error: unknown): { error?: strin
     case "REQ-ANSETZUNG-015":
       return { error: `Für dieses Spiel bist Du nicht eingeteilt. ${NEU_LADEN}` };
     case "REQ-ANSETZUNG-002":
-      return { error: `Auf diese Einteilung hast Du schon geantwortet. ${NEU_LADEN}` };
+      // The league may have entered the Zusage for the referee, so the sentence names no one answerer.
+      return { error: `Diese Einteilung ist schon beantwortet, von Dir oder von der Verwaltung. ${NEU_LADEN}` };
     case "REQ-ANSETZUNG-009":
       return { error: `Diese Einteilung ist schon abgeschlossen. ${NEU_LADEN}` };
     case "REQ-ANSETZUNG-005":

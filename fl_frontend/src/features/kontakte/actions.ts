@@ -12,7 +12,7 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { kontakteMayMoveLinks } from "./linkMint";
 import { einladeKontakt, patchSaisonTeamKontakte } from "./mutations";
-import { describeKontaktVersand, mailKontaktLink } from "./notifications";
+import { describeKontaktVersand, mailKontaktAbgang, mailKontaktLink } from "./notifications";
 import { KONTAKTE_REPLAY_REFUSALS, mapEinladenRefusal, mapKontakteRefusal, STALE_BLOCK_REFUSAL } from "./refusals";
 import { FLKontaktEinladenPayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 import { mitLaufenderFassung } from "./utils";
@@ -83,6 +83,17 @@ export async function patchSaisonTeamKontakteAction(
     // and not across requests, no public team read carries `kontakte`, and the admin's own list is
     // uncached.
 
+    // Read here and never returned: the result reaches the browser, which holds no address the save took off.
+    const abgaenge = Promise.all(
+      saisonTeam.abgaenge.map((abgang) =>
+        mailKontaktAbgang({
+          operation: "patchSaisonTeamKontakteAction",
+          saisonTeamId: saisonTeam.saison_team_id,
+          saisonId: saisonTeam.saison_id,
+          abgang: abgang,
+        }),
+      ),
+    );
     // One message per person this save newly seated: unmailed, a minted link sits in the database
     // alone and the seat never confirms. Together, each settling its own send and never throwing.
     const versendet: KontaktVersand[] = await Promise.all(
@@ -97,6 +108,7 @@ export async function patchSaisonTeamKontakteAction(
         }),
       })),
     );
+    await abgaenge;
 
     return {
       success: true,
@@ -148,6 +160,17 @@ export async function undoAdminKontakteEditAction(rawPayload: FLPatchSaisonTeamK
 
     if (!operation.acknowledged) return unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten.");
 
+    // The person the save seated is the one the replay takes off, and is told as the save's own leavers are.
+    const abgaenge = Promise.all(
+      operation.abgaenge.map((abgang) =>
+        mailKontaktAbgang({
+          operation: "undoAdminKontakteEditAction",
+          saisonTeamId: operation.saison_team_id,
+          saisonId: operation.saison_id,
+          abgang: abgang,
+        }),
+      ),
+    );
     // The replay puts an earlier person back on a seat, which the endpoint reads as newly seating
     // them and mints for: unmailed, that token exists in the database alone and the seat never confirms.
     const versendet: KontaktVersand[] = await Promise.all(
@@ -162,6 +185,7 @@ export async function undoAdminKontakteEditAction(rawPayload: FLPatchSaisonTeamK
         }),
       })),
     );
+    await abgaenge;
     const versandSatz = describeKontaktVersand(versendet);
 
     // A cost either way: the undo mailed a person, which is a fact about them rather than about the

@@ -18,6 +18,7 @@ from typing import Final, NamedTuple
 from app.api.kontakte.crud import clear_seats
 from app.api.teams.crud import void_moved_seats
 from app.api.teams.schemas import FLPatchSaisonTeamPayload
+from app.api.teams.services import departing_holders
 from app.core.collections import Collection
 from tests.core.app_source import (
     APP_ROOT,
@@ -333,6 +334,14 @@ def test_the_sweep_finds_the_writers_it_exists_for():
         "app/api/bewerbungen/einwilligung_router.py::post_einwilligung.answer_on_the_season_row",
         "app/api/identitaet/wiederherstellung.py::_plan_widerspruch.rewrite_widerspruch",
     }
+
+
+def test_only_the_contacts_editor_tells_whom_it_took_off_the_row():
+    """An erasure, a Widerspruch, the season's end and a club replacement send no leaving notice, and an address move keeps its person."""
+
+    telling = {_key(module, chain) for module, chain, call in _calls(_app_modules()) if callee(call) == departing_holders.__name__}
+
+    assert telling == {"app/api/teams/admin_router.py::patch_saison_team_kontakte.rewrite_the_block"}
 
 
 def test_the_club_move_carries_no_seat():

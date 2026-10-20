@@ -9,7 +9,7 @@ from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.konto.adresswechsel import (
     discard_the_change_in_session,
-    gestoppt_line,
+    ending_line,
     move_the_address_in_session,
     read_the_bestand,
     wirksam_line,
@@ -190,6 +190,9 @@ async def post_adresswechsel_antwort(
     pupil has come to sign in on (`REQ-SPIELER-006`). **A decline is refused none of these**: it removes an address nobody proved,
     and it takes that address out of every image the action log holds of this pupil. The rest of each image stays.
 
+    A change whose pupil row a hand edit left outside its address's own records, its address unfolded say, is discarded as the
+    hourly pass discards one, and the press answers `REQ-SPIELER-001`, the link opening nothing since.
+
     The last three codes, and `DB-COMMON-002` for an address the erased pupils' sentinel was given by hand, tell a caller what
     the view's `nicht_bestaetigbar` keeps alike. Only the edge keeps them from the link's holder: `nginx/shared/site.conf` routes
     no public call to this service, and the frontend's route handler answers all four as that one state.
@@ -202,7 +205,7 @@ async def post_adresswechsel_antwort(
     journal = Journal()
 
     @journal.attempted
-    async def answer_for_the_mailbox(session: AsyncClientSession) -> FLSpielerAdresswechselAntwortResponse:
+    async def answer_for_the_mailbox(session: AsyncClientSession) -> FLSpielerAdresswechselAntwortResponse | None:
         """Judge, then write, everything judged read in-session, so a second press is refused by the spent link rather than writing twice."""
 
         raw = await spieler_collection.find_one(
@@ -259,7 +262,29 @@ async def post_adresswechsel_antwort(
 
         bestand = await read_the_bestand(ersetzte, records=records, session=session)
         traeger = bestand.zeile(Collection.SPIELER, raw["_id"])
-        assert traeger is not None
+        if traeger is None:
+            # A hand edit left the row outside its address's own records, an address unfolded say: the hourly pass
+            # discards such a change, and so does its press (`docs/backend/spec.md :: I795`).
+            await discard_the_change_in_session(
+                collection=Collection.SPIELER,
+                spieler_collection=spieler_collection,
+                schiedsrichter_collection=schiedsrichter_collection,
+                aktionen_collection=aktionen_collection,
+                db_filter={"_id": raw["_id"], **build_spieler_adresswechsel_filter(token_hash=token_hash)},
+                stamp=stamp,
+                session=session,
+            )
+            journal.note(
+                ending_line(
+                    art="adresswechsel_verworfen",
+                    neue=neue,
+                    collection=Collection.SPIELER,
+                    record_id=raw["_id"],
+                    am=stamp,
+                    schluessel=config.sperrliste_schluessel,
+                )
+            )
+            return None
         mitteilung = await move_the_address_in_session(
             bestand=bestand,
             traeger=traeger,
@@ -270,8 +295,10 @@ async def post_adresswechsel_antwort(
             bewerbungen_collection=bewerbungen_collection,
             registrierungen_collection=registrierungen_collection,
             spielbestaetigungen_collection=spielbestaetigungen_collection,
+            aktionen_collection=aktionen_collection,
             adressanker_collection=adressanker_collection,
             schluessel=config.sperrliste_schluessel,
+            stamp=stamp,
             session=session,
         )
         journal.note(wirksam_line(neue=neue, traeger=traeger, now=germany_now, schluessel=config.sperrliste_schluessel))
@@ -284,7 +311,13 @@ async def post_adresswechsel_antwort(
 
     async with journal:
         async with transaction_session(db) as session:
-            return await session.with_transaction(answer_for_the_mailbox)
+            answered = await session.with_transaction(answer_for_the_mailbox)
+
+    # After the commit, the discard standing: the link now opens nothing.
+    refuse(find_spieler_token_unknown_refusal(found=answered is not None))
+    assert answered is not None
+
+    return answered
 
 
 @router.post(
@@ -330,11 +363,12 @@ async def post_adresswechsel_stopp(
             session=session,
         )
         journal.note(
-            gestoppt_line(
+            ending_line(
+                art="adresswechsel_gestoppt",
                 neue=str(raw[SPIELER_ADRESSWECHSEL_FELD]["email"]),
                 collection=Collection.SPIELER,
                 record_id=raw["_id"],
-                now=germany_now,
+                am=log_stamp(germany_now),
                 schluessel=config.sperrliste_schluessel,
             )
         )

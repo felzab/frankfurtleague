@@ -96,6 +96,7 @@ const FRONTEND_ONLY: Record<string, string> = {
 
   FLSpielplan: "composed client-side from separate responses; no endpoint returns it",
   FLSpieltagWithSpiele: "composed client-side from separate responses; no endpoint returns it",
+  FLSpieltagWithAdminSpiele: "composed client-side from separate admin-tier responses; no endpoint returns it",
 
   FLSpielTeamField: "no endpoint touches the stored side: a read serves FLSpielTeamFieldJoined and a write takes FLSpielTeamFieldPayload",
 
@@ -358,7 +359,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 411;
+const EXPECTED_PAIRS = 412;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

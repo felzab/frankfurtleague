@@ -2806,7 +2806,7 @@
       },
       "post": {
         "summary": "Register through a team's link",
-        "description": "Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The raw confirmation\ntoken is answered for the caller to mail and stored only as a hash; this response is the one\nplace outside the recipient's inbox it ever exists.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds and stores none: a fresh link where no message is known to have reached the\ninbox and nothing is confirmed, none otherwise. The same key over other details is refused\n(`REQ-REGISTRIERUNG-011`), and so is a key whose address has been banned since\n(`REQ-REGISTRIERUNG-009`), before any link is minted. A key whose registration the team has since\nadmitted is refused too (`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.",
+        "description": "Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The raw confirmation\ntoken is answered for the caller to mail and stored only as a hash; this response is the one\nplace outside the recipient's inbox it ever exists.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds and stores none: a fresh link where no message is known to have reached the\ninbox and nothing is confirmed, none otherwise. The same key over other details is refused\n(`REQ-REGISTRIERUNG-011`), and so is a key whose stored address, the one the answer mails, has been\nbanned since (`REQ-REGISTRIERUNG-009`), before any link is minted. A key whose registration the team has since\nadmitted is refused too (`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.",
         "operationId": "post_registrierung_api_v0_registrierungen_post",
         "security": [
           {
@@ -3792,7 +3792,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte": {
       "patch": {
         "summary": "Rewrite a team's season contacts, and nothing else on the row",
-        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrule's refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A clearing,\nwhich nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `eingetragen_von` and\n`bestaetigt_am` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed\non is stored as the league's entry, unconfirmed.\n\n**Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the\ncaller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person\nkeeps their link, and a seat emptied or handed on loses the one it held and its links on the team's open match\nconfirmations, so the person who left it holds nothing live. A save newly seating an address the ban list holds is\nrefused `REQ-KONTAKT-003`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the\nlink is how its person learns of the entry, and it takes their Widerspruch alone. A save minting a link, emptying\nor handing on a seat, or voiding a link its person could still answer, is refused `REQ-AUTH-009` as the clearing\nis; a save doing none of these is not.\n\n**A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled\nor handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a\nperson's own write grants one. Such a seat's label must be the application form's running one\n(`REQ-EINWILLIGUNG-001`). A kept seat may name its stored label back, whichever page it is a version of, or the\nrunning one, and its record is carried either way.",
+        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrule's refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A clearing,\nwhich nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `eingetragen_von` and\n`bestaetigt_am` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed\non is stored as the league's entry, unconfirmed.\n\n**Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the\ncaller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person\nkeeps their link, and a seat emptied or handed on loses the one it held and its links on the team's open match\nconfirmations, so the person who left it holds nothing live. A save newly seating an address the ban list holds is\nrefused `REQ-KONTAKT-003`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the\nlink is how its person learns of the entry, and it takes their Widerspruch alone. A save minting a link, emptying\nor handing on a seat, or voiding a link its person could still answer, is refused `REQ-AUTH-009` as the clearing\nis; a save doing none of these is not.\n\n**Each mailbox the save takes off the row is answered in `abgaenge`** for the caller to tell, with the seats it\nheld: a mailbox the save still seats on any seat of the row is not one, whatever name it now stands under.\n\n**A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled\nor handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a\nperson's own write grants one. Such a seat's label must be the application form's running one\n(`REQ-EINWILLIGUNG-001`). A kept seat may name its stored label back, whichever page it is a version of, or the\nrunning one, and its record is carried either way.",
         "operationId": "patch_saison_team_kontakte_api_v0_teams__team_id__saisons__saison_id__kontakte_patch",
         "security": [
           {
@@ -4645,7 +4645,7 @@
       },
       "delete": {
         "summary": "Discard a Spieler's pending address change",
-        "description": "Discard this pupil's pending address change: the block goes, its link opens nothing, and the stored address stays.\n\n**The address goes from the action log too** (`docs/backend/spec.md :: I704`): it is taken out of every image the log holds\nof this pupil, since every write on the row while the change stood, a re-send or this discard included, filed one carrying\nan address nobody proved; the rest of each image stays. Nothing is mailed. 404 where the pupil holds no pending change, and\nfor an id no pupil holds, the sentinel's included.",
+        "description": "Discard this pupil's pending address change: the block goes, its link opens nothing, and the stored address stays.\n\n**The address goes from the action log too** (`docs/backend/spec.md :: I704`): it is taken out of every image the log holds\nof this pupil, since every write on the row while the change stood, a re-send or this discard included, filed one carrying\nan address nobody proved; the rest of each image stays. Journalled as the stop is, so a restore does not bring back a\nchange confirmed in its waiting time to take effect. Nothing is mailed. 404 where the pupil holds no pending change, and\nfor an id no pupil holds, the sentinel's included.",
         "operationId": "delete_adresswechsel_api_v0_spieler__spieler_id__adresswechsel_delete",
         "security": [
           {
@@ -5857,7 +5857,7 @@
       },
       "delete": {
         "summary": "Discard a Schiedsrichter's pending address change",
-        "description": "Discard this referee's pending address change: the block goes, its link opens nothing, and the stored address stays.\n\n**The address goes from the action log too** (`docs/backend/spec.md :: I562`): it is taken out of every image the log\nholds of this referee, since every write on the row while the change stood, a re-send or this discard included, filed one\ncarrying an address nobody proved; the rest of each image stays. Nothing is mailed. 404 where the referee holds no pending\nchange, and for an id no referee holds, the ghost's included.",
+        "description": "Discard this referee's pending address change: the block goes, its link opens nothing, and the stored address stays.\n\n**The address goes from the action log too** (`docs/backend/spec.md :: I562`): it is taken out of every image the log\nholds of this referee, since every write on the row while the change stood, a re-send or this discard included, filed one\ncarrying an address nobody proved; the rest of each image stays. Journalled as the pupil's twin is\n(`DELETE /spieler/{spieler_id}/adresswechsel`). Nothing is mailed. 404 where the referee holds no pending change, and for\nan id no referee holds, the ghost's included.",
         "operationId": "delete_adresswechsel_api_v0_schiedsrichter__schiedsrichter_id__adresswechsel_delete",
         "security": [
           {
@@ -8246,7 +8246,7 @@
     "/api/v0/schiedsrichter/adresswechsel": {
       "post": {
         "summary": "Confirm or decline one Schiedsrichter's pending address",
-        "description": "Record whether the mailbox this link was sent to is the referee's: `bestaetigt` confirms it, `abgelehnt` discards the change.\n\n**A confirmation moves the person, not the row**, as the pupil's twin does (`POST /spieler/adresswechsel`): unless an\nadministrator started the change with a recorded reason it takes effect here, every pupil row, confirmed referee row,\nconfirmed contact seat and open registration the replaced address holds moving to the new one, and `mitteilung` naming\nwhom the caller's completion notice goes to; a change started with a reason is confirmed alone, answering `wirksam_ab`.\n\nRefuses a token no referee holds (`REQ-SCHIEDSRICHTER-002`), and, in this order, a CONFIRMATION through a link mailed to an\naddress the ban list holds now (`REQ-SCHIEDSRICHTER-009`), one past its deadline (`REQ-SCHIEDSRICHTER-003`), one whose change\nwould replace an address the ban list holds now (`REQ-SCHIEDSRICHTER-010`), and one that would move the replaced address's\npupil row onto an address another pupil signs in on (`REQ-SPIELER-006`): the order the link's view ranks its states in.\n**A decline is refused none of these**: it removes an address nobody proved, and takes it out of every image the action log\nholds of this referee. The rest of each image stays, the referee's own earlier states among it.",
+        "description": "Record whether the mailbox this link was sent to is the referee's: `bestaetigt` confirms it, `abgelehnt` discards the change.\n\n**A confirmation moves the person, not the row**, as the pupil's twin does (`POST /spieler/adresswechsel`): unless an\nadministrator started the change with a recorded reason it takes effect here, every pupil row, confirmed referee row,\nconfirmed contact seat and open registration the replaced address holds moving to the new one, and `mitteilung` naming\nwhom the caller's completion notice goes to; a change started with a reason is confirmed alone, answering `wirksam_ab`.\n\nRefuses a token no referee holds (`REQ-SCHIEDSRICHTER-002`), and, in this order, a CONFIRMATION through a link mailed to an\naddress the ban list holds now (`REQ-SCHIEDSRICHTER-009`), one past its deadline (`REQ-SCHIEDSRICHTER-003`), one whose change\nwould replace an address the ban list holds now (`REQ-SCHIEDSRICHTER-010`), and one that would move the replaced address's\npupil row onto an address another pupil signs in on (`REQ-SPIELER-006`): the order the link's view ranks its states in.\n**A decline is refused none of these**: it removes an address nobody proved, and takes it out of every image the action log\nholds of this referee. The rest of each image stays, the referee's own earlier states among it. A change whose referee row a\nhand edit has taken out of its address's own records is discarded as the hourly pass discards one, and the press answers\n`REQ-SCHIEDSRICHTER-002`, the link opening nothing since.",
         "operationId": "post_adresswechsel_api_v0_schiedsrichter_adresswechsel_post",
         "requestBody": {
           "content": {
@@ -8415,7 +8415,7 @@
     "/api/v0/spieler/adresswechsel": {
       "post": {
         "summary": "Confirm or decline one Spieler's pending address",
-        "description": "Record whether the mailbox this link was sent to is the pupil's: `bestaetigt` confirms it, `abgelehnt` discards the change.\n\n**A confirmation moves the person, not the row.** Unless an administrator started the change with a recorded reason, it takes\neffect in this transaction: every pupil row, confirmed referee row, confirmed contact seat and open registration the replaced\naddress holds moves to the new one, asking no consent and writing none, and `mitteilung` names the replaced address and the\nfirst name for the caller's completion notice. A change started with a reason is confirmed alone, answering `wirksam_ab`,\nfrom which the hourly pass makes it take effect. Either answer spends the link.\n\nRefuses a token no pupil holds (`REQ-SPIELER-001`), and, in the order the link's view ranks its states, a CONFIRMATION through\na link mailed to an address the ban list holds now (`REQ-SPIELER-004`), one past its deadline (`REQ-SPIELER-002`), one for a\npupil who has come to hold no address (`REQ-SPIELER-008`), one whose change would replace an address the ban list holds now\n(`REQ-SPIELER-005`), so a barred person cannot move their record off the address the ban keys on, and one to an address another\npupil has come to sign in on (`REQ-SPIELER-006`). **A decline is refused none of these**: it removes an address nobody proved,\nand it takes that address out of every image the action log holds of this pupil. The rest of each image stays.\n\nThe last three codes, and `DB-COMMON-002` for an address the erased pupils' sentinel was given by hand, tell a caller what\nthe view's `nicht_bestaetigbar` keeps alike. Only the edge keeps them from the link's holder: `nginx/shared/site.conf` routes\nno public call to this service, and the frontend's route handler answers all four as that one state.",
+        "description": "Record whether the mailbox this link was sent to is the pupil's: `bestaetigt` confirms it, `abgelehnt` discards the change.\n\n**A confirmation moves the person, not the row.** Unless an administrator started the change with a recorded reason, it takes\neffect in this transaction: every pupil row, confirmed referee row, confirmed contact seat and open registration the replaced\naddress holds moves to the new one, asking no consent and writing none, and `mitteilung` names the replaced address and the\nfirst name for the caller's completion notice. A change started with a reason is confirmed alone, answering `wirksam_ab`,\nfrom which the hourly pass makes it take effect. Either answer spends the link.\n\nRefuses a token no pupil holds (`REQ-SPIELER-001`), and, in the order the link's view ranks its states, a CONFIRMATION through\na link mailed to an address the ban list holds now (`REQ-SPIELER-004`), one past its deadline (`REQ-SPIELER-002`), one for a\npupil who has come to hold no address (`REQ-SPIELER-008`), one whose change would replace an address the ban list holds now\n(`REQ-SPIELER-005`), so a barred person cannot move their record off the address the ban keys on, and one to an address another\npupil has come to sign in on (`REQ-SPIELER-006`). **A decline is refused none of these**: it removes an address nobody proved,\nand it takes that address out of every image the action log holds of this pupil. The rest of each image stays.\n\nA change whose pupil row a hand edit left outside its address's own records, its address unfolded say, is discarded as the\nhourly pass discards one, and the press answers `REQ-SPIELER-001`, the link opening nothing since.\n\nThe last three codes, and `DB-COMMON-002` for an address the erased pupils' sentinel was given by hand, tell a caller what\nthe view's `nicht_bestaetigbar` keeps alike. Only the edge keeps them from the link's holder: `nginx/shared/site.conf` routes\nno public call to this service, and the frontend's route handler answers all four as that one state.",
         "operationId": "post_adresswechsel_antwort_api_v0_spieler_adresswechsel_post",
         "requestBody": {
           "content": {
@@ -17236,6 +17236,38 @@
         ],
         "title": "FLKontakt"
       },
+      "FLKontaktAbgang": {
+        "properties": {
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "schule": {
+            "type": "string",
+            "title": "Schule"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rollen",
+          "email",
+          "schule"
+        ],
+        "title": "FLKontaktAbgang",
+        "description": "One mailbox a write took off a season row, for the admin action's notice; the route handler reads it and the browser never does."
+      },
       "FLKontaktEinladenResponse": {
         "properties": {
           "acknowledged": {
@@ -18963,6 +18995,13 @@
             "type": "array",
             "title": "Bestaetigungen"
           },
+          "abgaenge": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktAbgang"
+            },
+            "type": "array",
+            "title": "Abgaenge"
+          },
           "kontakte_stand": {
             "type": "string",
             "title": "Kontakte Stand",
@@ -18977,6 +19016,7 @@
           "saison_team_id",
           "kontakte",
           "bestaetigungen",
+          "abgaenge",
           "kontakte_stand"
         ],
         "title": "FLPatchSaisonTeamKontakteResponse",

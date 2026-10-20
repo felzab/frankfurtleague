@@ -52,11 +52,8 @@ export function FormSchiedsrichterSection({
     ...candidate,
     name: candidate.name ?? SCHIEDSRICHTER_OHNE_NAMEN_LABEL,
     nameIstPlatzhalter: candidate.name === null,
-    // Listed rather than left out, so an unconfirmed referee reads as waiting and never as missing; the one the
-    // fixture holds stays pickable, the save judging it (`REQ-BOOKING-002`).
-    ...((candidate.einwilligung?.bestaetigt_am ?? null) === null && candidate.id !== schiedsrichterPayload?.schiedsrichter_id
-      ? { nichtWaehlbar: NOCH_NICHT_BESTAETIGT }
-      : {}),
+    // Listed rather than left out, so an unconfirmed referee reads as waiting and never as missing (`REQ-BOOKING-002`).
+    ...((candidate.einwilligung?.bestaetigt_am ?? null) === null ? { nichtWaehlbar: NOCH_NICHT_BESTAETIGT } : {}),
   }));
   // Created in the editor's dialog, so unconfirmed by construction until the referee answers their link.
   const angelegt: Angeboten[] = created.map((referee) => ({ ...referee, nichtWaehlbar: NOCH_NICHT_BESTAETIGT }));

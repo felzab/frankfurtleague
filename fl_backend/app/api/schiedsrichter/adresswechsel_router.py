@@ -11,7 +11,7 @@ from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.konto.adresswechsel import (
     discard_the_change_in_session,
-    gestoppt_line,
+    ending_line,
     move_the_address_in_session,
     read_the_bestand,
     wirksam_line,
@@ -190,7 +190,9 @@ async def post_adresswechsel(
     would replace an address the ban list holds now (`REQ-SCHIEDSRICHTER-010`), and one that would move the replaced address's
     pupil row onto an address another pupil signs in on (`REQ-SPIELER-006`): the order the link's view ranks its states in.
     **A decline is refused none of these**: it removes an address nobody proved, and takes it out of every image the action log
-    holds of this referee. The rest of each image stays, the referee's own earlier states among it.
+    holds of this referee. The rest of each image stays, the referee's own earlier states among it. A change whose referee row a
+    hand edit has taken out of its address's own records is discarded as the hourly pass discards one, and the press answers
+    `REQ-SCHIEDSRICHTER-002`, the link opening nothing since.
     """
 
     token_hash = hash_token(antwort_data.token)
@@ -200,7 +202,7 @@ async def post_adresswechsel(
     journal = Journal()
 
     @journal.attempted
-    async def answer_for_the_mailbox(session: AsyncClientSession) -> FLSchiedsrichterAdresswechselAntwortResponse:
+    async def answer_for_the_mailbox(session: AsyncClientSession) -> FLSchiedsrichterAdresswechselAntwortResponse | None:
         """Judge, then write, everything judged read in-session, so a second press is refused by the spent link rather than writing twice."""
 
         raw: Mapping[str, Any] | None = await schiedsrichter_collection.find_one(
@@ -253,9 +255,29 @@ async def post_adresswechsel(
 
         bestand = await read_the_bestand(ersetzte, records=records, session=session)
         traeger = bestand.zeile(Collection.SCHIEDSRICHTER, raw["_id"])
-        # Only a confirmed referee's change is started (`POST /schiedsrichter/{schiedsrichter_id}/adresswechsel`), and a
-        # confirmation is never taken back.
-        assert traeger is not None
+        if traeger is None:
+            # Only a confirmed referee's change is started, so a hand edit alone takes the row out of its address's own
+            # records: the hourly pass discards such a change, and so does its press (`docs/backend/spec.md :: I795`).
+            await discard_the_change_in_session(
+                collection=Collection.SCHIEDSRICHTER,
+                spieler_collection=spieler_collection,
+                schiedsrichter_collection=schiedsrichter_collection,
+                aktionen_collection=aktionen_collection,
+                db_filter={"_id": raw["_id"], **build_adresswechsel_filter(token_hash=token_hash)},
+                stamp=stamp,
+                session=session,
+            )
+            journal.note(
+                ending_line(
+                    art="adresswechsel_verworfen",
+                    neue=neue,
+                    collection=Collection.SCHIEDSRICHTER,
+                    record_id=raw["_id"],
+                    am=stamp,
+                    schluessel=config.sperrliste_schluessel,
+                )
+            )
+            return None
         mitteilung = await move_the_address_in_session(
             bestand=bestand,
             traeger=traeger,
@@ -266,8 +288,10 @@ async def post_adresswechsel(
             bewerbungen_collection=bewerbungen_collection,
             registrierungen_collection=registrierungen_collection,
             spielbestaetigungen_collection=spielbestaetigungen_collection,
+            aktionen_collection=aktionen_collection,
             adressanker_collection=adressanker_collection,
             schluessel=config.sperrliste_schluessel,
+            stamp=stamp,
             session=session,
         )
         journal.note(wirksam_line(neue=neue, traeger=traeger, now=germany_now, schluessel=config.sperrliste_schluessel))
@@ -280,7 +304,13 @@ async def post_adresswechsel(
 
     async with journal:
         async with transaction_session(db) as session:
-            return await session.with_transaction(answer_for_the_mailbox)
+            answered = await session.with_transaction(answer_for_the_mailbox)
+
+    # After the commit, the discard standing: the link now opens nothing.
+    refuse(find_unknown_token_refusal(found=answered is not None))
+    assert answered is not None
+
+    return answered
 
 
 @router.post(
@@ -326,11 +356,12 @@ async def post_adresswechsel_stopp(
             session=session,
         )
         journal.note(
-            gestoppt_line(
+            ending_line(
+                art="adresswechsel_gestoppt",
                 neue=str(raw[ADRESSWECHSEL_FELD]["email"]),
                 collection=Collection.SCHIEDSRICHTER,
                 record_id=raw["_id"],
-                now=germany_now,
+                am=log_stamp(germany_now),
                 schluessel=config.sperrliste_schluessel,
             )
         )

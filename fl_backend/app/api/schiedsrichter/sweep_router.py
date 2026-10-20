@@ -10,7 +10,14 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
 from app.api.identitaet.lookup import RecordCollections, SubjektLookup
-from app.api.konto.adresswechsel import Mitteilung, discard_the_change_in_session, move_the_address_in_session, read_the_bestand, wirksam_line
+from app.api.konto.adresswechsel import (
+    Mitteilung,
+    discard_the_change_in_session,
+    ending_line,
+    move_the_address_in_session,
+    read_the_bestand,
+    wirksam_line,
+)
 from app.api.schiedsrichter.schemas import FLAdresswechselSweepParams, FLSchiedsrichterAdresswechselSweepResponse
 from app.api.schiedsrichter.services import adresswechsel_adressen, build_due_adresswechsel_filter, build_lapsed_adresswechsel_filter
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, sperrliste_saison
@@ -55,10 +62,10 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Seventeen commands for a due change moving a pupil row and a referee row, the dearer kind, each a round trip plus at
-# most 1.84 ms (lapses timed, 2026-10-16): fits `app/core/middlewares.py :: REQUEST_DEADLINE_S` at 37 ms
+# A due change moving a pupil row and a referee row: 21 commands at 37 ms round trip plus 1.84 ms (effects timed lower,
+# 2026-10-20), sized inside `app/core/middlewares.py :: REQUEST_DEADLINE_S`; a dearer one meets that deadline
 # (`docs/backend/spec.md :: I322`).
-ADRESSWECHSEL_PER_PASS: Final = 15
+ADRESSWECHSEL_PER_PASS: Final = 12
 
 # Which collection a row is read from, carried beside its id through the one page every kind shares.
 SCHIEDSRICHTER, SPIELER = "schiedsrichter", "spieler"
@@ -187,6 +194,13 @@ async def _make_the_due_change_take_effect(
                 stamp=stamp,
                 session=session,
             )
+            # Journalled, as an administrator's discard is: the ban or the other pupil refusing it may postdate a snapshot a
+            # restore brings the change back from, due.
+            journal.note(
+                ending_line(
+                    art="adresswechsel_verworfen", neue=neue, collection=collection, record_id=row["_id"], am=stamp, schluessel=schluessel
+                )
+            )
             return None
 
         mitteilung = await move_the_address_in_session(
@@ -199,8 +213,10 @@ async def _make_the_due_change_take_effect(
             bewerbungen_collection=bewerbungen_collection,
             registrierungen_collection=registrierungen_collection,
             spielbestaetigungen_collection=spielbestaetigungen_collection,
+            aktionen_collection=aktionen_collection,
             adressanker_collection=adressanker_collection,
             schluessel=schluessel,
+            stamp=stamp,
             session=session,
         )
         journal.note(wirksam_line(neue=neue, traeger=traeger, now=now, schluessel=schluessel))

@@ -164,7 +164,6 @@ async def _answer_as_the_first(
     sperrliste: BanList,
     stored: Mapping[str, Any],
     fingerabdruck: str,
-    gehasht: str,
     massgebliche_saison_id: str | None,
     today: str,
     session: AsyncClientSession,
@@ -173,10 +172,11 @@ async def _answer_as_the_first(
 
     refuse(find_abweichender_fingerabdruck_refusal(gespeichert=stored.get("idempotenz_fingerabdruck"), fingerabdruck=fingerabdruck))
 
-    # Before the mint below, as the first request asked it before its own, or a ban entered since is
-    # answered with a fresh link. The fingerprint just matched, so `gehasht` keys the stored address
-    # (`docs/backend/spec.md :: I413`).
-    gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
+    # Before the mint below, or a ban entered since is answered with a fresh link (`docs/backend/spec.md :: I413`). On
+    # the stored address, which the answer mails: an address change since moves it off the one this press typed.
+    gesperrt = await hash_gesperrt(
+        sperrliste, sperrliste.hash_of(str(stored["email"])), massgebliche_saison_id=massgebliche_saison_id, session=session
+    )
     refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
     raw: str | None = None
@@ -252,8 +252,8 @@ async def post_registrierung(
     An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
     registration it holds and stores none: a fresh link where no message is known to have reached the
     inbox and nothing is confirmed, none otherwise. The same key over other details is refused
-    (`REQ-REGISTRIERUNG-011`), and so is a key whose address has been banned since
-    (`REQ-REGISTRIERUNG-009`), before any link is minted. A key whose registration the team has since
+    (`REQ-REGISTRIERUNG-011`), and so is a key whose stored address, the one the answer mails, has been
+    banned since (`REQ-REGISTRIERUNG-009`), before any link is minted. A key whose registration the team has since
     admitted is refused too (`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.
     """
 
@@ -292,7 +292,6 @@ async def post_registrierung(
                 sperrliste=sperrliste,
                 stored=stored,
                 fingerabdruck=fingerabdruck,
-                gehasht=gehasht,
                 massgebliche_saison_id=massgebliche_saison_id,
                 today=today,
                 session=session,

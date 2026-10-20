@@ -637,6 +637,31 @@ describe("POST /api/mail/zustellung", () => {
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
   });
 
+  /* The seat a contacts save took a mailbox off holds its next person's delivery record, or none, so a leaving
+     notice that missed its reader is a line or nothing. */
+  it("writes one line for a leaving notice that did not arrive, and none for one that did", async () => {
+    const hinweis = (type: string) =>
+      eventFor(type, { bounce: { type: "Permanent", subType: "Suppressed" }, tags: { kontakt_abgang: "hinweis" } });
+
+    const zugestellt = await answerTo(signed(JSON.stringify(hinweis("email.delivered"))));
+    assert.equal(logs.length, 0, "a delivered notice wrote a line");
+
+    const { status, body } = await answerTo(signed(JSON.stringify(hinweis("email.bounced"))));
+
+    assert.equal(zugestellt.status, 200);
+    assert.equal(status, 200);
+    assert.deepEqual(body, { angewendet: [] });
+    assert.deepEqual(calls, [], "the leaving notice's lane reached the application's endpoint");
+    assert.deepEqual(zielCalls, [], "the leaving notice's lane reached the generic endpoint");
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0]?.level, "warn");
+    assert.equal(logs[0]?.message, "mail.kontakt_abgang_nicht_zugestellt");
+    assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-015");
+    assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
+    assert.equal(logs[0]?.meta?.["nachricht_id"], MESSAGE_ID);
+    assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
+  });
+
   it("answers 200 where the backend applied the tagged event to no record", async () => {
     zielZustellungAnswer = () => ({ acknowledged: 1, angewendet: false });
 

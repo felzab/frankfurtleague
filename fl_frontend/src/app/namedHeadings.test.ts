@@ -10,6 +10,7 @@ import {
   ABOUT_TITEL,
   DATENSCHUTZ_TITEL,
   DEIN_BEREICH_TITEL,
+  EINSAETZE_TITEL,
   IMPRESSUM_TITEL,
   KONTAKT_TITEL,
   ORGANISATION_TITEL,
@@ -130,6 +131,16 @@ const REGISTER: readonly Benannt[] = [
     konstante: "SPIELPLAN_ABSCHNITT",
     heim: "features/saisons/constants.ts",
     zeigen: [`${SAISON_FORM}/FormSpielplanSection.tsx`],
+  },
+  {
+    wort: EINSAETZE_TITEL,
+    konstante: "EINSAETZE_TITEL",
+    heim: "core/seitenNamen.ts",
+    zeigen: [
+      "features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx",
+      "core/spielEmail.ts",
+      "features/funktionen/utils.ts",
+    ],
   },
   seitenName("SAISONUEBERSICHT_TITEL", SAISONUEBERSICHT_TITEL, "/dashboard", [
     TOP_NAV,

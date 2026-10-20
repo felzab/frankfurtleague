@@ -84,6 +84,8 @@ TEAM_FULL_NAME = "Zorbanax-Gesamtschule"
 OTHER_TEAM_NAME = "Quillhilde"
 
 PUPIL_EMAIL = "thessaly@beispielschule.de"
+# Where an address change moved the pupil's registration after its first press.
+MOVED_TO = "thessaly.neu@anderswo.example.org"
 BANNED_EMAIL = "wraxlington@beispielschule.de"
 
 OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
@@ -540,6 +542,25 @@ class TestTheSubmissionKey:
 
         assert code == REGISTRIERUNG_ADRESSE_GESPERRT
         assert after == [before]
+
+    @pytest.mark.parametrize(
+        ("banned", "refused"),
+        [pytest.param(MOVED_TO, True, id="the address it moved to"), pytest.param(PUPIL_EMAIL, False, id="the one typed")],
+    )
+    def test_a_replay_after_an_address_change_judges_the_address_it_mails(self, mongo_replica_set_url: str, banned: str, refused: bool):
+        """An address change moves an open registration; the replay then mints a link to the moved address, never the typed one."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await register(database, client, schluessel=SCHLUESSEL)
+            # As the change's effect leaves the row: its address moved, its live link spent.
+            await database[Collection.REGISTRIERUNGEN].update_one({}, {"$set": {"email": MOVED_TO, "bestaetigung.token_hash": "0" * 64}})
+            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(banned, bis=STANDING))
+            try:
+                return (await register(database, client, schluessel=SCHLUESSEL)).email
+            except WriteRefusalException as refusal:
+                return refusal.error_code
+
+        assert on_a_league(mongo_replica_set_url, body) == (REGISTRIERUNG_ADRESSE_GESPERRT if refused else MOVED_TO)
 
     def test_the_same_key_over_other_details_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
