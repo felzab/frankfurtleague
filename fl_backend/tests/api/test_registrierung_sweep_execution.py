@@ -649,7 +649,7 @@ class TestOneRowHoldsBackNoOther:
         ]
 
     def test_a_refused_reminder_stamp(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """A registration a hand edit left short of a field its validator requires: the stamp's update is refused under strict validation.
+        """A hand-edited registration short of a field its validator requires: strict validation refuses the stamp's update.
 
         Beside it a barred one, which the share leaves out: its count stays the whole page's once the share is taken apart.
         """
