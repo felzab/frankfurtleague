@@ -98,7 +98,7 @@ export async function mailKontaktAbgang({
     if (ausfall === "gesperrt" || ausfall === "zurueckgehalten") return;
     // Name only, never the error: its message can carry the address (`docs/logging/spec.md :: L9`).
     logger.error("kontakt.abgang_failed", undefined, {
-      error_code: "FE-MAIL-015",
+      error_code: "FE-MAIL-002",
       name: error instanceof Error ? error.name : undefined,
       operation: operation,
     });

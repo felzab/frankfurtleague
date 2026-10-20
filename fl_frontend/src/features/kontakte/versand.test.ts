@@ -4,7 +4,7 @@ import { beforeEach, describe, it } from "node:test";
 import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, loggedLines } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { membershipAnswer } from "@/shared/testing/membershipFixtures.ts";
@@ -361,13 +361,18 @@ describe("the contacts save that takes a mailbox off the row", () => {
     assert.notEqual(keys[0], keys[1]);
   });
 
-  it("is still a landed save where the notice could not leave", async () => {
+  // Filed as every lane no record holds files a send that did not leave, so a search for unsent messages finds it.
+  it("is still a landed save where the notice could not leave, which logs it as an unsent message", async () => {
     save = () => saved([], [abgang("dora@schule.example", ["ansprechperson"])]);
     mail.answerWith(() => "refused");
 
     const res = await patchSaisonTeamKontakteAction(PAYLOAD);
 
     assert.equal(res.success && res.message, "Kontakte gespeichert");
+    assert.deepEqual(
+      loggedLines.filter(({ message }) => message === "kontakt.abgang_failed").map(({ meta }) => (meta as { error_code?: string }).error_code),
+      ["FE-MAIL-002"],
+    );
   });
 });
 
