@@ -14,7 +14,6 @@ import { labelBadge } from "@/shared/components/ui/badges";
 import { BRAND_ICON_BUTTON_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
-import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
 import { benannt } from "@/shared/utils/benannt";
 
 import { computeSpielStatus, ergebnisTone, formatSpielDisplay } from "../../utils";
@@ -209,11 +208,13 @@ function AntwortChips({
       {parteien.map(({ name, zeile }) => {
         const { label, tone } = ANTWORT_LABELS[antwortStand(zeile, today)];
         return (
-          // Whose answer it is, in the visible words: three chips reading „Offen“ say nothing on their own.
+          // Whose answer it is, in the visible words: three chips reading „Offen“ say nothing on their own. One line, as
+          // every pill: a long name ends in an ellipsis, which the card spells whole above, and the answer always shows.
           <li
             key={zeile.id}
-            className={`${labelBadge(tone)} h-7 min-w-0 ${NAME_WRAP_CLASSES}`}>
-            {name}: {label}
+            className={`${labelBadge(tone)} h-7 max-w-full min-w-0`}>
+            <span className="min-w-0 truncate">{name}</span>
+            <span className="shrink-0">: {label}</span>
           </li>
         );
       })}

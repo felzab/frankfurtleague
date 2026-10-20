@@ -67,7 +67,8 @@ const list = (isAdmin: boolean, zeilen: readonly FLSpielbestaetigung[] = ZEILEN,
         }),
       ),
     ),
-    " ",
+    // No separator: a chip spells its name and its answer in two spans, read as one line.
+    "",
   );
 
 describe("the answer chips on a fixture's card", () => {
