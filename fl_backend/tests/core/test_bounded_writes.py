@@ -145,14 +145,20 @@ CALLERS: dict[str, frozenset[str]] = {
     "anchor_the_actors_grant": frozenset({"app/core/security.py :: judging_the_administrator"}),
     # The season-after deletion pass, one pupil a transaction.
     "erase_if_still_due": frozenset({"app/api/identitaet/sweep_router.py :: erase_the_pupil_if_still_due"}),
-    # The application sweep's two clocks the season-after rule ends, each transaction judging the season again.
+    # The application sweep's three steps the season-after rule ends, each transaction judging the season again.
     "pull_the_season_after": frozenset(
-        {"app/api/bewerbungen/sweep_router.py :: erase_accepted", "app/api/bewerbungen/sweep_router.py :: clear_the_blocks"}
+        {
+            "app/api/bewerbungen/sweep_router.py :: erase_accepted",
+            "app/api/bewerbungen/sweep_router.py :: clear_the_blocks",
+            "app/api/bewerbungen/sweep_router.py :: strip_the_confirmations",
+        }
     ),
     # The confirmation pass's mint, which reads the seats it mints links for off season rows every seat write writes.
     "anchor_the_seats_minted": frozenset({"app/api/spielbestaetigungen/sweep_router.py :: mint"}),
-    # The mint again, for the referees its rows name, whose erasure deletes the rows it reads.
-    "anchor_the_referees_told": frozenset({"app/api/spielbestaetigungen/sweep_router.py :: mint"}),
+    # The mint and the reminder telling an Einteilung again, for the referees the rows name, whose erasure deletes those rows.
+    "anchor_the_referees_told": frozenset(
+        {"app/api/spielbestaetigungen/sweep_router.py :: mint", "app/api/spielbestaetigungen/sweep_router.py :: remind"}
+    ),
     # The pass's close, which reads its notices' mailboxes off season rows an erasure empties.
     "anchor_the_mailboxes_told": frozenset({"app/api/spielbestaetigungen/sweep_router.py :: close"}),
 }

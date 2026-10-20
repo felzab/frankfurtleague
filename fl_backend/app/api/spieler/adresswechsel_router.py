@@ -134,11 +134,11 @@ async def post_adresswechsel_antwort(
     Either answer ends the change, so the link opens nothing afterwards. The confirmation stores the address as the sign-in
     compares it, asks no consent and writes none: the consent record stands as it was, and only `email` moves.
 
-    Refuses a token no pupil holds (`REQ-SPIELER-001`), and a CONFIRMATION through a link whose deadline has passed
-    (`REQ-SPIELER-002`), one mailed to an address the ban list holds now (`REQ-SPIELER-004`), one whose change would replace an
-    address the ban list holds now (`REQ-SPIELER-005`), so a barred person cannot move their record off the address the ban
-    keys on, one for a pupil who has come to hold no address (`REQ-SPIELER-008`), which a change corrects and never enters, and
-    one to an address another pupil has come to sign in on (`REQ-SPIELER-006`). **A decline is refused none of these**: it
+    Refuses a token no pupil holds (`REQ-SPIELER-001`), and, in the order the link's view ranks its states, a CONFIRMATION through a
+    link mailed to an address the ban list holds now (`REQ-SPIELER-004`), one whose deadline has passed (`REQ-SPIELER-002`), one
+    for a pupil who has come to hold no address (`REQ-SPIELER-008`), which a change corrects and never enters, one whose change
+    would replace an address the ban list holds now (`REQ-SPIELER-005`), so a barred person cannot move their record off the address the ban
+    keys on, and one to an address another pupil has come to sign in on (`REQ-SPIELER-006`). **A decline is refused none of these**: it
     removes an address nobody proved, and it takes that address out of every image the action log holds of this pupil, those of
     every write while the change stood, a re-send included. The rest of each image stays.
 
@@ -164,11 +164,12 @@ async def post_adresswechsel_antwort(
         assert raw is not None and isinstance(wechsel, dict)
 
         if antwort_data.antwort == "bestaetigt":
-            refuse(find_spieler_token_expired_refusal(frist=wechsel.get("frist"), today=today))
             neue, ersetzte = spieler_adresswechsel_adressen(raw)
             gesperrt = await adressen_gesperrt(sperrliste, [neue, ersetzte], massgebliche_saison_id=massgebliche_saison_id, session=session)
-            # The link's own address first: where both are barred, its holder is the barred person.
+            # In the view's order (`app/api/spieler/services.py :: spieler_adresswechsel_zustand_of`), so a refused press names
+            # what a reload shows: the link's own address first, its holder being the barred person where both are barred.
             refuse(find_spieler_bestaetigung_gesperrt_refusal(gesperrt=neue in gesperrt))
+            refuse(find_spieler_token_expired_refusal(frist=wechsel.get("frist"), today=today))
             # A row edited by hand alone holds a change and no address; confirming it would enter one.
             refuse(find_keine_adresse_refusal(email=raw.get("email")))
             refuse(find_spieler_ersetzte_adresse_gesperrt_refusal(gesperrt=ersetzte in gesperrt))

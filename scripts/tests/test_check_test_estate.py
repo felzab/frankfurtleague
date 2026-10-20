@@ -56,6 +56,11 @@ def test_a_fixture_no_test_consumes_is_refused():
     assert "`orphan`" in found[0]
 
 
+def test_a_helper_named_fixture_from_another_module_is_judged_like_any_import():
+    """The refusal reads pytest's own `fixture` alone: a sheet's builder of that name defines and consumes nothing here."""
+    assert fixtures("from tests.api.builders import fixture\n\n\ndef test_builds():\n    assert fixture(1)\n") == []
+
+
 def test_an_autouse_fixture_is_consumed_by_nobody_and_still_live():
     """Named by no test by definition, so without this exemption every one of them is a finding."""
     body = "import pytest\n\n\n@pytest.fixture(autouse=True)\ndef _seeded():\n    yield\n\n\ndef test_nothing():\n    assert True\n"
@@ -435,6 +440,7 @@ def test_an_argument_pytest_fills_itself_asks_no_fixture(consumer: str, dead: li
     ("body", "said"),
     [
         pytest.param("from pytest import fixture\n", "imports `fixture` by name", id="imported-by-name"),
+        pytest.param("from _pytest.fixtures import fixture as made\n", "imports `fixture` by name", id="imported-from-pytest-internals"),
         pytest.param(
             "import pytest\nfixture = pytest.fixture\n\n\n@fixture\ndef league():\n    return 1\n", "a bare `fixture`", id="bare-decorator"
         ),

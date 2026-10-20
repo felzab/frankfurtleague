@@ -231,7 +231,10 @@ class FLSpielbestaetigungAntwortPayload(BaseModel):
 
 
 class FLSpielbestaetigungAntwortResponse(BaseAPIResponse):
-    """What the answer recorded, in the view's own fields; no receipt is mailed, so nothing here composes one."""
+    """What the answer recorded: its way, its role, and the answering club's own proposal, which no view of the link serves.
+
+    So a page shows that proposal from this response, never from a re-read. No receipt is mailed off it.
+    """
 
     zustand: FLSpielbestaetigungAntwortArt
     beantwortet_von: FLSpielbestaetigungVon
@@ -274,7 +277,7 @@ class FLSpielbestaetigungSweepAnfrage(BaseModel):
 
 
 class FLSpielbestaetigungSweepEinteilung(BaseModel):
-    """A referee row just minted: the referee is told to the panel, with no token."""
+    """A referee row just minted, or one no stamp records as told: the referee is told to the panel, with no token."""
 
     spielbestaetigung_id: CustomObjectId
     spiel_id: CustomObjectId

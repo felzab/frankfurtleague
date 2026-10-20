@@ -10,6 +10,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
 from app.api.bewerbungen.services import SWEEP_PAGE, group_seats_by_mailbox, mint_token, seat_is_unreachable
+from app.api.registrierungen.services import link_is_unreachable
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, anchor_the_referees_told, anchor_the_seats_minted
@@ -83,7 +84,7 @@ CLOSES_PER_PASS: Final = 25
 # reminder of a request never stamped going out as one: so one `/angefragt` call stamps every row a call answers.
 MINTS_PER_PASS: Final = 26
 
-REMINDERS_PER_PASS: Final = 25
+REMINDERS_PER_PASS: Final = 24
 
 WHAT: Final = "Confirmation"
 
@@ -136,18 +137,37 @@ def _austritte(junctions: Mapping[Any, Mapping[str, Any]]) -> dict[Any, str]:
     }
 
 
-async def _referee_addresses(
+async def _referees(
     *, schiedsrichter_collection: AsyncCollection, ids: Iterable[Any], session: AsyncClientSession
-) -> dict[Any, str | None]:
+) -> dict[Any, Mapping[str, Any]]:
+    """The referees' addresses, and what the provider last said of a message to each, which their confirmation link carries."""
+
     wanted = list(set(ids))
     if not wanted:
         return {}
 
-    referees = await pull_many_from_db(
-        collection=schiedsrichter_collection, db_filter={"_id": {"$in": wanted}}, projection=["kontakt"], limit=LIST_LIMIT_MAX, session=session
+    return _by(
+        await pull_many_from_db(
+            collection=schiedsrichter_collection,
+            db_filter={"_id": {"$in": wanted}},
+            projection=["kontakt.email", "bestaetigung.zustellung"],
+            limit=LIST_LIMIT_MAX,
+            session=session,
+        ),
+        "_id",
     )
 
-    return {referee["_id"]: (referee.get("kontakt") or {}).get("email") or None for referee in referees}
+
+def _address_of(referee: Mapping[str, Any]) -> str | None:
+    return (referee.get("kontakt") or {}).get("email") or None
+
+
+async def _referee_addresses(
+    *, schiedsrichter_collection: AsyncCollection, ids: Iterable[Any], session: AsyncClientSession
+) -> dict[Any, str | None]:
+    referees = await _referees(schiedsrichter_collection=schiedsrichter_collection, ids=ids, session=session)
+
+    return {referee_id: _address_of(referee) for referee_id, referee in referees.items()}
 
 
 async def _gesperrt(
@@ -207,10 +227,32 @@ class _MintPlan:
     seated: set[Any] = field(default_factory=set)
     # The referees a row was written for, off the bookings the mint read.
     refereed: set[Any] = field(default_factory=set)
+    # Each open row's seats minted afresh, which the reminder after the mint leaves to this request and no other seat.
+    fresh: dict[Any, frozenset[str]] = field(default_factory=dict)
 
     @property
     def written(self) -> int:
         return len(self.inserts) + len(self.updates)
+
+
+@dataclass
+class _Minted:
+    """What one mint transaction committed, and what the reminder after it must leave alone."""
+
+    anfragen: list[FLSpielbestaetigungSweepAnfrage]
+    einteilungen: list[FLSpielbestaetigungSweepEinteilung]
+    written: int
+    inserted: list[Any]
+    fresh: dict[Any, frozenset[str]]
+
+
+@dataclass
+class _Owed:
+    """What the reminder step owes one row it read: a message or none, the links it minted, and whether today counts as reminded."""
+
+    message: FLSpielbestaetigungSweepAnfrage | FLSpielbestaetigungSweepEinteilung | None = None
+    links: _Links = field(default_factory=_Links)
+    marked: bool = False
 
 
 @router.get("", response_model=FLSpielbestaetigungSweepSaisonsResponse, summary="Every season the confirmation pass visits")
@@ -272,20 +314,26 @@ async def sweep_spielbestaetigungen(
     ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for
     its booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `verworfen`: a
     decline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased
-    referee's ghost gets no referee row, the ghost holding no address. The deadline is seven days before the fixture, or
-    today where that has passed. Each seat holding an address gets one link, a person holding two seats one link naming
-    both, and the raw tokens are answered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so
-    a request that never went out shows as never asked. An open row's occupied seat holding no link -- its holder replaced,
+    referee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period
+    (`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed.
+    Each seat holding an address gets one link, a person holding two seats one link naming both, and the raw tokens are
+    answered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so a request that never went
+    out shows as never asked. An open row's occupied seat holding no link -- its holder replaced,
     newly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows are answered in
     `einteilungen`, with the referee's address and no token. A fixture holding rows about an Ansetzung it has left is asked
     on the pass whose close shuts them, so the notice that their links are void goes out first.
 
-    The reminder mints a fresh link per seat on each row whose deadline is three or one days away, appended beside the links
-    already mailed so every one of them still answers, and stamps the day BEFORE answering: a failed send costs one reminder,
-    never a daily repeat; never on the pass that minted the row, nor on the day its request was stamped as sent. A row whose
-    first request was never stamped as sent, minted on an earlier pass, is asked again on every pass until it is: answered in
-    `anfragen` with a fresh link per seat appended the same way, passing over each seat whose last mail the provider
-    refused; a row whose every linked seat was refused is not asked and stays unstamped, so it shows as never asked.
+    The reminder mints a fresh link per seat on each team row whose deadline lies a reminder's count of days away
+    (`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), appended beside the
+    links already mailed so every one of them answers until the deadline, and stamps the day BEFORE answering: a failed send
+    costs one reminder, never a daily repeat. It passes over each seat whose last mail the provider refused, and reminds no
+    row this pass inserted nor one whose request was stamped today; where this pass's mint gave one of a row's seats a fresh
+    link, that request is the seat's message of the day and the row's other seats are reminded beside it.
+
+    A row whose first request was never stamped as sent, inserted on an earlier pass, is asked again on every pass until a
+    stamp lands or its deadline passes: a team row in `anfragen`, with a fresh link per seat appended the same way and each
+    refused seat passed over; a referee row in `einteilungen`, unless the provider refused the last mail recorded to the
+    referee's address. A row with nobody left to ask is not asked and stays unstamped, so it shows as never asked.
 
     A seat whose address the ban list holds is minted nothing and has nothing written, so it stays due and a later pass mints
     it once the ban is lifted; each pass logs how many seats it withheld, never which.
@@ -318,10 +366,14 @@ async def sweep_spielbestaetigungen(
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def stamp_the_run(session: AsyncClientSession) -> None:
-        """Inside the pass's last transaction, so a stamped day is a committed call; a day already stamped changes, and logs, nothing."""
+        """Inside the pass's last transaction, so a stamped day is a committed call; a day already stamped matches, writes and logs nothing."""
 
         await patch_many_in_db(
-            collection=saisons_collection, db_filter={"_id": saison_id}, update={"$set": {"spiel_sweep_gelaufen_am": today}}, session=session
+            collection=saisons_collection,
+            # The day in the filter, as the application and registration passes stamp theirs: the later passes of a day match nothing.
+            db_filter={"_id": saison_id, "spiel_sweep_gelaufen_am": {"$ne": today}},
+            update={"$set": {"spiel_sweep_gelaufen_am": today}},
+            session=session,
         )
 
     async def close(
@@ -440,9 +492,7 @@ async def sweep_spielbestaetigungen(
             len(taken),
         )
 
-    async def mint(
-        session: AsyncClientSession, batch: Batch
-    ) -> tuple[list[FLSpielbestaetigungSweepAnfrage], list[FLSpielbestaetigungSweepEinteilung], int]:
+    async def mint(session: AsyncClientSession, batch: Batch) -> _Minted:
         """Plan the window's fixtures, then write a share of rows, whole fixtures, soonest first. Read in-session, so a retry re-judges.
 
         Counts on the batch the page's seats a ban kept from a link, for the log line.
@@ -459,7 +509,7 @@ async def sweep_spielbestaetigungen(
             )
         )
         if not spiele:
-            return [], [], 0
+            return _Minted(anfragen=[], einteilungen=[], written=0, inserted=[], fresh={})
 
         holding = await pull_many_from_db(
             collection=spielbestaetigungen_collection,
@@ -544,6 +594,7 @@ async def sweep_spielbestaetigungen(
                     row = existing
                     if minted.hashes:
                         plan.updates.append((row["_id"], compose_seats_update(hashes=minted.hashes)))
+                        plan.fresh[row["_id"]] = frozenset(minted.hashes)
                 if minted.links:
                     plan.anfragen.append(
                         FLSpielbestaetigungSweepAnfrage(
@@ -595,13 +646,15 @@ async def sweep_spielbestaetigungen(
                     return_document=ReturnDocument.BEFORE,
                 )
 
-        return (
-            [anfrage for _, plan in taken for anfrage in plan.anfragen],
-            [einteilung for _, plan in taken for einteilung in plan.einteilungen],
-            sum(plan.written for _, plan in taken),
+        return _Minted(
+            anfragen=[anfrage for _, plan in taken for anfrage in plan.anfragen],
+            einteilungen=[einteilung for _, plan in taken for einteilung in plan.einteilungen],
+            written=sum(plan.written for _, plan in taken),
+            inserted=[document["_id"] for document in inserts],
+            fresh={row_id: seats for _, plan in taken for row_id, seats in plan.fresh.items()},
         )
 
-    async def remind(session: AsyncClientSession, batch: Batch) -> list[tuple[FLSpielbestaetigungSweepAnfrage, bool]]:
+    async def remind(session: AsyncClientSession, batch: Batch) -> list[tuple[Any, _Owed]]:
         """Mint, stamp, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges.
 
         Counts on the batch how many seats on the page a ban kept from their reminder, for the log line.
@@ -610,7 +663,7 @@ async def sweep_spielbestaetigungen(
         rows = await batch.saw(
             pull_many_from_db(
                 collection=spielbestaetigungen_collection,
-                db_filter=batch.within(build_erinnerung_filter(saison_id=saison_id, today=today, minted=minted_now)),
+                db_filter=batch.within(build_erinnerung_filter(saison_id=saison_id, today=today, inserted=minted_now.inserted)),
                 sort_by=[("frist", ASCENDING), ("_id", ASCENDING)],
                 limit=SWEEP_PAGE + 1,
                 session=session,
@@ -625,28 +678,54 @@ async def sweep_spielbestaetigungen(
         )
         austritte = _austritte(junctions)
         gesperrt = await _gesperrt(sperrliste=sperrliste, junctions=junctions, massgebliche_saison_id=massgebliche_saison_id, session=session)
+        referees = await _referees(
+            schiedsrichter_collection=schiedsrichter_collection,
+            ids=[row["partei"]["schiedsrichter_id"] for row in rows if row["partei"]["art"] == "schiedsrichter"],
+            session=session,
+        )
 
-        def reminder_of(row: Mapping[str, Any]) -> tuple[FLSpielbestaetigungSweepAnfrage | None, _Links]:
+        def einteilung_of(row: Mapping[str, Any], spiel: Mapping[str, Any]) -> _Owed:
+            referee = referees.get(row["partei"]["schiedsrichter_id"])
+            address = None if referee is None else _address_of(referee)
+            # Passed over where the provider refused the referee's last recorded mail, as a seat is: an address corrected since
+            # mints their confirmation link afresh, and with it the record this reads.
+            if referee is None or address is None or link_is_unreachable(bestaetigung=referee.get("bestaetigung")):
+                return _Owed()
+
+            return _Owed(
+                message=FLSpielbestaetigungSweepEinteilung(
+                    spielbestaetigung_id=row["_id"], spiel_id=row["spiel_id"], ansetzung=ansicht_ansetzung_of(spiel), address=address
+                )
+            )
+
+        def reminder_of(row: Mapping[str, Any]) -> _Owed:
             spiel = spiele[row["spiel_id"]]
             # A row the close would shut answers no press, so a fresh link to it would be a dead one.
             if grund_to_close(row=row, spiel=spiel, austritte=austritte, today=today) is not None:
-                return None, _Links()
+                return _Owed()
+
+            if row["partei"]["art"] == "schiedsrichter":
+                return einteilung_of(row, spiel)
 
             entries = row.get("kontakte") or {}
-            erneut = row.get("angefragt_am") is None
+            erinnert = row.get("angefragt_am") is not None
+            # A seat this pass's mint asked has had today's message: the request just written for it.
+            fresh = minted_now.fresh.get(row["_id"], frozenset())
             minted = _mint_links(
                 kontakte=junctions[row["partei"]["team_id"]].get("kontakte"),
-                # Only a seat already holding a link: one without is the mint's to ask. A request asked again passes over a
-                # seat whose last mail the provider refused, which a corrected address voids and the mint then asks afresh.
+                # Only a seat already holding a link, one without being the mint's to ask; and never one whose last mail the
+                # provider refused, which a corrected address voids for the mint to ask afresh.
                 seats=[
                     seat
                     for seat in KONTAKT_ROLLEN
-                    if entries.get(seat) is not None and not (erneut and seat_is_unreachable(bestaetigungen=entries, seat=seat))
+                    if entries.get(seat) is not None and seat not in fresh and not seat_is_unreachable(bestaetigungen=entries, seat=seat)
                 ],
                 gesperrt=gesperrt,
             )
             if not minted.links:
-                return None, minted
+                # Every seat that could be reminded was just asked, so the day is marked and a later pass sends it no reminder;
+                # a barred seat keeps the row unmarked, due once its ban lifts.
+                return _Owed(links=minted, marked=erinnert and bool(fresh) and not minted.withheld)
 
             anfrage = FLSpielbestaetigungSweepAnfrage(
                 spielbestaetigung_id=row["_id"],
@@ -656,30 +735,38 @@ async def sweep_spielbestaetigungen(
                 frist=row["frist"],
                 links=minted.links,
             )
-            return anfrage, minted
+            return _Owed(message=anfrage, links=minted, marked=erinnert)
 
         judged = batch.judged(rows, reminder_of)
-        batch.withheld = sum(minted.withheld for _, (_, minted) in judged)
-        taken = [(row, (anfrage, minted)) for row, (anfrage, minted) in judged if anfrage is not None][: batch.share]
+        batch.withheld = sum(owed.links.withheld for _, owed in judged)
+        taken = [(row, owed) for row, owed in judged if owed.message is not None or owed.marked][: batch.share]
         batch.took([row for row, _ in taken])
         refuse_a_stalled_page(read=len(rows), moved=len(taken) + len(batch.refused), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
 
-        for row, (_, minted) in taken:
+        # Ahead of the writes, as the mint anchors them: an Einteilung asked again writes nothing to its row, which the
+        # referee's erasure deletes.
+        told = sorted(
+            {row["partei"]["schiedsrichter_id"] for row, owed in taken if isinstance(owed.message, FLSpielbestaetigungSweepEinteilung)}, key=str
+        )
+        if told:
+            await anchor_the_referees_told(schiedsrichter_collection=schiedsrichter_collection, schiedsrichter_ids=told, session=session)
+
+        for row, owed in taken:
+            if row["partei"]["art"] != "team":
+                continue
             # The stamp lands before the caller can mail: a crash between the two costs one reminder,
             # where the other order would repeat it every pass of the day until the address works.
             await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": row["_id"], **build_answerable_filter()},
-                update=compose_erinnerung_update(hashes=minted.hashes, today=today, erinnert=row.get("angefragt_am") is not None),
+                update=compose_erinnerung_update(hashes=owed.links.hashes, today=today, erinnert=owed.marked),
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
 
         await stamp_the_run(session)
 
-        # Each beside whether its first request was recorded as sent: a reminder of one that may never
-        # have arrived would point at a link nobody holds.
-        return [(anfrage, row.get("angefragt_am") is not None) for row, (anfrage, _) in taken if anfrage is not None]
+        return [(row["_id"], owed) for row, owed in taken]
 
     async def stamp_alone() -> None:
         async with transaction_session(db) as session:
@@ -740,7 +827,7 @@ async def sweep_spielbestaetigungen(
             db=db,
             batch=mint_share,
             attempt=lambda session, batch: session.with_transaction(mint, batch),
-            moved=lambda answered: answered[2],
+            moved=lambda answered: answered.written,
             owes=True,
             what=WHAT,
             clock="mint",
@@ -750,14 +837,22 @@ async def sweep_spielbestaetigungen(
     )
     if minted is not None:
         fehlgeschlagen += len(minted[1])
-        anfragen = [anfrage for answered in minted[0] for anfrage in answered[0]]
-        einteilungen = [einteilung for answered in minted[0] for einteilung in answered[1]]
+        anfragen = [anfrage for answered in minted[0] for anfrage in answered.anfragen]
+        einteilungen = [einteilung for answered in minted[0] for einteilung in answered.einteilungen]
         owed = owed or bool(anfragen or einteilungen)
 
     erinnerungen: list[FLSpielbestaetigungSweepAnfrage] = []
     reminder_share = Batch(share=REMINDERS_PER_PASS)
     if minted is not None:
-        minted_now = [anfrage.spielbestaetigung_id for anfrage in anfragen]
+        # A row inserted this pass is wholly the mint's; a row it updated owes the reminder its other seats
+        # (`docs/backend/spec.md :: I782`).
+        minted_now = _Minted(
+            anfragen=anfragen,
+            einteilungen=einteilungen,
+            written=sum(answered.written for answered in minted[0]),
+            inserted=[row_id for answered in minted[0] for row_id in answered.inserted],
+            fresh={row_id: seats for answered in minted[0] for row_id, seats in answered.fresh.items()},
+        )
         # The run's day is a season write, which the cache serves.
         with dropping_the_saison_cache():
             reminded = await after_what_is_owed(
@@ -775,8 +870,12 @@ async def sweep_spielbestaetigungen(
             )
             if reminded is not None:
                 fehlgeschlagen += len(reminded[1])
-                erinnerungen = [anfrage for answered in reminded[0] for anfrage, angefragt in answered if angefragt]
-                anfragen += [anfrage for answered in reminded[0] for anfrage, angefragt in answered if not angefragt]
+                # A team row's message beside whether its first request was recorded as sent: a reminder of one that may
+                # never have arrived would point at a link nobody holds, so it goes out worded as the request.
+                owed_now = [owed for answered in reminded[0] for _, owed in answered]
+                erinnerungen = [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepAnfrage) and owed.marked]
+                anfragen += [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepAnfrage) and not owed.marked]
+                einteilungen += [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepEinteilung)]
                 # Every attempt that committed stamped the day; where none did, it is stamped alone, under the same
                 # contract as every step after a message is owed.
                 if not reminded[0]:

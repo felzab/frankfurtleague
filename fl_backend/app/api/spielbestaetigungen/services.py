@@ -8,7 +8,6 @@ from typing import Any, Final, NamedTuple, cast
 from pydantic import SecretStr
 
 from app.api.bewerbungen.services import days_after, seat_named
-from app.api.identitaet.services import holds_a_name, namen_aus
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnsichtAnsetzung,
     FLSpielbestaetigungAntwortArt,
@@ -48,10 +47,6 @@ ANSETZUNG_QUELLEN: Final[Mapping[str, str]] = {
     "team1_id": "team1.team_id",
     "team2_id": "team2.team_id",
 }
-
-# The request and the two reminders: every link a seat was mailed answers until the deadline, so a
-# reminder appends its hash and the oldest one cannot fall off before the row closes.
-TOKEN_HASHES_PER_SEAT: Final = 3
 
 
 def _read_path(document: Mapping[str, Any], path: str) -> Any:
@@ -142,7 +137,6 @@ ANSETZUNG_ENTSCHIEDEN = "REQ-ANSETZUNG-005"
 ANSETZUNG_VORSCHLAG_VERGANGEN = "REQ-ANSETZUNG-007"
 ANSETZUNG_GESCHLOSSEN = "REQ-ANSETZUNG-009"
 ANSETZUNG_GESPERRT = "REQ-ANSETZUNG-011"
-ANSETZUNG_NAME_IN_BEGRUENDUNG = "REQ-ANSETZUNG-012"
 
 # A row closed, or due to close, for one of these is about an Ansetzung the fixture has left, which the
 # page tells apart from a deadline that ran out.
@@ -343,44 +337,6 @@ def find_vorschlag_vergangen_refusal(*, vorschlag: FLSpielbestaetigungTermin, to
         message=f"the proposed date {vorschlag.datum} lies before today",
         # The date box the form holds the proposal in, so it is marked where the reader typed the day.
         fields=(("vorschlag", "datum"),),
-    )
-
-
-def beteiligte_namen(*, lage: AnsetzungLage) -> frozenset[str]:
-    """Every name the people of this Ansetzung hold: both clubs' three seats on their season rows, and the booked referee.
-
-    Never a squad pupil's, by decision (`docs/datenschutz.md :: "Free text that may name a person outlives their erasure"`).
-    """
-
-    fields = [
-        *(
-            ((row.get("kontakte") or {}).get(seat) or {}).get(part)
-            for row in lage.vereine
-            for seat in KONTAKT_ROLLEN
-            for part in ("vorname", "nachname")
-        ),
-        # Off the fixture's copy, which a rename rewrites in its own transaction; the ghost's is null.
-        (lage.spiel.get("schiedsrichter") or {}).get("name"),
-    ]
-
-    return namen_aus(fields)
-
-
-def find_name_in_begruendung_refusal(*, begruendung: str, names: Iterable[str]) -> WriteRefusal | None:
-    """`REQ-ANSETZUNG-012`: no name of the Ansetzung's people stands in a reason the row keeps until its season's contacts are cleared.
-
-    By `holds_a_name`: a common word equal to a name is refused with it, and the club rephrases.
-    """
-
-    if not holds_a_name(begruendung, names):
-        return None
-
-    # Naming none of them: the message reaches the refusal's log line.
-    return WriteRefusal(
-        error_code=ANSETZUNG_NAME_IN_BEGRUENDUNG,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        message="the reason names a person of this fixture's clubs or its referee, and the confirmation keeps it with the season's contacts",
-        fields=(("begruendung",),),
     )
 
 
@@ -740,20 +696,24 @@ def erinnerung_tage(*, today: str) -> list[str]:
     return [days_after(day=today, days=tage) for tage in (SPIEL_ERINNERUNG_TAGE_ERSTE, SPIEL_ERINNERUNG_TAGE_ZWEITE)]
 
 
-def build_erinnerung_filter(*, saison_id: str, today: str, minted: Sequence[Any]) -> dict[str, Any]:
-    """The season's open team rows owed a message: a reminder due today, or a request never stamped as sent (`docs/backend/spec.md :: I781`).
+def build_erinnerung_filter(*, saison_id: str, today: str, inserted: Sequence[Any]) -> dict[str, Any]:
+    """The season's open rows owed a message: a team row's reminder due today, or an unstamped request (`docs/backend/spec.md :: I781`).
 
-    Never a row minted by this pass, nor reminded on its request's day (`:: I782`).
+    Never a row this pass inserted, nor reminded on its request's day (`:: I782`); asked again until its deadline.
     """
 
     return {
         "saison_id": saison_id,
-        "partei.art": "team",
         **build_answerable_filter(),
-        "_id": {"$nin": list(minted)},
+        "_id": {"$nin": list(inserted)},
         "$or": [
-            {"angefragt_am": None},
-            {"frist": {"$in": erinnerung_tage(today=today)}, "erinnert_am": {"$ne": today}, "angefragt_am": {"$ne": today}},
+            {"angefragt_am": None, "frist": {"$gte": today}},
+            {
+                "partei.art": "team",
+                "frist": {"$in": erinnerung_tage(today=today)},
+                "erinnert_am": {"$ne": today},
+                "angefragt_am": {"$ne": today},
+            },
         ],
     }
 
@@ -761,12 +721,10 @@ def build_erinnerung_filter(*, saison_id: str, today: str, minted: Sequence[Any]
 def compose_erinnerung_update(*, hashes: Mapping[str, str], today: str, erinnert: bool) -> dict[str, Any]:
     """Each seat's fresh hash appended beside the ones already mailed, and with `erinnert` the day a reminder went.
 
-    Appended, never replacing: every link a seat was mailed answers until the deadline. A request asked again marks no day.
+    Never capped: a request asked again while its stamp is lost mailed a link too (`docs/backend/spec.md :: I752`).
     """
 
-    pushed: dict[str, Any] = {
-        f"kontakte.{seat}.token_hashes": {"$each": [token_hash], "$slice": -TOKEN_HASHES_PER_SEAT} for seat, token_hash in hashes.items()
-    }
+    pushed: dict[str, Any] = {f"kontakte.{seat}.token_hashes": token_hash for seat, token_hash in hashes.items()}
 
     return {"$push": {**pushed, "erinnert_am": today} if erinnert else pushed}
 
@@ -781,7 +739,7 @@ def compose_closing_update(*, grund: FLSpielbestaetigungGrund, today: str) -> di
     return {"$set": {"geschlossen": {"am": today, "grund": grund}}}
 
 
-# --- A seat write's void: the open rows' entries of every seat whose holder the write moves.
+# --- A seat write's void: its team's rows' entries, answered and closed ones too, of every seat whose holder the write moves.
 
 
 class SeatVoid(NamedTuple):
@@ -823,7 +781,7 @@ def _team_rows(saison_id: Any, team_id: Any) -> dict[str, Any]:
 def build_team_rows_filter(pairs: Sequence[tuple[Any, Any]]) -> dict[str, Any]:
     """These teams' rows in these seasons, answered and closed ones too: a link opens nothing once its seat changed holder.
 
-    Left on an answered row, it would show whoever holds the old mail the successor's ban (`docs/backend/spec.md :: I567`).
+    Left on an answered row, it would show whoever holds the old mail the successor's ban (`docs/backend/spec.md :: I758`).
     """
 
     return {"partei.art": "team", "$or": [_team_rows(saison_id, team_id) for saison_id, team_id in pairs]}
@@ -855,17 +813,27 @@ def build_seat_entry_images_filter(voids: Sequence[SeatVoid]) -> dict[str, Any]:
     }
 
 
-def seat_entry_image_edits(image: Mapping[str, Any], voids: Sequence[SeatVoid], *, reasons: bool) -> dict[str, None]:
-    """One image's entries of the voided seats nulled: a link's hashes and the delivery record of its mail.
+def seat_entry_image_edits(image: Mapping[str, Any], voids: Sequence[SeatVoid]) -> dict[str, None]:
+    """One image's entries of the voided seats nulled: a link's hashes and its mail's delivery record.
 
-    With `reasons`, the contact's typed reason and holder digest too; which way the answer went and the role stay.
+    An earlier holder's go too, an image naming no holder; the season's end strips them anyway (`docs/backend/spec.md :: I778`).
     """
 
     partei = image.get("partei")
     team_id = partei.get("team_id") if isinstance(partei, Mapping) and partei.get("art") == "team" else None
     seats = {seat for void in voids if (void.saison_id, void.team_id) == (image.get("saison_id"), team_id) for seat in void.seats}
 
-    return _left_by_contacts(image, seats, reasons=reasons) if team_id is not None and seats else {}
+    return _seat_entries(image, seats) if team_id is not None and seats else {}
+
+
+def _seat_entries(image: Mapping[str, Any], seats: Set[str]) -> dict[str, None]:
+    kontakte = image.get("kontakte")
+
+    return {
+        f"kontakte.{seat}": None
+        for seat in KONTAKT_ROLLEN
+        if seat in seats and isinstance(kontakte, Mapping) and kontakte.get(seat) is not None
+    }
 
 
 def build_season_images_filter(saison_id: str) -> dict[str, Any]:
@@ -881,30 +849,34 @@ def season_end_image_edits(image: Mapping[str, Any], saison_id: str) -> dict[str
     if image.get("saison_id") != saison_id or not isinstance(partei, Mapping) or partei.get("art") != "team":
         return {}
 
-    return _left_by_contacts(image, set(KONTAKT_ROLLEN), reasons=True)
-
-
-def _left_by_contacts(image: Mapping[str, Any], seats: Set[str], *, reasons: bool) -> dict[str, None]:
-    kontakte, antwort = image.get("kontakte"), image.get("antwort")
-    held = [seat for seat in KONTAKT_ROLLEN if seat in seats and isinstance(kontakte, Mapping) and kontakte.get(seat) is not None]
-    edits: dict[str, None] = {f"kontakte.{seat}": None for seat in held}
+    edits = _seat_entries(image, set(KONTAKT_ROLLEN))
+    antwort = image.get("antwort")
     von = antwort.get("von") if isinstance(antwort, Mapping) else None
-    typed = isinstance(antwort, Mapping) and isinstance(von, Mapping) and (antwort.get("begruendung"), von.get("halter")) != (None, None)
-    if reasons and isinstance(von, Mapping) and von.get("art") == "kontakt" and typed:
-        edits.update({"antwort.begruendung": None, "antwort.von.halter": None})
+    if isinstance(antwort, Mapping) and antwort.get("begruendung") is not None:
+        edits["antwort.begruendung"] = None
+    # A contact's answer alone carries the digest: nulled on another answerer's `von`, it would add a key only a seat's answer names.
+    if isinstance(von, Mapping) and von.get("art") == "kontakt" and von.get("halter") is not None:
+        edits["antwort.von.halter"] = None
 
     return edits
 
 
 def build_season_reasons_filter(saison_id: str) -> dict[str, Any]:
-    """This season's team rows a contact answered holding a reason or a holder: the season's end takes both, answer and role kept."""
+    """This season's team rows holding a reason, whoever gave it: the season's end takes every one, the answer's way and role kept."""
 
-    return {
-        "saison_id": saison_id,
-        "partei.art": "team",
-        "antwort.von.art": "kontakt",
-        "$or": [{"antwort.begruendung": {"$ne": None}}, {"antwort.von.halter": {"$ne": None}}],
-    }
+    return {"saison_id": saison_id, "partei.art": "team", "antwort.begruendung": {"$ne": None}}
+
+
+def build_season_halter_filter(saison_id: str) -> dict[str, Any]:
+    """This season's team rows a contact answered still holding the holder digest, which only a contact's answer carries."""
+
+    return {"saison_id": saison_id, "partei.art": "team", "antwort.von.art": "kontakt", "antwort.von.halter": {"$ne": None}}
+
+
+def build_season_entries_filter(saison_id: str) -> dict[str, Any]:
+    """This season's team rows still holding a seat's link entry, so a season stripped already is written, and logged, nothing."""
+
+    return {"saison_id": saison_id, "partei.art": "team", "$or": [{f"kontakte.{seat}": {"$ne": None}} for seat in KONTAKT_ROLLEN]}
 
 
 # --- A CONTACT PERSON'S ERASURE OR WIDERSPRUCH: the reasons they typed, from whichever seat they held then.

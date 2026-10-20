@@ -39,6 +39,10 @@ CalledNode = ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda
 # What a fixture is asked for by name rather than by parameter: a mark pytest reads where it applies
 # one, and a call it answers only where a test or a fixture reaches it.
 USEFIXTURES_MARK: Final = "usefixtures"
+
+# The packages pytest's own `fixture` is imported from. A helper of that name from anywhere else is no
+# fixture, and a module importing one is judged like any other.
+PYTEST_PACKAGES: Final = frozenset({"pytest", "_pytest"})
 GETFIXTUREVALUE: Final = "getfixturevalue"
 
 # The attribute pytest reads to skip a module or a class, and the methods that keep it from collecting a class.
@@ -167,7 +171,11 @@ class Module:
         self.path = path
         self.tree = tree
         for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and any(alias.name == "fixture" for alias in node.names):
+            if (
+                isinstance(node, ast.ImportFrom)
+                and (node.module or "").split(".")[0] in PYTEST_PACKAGES
+                and any(alias.name == "fixture" for alias in node.names)
+            ):
                 raise Unfollowed(f"line {node.lineno} imports `fixture` by name, which this reads only as `pytest.fixture`")
         self.definitions = list(self._defined(tree.body, ()))
         is_test_file = TEST_FILE.fullmatch(path.name) is not None

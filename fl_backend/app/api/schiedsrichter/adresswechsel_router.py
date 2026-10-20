@@ -116,10 +116,10 @@ async def post_adresswechsel(
     Either answer ends the change, so the link opens nothing afterwards. The confirmation asks no consent and writes none: the
     consent record stands as the referee gave it, and only `kontakt.email` moves.
 
-    Refuses a token no referee holds (`REQ-SCHIEDSRICHTER-002`), and a CONFIRMATION through a link whose deadline has passed
-    (`REQ-SCHIEDSRICHTER-003`), one mailed to an address the ban list holds now (`REQ-SCHIEDSRICHTER-009`), and one whose change
-    would replace an address the ban list holds now (`REQ-SCHIEDSRICHTER-010`), so a barred person cannot move their record off
-    the address the ban keys on. **A decline is refused
+    Refuses a token no referee holds (`REQ-SCHIEDSRICHTER-002`), and, in this order, a CONFIRMATION through a link mailed to an
+    address the ban list holds now (`REQ-SCHIEDSRICHTER-009`), one whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), and one
+    whose change would replace an address the ban list holds now (`REQ-SCHIEDSRICHTER-010`), so a barred person cannot move their
+    record off the address the ban keys on: the order the link's view ranks its states in. **A decline is refused
     neither**: it removes an address nobody proved, which a lapsed or barred link has no reason to keep, and it takes that address out
     of every image the action log holds of this referee, those of every write while the change stood, a re-send included. The rest of
     each image stays, the referee's own earlier states among it.
@@ -142,11 +142,12 @@ async def post_adresswechsel(
         assert raw is not None and isinstance(wechsel, dict)
 
         if antwort_data.antwort == "bestaetigt":
-            refuse(find_expired_token_refusal(frist=frist_of(wechsel), today=today))
             neue, ersetzte = adresswechsel_adressen(raw)
             gesperrt = await adressen_gesperrt(sperrliste, [neue, ersetzte], massgebliche_saison_id=massgebliche_saison_id, session=session)
-            # The link's own address first: where both are barred, its holder is the barred person.
+            # In the view's order (`app/api/schiedsrichter/services.py :: adresswechsel_zustand_of`), so a refused press names
+            # what a reload shows: the link's own address first, its holder being the barred person where both are barred.
             refuse(find_bestaetigung_gesperrt_refusal(gesperrt=neue in gesperrt))
+            refuse(find_expired_token_refusal(frist=frist_of(wechsel), today=today))
             refuse(find_ersetzte_adresse_gesperrt_refusal(gesperrt=ersetzte in gesperrt))
 
         await patch_one_in_db(
