@@ -194,8 +194,8 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
     # The day this PERSON left the league. Distinct from the squad row's own `inactive_since`: a
     # player who left one squad has a retired junction row and is still a player.
     inactive_since: CustomOptionalDateString
-    # Defaulted for `rolle`'s reason above, over a person stored before the field existed.
-    geburtsdatum: CustomOptionalDateString = None
+    # Nullable for `vorname`'s reason: every person carries the date of their own registration.
+    geburtsdatum: CustomOptionalDateString
     # No default: a default would let a row with no consent read back as though it had been asked.
     # Nullable for `vorname`'s reason, the sentinel being nobody who could have agreed to anything.
     einwilligung: FLEinwilligung | None
@@ -255,7 +255,9 @@ class FLPatchSpielerPayload(BaseModel):
 
     vorname: CustomKontaktName
     nachname: CustomKontaktName | None
-    geburtsdatum: CustomOptionalDateString
+    # Never null: every person carries the date of their own registration, and a save clearing it
+    # would leave one whose age no page can read.
+    geburtsdatum: CustomDateString
 
 
 # Private, so the create and the edit state the bound once and the layer publishes no OpenAPI component.
@@ -468,8 +470,8 @@ class FLSpielerWithMemberships(_SpielerPerson):
 
     # The day the PERSON left the league; a squad row retires independently, on the membership above.
     inactive_since: CustomOptionalDateString
-    # Defaulted for `FLSpielerMembership`'s reason, over a person stored before the field existed.
-    geburtsdatum: CustomOptionalDateString = None
+    # Every person carries the date of their own registration, and this read serves no sentinel.
+    geburtsdatum: CustomDateString
     # On the PERSON, as `inactive_since` is: consent is given by somebody, not per season. Never null:
     # this read serves no sentinel, and every person is born of their own confirmed registration.
     einwilligung: FLEinwilligung
@@ -581,7 +583,7 @@ class FLSpielerSelbst(_SpielerPerson):
     """
 
     spieler_id: CustomObjectId
-    geburtsdatum: CustomOptionalDateString = None
+    geburtsdatum: CustomDateString
     kader: list[FLSpielerSelbstKaderZeile]
 
 

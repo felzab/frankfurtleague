@@ -1,5 +1,6 @@
 import type {
   FLPatchSaisonSpielerPayload,
+  FLPatchSpielerPayload,
   FLPostSaisonSpielerPayload,
   FLSpielerAdresswechsel,
   FLSpielerPosition,
@@ -21,6 +22,11 @@ export type FLSpielerFilterParams = {
   limit?: number;
   sort_by?: FLSpielerSortingOptions;
   order?: "asc" | "desc";
+};
+
+/** The person half as the editor sends it: a cleared date picker submits `null`, which the schema refuses as a field error. */
+export type SpielerPersonPayloadDraft = Omit<FLPatchSpielerPayload, "geburtsdatum"> & {
+  geburtsdatum: string | null;
 };
 
 /** The squad editor's enter-a-season draft: `team_id` widened to `null` so an untouched picker is a field error rather than a type error. */
@@ -90,7 +96,7 @@ export type AdminSpielerStored = {
   vorname: string;
   nachname: string | null;
   inactive_since: string | null;
-  geburtsdatum: string | null;
+  geburtsdatum: string;
   email: string | null;
   adresswechsel: FLSpielerAdresswechsel | null;
   /** The read's judgement of the pending link's deadline, never this browser's day. */

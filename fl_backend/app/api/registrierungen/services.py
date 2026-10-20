@@ -548,21 +548,19 @@ def seite_of(*, registrierung_raw: Mapping[str, Any], person_raw: Mapping[str, A
 
 
 def gespeichertes_geburtsdatum(*, seite: FLRegistrierungSeite, person_raw: Mapping[str, Any] | None) -> str | None:
-    """The birthdate the returning pupil's page takes as given, or `None` where the page asks one.
+    """The birthdate the returning pupil's page takes as given, or `None` on the new pupil's, which asks one.
 
-    Never served: the view answers only whether there is one, and the press reads it again in its own transaction.
+    Never served: the press reads it again in its own transaction.
     """
 
-    stored = person_raw.get("geburtsdatum") if seite == SEITE_WIEDERKEHREND and person_raw is not None else None
-
-    return stored if isinstance(stored, str) else None
+    return str(person_raw["geburtsdatum"]) if seite == SEITE_WIEDERKEHREND and person_raw is not None else None
 
 
 def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any, geburtsdatum: Any, gespeichert: Any) -> WriteRefusal | None:
     """`REQ-REGISTRIERUNG-017`: the body answers what its page did not ask, or leaves out what it did.
 
-    Both choices on the new pupil's page, neither on the returning pupil's, and a birthdate exactly
-    where none is `gespeichert`.
+    Both choices and a birthdate on the new pupil's page, none of the three on the returning pupil's,
+    whose person's date is `gespeichert`.
     """
 
     gefragt = seite == SEITE_NEU
@@ -573,8 +571,8 @@ def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any
         error_code=REGISTRIERUNG_WAHLEN_UNPASSEND,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         message=(
-            "the answers sent are not the ones this link's page asks: a returning pupil's page asks no choice, a new pupil's "
-            "page both, and either asks a birthdate only where none is stored"
+            "the answers sent are not the ones this link's page asks: a returning pupil's page asks no choice and no "
+            "birthdate, a new pupil's page both choices and the birthdate"
         ),
     )
 
@@ -860,19 +858,13 @@ def find_unbestaetigt_refusal(*, einwilligung: Any) -> WriteRefusal | None:
 
 
 def person_weicht_ab(*, registrierung_raw: Mapping[str, Any], spieler_raw: Mapping[str, Any]) -> bool:
-    """Whether the person an address resolves to is named or born otherwise than the registration says.
-
-    A stored birthdate of null is no difference: an administrator's edit clears one
-    (`app/api/spieler/admin_router.py :: patch_spieler`), and nothing is left to contradict.
-    """
+    """Whether the person an address resolves to is named or born otherwise than the registration says."""
 
     # A blank name names nobody, so it confirms nobody either.
     if (name := person_name(registrierung_raw)) is None or name != person_name(spieler_raw):
         return True
 
-    stored = spieler_raw.get("geburtsdatum")
-
-    return stored is not None and stored != registrierung_raw.get("geburtsdatum")
+    return spieler_raw.get("geburtsdatum") != registrierung_raw.get("geburtsdatum")
 
 
 def ist_vorschlag(*, spieler_raw: Mapping[str, Any], registrierung_raw: Mapping[str, Any]) -> bool:

@@ -423,7 +423,6 @@ const FORMS: Record<string, PublicForm> = {
             seite: SPIELER.seite,
             mindestalter: 16,
             medien_mindestalter: 18,
-            geburtsdatum_gespeichert: false,
           },
         },
         fassung: SPIELER,

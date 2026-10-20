@@ -163,8 +163,7 @@ export const FLSpielerWithMembershipsSchema = z.object({
   nachname: z.string().nullable(),
   // The day the PERSON left the league; a squad row's own retirement is on the membership.
   inactive_since: CustomDateStringSchema.nullable(),
-  // Nullable for `einwilligung`'s reason below, over a person stored before the field existed.
-  geburtsdatum: CustomDateStringSchema.nullable(),
+  geburtsdatum: CustomDateStringSchema,
   // This tier is the only one that may read the record.
   einwilligung: FLEinwilligungSchema,
   // The sign-in address, folded. No save carries it: it moves through its own link alone, so a field
@@ -194,9 +193,9 @@ export const FLPatchSpielerPayloadSchema = z.object({
   vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   // The form submits null for an empty box, never an empty string — a surname often arrives later.
   nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }).nullable(),
-  // Nullable, and the form states the null rather than omitting: no flow collects a pupil's own
-  // date yet (`fl_backend/app/core/domain.py :: UNENFORCED`).
-  geburtsdatum: CustomDateStringSchema.nullable(),
+  // Never null: a save clearing the date the person's registration carried would leave one whose age
+  // no page can read.
+  geburtsdatum: CustomDateStringSchema,
 });
 export type FLPatchSpielerPayload = z.infer<typeof FLPatchSpielerPayloadSchema>;
 
@@ -524,7 +523,7 @@ export const FLSpielerSelbstSchema = z.object({
   spieler_id: CustomObjectIdStringSchema,
   vorname: z.string().nonempty(),
   nachname: z.string().nullable(),
-  geburtsdatum: CustomDateStringSchema.nullable(),
+  geburtsdatum: CustomDateStringSchema,
   kader: z.array(FLSpielerSelbstKaderZeileSchema),
 });
 export type FLSpielerSelbst = z.infer<typeof FLSpielerSelbstSchema>;

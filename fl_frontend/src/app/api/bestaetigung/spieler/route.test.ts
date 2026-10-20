@@ -49,7 +49,6 @@ const ANSICHT: FLRegistrierungBestaetigungAnsichtResponse = {
   seite: "bestaetigung_spieler",
   mindestalter: 16,
   medien_mindestalter: 18,
-  geburtsdatum_gespeichert: false,
 };
 
 const GESCHRIEBEN = { acknowledged: 1, ergebnis: "bestaetigt" as const, geburtsdatum: "2008-09-01", umfang: "intern" as const, medien: false };

@@ -7941,7 +7941,7 @@
     "/api/v0/registrierungen/bestaetigung/ansicht": {
       "post": {
         "summary": "What one registration confirmation link opens",
-        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the age floor the press will be judged by, the age from\nwhich the media switch is offered, and which of two pages the link opens. Never the pupil's name: the link went to\nan address nobody has confirmed, which behind a typo is a stranger's.\n\n`bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded\naddress under its folded name who confirmed their own record. That page asks no choice, and asks no birthdate\nwhere the person has one stored, which `geburtsdatum_gespeichert` says; nothing the person's record holds is\nserved, the holder of a mailed link not yet being known to be that person. Matched on the address alone, a\nmailbox shared anyway would hand a sibling that person's page, so `geburtsdatum_gespeichert` is false on\n`bestaetigung_spieler`, the new pupil's page.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
+        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the age floor the press will be judged by, the age from\nwhich the media switch is offered, and which of two pages the link opens. Never the pupil's name: the link went to\nan address nobody has confirmed, which behind a typo is a stranger's.\n\n`bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded\naddress under its folded name who confirmed their own record. That page asks no choice and no birthdate, taking\nthe person's own; nothing the person's record holds is served, the holder of a mailed link not yet being known\nto be that person. Matched on the address alone, a mailbox shared anyway would hand a sibling that person's\npage, so the name narrows the match.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
         "operationId": "get_bestaetigung_ansicht_api_v0_registrierungen_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -18266,15 +18266,8 @@
             "title": "Spieler Id"
           },
           "geburtsdatum": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Geburtsdatum"
           },
           "kader": {
@@ -18339,6 +18332,7 @@
           "vorname",
           "nachname",
           "spieler_id",
+          "geburtsdatum",
           "kader",
           "inactive_since",
           "einwilligung",
@@ -19589,15 +19583,8 @@
             "title": "Nachname"
           },
           "geburtsdatum": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Geburtsdatum"
           }
         },
@@ -21193,10 +21180,6 @@
             "type": "integer",
             "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
-          },
-          "geburtsdatum_gespeichert": {
-            "type": "boolean",
-            "title": "Geburtsdatum Gespeichert"
           }
         },
         "type": "object",
@@ -21207,8 +21190,7 @@
           "saison_id",
           "seite",
           "mindestalter",
-          "medien_mindestalter",
-          "geburtsdatum_gespeichert"
+          "medien_mindestalter"
         ],
         "title": "FLRegistrierungBestaetigungAnsichtResponse",
         "description": "What one confirmation link opens, and no field past the ones declared here (`docs/backend/spec.md :: I286`)."
@@ -29037,15 +29019,8 @@
             "title": "Spieler Id"
           },
           "geburtsdatum": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Geburtsdatum"
           },
           "kader": {
@@ -29061,6 +29036,7 @@
           "vorname",
           "nachname",
           "spieler_id",
+          "geburtsdatum",
           "kader"
         ],
         "title": "FLSpielerSelbst",
@@ -29347,15 +29323,8 @@
             "title": "Inactive Since"
           },
           "geburtsdatum": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Geburtsdatum"
           },
           "einwilligung": {
@@ -29400,6 +29369,7 @@
           "nachname",
           "id",
           "inactive_since",
+          "geburtsdatum",
           "einwilligung",
           "adresswechsel_abgelaufen",
           "memberships"

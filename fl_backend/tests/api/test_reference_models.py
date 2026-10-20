@@ -228,24 +228,20 @@ class TestSpieler:
         with pytest.raises(ValidationError):
             FLSpieler.model_validate(missing)
 
-    def test_the_person_patch_requires_the_birthdate_key(self):
-        """No default, so a form that forgot the field cannot silently clear a stored date.
+    @pytest.mark.parametrize("absent", [True, False], ids=["absent", "null"])
+    def test_the_person_patch_requires_a_birthdate(self, absent: bool):
+        """No default and no null, so neither a form that forgot the field nor a cleared picker clears a stored date."""
 
-        The value stays optional -- null is an answer somebody gave; what is refused is the key's absence.
-        """
-
-        without = {"vorname": "Max", "nachname": "Mustermann"}
+        names = {"vorname": "Max", "nachname": "Mustermann"}
 
         with pytest.raises(ValidationError):
-            FLPatchSpielerPayload.model_validate(without)
-
-        assert FLPatchSpielerPayload.model_validate({**without, "geburtsdatum": None}).geburtsdatum is None
+            FLPatchSpielerPayload.model_validate(names if absent else {**names, "geburtsdatum": None})
 
     @pytest.mark.parametrize("part", ["vorname", "nachname"])
     def test_the_person_patch_holds_a_name_to_the_registrations_ceiling(self, part: str):
         """An administrator's edit may not store a name the pupil's own registration would refuse."""
 
-        names = {"vorname": "Max", "nachname": "Mustermann", "geburtsdatum": None}
+        names = {"vorname": "Max", "nachname": "Mustermann", "geburtsdatum": "2009-05-04"}
 
         with pytest.raises(ValidationError):
             FLPatchSpielerPayload.model_validate({**names, part: "A" * (KONTAKT_NAME_MAX_LENGTH + 1)})
@@ -323,6 +319,7 @@ class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
                         "vorname": "Wiltrudis",
                         "nachname": "Meier",
                         "inactive_since": None,
+                        "geburtsdatum": "2009-05-04",
                         "einwilligung": einwilligung,
                     }
                 )
@@ -765,7 +762,7 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
     def cases(self, address, kontakt, saison, saison_spieler, team) -> dict[str, tuple[type[BaseModel], dict[str, Any], tuple[str, ...]]]:
         spielort = {"address": address(), "name": "Sportplatz Ost", "default_mietpreis": 80}
         schiedsrichter = {"kontakt": kontakt(), "name": "Anna Referee", "schule": None, "default_payment": 20}
-        spieler = {"vorname": "Max", "nachname": "Mustermann", "geburtsdatum": None}
+        spieler = {"vorname": "Max", "nachname": "Mustermann", "geburtsdatum": "2009-05-04"}
         club = {key: value for key, value in team().items() if key in FLPostTeamPayload.model_fields}
         # A WRITE-side person, and not `tests/api/test_teams.py :: STORED_KONTAKTPERSON`, which holds
         # values the payload refuses on purpose.

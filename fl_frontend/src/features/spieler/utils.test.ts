@@ -29,7 +29,7 @@ const SPIELER: FLSpielerWithMemberships = FLSpielerWithMembershipsSchema.parse({
   vorname: "X",
   nachname: null,
   inactive_since: null,
-  geburtsdatum: null,
+  geburtsdatum: "2009-05-04",
   einwilligung: bestaetigteEinwilligung(),
   // A person the admission has never written an address for, which is every stored row until it has.
   email: null,

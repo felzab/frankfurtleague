@@ -132,7 +132,7 @@ class TestTheLookupAndItsProjections:
 
         assert not any(key.startswith("bestaetigung.token_hash") for key in projection)
 
-    def test_the_view_declares_exactly_the_eight_names_it_may_answer(self):
+    def test_the_view_declares_exactly_the_names_it_may_answer(self):
         """An EQUALITY, not a subset.
 
         A field added to the model reaches a caller holding nothing but a token, and every other case
@@ -148,7 +148,6 @@ class TestTheLookupAndItsProjections:
             "seite",
             "mindestalter",
             "medien_mindestalter",
-            "geburtsdatum_gespeichert",
         }
 
     def test_the_answer_declares_exactly_what_the_press_echoes(self):
@@ -547,7 +546,6 @@ class TestTheBirthdateAPageTakesAsGiven:
         ("seite", "person", "taken"),
         [
             pytest.param(SEITE_WIEDERKEHREND, PERSON, "2009-05-09", id="the returning page, a date stored"),
-            pytest.param(SEITE_WIEDERKEHREND, {"geburtsdatum": None}, None, id="the returning page, none stored"),
             pytest.param(SEITE_NEU, PERSON, None, id="the new pupil's page, a sibling's date at the mailbox"),
             pytest.param(SEITE_NEU, None, None, id="the new pupil's page, nobody at the address"),
         ],
@@ -559,7 +557,7 @@ class TestTheBirthdateAPageTakesAsGiven:
 
 
 class TestTheChoicesThePageAsks:
-    """`REQ-REGISTRIERUNG-017`: both choices on the new pupil's page, neither on the returning pupil's, a date where none is stored."""
+    """`REQ-REGISTRIERUNG-017`: both choices and a date on the new pupil's page, none of them on the returning pupil's."""
 
     @pytest.mark.parametrize(
         ("seite", "umfang", "medien", "refused"),
@@ -577,24 +575,35 @@ class TestTheChoicesThePageAsks:
     def test_each_body_is_judged_against_its_page(self, seite: Any, umfang: Any, medien: Any, refused: bool):
         """The last case is the load-bearing one: an off switch is an answer, and the returning page asked none."""
 
-        refusal = find_wahlen_refusal(seite=seite, umfang=umfang, medien=medien, geburtsdatum="2009-05-09", gespeichert=None)
+        # Each page's own date half answered as it asks, so the choices alone decide.
+        neu = seite == SEITE_NEU
+        refusal = find_wahlen_refusal(
+            seite=seite, umfang=umfang, medien=medien, geburtsdatum="2009-05-09" if neu else None, gespeichert=None if neu else "2009-05-09"
+        )
 
         assert (refusal is not None) == refused
         assert refusal is None or (refusal.error_code, refusal.status) == (REGISTRIERUNG_WAHLEN_UNPASSEND, 422)
 
     @pytest.mark.parametrize(
-        ("geburtsdatum", "gespeichert", "refused"),
+        ("seite", "geburtsdatum", "refused"),
         [
-            pytest.param("2009-05-09", None, False, id="none stored, one sent"),
-            pytest.param(None, "2009-05-09", False, id="one stored, none sent"),
-            pytest.param(None, None, True, id="none stored, none sent"),
-            pytest.param("2009-05-09", "2009-05-09", True, id="one stored, the same one sent"),
+            pytest.param(SEITE_NEU, "2009-05-09", False, id="new page, one sent"),
+            pytest.param(SEITE_NEU, None, True, id="new page, none sent"),
+            pytest.param(SEITE_WIEDERKEHREND, None, False, id="returning page, none sent"),
+            pytest.param(SEITE_WIEDERKEHREND, "2009-05-09", True, id="returning page, the stored one sent"),
         ],
     )
-    def test_a_birthdate_is_answered_exactly_where_none_is_stored(self, geburtsdatum: Any, gespeichert: Any, refused: bool):
+    def test_a_birthdate_is_answered_on_the_new_pupils_page_alone(self, seite: Any, geburtsdatum: Any, refused: bool):
         """The last case is the load-bearing one: a date sent beside a stored one is a page that served it, or a stranger's guess."""
 
-        refusal = find_wahlen_refusal(seite=SEITE_WIEDERKEHREND, umfang=None, medien=None, geburtsdatum=geburtsdatum, gespeichert=gespeichert)
+        neu = seite == SEITE_NEU
+        refusal = find_wahlen_refusal(
+            seite=seite,
+            umfang="intern" if neu else None,
+            medien=False if neu else None,
+            geburtsdatum=geburtsdatum,
+            gespeichert=None if neu else "2009-05-09",
+        )
 
         assert (refusal is not None) == refused
         assert refusal is None or refusal.error_code == REGISTRIERUNG_WAHLEN_UNPASSEND

@@ -251,7 +251,7 @@ const FORMS: Record<string, FormCase> = {
         vorname: "Lena",
         nachname: "Meier",
         inactive_since: null,
-        geburtsdatum: null,
+        geburtsdatum: "2009-05-04",
         email: null,
         adresswechsel: null,
         adresswechsel_abgelaufen: false,
@@ -285,7 +285,13 @@ const FORMS: Record<string, FormCase> = {
 
       return [...rostered.map((mark) => `rostered ${mark}`), ...unrostered.map((mark) => `unrostered ${mark}`)];
     },
-    expected: ["rostered name vorname", "unrostered name vorname", "unrostered star Team suppressed"],
+    expected: [
+      "rostered aria spinbutton:Geburtsdatum",
+      "rostered name vorname",
+      "unrostered aria spinbutton:Geburtsdatum",
+      "unrostered name vorname",
+      "unrostered star Team suppressed",
+    ],
   },
   "the match report": {
     module: "features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.tsx",
@@ -777,7 +783,6 @@ const FORMS: Record<string, FormCase> = {
         seite: fassung.seite,
         mindestalter: 16,
         medien_mindestalter: 18,
-        geburtsdatum_gespeichert: false,
       };
       return marksOf(
         h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht, token: "kein-echtes-token" }, fassung }),

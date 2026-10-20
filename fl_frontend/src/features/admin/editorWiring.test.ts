@@ -160,7 +160,7 @@ const SPIELER = {
   vorname: "Lena",
   nachname: "Meier",
   inactive_since: null,
-  geburtsdatum: null,
+  geburtsdatum: "2009-05-04",
   email: "lena.meier@schule.example",
   adresswechsel: null,
   adresswechsel_abgelaufen: false,

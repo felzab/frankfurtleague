@@ -144,7 +144,6 @@ export const FLRegistrierungBestaetigungAnsichtResponseSchema = BaseAPIResponseS
   // side's own would offer the switch where the endpoint refuses the answer.
   medien_mindestalter: MedienMindestalterSchema,
   // Whether the returning pupil's page takes a stored birthdate rather than asking one; false on the new pupil's.
-  geburtsdatum_gespeichert: z.boolean(),
 });
 export type FLRegistrierungBestaetigungAnsichtResponse = z.infer<typeof FLRegistrierungBestaetigungAnsichtResponseSchema>;
 export type FLRegistrierungSeite = FLRegistrierungBestaetigungAnsichtResponse["seite"];
@@ -155,8 +154,8 @@ export type FLRegistrierungSeite = FLRegistrierungBestaetigungAnsichtResponse["s
 /**
  * One person, one press, one token spent. **It bounds no age**: the floor arrives with the link's own read.
  *
- * Null where the page asks nothing: both choices on the returning pupil's page, and the date where
- * one is stored (`REQ-REGISTRIERUNG-017`).
+ * Null where the page asks nothing: both choices and the date on the returning pupil's page
+ * (`REQ-REGISTRIERUNG-017`).
  */
 export const FLRegistrierungBestaetigungPayloadSchema = z.object({
   token: registrierungToken,
@@ -175,15 +174,11 @@ export type FLRegistrierungBestaetigungPayload = z.infer<typeof FLRegistrierungB
  * The page's own, built at the floor the link answered: the date is judged against the German day
  * here as the endpoint judges it, so both tiers refuse the same two numbers on the same day.
  */
-export function buildRegistrierungBestaetigungPayloadSchema(
-  mindestalter: number,
-  seite: FLRegistrierungSeite,
-  geburtsdatumGespeichert: boolean,
-) {
-  const mitAlter = FLRegistrierungBestaetigungPayloadSchema.extend({
-    geburtsdatum: geburtsdatumGespeichert
-      ? z.null()
-      : CustomDateStringSchema.refine(
+export function buildRegistrierungBestaetigungPayloadSchema(mindestalter: number, seite: FLRegistrierungSeite) {
+  // The new pupil's three tightened past the mirror's null: an unanswered scope is a field error before any press.
+  return seite === "bestaetigung_spieler"
+    ? FLRegistrierungBestaetigungPayloadSchema.extend({
+        geburtsdatum: CustomDateStringSchema.refine(
           (datum) => {
             const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
 
@@ -191,12 +186,10 @@ export function buildRegistrierungBestaetigungPayloadSchema(
           },
           { error: alterAusserhalb(mindestalter) },
         ),
-  });
-
-  // The new pupil's pair tightened past the mirror's null: an unanswered scope is a field error before any press.
-  return seite === "bestaetigung_spieler"
-    ? mitAlter.extend({ umfang: FLEinwilligungUmfangSchema, medien: z.boolean() })
-    : mitAlter.extend({ umfang: z.null(), medien: z.null() });
+        umfang: FLEinwilligungUmfangSchema,
+        medien: z.boolean(),
+      })
+    : FLRegistrierungBestaetigungPayloadSchema.extend({ geburtsdatum: z.null(), umfang: z.null(), medien: z.null() });
 }
 
 /** The write's echo: what was stored for this pupil, and nothing about any other row. */

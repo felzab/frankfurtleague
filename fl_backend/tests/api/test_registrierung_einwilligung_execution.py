@@ -230,7 +230,7 @@ class TestWhatALinkOpens:
     def test_a_first_timer_is_asked_for_a_date(self, mongo_replica_set_url: str):
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW))
 
-        assert (response.seite, response.geburtsdatum_gespeichert) == (SEITE_NEU, False)
+        assert response.seite == SEITE_NEU
 
     @pytest.mark.parametrize(
         "person",
@@ -242,17 +242,8 @@ class TestWhatALinkOpens:
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[person])
 
-        assert (response.seite, response.geburtsdatum_gespeichert) == (SEITE_WIEDERKEHREND, True)
+        assert response.seite == SEITE_WIEDERKEHREND
         assert A_RETURNING_PUPILS_BIRTHDATE not in response.model_dump_json()
-
-    def test_a_returning_pupil_with_no_stored_birthdate_is_asked_for_one(self, mongo_replica_set_url: str):
-        """The page is still the returning one: what makes a pupil returning is a confirmed record, never a stored date."""
-
-        undated = spieler_document(SPIELER_OID, geburtsdatum=None)
-
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[undated])
-
-        assert (response.seite, response.geburtsdatum_gespeichert) == (SEITE_WIEDERKEHREND, False)
 
     def test_a_record_nobody_confirmed_makes_no_returning_pupil(self, mongo_replica_set_url: str):
         """The returning page says the choices stand as the pupil gave them; a stamp a hand edit blanked holds choices nobody gave."""
@@ -261,7 +252,7 @@ class TestWhatALinkOpens:
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[unconfirmed])
 
-        assert (response.seite, response.geburtsdatum_gespeichert) == (SEITE_NEU, False)
+        assert response.seite == SEITE_NEU
 
     def test_the_join_asks_on_the_folded_address(self, mongo_replica_set_url: str):
         """The registration stores the address unfolded; `spieler.email` stores the fold, so an unfolded compare finds nobody."""
@@ -270,7 +261,7 @@ class TestWhatALinkOpens:
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[capitalised])
 
-        assert (response.seite, response.geburtsdatum_gespeichert) == (SEITE_NEU, False)
+        assert response.seite == SEITE_NEU
 
     def test_a_differently_named_pupil_at_the_same_mailbox_is_asked_for_their_own_date(self, mongo_replica_set_url: str):
         """The defect the name narrowing exists for.
@@ -284,7 +275,7 @@ class TestWhatALinkOpens:
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), registrierungen=[sibling], spieler=held)
 
-        assert (response.seite, response.geburtsdatum_gespeichert) == (SEITE_NEU, False)
+        assert response.seite == SEITE_NEU
 
     def test_a_token_no_registration_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
@@ -410,18 +401,6 @@ class TestWhatAConfirmationWrites:
         assert (response.ergebnis, response.geburtsdatum, response.umfang, response.medien) == ("bestaetigt", None, None, None)
         assert person == held
 
-    def test_a_returning_pupil_with_no_stored_date_stores_the_one_they_typed(self, mongo_replica_set_url: str):
-        """An administrator's edit clears a person's date (`app/api/spieler/admin_router.py :: patch_spieler`); the page then asks one."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW, umfang=None, medien=None, text_version=RETURNING_LABEL)
-
-            return response, await stored(database)
-
-        response, document = on_a_league(mongo_replica_set_url, body, spieler=[spieler_document(SPIELER_OID, geburtsdatum=None)])
-
-        assert (document["geburtsdatum"], response.geburtsdatum) == (AT_THE_FLOOR, AT_THE_FLOOR)
-
     def test_a_stored_date_below_the_floor_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
         """The stored date is judged as a typed one is: taken as given, it is never taken unchecked."""
 
@@ -523,12 +502,6 @@ class TestTheChoicesThePageAsks:
                 RETURNING_LABEL,
                 {"umfang": None, "medien": None},
                 id="the returning page, sent a date where one is stored",
-            ),
-            pytest.param(
-                [spieler_document(SPIELER_OID, geburtsdatum=None)],
-                RETURNING_LABEL,
-                {"geburtsdatum": None, "umfang": None, "medien": None},
-                id="the returning page, sent no date where none is stored",
             ),
             pytest.param([], THIS_SEASONS_LABEL, {"geburtsdatum": None}, id="the new pupil's page, sent no date"),
         ],

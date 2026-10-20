@@ -275,8 +275,8 @@ class FLRegistrierungBestaetigungAnsichtResponse(BaseAPIResponse):
     team: CustomNonEmptyString
     schule: CustomNonEmptyString
     saison_id: str
-    # Served rather than left to the page to infer: a stored person with no birthdate is a returning
-    # pupil all the same, and the press refuses the other page's label.
+    # Served rather than left to the page to infer: the press refuses the other page's label, and the
+    # returning pupil's takes the stored person's birthdate rather than asking one.
     seite: FLRegistrierungSeite
     # Served rather than read from a constant of the page's own: the floor the write judges by is
     # the one the paragraph a pupil reads before consenting has to state.
@@ -284,9 +284,6 @@ class FLRegistrierungBestaetigungAnsichtResponse(BaseAPIResponse):
     # The age the media answer is judged by, served for `mindestalter`'s reason: the page offers the
     # switch only from it, and a copy of its own would offer it where the write refuses.
     medien_mindestalter: int = Field(gt=0)
-    # Whether the returning pupil's page takes a stored birthdate rather than asking one; never the
-    # date, nor any choice: whoever holds a mailed link is not yet known to be the person stored.
-    geburtsdatum_gespeichert: bool
 
 
 class FLRegistrierungBestaetigungPayload(BaseModel):

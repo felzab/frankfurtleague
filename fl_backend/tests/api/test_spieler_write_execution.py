@@ -51,7 +51,7 @@ def spieler_id_for(index: int) -> ObjectId:
     return ObjectId(f"6890a1b2c3d4e5f6074100{index:02d}")
 
 
-def person_row(*, spieler_number: int, geburtsdatum: str | None = None) -> dict[str, Any]:
+def person_row(*, spieler_number: int, geburtsdatum: str = GEBURTSDATUM) -> dict[str, Any]:
     """A pupil as their admission wrote them, seeded rather than admitted: the admission needs a registration."""
 
     return spieler_document(spieler_id_for(spieler_number), "Max", "Mustermann", geburtsdatum=geburtsdatum)
@@ -144,7 +144,7 @@ class TestTheConsentRecordSurvivesTheOneWriteThatCouldReachIt:
             await database.spieler.insert_one(person_row(spieler_number=92))
             await patch_spieler(
                 spieler_id=spieler_id_for(92),
-                spieler_data=FLPatchSpielerPayload(vorname="Maximilian", nachname="Mustermann", geburtsdatum=None),
+                spieler_data=FLPatchSpielerPayload(vorname="Maximilian", nachname="Mustermann", geburtsdatum=GEBURTSDATUM),
                 spieler_collection=database.spieler,
                 db=database.client,
             )

@@ -234,7 +234,7 @@ const spielerEditor = (inactiveSince: string | null, inKader = true, adresswechs
       vorname: "Lena",
       nachname: "Meier",
       inactive_since: inactiveSince,
-      geburtsdatum: null,
+      geburtsdatum: "2009-05-04",
       email: "lena.meier@schule.example",
       adresswechsel: adresswechsel,
       adresswechsel_abgelaufen: false,

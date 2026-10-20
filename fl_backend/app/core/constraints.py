@@ -967,19 +967,18 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
     },
     Collection.SPIELER: {
         "$jsonSchema": _object(
-            required=("_id", "vorname", "nachname", "einwilligung", "inactive_since"),
+            required=("_id", "vorname", "nachname", "einwilligung", "geburtsdatum", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
-                # This and `einwilligung` nullable for the erased pupils' sentinel
+                # This, `einwilligung` and `geburtsdatum` nullable for the erased pupils' sentinel
                 # (`app/core/sentinels.py :: GHOST_SPIELER_ID`), never an `anyOf` on its id, which is no
                 # type or enum; a person is held to both where written
                 # (`app/api/registrierungen/services.py :: compose_person`).
                 "vorname": {"bsonType": _STRING_OR_NULL},
                 "nachname": {"bsonType": _STRING_OR_NULL},
-                # Out of `required` for `saisons.spielplan`'s reason.
                 "geburtsdatum": {"bsonType": _STRING_OR_NULL},
                 "einwilligung": {**_EINWILLIGUNG, "bsonType": ["object", "null"]},
-                # Out of `required` for `saisons.spielplan`'s reason. Stored as
+                # Out of `required`: the sentinel carries none. Stored as
                 # `app/shared/folding.py :: sign_in_identifier` folds it, which is the form the
                 # sign-in seam's equality compares against.
                 "email": {"bsonType": _STRING_OR_NULL},
@@ -2091,19 +2090,22 @@ async def report_relations(db: AsyncDatabase) -> list[RelationReport]:
 
 
 # The rule the `spieler` validator cannot state, its two nullable keys being the sentinel's alone.
-NAMELESS_PERSON_RULE = "a person is named and holds a consent record (spieler)"
+NAMELESS_PERSON_RULE = "a person is named, dated and holds a consent record (spieler)"
 
 
 async def report_nameless_persons(db: AsyncDatabase) -> RelationReport:
-    """Count the persons with a null forename or a null consent record, writing nothing.
+    """Count the persons with a null forename, birthdate or consent record, writing nothing.
 
-    The first 500s the admin's membership list and the team's squad, every served model requiring a
-    forename; the admission refuses to admit into the second.
+    A null forename or birthdate 500s the admin's membership list, the forename the team's squad too;
+    the admission refuses to admit into a null record.
     """
 
     # By its id, as every read excludes the sentinel, and by `$type` rather than null, so a missing key
     # stays the validator report's alone.
-    nameless = {"_id": {"$ne": GHOST_SPIELER_ID}, "$or": [{"vorname": {"$type": "null"}}, {"einwilligung": {"$type": "null"}}]}
+    nameless = {
+        "_id": {"$ne": GHOST_SPIELER_ID},
+        "$or": [{field: {"$type": "null"}} for field in ("vorname", "geburtsdatum", "einwilligung")],
+    }
     collection = db[Collection.SPIELER]
 
     return RelationReport(

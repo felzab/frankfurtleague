@@ -53,7 +53,7 @@ function landed({ endpoint }: ApiCall): Record<string, unknown> {
 describe("the player's writes", () => {
   it("reach each published path and method, the ids in the path and the fields alone in the body", async () => {
     answerWith((call) => Promise.resolve(landed(call)));
-    const person = { vorname: "Lena", nachname: "Meier", geburtsdatum: null };
+    const person = { vorname: "Lena", nachname: "Meier", geburtsdatum: "2009-05-04" };
     const squad = { team_id: ROW.team_id, nummer: "7", position: null, stufe: null, rolle: null };
 
     await patchSpielerAction({ id: KEY.spieler_id, ...person });

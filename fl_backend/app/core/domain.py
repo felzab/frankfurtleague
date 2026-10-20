@@ -2885,8 +2885,8 @@ RULES: tuple[Rule, ...] = (
         operation="POST /registrierungen/bestaetigung",
         aggregate="Registrierung",
         summary=(
-            "a confirmation answers both choices on the new pupil's page and neither on the returning pupil's, and a "
-            "birthdate exactly where none is stored"
+            "a confirmation answers both choices and a birthdate on the new pupil's page and none of the three on the "
+            "returning pupil's, which takes the stored person's date"
         ),
         implemented_by="app.api.registrierungen.services.find_wahlen_refusal",
         tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestTheChoicesThePageAsks",
@@ -3331,21 +3331,16 @@ UNENFORCED: tuple[Unenforced, ...] = (
         surfaced_by="/bereich/admin/spieler",
     ),
     Unenforced(
-        subject="a person carrying no birthdate, whose age nothing judges",
+        subject="a pupil whose age no squad rule judges",
         reason=(
-            "A pupil supplies their own date at a registration's confirmation and at no other keyboard, so requiring one on "
-            "the PERSON would refuse every row standing today. The `spieler` validator leaves the field out of `required`, "
-            "which is what lets those rows go on validating. "
-            "The league's thresholds are `app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`, one per seat and judged "
-            "for a contact person answering their own confirmation link (`REQ-BEWERBUNG-012`), and the registration's own "
-            "floor, judged for the pupil answering theirs (`REQ-REGISTRIERUNG-007`); a stored `FLEinwilligung.erteilt_von` "
-            "of `volljaehrig` names who spoke rather than an age. What still carries no date is the person: a registration "
-            "holds its own until the admission writes `spieler` from it, and every pupil row standing today is dropped once "
-            "at the end of this season (`docs/datenschutz.md`), so the field stays unrequired here until that admission "
-            "exists to fill it."
+            "A pupil's age is judged once, against the date they supply at their registration's confirmation "
+            "(`REQ-REGISTRIERUNG-007`), and the admission carries that date onto the person. Entering, moving or bringing "
+            "back a squad row judges no age, so a pupil the floor admitted stays in the squads whatever a later edit of the "
+            "date says. The league's other thresholds are `app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`, one per "
+            "seat and judged for a contact person answering their own confirmation link (`REQ-BEWERBUNG-012`)."
         ),
         near=("REQ-BEWERBUNG-012", "REQ-REGISTRIERUNG-007", "REQ-SQUAD-001"),
-        proven_by="tests/core/test_unenforced.py::TestAPupilStoredWithNoBirthdate",
+        proven_by="tests/core/test_unenforced.py::TestAPupilsAgeNoSquadRuleJudges",
         surfaced_by="/bereich/admin/spieler",
     ),
     Unenforced(

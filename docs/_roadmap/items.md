@@ -346,7 +346,7 @@ it stays red until `fl_backend/.python-version` moves with it (`docs/ops/spec.md
 
 **Trigger to revisit:** a PyYAML release carrying a 3.15 wheel, or my ruling for the route above.
 
-### `8wd7-ff49` · A guardian's provenance stays in the consent vocabulary, and a pupil's birthdate is not yet required
+### `8wd7-ff49` · A guardian's provenance stays in the consent vocabulary
 
 | Status | Depends on |
 | ------ | ---------- |
@@ -377,8 +377,7 @@ which the once-only reset of this season's pupil rows removes (`docs/datenschutz
 (`fl_backend/app/shared/einwilligung_nachweis.py :: SPRECHER`), and the enum above is `erteilt_von`'s.
 
 **Done when** the enum has lost `erziehungsberechtigt` once the reset removed every row carrying it,
-and a pupil's birthdate is required on the person from then on, `fl_backend/app/core/domain.py ::
-UNENFORCED` carrying the state that ends there; and the consent blocks' two speaker fields are gone
+and the consent blocks' two speaker fields are gone
 from every model and validator and, by a Playground paste of mine, from every stored record still
 carrying one. A grant's own `erteilt_von` on `berechtigungen`, the administrator who gave it, is
 another field and stays.

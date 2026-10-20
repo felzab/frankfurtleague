@@ -110,6 +110,7 @@ def build_ghost_spieler() -> dict[str, Any]:
         "vorname": None,
         "nachname": None,
         "einwilligung": None,
+        "geburtsdatum": None,
         "inactive_since": GHOST_INACTIVE_SINCE,
     }
 

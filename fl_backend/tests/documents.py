@@ -213,10 +213,13 @@ def kontakt_antwort_document(rolle: str, adresse: str, *, begruendung: str | Non
 
 
 def spieler_document(spieler_id: Any, vorname: str, nachname: str | None, **fields: Any) -> dict[str, Any]:
+    """A person as their admission writes them, the record and the date their registration carried."""
+
     return {
         "_id": spieler_id,
         "vorname": vorname,
         "nachname": nachname,
+        "geburtsdatum": "2009-05-04",
         "einwilligung": copy.deepcopy(dict(EINWILLIGUNG)),
         "inactive_since": None,
         **fields,

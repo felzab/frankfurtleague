@@ -116,7 +116,7 @@ const spieler = (saisons: FLSaison[]) => ({
   vorname: "Ada",
   nachname: null,
   inactive_since: null,
-  geburtsdatum: null,
+  geburtsdatum: "2009-05-04",
   einwilligung: bestaetigteEinwilligung(),
   email: null,
   adresswechsel: null,

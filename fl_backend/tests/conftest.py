@@ -243,6 +243,7 @@ def spieler() -> PayloadFactory:
             "rolle": None,
             "team_id": TEAM_ID,
             "inactive_since": None,
+            "geburtsdatum": "2009-05-04",
             "einwilligung": dict(EINWILLIGUNG),
         }
     )

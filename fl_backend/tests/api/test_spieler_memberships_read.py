@@ -124,6 +124,7 @@ class TestTheResponseModel:
                         "vorname": "Ohne",
                         "nachname": "Squad",
                         "inactive_since": None,
+                        "geburtsdatum": "2009-05-04",
                         "einwilligung": EINWILLIGUNG,
                         "adresswechsel_abgelaufen": False,
                         "memberships": [],
@@ -143,6 +144,7 @@ class TestTheResponseModel:
                     "vorname": "Anna",
                     "nachname": "Abel",
                     "inactive_since": None,
+                    "geburtsdatum": "2009-05-04",
                     "einwilligung": EINWILLIGUNG,
                     "adresswechsel_abgelaufen": False,
                     "memberships": [
@@ -168,6 +170,7 @@ class TestTheResponseModel:
                 "vorname": "Anna",
                 "nachname": "Abel",
                 "inactive_since": None,
+                "geburtsdatum": "2009-05-04",
                 "einwilligung": EINWILLIGUNG,
                 "adresswechsel_abgelaufen": False,
                 "memberships": [
@@ -257,7 +260,7 @@ class TestTheAddressASignedInPersonIsJoinedOn:
         """The refusal IS the posture: a mistyped address is corrected by registering again, and a route accepting one would undo that."""
         assert "email" not in FLPatchSpielerPayload.model_fields
 
-        names = {"vorname": "Wiltrudis", "nachname": "Meier", "geburtsdatum": None}
+        names = {"vorname": "Wiltrudis", "nachname": "Meier", "geburtsdatum": "2009-05-04"}
 
         assert FLPatchSpielerPayload.model_validate(names).vorname == "Wiltrudis"
         assert_rejects(FLPatchSpielerPayload, {**names, "email": STORED_ADDRESS}, "email")
