@@ -15,9 +15,11 @@ import argparse
 import contextlib
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from collections.abc import Callable
@@ -61,10 +63,11 @@ THREAD_RE: Final = re.compile(r"^(Current thread|Thread) 0x[0-9a-fA-F]+( \[.*\])
 # relaying them: a nested pool's own stderr is a capture nobody reads until the run ends.
 NOTICES: Final = "FL_GATE_NOTICES"
 
-# The file a watched Windows gate's pools append their pids to, which its stop spares until their
-# units have ended (`scripts/gate/gate_watch.py :: wind_down`); unset everywhere else.
+# The registry a watched Windows gate's pools name themselves in, each by its pid, which its stop
+# spares until their units have ended (`scripts/gate/gate_watch.py :: wind_down`); unset everywhere
+# else.
 POOLS: Final = "FL_GATE_POOLS"
-# The line a stop appends there before it reads the pools.
+# The entry a stop makes there before it reads the pools.
 STOPPED: Final = "stop"
 
 ASSIGNMENT: Final = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
@@ -316,18 +319,57 @@ def notice_route(pool: Pool) -> tuple[Callable[[bytes], None], Path | None]:
     return emit, relay
 
 
-def announce() -> bool:
-    """Name this pool where a stop reads it before any unit starts; True where a stop came first.
+def new_registry() -> Path:
+    """A directory, never a file appended to.
 
-    Named, then looks, as a stop marks, then reads: racing, each finds the other. Bytes, one whole
-    line per append (`.claude/CLAUDE.md` §6).
+    Windows' C runtime appends by seeking to the end and then writing, so two pools appending at once
+    can share an offset and lose one, where an entry is created whole.
+    """
+    return Path(tempfile.mkdtemp(prefix="fl-gate-pools-"))
+
+
+def enter(registry: Path, name: str) -> bool:
+    """Make the registry's entry `name`; False where the registry is gone, as only its gate's end leaves it."""
+    try:
+        (registry / name).touch()
+    except FileNotFoundError:
+        return False
+    return True
+
+
+def pools_named(registry: Path) -> set[int]:
+    """Each pool the registry names, and none once the gate's own trap has removed it."""
+    try:
+        return {int(entry.name) for entry in registry.iterdir() if entry.name.isdigit()}
+    except FileNotFoundError:
+        return set()
+
+
+def remove_registry(registry: Path) -> None:
+    """Remove the registry, which the gate's own trap may have done first (`scripts/gate/verify.sh :: gate_exit`)."""
+    with contextlib.suppress(FileNotFoundError):
+        shutil.rmtree(registry)
+
+
+def mark_stop(registry: Path) -> set[int]:
+    """Mark a stop in the registry, then answer each pool named there.
+
+    Marked before it is read: a pool naming itself meanwhile finds the mark and starts nothing
+    (`announce`), so every pool with units is named here.
+    """
+    enter(registry, STOPPED)
+    return pools_named(registry)
+
+
+def announce() -> bool:
+    """Name this pool where a stop reads it before any unit starts; True where a stop came first, or the gate has ended.
+
+    Named, then looks, as a stop marks, then reads (`mark_stop`): racing, each finds the other.
     """
     registry = os.environ.get(POOLS)
     if not registry:
         return False
-    with Path(registry).open("ab") as pools:
-        pools.write(f"{os.getpid()}\n".encode("ascii"))
-    return STOPPED.encode("ascii") in Path(registry).read_bytes().split()
+    return not enter(Path(registry), str(os.getpid())) or (Path(registry) / STOPPED).exists()
 
 
 def stop_on_signal(number: int, frame: FrameType | None) -> None:

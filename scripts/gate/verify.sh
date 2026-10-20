@@ -164,7 +164,7 @@ gate_exit() {
   # skipping the reclaims after it and reporting the trap's own failure over a body that exited 0.
   cleanup || true
   if [[ -n "$DB_RUN_MARKER" ]]; then rm -rf "$DB_RUN_MARKER" || true; fi
-  if [[ -n "${POOLS_REGISTRY:-}" ]]; then rm -f -- "$POOLS_REGISTRY" || true; fi
+  if [[ -n "${POOLS_REGISTRY:-}" ]]; then rm -rf -- "$POOLS_REGISTRY" || true; fi
   if (( ${#POOL_DIRS[@]} )); then
     # A crash keeps them, named: each unit's own output and the status the pool recorded are all
     # that can say which process ended it, and nothing past this exit reads them otherwise.

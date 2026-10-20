@@ -319,7 +319,7 @@ def test_a_case_run_inside_a_watched_gate_neither_joins_its_registry_nor_loses_i
 ) -> None:
     """A watched Windows gate exports its pools' registry to every tool it starts, this suite's pytest among them."""
     registry = tmp_path / "gate-pools"
-    registry.write_bytes(b"")
+    registry.mkdir()
     monkeypatch.setenv(str(declared(POOL, "POOLS")), str(registry))
     stopped = _drive(TERMINATE, tmp_path)
     assert stopped.returncode == 0, stopped.stderr
@@ -327,7 +327,7 @@ def test_a_case_run_inside_a_watched_gate_neither_joins_its_registry_nor_loses_i
     directory.mkdir()
     ran = _pool(directory, [("pass", *_exits(0))])
     assert ran.returncode == 0, ran.stderr
-    assert registry.read_bytes() == b"", "a pool this suite started named itself in the gate's own registry"
+    assert not list(registry.iterdir()), "a pool this suite started named itself in the gate's own registry"
 
 
 def test_ending_the_run_stops_every_unit_running_under_it(tmp_path: Path) -> None:
@@ -431,20 +431,20 @@ def test_a_unit_writing_nothing_past_the_bound_is_named_with_what_it_last_wrote(
 
 
 # Exits 0 only where its pool had named itself before starting it.
-ANNOUNCED: Final = "import os, sys; from pathlib import Path; sys.exit(0 if Path(os.environ['FL_GATE_POOLS']).read_bytes() else 9)"
+ANNOUNCED: Final = "import os, sys; from pathlib import Path; sys.exit(0 if any(Path(os.environ['FL_GATE_POOLS']).iterdir()) else 9)"
 
 
 def test_a_pool_names_itself_where_a_stop_reads_it_before_any_unit_starts(tmp_path: Path) -> None:
     """A Windows stop spares the pools named there, so a unit started first could see its pool ended under it."""
     registry = tmp_path / "pools"
-    registry.write_bytes(b"")
+    registry.mkdir()
     named = f"os.environ[gate_pool.POOLS] = {str(registry)!r}"
     result = _drive(
         (*STALLING, named, "print(os.getpid(), flush=True)", f"run_pool(('unit', (sys.executable, '-c', {ANNOUNCED!r})))"), tmp_path
     )
     assert result.returncode == 0, result.stderr
     assert [(row[0], row[1]) for row in _rows(tmp_path)] == [("unit", "0")], "the unit started before its pool named itself"
-    assert registry.read_bytes() == result.stdout.strip().encode("ascii") + b"\n"
+    assert [entry.name for entry in registry.iterdir()] == [result.stdout.strip()]
 
 
 # Exits 0 having left its mark, so a unit that started at all is seen.
@@ -454,13 +454,74 @@ MARKS: Final = "import sys; from pathlib import Path; Path(sys.argv[1]).write_by
 def test_a_pool_naming_itself_after_a_stop_starts_no_unit(tmp_path: Path) -> None:
     """The stop spares only the pools it read, so a pool it never read is ended under any unit it starts."""
     registry = tmp_path / "pools"
-    registry.write_bytes(f"{declared(POOL, 'STOPPED')}\n".encode("ascii"))
+    registry.mkdir()
+    (registry / str(declared(POOL, "STOPPED"))).touch()
     named = f"os.environ[gate_pool.POOLS] = {str(registry)!r}"
     started = tmp_path / "started"
     result = _drive((*STALLING, named, f"run_pool(('unit', (sys.executable, '-c', {MARKS!r}, {str(started)!r})))"), tmp_path)
     assert result.returncode == int(declared(KERNEL, "EXIT_INTERRUPTED")), result.stderr
     assert [(row[0], row[1]) for row in _rows(tmp_path)] == [("unit", str(declared(POOL, "NOT_STARTED")))]
     assert not started.exists(), "a pool the stop never read started a unit"
+
+
+# One process standing for many pools: each `announce` takes a pid of its own, as that many pools would.
+RACER: Final = """import os, sys, time
+sys.path.insert(0, sys.argv[1])
+import gate_pool
+os.environ[gate_pool.POOLS] = sys.argv[2]
+first, owed, deadline = int(sys.argv[3]), int(sys.argv[4]), time.monotonic() + float(sys.argv[5])
+pid, seen, missed = first, 0, []
+while seen < owed and time.monotonic() < deadline:
+    os.getpid = lambda pid=pid: pid
+    if gate_pool.announce():
+        seen += 1
+    else:
+        missed.append(pid)
+    pid += 1
+print(first, pid - 1, seen, *missed)
+"""
+RACERS: Final = 16
+# The stop marks once this many pools are named, and no racer ends before it has seen the mark, so
+# the mark lands while every racer is still naming pools.
+NAMED_BEFORE_THE_STOP: Final = 1600
+SEEN_AFTER_IT: Final = 50
+RACE_BOUND_S: Final = 60
+
+RACE: Final[tuple[str, ...]] = (
+    "import time",
+    f"RACER, RACERS, BEFORE, AFTER, BOUND = {RACER!r}, {RACERS}, {NAMED_BEFORE_THE_STOP}, {SEEN_AFTER_IT}, {RACE_BOUND_S}",
+    # The gate's own registry, made in the case's directory rather than the machine's.
+    "gate_pool.tempfile.tempdir = DIRECTORY",
+    "registry = gate_pool.new_registry()",
+    "hidden = getattr(subprocess, 'CREATE_NO_WINDOW', 0)",
+    "racers = [",
+    "    subprocess.Popen(",
+    "        [sys.executable, '-c', RACER, POOL_DIR, str(registry), str(n * 1_000_000), str(AFTER), str(BOUND)],",
+    "        stdout=subprocess.PIPE, text=True, creationflags=hidden,",
+    "    )",
+    "    for n in range(1, RACERS + 1)",
+    "]",
+    "deadline = time.monotonic() + BOUND",
+    "while len(gate_pool.pools_named(registry)) < BEFORE:",
+    "    assert time.monotonic() < deadline, 'the racing pools never named enough of themselves'",
+    "    time.sleep(0.01)",
+    "spared = gate_pool.mark_stop(registry)",
+    "said = [racer.communicate(timeout=BOUND)[0].split() for racer in racers]",
+    "assert all(racer.returncode == 0 for racer in racers), [racer.returncode for racer in racers]",
+    "named = gate_pool.pools_named(registry)",
+    "for first, last, seen, *missed in said:",
+    "    assert int(seen) == AFTER, f'a racer saw the stop {seen} times in its bound, where {AFTER} were owed'",
+    "    lost = set(range(int(first), int(last) + 1)) - named",
+    "    assert not lost, f'{len(lost)} of the {int(last) - int(first) + 1} pools one racer named are missing from the registry'",
+    "    unspared = {int(pid) for pid in missed} - spared",
+    "    assert not unspared, f'{len(unspared)} pools missed the stop and were not among those it spared'",
+)
+
+
+def test_pools_naming_themselves_at_once_are_every_one_named_and_none_misses_the_stop(tmp_path: Path) -> None:
+    """Appended to one file, concurrent names were lost on Windows: a pool the stop never read is ended under its units."""
+    result = _drive(RACE, tmp_path)
+    assert result.returncode == 0, result.stderr
 
 
 def test_a_unit_still_writing_is_never_named_however_long_it_runs(tmp_path: Path) -> None:

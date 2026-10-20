@@ -13,11 +13,9 @@ from __future__ import annotations
 import argparse
 import contextlib
 import ctypes
-import os
 import signal
 import subprocess
 import sys
-import tempfile
 import time
 from ctypes import wintypes
 from dataclasses import dataclass
@@ -29,7 +27,7 @@ from typing import Final
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 from checker_kernel import EXIT_INTERRUPTED, EXIT_OK, EXIT_REFUSED, run
-from gate_pool import STOPPED
+from gate_pool import mark_stop, new_registry, remove_registry
 
 # The one line the gate waits for before it starts anything, a process it starts earlier being
 # outside the job; a tab and the pools' registry follow it.
@@ -177,14 +175,6 @@ def _ended(process: int) -> bool:
     return kernel32.WaitForSingleObject(process, 0) == WAIT_OBJECT_0
 
 
-def _pools_named(registry: Path) -> set[int]:
-    """Each pool the registry names, and none once the gate's own trap has removed it."""
-    try:
-        return {int(line) for line in registry.read_bytes().split() if line.isdigit()}
-    except FileNotFoundError:
-        return set()
-
-
 class Fate(Enum):
     """What a stop did to a member of the job."""
 
@@ -312,11 +302,7 @@ def wind_down(job: int, kill: Path, registry: Path) -> int:
     MSYS processes take SIGTERM and natives end; a pool outlives its units as on POSIX, or its shell
     reclaims the directory they still write.
     """
-    # Marked before it is read: a pool naming itself meanwhile finds the mark and starts nothing
-    # (`scripts/gate/gate_pool.py :: announce`), so every pool with units is named here.
-    with registry.open("ab") as named:
-        named.write(f"{STOPPED}\n".encode("ascii"))
-    stop = _Stop(job, kill, _pools_named(registry))
+    stop = _Stop(job, kill, mark_stop(registry))
     try:
         running = stop.reach(_job_pids(job), first=True)
         deadline = time.monotonic() + GRACE_S
@@ -452,9 +438,7 @@ def main() -> int:
         return EXIT_OK
     # Where each pool the gate starts names itself (`scripts/gate/gate_pool.py :: POOLS`), removed
     # once nothing the gate started is left to read it.
-    descriptor, named = tempfile.mkstemp(prefix="fl-gate-pools-")
-    os.close(descriptor)
-    registry = Path(named)
+    registry = new_registry()
     try:
         # Bytes: a Windows text stream ends the line in a carriage return, which bash's `read` keeps.
         sys.stdout.buffer.write(f"{ARMED}\t{registry}\n".encode())
@@ -473,7 +457,7 @@ def main() -> int:
         finally:
             _checked(kernel32.TerminateJobObject(job, EXIT_INTERRUPTED), "TerminateJobObject")
     finally:
-        registry.unlink(missing_ok=True)
+        remove_registry(registry)
         # Held to here: a routine collected while registered is a call into freed memory.
         del handler
     return EXIT_OK
