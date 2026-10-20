@@ -194,6 +194,8 @@ export function mapSchiedsrichterAdresswechselRefusal(error: unknown): Schiedsri
     case "REQ-VAL-001":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     case "REQ-SCHIEDSRICHTER-002":
+    // The discard body's own miss: the change went between the read and the press, as an unknown token's did.
+    case "DB-COMMON-001":
       return { zustand: "ungueltig" };
     case "REQ-SCHIEDSRICHTER-003":
       return { zustand: "abgelaufen" };

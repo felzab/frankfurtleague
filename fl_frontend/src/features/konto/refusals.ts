@@ -41,6 +41,9 @@ export function mapKontoAdresswechselRefusal(error: unknown): { error?: string; 
     case "REQ-SPIELER-007":
     case "REQ-SCHIEDSRICHTER-012":
       return { error: SCHON_ANGEMELDET, fieldErrors: { email: SCHON_ANGEMELDET } };
+    // A pending change gone between the page's read and the start replacing it: the reload shows what stands.
+    case "DB-COMMON-001":
+      return { error: "Die Änderung, die hier stand, gibt es nicht mehr. Lade die Seite neu." };
     default:
       return null;
   }

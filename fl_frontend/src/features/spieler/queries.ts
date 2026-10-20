@@ -131,6 +131,8 @@ export function mapSpielerAdresswechselRefusal(error: unknown): SpielerAdresswec
     case "REQ-VAL-001":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     case "REQ-SPIELER-001":
+    // The discard body's own miss: the change went between the read and the press, as an unknown token's did.
+    case "DB-COMMON-001":
       return { zustand: "ungueltig" };
     case "REQ-SPIELER-002":
       return { zustand: "abgelaufen" };
