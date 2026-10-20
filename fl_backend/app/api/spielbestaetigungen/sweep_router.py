@@ -35,14 +35,15 @@ from app.api.spielbestaetigungen.services import (
     ansicht_ansetzung_of,
     build_anfrage_filter,
     build_answerable_filter,
-    build_closable_filter,
     build_erinnerung_filter,
     build_held_filter,
+    build_holding_filter,
     compose_closing_update,
     compose_erinnerung_update,
     compose_seats_update,
     compose_spielbestaetigung,
     grund_to_close,
+    grund_to_end,
     kontakt_adresse,
     link_groups,
     partei_key,
@@ -88,7 +89,7 @@ REMINDERS_PER_PASS: Final = 24
 
 WHAT: Final = "Confirmation"
 
-CLOSE_FIELDS: Final = ["spiel_id", "partei", "ansetzung", "angefragt_am"]
+CLOSE_FIELDS: Final = ["spiel_id", "partei", "ansetzung", "angefragt_am", "geschlossen"]
 
 
 def _by(rows: Iterable[Mapping[str, Any]], key: str) -> dict[Any, Mapping[str, Any]]:
@@ -307,8 +308,10 @@ async def sweep_spielbestaetigungen(
     The close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club
     to an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of
     those, a row whose fixture's day is before today closes `spiel_vergangen`, so nobody is asked about a past date. A
-    team row closed for a move whose first request went out is answered in `neue_ansetzungen`, a referee's in
-    `schiedsrichter_neue_ansetzungen`.
+    club's decline closed `verworfen` is closed again for each of those but a move and a referee change, in the pass
+    that closes an agreement beside it, and once the day it was about has passed: the public fixture then stops
+    counting it as that club's agreement. A team row closed for a move whose first request went out is answered in
+    `neue_ansetzungen`, a referee's in `schiedsrichter_neue_ansetzungen`.
 
     The mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and
     ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for
@@ -379,15 +382,15 @@ async def sweep_spielbestaetigungen(
     async def close(
         session: AsyncClientSession, batch: Batch
     ) -> tuple[list[FLSpielbestaetigungSweepNeueAnsetzung], list[FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung], int]:
-        """Judge every unclosed row against its fixture as it stands, then close a share. Read in-session, so a retry re-judges."""
+        """Judge every row holding its question against its fixture as it stands, then close a share. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
             pull_many_from_db(
                 collection=spielbestaetigungen_collection,
-                db_filter=batch.within({"saison_id": saison_id, **build_closable_filter()}),
+                db_filter=batch.within({"saison_id": saison_id, **build_holding_filter()}),
                 # Oldest Ansetzung first, the likeliest to have been decided; `_id` keeps the page one page.
                 sort_by=[("ansetzung.datum", ASCENDING), ("_id", ASCENDING)],
-                # The season's every unclosed row: what the close and its notices read, and not each seat's hashes.
+                # The season's every row holding its question: what the close and its notices read, and not each seat's hashes.
                 projection=CLOSE_FIELDS,
                 limit=SWEEP_PAGE + 1,
                 session=session,
@@ -403,7 +406,7 @@ async def sweep_spielbestaetigungen(
         austritte = _austritte(junctions)
 
         def grund_of(row: Mapping[str, Any]) -> FLSpielbestaetigungGrund | None:
-            return grund_to_close(row=row, spiel=spiele[row["spiel_id"]], austritte=austritte, today=today)
+            return grund_to_end(row=row, spiel=spiele[row["spiel_id"]], austritte=austritte, today=today)
 
         gruende: dict[Any, FLSpielbestaetigungGrund] = {row["_id"]: grund for row, grund in batch.judged(rows, grund_of) if grund is not None}
         closable = [row for row in rows if row["_id"] in gruende]
@@ -478,7 +481,7 @@ async def sweep_spielbestaetigungen(
         for row, _ in taken:
             await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
-                db_filter={"_id": row["_id"], **build_closable_filter()},
+                db_filter={"_id": row["_id"], **build_holding_filter()},
                 update=compose_closing_update(grund=gruende[row["_id"]], today=today),
                 session=session,
                 return_document=ReturnDocument.BEFORE,

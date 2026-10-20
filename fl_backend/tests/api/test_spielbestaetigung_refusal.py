@@ -28,6 +28,7 @@ from app.api.spielbestaetigungen.services import (
     find_verwerfen_refusal,
     find_vorschlag_vergangen_refusal,
     grund_to_close,
+    grund_to_end,
     proposal_payload,
     seat_adresse,
     zustand_of,
@@ -112,6 +113,12 @@ def zeile(**overrides: Any) -> dict[str, Any]:
 
 
 ANSWERED = {"art": "zugesagt", "am": TODAY, "von": {"art": "kontakt", "rolle": "trainer"}, "vorschlag": None, "begruendung": None}
+DISCARDED_DECLINE = {
+    **ANSWERED,
+    "art": "abgelehnt",
+    "vorschlag": {"datum": AFTER_THE_DAY, "uhrzeit": "18:30:00"},
+    "begruendung": "Halle belegt",
+}
 
 
 class TestATokenNoSeatHolds:
@@ -367,6 +374,21 @@ class TestTheLinkAndTheCloseReadOneVerdict:
         after = zustand_of(spielbestaetigung_raw=closed, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
 
         assert before == after
+
+    @pytest.mark.parametrize(("situation", "today"), SITUATIONS)
+    def test_a_discard_shows_the_same_state_once_the_close_ends_it(self, situation: dict[str, Any], today: str):
+        """A move among them: ended by it, the discard would read `ungueltig` where its club's link read `abgelehnt`."""
+
+        situated = lage(**situation)
+        austritte = {} if "austritt" not in situation else {TEAM1: situation["austritt"]}
+        discarded = zeile(antwort=DISCARDED_DECLINE, geschlossen={"am": TODAY, "grund": "verworfen"})
+        grund = grund_to_end(row=discarded, spiel=situated.spiel, austritte=austritte, today=today)
+        ended = {**discarded, "geschlossen": discarded["geschlossen"] if grund is None else {"am": today, "grund": grund}}
+
+        before = zustand_of(spielbestaetigung_raw=discarded, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
+        after = zustand_of(spielbestaetigung_raw=ended, lage=situated, today=today, gesperrt=False, vorschlag_offen=None)
+
+        assert before == after == "abgelehnt"
 
 
 class TestWhatTheViewStatesOfTheFixture:

@@ -612,18 +612,24 @@ def build_anfrage_filter(*, saison_id: str, today: str) -> dict[str, Any]:
 # needs a new stand, which only a move mints (`docs/backend/spec.md :: I768`).
 GRUENDE_ANSWERED_FOR_THE_STAND: Final = frozenset({"verworfen"})
 
+# What ends a discard as it ends an agreement beside it: every reason of `grund_to_close` but a move, which leaves the
+# discard its club's answer to the Ansetzung left (`docs/backend/spec.md :: I768`), and a referee change, never a club's.
+GRUENDE_ENDING_AN_ANSWER: Final = frozenset({"austritt", "spiel_entschieden", "abgesagt", "spiel_vergangen"})
 
-def build_held_filter(*, saison_id: str, spiel_ids: Sequence[Any]) -> dict[str, Any]:
-    """These fixtures' rows that hold their party's question about their Ansetzung: unclosed, or closed as answered.
+
+def build_holding_filter() -> dict[str, Any]:
+    """A row holding its party's question about its Ansetzung: unclosed, or closed as answered.
 
     Every other closing ends the question, so a fixture reinstated or moved back to its old slot is asked afresh.
     """
 
-    return {
-        "saison_id": saison_id,
-        "spiel_id": {"$in": list(spiel_ids)},
-        "$or": [build_closable_filter(), {"geschlossen.grund": {"$in": sorted(GRUENDE_ANSWERED_FOR_THE_STAND)}}],
-    }
+    return {"$or": [build_closable_filter(), {"geschlossen.grund": {"$in": sorted(GRUENDE_ANSWERED_FOR_THE_STAND)}}]}
+
+
+def build_held_filter(*, saison_id: str, spiel_ids: Sequence[Any]) -> dict[str, Any]:
+    """These fixtures' rows holding their party's question about their Ansetzung."""
+
+    return {"saison_id": saison_id, "spiel_id": {"$in": list(spiel_ids)}, **build_holding_filter()}
 
 
 def _side_id(spiel: Mapping[str, Any], side: str) -> Any:
@@ -666,10 +672,30 @@ def grund_to_close(
 
     # Last, so a move to or from a past day is still announced. Kept open, a row whose day went by unplayed would ask
     # about a past date for good, at the front of the close's oldest-first page.
-    if ansetzung["datum"] < today:
+    if _day_passed(ansetzung=ansetzung, today=today):
         return "spiel_vergangen"
 
     return None
+
+
+def _day_passed(*, ansetzung: Mapping[str, Any], today: str) -> bool:
+    return bool(ansetzung["datum"] < today)
+
+
+def grund_to_end(
+    *, row: Mapping[str, Any], spiel: Mapping[str, Any], austritte: Mapping[Any, str], today: str
+) -> FLSpielbestaetigungGrund | None:
+    """Why the pass's close shuts a row holding its party's question, or `None`.
+
+    A discard ends where an agreement would (`docs/backend/spec.md :: I763`), and at its own day's end though the
+    fixture moved: kept, one about an Ansetzung left would fill every pass's page.
+    """
+
+    grund = grund_to_close(row=row, spiel=spiel, austritte=austritte, today=today)
+    if row.get("geschlossen") is None or grund in GRUENDE_ENDING_AN_ANSWER:
+        return grund
+
+    return "spiel_vergangen" if _day_passed(ansetzung=row["ansetzung"], today=today) else None
 
 
 def anfrage_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], today: str) -> bool:
