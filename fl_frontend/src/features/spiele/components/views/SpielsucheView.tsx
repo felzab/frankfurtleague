@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import { groupBestaetigungenBySpielId } from "@/features/spielbestaetigungen/utils";
+import { Callout } from "@/shared/components/ui/Callout";
 import { FilterLeiste } from "@/shared/components/ui/FilterLeiste";
 import { CARDS_CASCADE_CLASSES } from "@/shared/components/ui/motion";
 import { SearchBar } from "@/shared/components/ui/SearchBar";
@@ -15,6 +17,7 @@ import { formatQuelle } from "../../utils";
 import { SpielCardsList } from "../collections/SpielCardsList";
 import { SpielCardGrid } from "../ui/SpielCardGrid";
 
+import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
 import type { FLSpiel } from "../../schemas";
 
 // Module scope: a fresh array defeats `useFuzzySearch`'s memo. The `searchable_team1_quelle` and
@@ -46,6 +49,8 @@ export function SpielsucheView({
   teams,
   spielorte,
   schiedsrichter,
+  bestaetigungen,
+  bestaetigungenVollstaendig = true,
 }: {
   spiele: FLSpiel[];
   today: string;
@@ -60,6 +65,12 @@ export function SpielsucheView({
   teams?: readonly { id: string; name: string }[];
   spielorte?: readonly { id: string; name: string }[];
   schiedsrichter?: readonly { id: string; name: string | null }[];
+  /**
+   * The season's confirmation rows, an administrator's read: absent on the public route, `null` where the read failed,
+   * which the page says rather than showing cards that read as asked nothing.
+   */
+  bestaetigungen?: readonly FLSpielbestaetigung[] | null;
+  bestaetigungenVollstaendig?: boolean;
 }) {
   // Held here, the one ancestor of both the bar and the list, and never in the URL: the search
   // reaches a referee's name (`docs/frontend/spec.md :: I680`).
@@ -96,6 +107,11 @@ export function SpielsucheView({
     emptyQuery: "all",
   });
 
+  const bestaetigungenBySpielId = useMemo(
+    () => (bestaetigungen === undefined || bestaetigungen === null ? undefined : groupBestaetigungenBySpielId(bestaetigungen)),
+    [bestaetigungen],
+  );
+
   const hasAsked = spielQuery !== "" || countActiveFacets(selection) > 0;
   // Rather than `filteredResults`, which answers "everything" for a page nobody has asked yet.
   const shown = hasAsked ? filteredResults : [];
@@ -131,6 +147,21 @@ export function SpielsucheView({
       </div>
 
       <div className="flex w-full flex-col items-center px-4 pb-4 sm:px-8">
+        {/* Standing, never dismissible: a card short of its chips reads as a fixture nobody asked. */}
+        {(bestaetigungen === null || !bestaetigungenVollstaendig) && (
+          <div className="flex w-full max-w-toolbar flex-col">
+            <Callout
+              severity="warning"
+              title={
+                bestaetigungen === null ? "Die Spielbestätigungen ließen sich gerade nicht lesen" : "Die Spielbestätigungen sind unvollständig"
+              }>
+              {bestaetigungen === null
+                ? "Die Karten zeigen deshalb keine Antworten der Teams. Lade die Seite neu."
+                : "Geladen sind nur die neuesten Antworten dieser Saison. Manchen Karten fehlen deshalb Antworten."}
+            </Callout>
+          </div>
+        )}
+
         {message !== null && <p className="mt-10 fluid-sm font-bold tracking-wide text-foreground-muted italic">{message}</p>}
 
         {/* ALWAYS mounted, an empty grid being a zero-height box. A third branch beside the two
@@ -144,6 +175,7 @@ export function SpielsucheView({
             today={today}
             isAdmin={isAdmin}
             isFinishedSaison={isFinishedSaison}
+            bestaetigungenBySpielId={bestaetigungenBySpielId}
           />
         </SpielCardGrid>
       </div>
