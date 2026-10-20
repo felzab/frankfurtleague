@@ -192,6 +192,12 @@ const FRISTEN = [
     frist:
       "Die Begründung bis zum Ende der Saison, die auf die Saison des Spiels folgt. Zusage und Datum bleiben so lange wie die Antwort, für die die Verwaltung sie einträgt",
   },
+  {
+    daten:
+      "Spielbericht einer Schiedsrichterin oder eines Schiedsrichters: das Ergebnis, Torschützen und Karten mit Minute, zu einer Karte ein Grund aus einer festen Liste, dazu Bemerkungen als freier Text",
+    frist:
+      "Die Bemerkungen und die Gründe der Karten bis zum Ende der Saison, die auf die Saison des Spiels folgt. Ergebnis, Torschützen und Karten bleiben als Chronik der Liga bestehen",
+  },
   { daten: "Geburtsdatum einer Kontaktperson", frist: "Entsteht erst mit ihrer Bestätigung, dann dieselbe Frist wie die Bewerbung" },
   {
     daten:

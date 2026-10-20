@@ -18,7 +18,13 @@ import { berlinZeitpunkt, spielerLabel, vorschlagText } from "../../utils";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLSpielberichtAdminResponse, FLSpielberichtSeite, FLSpielberichtZustand } from "../../schemas";
 
-const ZUSTAND_TONE: Record<FLSpielberichtZustand, PillTone> = { vorgeschlagen: "info", uebernommen: "success", abweichend: "warning" };
+// `abgesagt` in the fixture's own status chip's tone, the two naming one called-off match side by side.
+const ZUSTAND_TONE: Record<FLSpielberichtZustand, PillTone> = {
+  vorgeschlagen: "info",
+  uebernommen: "success",
+  abweichend: "warning",
+  abgesagt: "danger",
+};
 
 /**
  * The fixture's report on its editor, read-only: the proposal the administrator may carry into the result, and the
@@ -38,6 +44,8 @@ export function AdminSpielberichtPanel({
   const panel = formPanel();
   const saisonHref = useSaisonHref();
   const { bericht, zustand, spiel } = lesen;
+  // Both writes refuse a called-off fixture (`REQ-BERICHT-004`), and its result is no proposal's to set.
+  const istAbgesagt = zustand === "abgesagt";
 
   const team = (seite: FLSpielberichtSeite) => (seite === "team1" ? spiel.team1?.name : spiel.team2?.name) ?? "";
   const person = (spielerId: string | null): string => {
@@ -72,10 +80,13 @@ export function AdminSpielberichtPanel({
             {zustand === "abweichend" && (
               <p className="muted-hint">Der Bericht weicht vom gespeicherten Ergebnis ab oder wurde nach der Übernahme geändert.</p>
             )}
+            {istAbgesagt && (
+              <p className="muted-hint">Das Spiel ist ausgefallen oder annulliert. Der Bericht lässt sich weder übernehmen noch bearbeiten.</p>
+            )}
 
             <div className="flex w-full flex-col gap-y-2">
               <p className="fluid-sm font-semibold text-foreground">{`Vorschlag: ${vorschlagText(bericht.ergebnis_vorschlag)}`}</p>
-              {onUebernehmen !== null && (
+              {onUebernehmen !== null && !istAbgesagt && (
                 <div className="flex flex-row flex-wrap items-center gap-3">
                   <Button
                     type="button"
@@ -87,11 +98,13 @@ export function AdminSpielberichtPanel({
                   {istEingesetzt && <span className={labelBadge("info")}>Eingesetzt</span>}
                 </div>
               )}
-              <Hint
-                mode="reveal"
-                label="Hinweis zum Vorschlag"
-                body={{ lead: "Setzt Tore, Elfmeterschießen und Ereignis aus dem Spielbericht ein. Gespeichert wird erst mit „Speichern“." }}
-              />
+              {!istAbgesagt && (
+                <Hint
+                  mode="reveal"
+                  label="Hinweis zum Vorschlag"
+                  body={{ lead: "Setzt Tore, Elfmeterschießen und Ereignis aus dem Spielbericht ein. Gespeichert wird erst mit „Speichern“." }}
+                />
+              )}
             </div>
 
             {bericht.torschuetzen.length > 0 && (
@@ -139,12 +152,14 @@ export function AdminSpielberichtPanel({
           </>
         )}
 
-        <Link
-          href={saisonHref(`/bereich/admin/spiele/${spiel.spiel_id}/spielbericht`)}
-          prefetch={false}
-          className={`${formButton({ intent: "nav", size: "xs" })} self-start`}>
-          Spielbericht bearbeiten
-        </Link>
+        {!istAbgesagt && (
+          <Link
+            href={saisonHref(`/bereich/admin/spiele/${spiel.spiel_id}/spielbericht`)}
+            prefetch={false}
+            className={`${formButton({ intent: "nav", size: "xs" })} self-start`}>
+            Spielbericht bearbeiten
+          </Link>
+        )}
       </div>
     </section>
   );

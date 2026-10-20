@@ -259,6 +259,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
         "REQ-SPIELPLAN-003",
         "REQ-SPIELPLAN-004",
         "REQ-SPIELPLAN-005",
+        "REQ-SPIELPLAN-007",
       ],
     );
     for (const code of publishedRefusals(DRAW_OPERATION)) {
@@ -287,10 +288,10 @@ describe("the saison actions against the codes their endpoints publish", () => {
     }
   });
 
-  /* One code, and none of the draw's: the two share a path and a summary word, so a document read
-     that leaked either way would leave a real refusal answered by the generic failure message. */
+  /* Only the two of its own and the reports' guard, none of the draw's: the two share a path and a summary word, so a
+     document read that leaked either way would leave a real refusal answered by the generic failure message. */
   it("answers every refusal the undraw publishes", async () => {
-    assert.deepEqual(publishedRefusals(UNDRAW_OPERATION), ["REQ-SPIELPLAN-006"]);
+    assert.deepEqual(publishedRefusals(UNDRAW_OPERATION), ["REQ-SPIELPLAN-006", "REQ-SPIELPLAN-007"]);
     for (const code of publishedRefusals(UNDRAW_OPERATION)) {
       assert.notEqual(answerShown(UNDRAW_OPERATION, code, mapUndrawRefusal), null, `${code} reaches the admin as a generic failure`);
     }

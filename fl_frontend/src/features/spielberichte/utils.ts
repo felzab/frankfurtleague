@@ -3,6 +3,8 @@ import { kaderName, NUMMER_NICHT_HINTERLEGT, SPIELER_ANONYM_LABEL } from "@/feat
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
+import { SPIELBERICHT_ZUSTAENDE_OFFEN } from "./constants";
+
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLSpielberichtSpieler, FLSpielberichtVorschlag, FLSpielberichtZustandEintrag } from "./schemas";
 
@@ -19,11 +21,11 @@ export function vorschlagText(vorschlag: FLSpielberichtVorschlag): string {
 }
 
 /**
- * What an administrator's fixture card says of its report, `null` once adopted: the two states the triage files under
- * „Ergebnis vorgeschlagen“, each in its own words.
+ * What an administrator's fixture card says of its report, `null` for a state awaiting nobody: the two states the
+ * triage files under „Ergebnis vorgeschlagen“, each in its own words.
  */
 export function berichtChipText({ zustand, ergebnis_vorschlag }: FLSpielberichtZustandEintrag): string | null {
-  if (zustand === "uebernommen") return null;
+  if (!SPIELBERICHT_ZUSTAENDE_OFFEN.has(zustand)) return null;
 
   return `${zustand === "vorgeschlagen" ? "Ergebnis vorgeschlagen" : "Bericht geändert"} ${vorschlagText(ergebnis_vorschlag)}`;
 }

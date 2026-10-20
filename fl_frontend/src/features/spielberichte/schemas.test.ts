@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { spielberichtReadFixture } from "@/shared/testing/spielberichtFixtures.ts";
 import { toFieldErrors } from "@/shared/utils/validation.ts";
 
-const { FLSpielberichtPayloadSchema } = await import("./schemas.ts");
+const { FLSpielberichtAdminResponseSchema, FLSpielberichtPayloadSchema, FLSpielberichtSchiedsrichterResponseSchema } =
+  await import("./schemas.ts");
 
 const SPIELER = "68c1f0a2b3c4d5e6f7a8b9f1";
 
@@ -45,6 +47,19 @@ describe("what a report's mirror refuses before the backend does", () => {
       "Bei Gelb und Gelb-Rot gehört ein Grund dazu.",
     );
     assert.deepEqual(fehler(bericht({ team1_tore: 0, team2_tore: 0 }, [], [{ ...karte, farbe: "rot" }])), {});
+  });
+
+  /* The season's end strips every card's reason and the remarks: the rule is a write's, so the read of a stripped report
+     opens on both readers' pages where a caution without its reason would otherwise fail the parse. */
+  it("reads a report the season's end stripped, on the referee's form and on the administrator's panel", () => {
+    const gelesen = spielberichtReadFixture();
+    const gestrippt = {
+      ...gelesen,
+      bericht: { ...gelesen.bericht, bemerkungen: null, karten: gelesen.bericht.karten.map((karte) => ({ ...karte, grund: null })) },
+    };
+
+    assert.ok(FLSpielberichtSchiedsrichterResponseSchema.safeParse(gestrippt).success, "the referee's form fails a stripped report");
+    assert.ok(FLSpielberichtAdminResponseSchema.safeParse(gestrippt).success, "the administrator's panel fails a stripped report");
   });
 
   it("refuses a minute outside the report's vocabulary", () => {

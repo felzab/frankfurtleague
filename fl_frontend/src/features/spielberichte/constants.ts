@@ -49,7 +49,14 @@ export const SPIELBERICHT_ZUSTAND_LABELS: Record<FLSpielberichtZustand, string> 
   vorgeschlagen: "Vorgeschlagen",
   uebernommen: "Übernommen",
   abweichend: "Abweichend",
+  abgesagt: "Abgesagt",
 };
+
+/**
+ * The states awaiting the administrator, named rather than read off the others, as the backend's
+ * `BERICHT_ZUSTAENDE_OFFEN` names them: a state added later awaits nobody until it is named here.
+ */
+export const SPIELBERICHT_ZUSTAENDE_OFFEN: ReadonlySet<FLSpielberichtZustand> = new Set(["vorgeschlagen", "abweichend"]);
 
 /** What every report surface says while `SPIELBERICHT_EINGABE` reads off. */
 export const SPIELBERICHT_GESCHLOSSEN = {

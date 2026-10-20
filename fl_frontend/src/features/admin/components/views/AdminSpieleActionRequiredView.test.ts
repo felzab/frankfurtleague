@@ -53,10 +53,13 @@ describe("the triage's reports", () => {
     assert.ok(screen.getByText("Bericht geändert 3:1"), "the card does not say the report diverges");
   });
 
-  it("files nothing and names nothing once the report is adopted", () => {
-    triage([bericht("uebernommen")]);
+  /* A report on a fixture called off since awaits nobody, as an adopted one does: the triage names the states that wait. */
+  for (const zustand of ["uebernommen", "abgesagt"] as const) {
+    it(`files nothing and names nothing for a report reading ${zustand}`, () => {
+      triage([bericht(zustand)]);
 
-    assert.equal(screen.getByRole("tab", { name: /^Bericht/ }).textContent, "Bericht0");
-    assert.equal(screen.queryAllByText(/Ergebnis vorgeschlagen|Bericht geändert/).length, 0, "an adopted report still chips its card");
-  });
+      assert.equal(screen.getByRole("tab", { name: /^Bericht/ }).textContent, "Bericht0");
+      assert.equal(screen.queryAllByText(/Ergebnis vorgeschlagen|Bericht geändert/).length, 0, `a ${zustand} report still chips its card`);
+    });
+  }
 });

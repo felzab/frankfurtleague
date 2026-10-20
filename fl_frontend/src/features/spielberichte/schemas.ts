@@ -47,8 +47,11 @@ const FLSpielberichtSonderereignisSchema = z.enum(["abgebrochen", "nichtantreten
 });
 export type FLSpielberichtSonderereignis = z.infer<typeof FLSpielberichtSonderereignisSchema>;
 
-/** Served, never stored: what the administrator's adoption makes of a report against the fixture's result. */
-const FLSpielberichtZustandSchema = z.enum(["vorgeschlagen", "uebernommen", "abweichend"]);
+/**
+ * Served, never stored: what the administrator's adoption makes of a report against the fixture's result, and
+ * `abgesagt` where the fixture was called off or struck out after the report was sent.
+ */
+const FLSpielberichtZustandSchema = z.enum(["vorgeschlagen", "uebernommen", "abweichend", "abgesagt"]);
 export type FLSpielberichtZustand = z.infer<typeof FLSpielberichtZustandSchema>;
 
 const tore = z.int({ error: "Bitte gib die Tore ein." }).nonnegative({ error: "Die Tore dürfen nicht negativ sein." });
@@ -69,18 +72,20 @@ const torschuetze = <T extends z.ZodType<string | null>>(spieler: T) =>
   z.object({ seite: FLSpielberichtSeiteSchema, spieler_id: spieler, minute: minute, eigentor: z.boolean() });
 
 const karte = <T extends z.ZodType<string>>(spieler: T) =>
-  z
-    .object({
-      seite: FLSpielberichtSeiteSchema,
-      spieler_id: spieler,
-      minute: minute,
-      farbe: FLKartenFarbeSchema,
-      grund: FLKartenGrundSchema.nullable(),
-    })
-    .refine((eintrag) => eintrag.farbe === "rot" || eintrag.grund !== null, {
-      error: "Bei Gelb und Gelb-Rot gehört ein Grund dazu.",
-      path: ["grund"],
-    });
+  z.object({
+    seite: FLSpielberichtSeiteSchema,
+    spieler_id: spieler,
+    minute: minute,
+    farbe: FLKartenFarbeSchema,
+    grund: FLKartenGrundSchema.nullable(),
+  });
+
+/** A card as a write sends it. The caution's reason is a write's rule alone: the season's end strips every stored one. */
+const kartePayload = <T extends z.ZodType<string>>(spieler: T) =>
+  karte(spieler).refine((eintrag) => eintrag.farbe === "rot" || eintrag.grund !== null, {
+    error: "Bei Gelb und Gelb-Rot gehört ein Grund dazu.",
+    path: ["grund"],
+  });
 
 /** A null id is a goal nobody was named for, never an erased pupil, whose entry holds the sentinel's id. */
 export const FLSpielberichtTorschuetzeSchema = torschuetze(CustomObjectIdStringSchema.nullable());
@@ -88,6 +93,8 @@ export type FLSpielberichtTorschuetze = z.infer<typeof FLSpielberichtTorschuetze
 
 export const FLSpielberichtKarteSchema = karte(CustomObjectIdStringSchema);
 export type FLSpielberichtKarte = z.infer<typeof FLSpielberichtKarteSchema>;
+
+export const FLSpielberichtKartePayloadSchema = kartePayload(CustomObjectIdStringSchema);
 
 export const FLSpielberichtVonSchiedsrichterSchema = z.object({
   art: z.literal("schiedsrichter"),
@@ -116,7 +123,7 @@ const berichtPayload = <TTor extends z.ZodType<string | null>, TKarte extends z.
         .array(torschuetze(spieler.torschuetze))
         .max(SPIELBERICHT_EINTRAEGE_MAX, { error: `Höchstens ${String(SPIELBERICHT_EINTRAEGE_MAX)} Torschützen.` }),
       karten: z
-        .array(karte(spieler.karte))
+        .array(kartePayload(spieler.karte))
         .max(SPIELBERICHT_EINTRAEGE_MAX, { error: `Höchstens ${String(SPIELBERICHT_EINTRAEGE_MAX)} Karten.` }),
       bemerkungen: z
         .string()

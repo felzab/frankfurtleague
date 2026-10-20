@@ -1,3 +1,4 @@
+import { SPIELBERICHT_ZUSTAENDE_OFFEN } from "@/features/spielberichte/constants";
 import {
   geltendeBestaetigungen,
   groupBestaetigungenBySpielId,
@@ -151,9 +152,10 @@ export function categorizeActionRequired<
 
   const faultedSpielIds = new Set(bracketFaults.map((fault) => fault.spiel_id));
   const bestaetigungenBySpielId = groupBestaetigungenBySpielId(bestaetigungen);
-  // A correction after adoption comes back as `abweichend`, so both states ask the administrator to look again.
+  // The states awaiting the administrator, by name: a report on a fixture called off since reads `abgesagt`, and the
+  // fixture already sits under „Abgesagt“ with nothing to adopt.
   const vorgeschlageneSpielIds = new Set(
-    spielberichte.filter((bericht) => bericht.zustand !== "uebernommen").map((bericht) => bericht.spiel_id),
+    spielberichte.filter((bericht) => SPIELBERICHT_ZUSTAENDE_OFFEN.has(bericht.zustand)).map((bericht) => bericht.spiel_id),
   );
 
   for (const spiel of spiele) {

@@ -7,6 +7,7 @@ import { FLSpielbestaetigungSchema } from "../spielbestaetigungen/schemas.ts";
 import { FLSpielSchema } from "../spiele/schemas.ts";
 import { ACTION_REQUIRED_LABELS, bestaetigungNotizen, buildActionRequiredSections, categorizeActionRequired } from "./utils.ts";
 
+import type { FLSpielberichtZustand } from "@/features/spielberichte/schemas.ts";
 import type { SpielbestaetigungFields } from "@/shared/testing/fixtures.ts";
 import type { FLSpielbestaetigung } from "../spielbestaetigungen/schemas.ts";
 import type { FLSpiel } from "../spiele/schemas.ts";
@@ -168,12 +169,12 @@ describe("categorizeActionRequired", () => {
 
   /* A correction after adoption comes back as `abweichend`, so it asks for a second look as a first report does; an
      adopted one asks nothing, its result standing as the report proposes. */
-  it("files a fixture under its report's proposal while the report reads proposed or diverging, never once adopted", () => {
+  it("files a fixture under its report's proposal while the report reads proposed or diverging, never once adopted or called off", () => {
     const spiel = makeSpiel({ datum: TODAY, ergebnis: "3:1" });
-    const nach = (zustand: "vorgeschlagen" | "uebernommen" | "abweichend") =>
+    const nach = (zustand: FLSpielberichtZustand) =>
       categorizeActionRequired([spiel], TODAY, [], [], [{ spiel_id: spiel.id, zustand }]).ergebnis_vorschlag.length;
 
-    assert.deepEqual([nach("vorgeschlagen"), nach("abweichend"), nach("uebernommen")], [1, 1, 0]);
+    assert.deepEqual([nach("vorgeschlagen"), nach("abweichend"), nach("uebernommen"), nach("abgesagt")], [1, 1, 0, 0]);
   });
 
   it("leaves the category empty when no fault names a match in the list", () => {
