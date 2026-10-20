@@ -11,6 +11,7 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
+import { EINSAETZE_TITEL } from "@/core/seitenNamen";
 import { absagenSpielbestaetigungAction, zusagenSpielbestaetigungAction } from "@/features/spielbestaetigungen/personActions";
 import { SchiedsrichterAbsageSchema } from "@/features/spielbestaetigungen/schemas";
 import {
@@ -38,9 +39,6 @@ import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/uti
 import { formatSpielDatum, formatUhrzeit } from "@/shared/utils/format";
 
 import type { FLSpielbestaetigungSchiedsrichterZustand, FLSpielbestaetigungSelbst } from "@/features/spielbestaetigungen/schemas";
-
-/** The section's heading, which the Einteilung's button „Zu Deinen Einsätzen“ leads to. */
-const EINSAETZE_TITEL = "Deine Einsätze";
 
 export const EINSAETZE_LEER = "Du bist zurzeit für kein Spiel eingeteilt.";
 
