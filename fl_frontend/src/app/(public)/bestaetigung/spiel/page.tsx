@@ -1,10 +1,10 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { nullUnlessContractBreak } from "@/core/errors";
 import { SpielbestaetigungView } from "@/features/spielbestaetigungen/components/views/SpielbestaetigungView";
 import { getSpielbestaetigungAnsicht } from "@/features/spielbestaetigungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
+import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { NextPageProps } from "@/shared/types/types";
