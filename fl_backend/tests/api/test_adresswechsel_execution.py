@@ -10,7 +10,7 @@ waiting time moves everything the replaced address holds in one write. The pass'
 import asyncio
 import logging
 from collections.abc import Awaitable, Mapping
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, timedelta
 from typing import Any, cast
 
 import pytest
@@ -59,6 +59,7 @@ from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.journal import JOURNAL_TOKEN, parse_line
 from app.core.recording import PersonActor, actor_var
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
+from app.shared.schemas.bounds import ADRESSWECHSEL_NACHLAUF_TAGE
 from tests import documents
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config
@@ -1299,33 +1300,28 @@ class TestTheLiveReadsTheIndexServes:
         assert set(ended.values()) == {None}
 
 
-# The TTL monitor's period on the test server while a case waits on it, and the default it is put back to.
-TTL_MONITOR_SLEEP_S = 1
-TTL_MONITOR_DEFAULT_S = 60
-
-
+# The deletion itself is MongoDB's and is not driven here: shortening the server's TTL monitor period
+# would expire every other worker's TTL-indexed rows early too.
 class TestTheTombstoneExpires:
-    def test_an_ended_change_past_its_retention_is_removed_and_a_live_one_is_not(self, mongo_replica_set_url: str):
-        """The index keys on `beendet.am`, a date a live change never holds: key it on any other field and one of the two fails."""
+    def test_the_index_expires_an_ended_change_by_its_end_and_never_a_live_one(self, mongo_replica_set_url: str):
+        """Pinned to `beendet.am`, a date an ended change holds and a live one never: keyed on another, the index expires live changes."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             ended = await start(database, client)
             await stop_here(database, client)
-            await database[Collection.ADRESSWECHSEL].update_one(
-                {"_id": ended.id}, {"$set": {"beendet.am": datetime.now(UTC) - timedelta(days=31)}}
+            # Standing beside the ended one, so the date read below is shown absent from a live change.
+            await start(database, client, identifier=OTHER_EMAIL)
+            built = {index["name"]: index async for index in await database[Collection.ADRESSWECHSEL].list_indexes()}
+            ttl = built["adresswechsel_beendet_am"]
+            dated = await database[Collection.ADRESSWECHSEL].distinct("_id", {"beendet.am": {"$type": "date"}})
+            return (
+                (dict(ttl["key"]), ttl.get("expireAfterSeconds")),
+                dated,
+                ended.id,
+                await database[Collection.ADRESSWECHSEL].count_documents({}),
             )
-            live = await start(database, client, identifier=OTHER_EMAIL)
-            await client.admin.command({"setParameter": 1, "ttlMonitorSleepSecs": TTL_MONITOR_SLEEP_S})
-            try:
-                for _ in range(60):
-                    if await database[Collection.ADRESSWECHSEL].count_documents({"_id": ended.id}) == 0:
-                        break
-                    await asyncio.sleep(0.5)
-            finally:
-                await client.admin.command({"setParameter": 1, "ttlMonitorSleepSecs": TTL_MONITOR_DEFAULT_S})
 
-            return await database[Collection.ADRESSWECHSEL].distinct("_id"), live.id
+        index, dated, ended, stored = on_a_person(mongo_replica_set_url, body)
 
-        remaining, live = on_a_person(mongo_replica_set_url, body)
-
-        assert remaining == [live]
+        assert index == ({"beendet.am": 1}, ADRESSWECHSEL_NACHLAUF_TAGE * 86400)
+        assert (dated, stored) == ([ended], 2)
