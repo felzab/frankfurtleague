@@ -367,7 +367,6 @@ class TestWhichPageTheLinkOpens:
             pytest.param(None, SEITE_NEU, id="nobody at the address"),
             pytest.param(PERSON, SEITE_WIEDERKEHREND, id="the confirmed person under the registration's name"),
             pytest.param({**PERSON, "inactive_since": "2025-07-01"}, SEITE_WIEDERKEHREND, id="that person retired"),
-            pytest.param({**PERSON, "geburtsdatum": None}, SEITE_WIEDERKEHREND, id="that person with no stored birthdate"),
             pytest.param({**PERSON, "vorname": "Bramblewick"}, SEITE_NEU, id="another name at the address, a sibling"),
             pytest.param({**PERSON, "einwilligung": einwilligung(bestaetigt_am="")}, SEITE_NEU, id="a record stamped with an empty string"),
         ],

@@ -549,7 +549,7 @@ def gespeichertes_geburtsdatum(*, seite: FLRegistrierungSeite, person_raw: Mappi
     Never served: the press reads it again in its own transaction.
     """
 
-    return str(person_raw["geburtsdatum"]) if seite == SEITE_WIEDERKEHREND and person_raw is not None else None
+    return person_raw["geburtsdatum"] if seite == SEITE_WIEDERKEHREND and person_raw is not None else None
 
 
 def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any, geburtsdatum: Any, gespeichert: Any) -> WriteRefusal | None:
