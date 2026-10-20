@@ -112,8 +112,9 @@ export const credits = (eintrag: { seite: FLSpielberichtSeite; eigentor: boolean
   (eintrag.seite === seite) !== eintrag.eigentor;
 
 // Each rule the backend's `every_goal_has_one_entry` raises, in its words, placed on the field that repairs it.
-const berichtPayload = <TTor extends z.ZodType<string | null>, TKarte extends z.ZodType<string>>(spieler: {
+const berichtPayload = <TTor extends z.ZodType<string | null>, TKarte extends z.ZodType>(spieler: {
   torschuetze: TTor;
+  /** A whole card entry: its person schema is the caller's, its caution rule `kartePayload`'s. */
   karte: TKarte;
 }) =>
   z
@@ -122,9 +123,7 @@ const berichtPayload = <TTor extends z.ZodType<string | null>, TKarte extends z.
       torschuetzen: z
         .array(torschuetze(spieler.torschuetze))
         .max(SPIELBERICHT_EINTRAEGE_MAX, { error: `Höchstens ${String(SPIELBERICHT_EINTRAEGE_MAX)} Torschützen.` }),
-      karten: z
-        .array(kartePayload(spieler.karte))
-        .max(SPIELBERICHT_EINTRAEGE_MAX, { error: `Höchstens ${String(SPIELBERICHT_EINTRAEGE_MAX)} Karten.` }),
+      karten: z.array(spieler.karte).max(SPIELBERICHT_EINTRAEGE_MAX, { error: `Höchstens ${String(SPIELBERICHT_EINTRAEGE_MAX)} Karten.` }),
       bemerkungen: z
         .string()
         .max(SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH, {
@@ -165,7 +164,7 @@ const berichtPayload = <TTor extends z.ZodType<string | null>, TKarte extends z.
 
 export const FLSpielberichtBerichtPayloadSchema = berichtPayload({
   torschuetze: CustomObjectIdStringSchema.nullable(),
-  karte: CustomObjectIdStringSchema,
+  karte: FLSpielberichtKartePayloadSchema,
 });
 export type FLSpielberichtBerichtPayload = z.infer<typeof FLSpielberichtBerichtPayloadSchema>;
 
@@ -185,7 +184,7 @@ export function spielberichtFormSchema() {
   return z.object({
     bericht: berichtPayload({
       torschuetze: z.string().nonempty({ error: "Bitte wähle, wer getroffen hat, oder „unbekannt“." }),
-      karte: z.string().nonempty({ error: "Bitte wähle die Person." }),
+      karte: kartePayload(z.string().nonempty({ error: "Bitte wähle die Person." })),
     }),
   });
 }
