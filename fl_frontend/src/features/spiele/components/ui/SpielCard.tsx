@@ -24,6 +24,7 @@ import { SpielStatusChip } from "./SpielStatusChip";
 import { SpielTeamSlot } from "./SpielTeamSlot";
 
 import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
+import type { SaisonBestaetigungen } from "@/features/spielbestaetigungen/types";
 import type { FLSpiel } from "../../schemas";
 
 export function SpielCard({
@@ -50,8 +51,8 @@ export function SpielCard({
   today: string;
   /** Required: a card omitting it promises a Termin for a finished season's undated fixture. */
   isFinishedSaison: boolean;
-  /** This fixture's confirmation rows, an administrator's read: each party's answer to the Ansetzung it holds. */
-  bestaetigungen?: readonly FLSpielbestaetigung[];
+  /** The season's confirmation rows, an administrator's read: each party's answer to the Ansetzung this fixture holds. */
+  bestaetigungen?: SaisonBestaetigungen;
 }) {
   const {
     datum: spielDatum,
@@ -159,7 +160,8 @@ export function SpielCard({
       {adminEditHref !== undefined && bestaetigungen !== undefined && (
         <AntwortChips
           spielData={spielData}
-          bestaetigungen={bestaetigungen}
+          bestaetigungen={bestaetigungen.bySpielId.get(spielData.id) ?? []}
+          austritte={bestaetigungen.austritte}
           today={today}
         />
       )}
@@ -174,13 +176,15 @@ export function SpielCard({
 function AntwortChips({
   spielData,
   bestaetigungen,
+  austritte,
   today,
 }: {
   spielData: FLSpiel;
   bestaetigungen: readonly FLSpielbestaetigung[];
+  austritte: ReadonlyMap<string, string>;
   today: string;
 }) {
-  const zeilen = geltendeBestaetigungen(bestaetigungen, spielData);
+  const zeilen = geltendeBestaetigungen(bestaetigungen, spielData, { austritte, today });
   const parteien = [
     {
       name: spielData.team1?.name,

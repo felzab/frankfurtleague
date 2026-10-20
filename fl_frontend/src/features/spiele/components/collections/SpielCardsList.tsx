@@ -8,7 +8,7 @@ import { adminSpielEditHref } from "../../utils";
 import { SpielDetailsModal } from "../modals/SpielDetailsModal";
 import { SpielCard } from "../ui/SpielCard";
 
-import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
+import type { SaisonBestaetigungen } from "@/features/spielbestaetigungen/types";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
 import type { FLSpiel } from "../../schemas";
 
@@ -35,7 +35,7 @@ export function SpielCardsList({
   today,
   isAdmin = false,
   notes,
-  bestaetigungenBySpielId,
+  bestaetigungen,
   isFinishedSaison,
 }: {
   spiele: FLSpiel[];
@@ -43,8 +43,8 @@ export function SpielCardsList({
   isFinishedSaison: boolean;
   isAdmin?: boolean;
   notes?: SpielCardNotes;
-  /** The season's confirmation rows by `spiel_id`, an administrator's read the card shows only beside its edit link. */
-  bestaetigungenBySpielId?: ReadonlyMap<string, readonly FLSpielbestaetigung[]>;
+  /** The season's confirmation rows, an administrator's read the card shows only beside its edit link. */
+  bestaetigungen?: SaisonBestaetigungen;
 }) {
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
   const saisonId = useSaisonId();
@@ -63,7 +63,7 @@ export function SpielCardsList({
             onOpenInfoModal={() => setSelectedSpiel(spielData)}
             adminEditHref={isAdmin ? adminSpielEditHref(spielData.id, saisonId) : undefined}
             asListitem={!hasNotes}
-            bestaetigungen={bestaetigungenBySpielId?.get(spielData.id)}
+            bestaetigungen={bestaetigungen}
           />
         );
 

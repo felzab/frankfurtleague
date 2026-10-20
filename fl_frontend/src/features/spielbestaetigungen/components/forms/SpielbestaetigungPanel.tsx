@@ -19,6 +19,7 @@ import {
   antwortStand,
   beantwortetVon,
   geltendeBestaetigungen,
+  grundZumEnde,
   istVorschlagOffen,
   laufUeberfaellig,
   terminText,
@@ -46,17 +47,14 @@ import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusRow, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLSpielbestaetigung, FLSpielbestaetigungTermin } from "@/features/spielbestaetigungen/schemas";
+import type { FLSpielbestaetigung, FLSpielbestaetigungGrund, FLSpielbestaetigungTermin } from "@/features/spielbestaetigungen/schemas";
 import type { SpielbestaetigungenStand } from "@/features/spielbestaetigungen/types";
+import type { BestaetigungsSpiel } from "@/features/spielbestaetigungen/utils";
 
 /** The lists a party's name is read from: a row may name a side or a referee the fixture fields no more. */
 type Partei = { teams: readonly { id: string; name: string }[]; schiedsrichter: readonly { id: string; name: string | null }[] };
 
-type SpielStand = {
-  id: string;
-  datum: string | null;
-  uhrzeit: string | null;
-  ort: { spielort_id: string } | null;
+type SpielStand = BestaetigungsSpiel & {
   team1: { team_id: string; name: string } | null;
   team2: { team_id: string; name: string } | null;
 };
@@ -87,6 +85,7 @@ export function SpielbestaetigungPanel({
   stand,
   spiel,
   parteien,
+  austritte,
   today,
   isSpielSweepOn,
   isActiveSaison,
@@ -97,6 +96,8 @@ export function SpielbestaetigungPanel({
   /** The fixture as STORED, never the draft: a row is about the Ansetzung the league holds. */
   spiel: SpielStand;
   parteien: Partei;
+  /** The day each club left the season, by `team_id`, where it has: the pass ends a row of a club gone by its day. */
+  austritte: ReadonlyMap<string, string>;
   today: string;
   isSpielSweepOn: boolean;
   isActiveSaison: boolean;
@@ -104,7 +105,8 @@ export function SpielbestaetigungPanel({
   onVorschlagUebernehmen: (termin: FLSpielbestaetigungTermin) => void;
 }) {
   const panel = formPanel();
-  const geltend = new Set((stand === null ? [] : geltendeBestaetigungen(stand.zeilen, spiel)).map((zeile) => zeile.id));
+  const umstand = { austritte, today };
+  const geltend = new Set((stand === null ? [] : geltendeBestaetigungen(stand.zeilen, spiel, umstand)).map((zeile) => zeile.id));
 
   return (
     <section
@@ -132,7 +134,7 @@ export function SpielbestaetigungPanel({
         ) : (
           <LetzterLauf
             gelaufenAm={stand.gelaufenAm}
-            warnt={laufUeberfaellig({ isSpielSweepOn, isActiveSaison, datum: spiel.datum, gelaufenAm: stand.gelaufenAm, today })}
+            warnt={laufUeberfaellig({ isSpielSweepOn, isActiveSaison, spiel, austritte, gelaufenAm: stand.gelaufenAm, today })}
           />
         )}
 
@@ -146,6 +148,8 @@ export function SpielbestaetigungPanel({
                 zeile={zeile}
                 name={parteiName(zeile, spiel, parteien)}
                 istGeltend={geltend.has(zeile.id)}
+                endet={zeile.geschlossen === null ? grundZumEnde(zeile, spiel, umstand) : null}
+                spiel={spiel}
                 today={today}
                 onVorschlagUebernehmen={onVorschlagUebernehmen}
               />
@@ -178,13 +182,18 @@ function BestaetigungZeile({
   zeile,
   name,
   istGeltend,
+  endet,
+  spiel,
   today,
   onVorschlagUebernehmen,
 }: {
   zeile: FLSpielbestaetigung;
   name: string;
-  /** Unclosed and about the Ansetzung the fixture holds: the only row a press here can mean. */
+  /** Still speaking for the fixture as it stands (`geltendeBestaetigungen`): the only row a press here can mean. */
   istGeltend: boolean;
+  /** Why the next pass shuts this unclosed row, `null` where it keeps it or it is closed already. */
+  endet: FLSpielbestaetigungGrund | null;
+  spiel: SpielStand;
   today: string;
   onVorschlagUebernehmen: (termin: FLSpielbestaetigungTermin) => void;
 }) {
@@ -202,9 +211,15 @@ function BestaetigungZeile({
         )}
       </div>
 
-      {!istGeltend && geschlossen === null && (
-        <p className="muted-hint">Betrifft den früheren Termin {terminText({ datum: ansetzung.datum, uhrzeit: ansetzung.uhrzeit })}.</p>
-      )}
+      {/* „früheren Termin“ only where the date or the hour moved: a row a new ground or side left keeps the fixture's. */}
+      {endet !== null &&
+        (ansetzung.datum !== spiel.datum || ansetzung.uhrzeit !== spiel.uhrzeit ? (
+          <p className="muted-hint">Betrifft den früheren Termin {terminText({ datum: ansetzung.datum, uhrzeit: ansetzung.uhrzeit })}.</p>
+        ) : endet === "ansetzung_geaendert" ? (
+          <p className="muted-hint">Betrifft den Termin mit dem früheren Spielort oder den früheren Teams.</p>
+        ) : (
+          <p className="muted-hint">Der nächste Lauf schließt diese Anfrage: {SCHLIESSGRUND_LABELS[endet]}.</p>
+        ))}
 
       <dl className={FIELD_PAIR_CLASSES}>
         <Angabe label="Antwort">{antwort === null ? <Leer>Noch keine</Leer> : ANTWORT_LABELS[antwort.art].label}</Angabe>

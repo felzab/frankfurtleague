@@ -5,11 +5,17 @@ import { side, spielbestaetigungFields, spielFields } from "@/shared/testing/fix
 
 import { FLSpielbestaetigungSchema } from "../spielbestaetigungen/schemas.ts";
 import { FLSpielSchema } from "../spiele/schemas.ts";
-import { ACTION_REQUIRED_LABELS, bestaetigungNotizen, buildActionRequiredSections, categorizeActionRequired } from "./utils.ts";
+import {
+  ACTION_REQUIRED_LABELS,
+  bestaetigungNotizen,
+  buildActionRequiredSections,
+  categorizeActionRequired,
+  saisonBestaetigungen,
+} from "./utils.ts";
 
 import type { SpielbestaetigungFields } from "@/shared/testing/fixtures.ts";
 import type { FLSpielbestaetigung } from "../spielbestaetigungen/schemas.ts";
-import type { FLSpiel } from "../spiele/schemas.ts";
+import type { FLBracketFault, FLSpiel } from "../spiele/schemas.ts";
 import type { FLActionUrgency } from "./utils.ts";
 
 const TODAY = "2026-07-30";
@@ -176,8 +182,14 @@ describe("categorizeActionRequired", () => {
 });
 
 describe("categorizeActionRequired over the fixture confirmations", () => {
-  // Dated after TODAY and otherwise SPIEL, so the rows below are about the Ansetzung it holds.
-  const ANGESETZT = makeSpiel({ datum: "2026-08-05", ergebnis: null });
+  // Dated after TODAY, unplayed and otherwise SPIEL, so the rows below are about the Ansetzung it holds: a goal count
+  // left on a side decides the fixture, which ends every row about it.
+  const ANGESETZT = makeSpiel({
+    datum: "2026-08-05",
+    ergebnis: null,
+    team1: SPIEL.team1 && { ...SPIEL.team1, tore: null },
+    team2: SPIEL.team2 && { ...SPIEL.team2, tore: null },
+  });
   const ANSETZUNG = {
     datum: "2026-08-05",
     uhrzeit: "18:00:00",
@@ -196,8 +208,8 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
     begruendung: null,
   };
 
-  const kategorien = (zeilen: FLSpielbestaetigung[], spiel: FLSpiel = ANGESETZT): string[] =>
-    Object.entries(categorizeActionRequired([spiel], TODAY, [], zeilen))
+  const kategorien = (zeilen: FLSpielbestaetigung[], spiel: FLSpiel = ANGESETZT, faults: FLBracketFault[] = []): string[] =>
+    Object.entries(categorizeActionRequired([spiel], TODAY, faults, saisonBestaetigungen(zeilen, faults)))
       .filter(([, spiele]) => spiele.length > 0)
       .map(([category]) => category);
 
@@ -230,6 +242,29 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
     const verlegt = zeile({ antwort: VORSCHLAG, ansetzung: { ...ANSETZUNG, uhrzeit: "19:00:00" } });
 
     assert.deepEqual(kategorien([geschlossen, verlegt, zeile({ ansetzung: { ...ANSETZUNG, datum: "2026-08-04" } })]), []);
+  });
+
+  // Each a reason `grund_to_end` shuts the row on at the next pass, which the shared table holds row by row.
+  it("counts no row the next pass ends: the fixture decided, its day gone, or a club gone by it", () => {
+    const ueberfaellig = zeile({ frist: "2026-07-29" });
+    const ausgeschieden: FLBracketFault = {
+      reason: "departed_occupant",
+      spiel_id: ANGESETZT.id,
+      spiel_nr: ANGESETZT.spiel_nr,
+      side: "team2",
+      team_id: ANSETZUNG.team2_id,
+      team_name: "Team B",
+      austritt_type: "rueckzug",
+      ausgeschieden_seit: "2026-08-01",
+      spiel_datum: ANGESETZT.datum,
+    };
+    const gestern = { ...ANSETZUNG, datum: "2026-07-29" };
+
+    assert.deepEqual(kategorien([ueberfaellig], { ...ANGESETZT, team1: ANGESETZT.team1 && { ...ANGESETZT.team1, tore: 1 } }), []);
+    assert.deepEqual(kategorien([zeile({ ansetzung: gestern, frist: "2026-07-22" })], { ...ANGESETZT, datum: "2026-07-29" }), [
+      "ergebnis_pending",
+    ]);
+    assert.deepEqual(kategorien([ueberfaellig], ANGESETZT, [ausgeschieden]), ["bracket_fault"]);
   });
 
   it("counts no row of another fixture", () => {
@@ -275,9 +310,10 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
   });
 
   it("notes each proposal beside its card by the proposing club and the date it proposes", () => {
-    assert.deepEqual(bestaetigungNotizen("vorschlag_offen", [ANGESETZT], [zeile({ antwort: VORSCHLAG })], TODAY).get(ANGESETZT.id), [
-      "Vorschlag von Team A: 07.08.2026 um 17:00 Uhr",
-    ]);
+    assert.deepEqual(
+      bestaetigungNotizen("vorschlag_offen", [ANGESETZT], saisonBestaetigungen([zeile({ antwort: VORSCHLAG })], []), TODAY).get(ANGESETZT.id),
+      ["Vorschlag von Team A: 07.08.2026 um 17:00 Uhr"],
+    );
   });
 
   // A row never mailed past its deadline is no club's silence, which is why the request is stamped after its send.
@@ -287,7 +323,7 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
       zeile({ partei: { art: "team", team_id: ANSETZUNG.team2_id }, frist: "2026-07-29", angefragt_am: null }),
     ];
 
-    assert.deepEqual(bestaetigungNotizen("bestaetigung_ueberfaellig", [ANGESETZT], zeilen, TODAY).get(ANGESETZT.id), [
+    assert.deepEqual(bestaetigungNotizen("bestaetigung_ueberfaellig", [ANGESETZT], saisonBestaetigungen(zeilen, []), TODAY).get(ANGESETZT.id), [
       "Team A: angefragt am 22.07.2026, keine Antwort",
       "Team B: Anfrage nicht verschickt",
     ]);
@@ -303,7 +339,7 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
 
 describe("buildActionRequiredSections", () => {
   const build = (spiele: FLSpiel[], bracketFaults: Parameters<typeof categorizeActionRequired>[2] = []) =>
-    buildActionRequiredSections({ spiele, today: TODAY, bracketFaults: bracketFaults ?? [], bestaetigungen: [] });
+    buildActionRequiredSections({ spiele, today: TODAY, bracketFaults: bracketFaults ?? [], bestaetigungen: saisonBestaetigungen([], []) });
 
   it("returns every category, in the label table's order", () => {
     const sections = build([]);

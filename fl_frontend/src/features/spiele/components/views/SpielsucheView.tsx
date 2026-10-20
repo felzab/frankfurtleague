@@ -18,11 +18,14 @@ import { SpielCardsList } from "../collections/SpielCardsList";
 import { SpielCardGrid } from "../ui/SpielCardGrid";
 
 import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
+import type { SaisonBestaetigungen } from "@/features/spielbestaetigungen/types";
 import type { FLSpiel } from "../../schemas";
 
 // Module scope: a fresh array defeats `useFuzzySearch`'s memo. The `searchable_team1_quelle` and
 // `searchable_team2_quelle` keys exist because a `quelle` holds no text, while the label derived from
 // it is what a reader sees.
+const KEINE_AUSTRITTE: Readonly<Record<string, string>> = {};
+
 const SEARCH_KEYS = [
   "team1.name",
   "team2.name",
@@ -51,6 +54,7 @@ export function SpielsucheView({
   schiedsrichter,
   bestaetigungen,
   bestaetigungenVollstaendig = true,
+  austritte = KEINE_AUSTRITTE,
 }: {
   spiele: FLSpiel[];
   today: string;
@@ -71,6 +75,8 @@ export function SpielsucheView({
    */
   bestaetigungen?: readonly FLSpielbestaetigung[] | null;
   bestaetigungenVollstaendig?: boolean;
+  /** The day each club left this season, by `team_id`, where it has: the pass ends a row of a club gone by its day. */
+  austritte?: Readonly<Record<string, string>>;
 }) {
   // Held here, the one ancestor of both the bar and the list, and never in the URL: the search
   // reaches a referee's name (`docs/frontend/spec.md :: I680`).
@@ -107,9 +113,12 @@ export function SpielsucheView({
     emptyQuery: "all",
   });
 
-  const bestaetigungenBySpielId = useMemo(
-    () => (bestaetigungen === undefined || bestaetigungen === null ? undefined : groupBestaetigungenBySpielId(bestaetigungen)),
-    [bestaetigungen],
+  const saisonBestaetigungen = useMemo(
+    (): SaisonBestaetigungen | undefined =>
+      bestaetigungen === undefined || bestaetigungen === null
+        ? undefined
+        : { bySpielId: groupBestaetigungenBySpielId(bestaetigungen), austritte: new Map(Object.entries(austritte)) },
+    [bestaetigungen, austritte],
   );
 
   const hasAsked = spielQuery !== "" || countActiveFacets(selection) > 0;
@@ -175,7 +184,7 @@ export function SpielsucheView({
             today={today}
             isAdmin={isAdmin}
             isFinishedSaison={isFinishedSaison}
-            bestaetigungenBySpielId={bestaetigungenBySpielId}
+            bestaetigungen={saisonBestaetigungen}
           />
         </SpielCardGrid>
       </div>

@@ -21,6 +21,12 @@ export const PAARUNGEN_MAX = 1024;
 export const SPIEL_BESTAETIGUNG_FRIST_TAGE = 7;
 
 /**
+ * The days before a deadline the confirmations' pass asks, mirroring the backend's `SPIEL_ANFRAGE_VORLAUF_TAGE`
+ * (`fl_backend/app/shared/schemas/bounds.py`): with the deadline's days, how far ahead a fixture is asked about.
+ */
+export const SPIEL_ANFRAGE_VORLAUF_TAGE = 14;
+
+/**
  * `fl_backend/app/api/spiele/services.py :: CLASH_BUFFER_MINUTES` in the words every clash sentence says it in, held to
  * that number by `fl_backend/tests/shared/test_frontend_mirrors.py`.
  */

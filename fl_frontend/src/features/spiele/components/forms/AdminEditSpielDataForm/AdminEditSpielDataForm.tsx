@@ -590,6 +590,8 @@ export function AdminEditSpielDataForm({
                 stand={bestaetigungen}
                 spiel={spielData}
                 parteien={{ teams: teams, schiedsrichter: schiedsrichter }}
+                // `teams` joins each club's exit from this season on every read.
+                austritte={new Map(teams.flatMap((team) => (team.austritt === null ? [] : [[team.id, team.austritt.datum]])))}
                 today={today}
                 isSpielSweepOn={isSpielSweepOn}
                 isActiveSaison={isActiveSaison}
