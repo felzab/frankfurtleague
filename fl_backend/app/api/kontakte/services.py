@@ -11,11 +11,10 @@ from app.shared.folding import person_name_key, sign_in_identifier, trimmed_patt
 
 
 def same_address(identifier: str) -> Mapping[str, Any]:
-    """A case-blind pre-filter for the grant family's erasure alone, the sign-in fold deciding.
+    """A case-blind pre-filter, the sign-in fold deciding.
 
-    A grant pasted through the Playground holds whatever spelling was typed, no write folding it, and
-    its erasure must still take it; every record the application writes stores the fold, and is read by
-    equality.
+    For the grants' erasure alone: a grant pasted through the Playground keeps its typed spelling, which
+    no write folds, and must still go; every other record stores the fold.
     """
 
     # Folded here whatever a caller hands on: built off an unfolded spelling, a padded or a blank one above all, the
@@ -64,7 +63,7 @@ def build_accepted_application_pipeline(*, saison_id: str, team_id: Any) -> list
 
 
 def build_seat_images_filter(identifier: str) -> Mapping[str, Any]:
-    """Log rows whose images seat this person in some slot; `seat_image_edits` decides which.
+    """Log rows whose images seat this person; `seat_image_edits` decides which slot.
 
     By what an image holds, never by row id: a swap orphans an image carrying the address out, and
     the log keeps it its whole retention (`app/core/constraints.py :: TTL_INDEXES`).

@@ -170,8 +170,7 @@ function foldedDomain(domain: string): string {
 
 /**
  * The form every record stores an address in and every lookup asks with (`docs/backend/spec.md :: I333`). The sign-in
- * library lower-cases the address it stores and the one it is asked with, but trims neither: read in the installed
- * better-auth 1.7.10 on 2026-10-20, which moves without us.
+ * library lower-cases both but trims neither: better-auth 1.7.10 as installed, read 2026-10-20, moves without us.
  */
 export function asSignInIdentifier(value: string): string {
   const trimmed = value.trim();

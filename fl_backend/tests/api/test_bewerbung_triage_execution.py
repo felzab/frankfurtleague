@@ -1348,7 +1348,6 @@ class TestCorrectingOneContactAddress:
         # The raw token exists in the answer and in the mail; the document keeps its hash alone.
         assert stored["bestaetigungen"]["ansprechperson"]["token_hash"] == hash_token(response.token)
 
-
     def test_the_mailbox_the_link_leaves_is_answered_and_the_same_mailbox_retyped_is_not(self, mongo_replica_set_url: str):
         """The old link may have arrived and opens until this write, so its reader is told that it now opens nothing."""
 
