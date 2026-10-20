@@ -91,3 +91,30 @@ def test_a_required_dependency_missing_stops_the_step(tmp_path: Path) -> None:
     code, _, said = _run(tmp_path / "run", install={name: fields for name, fields in INSTALL.items() if name != "dep"})
     assert code != 0, said
     assert "plug depends on dep, which is not installed" in said, said
+
+
+def test_a_name_under_both_dependency_lists_is_optional(tmp_path: Path) -> None:
+    """npm reads it as optional, so one a platform skips installing is no refusal."""
+    plug = {"dependencies": {"dep": "^1", "native": "^1"}, "optionalDependencies": {"native": "^1"}}
+    _key(tmp_path / "run", install={**INSTALL, "plug": plug})
+
+
+@pytest.mark.parametrize(
+    ("sheet", "config", "says"),
+    [
+        pytest.param(SHEET_TEXT + '@plugin "./plugin.js";\n', CONFIG, "loads ./plugin.js", id="a-relative-plugin"),
+        pytest.param(SHEET_TEXT + '@config "../../tailwind.config.js";\n', CONFIG, "loads ../../tailwind.config.js", id="a-relative-config"),
+        pytest.param(SHEET_TEXT + '@import "../../../shared.css";\n', CONFIG, "loads ../../../shared.css", id="a-sheet-outside-src"),
+        pytest.param(
+            SHEET_TEXT,
+            {**CONFIG, "tailwindStylesheet": "./shared.css"},
+            "tailwindStylesheet ./shared.css",
+            id="a-tailwind-stylesheet-outside-src",
+        ),
+    ],
+)
+def test_a_file_the_key_does_not_carry_stops_the_step(tmp_path: Path, sheet: str, config: dict[str, Any], says: str) -> None:
+    """The Tailwind plugin reads each, and the key hashes no script and no stylesheet outside src."""
+    code, _, said = _run(tmp_path / "run", sheet=sheet, config=config)
+    assert code != 0, said
+    assert says in said, said
