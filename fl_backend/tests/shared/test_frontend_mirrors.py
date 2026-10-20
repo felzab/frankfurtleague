@@ -1833,7 +1833,7 @@ def _grund_case(zeile: dict[str, Any], anders: dict[str, Any]) -> tuple[dict[str
             case "tore":
                 spiel["team1"] = {**spiel["team1"], "tore": value}
             case "schiedsrichter":
-                spiel["schiedsrichter"] = None if value is None else {**spiel["schiedsrichter"], "schiedsrichter_id": GRUND_REFEREES[1]}
+                spiel["schiedsrichter"] = None if value is None else {"schiedsrichter_id": GRUND_REFEREES[1], "name": "Udo", "payment": 30}
             case "austritt_tage":
                 austritte[ANFRAGE_SIDES[1]] = days_after(day=ANFRAGE_TODAY, days=value)
             case _:
