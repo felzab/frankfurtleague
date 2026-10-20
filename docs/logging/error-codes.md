@@ -258,10 +258,10 @@ row's first cell as a live row (`scripts/checks/docs_gate/error_codes.py :: CODE
 demand a tree spell every code below.
 
 - **`REQ-SPIELER-001`** to **`REQ-SPIELER-009`** — a pupil's address change's own refusals, from its
-  link, its start and its re-send; the change of every person's address now refuses under
-  `REQ-ADRESSWECHSEL`, its record holding the change rather than the pupil row.
+  link, its start and its re-send; an address change is a record of its own, whoever's address it
+  changes, and refuses under `REQ-ADRESSWECHSEL`.
 - **`REQ-SCHIEDSRICHTER-010`**, **`-012`**, **`-013`** and **`-014`** — a referee's address change's
-  own refusals, retired with the pupil's for the same reason.
+  own refusals, on the same terms.
 - **`REQ-DATE-006`** — reserved and raised by nothing. What the reservation covered is unrecorded, no
   revision spelling the code at all; the commit that shipped `REQ-DATE-008` is where the run skipping
   two rather than one is argued.
