@@ -250,9 +250,8 @@ export function mapSwapRefusal(error: unknown): string | null {
 }
 
 /**
- * `null` where the refusal is something else. The panel closes the control for both halves of `-006`, so that code
- * arriving means the season moved under a page still offering the press. A reload returns to that panel, which names
- * any way out.
+ * `null` for another refusal. The panel closes the control for both halves of `-006`, so it arriving means the season
+ * moved under a page still offering the press; a reload returns to that panel, which names any way out.
  */
 export function mapUndrawRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;

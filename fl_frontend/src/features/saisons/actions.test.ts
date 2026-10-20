@@ -288,8 +288,8 @@ describe("the saison actions against the codes their endpoints publish", () => {
     }
   });
 
-  /* Only the two of its own and the reports' guard, none of the draw's: the two share a path and a summary word, so a
-     document read that leaked either way would leave a real refusal answered by the generic failure message. */
+  /* Its own two codes, none of the draw's: the two share a path and a summary word, so a document read leaking either
+     way would leave a real refusal answered by the generic failure message. */
   it("answers every refusal the undraw publishes", async () => {
     assert.deepEqual(publishedRefusals(UNDRAW_OPERATION), ["REQ-SPIELPLAN-006", "REQ-SPIELPLAN-007"]);
     for (const code of publishedRefusals(UNDRAW_OPERATION)) {
