@@ -27,6 +27,8 @@ BERICHT_NICHT_GELEITET: Final = "REQ-BERICHT-002"
 BERICHT_NICHT_IM_KADER: Final = "REQ-BERICHT-003"
 BERICHT_ABGESAGT: Final = "REQ-BERICHT-004"
 BERICHT_NAME_IN_BEMERKUNGEN: Final = "REQ-BERICHT-005"
+# Both writes replace the whole block, so a form opened before another write would put back what that write changed.
+BERICHT_INZWISCHEN_GEAENDERT: Final = "REQ-BERICHT-006"
 
 SEITEN: Final[tuple[FLSpielberichtSeite, ...]] = ("team1", "team2")
 
@@ -212,6 +214,23 @@ def nimmt_einen_bericht(spiel_raw: Mapping[str, Any], *, today: str) -> bool:
     """Whether the fixture takes a report today, as `REQ-BERICHT-001` and `REQ-BERICHT-004` judge a write, refusing nothing."""
 
     return ist_gespielt(datum=spiel_raw.get("datum"), today=today) and not ist_abgesagt(sonderereignis=spiel_raw.get("sonderereignis"))
+
+
+def find_bericht_stand_refusal(*, stand: int | None, gespeichert: Mapping[str, Any] | None) -> WriteRefusal | None:
+    """`REQ-BERICHT-006`: the write was composed on the version standing now, or on none where none stands.
+
+    Judged on the transaction's read: a write committing meanwhile, a crossing first one included, conflicts with this
+    one, whose retry is refused.
+    """
+
+    if stand == (None if gespeichert is None else gespeichert["version"]):
+        return None
+
+    return WriteRefusal(
+        error_code=BERICHT_INZWISCHEN_GEAENDERT,
+        status=HTTPStatus.CONFLICT,
+        message="the report changed since this write was composed; re-read it and send the change again",
+    )
 
 
 def find_nicht_im_kader_refusal(*, lage: BerichtLage, neu: Mapping[FLSpielberichtSeite, set[ObjectId]]) -> WriteRefusal | None:

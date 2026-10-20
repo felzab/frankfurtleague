@@ -63,6 +63,9 @@ export const BEMERKUNGEN_PATH = "bericht.bemerkungen";
 // The box's hint already asks for a shirt number, so the message names the fault alone (`docs/frontend/spec.md` §1.12).
 const NAME_IN_BEMERKUNGEN = "In den Bemerkungen steht ein Name.";
 
+// The reload draws the form anew from the report standing now, so the change the press carried has to be entered again.
+const NEU_EINTRAGEN = "Lade die Seite neu und trage Deine Änderung dort erneut ein";
+
 const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
   schiedsrichter: {
     // Ahead of the spine's own reading, whose sentence names a team: the referee's record is what went.
@@ -74,6 +77,10 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
       repair: "Lade die Seite neu und wähle neu",
     }),
     "REQ-BERICHT-004": "Dieses Spiel ist ausgefallen oder annulliert. Dafür gibt es keinen Spielbericht.",
+    "REQ-BERICHT-006": buildRefusal({
+      reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Verwaltung oder von Dir in einem anderen Fenster",
+      repair: NEU_EINTRAGEN,
+    }),
     "DB-COMMON-002": buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: LADE_DIE_SEITE_NEU }),
   },
   admin: {
@@ -83,6 +90,10 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
       repair: "Lade die Seite neu und wähle neu",
     }),
     "REQ-BERICHT-004": "Das Spiel ist als ausgefallen oder annulliert eingetragen. Dafür gibt es keinen Spielbericht.",
+    "REQ-BERICHT-006": buildRefusal({
+      reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Schiedsrichterin oder dem Schiedsrichter",
+      repair: NEU_EINTRAGEN,
+    }),
     "DB-COMMON-002": buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: LADE_DIE_SEITE_NEU }),
   },
 };

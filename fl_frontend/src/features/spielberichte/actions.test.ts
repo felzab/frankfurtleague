@@ -39,6 +39,7 @@ const BERICHT = {
     karten: [],
     bemerkungen: null,
   },
+  bericht_stand: 3,
 };
 
 beforeEach(() => {
@@ -68,10 +69,11 @@ describe("the administrator's report correction", () => {
   });
 
   /* The control the closed case needs: an action hard-wired closed passes it too. */
-  it("sends the whole block to the fixture named in the path once the switch reads on", async () => {
+  it("sends the whole block and the version it was composed on to the fixture named in the path once the switch reads on", async () => {
     eingabe = "on";
     answerWith(() => Promise.resolve(spielberichtReadFixture()));
     const offen = {
+      ...BERICHT,
       bericht: { ...BERICHT.bericht, ergebnis_vorschlag: { ...BERICHT.bericht.ergebnis_vorschlag, team1_tore: null, team2_tore: null } },
     };
 
@@ -88,6 +90,7 @@ describe("the administrator's report correction", () => {
       refuseWith: answerWith,
       act: () =>
         patchAdminSpielberichtAction(BERICHT_SPIEL_ID, {
+          ...BERICHT,
           bericht: { ...BERICHT.bericht, ergebnis_vorschlag: { ...BERICHT.bericht.ergebnis_vorschlag, team1_tore: null, team2_tore: null } },
         }),
       mapped: (refusal) => mapSpielberichtRefusal(refusal, "admin"),
@@ -102,6 +105,7 @@ describe("the administrator's report correction", () => {
     cacheCalls.length = 0;
     answerWith(() => Promise.reject(refusedOn("PATCH /spielberichte/{spiel_id}", "REQ-AUTH-009")));
     const offen = {
+      ...BERICHT,
       bericht: { ...BERICHT.bericht, ergebnis_vorschlag: { ...BERICHT.bericht.ergebnis_vorschlag, team1_tore: null, team2_tore: null } },
     };
 

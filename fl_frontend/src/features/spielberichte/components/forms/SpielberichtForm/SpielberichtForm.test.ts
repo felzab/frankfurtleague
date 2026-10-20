@@ -94,8 +94,37 @@ describe("the referee's report form", () => {
             karten: [],
             bemerkungen: null,
           },
+          bericht_stand: null,
         },
       },
     ]);
+  });
+
+  /* The backend refuses a write composed on another version (`REQ-BERICHT-006`), so the form names the one it opened on:
+     sending none, or the latest, would let it replace a correction its reader never saw. */
+  it("sends the version of the report it opened on", async () => {
+    const user = userEvent.setup();
+    const gelesen = FLSpielberichtSchiedsrichterResponseSchema.parse(spielberichtReadFixture());
+    render(
+      underNext(
+        h(SpielberichtForm, {
+          leser: "schiedsrichter",
+          spielId: BERICHT_SPIEL_ID,
+          kontext: kontextOf(gelesen),
+          stored: gelesen.bericht === null ? null : { ...gelesen.bericht, version: 4 },
+          header: { title: "Goethe-Gymnasium gegen Lessing-Gymnasium" },
+          zurueckHref: "/bereich/schiedsrichter",
+        }),
+        { router: nextRouter() },
+      ),
+    );
+    await user.type(screen.getByRole("textbox", { name: /Bemerkungen zum Spiel/ }), " Nachspielzeit fünf Minuten.");
+    calls.length = 0;
+
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(answered);
+
+    assert.equal(calls.length, 1, "the edited report was not sent");
+    assert.equal(Reflect.get(Object(calls[0]?.payload), "bericht_stand"), 4);
   });
 });

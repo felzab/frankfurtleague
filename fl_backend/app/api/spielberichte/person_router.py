@@ -22,7 +22,14 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtSchiedsrichterResponse,
     FLSpielberichtVonSchiedsrichter,
 )
-from app.api.spielberichte.services import compose_ansicht, find_nicht_geleitet_refusal, judge_bericht, neu_genannt, nimmt_einen_bericht
+from app.api.spielberichte.services import (
+    compose_ansicht,
+    find_bericht_stand_refusal,
+    find_nicht_geleitet_refusal,
+    judge_bericht,
+    neu_genannt,
+    nimmt_einen_bericht,
+)
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db, refuse
@@ -215,15 +222,20 @@ async def put_spielbericht_bericht(
     is adopted anew, and a write changing nothing writes nothing. Writes no fixture: the result is the administrator's
     to save.
 
+    `bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on
+    another version would replace a report its sender never saw.
+
     Refuses, in this order, each writing nothing: an address holding no confirmed, live referee record
     (`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records
-    (`REQ-BERICHT-002`); one undated or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out
+    (`REQ-BERICHT-002`); a `bericht_stand` other than the version standing now, or than none where none stands
+    (`REQ-BERICHT-006`); one undated or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out
     (`REQ-BERICHT-004`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil
     the report already named on that side staying (`REQ-BERICHT-003`); and remarks naming a seat holder of either club,
-    the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal after the first is asked
-    again outside the transaction just before answering, the referee's records included, so a write landing mid-press
-    on what was judged refuses the report rather than letting it stand. Two first writes at once are one report: the
-    later is written over the earlier, as a correction is.
+    the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal after the first but
+    `REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's records included, so
+    a write landing mid-press on what was judged refuses the report rather than letting it stand; a write of the report
+    itself landing mid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are
+    two forms opened on no report: the later is refused.
     """
 
     payload = bericht_data.bericht
@@ -243,8 +255,10 @@ async def put_spielbericht_bericht(
             session=session,
         )
         gespeichert = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
-        neu = neu_genannt(payload, None if gespeichert is None else gespeichert.get("bericht"))
+        block = None if gespeichert is None else gespeichert.get("bericht")
+        neu = neu_genannt(payload, block)
         refuse(find_nicht_geleitet_refusal(spiel_raw=lage.spiel, schiedsrichter_ids=eigene))
+        refuse(find_bericht_stand_refusal(stand=bericht_data.bericht_stand, gespeichert=block))
         judge_bericht(lage=lage, payload=payload, neu=neu, today=today)
 
         await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*neu.values()), session=session)

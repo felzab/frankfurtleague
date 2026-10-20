@@ -11,6 +11,7 @@ const SPIELER = "68c1f0a2b3c4d5e6f7a8b9f1";
 
 const bericht = (ergebnis: { team1_tore: number | null; team2_tore: number | null }, torschuetzen: unknown[], karten: unknown[] = []) => ({
   bericht: { ergebnis_vorschlag: { ...ergebnis, elfmeterschiessen: null, sonderereignis: null }, torschuetzen, karten, bemerkungen: null },
+  bericht_stand: null,
 });
 
 const fehler = (payload: unknown) => {

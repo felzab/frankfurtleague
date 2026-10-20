@@ -170,7 +170,11 @@ export const FLSpielberichtBerichtPayloadSchema = berichtPayload({
 export type FLSpielberichtBerichtPayload = z.infer<typeof FLSpielberichtBerichtPayloadSchema>;
 
 /** The referee's PUT and the administrator's PATCH take this one body, so `REQ-BERICHT-005` names one path on both. */
-export const FLSpielberichtPayloadSchema = z.object({ bericht: FLSpielberichtBerichtPayloadSchema });
+export const FLSpielberichtPayloadSchema = z.object({
+  bericht: FLSpielberichtBerichtPayloadSchema,
+  // The version the form opened on, `null` where no report stood: one composed on another is refused (`REQ-BERICHT-006`).
+  bericht_stand: z.int().nullable(),
+});
 export type FLSpielberichtPayload = z.infer<typeof FLSpielberichtPayloadSchema>;
 
 /**

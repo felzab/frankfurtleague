@@ -7456,7 +7456,7 @@
     "/api/v0/spielberichte/{spiel_id}": {
       "patch": {
         "summary": "Write one fixture's report as an administrator",
-        "description": "Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.\n\nEvery write changing it raises its `version`, so a report adopted before reads `abweichend` until it is adopted\nagain, and a write changing nothing writes nothing. Who first wrote the report stays recorded; a report an\nadministrator writes first records an administrator, naming nobody.\n\nRefuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); one undated or whose\nday is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a pupil newly named on\na side outside that side's live squad of the season (`REQ-BERICHT-003`); and remarks naming a seat holder of either\nclub, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each is asked again outside the\ntransaction just before answering. Two first writes at once are one report: the later is written over the earlier,\nas a correction is.",
+        "description": "Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.\n\nEvery write changing it raises its `version`, so a report adopted before reads `abweichend` until it is adopted\nagain, and a write changing nothing writes nothing. Who first wrote the report stays recorded; a report an\nadministrator writes first records an administrator, naming nobody.\n\n`bericht_stand` is the `version` of the report the page was served, null where none stood, as on the referee's\nwrite.\n\nRefuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); a `bericht_stand`\nother than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day\nis still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a pupil newly named on a\nside outside that side's live squad of the season (`REQ-BERICHT-003`); and remarks naming a seat holder of either\nclub, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each but `REQ-BERICHT-006` is asked\nagain outside the transaction just before answering; a write of the report landing mid-press conflicts with this\none, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two pages opened on no report: the later is\nrefused.",
         "operationId": "patch_spielbericht_api_v0_spielberichte__spiel_id__patch",
         "security": [
           {
@@ -7500,7 +7500,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERICHT-001.REQ-BERICHT-003.REQ-BERICHT-004"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERICHT-001.REQ-BERICHT-003.REQ-BERICHT-004.REQ-BERICHT-006"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-BERICHT-005.REQ-VAL-001"
@@ -11141,7 +11141,7 @@
       },
       "put": {
         "summary": "Write one fixture's report as its referee",
-        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every\nwrite changing it raises its `version`, so a report the administrator adopted reads `abweichend` again until it\nis adopted anew, and a write changing nothing writes nothing. Writes no fixture: the result is the administrator's\nto save.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records\n(`REQ-BERICHT-002`); one undated or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out\n(`REQ-BERICHT-004`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil\nthe report already named on that side staying (`REQ-BERICHT-003`); and remarks naming a seat holder of either club,\nthe booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal after the first is asked\nagain outside the transaction just before answering, the referee's records included, so a write landing mid-press\non what was judged refuses the report rather than letting it stand. Two first writes at once are one report: the\nlater is written over the earlier, as a correction is.",
+        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every\nwrite changing it raises its `version`, so a report the administrator adopted reads `abweichend` again until it\nis adopted anew, and a write changing nothing writes nothing. Writes no fixture: the result is the administrator's\nto save.\n\n`bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on\nanother version would replace a report its sender never saw.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records\n(`REQ-BERICHT-002`); a `bericht_stand` other than the version standing now, or than none where none stands\n(`REQ-BERICHT-006`); one undated or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out\n(`REQ-BERICHT-004`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil\nthe report already named on that side staying (`REQ-BERICHT-003`); and remarks naming a seat holder of either club,\nthe booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal after the first but\n`REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's records included, so\na write landing mid-press on what was judged refuses the report rather than letting it stand; a write of the report\nitself landing mid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are\ntwo forms opened on no report: the later is refused.",
         "operationId": "put_spielbericht_bericht_api_v0_spielberichte__spiel_id__bericht_put",
         "security": [
           {
@@ -11195,7 +11195,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERICHT-001.REQ-BERICHT-003.REQ-BERICHT-004"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERICHT-001.REQ-BERICHT-003.REQ-BERICHT-004.REQ-BERICHT-006"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-BERICHT-005.REQ-VAL-001"
@@ -26074,12 +26074,24 @@
         "properties": {
           "bericht": {
             "$ref": "#/components/schemas/FLSpielberichtBerichtPayload"
+          },
+          "bericht_stand": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bericht Stand"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "bericht"
+          "bericht",
+          "bericht_stand"
         ],
         "title": "FLSpielberichtPayload",
         "description": "The whole `bericht` block, written wholesale by the referee's PUT and the administrator's PATCH alike."
@@ -31869,7 +31881,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-BERICHT-001.REQ-BERICHT-003.REQ-BERICHT-004": {
+      "409.DB-COMMON-002.REQ-BERICHT-001.REQ-BERICHT-003.REQ-BERICHT-004.REQ-BERICHT-006": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -31885,7 +31897,8 @@
                         "DB-COMMON-002",
                         "REQ-BERICHT-001",
                         "REQ-BERICHT-003",
-                        "REQ-BERICHT-004"
+                        "REQ-BERICHT-004",
+                        "REQ-BERICHT-006"
                       ]
                     }
                   }

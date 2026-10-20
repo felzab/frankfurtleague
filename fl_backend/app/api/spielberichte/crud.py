@@ -152,8 +152,8 @@ async def write_bericht(
         return gespeichert
 
     if gespeichert is None:
-        # A first write committing while this one runs conflicts with it, and the retry writes this one over it as a
-        # correction; `uniq_spielbericht_spiel_id` stands behind both.
+        # A first write committing while this one runs conflicts with it, and the retry meets that write's version
+        # (`app/api/spielberichte/services.py :: find_bericht_stand_refusal`); `uniq_spielbericht_spiel_id` stands behind both.
         await post_one_to_db(
             collection=spielberichte_collection,
             document={

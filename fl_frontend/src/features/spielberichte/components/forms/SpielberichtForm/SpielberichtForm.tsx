@@ -27,12 +27,12 @@ import { FormVorschlagSection } from "./FormVorschlagSection";
 import { deriveSpielberichtDraftStatus, draftOf, formPayloadOf, wirePayloadOf } from "./spielberichtDraft";
 
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
-import type { FLSpielberichtBerichtPayload } from "../../../schemas";
+import type { FLSpielberichtBericht } from "../../../schemas";
 import type { SpielberichtLeser } from "../../../utils";
 import type { SpielberichtDraft, SpielberichtKontext } from "./spielberichtDraft";
 
-/** The block as the form edits it: the stamps and the counter are the backend's. */
-type GespeicherterBericht = Pick<FLSpielberichtBerichtPayload, "ergebnis_vorschlag" | "torschuetzen" | "karten" | "bemerkungen">;
+/** The block as the form edits it, and its counter, which the write names as the version it was composed on. */
+type GespeicherterBericht = Pick<FLSpielberichtBericht, "ergebnis_vorschlag" | "torschuetzen" | "karten" | "bemerkungen" | "version">;
 
 /**
  * The whole report, one editor for both readers: the booked referee's PUT and the administrator's step-up PATCH
@@ -99,7 +99,7 @@ export function SpielberichtForm({
     // The administrator's correction is a step-up write; the referee's lane holds no step-up page, so it never prompts.
     stepUp.confirmThen(leser === "admin", () =>
       startSaving(async () => {
-        const payload = wirePayloadOf(draft);
+        const payload = wirePayloadOf(draft, stored?.version ?? null);
         // A rejected action may still have saved, and uncaught here it takes the editor down with it.
         const res = await (leser === "admin" ? patchAdminSpielberichtAction(spielId, payload) : putSpielberichtAction(spielId, payload)).catch(
           unansweredAction,
