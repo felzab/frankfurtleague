@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
+import { AdresswechselSection } from "@/features/konto/components/views/AdresswechselSection";
 import { EinwilligungSection } from "@/features/konto/components/views/EinwilligungSection";
 import { KontoLoeschenSection } from "@/features/konto/components/views/KontoLoeschenSection";
 import { SicherheitSection } from "@/features/konto/components/views/SicherheitSection";
@@ -21,6 +22,7 @@ export default async function KontoPage() {
   return (
     <KontoPanel
       email={subject.email}
+      adresswechsel={<AdresswechselSection />}
       sicherheit={<SicherheitSection />}
       einwilligung={<EinwilligungSection />}
       loeschung={<KontoLoeschenSection />}
