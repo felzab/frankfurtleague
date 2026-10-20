@@ -24,12 +24,15 @@ from app.api.spielberichte.services import (
     build_bericht_kader_pipeline,
     build_referee_report_images_filter,
     build_referee_reports_filter,
+    build_season_report_images_filter,
+    build_season_report_texts_filter,
     build_zustand_pipeline,
     compose_bericht_update,
     compose_neuer_bericht,
     genannte_ids,
     live_kader,
     referee_report_image_edits,
+    season_end_report_image_edits,
     team_id_of,
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN
@@ -198,6 +201,34 @@ async def pull_zustaende(*, spielberichte_collection: AsyncCollection, saison_id
         )
 
     return eintraege
+
+
+async def strip_the_seasons_reports(
+    *,
+    spielberichte_collection: AsyncCollection,
+    aktionen_collection: AsyncCollection,
+    saison_id: str,
+    stamp: str,
+    # REQUIRED: the season's end judged in the same snapshot, so an activation since the caller's read keeps them.
+    session: AsyncClientSession,
+) -> int:
+    """At the season's end, every report's remarks and card reasons, on the reports and in their log images."""
+
+    await patch_many_in_db(
+        collection=spielberichte_collection,
+        db_filter=build_season_report_texts_filter(saison_id),
+        # Every card's reason by `$[]`: the cards stand.
+        update={"$set": {"bericht.bemerkungen": None, "bericht.karten.$[].grund": None}},
+        session=session,
+    )
+
+    return await redact_images_in_session(
+        aktionen_collection=aktionen_collection,
+        db_filter=build_season_report_images_filter(saison_id),
+        judge=lambda image: season_end_report_image_edits(image, saison_id),
+        stamp=stamp,
+        session=session,
+    )
 
 
 async def repoint_referee_reports_in_session(

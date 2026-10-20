@@ -146,12 +146,13 @@ CALLERS: dict[str, frozenset[str]] = {
     "anchor_the_actors_grant": frozenset({"app/core/security.py :: judging_the_administrator"}),
     # The season-after deletion pass, one pupil a transaction.
     "erase_if_still_due": frozenset({"app/api/identitaet/sweep_router.py :: erase_the_pupil_if_still_due"}),
-    # The application sweep's three steps the season-after rule ends, each transaction judging the season again.
+    # The application sweep's four steps the season-after rule ends, each transaction judging the season again.
     "pull_the_season_after": frozenset(
         {
             "app/api/bewerbungen/sweep_router.py :: erase_accepted",
             "app/api/bewerbungen/sweep_router.py :: clear_the_blocks",
             "app/api/bewerbungen/sweep_router.py :: strip_the_confirmations",
+            "app/api/bewerbungen/sweep_router.py :: strip_the_reports",
         }
     ),
     # The confirmation pass's mint, which reads the seats it mints links for off season rows every seat write writes.

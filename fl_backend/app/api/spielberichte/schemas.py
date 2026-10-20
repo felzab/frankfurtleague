@@ -77,11 +77,19 @@ class FLSpielberichtTorschuetze(BaseModel):
 
 
 class FLSpielberichtKarte(BaseModel):
+    """One card as stored, its reason null on a red card and on every card once its season's end strips the reasons."""
+
     seite: FLSpielberichtSeite
     spieler_id: CustomObjectId
     minute: CustomSpielberichtMinute
     farbe: FLKartenFarbe
     grund: FLKartenGrund | None
+
+
+class FLSpielberichtKartePayload(FLSpielberichtKarte):
+    """One card as a write sends it."""
+
+    model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
     def a_caution_names_its_reason(self) -> Self:
@@ -150,7 +158,7 @@ class FLSpielberichtBerichtPayload(BaseModel):
 
     ergebnis_vorschlag: FLSpielberichtVorschlag
     torschuetzen: Annotated[list[FLSpielberichtTorschuetze], Field(max_length=SPIELBERICHT_EINTRAEGE_MAX)]
-    karten: Annotated[list[FLSpielberichtKarte], Field(max_length=SPIELBERICHT_EINTRAEGE_MAX)]
+    karten: Annotated[list[FLSpielberichtKartePayload], Field(max_length=SPIELBERICHT_EINTRAEGE_MAX)]
     bemerkungen: Annotated[CustomSpielberichtBemerkungen | None, BeforeValidator(parse_empty_string_to_none)]
 
     @model_validator(mode="after")

@@ -313,6 +313,7 @@ async def clear_the_blocks(database: AsyncDatabase, client: AsyncMongoClient) ->
         teams_collection=database[Collection.TEAMS],
         aktionen_collection=database[Collection.AKTIONEN],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,

@@ -398,6 +398,42 @@ def compose_bericht_update(payload: FLSpielberichtBerichtPayload, *, now: dateti
     }
 
 
+# --- The SEASON'S END: the remarks and every card's reason, on the reports and in their log images; the scorers, the
+# cards and the proposed result stand as the league's record of the match.
+
+
+def build_season_report_texts_filter(saison_id: str) -> Mapping[str, Any]:
+    """This season's reports still holding remarks or a card's reason, so a season stripped already is written nothing."""
+
+    # `$type` and never `$ne: null`, which a list of cards matches only where no card holds a null reason.
+    return {"saison_id": saison_id, "$or": [{"bericht.bemerkungen": {"$type": "string"}}, {"bericht.karten.grund": {"$type": "string"}}]}
+
+
+def build_season_report_images_filter(saison_id: str) -> Mapping[str, Any]:
+    """Every `spielberichte` log row whose image of this season's report holds remarks or a card's reason."""
+
+    return {
+        "collection": str(Collection.SPIELBERICHTE),
+        "before.saison_id": saison_id,
+        "$or": [{"before.bericht.bemerkungen": {"$type": "string"}}, {"before.bericht.karten.grund": {"$type": "string"}}],
+    }
+
+
+def season_end_report_image_edits(image: Mapping[str, Any], saison_id: str) -> dict[str, None]:
+    """One image of this season's report stripped as the report is: its remarks and every card's reason."""
+
+    bericht = image.get("bericht")
+    if image.get("saison_id") != saison_id or not isinstance(bericht, Mapping):
+        return {}
+
+    edits: dict[str, None] = {"bericht.bemerkungen": None} if bericht.get("bemerkungen") is not None else {}
+    for index, karte in enumerate(bericht.get("karten") or []):
+        if isinstance(karte, Mapping) and karte.get("grund") is not None:
+            edits[f"bericht.karten.{index}.grund"] = None
+
+    return edits
+
+
 # --- The REFEREE'S ERASURE: the reports they sent, and the log images of them.
 
 

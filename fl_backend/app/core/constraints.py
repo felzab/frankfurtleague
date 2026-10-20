@@ -11,7 +11,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.schemas import NumberOfGroups, QualifiersPerGroup, TeamsPerGroup
-from app.api.spielberichte.schemas import CustomSpielberichtMinute, FLSpielberichtKarte
+from app.api.spielberichte.schemas import CustomSpielberichtMinute
 from app.api.spiele.schemas import FLSpielElfmeterschiessen
 from app.api.spieler.schemas import FLSpielerStufe
 from app.core.collections import Collection
@@ -2145,8 +2145,6 @@ _STUFEN = TypeAdapter(Annotated[list[FLSpielerStufe], Field(min_length=1)])
 # The model whole: its validator refuses a level shoot-out, which no bound on either count states.
 _SHOOTOUT_OR_NULL = TypeAdapter(FLSpielElfmeterschiessen | None)
 _MINUTE = TypeAdapter(CustomSpielberichtMinute)
-# The list whole, for the shoot-out's reason: a card's own validator refuses a caution without its reason.
-_KARTEN = TypeAdapter(list[FLSpielberichtKarte])
 
 # A validator holds types and enums alone (`.claude/rules/backend.md` db), so a hand edit can store an
 # empty name or a day no calendar holds, and a list serving that row answers 500 for every row
@@ -2331,7 +2329,6 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "bericht.ergebnis_vorschlag.elfmeterschiessen.team1": _COUNT,
         "bericht.ergebnis_vorschlag.elfmeterschiessen.team2": _COUNT,
         "bericht.torschuetzen.minute": _MINUTE,
-        "bericht.karten": _KARTEN,
         "bericht.karten.minute": _MINUTE,
         "bericht.bemerkungen": _NON_EMPTY_OR_NULL,
     },

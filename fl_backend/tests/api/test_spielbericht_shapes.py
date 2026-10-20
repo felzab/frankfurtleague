@@ -9,6 +9,7 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
     FLSpielberichtKarte,
+    FLSpielberichtKartePayload,
     FLSpielberichtVonSchiedsrichter,
 )
 from app.api.spielberichte.services import (
@@ -106,10 +107,19 @@ class TestAYellowCardCarriesItsReason:
     @pytest.mark.parametrize("farbe", ["gelb", "gelb_rot"])
     def test_a_caution_without_a_reason_is_refused(self, farbe: str):
         with pytest.raises(ValidationError, match="Grund"):
-            FLSpielberichtKarte.model_validate({"seite": "team1", "spieler_id": LIVE1, "minute": "12", "farbe": farbe, "grund": None})
+            FLSpielberichtKartePayload.model_validate({"seite": "team1", "spieler_id": LIVE1, "minute": "12", "farbe": farbe, "grund": None})
 
     def test_a_red_card_may_stand_without_one(self):
-        karte = FLSpielberichtKarte.model_validate({"seite": "team1", "spieler_id": LIVE1, "minute": "90+2", "farbe": "rot", "grund": None})
+        karte = FLSpielberichtKartePayload.model_validate(
+            {"seite": "team1", "spieler_id": LIVE1, "minute": "90+2", "farbe": "rot", "grund": None}
+        )
+
+        assert karte.grund is None
+
+    def test_a_stored_caution_reads_without_one(self):
+        """A season's end strips every card's reason, and the reads serve the report after it."""
+
+        karte = FLSpielberichtKarte.model_validate({"seite": "team1", "spieler_id": LIVE1, "minute": "12", "farbe": "gelb", "grund": None})
 
         assert karte.grund is None
 

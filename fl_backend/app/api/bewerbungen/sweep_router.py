@@ -47,6 +47,7 @@ from app.api.bewerbungen.services import (
 from app.api.kontakte.services import contact_block_image_edits
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.api.spielberichte.crud import strip_the_seasons_reports
 from app.api.spielbestaetigungen.crud import strip_the_seasons_confirmations
 from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.teams.crud import pull_team_names, void_moved_seats
@@ -60,6 +61,7 @@ from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
     SaisonTeamsCollection,
+    SpielberichteCollection,
     SpielbestaetigungenCollection,
     TeamsCollection,
     get_german_date_str,
@@ -79,14 +81,14 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Both shares at three commands a row beside the 75 of the worst call erasing one page per clock
+# Both shares at three commands a row beside the worst call's other 80
 # (`tests/api/test_bewerbung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
-# 267 commands at a 36 ms round trip plus 1.38 ms take 9.98 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
+# 263 commands at 36 ms plus 1.38 ms take 9.83 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`, a row and a command short.
 REMINDERS_PER_PASS: Final = 39
 
-# A season at its rules' capacity takes more passes. Below the reminders': the season's end strip writes once per set
-# of fields its images hold and once per list image, and 26 would make 270, 10.09 s.
-BLOCKS_CLEARED_PER_PASS: Final = 25
+# Below the reminders', which owe a deadline a block's deletion does not: a season at capacity takes more passes, and
+# the season's end strips write per image edit set, so 24 would make 269, 10.06 s.
+BLOCKS_CLEARED_PER_PASS: Final = 22
 
 
 async def _redact(
@@ -193,6 +195,7 @@ async def sweep_saison(
     teams_collection: TeamsCollection,
     aktionen_collection: AktionenCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    spielberichte_collection: SpielberichteCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -232,11 +235,11 @@ async def sweep_saison(
     season-after rule stops keeping this season's pupils: a running season keeps both, and a later season planned and never run
     holds neither back. A season whose id is not a four-digit year fails the whole pass rather than running the four clocks
     that need no later season, because a pass that skipped those two quietly would leave both stopped for ever with nothing
-    anywhere saying so. From that moment every pass also strips the season's fixture confirmation rows, referees' too, on
-    the rows and in their log images, of what is left on them: every seat's link entry, each reason whoever gave it, and a
-    contact's holder digest; which way each answer went, its day and the answering role stay as the season's record. The strip is a
-    transaction of its own after the blocks' share: one that fails is logged under the season's id and counted in
-    `fehlgeschlagen`, and the blocks clear all the same.
+    anywhere saying so. From that moment every pass also strips, on the rows and in their log images, the season's fixture
+    confirmation rows of every seat's link entry, each reason and a contact's holder digest, and its match
+    reports of their remarks and every card's reason; the answers' way, day and role and the reports' scorers, cards and
+    result stay as the record. Each strip is its own transaction after the blocks' share: one that fails is
+    logged under the season's id and counted in `fehlgeschlagen`, and the blocks clear all the same.
 
     One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
     answers it. So a day's first call records the day and the rest of that day's calls record nothing.
@@ -535,6 +538,23 @@ async def sweep_saison(
             session=session,
         )
 
+    async def strip_the_reports(session: AsyncClientSession, batch: Batch) -> int:
+        """The season-and-one clock's report part, a transaction apart from the confirmations' strip, for that strip's reason."""
+
+        if not season_after_has_ended(
+            later_saison_status=await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
+        ):
+            return 0
+        batch.took([{"_id": saison_id}])
+
+        return await strip_the_seasons_reports(
+            spielberichte_collection=spielberichte_collection,
+            aktionen_collection=aktionen_collection,
+            saison_id=saison_id,
+            stamp=stamp,
+            session=session,
+        )
+
     # Every transaction before the LAST, which is the reminder's: what that one hands back is owed a
     # message, and a failure after it would answer this request with an error instead
     # (`docs/backend/spec.md :: I323`).
@@ -594,6 +614,17 @@ async def sweep_saison(
                 owes=False,
                 what="Season",
                 clock="confirmation strip",
+            )
+            fehlgeschlagen += len(passed)
+
+            _, passed = await run_isolated(
+                db=db,
+                batch=Batch(),
+                attempt=lambda session, batch: session.with_transaction(strip_the_reports, batch),
+                moved=lambda _: 0,
+                owes=False,
+                what="Season",
+                clock="report strip",
             )
             fehlgeschlagen += len(passed)
         geleert = sum(blocks for blocks, _ in cleared)
