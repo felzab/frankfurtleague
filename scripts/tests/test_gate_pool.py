@@ -574,6 +574,23 @@ def test_a_stalled_pytest_case_s_stack_reaches_the_notice_through_its_worker(sou
     assert stalled in carried, result.stderr
 
 
+# A dump as Linux writes one, each thread header carrying its name in brackets, its stalled frame
+# under a stack too deep for a notice's tail.
+NAMED_DUMP: Final[tuple[str, ...]] = (
+    "lines = ['collecting', 'Timeout (0:00:01)!']",
+    "lines += ['Thread 0x00007f00aa [python] (most recent call first):', '  File \"x.py\", line 1 in other']",
+    "lines += ['Current thread 0x00007f00bb [python] (most recent call first):', '  File \"t.py\", line 8 in waits_for_release']",
+    "lines += ['  File \"t.py\", line 12 in descends'] * 150 + ['', 'after the dump']",
+    "assert any('waits_for_release' in line for line in gate_pool.shown(lines)), 'the stalled frame was cut'",
+)
+
+
+def test_a_named_thread_s_stalled_frame_survives_the_notice_s_tail(tmp_path: Path) -> None:
+    """Only Linux names its threads, so without this case the bracketed header is held by the CI deep case alone."""
+    result = _drive(NAMED_DUMP, tmp_path)
+    assert result.returncode == 0, result.stderr
+
+
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 # A `do_<check>` body's opening, whichever shape `scripts/tests/conftest.py :: lift_function` reads.
 BODY_RE: Final = re.compile(r"^(do_\w+)\(\) +\{", re.MULTILINE)
