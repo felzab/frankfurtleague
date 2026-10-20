@@ -140,6 +140,8 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 # Which levels this season offers — a subset of the league's set.
                 "erlaubte_stufen": ["E1", "E2", "Q1", "Q2", "Q3", "Q4"],
             },
+            "bewerbung": None,
+            "registrierung": None,
         },
         "teams": {
             "_id": TEAM_OID,
@@ -149,11 +151,21 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "full_name": "Lessing-Gymnasium",
             "website_url": "https://lessing-gymnasium.example.de",
             "address": dict(ADDRESS),
+            "schulform": None,
             "inactive_since": None,
         },
         # `name` and `shorthand` are the season's own copy of the club's identity, required since the
         # junction became their home; a row without them is unreadable rather than merely stale.
-        "saison_teams": {"saison_id": SAISON_ID, "team_id": TEAM_OID, "gruppe": "A", "austritt": None, "name": "Lessing", "shorthand": "LE"},
+        "saison_teams": {
+            "saison_id": SAISON_ID,
+            "team_id": TEAM_OID,
+            "gruppe": "A",
+            "austritt": None,
+            "trikot_farbe": None,
+            "kontakte": None,
+            "name": "Lessing",
+            "shorthand": "LE",
+        },
         "spieler": spieler_document(SPIELER_OID, "Max", "Mustermann"),
         "saison_spieler": {
             "spieler_id": SPIELER_OID,
