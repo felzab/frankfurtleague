@@ -1163,20 +1163,27 @@ class TestWhatTheAdministratorsReadServes:
         assert not [path for document in loaded for path in leaf_paths(document) if path.rsplit(".", 1)[-1] in ADMIN_READ_WITHHOLDS]
         assert [row.id for row in one_fixture.spielbestaetigungen] == [NEIGHBOURS_ROW]
 
-    def test_a_season_holding_more_rows_than_one_read_serves_says_so(self, mongo_replica_set_url: str):
-        """Cut in silence, a full season's newest rows would read as the whole of it. The page is the caller's, so two of three rows cut it."""
+    def test_a_season_holding_more_rows_than_one_read_serves_says_so_and_keeps_every_open_one(self, mongo_replica_set_url: str):
+        """Cut by age alone, the read would drop the overdue row first, the oldest still open.
+
+        Cut in silence, a full season's newest rows would read as the whole of it. The page is the caller's, so two of
+        three closed rows cut it.
+        """
 
         closed = {"geschlossen": {"am": TODAY, "grund": "ansetzung_geaendert"}}
-        rows = [confirmation(ObjectId(f"6890a1b2c3d4e5f6{index:08x}"), TEAM1, hashes={}, **closed) for index in range(3)]
+        overdue = {**confirmation(ObjectId("6890a1b2c3d4e5f600000000"), TEAM2, hashes={}), "frist": "2027-04-30"}
+        rows = [overdue, *(confirmation(ObjectId(f"6890a1b2c3d4e5f6{index:08x}"), TEAM1, hashes={}, **closed) for index in range(1, 4))]
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> FLSpielbestaetigungenListResponse:
             return await lesen(database, limit=2)
 
         served = on_a_fixture(mongo_replica_set_url, body, rows=rows)
 
-        assert (len(served.spielbestaetigungen), served.vollstaendig, served.spiel_sweep_gelaufen_am) == (2, False, None)
-        # The oldest is the one left out.
-        assert rows[0]["_id"] not in {row.id for row in served.spielbestaetigungen}
+        assert ([row.id for row in served.spielbestaetigungen], served.vollstaendig, served.spiel_sweep_gelaufen_am) == (
+            [rows[3]["_id"], rows[2]["_id"], overdue["_id"]],
+            False,
+            None,
+        )
 
 
 DECLINE = {
