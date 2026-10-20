@@ -92,15 +92,7 @@ def person_row(vorname: str) -> dict[str, Any]:
         # Surname derived from the given name, so one sweep of a whole database still tells two apart.
         f"{vorname}-Mustermann",
         email=f"{vorname.lower()}@example.com",
-        einwilligung={
-            "umfang": "kader_oeffentlich",
-            "erteilt_von": "erziehungsberechtigt",
-            "datum": TODAY,
-            "bestaetigt_am": TODAY,
-            "medien": False,
-            "text_version": None,
-        },
-        geburtsdatum=None,
+        geburtsdatum="2009-05-09",
     )
 
 

@@ -52,6 +52,7 @@ from app.core.constraints import (
 )
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH
+from tests.documents import eigene_einwilligung_document
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -68,14 +69,7 @@ AM = "2026-04-01T08:00:00+00:00"
 def einwilligung(**overrides: Any) -> dict[str, Any]:
     """One consent record as a pupil's own press leaves it."""
 
-    return {
-        "umfang": "kader_oeffentlich",
-        "datum": YESTERDAY,
-        "bestaetigt_am": YESTERDAY,
-        "text_version": A_LABEL,
-        "medien": False,
-        **overrides,
-    }
+    return {**eigene_einwilligung_document(text_version=A_LABEL, bestaetigt_am=YESTERDAY), **overrides}
 
 
 def registrierung(**overrides: Any) -> dict[str, Any]:
@@ -377,7 +371,6 @@ class TestWhichPageTheLinkOpens:
             pytest.param({**PERSON, "inactive_since": "2025-07-01"}, SEITE_WIEDERKEHREND, id="that person retired"),
             pytest.param({**PERSON, "geburtsdatum": None}, SEITE_WIEDERKEHREND, id="that person with no stored birthdate"),
             pytest.param({**PERSON, "vorname": "Bramblewick"}, SEITE_NEU, id="another name at the address, a sibling"),
-            pytest.param({**PERSON, "einwilligung": einwilligung(bestaetigt_am=None)}, SEITE_NEU, id="a record nobody confirmed"),
             pytest.param({**PERSON, "einwilligung": einwilligung(bestaetigt_am="")}, SEITE_NEU, id="a record stamped with an empty string"),
         ],
     )

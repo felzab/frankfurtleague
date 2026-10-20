@@ -174,8 +174,8 @@ async def _seed(database: AsyncDatabase) -> None:
             pupil(YOUNG_OID, "Jonas", "Jungspund", YOUNG, geburtsdatum=SEVENTEEN_BIRTHDATE),
             pupil(UNDATED_OID, "Uta", "Ungeboren", UNDATED, geburtsdatum=None),
             pupil(RETIRED_OID, "Rudolf", "Ruhestand", RETIRED, inactive_since="2026-07-01", einwilligung=_einwilligung(medien=True)),
-            # Awaiting its confirmation, so nobody has answered it and it carries no evidence.
-            pupil(UNCONFIRMED_OID, "Ottilie", "Wartezeit", UNCONFIRMED, einwilligung={**_block(_einwilligung()), "bestaetigt_am": None}),
+            # A record is born confirmed, so the unconfirmed one is a stamp a hand edit blanked.
+            pupil(UNCONFIRMED_OID, "Ottilie", "Wartezeit", UNCONFIRMED, einwilligung={**_einwilligung(), "bestaetigt_am": ""}),
             pupil(BYSTANDER_OID, "Baldur", "Krautzberger", BYSTANDER),
         ]
     )

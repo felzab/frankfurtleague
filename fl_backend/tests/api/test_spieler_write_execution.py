@@ -18,7 +18,7 @@ from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPatchSpielerP
 from app.api.spieler.services import SQUAD_FULL, SQUAD_ROLLE_TAKEN, SQUAD_TEAM_NOT_IN_SAISON
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import rules_document, saison_document, saison_spieler_document, saison_team_document, spieler_document
+from tests.documents import EINWILLIGUNG, rules_document, saison_document, saison_spieler_document, saison_team_document, spieler_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -53,27 +53,9 @@ def spieler_id_for(index: int) -> ObjectId:
 
 
 def person_row(*, spieler_number: int, geburtsdatum: str | None = None) -> dict[str, Any]:
-    """A pupil as one was stored BEFORE the registration flow existed, which is the shape production holds.
+    """A pupil as their admission wrote them, seeded rather than admitted: the admission needs a registration."""
 
-    Seeded rather than written: no endpoint creates a person, and no writer composes a guardian's word.
-    """
-
-    return spieler_document(
-        spieler_id_for(spieler_number),
-        "Max",
-        "Mustermann",
-        # The guardian's word a stored row carries, which nobody gave: the two cases below watch a
-        # later write leave it alone.
-        einwilligung={
-            "umfang": "kader_oeffentlich",
-            "erteilt_von": "erziehungsberechtigt",
-            "datum": TODAY,
-            "bestaetigt_am": TODAY,
-            "medien": False,
-            "text_version": None,
-        },
-        geburtsdatum=geburtsdatum,
-    )
+    return spieler_document(spieler_id_for(spieler_number), "Max", "Mustermann", geburtsdatum=geburtsdatum)
 
 
 def squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | None = None, rolle: str | None = None) -> dict[str, Any]:
@@ -191,8 +173,7 @@ class TestTheConsentRecordSurvivesTheOneWriteThatCouldReachIt:
         stored = on_a_database(mongo_replica_set_url, body)
 
         assert stored["vorname"] == "Maximilian"
-        assert stored["einwilligung"]["erteilt_von"] == "erziehungsberechtigt"
-        assert stored["einwilligung"]["bestaetigt_am"] == TODAY
+        assert stored["einwilligung"] == EINWILLIGUNG
 
 
 class TestThePersonsBirthdate:
@@ -224,7 +205,7 @@ class TestThePersonsBirthdate:
                 "_id": spieler_id_for(spieler_number),
                 "vorname": "Max",
                 "nachname": "Mustermann",
-                "einwilligung": {"umfang": "kader_oeffentlich", "erteilt_von": "bestandsuebernahme", "datum": None, "bestaetigt_am": None},
+                "einwilligung": dict(EINWILLIGUNG),
                 "inactive_since": None,
                 "geburtsdatum": geburtsdatum,
             }

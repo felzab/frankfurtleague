@@ -64,14 +64,13 @@ RUHESTAND_PFEIFE = "ruhestand.pfeife@schule.de"
 RUHESTAND_OFFEN = "ruhestand.offen@schule.de"
 PFEIFE_OHNE_RECORD = "pfeife.ohne@schule.de"
 PFEIFE_NULL_RECORD = "pfeife.null@schule.de"
-PFEIFE_NULL_STEMPEL = "pfeife.offen@schule.de"
 GEIST = "geist@schule.de"
 NIEMAND = "niemand.hierverzeichnet@example.com"
-# Stamped with an empty string, which the validator admits from a hand edit: one mailbox per kind.
+# Stamped with an empty string, which the validator admits from a hand edit: one mailbox per kind. A
+# pupil's record is born confirmed, so a blank stamp is the one unconfirmed pupil the corpus holds.
 LEER_SITZ = "leer.sitz@schule.de"
 LEER_SPIELER = "leer.spieler@schule.de"
 LEER_PFEIFE = "leer.pfeife@schule.de"
-NUR_SPIELER_OFFEN = "nur.spieler.offen@schule.de"
 # A confirmed seat on a `past` season beside an unconfirmed one on the `active` season, and an
 # unconfirmed `past` seat alone: the flag is judged over what could grant a panel.
 VERGANGEN_UND_OFFEN = "vergangen.und.offen@schule.de"
@@ -90,13 +89,11 @@ PUPIL_GEMISCHT_OID = ObjectId("6890a1b2c3d4e5f607830022")
 PUPIL_EHEMALIG_OID = ObjectId("6890a1b2c3d4e5f607830023")
 PUPIL_RUHESTAND_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607830024")
 PUPIL_LEER_OID = ObjectId("6890a1b2c3d4e5f607830025")
-PUPIL_NUR_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607830026")
 REFEREE_UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607830031")
 REFEREE_GEMISCHT_OID = ObjectId("6890a1b2c3d4e5f607830032")
 REFEREE_RUHESTAND_OID = ObjectId("6890a1b2c3d4e5f607830033")
 REFEREE_OHNE_RECORD_OID = ObjectId("6890a1b2c3d4e5f607830034")
 REFEREE_NULL_RECORD_OID = ObjectId("6890a1b2c3d4e5f607830035")
-REFEREE_NULL_STEMPEL_OID = ObjectId("6890a1b2c3d4e5f607830036")
 REFEREE_LEER_OID = ObjectId("6890a1b2c3d4e5f607830037")
 
 KENNTNISNAHME: dict[str, Any] = {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-05"}
@@ -141,7 +138,7 @@ def _saison(saison_id: str, status: str) -> dict[str, Any]:
     )
 
 
-def _pupil(pupil_id: ObjectId, email: str, *, bestaetigt_am: str | None, inactive_since: str | None = None) -> dict[str, Any]:
+def _pupil(pupil_id: ObjectId, email: str, *, bestaetigt_am: str, inactive_since: str | None = None) -> dict[str, Any]:
     return spieler_document(
         pupil_id,
         "Anna",
@@ -166,7 +163,6 @@ def _referee(referee_id: ObjectId, email: str, name: str | None, **fields: Any) 
 
 
 CONFIRMED: dict[str, Any] = {**EINWILLIGUNG, "bestaetigt_am": STAMP}
-UNCONFIRMED: dict[str, Any] = {**EINWILLIGUNG, "bestaetigt_am": None}
 
 
 async def _seed(database: AsyncDatabase) -> None:
@@ -237,12 +233,11 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SPIELER].insert_many(
         [
-            _pupil(PUPIL_UNCONFIRMED_OID, NUR_OFFEN, bestaetigt_am=None),
-            _pupil(PUPIL_GEMISCHT_OID, GEMISCHT, bestaetigt_am=None),
+            _pupil(PUPIL_UNCONFIRMED_OID, NUR_OFFEN, bestaetigt_am=""),
+            _pupil(PUPIL_GEMISCHT_OID, GEMISCHT, bestaetigt_am=""),
             _pupil(PUPIL_EHEMALIG_OID, EHEMALIG, bestaetigt_am=STAMP, inactive_since="2026-03-01"),
-            _pupil(PUPIL_RUHESTAND_OFFEN_OID, RUHESTAND_OFFEN, bestaetigt_am=None, inactive_since="2026-03-01"),
+            _pupil(PUPIL_RUHESTAND_OFFEN_OID, RUHESTAND_OFFEN, bestaetigt_am="", inactive_since="2026-03-01"),
             _pupil(PUPIL_LEER_OID, LEER_SPIELER, bestaetigt_am=""),
-            _pupil(PUPIL_NUR_OFFEN_OID, NUR_SPIELER_OFFEN, bestaetigt_am=None),
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
@@ -252,7 +247,6 @@ async def _seed(database: AsyncDatabase) -> None:
             _referee(REFEREE_RUHESTAND_OID, RUHESTAND_PFEIFE, "C. Ruhestand", einwilligung=CONFIRMED, inactive_since="2026-03-01"),
             _referee(REFEREE_OHNE_RECORD_OID, PFEIFE_OHNE_RECORD, "D. Ohne"),
             _referee(REFEREE_NULL_RECORD_OID, PFEIFE_NULL_RECORD, "E. Null", einwilligung=None),
-            _referee(REFEREE_NULL_STEMPEL_OID, PFEIFE_NULL_STEMPEL, "F. Stempel", einwilligung=UNCONFIRMED),
             _referee(REFEREE_LEER_OID, LEER_PFEIFE, "G. Leer", einwilligung={**EINWILLIGUNG, "bestaetigt_am": ""}),
             # The ghost as no write leaves it -- an address, a stamp, not retired -- so that its id is
             # the one thing left keeping it out of every answer.
@@ -339,14 +333,6 @@ class TestTheConfirmationNarrowing:
         assert answer.sitze == []
         assert answer.unbestaetigt is True
 
-    def test_an_unconfirmed_pupil_alone_is_answered_nothing_and_flagged(self, seeded_league: str):
-        """The flag's pupil arm, with no seat or referee beside it to raise the flag instead."""
-
-        answer = answered(seeded_league, NUR_SPIELER_OFFEN)
-
-        assert is_empty(answer)
-        assert answer.unbestaetigt is True
-
     def test_a_confirmed_past_seat_beside_an_unconfirmed_active_one_is_flagged(self, seeded_league: str):
         """Kills a flag judged before the season narrowing: the past seat's stamp would hold it down while nothing is granted."""
 
@@ -373,11 +359,9 @@ class TestTheConfirmationNarrowing:
 
         assert [sitz.rolle for sitz in answered(seeded_league, ZUGLEICH).sitze] == ["trainer"]
 
-    @pytest.mark.parametrize(
-        "email", [PFEIFE_OHNE_RECORD, PFEIFE_NULL_RECORD, PFEIFE_NULL_STEMPEL], ids=["no record", "null record", "null stamp"]
-    )
+    @pytest.mark.parametrize("email", [PFEIFE_OHNE_RECORD, PFEIFE_NULL_RECORD], ids=["no record", "null record"])
     def test_an_unconfirmed_referee_grants_nothing(self, seeded_league: str, email: str):
-        """The three shapes a referee row holds before its person answers, each read as unconfirmed rather than raising."""
+        """The shapes a referee row holds before its person answers, each read as unconfirmed rather than raising."""
 
         answer = answered(seeded_league, email)
 
@@ -385,7 +369,10 @@ class TestTheConfirmationNarrowing:
 
     @pytest.mark.parametrize("email", [LEER_SITZ, LEER_SPIELER, LEER_PFEIFE], ids=["seat", "pupil", "referee"])
     def test_an_empty_stamp_grants_nothing(self, seeded_league: str, email: str):
-        """Kills a presence test: `""` is a string the validator admits, and the public name read already withholds on it."""
+        """Kills a presence test: `""` is a string the validator admits, and the public name read already withholds on it.
+
+        The pupil, alone in its mailbox, is the flag's pupil arm, with no seat or referee beside it to raise the flag instead.
+        """
 
         answer = answered(seeded_league, email)
 

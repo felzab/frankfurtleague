@@ -20,7 +20,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.schiedsrichter.schemas import FLAdresswechselSweepParams
-from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD, build_ghost_schiedsrichter, compose_einwilligung
+from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD, build_ghost_schiedsrichter
 from app.api.schiedsrichter.sweep_router import ADRESSWECHSEL_PER_PASS, sweep_adresswechsel
 from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_ghost_spieler
 from app.core.collections import Collection
@@ -82,7 +82,7 @@ def a_referee(position: int, *, minted: str | None, **fields: Any) -> dict[str, 
         email=on_file(position),
         name=f"Schiedsrichter {position}",
         default_payment=20,
-        einwilligung=compose_einwilligung(umfang="kader_oeffentlich", medien=False, text_version="v1", today="2026-03-01"),
+        einwilligung=documents.eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-01"),
         **wechsel,
         **fields,
     )

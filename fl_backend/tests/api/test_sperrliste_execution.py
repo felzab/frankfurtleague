@@ -20,7 +20,7 @@ from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ban_document, rules_document, saison_document
+from tests.documents import ban_document, rules_document, saison_document, spieler_document
 from tests.erasure import erased
 from tests.worker import worker_database
 
@@ -478,22 +478,7 @@ class TestAnErasureLeavesTheListStanding:
             # Seeded rather than admitted: this case needs a stored pupil at the barred address, not a
             # route that made one.
             await database[Collection.SPIELER].insert_one(
-                {
-                    "_id": ObjectId(),
-                    "vorname": "Zorbanax",
-                    "nachname": "Mustermann",
-                    "email": BANNED_RETYPED,
-                    "einwilligung": {
-                        "umfang": "kader_oeffentlich",
-                        "erteilt_von": "erziehungsberechtigt",
-                        "datum": TODAY,
-                        "bestaetigt_am": TODAY,
-                        "medien": False,
-                        "text_version": None,
-                    },
-                    "geburtsdatum": None,
-                    "inactive_since": None,
-                }
+                spieler_document(ObjectId(), "Zorbanax", "Mustermann", email=BANNED_RETYPED, geburtsdatum="2009-05-09")
             )
             gone = await erased(database, client, BANNED, germany_now=NOW)
 

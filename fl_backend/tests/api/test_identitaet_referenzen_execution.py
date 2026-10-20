@@ -173,7 +173,8 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
     await database[Collection.SPIELER].insert_many(
         [
             spieler_document(ObjectId(), "Anna", "Ehemalig", email=SPIELER_EHEMALIG, inactive_since="2026-03-01"),
-            spieler_document(ObjectId(), "Anna", "Offen", email=SPIELER_OFFEN, einwilligung={**EINWILLIGUNG, "bestaetigt_am": None}),
+            # A pupil's record is born confirmed, so a stamp a hand edit blanked is the unconfirmed pupil the gate meets.
+            spieler_document(ObjectId(), "Anna", "Offen", email=SPIELER_OFFEN, einwilligung={**EINWILLIGUNG, "bestaetigt_am": ""}),
             # The nameless, recordless sentinel as written, given an address by a hand edit: its id alone keeps it out.
             {**build_ghost_spieler(), "email": GEIST_SPIELER},
         ]

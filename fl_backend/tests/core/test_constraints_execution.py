@@ -40,6 +40,7 @@ from tests.documents import (
     spiel_document,
     spielbericht_document,
     spielbestaetigung_document,
+    spieler_document,
 )
 from tests.worker import worker_database
 
@@ -155,18 +156,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         # `name` and `shorthand` are the season's own copy of the club's identity, required since the
         # junction became their home; a row without them is unreadable rather than merely stale.
         "saison_teams": {"saison_id": SAISON_ID, "team_id": TEAM_OID, "gruppe": "A", "austritt": None, "name": "Lessing", "shorthand": "LE"},
-        "spieler": {
-            "_id": SPIELER_OID,
-            "vorname": "Max",
-            "nachname": "Mustermann",
-            "inactive_since": None,
-            "einwilligung": {
-                "umfang": "kader_oeffentlich",
-                "erteilt_von": "erziehungsberechtigt",
-                "datum": "2026-01-15",
-                "bestaetigt_am": "2026-01-20",
-            },
-        },
+        "spieler": spieler_document(SPIELER_OID, "Max", "Mustermann"),
         "saison_spieler": {
             "spieler_id": SPIELER_OID,
             "saison_id": SAISON_ID,

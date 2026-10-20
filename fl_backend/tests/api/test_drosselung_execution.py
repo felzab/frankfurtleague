@@ -37,12 +37,22 @@ from app.core.recording import AktorFunktion, PersonActor, actor_var
 from app.core.security import akteur_pseudonym
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
+from app.shared.einwilligung_nachweis import nachweis_stand_of
 from app.shared.folding import sign_in_identifier
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import saison_document, saison_spieler_document, saison_team_document, spieler_document, team_document
+from tests.documents import (
+    eigene_einwilligung_document,
+    kontaktperson_document,
+    saison_document,
+    saison_spieler_document,
+    saison_team_document,
+    schiedsrichter_document,
+    spieler_document,
+    team_document,
+)
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -102,50 +112,46 @@ SPIELBERICHT = {
 CEILING_LINE = "A person reached their daily write ceiling"
 
 
-def _consent(**fields: Any) -> dict[str, Any]:
-    """A record its own person confirmed, every choice granted, so a withdrawal moves something on each."""
+CONFIRMED_LABEL = "2026-01-bestaetigungsseite-1"
 
-    return {
-        "umfang": "kader_oeffentlich",
-        "erteilt_von": "volljaehrig",
-        "datum": "2026-02-01",
-        "bestaetigt_am": "2026-02-02",
-        "text_version": "2026-01-bestaetigungsseite-1",
-        "medien": True,
-        **fields,
-    }
+
+def _consent(*, medien: bool = True) -> dict[str, Any]:
+    """A record its own person confirmed, every choice `PERSON`'s is granted, so a withdrawal moves something on each."""
+
+    return eigene_einwilligung_document(text_version=CONFIRMED_LABEL, bestaetigt_am="2026-02-02", medien=medien)
 
 
 def _seat(email: str, *, geburtsdatum: str = ADULT_BIRTHDATE, medien: bool = True) -> dict[str, Any]:
-    return {
-        "vorname": "Anna",
-        "nachname": "Drossel",
-        "email": email,
-        "telefon": "+49 69 5550111",
-        "geburtsdatum": geburtsdatum,
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "person",
-            "text_version": "2026-01-bestaetigungsseite-1",
-            "datum": "2026-02-01",
-            "bestaetigt_am": "2026-02-02",
-            "medien": medien,
-        },
-    }
+    return kontaktperson_document(
+        "Anna",
+        bestaetigt_am="2026-02-02",
+        einwilligung={"text_version": CONFIRMED_LABEL, "medien": medien},
+        nachname="Drossel",
+        email=email,
+        telefon="+49 69 5550111",
+        geburtsdatum=geburtsdatum,
+    )
 
 
-def _referee(referee_id: ObjectId, name: str, email: str, geburtsdatum: str, **einwilligung: Any) -> dict[str, Any]:
+def _referee(referee_id: ObjectId, name: str, email: str, geburtsdatum: str, *, medien: bool = True) -> dict[str, Any]:
     # A name per referee: `uniq_schiedsrichter_name` indexes it.
-    return {
-        "_id": referee_id,
-        "name": name,
-        "schule": "Adler-Schule",
-        "default_payment": 20,
-        "kontakt": {"telefon": "+49 69 5550222", "email": email},
-        "inactive_since": None,
-        "geburtsdatum": geburtsdatum,
-        "einwilligung": _consent(**einwilligung),
-    }
+    return schiedsrichter_document(
+        referee_id,
+        email=email,
+        name=name,
+        default_payment=20,
+        einwilligung=_consent(medien=medien),
+        schule="Adler-Schule",
+        kontakt={"telefon": "+49 69 5550222", "email": email},
+        geburtsdatum=geburtsdatum,
+    )
+
+
+# The stand a page served each seeded record echoes: `PERSON`'s granting media, `YOUNG`'s withholding it.
+PERSON_STAND = nachweis_stand_of(bloecke=[_consent()])
+YOUNG_STAND = nachweis_stand_of(bloecke=[_consent(medien=False)])
+PERSON_SEAT_STAND = nachweis_stand_of(bloecke=[_seat(PERSON)["einwilligung"]])
+YOUNG_SEAT_STAND = nachweis_stand_of(bloecke=[_seat(YOUNG, geburtsdatum=YOUNG_BIRTHDATE, medien=False)["einwilligung"]])
 
 
 async def _seed(database: AsyncDatabase) -> None:
@@ -442,9 +448,10 @@ class Consent:
     funktion: AktorFunktion
     path: str
     seite: Seite
-    # The choices a press names beside `medien`, unmoved, and the evidence a page served the seeded record echoes.
+    # The choices a press names beside `medien`, unmoved, and the evidence a page served each seeded record echoes.
     beside: Mapping[str, Any]
     stand: Mapping[str, Any]
+    young_stand: Mapping[str, Any]
     # The dependency handing the handler the collection its press writes.
     collection: Callable[..., Awaitable[AsyncCollection]]
     # The same operation naming `YOUNG`'s own record.
@@ -464,7 +471,8 @@ SPIELER = Consent(
     f"{API}/spieler/selbst/einwilligung",
     KONTO_SEITE_SPIELER,
     {"umfang": "kader_oeffentlich"},
-    {"umfang": None, "medien": None},
+    PERSON_STAND,
+    YOUNG_STAND,
     get_spieler_collection,
     f"{API}/spieler/selbst/einwilligung",
 )
@@ -476,7 +484,8 @@ CONSENTS = [
             f"{API}/schiedsrichter/selbst/{REFEREE}/einwilligung",
             KONTO_SEITE_SCHIEDSRICHTER,
             {"umfang": "kader_oeffentlich"},
-            {"umfang": None, "medien": None},
+            PERSON_STAND,
+            YOUNG_STAND,
             get_schiedsrichter_collection,
             f"{API}/schiedsrichter/selbst/{YOUNG_REFEREE}/einwilligung",
         ),
@@ -488,7 +497,8 @@ CONSENTS = [
             f"{API}/teams/{TEAM_A}/saisons/{ACTIVE_SAISON}/person/einwilligung",
             KONTO_SEITE_KONTAKT,
             {"umfang": "kontaktdaten"},
-            {"umfang": None, "medien": None},
+            PERSON_SEAT_STAND,
+            YOUNG_SEAT_STAND,
             get_saison_teams_collection,
             f"{API}/teams/{TEAM_A}/saisons/{ACTIVE_SAISON}/person/einwilligung",
         ),
@@ -594,14 +604,16 @@ class TestAConsentPress:
 # Each a grant `YOUNG` presses that another rule refuses, and the code that rule answers.
 REFUSED_GRANTS = [
     pytest.param(
-        lambda consent: {**consent.press(True), "nachweis_stand": {**consent.stand, "medien": "2026-03-01T10:00:00+00:00"}},
+        lambda consent: {**consent.press(True), "nachweis_stand": {**consent.young_stand, "medien": "2026-03-01T10:00:00+00:00"}},
         (409, EINWILLIGUNG_STAND_VERALTET),
         id="a stale page",
     ),
     pytest.param(
-        lambda consent: {**consent.press(True), "text_version": "2000-01-unbekannt"}, (409, FASSUNG_UNZULAESSIG), id="an unknown label"
+        lambda consent: {**consent.press(True, consent.young_stand), "text_version": "2000-01-unbekannt"},
+        (409, FASSUNG_UNZULAESSIG),
+        id="an unknown label",
     ),
-    pytest.param(lambda consent: consent.press(True), (422, SELBST_MEDIEN_ALTER), id="under the media age"),
+    pytest.param(lambda consent: consent.press(True, consent.young_stand), (422, SELBST_MEDIEN_ALTER), id="under the media age"),
 ]
 
 

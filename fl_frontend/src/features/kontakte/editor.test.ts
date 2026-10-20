@@ -98,7 +98,17 @@ const ADA: FLKontaktperson = {
   email: "ada@example.org",
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
-  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
+  einwilligung: kenntnisnahme({
+    erfasst_von: "person",
+    text_version: "1",
+    datum: "2026-03-12",
+    bestaetigt_am: "2026-03-14",
+    // Both choices as the seat's own confirmation evidences them.
+    nachweis: {
+      umfang: { am: "2026-03-14T09:00:00Z", text_version: "1", erteilt_zuvor: null },
+      medien: { am: "2026-03-14T09:00:00Z", text_version: "1", erteilt_zuvor: null },
+    },
+  }),
 };
 
 /** One list seat. `person: null` is what an erasure leaves, which is the state these cases are about. */
@@ -1276,7 +1286,7 @@ describe("the contact person's own two choices", () => {
         umfang: "kontaktdaten_whatsapp",
         medien: false,
         nachweis: {
-          umfang: null,
+          ...ADA.einwilligung.nachweis,
           medien: {
             am: "2026-10-04T08:00:00Z",
             text_version: "2026-10-konto-kontakt",
@@ -1309,7 +1319,7 @@ describe("the contact person's own two choices", () => {
       new RegExp(`>${EINWILLIGUNG_MEDIEN_FRAGE}<[\\s\\S]*?value="${EINWILLIGUNG_MEDIEN_LABELS.erteilt}"`).test(html),
       "a given media consent reads otherwise",
     );
-    assert.ok(html.includes("seit der Bestätigung am 14.03.2026, Fassung 1"), "a choice never moved does not stand on its confirmation");
+    assert.ok(html.includes("seit 14.03.2026, 10:00 Uhr, Fassung 1"), "a choice never moved does not stand on its confirmation's act");
   });
 });
 

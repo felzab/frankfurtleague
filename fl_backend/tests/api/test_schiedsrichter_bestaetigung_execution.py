@@ -824,9 +824,7 @@ class TestTheConfirmation:
 
 # A record a hand edit stamped `""`: every key the validator requires, which admits a string there.
 EMPTY_STAMPED: Mapping[str, Any] = {
-    "umfang": "intern",
-    "erteilt_von": "volljaehrig",
-    "datum": "2026-03-01",
+    **documents.eigene_einwilligung_document(text_version="2026-09-schiedsrichterseite", bestaetigt_am="2026-03-01", umfang="intern"),
     "bestaetigt_am": "",
 }
 

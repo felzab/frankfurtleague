@@ -90,15 +90,11 @@ def team_document(team_id: ObjectId, name: str, full_name: str) -> dict[str, Any
 
 
 def einwilligung(**overrides: Any) -> dict[str, Any]:
-    return {
-        "umfang": "intern",
-        "erteilt_von": "volljaehrig",
-        "datum": "2025-09-02",
-        "bestaetigt_am": "2025-09-02",
-        "text_version": AN_OLDER_LABEL,
-        "medien": True,
-        **overrides,
-    }
+    """The returning pupil's record as their own confirmation of an earlier season left it."""
+
+    stored = documents.eigene_einwilligung_document(text_version=AN_OLDER_LABEL, bestaetigt_am="2025-09-02", umfang="intern", medien=True)
+
+    return {**stored, **overrides}
 
 
 def spieler_document(spieler_id: ObjectId, **overrides: Any) -> dict[str, Any]:
@@ -259,9 +255,9 @@ class TestWhatALinkOpens:
         assert (response.seite, response.geburtsdatum_gespeichert) == (SEITE_WIEDERKEHREND, False)
 
     def test_a_record_nobody_confirmed_makes_no_returning_pupil(self, mongo_replica_set_url: str):
-        """The returning page says the choices stand as the pupil gave them; an unconfirmed record holds choices nobody gave."""
+        """The returning page says the choices stand as the pupil gave them; a stamp a hand edit blanked holds choices nobody gave."""
 
-        unconfirmed = spieler_document(SPIELER_OID, einwilligung=einwilligung(bestaetigt_am=None))
+        unconfirmed = spieler_document(SPIELER_OID, einwilligung=einwilligung(bestaetigt_am=""))
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[unconfirmed])
 
@@ -483,7 +479,7 @@ class TestTheLabelAPressNames:
         [
             pytest.param([spieler_document(SPIELER_OID)], THIS_SEASONS_LABEL, {}, id="new page shown, the person confirmed since"),
             pytest.param(
-                [spieler_document(SPIELER_OID, einwilligung=einwilligung(bestaetigt_am=None))],
+                [spieler_document(SPIELER_OID, einwilligung=einwilligung(bestaetigt_am=""))],
                 RETURNING_LABEL,
                 {"umfang": None, "medien": None},
                 id="returning page shown, the record unconfirmed since",

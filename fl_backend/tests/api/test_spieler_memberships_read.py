@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from pymongo.database import Database
 
 from app.api.spieler.schemas import (
+    FLEinwilligung,
     FLPatchSaisonSpielerPayload,
     FLPatchSpielerPayload,
     FLPostSaisonSpielerPayload,
@@ -19,7 +20,7 @@ from app.api.spieler.schemas import (
 )
 from app.api.spieler.services import build_real_spieler_filter, build_spieler_memberships_pipeline, build_spieler_pipeline
 from app.shared.folding import sign_in_identifier
-from tests.documents import saison_spieler_document, spieler_document
+from tests.documents import eigene_einwilligung_document, saison_spieler_document, spieler_document
 
 SAISON = "2026"
 PRIOR_SAISON = "2025"
@@ -324,20 +325,12 @@ class TestTheAddressASignedInPersonIsJoinedOn:
         assert_rejects(FLPatchSpielerPayload, {**names, "email": STORED_ADDRESS}, "email")
 
 
+# Passed rather than defaulted: `test_the_consent_record_reaches_this_read_whole` reads it back.
+EINWILLIGUNG = eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-01-20")
+
+
 def _spieler(name: str, *, inactive_since: str | None = None) -> dict[str, Any]:
-    # The consent record passed rather than defaulted: `test_the_consent_record_reaches_this_read_whole` reads all four fields.
-    return spieler_document(
-        SPIELER_OIDS[name],
-        name[0],
-        name,
-        einwilligung={
-            "umfang": "kader_oeffentlich",
-            "erteilt_von": "erziehungsberechtigt",
-            "datum": "2026-01-15",
-            "bestaetigt_am": "2026-01-20",
-        },
-        inactive_since=inactive_since,
-    )
+    return spieler_document(SPIELER_OIDS[name], name[0], name, einwilligung=EINWILLIGUNG, inactive_since=inactive_since)
 
 
 def _squad_row(name: str, saison_id: str, *, nummer: str | None, inactive_since: str | None = None) -> dict[str, Any]:
@@ -486,12 +479,9 @@ class TestTheMembershipsPipelineExecuted:
         assert rows[PRIOR_SAISON].ist_nachnominiert is True
 
     def test_the_consent_record_reaches_this_read_whole(self, squads: Database):
-        """All four fields, through a real aggregation: nothing is projected at the root, so the record rides on the stored document."""
-        consent = self._by_surname(squads)["Abel"].einwilligung
+        """Through a real aggregation: nothing is projected at the root, so the record rides on the stored document."""
 
-        assert consent is not None
-        assert (consent.umfang, consent.erteilt_von) == ("kader_oeffentlich", "erziehungsberechtigt")
-        assert (consent.datum, consent.bestaetigt_am) == ("2026-01-15", "2026-01-20")
+        assert self._by_surname(squads)["Abel"].einwilligung == FLEinwilligung.model_validate(EINWILLIGUNG)
 
     def test_a_person_stored_before_the_consent_record_existed_does_not_break_the_list(self, squads: Database):
         """The whole LIST, not the one row: every document goes through one model, so a refusal here is a 500 for everybody."""
