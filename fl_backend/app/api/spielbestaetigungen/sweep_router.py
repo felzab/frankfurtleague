@@ -25,6 +25,7 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungSweepNeueAnsetzung,
     FLSpielbestaetigungSweepResponse,
     FLSpielbestaetigungSweepSaisonsResponse,
+    FLSpielbestaetigungSweepSchiedsrichterGewechselt,
     FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung,
     FLSpielbestaetigungTermin,
 )
@@ -90,6 +91,13 @@ REMINDERS_PER_PASS: Final = 24
 WHAT: Final = "Confirmation"
 
 CLOSE_FIELDS: Final = ["spiel_id", "partei", "ansetzung", "angefragt_am", "geschlossen"]
+
+# What a close owes a party it shuts a mailed row of.
+type _Notice = (
+    FLSpielbestaetigungSweepNeueAnsetzung
+    | FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung
+    | FLSpielbestaetigungSweepSchiedsrichterGewechselt
+)
 
 
 def _by(rows: Iterable[Mapping[str, Any]], key: str) -> dict[Any, Mapping[str, Any]]:
@@ -311,7 +319,10 @@ async def sweep_spielbestaetigungen(
     club's decline closed `verworfen` is closed again for each of those but a move and a referee change, in the pass
     that closes an agreement beside it, and once the day it was about has passed: the public fixture then stops
     counting it as that club's agreement. A team row closed for a move whose first request went out is answered in
-    `neue_ansetzungen`, a referee's in `schiedsrichter_neue_ansetzungen`.
+    `neue_ansetzungen`, a referee's in `schiedsrichter_neue_ansetzungen`. A referee row closed because the fixture books
+    another referee or none, whose Einteilung went out and whose day is today or later, is answered in
+    `schiedsrichter_gewechselt` -- ahead of a move it shares a close with, and never for the referee's own decline, which
+    closed its row as it was given.
 
     The mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and
     ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for
@@ -361,6 +372,7 @@ async def sweep_spielbestaetigungen(
             einteilungen=[],
             neue_ansetzungen=[],
             schiedsrichter_neue_ansetzungen=[],
+            schiedsrichter_gewechselt=[],
             geschlossen=0,
             fehlgeschlagen=0,
         )
@@ -379,9 +391,7 @@ async def sweep_spielbestaetigungen(
             session=session,
         )
 
-    async def close(
-        session: AsyncClientSession, batch: Batch
-    ) -> tuple[list[FLSpielbestaetigungSweepNeueAnsetzung], list[FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung], int]:
+    async def close(session: AsyncClientSession, batch: Batch) -> tuple[list[_Notice], int]:
         """Judge every row holding its question against its fixture as it stands, then close a share. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
@@ -415,16 +425,27 @@ async def sweep_spielbestaetigungen(
             # A party never mailed is owed no notice that its link went void.
             return gruende[row["_id"]] == "ansetzung_geaendert" and row.get("angefragt_am") is not None
 
+        def ausgetragen(row: Mapping[str, Any]) -> bool:
+            # A referee told of a booking is told it went; a referee's own decline closed its row in its own write, so the
+            # close never meets one. Never about a day gone by, which a correction of who officiated reaches.
+            return (
+                gruende[row["_id"]] == "schiedsrichter_gewechselt"
+                and row.get("angefragt_am") is not None
+                and row["ansetzung"]["datum"] >= today
+            )
+
         adressen = await _referee_addresses(
             schiedsrichter_collection=schiedsrichter_collection,
-            ids=[row["partei"]["schiedsrichter_id"] for row in closable if notified(row) and row["partei"]["art"] == "schiedsrichter"],
+            ids=[
+                row["partei"]["schiedsrichter_id"]
+                for row in closable
+                if row["partei"]["art"] == "schiedsrichter" and (notified(row) or ausgetragen(row))
+            ],
             session=session,
         )
 
-        def notice_of(
-            row: Mapping[str, Any],
-        ) -> FLSpielbestaetigungSweepNeueAnsetzung | FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung | None:
-            if not notified(row):
+        def notice_of(row: Mapping[str, Any]) -> _Notice | None:
+            if not (notified(row) or ausgetragen(row)):
                 return None
 
             ansetzung, partei = row["ansetzung"], row["partei"]
@@ -436,13 +457,14 @@ async def sweep_spielbestaetigungen(
             alt = FLSpielbestaetigungTermin(datum=ansetzung["datum"], uhrzeit=ansetzung["uhrzeit"])
             if partei["art"] == "schiedsrichter":
                 address = adressen.get(partei["schiedsrichter_id"])
-                return (
-                    None
-                    if address is None
-                    else FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung(
-                        spielbestaetigung_id=row["_id"], spiel_id=row["spiel_id"], alt=alt, address=address, **namen
-                    )
+                if address is None:
+                    return None
+                notice = (
+                    FLSpielbestaetigungSweepSchiedsrichterGewechselt
+                    if ausgetragen(row)
+                    else FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung
                 )
+                return notice(spielbestaetigung_id=row["_id"], spiel_id=row["spiel_id"], alt=alt, address=address, **namen)
 
             # Read off the season row's seats as they stand now, a mailbox per message with no name in it. A replaced
             # club's people left with its row, their links voided by the replacement, so nobody is told.
@@ -487,13 +509,7 @@ async def sweep_spielbestaetigungen(
                 return_document=ReturnDocument.BEFORE,
             )
 
-        notices = [notice for _, notice in taken]
-
-        return (
-            [notice for notice in notices if isinstance(notice, FLSpielbestaetigungSweepNeueAnsetzung)],
-            [notice for notice in notices if isinstance(notice, FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung)],
-            len(taken),
-        )
+        return [notice for _, notice in taken if notice is not None], len(taken)
 
     async def mint(session: AsyncClientSession, batch: Batch) -> _Minted:
         """Plan the window's fixtures, then write a share of rows, whole fixtures, soonest first. Read in-session, so a retry re-judges.
@@ -812,15 +828,17 @@ async def sweep_spielbestaetigungen(
         db=db,
         batch=Batch(share=CLOSES_PER_PASS),
         attempt=lambda session, batch: session.with_transaction(close, batch),
-        moved=lambda answered: answered[2],
+        moved=lambda answered: answered[1],
         owes=True,
         what=WHAT,
         clock="close",
     )
     fehlgeschlagen += len(passed)
-    neue_ansetzungen = [notice for answered in closed for notice in answered[0]]
-    schiedsrichter_neue_ansetzungen = [notice for answered in closed for notice in answered[1]]
-    owed = bool(neue_ansetzungen or schiedsrichter_neue_ansetzungen)
+    notices = [notice for answered in closed for notice in answered[0]]
+    neue_ansetzungen = [notice for notice in notices if isinstance(notice, FLSpielbestaetigungSweepNeueAnsetzung)]
+    schiedsrichter_neue_ansetzungen = [notice for notice in notices if isinstance(notice, FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung)]
+    schiedsrichter_gewechselt = [notice for notice in notices if isinstance(notice, FLSpielbestaetigungSweepSchiedsrichterGewechselt)]
+    owed = bool(notices)
 
     anfragen: list[FLSpielbestaetigungSweepAnfrage] = []
     einteilungen: list[FLSpielbestaetigungSweepEinteilung] = []
@@ -899,7 +917,8 @@ async def sweep_spielbestaetigungen(
         einteilungen=einteilungen,
         neue_ansetzungen=neue_ansetzungen,
         schiedsrichter_neue_ansetzungen=schiedsrichter_neue_ansetzungen,
-        geschlossen=sum(answered[2] for answered in closed),
+        schiedsrichter_gewechselt=schiedsrichter_gewechselt,
+        geschlossen=sum(answered[1] for answered in closed),
         fehlgeschlagen=fehlgeschlagen,
     )
 

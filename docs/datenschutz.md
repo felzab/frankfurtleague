@@ -141,8 +141,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
     (`docs/backend/spec.md :: I605`).
   - **Safeguards, weighed against most participants being sixteen or seventeen**, which Art.
     6(1)(f) weighs heavier: nothing of a pupil is published on this basis, a pupil's name appearing
-    only on their own consent ([section 4](#4-what-is-published-and-on-what-basis)); a referee's
-    name on a fixture is published on this basis, and when the referee rows standing today are
+    only on their own consent ([section 4](#4-what-is-published-and-on-what-basis)), and a referee's
+    name on a fixture on theirs too; when the referee rows standing today are
     dropped their past fixtures read „anonym“
     ([section 3](#3-the-current-pupil-records-are-reset-once)); no birthdate reaches
     any public read; anyone may object under Art. 21 or have their data erased by a mail; and each
@@ -256,11 +256,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` — the publication scope, the media
   answer beside it, the wording they were shown and the day they answered. Entering a referee mails
   them a one-time link, which lasts fourteen days and can be re-sent; the person enters their own date
-  of birth on that page and nobody answers for them. No fixture read consults that record yet: a
-  fixture serves the name its own copy of the referee holds whether or not that person has
-  answered, and only an erased referee reads as „anonym“
-  (`fl_backend/app/api/spiele/services.py :: _composed_schiedsrichter`,
-  [section 11](#11-open-and-owed-a-decision)).
+  of birth on that page and nobody answers for them. The public fixture read joins that record at
+  every read and copies it nowhere: the name is served only where the record publishes it, and a
+  referee asked about a fixture only once they agreed (`docs/backend/spec.md :: READ-REFEREE-004`,
+  `:: READ-REFEREE-005`, [section 4](#4-what-is-published-and-on-what-basis)).
 - **A referee's email address is required on every write, because an administrator enters the
   referee and the link is how that person learns of it** (Art. 14 (3)); the telephone number stays
   optional (`fl_backend/app/shared/schemas/kontakt.py :: FLKontaktPayload`). Ruled 2026-09-22. The
@@ -342,6 +341,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   ([section 2](#2-consent-comes-from-the-person-from-16-or-18)). Ruled 2026-09-20. **A pupil gives that
   consent on their own from sixteen**, with no guardian asked; ruled 2026-09-23. What carries it in
   law is open ([section 11](#11-open-and-owed-a-decision)).
+- **A referee's name on a fixture is published on their own consent (Art. 6(1)(a)), for the
+  Datenschutzexperte**, and the published notice lists it under a withdrawal, which takes the name
+  off every fixture page at the fixture list's next read. The gate is the pupils' own predicate,
+  read off the referee's record when the fixture is read
+  (`fl_backend/app/api/spieler/services.py :: NAME_IS_PUBLIC`, `docs/backend/spec.md :: READ-REFEREE-004`);
+  a referee asked about a fixture is shown on it only once they agreed, the league's own entry of an
+  agreement counting (`:: READ-REFEREE-005`). Ruled 2026-10-20.
 - **A photograph, a video or an interview needs a consent of its own, and only a person of eighteen
   or over may give it, for the Datenschutzexperte.** The consent is separate from the name and
   answered as a yes or a no on a pupil's, a referee's and a contact person's confirmation page
@@ -364,7 +370,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   change plus a deploy, and a name stays in the repository's history regardless. The published notice
   says exactly that, as I ruled on 2026-09-22: a withdrawal takes a name off the site and out of the
   current code, and earlier versions stay in the public history
-  (`DatenschutzView.tsx :: steht auch im öffentlich einsehbaren Quellcode dieser Website`). The page's source
+  (`DatenschutzView.tsx :: frühere Fassungen bleiben in dessen öffentlicher Versionsgeschichte`). The page's source
   carries this record once it leaves here.
 - **AI crawlers are both asked and blocked, and the block is the source of truth.**
   `fl_frontend/src/app/robots.ts` disallows named crawlers, which is a request; the edge's
@@ -652,8 +658,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`saison_teams.austritt.grund`), a registration's decision reason
   (`registrierungen.entscheidung.grund`) and a club's description (`teams.description`) are typed
   about others and keyed on no address, so no step reaches them: only a name could find them, and a
-  name search would take a namesake's text with it. A club's reason for declining a fixture's date
-  (`spielbestaetigungen.antwort.begruendung`) may name anyone, no name in it being checked; it goes
+  name search would take a namesake's text with it. A club's reason for declining a fixture's date, and
+  a referee's for declining a fixture they were booked on (`spielbestaetigungen.antwort.begruendung`), may name anyone, no name in it being checked; it goes
   with its own writer's erasure (above), so a person it names, a squad pupil most likely, stays in it
   past their own erasure until it is deleted with the season's contact data
   ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)). The reason an administrator
@@ -910,8 +916,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   its day, the answering role and a proposed date stay, naming nobody, and the rows have no clock of
   their own, a season's fixtures being kept as the league's record. A person's erasure or
   Widerspruch takes their part sooner ([section 5](#5-erasure-reaches-everyone-who-asks)). A
-  referee's rows hold the referee's id, no seat and no reason, and stand while the referee's row
-  does, their erasure removing them (`docs/backend/spec.md :: I761`). The published notice tabulates it
+  referee's rows hold the referee's id and no seat, a decline's reason going at the season's end as
+  above, and stand while the referee's row does, their erasure removing them (`docs/backend/spec.md :: I761`). The published notice tabulates it
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19.
 - **Timers in the frontend process are what turn those clocks from an intention into a mechanism**
   (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, calling
@@ -1082,13 +1088,6 @@ the `Entry` column carries a token only where one still resolves in that file.
   ([section 5](#5-erasure-reaches-everyone-who-asks)). The bound is
   [section 6](#6-retention-is-bounded-where-a-bound-was-chosen)'s, and the procedure for the lookup
   is [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)'s.
-- **A referee's withdrawal changes no fixture page until the fixture read joins the record, for the
-  Datenschutzexperte.** A pupil and a referee each move their own record on the account page
-  (`fl_backend/app/api/spieler/selbst_router.py :: patch_einwilligung`,
-  `fl_backend/app/api/schiedsrichter/person_router.py :: patch_einwilligung`), and a pupil's squad
-  lists read the record they move; the fixture list still serves the name its own copy of the
-  referee holds. The question to put is whether that gap, until the fixture read joins the record,
-  needs the e-mail route kept open for referees meanwhile.
 - **The Ansprechperson's and the Stellvertretung's eighteen as contractual capacity rather than a
   consent, for the Datenschutzexperte.** [Section 2](#2-consent-comes-from-the-person-from-16-or-18)
   argues it, and `fl_backend/app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS` performs it. The
@@ -1140,11 +1139,6 @@ the `Entry` column carries a token only where one still resolves in that file.
   admits the person's own. Both read on 2026-09-22. The question to put: whether the consent
   rests on Art. 8 or on the pupil's own Einsichtsfähigkeit, or whether a guardian's consent is owed
   beside it, and so whether sixteen is the age it asks.
-- **A referee's name on a fixture, on their own consent or on legitimate interest, for the
-  Datenschutzexperte.** A referee's own confirmation writes a consent record
-  (`fl_backend/app/api/schiedsrichter/services.py :: compose_einwilligung`), while the published
-  notice rests the name on a fixture on Art. 6 (1)(f) and no fixture read consults the record. The
-  question to put: which of the two is the basis.
 - **Whether one media switch is specific enough, for the Datenschutzexperte.** One switch answers
   for photographs, videos and interviews together, from eighteen, published on this website and on
   the league's Instagram account ([section 4](#4-what-is-published-and-on-what-basis)). The question
@@ -1162,7 +1156,8 @@ the `Entry` column carries a token only where one still resolves in that file.
   address nobody has confirmed belong together.
 - **The referees standing today, for the Datenschutzexperte.** Their rows were entered by an
   administrator before the confirmation link existed and carry no consent record, and their names are
-  published on every fixture they officiate on the basis the notice gives for every referee; the rows
+  published on every fixture they officiate until the deploy whose fixture read first consults a
+  referee's own consent, which withholds a name no record publishes; the rows
   are dropped whole, once, their past fixtures go to the ghost with the name emptied, and the drop
   empties the action log's images of them, those of their fixtures whole where an erasure repoints
   the booking alone (`docs/backend/spec.md :: I212`, `:: I213`)

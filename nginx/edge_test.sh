@@ -594,7 +594,8 @@ done < "${REPO_ROOT}/nginx/shared/site.conf"
 # dropping the inherited set hands both to Next as they arrived.
 CLIENT_TRACE="0af7651916cd43dd8448eb211c80319c"
 CLIENT_ACTOR="fl-edge-actor-probe"
-# On a GET, which only the link pages' pair meters, here inside its burst, so every location answers.
+# On a GET, which the action pair's key leaves out, and inside the burst of every zone keyed on a GET,
+# so every location answers.
 CLIENT_ACTION="fl-edge-action-probe"
 # One curl for every path, each response's headers to a file of its own, and the counting in bash:
 # on Windows a spawn costs ~0.1s, which a grep per header would pay a hundred times.
@@ -738,6 +739,16 @@ action_request() { # $1 a label, the rest curl options naming one transfer
   if (( ${#ACTION_REQUESTS[@]} > 0 )); then ACTION_REQUESTS+=( --next ); fi
   ACTION_REQUESTS+=( -s -o /dev/null -w '%{http_code}\n' --max-time 5 -H "Host: localhost" "$@" )
 }
+# A spent key still admits one request per refill interval, which a lone probe can land on. Sent
+# twice back to back, a pair never holds two admissions, while a key nothing spent answers 200 twice.
+spent_request() { # $1 a label, the rest curl options naming one transfer; each half keeps its answer
+  local label="$1" half; shift
+  for half in a b; do
+    ACTION_LABELS+=( "$label" )
+    ACTION_REQUESTS+=( --next -s -D "${SCRATCH}/${label}-${half}.headers" -o "${SCRATCH}/${label}-${half}.body"
+      -w '%{http_code}\n' --max-time 5 -H "Host: localhost" "$@" )
+  done
+}
 ACTION_LABELS=()
 ACTION_REQUESTS=()
 # Twenty saves at once, under the burst of thirty.
@@ -750,29 +761,33 @@ for _ in $(seq 1 30); do
   action_request flood -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
     --data '[]' "${BASE}/"
 done
-# The key spent, so each of these answers 429 only if the map takes it for an action.
-action_request multipart -X POST -F "probe=1" "${BASE}/"
-action_request urlencoded -X POST --data "probe=1" "${BASE}/"
-action_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/_next/static/chunk.js"
+# The key spent, so each of these is refused only if the map takes it for an action.
+spent_request multipart -X POST -F "probe=1" "${BASE}/"
+spent_request urlencoded -X POST --data "probe=1" "${BASE}/"
+spent_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/_next/static/chunk.js"
 # An id opening with a colon, which a key joined on `:` would read as no id at all.
-action_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
-# A link page's block, whose own pair has room left here, so only the restated action pair refuses.
-action_request link-action -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/bestaetigung/spiel"
-# The refusal itself, kept whole: what Next's action client reads as the press's error. Not through
-# `action_request`, whose `-o /dev/null` curl would pair with this transfer in place of the file.
-ACTION_LABELS+=( refusal )
-ACTION_REQUESTS+=( --next -s -D "${SCRATCH}/refusal.headers" -o "${SCRATCH}/refusal.body" -w '%{http_code}\n' --max-time 5
-  -H "Host: localhost" -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/" )
+spent_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
+# Each link page's block, whose own pair has room left here, so only its restated action pair refuses.
+LINK_ACTION_PATHS=( /bestaetigung/spiel /registrierung /registrierung/ /loeschung /loeschung/ )
+for _i in "${!LINK_ACTION_PATHS[@]}"; do
+  spent_request "link-action-${_i}" -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' \
+    "${BASE}${LINK_ACTION_PATHS[_i]}"
+done
+# The refusal itself, kept whole: what Next's action client reads as the press's error.
+spent_request refusal -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 # Asked as a browser asks, `gzip_types` naming text/plain: `--compressed` decodes whatever body comes back.
-ACTION_LABELS+=( refusal-gzip )
-ACTION_REQUESTS+=( --next -s --compressed -H "Accept-Encoding: gzip" -D "${SCRATCH}/refusal-gzip.headers" -o "${SCRATCH}/refusal-gzip.body"
-  -w '%{http_code}\n' --max-time 5
-  -H "Host: localhost" -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/" )
+spent_request refusal-gzip --compressed -H "Accept-Encoding: gzip" \
+  -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 # And each of these answers 200 only if the map leaves it out, an empty `Next-Action` among them.
 action_request empty-id -X POST -H "Next-Action;" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 action_request json-post -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/"
 action_request page-load "${BASE}/"
 action_request asset-load "${BASE}/_next/static/chunk.js"
+# Sent here and the link pages' run in a second curl, Windows capping one command line below both. A
+# transfer either curl never answered reads as `none`, the second's statuses kept at their labels.
+mapfile -t ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
+ACTION_SENT=${#ACTION_LABELS[@]}
+ACTION_REQUESTS=()
 
 # The link pages' pair, every request it meters a page render. Its burst read off the file, so a
 # burst moved there is still flooded past, with twenty more for the refill the run takes.
@@ -799,40 +814,36 @@ LINK_SPENT=(
   "/%62estaetigung/spiel?token=${TOK}"
 )
 for _i in "${!LINK_SPENT[@]}"; do
-  ACTION_LABELS+=( "link-spent-${_i}" )
-  ACTION_REQUESTS+=( --next -s --path-as-is -D "${SCRATCH}/link-spent-${_i}.headers" -o "${SCRATCH}/link-spent-${_i}.body"
-    -w '%{http_code}\n' --max-time 5 -H "Host: localhost" -A "$LINK_MARKER" "${BASE}${LINK_SPENT[_i]}" )
+  spent_request "link-spent-${_i}" --path-as-is -A "$LINK_MARKER" "${BASE}${LINK_SPENT[_i]}"
 done
 # A key covering GETs alone lets both of these through, and one exempting HEAD, which a mail
 # gateway's link check may send, the second.
-ACTION_LABELS+=( link-json )
-ACTION_REQUESTS+=( --next -s -D "${SCRATCH}/link-json.headers" -o "${SCRATCH}/link-json.body" -w '%{http_code}\n' --max-time 5
-  -H "Host: localhost" -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/bestaetigung/spiel?token=${TOK}" )
-action_request link-head --head "${BASE}/bestaetigung/spiel?token=${TOK}"
+spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/bestaetigung/spiel?token=${TOK}"
+spent_request link-head -A "$LINK_MARKER" --head "${BASE}/bestaetigung/spiel?token=${TOK}"
 
-mapfile -t ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
+mapfile -t -O "$ACTION_SENT" ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
 expect_action() { # $1 label, $2 the status every transfer of it must answer, or "some:<status>"
-  local label="$1" wanted="$2" _j _status found=0 all=1
+  local label="$1" wanted="$2" _j _status found=0 all=1 answered=""
   for _j in "${!ACTION_LABELS[@]}"; do
     [[ "${ACTION_LABELS[_j]}" == "$label" ]] || continue
     _status="${ACTION_STATUSES[_j]:-none}"; _status="${_status%$'\r'}"
+    answered+="${_status} "
     if [[ "$_status" == "${wanted#some:}" ]]; then found=1; else all=0; fi
   done
   if [[ "$wanted" == some:* ]] && (( found )); then return 0; fi
   if [[ "$wanted" != some:* ]] && (( all )); then return 0; fi
   fail "ACTION ${label}"
-  detail "expected ${wanted/some:/at least one } from every '${label}' transfer, nginx answered: $(
-    for _j in "${!ACTION_LABELS[@]}"; do [[ "${ACTION_LABELS[_j]}" == "$label" ]] && printf '%s ' "${ACTION_STATUSES[_j]%$'\r'}"; done)"
+  detail "expected ${wanted/some:/at least one } from every '${label}' transfer, nginx answered: ${answered}"
   ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
 }
 expect_action rhythm 200
 expect_action flood some:429
-expect_action multipart 429
-expect_action urlencoded 429
-expect_action static-prefix 429
-expect_action colon-id 429
-expect_action refusal 429
-expect_action refusal-gzip 429
+expect_action multipart some:429
+expect_action urlencoded some:429
+expect_action static-prefix some:429
+expect_action colon-id some:429
+expect_action refusal some:429
+expect_action refusal-gzip some:429
 
 # The sentence `nginx/shared/site.conf :: @edge_refusal` returns, read off the file so a rewording there
 # is graded too.
@@ -854,37 +865,51 @@ grade_refusal() { # $1 the transfer's label, its files named for it
   fi
   grade_security_headers "the edge's own 429, $1"
 }
-grade_refusal refusal
+grade_spent() { # $1 a `spent_request` label: graded on the half the edge refused, where one was
+  local _j half=a
+  for _j in "${!ACTION_LABELS[@]}"; do
+    [[ "${ACTION_LABELS[_j]}" == "$1" ]] || continue
+    if [[ "${ACTION_STATUSES[_j]:-none}" == 429* ]]; then grade_refusal "$1-${half}"; return; fi
+    half=b
+  done
+}
+grade_spent refusal
 # nginx's gzip filter leaves a 429 plain, compressing a 200, 403 or 404 alone (observed 2026-10-04); asked
 # anyway, so an encoding a later configuration adds is held to the same type and decoded bytes.
-grade_refusal refusal-gzip
+grade_spent refusal-gzip
 expect_action empty-id 200
 expect_action json-post 200
 expect_action page-load 200
 expect_action asset-load 200
-expect_action link-action 429
+for _i in "${!LINK_ACTION_PATHS[@]}"; do
+  _before=$ACTION_FAILURES
+  expect_action "link-action-${_i}" some:429
+  (( ACTION_FAILURES == _before )) || detail "link-action-${_i} posted to ${LINK_ACTION_PATHS[_i]}"
+done
 expect_action link-flood some:429
 for _i in "${!LINK_SPENT[@]}"; do
   _before=$ACTION_FAILURES
-  expect_action "link-spent-${_i}" 429
-  grade_refusal "link-spent-${_i}"
+  expect_action "link-spent-${_i}" some:429
+  grade_spent "link-spent-${_i}"
   (( ACTION_FAILURES == _before )) || detail "link-spent-${_i} asked for ${LINK_SPENT[_i]}"
 done
-expect_action link-json 429
-grade_refusal link-json
-expect_action link-head 429
+expect_action link-json some:429
+grade_spent link-json
+expect_action link-head some:429
 
 # A refusal's error line repeats the request line, live token included, so `limit_req_log_level` keeps
 # it below the log's own level. Read once every kept refusal's access line is written, which comes
 # after its error line.
 LINK_LOGGED=0
+# Every spent link pair is marked, each sending two.
+LINK_KEPT=$(( 2 * (${#LINK_SPENT[@]} + 2) ))
 for _ in $(seq 1 50); do
   LINK_LOGGED="$({ grep -c "\"user_agent\":\"${LINK_MARKER}\"" "$ACCESS_LOG" 2>/dev/null || true; })"
-  if (( ${LINK_LOGGED:-0} >= ${#LINK_SPENT[@]} + 1 )); then break; fi
+  if (( ${LINK_LOGGED:-0} >= LINK_KEPT )); then break; fi
   sleep 0.2
 done
-(( ${LINK_LOGGED:-0} >= ${#LINK_SPENT[@]} + 1 )) \
-  || refuse "the edge logged ${LINK_LOGGED:-0} of the $(( ${#LINK_SPENT[@]} + 1 )) link-page requests kept whole, so whether a refusal reached the error log was not judged."
+(( ${LINK_LOGGED:-0} >= LINK_KEPT )) \
+  || refuse "the edge logged ${LINK_LOGGED:-0} of the ${LINK_KEPT} link-page requests kept whole, so whether a refusal reached the error log was not judged."
 LINK_ERRORS="$({ grep -F "$TOK" "$ERROR_LOG" 2>/dev/null || true; })"
 if [[ -n "$LINK_ERRORS" ]]; then
   fail "ACTION link-log"

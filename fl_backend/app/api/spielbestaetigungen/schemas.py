@@ -25,7 +25,15 @@ FLSpielbestaetigungAntwortArt = Literal["zugesagt", "abgelehnt"]
 # Why a row stopped applying. `verworfen` closes an open decline carrying a proposal alone: the decline stands
 # as the record, and what is discarded is the administrator's obligation to act on its proposal.
 FLSpielbestaetigungGrund = Literal[
-    "ansetzung_geaendert", "austritt", "spiel_entschieden", "abgesagt", "schiedsrichter_gewechselt", "verworfen", "spiel_vergangen"
+    "ansetzung_geaendert",
+    "austritt",
+    "spiel_entschieden",
+    "abgesagt",
+    "schiedsrichter_gewechselt",
+    # A referee's own decline, closed in its write: the row reads as that decline, and a re-booking is asked afresh.
+    "schiedsrichter_abgelehnt",
+    "verworfen",
+    "spiel_vergangen",
 ]
 
 # What a reopened link shows; `gesperrt` ranks first (`docs/backend/spec.md :: I515`). `vorschlag` is a
@@ -282,6 +290,57 @@ class FLSpielbestaetigungAntwortResponse(BaseAPIResponse):
     vorschlag: FLSpielbestaetigungTermin | None
 
 
+# --- A REFEREE'S OWN ROWS, read and answered signed in on the person lane. No deadline is served: a
+# referee answers until the fixture's day, which the Einteilung states.
+
+# Never `gesperrt`, the binder refusing a barred person first, nor `vorschlag`, a referee proposing no date.
+FLSpielbestaetigungSchiedsrichterZustand = Literal["gueltig", "zugesagt", "abgelehnt", "abgelaufen", "ungueltig"]
+
+
+class FLSpielbestaetigungSelbst(BaseModel):
+    """One of the signed-in referee's rows, as their panel lists it."""
+
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    spiel_id: CustomObjectId
+    # Which of the address's referee records the row names.
+    schiedsrichter_id: CustomObjectId
+    ansetzung: FLSpielbestaetigungAnsichtAnsetzung
+    zustand: FLSpielbestaetigungSchiedsrichterZustand
+    # The referee's own decline reason, null on every other row.
+    begruendung: CustomNonEmptyString | None
+
+
+class FLSpielbestaetigungenSelbstResponse(BaseAPIResponse):
+    spielbestaetigungen: list[FLSpielbestaetigungSelbst]
+
+
+class FLSpielbestaetigungSchiedsrichterAntwortPayload(BaseModel):
+    """A referee's answer about one row naming them: a decline gives a reason, which the administrator reads."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    antwort: FLSpielbestaetigungAntwortArt
+    # Required as a KEY and null where unused, as the club's answer spells it.
+    begruendung: Annotated[CustomSpielbestaetigungBegruendung | None, BeforeValidator(parse_empty_string_to_none)]
+
+    @model_validator(mode="after")
+    def a_decline_gives_a_reason_and_an_acceptance_none(self) -> Self:
+        """A 422 like every shape rule about the body: the panel offers no decline without a reason."""
+
+        if self.antwort == "abgelehnt" and self.begruendung is None:
+            raise ValueError("Wer absagt, nennt einen Grund.")
+
+        if self.antwort == "zugesagt" and self.begruendung is not None:
+            raise ValueError("Eine Zusage trägt keine Begründung.")
+
+        return self
+
+
+class FLSpielbestaetigungSchiedsrichterAntwortResponse(BaseAPIResponse):
+    spielbestaetigung_id: CustomObjectId
+    zustand: FLSpielbestaetigungAntwortArt
+
+
 # --- The PASS, system tier. The backend decides and mints, the frontend mails: what leaves here is
 # what a message needs and no name (`READ-ANSETZUNG-002`).
 
@@ -356,6 +415,17 @@ class FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung(BaseModel):
     address: str
 
 
+class FLSpielbestaetigungSweepSchiedsrichterGewechselt(BaseModel):
+    """A referee row closed because its referee was taken off the fixture after their Einteilung went out: the slot they were told of."""
+
+    spielbestaetigung_id: CustomObjectId
+    spiel_id: CustomObjectId
+    team1_name: str
+    team2_name: str
+    alt: FLSpielbestaetigungTermin
+    address: str
+
+
 class FLSpielbestaetigungSweepResponse(BaseAPIResponse):
     """One season's pass: the requests still to stamp, the reminders already stamped, and the void notices."""
 
@@ -367,6 +437,7 @@ class FLSpielbestaetigungSweepResponse(BaseAPIResponse):
     einteilungen: list[FLSpielbestaetigungSweepEinteilung]
     neue_ansetzungen: list[FLSpielbestaetigungSweepNeueAnsetzung]
     schiedsrichter_neue_ansetzungen: list[FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung]
+    schiedsrichter_gewechselt: list[FLSpielbestaetigungSweepSchiedsrichterGewechselt]
     geschlossen: int
     fehlgeschlagen: int
 

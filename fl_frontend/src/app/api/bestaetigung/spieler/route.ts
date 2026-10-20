@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
         antwort = await postSpielerBestaetigung(parsed.data);
       } catch (error) {
         // The refusal belongs under the field or on the dead-link panel, not on the error page.
-        const refusal = await mapBestaetigungRefusal(error, () => ansichtFuerToken(parsed.data.token));
+        const refusal = await mapBestaetigungRefusal(error, parsed.data, () => ansichtFuerToken(parsed.data.token));
         if (refusal === null) throw error;
 
         return { success: false as const, ...refusal };
