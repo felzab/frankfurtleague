@@ -1,3 +1,4 @@
+import { DAY_MS } from "@/core/timeUnits";
 import {
   GRUPPEN_OFF_RULES,
   RECORDED_FACTS_ANY,
@@ -35,9 +36,6 @@ export type SpielplanControlInput = {
   gruppen: Parameters<typeof drawGruppenRefusal>[0];
 };
 
-// One day of UTC milliseconds. Date-only strings parse as UTC midnights, so dividing by it is exact.
-const MS_PER_DAY = 86_400_000;
-
 /**
  * One spelling for both closures: the repair is the season's own dates whichever of them closed the
  * press, and a second could send two admins to two different panels for one fault.
@@ -46,7 +44,7 @@ const SPAN_TOO_SHORT_REPAIR = `Verlege im Abschnitt ${ZEITRAUM_ABSCHNITT} das En
 
 /** Inclusive as `find_saison_span_refusal` counts: a season running one day offers one. */
 function offeredDays(startDate: string, endDate: string): number {
-  return (Date.parse(endDate) - Date.parse(startDate)) / MS_PER_DAY + 1;
+  return (Date.parse(endDate) - Date.parse(startDate)) / DAY_MS + 1;
 }
 
 /**
