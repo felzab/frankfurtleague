@@ -135,6 +135,19 @@ describe("where a field's required mark comes from", () => {
     assert.equal(requiredBy([schule], "schule.full_name", ""), true);
   });
 
+  it("reaches a leaf inside a list's entry by its index, through a list the payload may leave out", () => {
+    const tore = z.object({
+      tore: z
+        .array(z.object({ minute: z.string().nonempty(), notiz: z.string() }))
+        .max(3)
+        .nullable(),
+    });
+
+    assert.equal(requiredBy([tore], "tore.0.minute", ""), true, "an entry's refused field is unmarked");
+    assert.equal(requiredBy([tore], "tore.0.notiz", ""), false, "an entry's optional field is marked");
+    assert.equal(requiredBy([tore], "tore.minute", ""), false, "a list is read as an object by a key naming no index");
+  });
+
   it("marks no path the schemas do not carry, and a path any one of them refuses", () => {
     const withName = z.object({ name: z.string().nonempty() });
 

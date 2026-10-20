@@ -3,17 +3,23 @@
 import { createContext, useContext } from "react";
 
 import type { ReactNode } from "react";
-import type { ZodNullable, ZodObject, ZodOptional, ZodType } from "zod";
+import type { ZodArray, ZodNullable, ZodObject, ZodOptional, ZodType } from "zod";
 
 /**
  * The schema one dotted payload path lands on, through `.optional()` and `.nullable()`, read with Zod's
- * documented `.def.type`, `.unwrap()` and `.shape`. `undefined` where the path leaves the object tree.
+ * documented `.def.type`, `.unwrap()` and `.shape`, a list's entry named by its index. `undefined` where the path
+ * leaves the tree of objects and lists.
  */
 function leafAt(schema: ZodType, path: string): ZodType | undefined {
   let at: ZodType | undefined = schema;
 
   for (const key of path.split(".")) {
     while (at.def.type === "optional" || at.def.type === "nullable") at = (at as ZodOptional<ZodType> | ZodNullable<ZodType>).unwrap();
+    // An index names a list's entry, whichever entry: every entry is judged by the one schema.
+    if (at.def.type === "array" && /^\d+$/.test(key)) {
+      at = (at as ZodArray<ZodType>).unwrap();
+      continue;
+    }
     if (at.def.type !== "object") return undefined;
     at = (at as ZodObject).shape[key];
     if (at === undefined) return undefined;
