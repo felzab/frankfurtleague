@@ -66,14 +66,14 @@ export function mapAnsetzungRefusal(error: unknown): SpielbestaetigungRefusal | 
     case "REQ-ANSETZUNG-001":
     case "REQ-ANSETZUNG-004":
       return { zustand: "ungueltig" };
-    case "REQ-ANSETZUNG-003":
-    case "REQ-ANSETZUNG-005":
-      return { zustand: "abgelaufen" };
     // Each covers several states the read tells apart: `-002` both answers, where „zugesagt“ would tell a
     // club that declined in another window it confirmed; `-009` every closing reason, so the press shows
     // the panel a reload would.
     case "REQ-ANSETZUNG-002":
     case "REQ-ANSETZUNG-009":
+    // Spent either way, but only the read carries whether the fixture's day has gone by, which has a panel of its own.
+    case "REQ-ANSETZUNG-003":
+    case "REQ-ANSETZUNG-005":
       return { nachlesen: true };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
     case "REQ-ANSETZUNG-011":

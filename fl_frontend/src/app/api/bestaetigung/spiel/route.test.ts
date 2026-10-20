@@ -174,9 +174,7 @@ describe("a club's answer to a fixture confirmation link", () => {
      message would leave a dead link looking like a mistyped proposal. */
   for (const [code, zustand] of [
     ["REQ-ANSETZUNG-001", "ungueltig"],
-    ["REQ-ANSETZUNG-003", "abgelaufen"],
     ["REQ-ANSETZUNG-004", "ungueltig"],
-    ["REQ-ANSETZUNG-005", "abgelaufen"],
     ["REQ-ANSETZUNG-011", "gesperrt"],
   ] as const) {
     it(`answers ${code} as the ${zustand} panel, without waiting on a second read`, async () => {
@@ -218,6 +216,27 @@ describe("a club's answer to a fixture confirmation link", () => {
       assert.deepEqual(answer.body, { success: false, zustand: panel });
       assert.equal(gelesen, 1);
     });
+  }
+
+  /* Neither refusal says whether the fixture's day has gone by: a press on a tab left open past it, before the hourly
+     pass closes the row, reads the panel a reload would, never that the league still sets the date. */
+  for (const code of ["REQ-ANSETZUNG-003", "REQ-ANSETZUNG-005"] as const) {
+    for (const [uhr, panel] of [
+      ["T10:00:00Z", "abgelaufen"],
+      // Half past midnight in Berlin after the fixture's day.
+      ["T23:30:00Z", "termin-vorbei"],
+    ] as const) {
+      it(`answers ${code} at ${uhr} on the fixture's day with the ${panel} panel its read gives`, async (t) => {
+        t.mock.timers.enable({ apis: ["Date"], now: Date.parse(`${BEANTWORTET.ansetzung.datum}${uhr}`) });
+        schreibAntwort = () => refusedOn(WRITE_OPERATION, code);
+        leseAntwort = () => ({ ...BEANTWORTET, zustand: "abgelaufen", beantwortet_von: null });
+
+        const answer = await bodyOf(aRequest(vorschlagKoerper));
+
+        assert.deepEqual(answer.body, { success: false, zustand: panel });
+        assert.equal(gelesen, 1);
+      });
+    }
   }
 
   /* An answer off the view's schema is the deploy's fault, logged for whoever can repair it. The refusal settled the
