@@ -1442,6 +1442,13 @@ deadline's own days is due the day it is asked.
 mail at once, the lever for an outage or a fault at the mail provider: until the frontend has booted
 on it, a pass can still mail.
 
+**The referee's report form opens on `SPIELBERICHT_EINGABE=on`, added to `fl_frontend/.env` in the
+same edit as `SPIEL_SWEEP=on`, and never before this season's player records are reset (§12).** A
+report names pupils by their records, so one written before the reset names records the reset
+deletes. It ships off: until the frontend has booted on it, the form shows a closed state and both
+the referee's save and the administrator's refuse before any request leaves. Off again is that line
+set to `off` and a deploy; it stops no mail, which is `SPIEL_SWEEP`'s alone.
+
 **The account sweep stores no date, so its own line in the frontend's log is the answer**
 ([`spec.md`](spec.md) §1.1). Every pass that completes writes one `konto.sweep_completed` line,
 counting the accounts it listed, those answered unreferenced, deleted, already gone, and those a
