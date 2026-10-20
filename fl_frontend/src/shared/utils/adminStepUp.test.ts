@@ -666,10 +666,14 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
 
 /**
  * Per person's route publishing the confirmation refusal, the action sending it, driven in its own suite
- * (`fl_frontend/src/features/konto/loeschung.test.ts :: "the backend's confirmation refusal"`). Named, never told apart by
- * REQ-AUTH-008: an administrator's route publishing that too would escape the sweep.
+ * (`fl_frontend/src/features/konto/loeschung.test.ts`, `fl_frontend/src/features/konto/personActions.test.ts`). Named,
+ * never told apart by REQ-AUTH-008: an administrator's route publishing that too would escape the sweep.
  */
-const CONFIRMED_ON_A_PERSON_ROUTE: Readonly<Record<string, string>> = { "POST /identitaet/selbst/erasure": "loescheKontoAction" };
+const CONFIRMED_ON_A_PERSON_ROUTE: Readonly<Record<string, string>> = {
+  "POST /identitaet/selbst/erasure": "loescheKontoAction",
+  "POST /konto/adresswechsel": "starteAdresswechselAction",
+  "POST /konto/adresswechsel/freigabe": "gibAdresswechselFreiAction",
+};
 
 describe("a write the backend refuses for want of a recent confirmation", () => {
   /* Read off the document rather than kept by hand: an operation that starts publishing the refusal

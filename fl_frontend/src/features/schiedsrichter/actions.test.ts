@@ -22,7 +22,14 @@ import { answer, answerReadsWith, EDGE_TRACE_ID, EMPTIEST_ANSWER, pageBody } fro
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapNameRefusal as mapSpielortNameRefusal } from "../spielorte/refusals.ts";
-import { mapEinladenRefusal, mapGesperrteAdresseRefusal, mapNameRefusal, mapReactivateRefusal, mapRetireRefusal } from "./refusals.ts";
+import {
+  mapBestaetigteAdresseRefusal,
+  mapEinladenRefusal,
+  mapGesperrteAdresseRefusal,
+  mapNameRefusal,
+  mapReactivateRefusal,
+  mapRetireRefusal,
+} from "./refusals.ts";
 
 import type { ReactNode } from "react";
 
@@ -56,6 +63,9 @@ const ANSICHT_OPERATION = "POST /schiedsrichter/bestaetigung/ansicht";
 /** The create's and the save's own answer: the name's mapper first, then the ban's, as both actions ask them. */
 const saveAnswer = (error: unknown) => mapNameRefusal(error) ?? mapGesperrteAdresseRefusal(error);
 
+/** The save's alone adds the confirmed referee's address, which only a page older than the confirmation sends. */
+const patchAnswer = (error: unknown) => saveAnswer(error) ?? mapBestaetigteAdresseRefusal(error);
+
 describe("the referee's writes against the codes their endpoints publish", () => {
   /* Coming back mints for an unanswered referee, so the reactivation meets the ban list as every mint
      does; left unmapped it reaches the admin as the shared fallback, which names no rule. */
@@ -80,15 +90,15 @@ describe("the referee's writes against the codes their endpoints publish", () =>
     // No `REQ-SCHIEDSRICHTER-001`: a retired referee's new address is stored and mails nothing.
     assert.deepEqual(
       publishedRefusals(SAVE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-SCHIEDSRICHTER-007"],
+      ["REQ-SCHIEDSRICHTER-007", "REQ-SCHIEDSRICHTER-011"],
     );
-    for (const [operation, published] of [
-      [CREATE_OPERATION, publishedRefusals(CREATE_OPERATION)],
-      [SAVE_OPERATION, publishedRefusals(SAVE_OPERATION)],
+    for (const [operation, published, answer] of [
+      [CREATE_OPERATION, publishedRefusals(CREATE_OPERATION), saveAnswer],
+      [SAVE_OPERATION, publishedRefusals(SAVE_OPERATION), patchAnswer],
     ] as const) {
       assert.ok(published.includes(DUPLICATE_KEY), `${operation} no longer publishes the duplicate name its mapper places`);
       for (const code of published) {
-        assert.notEqual(answerShown(operation, code, saveAnswer), null, `${code} reaches the admin as an unhandled conflict on ${operation}`);
+        assert.notEqual(answerShown(operation, code, answer), null, `${code} reaches the admin as an unhandled conflict on ${operation}`);
       }
     }
   });

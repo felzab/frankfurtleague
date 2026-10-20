@@ -12,7 +12,7 @@ import {
   sessionByCode,
 } from "@/core/authDoubles.ts";
 import { answerAt, NO_RECORDS } from "@/core/subjectFixtures.ts";
-import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 import type { SessionRow } from "@/core/authDoubles.ts";
 import type { MemoryDB } from "better-auth/adapters/memory";
@@ -45,6 +45,7 @@ const FREIGABE = "/api/v0/konto/adresswechsel/freigabe";
 type Art = "spieler" | "schiedsrichter";
 let art: Art = "spieler";
 let startAnswer: () => Response;
+let freigabeAnswer: () => Response;
 const writes: { method: string; path: string; body: unknown; actor: boolean }[] = [];
 
 const mint = () => ({
@@ -70,11 +71,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
       body: init?.body === undefined ? null : JSON.parse(String(init.body)),
       actor: new Headers(init?.headers).get("x-fl-actor") !== null,
     });
-    if (path === FREIGABE) {
-      return Promise.resolve(
-        Response.json({ acknowledged: 1, art: art, id: CARRIER, token: "frei-token", gueltig_bis: "2026-10-21T11:30:00Z", email: NEU }),
-      );
-    }
+    if (path === FREIGABE) return Promise.resolve(freigabeAnswer());
     if (method === "DELETE") return Promise.resolve(Response.json({ acknowledged: 1, moeglich: true, bleibt_verwaltung: false, offen: null }));
     return Promise.resolve(startAnswer());
   }
@@ -106,7 +103,13 @@ beforeEach(() => {
   mail.answerWith(() => "accepted");
   art = "spieler";
   startAnswer = () => Response.json(mint());
+  freigabeAnswer = () =>
+    Response.json({ acknowledged: 1, art: art, id: CARRIER, token: "frei-token", gueltig_bis: "2026-10-21T11:30:00Z", email: NEU });
+  cacheCalls.length = 0;
 });
+
+/** The backend's own window refusing a press the page's check admitted at the window's edge. */
+const unbestaetigt = () => Response.json({ error_code: "REQ-AUTH-009", trace_id: "0".repeat(32) }, { status: 401 });
 
 describe("the person's own start of an address change", () => {
   it("sends the new address under the person's actor, mails the link to it and the stop link to the address signed in", async () => {
@@ -165,6 +168,20 @@ describe("the person's own start of an address change", () => {
     assert.deepEqual(mail.sent, []);
   });
 
+  /* The page asks for the passkey, its figures read again so its next press asks first (`docs/frontend/spec.md :: I493`). */
+  it("answers the backend's confirmation refusal as the page's prompt, its figures read again, mailing nothing", async () => {
+    await angemeldet();
+    startAnswer = unbestaetigt;
+
+    assert.deepEqual(await starteAdresswechselAction({ email: NEU }), stepUpRequired());
+    assert.equal(writes.length, 1, "the backend was never asked, so the refusal proves nothing");
+    assert.ok(
+      cacheCalls.some(({ name }) => name === "refresh"),
+      "the page's figures were not read again",
+    );
+    assert.deepEqual(mail.sent, []);
+  });
+
   it("puts the address already signed in with on the box", async () => {
     await angemeldet();
     startAnswer = () => Response.json({ error_code: "REQ-SPIELER-007", trace_id: "0".repeat(32) }, { status: 409 });
@@ -197,6 +214,19 @@ describe("the approval and the stop on the account page", () => {
 
     assert.deepEqual(await gibAdresswechselFreiAction(), stepUpRequired());
     assert.deepEqual(writes, []);
+  });
+
+  it("answers the backend's confirmation refusal of an approval as the page's prompt, its figures read again", async () => {
+    await angemeldet();
+    freigabeAnswer = unbestaetigt;
+
+    assert.deepEqual(await gibAdresswechselFreiAction(), stepUpRequired());
+    assert.equal(writes.length, 1, "the backend was never asked, so the refusal proves nothing");
+    assert.ok(
+      cacheCalls.some(({ name }) => name === "refresh"),
+      "the page's figures were not read again",
+    );
+    assert.deepEqual(mail.sent, []);
   });
 
   /* A stop hands nothing over, so even an old sign-in may make it. */

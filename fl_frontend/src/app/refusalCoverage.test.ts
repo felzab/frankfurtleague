@@ -26,7 +26,7 @@ const { BEWERBUNG_MIN_ALTER } = await import("@/features/bewerbungen/constants.t
 const bewerbungUtils = await import("@/features/bewerbungen/utils.ts");
 const einladungen = await import("@/features/einladungen/refusals.ts");
 const funktionen = await import("@/features/funktionen/refusals.ts");
-const kontoLoeschung = await import("@/features/konto/refusals.ts");
+const kontoRefusals = await import("@/features/konto/refusals.ts");
 const kontakte = await import("@/features/kontakte/refusals.ts");
 const konto = await import("@/features/konto/einwilligung.ts");
 const registrierungen = await import("@/features/registrierungen/utils.ts");
@@ -114,7 +114,9 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "DELETE /saisons/{saison_id}/spielplan": saisons.mapUndrawRefusal,
   "POST /schiedsrichter": (error) => schiedsrichter.mapNameRefusal(error) ?? schiedsrichter.mapGesperrteAdresseRefusal(error),
   "PATCH /schiedsrichter/{schiedsrichter_id}": (error) =>
-    schiedsrichter.mapNameRefusal(error) ?? schiedsrichter.mapGesperrteAdresseRefusal(error),
+    schiedsrichter.mapNameRefusal(error) ??
+    schiedsrichter.mapGesperrteAdresseRefusal(error) ??
+    schiedsrichter.mapBestaetigteAdresseRefusal(error),
   "DELETE /schiedsrichter/{schiedsrichter_id}": schiedsrichter.mapRetireRefusal,
   "POST /schiedsrichter/{schiedsrichter_id}/reactivate": schiedsrichter.mapReactivateRefusal,
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": schiedsrichter.mapEinladenRefusal,
@@ -128,9 +130,13 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": schiedsrichter.mapAdresswechselRefusal,
   "POST /schiedsrichter/adresswechsel": schiedsrichterQueries.mapSchiedsrichterAdresswechselRefusal,
   "POST /schiedsrichter/adresswechsel/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,
+  "POST /schiedsrichter/adresswechsel/stopp": schiedsrichterQueries.mapSchiedsrichterAdresswechselRefusal,
+  "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel": schiedsrichter.mapAdresswechselAntragRefusal,
   // The last owner's refusal is the slice's; the unique index's, which no request reaches without a hand
   // edit racing it, the shared reader's.
-  "POST /identitaet/selbst/erasure": kontoLoeschung.mapLoeschungRefusal,
+  "POST /identitaet/selbst/erasure": kontoRefusals.mapLoeschungRefusal,
+  "POST /konto/adresswechsel": kontoRefusals.mapKontoAdresswechselRefusal,
+  "POST /konto/adresswechsel/freigabe": kontoRefusals.mapKontoFreigabeRefusal,
   // The operator's own address and a grant holder's are the slice's; the unique index's is the shared reader's.
   "POST /identitaet/erasure/ansicht": funktionen.mapErasureRefusal,
   "POST /identitaet/erasure": funktionen.mapErasureRefusal,
@@ -147,6 +153,7 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /spieler/{spieler_id}/adresswechsel/einladen": spieler.mapAdresswechselLinkRefusal,
   "POST /spieler/adresswechsel": spielerQueries.mapSpielerAdresswechselRefusal,
   "POST /spieler/adresswechsel/ansicht": spielerQueries.mapSpielerAdresswechselAnsichtRefusal,
+  "POST /spieler/adresswechsel/stopp": spielerQueries.mapSpielerAdresswechselRefusal,
   "GET /spieler/kader/{team_id}/{saison_id}": TEAM_FORBIDDEN_PANEL,
   "PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id}": spieler.mapKaderZeileRefusal,
   "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id}": SHARED_READER,
