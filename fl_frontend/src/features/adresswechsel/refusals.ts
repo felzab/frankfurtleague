@@ -170,7 +170,8 @@ export function mapVerwaltungStartRefusal(error: unknown): { error?: string; fie
       return { error: ADRESSE_BELEGT, fieldErrors: { email: ADRESSE_BELEGT } };
     case "REQ-ADRESSWECHSEL-011":
       return {
-        error: "Diese Änderung könnte niemand aus der Verwaltung genehmigen. Mache zuerst eine weitere Person zur Inhaberin oder zum Inhaber.",
+        error:
+          "Diese Änderung könnte gerade niemand aus der Verwaltung genehmigen. Bei einem Zugang als Inhaberin oder Inhaber mache zuerst eine weitere Person zur Inhaberin oder zum Inhaber, sonst gib einer weiteren Person Zugang zur Verwaltung.",
       };
     case "REQ-ADRESSWECHSEL-008":
       return { error: NAME_IM_GRUND, fieldErrors: { grund: NAME_IM_GRUND } };
@@ -224,7 +225,7 @@ const GENEHMIGUNG_WORTE: Readonly<Record<string, string>> = {
   "REQ-ADRESSWECHSEL-013": "Eine Änderung Deiner eigenen Adresse oder eine, die Du selbst begonnen hast, genehmigt jemand anderes.",
   "REQ-ADRESSWECHSEL-014":
     "Die neue Adresse eines Zugangs als Inhaberin oder Inhaber genehmigt nur eine andere Inhaberin oder ein anderer Inhaber.",
-  "REQ-ADRESSWECHSEL-003": buildRefusal({ reason: "Die Zeit für die Genehmigung ist abgelaufen", repair: LADE_DIE_SEITE_NEU }),
+  "REQ-ADRESSWECHSEL-003": buildRefusal({ reason: "Diese Änderung ist abgelaufen", repair: LADE_DIE_SEITE_NEU }),
   // The effect's own refusals write nothing, the approval and the effect being one transaction: the change
   // stands unapproved until it is discarded or lapses.
   "REQ-ADRESSWECHSEL-004": ohneGenehmigung("Die neue Adresse steht auf der Sperrliste"),
