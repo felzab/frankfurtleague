@@ -113,16 +113,15 @@ async def pull_genannt(
     bericht: Mapping[str, Any] | None,
     session: AsyncClientSession | None,
 ) -> list[FLSpielberichtSpieler]:
-    """Every pupil the stored block names outside the squads served beside it, so an entry stored before keeps its name on the form.
+    """Every pupil the block names outside the squads served, so a stored entry keeps its name; every one where none is served.
 
-    Every pupil it names where no squad is served (`compose_ansicht`'s `kader_offen`).
+    An erased pupil comes nameless, read „anonym“ rather than as the id its entry keeps.
     """
 
     live = {row["spieler_id"] for seite in SEITEN for row in live_kader(lage, seite)} if kader_offen else set()
     ausserhalb = set().union(*genannte_ids(bericht).values()) - live
     zeilen = {row["spieler_id"]: row for row in lage.kader if row["spieler_id"] in ausserhalb}
     # A pupil of neither side's club, such as one of a club a knockout slot has since replaced: read off their record.
-    # An erased pupil's id finds none, and the entry stays unnamed.
     rest = ausserhalb - zeilen.keys()
     personen = (
         []
@@ -132,11 +131,18 @@ async def pull_genannt(
         )
     )
 
+    benannt = {person["_id"]: person for person in personen}
+
     return [
         *(FLSpielberichtSpieler.model_validate(zeile) for zeile in zeilen.values()),
         *(
-            FLSpielberichtSpieler(spieler_id=person["_id"], vorname=person.get("vorname"), nachname=person.get("nachname"), nummer=None)
-            for person in personen
+            FLSpielberichtSpieler(
+                spieler_id=spieler_id,
+                vorname=benannt.get(spieler_id, {}).get("vorname"),
+                nachname=benannt.get(spieler_id, {}).get("nachname"),
+                nummer=None,
+            )
+            for spieler_id in sorted(rest)
         ),
     ]
 
@@ -161,7 +167,7 @@ async def write_bericht(
     now: datetime,
     session: AsyncClientSession,
 ) -> Mapping[str, Any]:
-    """The block written whole: created by its first writer, created on a line-up's document lacking it, or replaced.
+    """The block written whole: created by its first writer, set on a document holding none, or replaced.
 
     A block already saying what the payload says is left as stored; otherwise answers the document as written.
     """

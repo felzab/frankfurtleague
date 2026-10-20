@@ -22,7 +22,7 @@ const { raised } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SpielberichtForm } = await import("./SpielberichtForm.tsx");
-const { kontextOf } = await import("./spielberichtDraft.ts");
+const { deriveSpielberichtDraftStatus, draftOf, kontextOf } = await import("./spielberichtDraft.ts");
 const { FLSpielberichtSchiedsrichterResponseSchema } = await import("../../../schemas.ts");
 
 const LESEN = FLSpielberichtSchiedsrichterResponseSchema.parse(spielberichtReadFixture());
@@ -126,6 +126,34 @@ describe("the referee's report form", () => {
 
     assert.equal(calls.length, 1, "the edited report was not sent");
     assert.equal(Reflect.get(Object(calls[0]?.payload), "bericht_stand"), 4);
+  });
+
+  /* A scorer ausgetragen since the match is in no squad the read serves, only in `genannt`: the picker and the change
+     list would otherwise read the stored entry as unpicked and as a bare id. */
+  it("keeps a stored scorer's name where no squad holds them any more", () => {
+    const kontext = kontextOf({ ...LESEN, kader: { team1: [], team2: LESEN.kader.team2 }, genannt: LESEN.kader.team1 });
+    render(
+      underNext(
+        h(SpielberichtForm, {
+          leser: "schiedsrichter",
+          spielId: BERICHT_SPIEL_ID,
+          kontext,
+          stored: LESEN.bericht,
+          header: { title: "Goethe-Gymnasium gegen Lessing-Gymnasium" },
+          zurueckHref: "/bereich/schiedsrichter",
+        }),
+        { router: nextRouter() },
+      ),
+    );
+
+    assert.ok(
+      screen.getAllByRole("button", { name: /Spielerin oder Spieler/ })[0]?.textContent?.includes("9 · Lina Berg"),
+      "the picker reads unpicked",
+    );
+
+    const gespeichert = draftOf(LESEN.bericht);
+    const status = deriveSpielberichtDraftStatus({ kontext, stored: gespeichert, draft: gespeichert, fieldErrors: {} });
+    assert.equal(status.byPath.get("bericht.torschuetzen")?.storedText, "Goethe-Gymnasium: 9 · Lina Berg, 23.");
   });
 
   /* „45+2“ needs a „+“, which a digits keypad may not carry on the phone a referee fills the report in on. */

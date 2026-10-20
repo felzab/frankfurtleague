@@ -125,10 +125,10 @@ class FLSpielberichtSeiten(BaseModel):
 
 
 class FLSpielberichtBericht(BaseModel):
-    """The referee's account of one match, one proposal: a correction returns all of it to proposed.
+    """The referee's account of one match, one proposal, a correction after its adoption reading `abweichend`.
 
-    `version` rises with every write and the adoption records the one it took, so adopted means the two are equal,
-    whatever a clock says.
+    `version` rises with each write of the content and the adoption records the one it took: adopted means equal, never
+    a clock.
     """
 
     ergebnis_vorschlag: FLSpielberichtVorschlag
@@ -147,7 +147,7 @@ class FLSpielberichtBericht(BaseModel):
 
 
 class FLSpielbericht(BaseModel):
-    """One fixture's report document, as stored. `bericht` is null on a document a club's line-up created first."""
+    """One fixture's report document, as stored. A document with a null `bericht` holds no report, and every read says so."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     saison_id: str
@@ -241,7 +241,7 @@ class FLSpielberichtSpiel(BaseModel):
 
 
 class FLSpielberichtSpieler(BaseModel):
-    """A pupil a report may name or names, with the names their record holds."""
+    """A pupil a report may name or names, with the names their record holds, both null where an erasure took the record."""
 
     spieler_id: CustomObjectId
     vorname: str | None

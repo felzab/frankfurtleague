@@ -94,7 +94,7 @@ export function eingesetztStand(seedVersion: number | null, berichtVersion: numb
   return seedVersion === berichtVersion ? "aktuell" : "veraltet";
 }
 
-/** A pupil as a report's reader sees them: shirt number and name, and the erased pupils' sentinel as „anonym“. */
+/** A pupil as a report's reader sees them: shirt number and name, and a pupil an erasure took as „anonym“. */
 export function spielerLabel(spieler: FLSpielberichtSpieler): string {
   if (spieler.vorname === null) return SPIELER_ANONYM_LABEL;
 

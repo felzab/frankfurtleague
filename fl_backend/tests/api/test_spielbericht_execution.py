@@ -603,6 +603,20 @@ class TestTheReads:
         assert form.bericht is not None
         assert sorted((spieler.spieler_id, spieler.nachname) for spieler in form.genannt) == [(LINA, "Krause"), (MIA, "Westphal")]
 
+    def test_a_pupil_off_both_squads_is_named_off_their_record_and_an_erased_one_by_nobody(self, mongo_replica_set_url: str):
+        """The two arms past the squad rows: no read showing the panel a bare id, an erased pupil's entry still holding it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await put(database, client, bericht())
+            await database[Collection.SAISON_SPIELER].update_one({"spieler_id": LINA}, {"$set": {"team_id": ObjectId()}})
+            await database[Collection.SAISON_SPIELER].delete_one({"spieler_id": MIA})
+            await database[Collection.SPIELER].delete_one({"_id": MIA})
+            return await get_spielbericht_admin(spiel_id=SPIEL, db=client, **handles(database))
+
+        admin = on_the_league(mongo_replica_set_url, body)
+
+        assert sorted((spieler.spieler_id, spieler.nachname) for spieler in admin.genannt) == [(LINA, "Krause"), (MIA, None)]
+
     def test_after_the_season_the_referee_reads_the_report_alone(self, mongo_replica_set_url: str):
         """Played and standing, so only the season's end decides: the persons the report names, no squad to pick from."""
 

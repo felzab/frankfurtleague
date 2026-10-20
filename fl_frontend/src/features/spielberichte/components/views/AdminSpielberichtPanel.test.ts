@@ -86,6 +86,21 @@ describe("the report panel on the match editor", () => {
     }
   });
 
+  /* A pupil off both squads arrives in `genannt`, by name or, erased, by none: the entry holds a bare id either way. */
+  it("names each entry's pupil off the pupils the report names outside the squads, an erased one as „anonym“", () => {
+    const { kader } = spielberichtReadFixture();
+    panel({
+      stand: stand({
+        kader: { team1: [], team2: [] },
+        genannt: [kader.team1[0], { ...kader.team2[0], vorname: null, nachname: null, nummer: null }],
+      }),
+    });
+
+    assert.ok(screen.getByText("9 · Lina Berg"));
+    assert.ok(screen.getByText("anonym"));
+    assert.equal(screen.queryAllByText(/^[0-9a-f]{24}$/).length, 0, "an entry reads as its pupil's bare id");
+  });
+
   /* Closed, the correction page writes nothing, and its sentence would be the closed state's. */
   it("offers no correction while the switch reads off", () => {
     panel({ stand: stand({}, false) });

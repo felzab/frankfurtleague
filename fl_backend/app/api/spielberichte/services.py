@@ -187,7 +187,7 @@ def neu_genannt(
 ) -> dict[FLSpielberichtSeite, set[ObjectId]]:
     """The pupils this write names that the stored block did not name on that side, the only ones judged against the squad.
 
-    So a correction keeps a scorer ausgetragen since the match, or an erased pupil's sentinel.
+    So a correction keeps a scorer ausgetragen or erased since the match.
     """
 
     stored = genannte_ids(gespeichert)

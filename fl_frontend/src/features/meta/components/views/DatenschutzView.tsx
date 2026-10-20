@@ -200,7 +200,7 @@ const FRISTEN = [
   },
   {
     daten:
-      "Spielbericht einer Schiedsrichterin oder eines Schiedsrichters: das Ergebnis, Torschützen und Karten mit Minute, zu einer Karte ein Grund aus einer festen Liste, dazu Bemerkungen als freier Text",
+      "Spielbericht zu einem Spiel, von der Schiedsrichterin oder dem Schiedsrichter oder der Verwaltung: das Ergebnis, Torschützen und Karten mit Minute, zu einer Karte ein Grund aus einer festen Liste, dazu Bemerkungen als freier Text",
     frist:
       "Die Bemerkungen und die Gründe der Karten bis zum Ende der Saison, die auf die Saison des Spiels folgt. Ergebnis, Torschützen und Karten bleiben als Chronik der Liga bestehen",
   },
@@ -611,9 +611,10 @@ export function DatenschutzView() {
             Nach dem Spiel trägt die Schiedsrichterin oder der Schiedsrichter einen Spielbericht ein: das Ergebnis, zu jedem Tor die Minute und
             die Person, die getroffen hat, und zu jeder Karte die Person, die Minute, die Farbe und bei Gelb und Gelb-Rot einen Grund aus einer
             festen Liste. Dazu kommen Bemerkungen zum Spiel als freier Text. Einen Namen der Spielerinnen und Spieler beider Kader, der
-            Kontaktpersonen beider Teams oder der Schiedsrichterin oder des Schiedsrichters nehmen die Bemerkungen nicht an. Den Spielbericht
-            sehen nur die Schiedsrichterin oder der Schiedsrichter des Spiels und die Administratorinnen und Administratoren der Liga;
-            veröffentlicht wird er nicht. Wie lange wir ihn aufbewahren, steht in Abschnitt 13.
+            Kontaktpersonen beider Teams oder der Schiedsrichterin oder des Schiedsrichters nehmen die Bemerkungen nicht an. Die
+            Administratorinnen und Administratoren der Liga können den Spielbericht berichtigen oder selbst eintragen. Den Spielbericht sehen
+            nur die Schiedsrichterin oder der Schiedsrichter des Spiels und die Administratorinnen und Administratoren der Liga; veröffentlicht
+            wird er nicht. Wie lange wir ihn aufbewahren, steht in Abschnitt 13.
           </p>
           <p className={ABSATZ_CLASSES}>
             Eine E-Mail-Adresse gehört bei uns zu einer Person. Registriert sich jemand mit einer Adresse, unter der schon eine Person

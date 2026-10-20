@@ -107,7 +107,7 @@ const kartePayload = (spieler: z.ZodString, bestand: Parameters<typeof grundGest
     path: ["grund"],
   });
 
-/** A null id is a goal nobody was named for, never an erased pupil, whose entry holds the sentinel's id. */
+/** A null id is a goal nobody was named for, never an erased pupil, whose entry keeps their id. */
 export const FLSpielberichtTorschuetzeSchema = torschuetze(CustomObjectIdStringSchema.nullable());
 export type FLSpielberichtTorschuetze = z.infer<typeof FLSpielberichtTorschuetzeSchema>;
 
@@ -252,7 +252,7 @@ export const FLSpielberichtSpielSchema = z.object({
 });
 export type FLSpielberichtSpiel = z.infer<typeof FLSpielberichtSpielSchema>;
 
-/** A pupil a report may name or names; both names null on the erased pupils' sentinel alone. */
+/** A pupil a report may name or names; both names null on a pupil an erasure took, whose entry keeps the id. */
 export const FLSpielberichtSpielerSchema = z.object({
   spieler_id: CustomObjectIdStringSchema,
   vorname: z.string().nullable(),

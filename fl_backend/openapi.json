@@ -26240,7 +26240,7 @@
           "uebernommene_version"
         ],
         "title": "FLSpielberichtBericht",
-        "description": "The referee's account of one match, one proposal: a correction returns all of it to proposed.\n\n`version` rises with every write and the adoption records the one it took, so adopted means the two are equal,\nwhatever a clock says."
+        "description": "The referee's account of one match, one proposal, a correction after its adoption reading `abweichend`.\n\n`version` rises with each write of the content and the adoption records the one it took: adopted means equal, never\na clock."
       },
       "FLSpielberichtBerichtPayload": {
         "properties": {
@@ -26783,7 +26783,7 @@
           "nummer"
         ],
         "title": "FLSpielberichtSpieler",
-        "description": "A pupil a report may name or names, with the names their record holds."
+        "description": "A pupil a report may name or names, with the names their record holds, both null where an erasure took the record."
       },
       "FLSpielberichtTeam": {
         "properties": {

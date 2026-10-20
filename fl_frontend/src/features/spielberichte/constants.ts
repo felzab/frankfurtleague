@@ -34,8 +34,8 @@ export const KARTEN_GRUND_LABELS: Record<FLKartenGrund, string> = {
 };
 
 /**
- * A scorer nobody was named for: a null id, resolved without a lookup. Lower case, and never the erased pupil's
- * „anonym“, which reads a name withheld where this reads a name never entered.
+ * A scorer nobody was named for: a null id, resolved without a lookup. Lower case, and never „anonym“, which an
+ * erased pupil's entry reads: a name withheld, where this reads a name never entered.
  */
 export const TORSCHUETZE_UNBEKANNT_LABEL = "unbekannt";
 

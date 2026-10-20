@@ -697,7 +697,7 @@ class FLSpielPriorBericht(BaseModel):
 
         gesetzt = {self.uebernommen_am is None, self.uebernommen_von is None, self.uebernommene_version is None}
         if len(gesetzt) != 1:
-            raise ValueError("Eine Übernahme nennt Zeitpunkt, Urheber und Fassung zusammen oder keins davon.")
+            raise ValueError("Eine Übernahme nennt Zeitpunkt, Urheber und Stand zusammen oder keins davon.")
         if self.uebernommene_version is not None and self.uebernommene_version > self.version:
             raise ValueError("Eine frühere Übernahme liegt nicht hinter dem Stand, den die Übernahme ersetzt hat.")
 
