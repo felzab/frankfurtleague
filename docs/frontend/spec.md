@@ -255,8 +255,8 @@ write answers as of unknown outcome wherever the deadline cut a call or a mail m
 whatever the handler made of either, both spines judging by one reading of what the request sent
 (`fl_frontend/src/shared/utils/writeOutcome.ts :: answerThrow`): part of the write may stand, as it may where the backend's own deadline cuts one
 (`docs/backend/spec.md :: I321`). **A public route's read after the backend refused its write leaves the outcome
-known**: the refusal settled it, so the read's cut, failure or contract break answers the refusal's own panel, the
-break logged (`fl_frontend/src/shared/utils/publicRoute.ts :: readAfterRefusal`). **A ban's notice is the one exception (I372)**: the ban is written
+known**: the refusal settled it, so the read's cut, failure or contract break answers the refusal's own panel, every
+failure but an unanswered or refused read logged (`fl_frontend/src/shared/utils/publicRoute.ts :: readAfterRefusal`). **A ban's notice is the one exception (I372)**: the ban is written
 before its notice, so a deadline cutting the notice leaves the ban certain and only the notice in
 doubt, and the create answers the ban saved with its notice unclear. Both mail fan-outs count a send that broke off unanswered as neither
 delivered nor unreachable, and a send carrying an idempotency key is tried again after a broken
