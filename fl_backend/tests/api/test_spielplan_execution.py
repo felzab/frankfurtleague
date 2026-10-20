@@ -1063,10 +1063,9 @@ class SaisonsHeldAfterTheirWatermark:
 
 class TestAFirstReportCrossingAReplaceMeetsItOnTheSeason:
     def test_a_report_landing_inside_a_same_day_redraw_never_outlives_it(self, mongo_replica_set_url: str):
-        """The redraw's watermark write changes nothing, so only an anchor of its own writes the season the report anchors.
+        """The redraw's watermark write changes nothing, so only its own anchor writes the season the report anchors.
 
-        The report's tail as its write runs it, the fixture read in the transaction and every judgement past, landing
-        after the replace removed, counted twice and stamped its watermark, before it commits.
+        The report's tail, every judgement past, lands after the replace's removal, counts and watermark, before its commit.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
