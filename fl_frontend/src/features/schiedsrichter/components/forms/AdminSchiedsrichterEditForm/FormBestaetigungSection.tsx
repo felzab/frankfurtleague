@@ -87,7 +87,9 @@ function EinwilligungStand({
         {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
         <Beleg nachweis={einwilligung.nachweis.medien} />
       </Angabe>
-      <Angabe label="Bestätigt am">{formatSpielDatum(einwilligung.bestaetigt_am)}</Angabe>
+      <Angabe label="Bestätigt am">
+        {einwilligung.bestaetigt_am === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.bestaetigt_am)}
+      </Angabe>
       {/* The key rather than a German gloss of it, which would be a second name for one wording. */}
       <Angabe label={EINWILLIGUNG_FASSUNG_FRAGE}>
         <Fassung
@@ -137,7 +139,7 @@ export function FormBestaetigungSection({
   const stepUp = useStepUp();
   const panel = formPanel();
 
-  const istBestaetigt = einwilligung !== null;
+  const istBestaetigt = einwilligung?.bestaetigt_am != null;
   const sendeLabel = bestaetigung === null ? "Bestätigungslink senden" : "Link erneut senden";
   const sendeName = bestaetigung === null ? sendeLabel : BESTAETIGUNG_ERNEUT;
 

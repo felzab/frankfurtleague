@@ -84,7 +84,8 @@ export const FLEinwilligungSchema = z.object({
   // Who answered, on a record stored before no write named one; null on every record since.
   erteilt_von: z.enum(["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]).nullable(),
   datum: CustomDateStringSchema,
-  bestaetigt_am: CustomDateStringSchema,
+  // Null only where a hand edit blanked the stamp: every record is born confirmed.
+  bestaetigt_am: CustomDateStringSchema.nullable(),
   // A label of the backend's consent registry and never the words.
   text_version: z.string(),
   // A second consent under one record: `umfang` and this are independent answers, so a reader

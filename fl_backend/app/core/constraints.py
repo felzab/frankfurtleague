@@ -244,7 +244,8 @@ _EINWILLIGUNG = _object(
         # Out of `required` and still closed: stored records carry it, and no write sets it.
         "erteilt_von": {"bsonType": _STRING_OR_NULL, "enum": [*_EINWILLIGUNG_QUELLEN, None]},
         "datum": {"bsonType": "string"},
-        "bestaetigt_am": {"bsonType": "string"},
+        # Null for the read model's reason: no writer stores one.
+        "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
         "text_version": {"bsonType": "string"},
         # A media consent is a scope of its own and never an `_EINWILLIGUNG_UMFANG` member, so a
         # record can be withdrawn from one and stand in the other.
@@ -2206,7 +2207,7 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "email": _NON_EMPTY,
         "geburtsdatum": _OPTIONAL_DAY,
         "einwilligung.datum": _OPTIONAL_DAY,
-        "einwilligung.bestaetigt_am": _DAY,
+        "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
         "bestaetigung.verschickt_am": _DAY,
         "bestaetigung.erinnert_am": _OPTIONAL_DAY,
         "bestaetigung.frist": _DAY,
@@ -2274,7 +2275,7 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "bestaetigung.erinnert_am": _OPTIONAL_DAY,
         "bestaetigung.frist": _DAY,
         "einwilligung.datum": _DAY,
-        "einwilligung.bestaetigt_am": _DAY,
+        "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
         "adresswechsel.verschickt_am": _DAY,
     },
     Collection.SPERRLISTE: {
@@ -2332,7 +2333,7 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
     },
     Collection.SPIELER: {
         "einwilligung.datum": _DAY,
-        "einwilligung.bestaetigt_am": _DAY,
+        "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
         # Null is the sentinel's, and `NAMELESS_PERSON_RULE`'s anywhere else.
         "vorname": _NON_EMPTY_OR_NULL,
         "inactive_since": _OPTIONAL_DAY,

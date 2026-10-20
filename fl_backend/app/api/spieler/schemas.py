@@ -110,8 +110,9 @@ class FLEinwilligung(BaseModel):
     erteilt_von: FLEinwilligungQuelle | None = None
     # The day consent was given. A record is born of its person's own confirmation, so it is that day.
     datum: CustomDateString
-    # The day its person confirmed it, which every record has: nobody but that person writes one.
-    bestaetigt_am: CustomDateString
+    # The day its person confirmed it: a record is born confirmed. Null only as a stamp a hand edit
+    # blanked reads, which every reader takes for none rather than refusing the row.
+    bestaetigt_am: CustomOptionalDateString
     # A label of `fl_backend/app/shared/einwilligung.py :: FASSUNGEN` and never the words, as
     # `app/api/teams/schemas.py :: FLKontaktKenntnisnahme` holds one: a rewording must not change what
     # a stored record claims.
