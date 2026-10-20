@@ -276,7 +276,10 @@ class TestEinwilligung:
     def test_a_record_predating_the_two_optional_keys_reads_back(self, einwilligung):
         """The whole stored population: a model requiring either would 500 a list over every person the league already holds."""
 
-        parsed = FLEinwilligung.model_validate(einwilligung())
+        record = einwilligung()
+        del record["text_version"], record["medien"]
+
+        parsed = FLEinwilligung.model_validate(record)
 
         assert parsed.text_version is None
         assert parsed.medien is False
@@ -293,10 +296,7 @@ class TestEinwilligung:
     def test_a_record_naming_no_speaker_reads_back(self, einwilligung):
         """No write names who answered any longer, so every record written from now on reads without one."""
 
-        record = einwilligung()
-        del record["erteilt_von"]
-
-        assert FLEinwilligung.model_validate(record).erteilt_von is None
+        assert FLEinwilligung.model_validate(einwilligung()).erteilt_von is None
 
     def test_a_carried_over_record_says_so_and_carries_no_dates(self, einwilligung):
         """`bestandsuebernahme` is the point of the third member: nobody was asked, so there is no day and no confirmation."""
