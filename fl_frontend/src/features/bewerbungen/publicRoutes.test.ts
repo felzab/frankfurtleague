@@ -28,7 +28,7 @@ import {
 } from "@/shared/testing/einwilligungAnswers.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { answerReadsWith, backendNotFound, EMPTIEST_ANSWER, pageBody, renderPage } from "@/shared/testing/pageHarness.ts";
+import { answerReadsWith, backendNotFound, backendUnreachable, EMPTIEST_ANSWER, pageBody, renderPage } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
@@ -1532,15 +1532,16 @@ describe("the words the two contact pages are handed", () => {
   } as const;
 
   /**
-   * Every read answered as the backend would: `laufend` overriding what it runs on each page,
-   * `ansichtNennt` and `zustand` the link view's label and state, `scheitert` failing one endpoint,
-   * `worte` every words read, and `seiten` the registry whole.
+   * Every read answered as the backend would: `laufend` overriding each page's running label, `ansichtNennt` and
+   * `zustand` the link view's label and state, `scheitert` one endpoint failing with `fehler` or untyped, `worte` every
+   * words read, and `seiten` the registry.
    */
   function backend({
     laufend,
     ansichtNennt,
     zustand,
     scheitert,
+    fehler,
     worte,
     seiten,
   }: {
@@ -1548,11 +1549,12 @@ describe("the words the two contact pages are handed", () => {
     ansichtNennt?: string;
     zustand?: string;
     scheitert?: string;
+    fehler?: Error;
     worte?: unknown;
     seiten?: unknown;
   } = {}): void {
     answerReadsWith((endpoint, schema, params) => {
-      if (endpoint === scheitert) throw new Error(`the backend failed ${endpoint}`);
+      if (endpoint === scheitert) throw fehler ?? new Error(`the backend failed ${endpoint}`);
       if (worte !== undefined && endpoint.startsWith("/einwilligung/fassungen/")) return worte;
       if (endpoint === "/einwilligung/seiten" && seiten !== undefined) return seiten;
       if (endpoint === "/einwilligung/seiten" && laufend !== undefined) return { acknowledged: 1, laufende_fassungen: laufend };
@@ -1635,7 +1637,15 @@ describe("the words the two contact pages are handed", () => {
     assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
   });
 
-  it("opens a link on the failed read's panel where the link's own read fails", async () => {
+  it("opens a link on the failed read's panel where the network never answered the link's own read, logging nothing", async () => {
+    const ansicht = "/bewerbungen/einwilligung/ansicht";
+    backend({ scheitert: ansicht, fehler: backendUnreachable(ansicht, "POST") });
+
+    assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" });
+    assert.deepEqual(loggedErrorCodes(), [], "a read the network never answered was logged as a fault");
+  });
+
+  it("opens a link on the failed read's panel where the link's own read threw untyped, logging it", async () => {
     backend({ scheitert: "/bewerbungen/einwilligung/ansicht" });
 
     assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" });

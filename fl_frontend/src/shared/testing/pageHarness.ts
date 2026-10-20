@@ -9,7 +9,7 @@ import { JSDOM } from "jsdom";
 import { prerenderToNodeStream } from "react-dom/static";
 import z from "zod";
 
-import { APIBadStatusError, APIMalformedDataError } from "@/core/errors.ts";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
 import { exportingModule, registerDoubles } from "@/core/exportingModule.ts";
 import { hasDirective } from "@/core/treeWalk.ts";
 import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
@@ -197,6 +197,21 @@ export const backendNotFound = (endpoint: string): APIBadStatusError =>
     method: "GET",
     readOnly: true,
     traceId: "0",
+  });
+
+/**
+ * A read of `endpoint` the network never answered, as the API client raises it in production: a page's degraded
+ * read settles it to its panel with no line, where a bare `TypeError` stands for a bug and is logged.
+ */
+export const backendUnreachable = (endpoint: string, method = "GET"): APINetworkError =>
+  new APINetworkError({
+    message: "Network request failed. Please check your connection.",
+    url: backendUrl(endpoint),
+    method: method,
+    readOnly: true,
+    traceId: "0",
+    isTimeout: false,
+    originalError: new TypeError("fetch failed"),
   });
 
 const asParsed: HandOver = (_endpoint, parsed) => parsed;

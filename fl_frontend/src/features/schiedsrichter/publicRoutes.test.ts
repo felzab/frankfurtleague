@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { einwilligungAnswer } from "@/core/einwilligungDocument.ts";
 import { doubleLogger, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
 import { laufendeSchiedsrichterFassung } from "@/shared/testing/einwilligungAnswers.ts";
-import { answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
+import { answerReadsWith, backendUnreachable, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
 
 import type { ReactElement } from "react";
 import type { SchiedsrichterBestaetigungStart } from "./components/views/SchiedsrichterBestaetigungView.tsx";
@@ -102,18 +102,23 @@ describe("the words the referee's confirmation page is handed", () => {
     );
   });
 
-  it("opens a link on the failed read's panel where the link's own read fails", async () => {
-    answerReadsWith((endpoint, schema, params) => {
-      if (endpoint === "/schiedsrichter/bestaetigung/ansicht") throw new TypeError("fetch failed");
-      return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
-    });
-    const body = (await pageBody(SchiedsrichterBestaetigungPage, {
-      params: Promise.resolve({}),
-      searchParams: Promise.resolve({ token: "kein-echtes-token" }),
-    })) as ReactElement<{ start: SchiedsrichterBestaetigungStart }>;
+  for (const [wie, thrown, codes] of [
+    ["went unanswered", () => backendUnreachable("/schiedsrichter/bestaetigung/ansicht", "POST"), []],
+    // A bug in the read's narrowing: only this line tells it from a read that failed.
+    ["threw untyped", () => new TypeError("Cannot read properties of undefined (reading 'zustand')"), ["FE-RSC-001"]],
+  ] as const) {
+    it(`opens a link on the failed read's panel where the link's own read ${wie}, logging ${codes.length === 0 ? "nothing" : "it"}`, async () => {
+      answerReadsWith((endpoint, schema, params) => {
+        if (endpoint === "/schiedsrichter/bestaetigung/ansicht") throw thrown();
+        return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
+      });
+      const body = (await pageBody(SchiedsrichterBestaetigungPage, {
+        params: Promise.resolve({}),
+        searchParams: Promise.resolve({ token: "kein-echtes-token" }),
+      })) as ReactElement<{ start: SchiedsrichterBestaetigungStart }>;
 
-    assert.deepEqual(body.props.start, { zustand: "unlesbar" });
-    // Untyped, as a bug in the read's narrowing throws: only this line tells it from a read that failed.
-    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
-  });
+      assert.deepEqual(body.props.start, { zustand: "unlesbar" });
+      assert.deepEqual(loggedErrorCodes(), codes);
+    });
+  }
 });

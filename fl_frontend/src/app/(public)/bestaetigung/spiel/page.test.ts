@@ -11,7 +11,16 @@ import { userEvent } from "@testing-library/user-event";
 
 import { doubleLogger, doubleToasts, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
-import { answerReadsWith, callPage, clearSteps, EMPTIEST_ANSWER, pageBody, readsOf, steps } from "@/shared/testing/pageHarness.ts";
+import {
+  answerReadsWith,
+  backendUnreachable,
+  callPage,
+  clearSteps,
+  EMPTIEST_ANSWER,
+  pageBody,
+  readsOf,
+  steps,
+} from "@/shared/testing/pageHarness.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
@@ -147,12 +156,13 @@ describe("what a spent link's page carries", () => {
   });
 
   /* The dead-link panel here would call a live link void on a day the backend was merely unreachable. */
-  it("opens a link whose read failed on the failed read's panel", async () => {
+  it("opens a link whose read the network never answered on the failed read's panel, logging nothing", async () => {
     const start = await startFor(() => {
-      throw new TypeError("fetch failed");
+      throw backendUnreachable(VIEW_ENDPOINT, "POST");
     });
 
     assert.deepEqual(start, { zustand: "unlesbar" });
+    assert.deepEqual(loggedErrorCodes(), [], "a read the network never answered was logged as a fault");
   });
 
   /* A bug in the read's narrowing opens the same panel as a read that failed, so only its line tells them apart. */
@@ -222,7 +232,7 @@ describe("the address the fixture confirmation page opened under", () => {
   it("keeps the token where the link could not be read, so a reload can retry it", async () => {
     window.history.replaceState(null, "", `/bestaetigung/spiel?token=${TOKEN}`);
     viewAnswers(() => {
-      throw new TypeError("fetch failed");
+      throw backendUnreachable(VIEW_ENDPOINT, "POST");
     });
     const { unmount } = render(await pageBody(SpielbestaetigungPage, PROPS));
     const adresse = `${window.location.pathname}${window.location.search}`;
