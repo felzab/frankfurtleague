@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
@@ -7,6 +7,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.aktionen.crud import redact_images_in_session
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
@@ -20,11 +21,14 @@ from app.api.spielberichte.services import (
     BerichtLage,
     bericht_zustand_of,
     build_bericht_kader_pipeline,
+    build_referee_report_images_filter,
+    build_referee_reports_filter,
     build_zustand_pipeline,
     compose_bericht_update,
     compose_neuer_bericht,
     genannte_ids,
     live_kader,
+    referee_report_image_edits,
     team_id_of,
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN
@@ -32,11 +36,14 @@ from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
     anchor_in_db,
+    patch_many_in_db,
     patch_one_in_db,
     post_one_to_db,
     pull_many_from_db,
     pull_one_from_db,
 )
+from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.shared.schemas.custom import CustomObjectId
 
 # The seat holders' two names alone: what the remarks are judged against.
 VEREIN_FIELDS: Mapping[str, int] = {
@@ -171,3 +178,41 @@ async def pull_zustaende(*, spielberichte_collection: AsyncCollection, saison_id
         )
 
     return eintraege
+
+
+async def repoint_referee_reports_in_session(
+    *,
+    spielberichte_collection: AsyncCollection,
+    aktionen_collection: AsyncCollection,
+    schiedsrichter_ids: Sequence[CustomObjectId],
+    # The caller's, so every redaction of one erasure carries one instant.
+    stamp: str,
+    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one
+    # (`docs/backend/spec.md :: I52`).
+    session: AsyncClientSession,
+) -> int:
+    """Repoint every report these referees sent at the ghost, in the document and in its log images.
+
+    The report stands, its remarks included: it is the league's record of the match. Run ahead of the referee's own step.
+    """
+
+    # No command for none: a person holding no referee row costs this step nothing.
+    if not schiedsrichter_ids:
+        return 0
+
+    repointed = await patch_many_in_db(
+        collection=spielberichte_collection,
+        db_filter=build_referee_reports_filter(schiedsrichter_ids),
+        update={"$set": {"bericht.eingereicht_von.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}},
+        session=session,
+    )
+
+    await redact_images_in_session(
+        aktionen_collection=aktionen_collection,
+        db_filter=build_referee_report_images_filter(schiedsrichter_ids),
+        judge=lambda image: referee_report_image_edits(image, schiedsrichter_ids),
+        stamp=stamp,
+        session=session,
+    )
+
+    return repointed.modified_count

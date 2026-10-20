@@ -391,7 +391,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   fixture keeps a name, a school or a contact detail, closed seasons' fixtures included, and nothing
   can be written back onto the person: an edit racing the erasure
   meets the deleted row and is refused as not found. Every erased referee's fixtures share that one
-  row, so no set of fixtures singles a person out. No erasure reaches the ghost: each selects the
+  row, so no set of fixtures singles a person out. Every match report the referee sent names the ghost
+  as its sender too, and stands with its remarks and entries as the league's record of the match
+  (`docs/backend/spec.md :: I805`). No erasure reaches the ghost: each selects the
   records an address holds, and the ghost holds none.
 - **The address route answers every request, because no write stores a pupil or referee row
   without an address.** A pupil row is created only by an admission, which gives it the

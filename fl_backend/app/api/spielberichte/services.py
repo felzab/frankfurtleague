@@ -20,6 +20,7 @@ from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.crud import refuse
 from app.core.exceptions import WriteRefusal
+from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 
 BERICHT_NICHT_GESPIELT: Final = "REQ-BERICHT-001"
 BERICHT_NICHT_GELEITET: Final = "REQ-BERICHT-002"
@@ -345,3 +346,32 @@ def compose_bericht_update(payload: FLSpielberichtBerichtPayload, *, now: dateti
         | {"bericht.geaendert_am": now},
         "$inc": {"bericht.version": 1},
     }
+
+
+# --- The REFEREE'S ERASURE: the reports they sent, and the log images of them.
+
+
+def build_referee_reports_filter(schiedsrichter_ids: Sequence[Any]) -> Mapping[str, Any]:
+    """Every report one of these referees first sent."""
+
+    return {"bericht.eingereicht_von.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}
+
+
+def build_referee_report_images_filter(schiedsrichter_ids: Sequence[Any]) -> Mapping[str, Any]:
+    """Every `spielberichte` log row whose image names one of these referees as the report's sender.
+
+    Selected inside the image, as `app/api/schiedsrichter/services.py :: build_booked_image_filter` selects: an undraw's
+    `delete_many` row holds images of reports long gone, which no id standing now reaches.
+    """
+
+    return {"collection": str(Collection.SPIELBERICHTE), "before.bericht.eingereicht_von.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}
+
+
+def referee_report_image_edits(image: Mapping[str, Any], schiedsrichter_ids: Sequence[Any]) -> dict[str, Any]:
+    """One report image naming one of these referees, repointed as the report itself is; its remarks and entries stay."""
+
+    von = (image.get("bericht") or {}).get("eingereicht_von")
+    if not isinstance(von, Mapping) or von.get("schiedsrichter_id") not in schiedsrichter_ids:
+        return {}
+
+    return {"bericht.eingereicht_von.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}

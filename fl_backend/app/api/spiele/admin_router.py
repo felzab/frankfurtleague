@@ -204,8 +204,8 @@ async def get_spiele_action_required(
     for spiel in faulted_spiele:
         by_id.setdefault(spiel.id, spiel)
 
-    # A report awaiting the administrator sits on a fixture the read above can pass over -- one played today, or one
-    # whose result stands -- so its fixture is unioned in as a fault's is. The states are served by the reports' own read.
+    # A report awaiting the administrator sits on a fixture the read above passes over -- one played today, or one whose
+    # result stands -- so it is unioned in as a fault's is; the reports' own read serves the states.
     berichte = await pull_zustaende(spielberichte_collection=spielberichte_collection, saison_id=saison_id)
     offen = [eintrag.spiel_id for eintrag in berichte if eintrag.zustand != "uebernommen" and eintrag.spiel_id not in by_id]
     if offen:

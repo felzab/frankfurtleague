@@ -713,10 +713,25 @@ REFERENCES: tuple[Reference, ...] = (
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.CASCADE,
         note=(
-            "Both writers read the fixture the path names and answer `DB-COMMON-001` for one that does not exist. A fixture "
+            "Both writers read the fixture the path names and answer 404 for one that does not exist. A fixture "
             "corrected afterwards leaves the report alone, its state being derived on every read against the result as it "
             "stands. A fixture is removed only with its season's whole draw, by a confirmed replace or an undraw, and each "
             "removes the season's reports in the same transaction (`app/api/saisons/admin_router.py :: undraw_spielplan`)."
+        ),
+    ),
+    Reference(
+        source=Collection.SPIELBERICHTE,
+        fields=("bericht.eingereicht_von.schiedsrichter_id",),
+        target=Collection.SCHIEDSRICHTER,
+        on_reference_created=Action.RESTRICT,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.CASCADE,
+        note=(
+            "Written by the referee's own write alone, which refuses a fixture booked to none of the writer's records "
+            "(`REQ-BERICHT-002`). A retirement deletes nothing. The erasure CASCADES ahead of the referee's own step "
+            "(`app/api/spielberichte/crud.py :: repoint_referee_reports_in_session`): every report they sent names the ghost "
+            "in their place, in the document and in its log images, its remarks and entries standing, as the fixtures they "
+            "officiated do: a report is the league's record of the match."
         ),
     ),
 )
