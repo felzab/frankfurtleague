@@ -818,7 +818,9 @@ per worker holding a slice of it.
 **The two servers are the xdist controller's rather than each worker's**
 (`fl_backend/tests/conftest.py :: pytest_configure_node`), and **a run selecting no db test passes
 whether or not they start**, a failed start travelling to the fixtures rather than ending
-collection.
+collection. **A server that fails its start fails every case wanting it with the last lines of its
+own log** (`fl_backend/tests/conftest.py :: _started`,
+`fl_backend/tests/core/test_conftest_servers.py`).
 
 **A transaction the replica set aborts at MongoDB's lifetime limit fails the run**
 (`fl_backend/tests/conftest.py :: _expired_since_start`), read by the controller under `-n` and by
