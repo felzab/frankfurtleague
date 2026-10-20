@@ -150,7 +150,7 @@ export const GESPEICHERTES_GEBURTSDATUM_AUSSERHALB = buildRefusal({
 });
 
 /** The returning pupil's page meeting a person the league holds no birthdate for: the page has no field, so the league is the repair. */
-export const GESPEICHERTES_GEBURTSDATUM_FEHLT = buildRefusal({
+const GESPEICHERTES_GEBURTSDATUM_FEHLT = buildRefusal({
   reason: "Zu Deinem Eintrag haben wir kein Geburtsdatum gespeichert, deshalb können wir Deine Registrierung hier nicht bestätigen",
   repair: `Schreib uns an ${KONTAKT_EMAIL}, damit wir es eintragen`,
 });
