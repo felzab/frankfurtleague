@@ -329,8 +329,8 @@ export const FLRegistrierungAblehnenPayloadSchema = z.object({
 export type FLRegistrierungAblehnenPayload = z.infer<typeof FLRegistrierungAblehnenPayloadSchema>;
 
 /**
- * The decline's echo. `email` is the address as typed, answered for the server-side mailer alone: the
- * action hands the browser none of it.
+ * The decline's echo. `email` is the address the link went to, answered for the server-side mailer alone:
+ * the action hands the browser none of it.
  */
 export const FLRegistrierungAblehnungResponseSchema = BaseAPIResponseSchema.extend({
   registrierung_id: CustomObjectIdStringSchema,

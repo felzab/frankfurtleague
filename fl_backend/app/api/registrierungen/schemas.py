@@ -117,8 +117,6 @@ class FLRegistrierung(BaseModel):
     status: FLRegistrierungStatus
     vorname: CustomNonEmptyString
     nachname: CustomNonEmptyString
-    # UNFOLDED, where a person's own `email` is stored folded: the address is what the confirmation
-    # link was mailed to, and the admission is what folds it onto the person it writes.
     email: CustomNonEmptyString
     # The three a squad often does not know at registration, each stated by the caller rather than
     # defaulted.
@@ -505,7 +503,7 @@ class FLRegistrierungAblehnungResponse(BaseAPIResponse):
     # The junction row's name, which the mail addresses the pupil by.
     team: CustomNonEmptyString
     vorname: CustomNonEmptyString
-    # As typed, the address the confirmation link was sent to: the one recipient this decline has.
+    # The address the confirmation link was sent to: the one recipient this decline has.
     email: CustomNonEmptyString
     # Whether that address was ever proven. An unproven one is anybody's typing, and a mail to it
     # tells a stranger about a team's decision.

@@ -5,14 +5,7 @@ import { describe, it } from "node:test";
 
 import { z } from "zod";
 
-import {
-  asSignInIdentifier,
-  hasAsciiLocalPart,
-  isDeliverableAddress,
-  isOneBareMailbox,
-  mailboxKey,
-  withAsciiDomain,
-} from "@/core/emailAddress";
+import { asSignInIdentifier, hasAsciiLocalPart, isDeliverableAddress, isOneBareMailbox, withAsciiDomain } from "@/core/emailAddress";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 
@@ -123,11 +116,8 @@ describe("the address table the API is held to as well", () => {
       const typed = row.typed.trim();
       assert.equal(isDeliverableAddress(typed), stored !== null);
       assert.equal(asSignInIdentifier(row.typed), folded);
-      if (stored !== null) {
-        // The domain converted as the API stores it, the local part untouched.
-        assert.equal(mailboxKey(typed), stored);
-        assert.equal(asSignInIdentifier(stored), folded);
-      }
+      // The API stores the fold itself, so the address this side folds meets the stored row by equality.
+      if (stored !== null) assert.equal(asSignInIdentifier(typed), stored);
     });
   }
 });

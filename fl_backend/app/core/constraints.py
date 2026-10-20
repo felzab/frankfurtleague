@@ -1247,9 +1247,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "status": {"bsonType": "string", "enum": _REGISTRIERUNG_STATUS},
                 "vorname": {"bsonType": "string"},
                 "nachname": {"bsonType": "string"},
-                # Unfolded, as the address rule stores it (`docs/backend/spec.md :: I332`). This is the
-                # address the confirmation link was mailed to, and `spieler.email` holds the folded
-                # form the sign-in seam joins on.
+                # Folded, as every address payload stores it (`docs/backend/spec.md :: I332`): a row
+                # typed otherwise matches no read, each an equality.
                 "email": {"bsonType": "string"},
                 "position": {"bsonType": _STRING_OR_NULL, "enum": [*_POSITIONEN, None]},
                 # A STRING, not an int, as a squad row's is. Squad numbers are worn, not counted.

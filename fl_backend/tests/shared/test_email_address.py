@@ -95,12 +95,12 @@ def test_the_erasure_lookup_asks_for_the_mailbox_the_row_folds_to(row: Row):
 
 
 @pytest.mark.parametrize("row", [row for row in ROWS if row.stored is not None], ids=lambda row: row.case)
-def test_what_a_payload_stores_is_ascii_and_folds_as_the_typed_address_does(row: Row):
-    """So a typed address, folded, joins the row its payload stored."""
+def test_what_a_payload_stores_is_ascii_and_the_typed_address_s_fold(row: Row):
+    """So a typed address, folded, meets the row its payload stored by equality."""
 
     assert row.stored is not None
     assert row.stored.isascii()
-    assert sign_in_identifier(row.stored) == row.folded
+    assert row.stored == row.folded
 
 
 @pytest.mark.parametrize(("probe", "key"), sorted(json.loads(BAN_KEYS.read_bytes().decode("utf-8")).items()), ids=ascii)

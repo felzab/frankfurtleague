@@ -187,9 +187,6 @@ def compose_registrierung(
         "status": SUBMITTED,
         "vorname": vorname,
         "nachname": nachname,
-        # UNFOLDED -- its domain in punycode and its local part as typed (`docs/backend/spec.md :: I332`)
-        # -- where a person's own `email` is folded: the link goes to this address, and the admission
-        # folds it onto the person it writes.
         "email": email,
         # Written EXPLICITLY, all three: `required` in the `$jsonSchema` means the key is present,
         # so an omitted null is a validator rejection rather than a stored null.

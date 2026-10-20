@@ -77,13 +77,16 @@ def _league_validated(address: str) -> ValidatedEmail:
 
 
 def league_address(address: str) -> str:
-    """The form every address payload stores (`docs/backend/spec.md :: I332`); `ValueError` where the rule refuses it."""
+    """The form every address payload stores (`docs/backend/spec.md :: I332`); `ValueError` where the rule refuses it.
+
+    The sign-in fold of what the rule accepts, so every read of a stored address is an equality on the asker's fold.
+    """
 
     validated = _league_validated(address)
 
     # Set wherever `allow_smtputf8` is off, which refuses every address that would leave it unset.
     assert validated.ascii_email is not None
-    return validated.ascii_email
+    return sign_in_identifier(validated.ascii_email)
 
 
 def sign_in_identifier(address: str) -> str:
