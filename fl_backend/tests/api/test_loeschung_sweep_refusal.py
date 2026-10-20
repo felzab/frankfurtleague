@@ -79,10 +79,8 @@ class TestTheDueJudgement:
     def test_a_row_in_a_kept_season_keeps_its_pupil(self, kader: list[str], due: bool):
         assert faellig(kader) is due
 
-    def test_a_pending_registration_keeps_its_pupil_however_its_address_was_typed(self):
-        """A registration stores its address unfolded, and the pupil's row the fold."""
-
-        offene = offene_adressen([{"status": "eingereicht", "email": "Thessaly.Okonkwo@beispielschule.de"}])
+    def test_a_pending_registration_keeps_its_pupil(self):
+        offene = offene_adressen([{"status": "eingereicht", "email": ADDRESS}])
 
         assert offene == {ADDRESS}
         assert not faellig([], offene=offene)

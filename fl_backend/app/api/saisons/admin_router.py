@@ -967,7 +967,7 @@ async def generate_spielplan(
         # alone cannot say whether anything was there to delete.
         if spielplan_data.replace:
             # The season a report's first write anchors, so the two conflict: the watermark's `$set` below can change
-            # nothing on a same-day redraw, and the report's insert meets no delete here (`docs/backend/spec.md :: I832`).
+            # nothing on a same-day redraw, and the report's insert meets no delete here (`docs/backend/spec.md :: I833`).
             await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
             # NOT extracted, though `undraw_spielplan` repeats it: two sites are no pattern yet
             # (`.claude/CLAUDE.md` §3).
@@ -993,7 +993,7 @@ async def generate_spielplan(
 
         if spielplan_data.replace:
             # Counted again outside the transaction (`docs/backend/spec.md :: I118`): a report's first write conflicts
-            # with this one on the season (`:: I832`), and a correction on the report, but a document no write made does not.
+            # with this one on the season (`:: I833`), and a correction on the report, but a document no write made does not.
             refuse(
                 find_berichte_refusal(
                     berichte=await count_eingereichte_berichte(

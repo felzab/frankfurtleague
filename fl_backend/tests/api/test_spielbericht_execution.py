@@ -524,7 +524,7 @@ class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
         assert passes == 1
 
     def test_a_correction_is_refused_on_the_season_ending_under_it(self, mongo_replica_set_url: str):
-        """A correction, since a first write anchors the season and so conflicts with its end (`docs/backend/spec.md :: I832`)."""
+        """A correction, since a first write anchors the season and so conflicts with its end (`docs/backend/spec.md :: I833`)."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await put(database, client, bericht())

@@ -4,17 +4,27 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { DEIN_BEREICH_TITEL } from "@/core/seitenNamen.ts";
-import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
+import { pressTwice } from "@/shared/testing/twoPress.ts";
 
-/** The sign-out, replaced at the module boundary: the real one needs a session store. */
-doubleActions({ modules: ["/src/features/auth/actions.ts"] });
+/** Every server action the card calls, which must stay empty: an action ending the session re-renders the page. */
+const { calls: actionCalls } = doubleEveryAction();
 doubleToasts();
+/** The sign-out route, answered per case. */
+const fetchMock = doubleFetch();
+
+/** Every path the sign-out left the document for, a full document load jsdom does not implement. */
+const left: string[] = [];
+registerDoubles({ modules: { "shared/utils/documentNavigation.ts": { leaveDocumentFor: (path: string) => void left.push(path) } } });
 
 const { SignedInCard } = await import("./SignedInCard.tsx");
 
@@ -61,5 +71,23 @@ describe("the sign-in page for somebody already signed in", () => {
     assert.deepEqual(hovers(link, "data-hovered:"), [], "the link hovers on an attribute no link is given");
     assert.notDeepEqual(hovers(signOut, "data-hovered:"), [], "the sign-out shows no hover at all");
     assert.deepEqual(hovers(signOut, "hover:"), [], "the sign-out hovers by CSS, which a tap latches");
+  });
+
+  /* An action deleting the cookie makes Next render the page it came from again, before the start page loads
+     (`docs/frontend/spec.md :: I831`). */
+  it("ends the session at the sign-out route rather than through a server action, and leaves for the start page", async () => {
+    fetchMock.mock.mockImplementationOnce(() =>
+      Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200, headers: { "content-type": "application/json" } })),
+    );
+    left.length = 0;
+    render(underNext(h(SignedInCard, { address: ADDRESS }), { router: recordingRouter().router }));
+
+    await pressTwice(userEvent.setup(), { resting: "Abmelden", armed: "Abmelden?" });
+    await act(fetchMock.answered);
+    await waitFor(() => assert.deepEqual(left, ["/"]));
+
+    const [url, init] = fetchMock.mock.calls[0]?.arguments ?? [];
+    assert.deepEqual([url, init?.method, fetchMock.mock.callCount()], ["/api/signout", "POST", 1]);
+    assert.deepEqual(actionCalls, [], "the sign-out called a server action");
   });
 });

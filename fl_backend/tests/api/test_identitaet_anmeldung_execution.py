@@ -69,9 +69,9 @@ PFEIFE_RUHESTAND = "pfeife.ruhestand@schule.de"
 PFEIFE_OFFEN = "pfeife.offen@schule.de"
 PFEIFE_RUHESTAND_OFFEN = "pfeife.ruhestand.offen@schule.de"
 GEIST = "geist@schule.de"
-# A registration stored as its payload keeps an address, the local part's case as typed, and asked folded.
-REGISTRIERT_STORED = "Rita.Registriert@Schule.de"
+# A registration stored as every payload stores an address, folded, and asked in another spelling.
 REGISTRIERT = "rita.registriert@schule.de"
+REGISTRIERT_STORED = REGISTRIERT
 REGISTRIERT_ABGELEHNT = "rita.abgelehnt@schule.de"
 REGISTRIERT_OFFEN = "rita.offen@schule.de"
 REGISTRIERT_OHNE_WAHL = "rita.ohnewahl@schule.de"

@@ -829,8 +829,10 @@ class FLBewerbungKontaktSitzPayload(_KontaktpersonWritablePayload):
 
 
 class FLBewerbungKontaktSitzResponse(BaseAPIResponse):
-    """Every seat the new person now holds, and the fresh link the caller mails them."""
+    """The new person's address as stored, every seat they now hold, and the fresh link the caller mails them there."""
 
+    # Answered rather than re-derived by the caller, so one function decides the form a message is sent to.
+    email: str
     # Plural as the correction's is: a mirrored pair is one person, and both seats are written from
     # the claim `kontakte.trainer_ist_zugleich` records.
     rollen: list[FLKontaktRolle]
@@ -858,7 +860,7 @@ class FLBewerbungKontaktEmailResponse(BaseAPIResponse):
     token: str
     bestaetigungsfrist: CustomDateString
     # The mailbox the write took the seats' live link from, for the server action's leaving notice and never the
-    # browser; null where the corrected address folds to that same mailbox, which the fresh link reaches.
+    # browser; null where the corrected address is that same mailbox, which the fresh link reaches.
     abgang_email: str | None
 
 

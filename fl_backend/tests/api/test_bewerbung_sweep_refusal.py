@@ -218,7 +218,7 @@ class TestTheReminderMark:
 
 
 class TestOneMessagePerMailbox:
-    """Grouped as the first mail groups: the local part byte for byte, the domain without case.
+    """Grouped as the first mail groups: one stored address, one message.
 
     The keying is `fl_frontend/src/features/bewerbungen/notifications.ts :: collectSeats`.
     """
@@ -232,26 +232,6 @@ class TestOneMessagePerMailbox:
             ("ida@example.com", ["trainer", "ansprechperson"]),
             ("stellan@example.com", ["stellvertretung"]),
         ]
-
-    def test_a_domain_spelled_in_another_case_is_the_same_inbox(self):
-        block = kontakte(
-            ansprechperson=kontaktperson_document("Ansgar", email="Ansgar@EXAMPLE.com"),
-            stellvertretung=kontaktperson_document("Stellan", email="Ansgar@example.com"),
-        )
-
-        grouped = group_seats_by_mailbox(kontakte=block, seats=("ansprechperson", "stellvertretung"))
-
-        assert grouped == [("Ansgar@EXAMPLE.com", ["ansprechperson", "stellvertretung"])]
-
-    def test_a_local_part_spelled_in_another_case_is_another_inbox(self):
-        """Stricter than the erasure on purpose: over-matching here would put somebody else's link in a message."""
-
-        block = kontakte(
-            ansprechperson=kontaktperson_document("Ansgar", email="ansgar@example.com"),
-            stellvertretung=kontaktperson_document("Stellan", email="ANSGAR@example.com"),
-        )
-
-        assert len(group_seats_by_mailbox(kontakte=block, seats=("ansprechperson", "stellvertretung"))) == 2
 
     def test_a_seat_without_an_address_is_left_out(self):
         assert group_seats_by_mailbox(kontakte=kontakte(trainer=None), seats=KONTAKT_ROLLEN) == [

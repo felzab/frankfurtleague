@@ -193,7 +193,6 @@ async def get_team_memberships(
         collection=teams_collection, pipeline=build_team_memberships_pipeline(), collation=GERMAN_COLLATION
     )
     adressen = seated_identifiers(teams_raw)
-    # One read for every seat: a seat stores its address as typed, so no `$lookup` can meet the folded key.
     live = (
         {
             row["adresse"]: row["_id"]

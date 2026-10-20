@@ -196,7 +196,7 @@ class TestThePersonsStart:
         )
         assert (record["token_hash"], record["stopp_hash"]) == (hash_token(minted.token), hash_token(minted.stopp_token))
         # Nothing of the person moves at the start.
-        assert (rows["pupil"]["email"], rows["referee"]["kontakt"]["email"]) == (EMAIL, TYPED)
+        assert (rows["pupil"]["email"], rows["referee"]["kontakt"]["email"]) == (EMAIL, EMAIL)
 
     def test_the_new_mailbox_signs_in_to_nothing_and_is_served_no_record_until_the_effect(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -431,7 +431,7 @@ class TestTheConfirmation:
 
         assert started.weg == "wartezeit"
         assert (confirmed.mitteilung, confirmed.wirksam_ab is not None, confirmed.genehmigung_offen) == (None, True, False)
-        assert (waiting["pupil"]["email"], waiting["referee"]["kontakt"]["email"]) == (EMAIL, TYPED)
+        assert (waiting["pupil"]["email"], waiting["referee"]["kontakt"]["email"]) == (EMAIL, EMAIL)
         assert (early.entfernt, early.verworfen, early.wirksam) == (0, [], [])
         assert [(entry.bisherige_email, entry.email, entry.weg) for entry in late.wirksam] == [(EMAIL, NEW_EMAIL, "wartezeit")]
         assert (after["pupil"]["email"], after["referee"]["kontakt"]["email"]) == (NEW_EMAIL, NEW_EMAIL)

@@ -174,27 +174,18 @@ describe("who a decision is sent to", () => {
     assert.deepEqual(collectBewerbungEmpfaenger(seats(null, null, null)), []);
   });
 
-  /* Stored unfolded, its local part as typed: the local part of an address belongs to the mailbox owner. */
-  it("keeps an address as it was stored", () => {
+  /* The public route hands the seats as typed: the message goes to the fold the API stored, which is
+     the address its delivery events are matched back to. */
+  it("mails the fold the API stores, whatever was typed", () => {
     assert.deepEqual(collectBewerbungEmpfaenger(seats(" Trainer@Schule.de ", null, null)), [
-      { address: "Trainer@Schule.de", rollen: ["trainer"], rollenText: "Trainerin oder Trainer" },
+      { address: "trainer@schule.de", rollen: ["trainer"], rollenText: "Trainerin oder Trainer" },
     ]);
   });
 
-  /* A domain is case-insensitive by definition, so two seats spelling one differently name one
-     mailbox, which would otherwise receive the decision twice. */
-  it("mails one mailbox spelled with two domain cases once", () => {
-    assert.deepEqual(collectBewerbungEmpfaenger(seats("trainer@Schule.de", "trainer@schule.de", null)), [
+  /* Two seats typed in two cases are one stored address, which would otherwise receive the decision twice. */
+  it("mails one mailbox typed in two cases once", () => {
+    assert.deepEqual(collectBewerbungEmpfaenger(seats("Trainer@Schule.de", "trainer@schule.de", null)), [
       { address: "trainer@schule.de", rollen: ["ansprechperson", "trainer"], rollenText: "Ansprechperson und Trainerin oder Trainer" },
-    ]);
-  });
-
-  /* And a local part is not: `Trainer` and `trainer` are the destination host's to tell apart, so
-     dropping either would leave a person unnotified over an assumption nobody here may make. */
-  it("keeps two local parts differing only in case apart", () => {
-    assert.deepEqual(collectBewerbungEmpfaenger(seats("Trainer@schule.de", "trainer@schule.de", null)), [
-      { address: "trainer@schule.de", rollen: ["ansprechperson"], rollenText: "Ansprechperson" },
-      { address: "Trainer@schule.de", rollen: ["trainer"], rollenText: "Trainerin oder Trainer" },
     ]);
   });
 
@@ -363,21 +354,20 @@ describe("which mailbox is sent which link", () => {
     assert.deepEqual(seatsByMailbox(kontakte, {}), []);
   });
 
-  /* The dedupe is `collectSeats`'s, unchanged: the local part byte for byte under a domain compared
-     without case. A grouping of its own would answer differently for exactly these two. */
+  /* The dedupe is `collectSeats`'s, unchanged: one fold is one mailbox. A grouping of its own would
+     answer differently for the first pair. */
   it("groups by the mailbox rule the decision fan-out already uses", () => {
     const geteilt = {
-      trainer: benannt("Info@SCHULE.de", "Jonas"),
-      ansprechperson: benannt("Info@schule.de", "Erika"),
-      stellvertretung: null,
-    };
-    const getrennt = {
-      trainer: benannt("INFO@schule.de", "Jonas"),
+      trainer: benannt("INFO@SCHULE.de", "Jonas"),
       ansprechperson: benannt("info@schule.de", "Erika"),
       stellvertretung: null,
     };
+    const getrennt = {
+      trainer: benannt("info@schule.de", "Jonas"),
+      ansprechperson: benannt("sekretariat@schule.de", "Erika"),
+      stellvertretung: null,
+    };
 
-    // One domain in two cases is one mailbox; the local part's case is two people.
     assert.equal(seatsByMailbox(geteilt, { ansprechperson: "L-A", trainer: "L-T" }).length, 1);
     assert.equal(seatsByMailbox(getrennt, { ansprechperson: "L-A", trainer: "L-T" }).length, 2);
   });

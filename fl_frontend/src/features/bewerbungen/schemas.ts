@@ -1,6 +1,5 @@
 import z from "zod";
 
-import { mailboxKey } from "@/core/emailAddress";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { MedienMindestalterSchema } from "@/features/konto/einwilligung";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
@@ -379,12 +378,6 @@ export type FLBewerbungKontaktpersonPayload = z.infer<typeof FLBewerbungKontaktp
 // Re-exported where its callers have always read it; the rule's one home is
 // `fl_frontend/src/features/teams/kontaktePersonen.ts`.
 export { gleicheAdresse } from "@/features/teams/kontaktePersonen";
-
-/**
- * Whether a correction leaves the delivery target where it was, as every send compares two mailboxes.
- * Never `gleicheAdresse`, whose fold reads a local part's corrected case as no change.
- */
-export const gleichesPostfach = (a: string, b: string): boolean => mailboxKey(a.trim()) === mailboxKey(b.trim()) && a.trim() !== "";
 
 /**
  * Asked instead of zod's default, which skips a refinement once any check in the block aborts — the consent switch
@@ -807,6 +800,7 @@ export type FLBewerbungKontaktSitzPayload = z.infer<typeof FLBewerbungKontaktSit
 
 /** Mirrors `FLBewerbungKontaktSitzResponse`. `rollen` for the correction's reason: one press fills every seat that person holds. */
 export const FLBewerbungKontaktSitzResponseSchema = BaseAPIResponseSchema.extend({
+  email: z.string(),
   rollen: z.array(FLKontaktRolleSchema),
   token: z.string(),
   bestaetigungsfrist: CustomDateStringSchema,

@@ -19,12 +19,7 @@ import { besetzeKontaktSitzAction, einwilligungErneutSendenAction, kontaktEmailK
 import { adressenAndererPersonen, istOffen, linkAngebot, loeschungsSatz, sitzAngebot } from "@/features/bewerbungen/bestaetigungStand";
 import { FESTE_WERTE } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { ADRESSE_KORRIGIEREN, ERNEUT_OHNE_ADRESSE } from "@/features/bewerbungen/constants";
-import {
-  FLBewerbungKontaktEmailPayloadSchema,
-  FLBewerbungKontaktSitzPayloadSchema,
-  gleicheAdresse,
-  gleichesPostfach,
-} from "@/features/bewerbungen/schemas";
+import { FLBewerbungKontaktEmailPayloadSchema, FLBewerbungKontaktSitzPayloadSchema, gleicheAdresse } from "@/features/bewerbungen/schemas";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
@@ -511,8 +506,8 @@ function AdresseKorrigieren({
   }, [formRef]);
 
   // A press that corrects nothing is a re-send wearing another name, and the re-send has its own
-  // control. The refusal on it says what opens it.
-  const unveraendert = email.trim() === "" || gleichesPostfach(email, gespeicherteAdresse ?? "");
+  // control. The refusal on it says what opens it. On the fold the API stores, so a retyped case corrects nothing.
+  const unveraendert = email.trim() === "" || gleicheAdresse(email, gespeicherteAdresse ?? "");
 
   const schreibe = async () => {
     const landing = focusAfterWrite();
