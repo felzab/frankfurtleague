@@ -241,7 +241,7 @@ class _SpielSchiedsrichterBooking(BaseModel):
 
 # The name sits on a shared private base rather than on the served shape, so the stored shape below
 # can carry it without inheriting the reduction the served one applies.
-class _SpielSchiedsrichterBooked(_SpielSchiedsrichterBooking):
+class _SpielSchiedsrichterNamed(BaseModel):
     # Nullable, unlike the venue's: a referee is a person, so an erasure repoints this copy at the
     # nameless ghost. The word a reader is shown instead is the frontend's
     # (`fl_frontend/src/features/schiedsrichter/constants.ts :: SCHIEDSRICHTER_ANONYM_LABEL`).
@@ -256,10 +256,10 @@ class FLSpielSchiedsrichterFieldPayload(_SpielSchiedsrichterBooking):
     payment: int = Field(ge=0)
 
 
-class FLSpielSchiedsrichterFieldPublic(_SpielSchiedsrichterBooked):
+class FLSpielSchiedsrichterFieldPublic(_SpielSchiedsrichterNamed):
     """The referee as a BASE-TIER read serves it: on their consent, a forename and a surname initial (`READ-REFEREE-001`, `-004`).
 
-    `payment` is withheld for `mietpreis`' reason.
+    `payment` is withheld for `mietpreis`' reason, and the record's id under `READ-REFEREE-006`.
     """
 
     # Withheld unless the join says otherwise, so a join answering nothing costs a name rather than publishing one.
@@ -273,7 +273,8 @@ class FLSpielSchiedsrichterFieldPublic(_SpielSchiedsrichterBooked):
         return self
 
 
-class FLSpielSchiedsrichterField(_SpielSchiedsrichterBooked):
+# Named first so the id leads the fields, as the payload's does.
+class FLSpielSchiedsrichterField(_SpielSchiedsrichterNamed, _SpielSchiedsrichterBooking):
     """The referee as the DOCUMENT holds it, and as the admin editor reads it back."""
 
     payment: int = Field(ge=0)

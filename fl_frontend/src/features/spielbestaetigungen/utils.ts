@@ -74,7 +74,8 @@ export type BestaetigungsSpiel = {
   ergebnis: FLSpiel["ergebnis"];
   elfmeterschiessen: FLSpiel["elfmeterschiessen"];
   sonderereignis: FLSpiel["sonderereignis"];
-  schiedsrichter: { schiedsrichter_id: string } | null;
+  // Optional as `FLSpiel` types it: the confirmations are an admin-tier read, so every fixture judged here carries the id.
+  schiedsrichter: { schiedsrichter_id?: string } | null;
 };
 
 // `fl_backend/app/api/spielbestaetigungen/services.py :: GRUENDE_ENDING_AN_ANSWER`: a move never ends a discard.

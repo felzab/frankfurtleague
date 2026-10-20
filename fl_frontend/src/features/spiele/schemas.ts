@@ -98,9 +98,11 @@ export const FLSpielSchiedsrichterFieldPayloadSchema = z.object({
 });
 export type FLSpielSchiedsrichterFieldPayload = z.infer<typeof FLSpielSchiedsrichterFieldPayloadSchema>;
 
-/** The referee as a base-tier read serves it; `payment` is withheld for `mietpreis`' reason. */
+/**
+ * The referee as a base-tier read serves it; `payment` is withheld for `mietpreis`' reason, and the record's id for the
+ * name's (`fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterFieldPublic`).
+ */
 export const FLSpielSchiedsrichterFieldPublicSchema = z.object({
-  schiedsrichter_id: CustomObjectIdStringSchema,
   // Null where the referee's data were erased. A schema refusing that would fail the whole fixture
   // list over one erased person; what a reader is shown instead is
   // `fl_frontend/src/features/schiedsrichter/constants.ts :: bookedSchiedsrichterName`.
@@ -229,11 +231,14 @@ export const FLSpielSchema = z.object({
 });
 /**
  * A fixture of either tier, as every reader taking one types it: the referee's `name_is_public` is the base tier's
- * alone, so it is optional here where the parse requires it, and its absence reads as the admin tier's.
+ * alone and `schiedsrichter_id` the admin tier's, so each is optional here where its own parse requires it.
  */
 export type FLSpiel = Omit<z.infer<typeof FLSpielSchema>, "schiedsrichter"> & {
-  schiedsrichter:
-    (Omit<FLSpielSchiedsrichterFieldPublic, "name_is_public"> & Partial<Pick<FLSpielSchiedsrichterFieldPublic, "name_is_public">>) | null;
+  schiedsrichter: {
+    schiedsrichter_id?: string;
+    name: FLSpielSchiedsrichterFieldPublic["name"];
+    name_is_public?: FLSpielSchiedsrichterFieldPublic["name_is_public"];
+  } | null;
 };
 
 /**

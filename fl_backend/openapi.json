@@ -25853,11 +25853,6 @@
       },
       "FLSpielSchiedsrichterFieldPublic": {
         "properties": {
-          "schiedsrichter_id": {
-            "type": "string",
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Schiedsrichter Id"
-          },
           "name": {
             "anyOf": [
               {
@@ -25878,11 +25873,10 @@
         },
         "type": "object",
         "required": [
-          "schiedsrichter_id",
           "name"
         ],
         "title": "FLSpielSchiedsrichterFieldPublic",
-        "description": "The referee as a BASE-TIER read serves it: on their consent, a forename and a surname initial (`READ-REFEREE-001`, `-004`).\n\n`payment` is withheld for `mietpreis`' reason."
+        "description": "The referee as a BASE-TIER read serves it: on their consent, a forename and a surname initial (`READ-REFEREE-001`, `-004`).\n\n`payment` is withheld for `mietpreis`' reason, and the record's id for the name's: a stable key would link every\nfixture of a referee whose consent withholds the name, and no visitor's page reads it."
       },
       "FLSpielTeamFieldJoined": {
         "properties": {

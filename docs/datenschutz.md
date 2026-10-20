@@ -345,7 +345,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   read off the referee's record when the fixture is read
   (`fl_backend/app/shared/einwilligung.py :: NAME_IS_PUBLIC`, `docs/backend/spec.md :: READ-REFEREE-004`);
   a referee asked about a fixture is shown on it only once they agreed, the league's own entry of an
-  agreement counting (`:: READ-REFEREE-005`). Ruled 2026-10-20.
+  agreement counting (`:: READ-REFEREE-005`). Ruled 2026-10-20. No fixture page carries the
+  referee's record id, which would link every fixture of a referee whose name is withheld
+  (`:: READ-REFEREE-006`).
 - **The booked referee reads both clubs' squads, every name and shirt number, for their own
   fixture's report, as part of officiating**, whatever a pupil answered about publication: nothing
   of it is published. The form serves the squads only from the match day and only while the fixture
