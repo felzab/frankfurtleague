@@ -924,12 +924,6 @@ def _identity_of(seat: Mapping[str, Any]) -> tuple[str, ...]:
     )
 
 
-def _kenntnisnahme_of(seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
-    """This seat's consent record, or `None` where a stored row carries none."""
-
-    return einwilligung if isinstance(einwilligung := seat.get("einwilligung"), Mapping) else None
-
-
 def _seat_is_stamped(seat: Mapping[str, Any]) -> bool:
     """Whether this seat's own person has confirmed it (`docs/backend/spec.md :: I142`)."""
 
@@ -959,12 +953,12 @@ def _confirmation_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mappi
     """
 
     held = _seat_held_by(stored_slot, seat=seat)
-    einwilligung = None if held is None else _kenntnisnahme_of(held)
-    if held is None or einwilligung is None:
+    if held is None:
         return None
 
-    # The provenance stays the server's (`docs/backend/spec.md :: I142`): only a seat's own stamp
-    # makes it `person`, and a stored blank stamp is none.
+    # The record stays the server's (`docs/backend/spec.md :: I142`): only a seat's own stamp
+    # confirms it, and a stored blank stamp is none.
+    einwilligung = held["einwilligung"]
     return dict(einwilligung) if _seat_is_stamped(held) else als_unbestaetigt(einwilligung)
 
 
