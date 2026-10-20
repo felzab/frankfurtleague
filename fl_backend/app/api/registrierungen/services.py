@@ -968,7 +968,7 @@ def traegt_wahlen(einwilligung: Any) -> bool:
 
 
 def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: Any, adresse: str) -> Mapping[str, Any]:
-    """What an admission writes onto a matched person: the registration's name, birthdate and address, and any consent it carries.
+    """What an admission writes onto a matched person: the registration's name and address, and any birthdate and consent its page asked.
 
     RENEWED as the new pupil's page promised, each choice only where set later; `gespeichert` is read
     in the admission's transaction.
@@ -982,7 +982,10 @@ def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: 
 
     if not traegt_wahlen(registrierung_raw["einwilligung"]):
         # Not one key of the block, its label and day included: they name the last confirmation that
-        # asked its choices (`docs/backend/spec.md :: I611`).
+        # asked its choices (`docs/backend/spec.md :: I611`). Nor the date, a copy of the person's own,
+        # which written back would undo an administrator's correction made since.
+        fields.pop("geburtsdatum")
+
         return {"$set": fields}
 
     erneuert = compose_erneuert(
