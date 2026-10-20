@@ -1279,6 +1279,18 @@ class TestTheReSendsRefusals:
 
         assert on_a_person(mongo_replica_set_url, body) == ADRESSWECHSEL_VERGEBEN
 
+    def test_a_grant_s_change_past_its_approval_week_mints_no_dead_link(self, mongo_replica_set_url: str):
+        """Its link would be refused on its press; a lapsed link alone is still re-sent, the week standing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            started = await administrator_starts(database, client, grund=GRUND, operator=OWNER)
+            within = await resend(database, client, started.id, operator=OWNER, germany_now=AFTER_THE_DEADLINE)
+            past = await refused_code(resend(database, client, started.id, operator=OWNER, germany_now=AFTER_THE_WEEK))
+            return within.token is not None, past
+
+        assert on_a_person(mongo_replica_set_url, body) == (True, ADRESSWECHSEL_ABGELAUFEN)
+
 
 class TestTheWaitingTime:
     def test_the_stop_link_ends_it_during_the_wait(self, mongo_replica_set_url: str):

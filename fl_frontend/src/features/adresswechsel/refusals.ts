@@ -202,6 +202,9 @@ export function mapVerwaltungLinkRefusal(error: unknown): string | null {
     // The panel has no box, so the sentence names the way out it does hold.
     case "REQ-ADRESSWECHSEL-006":
       return `${ADRESSE_BELEGT} Verwirf die Änderung und beginne eine mit einer anderen Adresse.`;
+    // The re-send's alone: a fresh link would be refused on its press, the change ending at the next pass.
+    case "REQ-ADRESSWECHSEL-003":
+      return "Die Woche für die Genehmigung ist abgelaufen, die Änderung endet in der nächsten Stunde. Beginne sie danach neu.";
     default:
       return null;
   }

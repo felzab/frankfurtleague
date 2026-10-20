@@ -208,7 +208,7 @@ async def end_the_change_in_session(
     # The address on file too, where its records are gone and no erasure's address pass follows.
     ohne_adresse: bool = False,
 ) -> Mapping[str, Any]:
-    """End one live change, answering it as it stood: the one body every ending runs (`docs/backend/spec.md :: I693`).
+    """End one live change, answering it as it stood: the one body every ending runs (`docs/backend/spec.md :: I704`, `:: I816`).
 
     Its images lose the unproved address and the reason; an effect's keep both, the log's account of the move.
     """

@@ -421,9 +421,9 @@ async def einladen_adresswechsel(
     on the change the id names alone, so a page showing a change since replaced re-sends nothing.
 
     Refused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), where the ban list holds the pending address
-    (`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), and where the change ended (`-002`).
-    404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on file's
-    approval, or confirmed, has no link to re-send.
+    (`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), where a grant's approval week has
+    passed (`-003`), and where the change ended (`-002`). 404 for an id naming no change, and unless the change waits on
+    the new mailbox: one awaiting the address on file's approval, or confirmed, has no link to re-send.
     """
 
     akteur = sign_in_identifier(operator)
@@ -455,6 +455,10 @@ async def einladen_adresswechsel(
             spieler_collection=spieler_collection, identifier=sign_in_identifier(email), spieler_id=bestand.spieler["_id"], session=session
         )
         refuse(find_vergeben_refusal(vergeben=vergeben))
+        # A grant's approval week that lapsed ends the change at the next pass: a fresh link would be refused on its press.
+        genehmigung = record.get("genehmigung")
+        bis = als_utc(genehmigung.get("bis")) if isinstance(genehmigung, Mapping) and genehmigung.get("genehmigt_am") is None else None
+        refuse(find_abgelaufen_refusal(abgelaufen=bis is not None and bis <= germany_now))
 
         # The filter is the judgement: a change awaiting its approval or confirmed is the 404 here.
         updated = await patch_one_in_db(
