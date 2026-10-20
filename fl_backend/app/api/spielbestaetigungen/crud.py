@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -21,6 +21,7 @@ from app.api.spielbestaetigungen.services import (
     season_end_image_edits,
     seat_entry_image_edits,
 )
+from app.api.spiele.schemas import FLSpielOrtFieldPublic
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, anchor_in_db, erase_many_from_db, patch_many_in_db
@@ -101,6 +102,79 @@ async def pull_vorschlag_offen(
     vorschlag = ((other or {}).get("antwort") or {}).get("vorschlag")
 
     return FLSpielbestaetigungTermin.model_validate(vorschlag) if isinstance(vorschlag, Mapping) else None
+
+
+# --- A REFEREE'S OWN ROWS.
+
+# No seat's hashes and no deadline: a referee answers signed in, until the fixture's day.
+EIGENE_ZEILE_FIELDS: Mapping[str, int] = {
+    "saison_id": 1,
+    "spiel_id": 1,
+    "partei": 1,
+    "ansetzung": 1,
+    "antwort.art": 1,
+    "antwort.von.art": 1,
+    "antwort.begruendung": 1,
+    "geschlossen": 1,
+}
+
+# The view's fields and the booked referee, whom `grund_to_close` compares a referee's row against.
+EIGENE_SPIEL_FIELDS: Mapping[str, int] = {**ANSICHT_SPIEL_FIELDS, "_id": 1, "schiedsrichter.schiedsrichter_id": 1}
+
+EIGENE_VEREIN_FIELDS: Mapping[str, int] = {"_id": 0, "saison_id": 1, "team_id": 1, "name": 1, "austritt.datum": 1}
+
+
+async def pull_eigene_lagen(
+    *,
+    spiele_collection: AsyncCollection,
+    saison_teams_collection: AsyncCollection,
+    spielbestaetigungen_raw: Sequence[Mapping[str, Any]],
+    session: AsyncClientSession,
+) -> dict[Any, AnsetzungLage]:
+    """Each row's fixture and clubs' season rows, two reads for the whole list, keyed by the row's id."""
+
+    if not spielbestaetigungen_raw:
+        return {}
+
+    spiele = await spiele_collection.find(
+        {"_id": {"$in": list({row["spiel_id"] for row in spielbestaetigungen_raw})}}, EIGENE_SPIEL_FIELDS, session=session
+    ).to_list(length=None)
+    vereine = await saison_teams_collection.find(
+        {
+            "saison_id": {"$in": list({row["saison_id"] for row in spielbestaetigungen_raw})},
+            "team_id": {"$in": list({row["ansetzung"][key] for row in spielbestaetigungen_raw for key in ("team1_id", "team2_id")})},
+        },
+        EIGENE_VEREIN_FIELDS,
+        session=session,
+    ).to_list(length=None)
+    by_id = {spiel["_id"]: spiel for spiel in spiele}
+
+    return {
+        row["_id"]: AnsetzungLage(
+            # An undraw removes a fixture with its rows in one transaction, and this read shares their snapshot.
+            spiel=by_id[row["spiel_id"]],
+            vereine=[
+                verein
+                for verein in vereine
+                if verein["saison_id"] == row["saison_id"] and verein["team_id"] in (row["ansetzung"]["team1_id"], row["ansetzung"]["team2_id"])
+            ],
+        )
+        for row in spielbestaetigungen_raw
+    }
+
+
+async def pull_spielorte_public(
+    *, spielorte_collection: AsyncCollection, spielort_ids: Iterable[Any], session: AsyncClientSession
+) -> dict[Any, FLSpielOrtFieldPublic]:
+    """The grounds a moved row's Ansetzung names, as the link's view serves one; a ground no row holds is absent."""
+
+    wanted = list({spielort_id for spielort_id in spielort_ids if spielort_id is not None})
+    if not wanted:
+        return {}
+
+    orte = await spielorte_collection.find({"_id": {"$in": wanted}}, {"name": 1, "maps_link": 1}, session=session).to_list(length=None)
+
+    return {ort["_id"]: FLSpielOrtFieldPublic(spielort_id=ort["_id"], name=ort["name"], maps_link=ort["maps_link"]) for ort in orte}
 
 
 # --- A LEAVING CONTACT'S seats in the log: an erasure's, a Widerspruch's, and the season's end.

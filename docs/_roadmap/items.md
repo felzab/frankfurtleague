@@ -381,7 +381,7 @@ and a pupil's birthdate is required on the person from then on, `fl_backend/app/
 UNENFORCED` carrying the state that ends there; and the consent blocks' two speaker fields are gone
 from every model and validator and, by a Playground paste of mine, from every stored record still
 carrying one. A grant's own `erteilt_von` on `berechtigungen`, the administrator who gave it, is
-another field and stays. The notice's referee publication row is `pw5c-zps5`'s.
+another field and stays.
 
 ### `dgdv-27yw` · No rule engine reads this repository's sources, and two spellings its own readers refuse wait on a parse across the language boundary
 
@@ -904,33 +904,6 @@ the Spielsuche; and the `ausstehend` semantics, **where a filter selects and a l
 range makes the ausstehend/heute/vergangen ternary genuinely harder, and the intent (a fixture whose
 play window includes today is found by the upcoming filter and labelled `heute`) is what the range
 arithmetic has to preserve. Working it re-derives both definitions under ranges.
-
-### `pw5c-zps5` · A referee's consent record is collected, and the notice still publishes their name on another basis
-
-| Status | Depends on |
-| ------ | ---------- |
-| Open   | —          |
-
-**A referee's own consent record is stored, and the published notice still rests their name on a
-different basis.** `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichter` carries
-`einwilligung`, the `schiedsrichter` collection's validator declares it, and
-`POST /schiedsrichter/bestaetigung` is the only writer: the person answers their own emailed link,
-choosing whether their name is published and whether photographs, videos and interviews may be. The
-notice's publication table still gives a referee's name the legitimate-interest basis
-(`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx :: VEROEFFENTLICHT`), which
-is the basis the record replaces.
-
-**Why the two halves are not one change.** Moving the notice's basis to consent is a claim that the
-consent decides what is published, and nothing reads the record yet: the fixture list serves every
-referee's name as before. A notice promising a gate that does not exist is worse than one naming the
-old basis honestly, so the sentence moves when the read does and not before.
-
-**What the reader of this entry must not do.** The record is not missing and is not to be built
-again: a second write path for it would collect a person's answer twice and leave two records to
-disagree. The work here is a text and the read it describes.
-
-**Done when** the fixture read decides a referee's published name from their own record, and the
-notice's publication row rests on that consent rather than on legitimate interest.
 
 ### `qstz-dwrj` · Only the match editor tells an admin which empty field somebody is waiting on
 

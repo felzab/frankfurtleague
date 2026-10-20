@@ -44,6 +44,7 @@ from app.api.spiele.schemas import (
     is_unplayed,
     records_an_absence,
 )
+from app.api.spieler.services import NAME_IS_PUBLIC
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding, offered_gruppen
 from app.core.collections import Collection
@@ -185,6 +186,11 @@ def _confirmations_lookup() -> Mapping[str, Any]:
                         # The only closed rows the match admits are a club's discards.
                         _TEAM_ZUGESTIMMT: {"$or": [{"$eq": ["$antwort.art", "zugesagt"]}, {"$ne": ["$geschlossen", None]}]},
                         _AKTUELL: aktuell,
+                        # The referee gate's own inputs: their id tells the booked referee's rows from a replaced
+                        # one's the next pass has not closed, and the close keeps a club's discard out of their count.
+                        "partei.schiedsrichter_id": 1,
+                        "geschlossen": 1,
+                        "antwort.art": 1,
                     }
                 },
             ],
@@ -220,6 +226,87 @@ def _ansetzung_bestaetigt() -> Mapping[str, Any]:
                 ]
             },
         }
+    }
+
+
+SCHIEDSRICHTER_AS_NAME = "schiedsrichter_rows"
+
+# The served verdicts' keys on the referee block, which `FLSpielSchiedsrichterFieldPublic` and
+# `FLSpielJoined` read and no stored shape declares.
+NAME_IS_PUBLIC_KEY = "name_is_public"
+EINSATZ_BESTAETIGT = "einsatz_bestaetigt"
+
+
+def _referee_lookup() -> Mapping[str, Any]:
+    """The booked referee's consent verdict ALONE: no name, no address, nothing the admin tier does not serve already."""
+
+    return {
+        "$lookup": {
+            "from": Collection.SCHIEDSRICHTER,
+            # `$ifNull` for the side lookup's reason: an empty slot matches no row rather than one by accident.
+            "let": {"schiedsrichter_id": {"$ifNull": ["$schiedsrichter.schiedsrichter_id", None]}},
+            "pipeline": [
+                {"$match": {"$expr": {"$eq": ["$_id", "$$schiedsrichter_id"]}}},
+                # The pupils' predicate itself, never a third spelling of it (`fl_backend/tests/api/test_name_is_public_mirror.py`).
+                {"$project": {"_id": 0, NAME_IS_PUBLIC_KEY: NAME_IS_PUBLIC}},
+            ],
+            "as": SCHIEDSRICHTER_AS_NAME,
+        }
+    }
+
+
+def _einsatz_bestaetigt() -> Mapping[str, Any]:
+    """Three-valued as `_ansetzung_bestaetigt`: `None` where the booked referee holds no unclosed row, never asked or every row closed.
+
+    A row about an Ansetzung the fixture has left counts as asked and not agreed, as a club's does.
+    """
+
+    own_rows = {
+        "$filter": {
+            "input": f"${SPIELBESTAETIGUNGEN_AS_NAME}",
+            "cond": {
+                "$and": [
+                    {"$eq": ["$$this.partei.art", "schiedsrichter"]},
+                    {"$eq": ["$$this.partei.schiedsrichter_id", "$schiedsrichter.schiedsrichter_id"]},
+                    {"$eq": [{"$ifNull": ["$$this.geschlossen", None]}, None]},
+                ]
+            },
+        }
+    }
+    agreed = {"$and": [f"$$this.{_AKTUELL}", {"$eq": ["$$this.antwort.art", "zugesagt"]}]}
+
+    return {
+        "$let": {
+            "vars": {"own_rows": own_rows},
+            "in": {
+                "$cond": [
+                    {"$eq": [{"$size": "$$own_rows"}, 0]},
+                    None,
+                    {"$allElementsTrue": [{"$map": {"input": "$$own_rows", "in": agreed}}]},
+                ]
+            },
+        }
+    }
+
+
+def _joined_referee() -> Mapping[str, Any]:
+    """The block with both verdicts folded in, conditional as `_joined_side` is, so an empty slot stays null."""
+
+    return {
+        "$cond": [
+            {"$eq": ["$schiedsrichter", None]},
+            None,
+            {
+                "$mergeObjects": [
+                    "$schiedsrichter",
+                    {
+                        # A join answering nothing withholds: it costs a page a name, never a person theirs.
+                        NAME_IS_PUBLIC_KEY: {"$ifNull": [{"$first": f"${SCHIEDSRICHTER_AS_NAME}.{NAME_IS_PUBLIC_KEY}"}, False]},
+                        EINSATZ_BESTAETIGT: _einsatz_bestaetigt(),
+                    },
+                ]
+            },
+        ]
     }
 
 
@@ -276,11 +363,22 @@ def build_spiele_pipeline(
 
     pipeline.append(_confirmations_lookup())
 
-    pipeline.append({"$set": {"team1": _joined_side("team1"), "team2": _joined_side("team2"), ANSETZUNG_BESTAETIGT: _ansetzung_bestaetigt()}})
+    pipeline.append(_referee_lookup())
+
+    pipeline.append(
+        {
+            "$set": {
+                "team1": _joined_side("team1"),
+                "team2": _joined_side("team2"),
+                ANSETZUNG_BESTAETIGT: _ansetzung_bestaetigt(),
+                "schiedsrichter": _joined_referee(),
+            }
+        }
+    )
 
     # Dropped here rather than at validation: `extra="ignore"` discards these scratch rows in
     # silence, after the driver has carried one array per fixture across every list read.
-    pipeline.append({"$unset": [SAISON_TEAMS_AS_NAME, SPIELBESTAETIGUNGEN_AS_NAME]})
+    pipeline.append({"$unset": [SAISON_TEAMS_AS_NAME, SPIELBESTAETIGUNGEN_AS_NAME, SCHIEDSRICHTER_AS_NAME]})
 
     return pipeline
 
@@ -728,6 +826,8 @@ class BookedReferee:
     #: (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
     name: str | None
     inactive_since: str | None
+    #: Whether the referee's own confirmation stands on the record; no write takes one back.
+    bestaetigt: bool
 
 
 @dataclass(frozen=True)
@@ -1015,6 +1115,10 @@ FIXTURE_DOUBLE_BOOKED = "REQ-CLASH-001"
 # retire while only played or called-off fixtures hold it, so refusing an unrelated edit of one would be false.
 BOOKING_UNKNOWN_RESOURCE = "REQ-BOOKING-001"
 
+# Judged on the same references: a referee booked before confirming would be mailed an Einteilung for a panel that
+# address cannot open. A code of its own, the way out being the person's confirmation rather than a reactivation.
+BOOKING_UNCONFIRMED_REFEREE = "REQ-BOOKING-002"
+
 # A match plus its overrun, the changeover and the travel: the league plays several matches at one
 # ground, so this spaces them rather than banning the pairing.
 CLASH_BUFFER_MINUTES = 4 * 60
@@ -1143,6 +1247,17 @@ def find_booking_refusal(
                     f"{way_back}"
                 ),
             )
+
+    # After both arms above, so the ghost, retired and never confirmed, meets the retirement.
+    if new.schiedsrichter_id is not None and resolved.schiedsrichter is not None and not resolved.schiedsrichter.bestaetigt:
+        return WriteRefusal(
+            error_code=BOOKING_UNCONFIRMED_REFEREE,
+            status=HTTPStatus.CONFLICT,
+            message=(
+                f"Schiedsrichter {new.schiedsrichter_id} has not confirmed their own entry yet, and takes no new fixture, nor one put back "
+                "among those still to be played; pick another or wait for the confirmation"
+            ),
+        )
 
     return None
 

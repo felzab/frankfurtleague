@@ -5,10 +5,20 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.spiele.services import ANSETZUNG_BESTAETIGT, SAISON_TEAMS_AS_NAME, SPIELBESTAETIGUNGEN_AS_NAME, build_spiele_pipeline
+from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedAdmin, FLSpielSchiedsrichterFieldPublic
+from app.api.spiele.services import (
+    ANSETZUNG_BESTAETIGT,
+    EINSATZ_BESTAETIGT,
+    NAME_IS_PUBLIC_KEY,
+    SAISON_TEAMS_AS_NAME,
+    SCHIEDSRICHTER_AS_NAME,
+    SPIELBESTAETIGUNGEN_AS_NAME,
+    build_spiele_pipeline,
+)
 from app.core.collections import Collection
+from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import spiel_document, spielbestaetigung_document
+from tests.documents import eigene_einwilligung_document, schiedsrichter_document, spiel_document, spielbestaetigung_document
 from tests.worker import worker_database
 
 from .conftest import AUSTRITT, PRIOR_SAISON, SAISON, TEAM_OIDS, SeededLeague
@@ -305,3 +315,164 @@ def test_the_confirmation_lookup_plans_an_index_scan(mongo_url: str):
     stage = on_a_fixture(mongo_url, fixture, [a_row(fixture, VERDICT_HOME), a_row(fixture, VERDICT_AWAY)], body)
 
     assert (stage["indexesUsed"], stage["collectionScans"]) == (["spielbestaetigungen_saison_id_spiel_id"], 0), stage
+
+
+# --- The REFEREE BLOCK: whether the booked referee agreed, then whether their name is published.
+
+REFEREE_ID = REFEREE["schiedsrichter_id"]
+# A referee booked before, whose row the next pass has not yet closed.
+REPLACED_REFEREE = {"art": "schiedsrichter", "schiedsrichter_id": ObjectId("6890a1b2c3d4e5f607250032")}
+REFEREE_NAME = "Ada Kern"
+PUBLIC_REFEREE_NAME = "Ada K."
+
+
+def published() -> dict[str, Any]:
+    return eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-04-01")
+
+
+def a_refereed_fixture(schiedsrichter_id: ObjectId = REFEREE_ID) -> dict[str, Any]:
+    return {**a_fixture(), "schiedsrichter": {"schiedsrichter_id": schiedsrichter_id, "name": REFEREE_NAME, "payment": 20}}
+
+
+def a_referee_row(fixture: Mapping[str, Any], partei: Mapping[str, Any] = REFEREE, **fields: Any) -> dict[str, Any]:
+    return spielbestaetigung_document(fixture, partei=partei, kontakte=None, **fields)
+
+
+def on_a_refereed_fixture(
+    url: str, rows: list[dict[str, Any]], body: Body, *, einwilligung: Mapping[str, Any] | None = None, fixture: dict[str, Any] | None = None
+) -> Any:
+    """The booked referee's own record beside the fixture, consenting to publication unless `einwilligung` says otherwise."""
+
+    async def seeded(database: AsyncDatabase) -> Any:
+        await database[Collection.SCHIEDSRICHTER].insert_one(
+            schiedsrichter_document(
+                REFEREE_ID, email="ada@example.com", name=REFEREE_NAME, default_payment=20, einwilligung=einwilligung or published()
+            )
+        )
+        return await body(database)
+
+    return on_a_fixture(url, fixture or a_refereed_fixture(), rows, seeded)
+
+
+async def einsatz(database: AsyncDatabase) -> bool | None:
+    return (await joined(database))["schiedsrichter"][EINSATZ_BESTAETIGT]
+
+
+class TestTheRefereeIsServedOnceAskedAndAgreed:
+    """`docs/backend/spec.md :: I781`: three-valued, so a fixture nobody asked the referee about serves them as before."""
+
+    def test_a_referee_never_asked_is_served_by_name(self, mongo_url: str):
+        """The two-valued gate's failure: every referee of every fixture the pass has not reached would vanish."""
+
+        document = on_a_refereed_fixture(mongo_url, [], joined)
+
+        # The projection's pin: the join brings the verdict alone onto the block, never a field of the referee's record.
+        assert set(document["schiedsrichter"]) == {"schiedsrichter_id", "name", "payment", NAME_IS_PUBLIC_KEY, EINSATZ_BESTAETIGT}
+        assert document["schiedsrichter"][EINSATZ_BESTAETIGT] is None
+        assert FLSpielJoined.model_validate(document).schiedsrichter == FLSpielSchiedsrichterFieldPublic.model_validate(
+            {"schiedsrichter_id": REFEREE_ID, "name": REFEREE_NAME, "name_is_public": True}
+        )
+        assert SCHIEDSRICHTER_AS_NAME not in document
+
+    @pytest.mark.parametrize("von", [{"art": "schiedsrichter"}, {"art": "admin"}], ids=["their own", "the league's"])
+    def test_an_agreement_to_the_ansetzung_as_it_stands_serves_them(self, mongo_url: str, von: dict[str, Any]):
+        fixture = a_refereed_fixture()
+        rows = [a_referee_row(fixture, antwort={**zugesagt(), "von": von})]
+
+        document = on_a_refereed_fixture(mongo_url, rows, joined, fixture=fixture)
+
+        assert document["schiedsrichter"][EINSATZ_BESTAETIGT] is True
+        assert FLSpielJoined.model_validate(document).schiedsrichter is not None
+
+    def test_a_referee_asked_and_silent_is_withheld_whole_from_the_base_tier_alone(self, mongo_url: str):
+        """The admin editor shows the assignment from the moment it is made, the validator being the base model's own."""
+
+        fixture = a_refereed_fixture()
+        document = on_a_refereed_fixture(mongo_url, [a_referee_row(fixture)], joined, fixture=fixture)
+
+        assert document["schiedsrichter"][EINSATZ_BESTAETIGT] is False
+        assert FLSpielJoined.model_validate(document).schiedsrichter is None
+        admin = FLSpielJoinedAdmin.model_validate(document).schiedsrichter
+        assert admin is not None and admin.name == REFEREE_NAME
+
+    def test_an_agreement_to_an_ansetzung_the_fixture_left_withholds_them(self, mongo_url: str):
+        """No pass between: the agreement stays open about the old slot, which counts as asked and not agreed, as a club's does."""
+
+        fixture = a_refereed_fixture()
+        rows = [a_referee_row(fixture, antwort=zugesagt())]
+
+        async def body(database: AsyncDatabase) -> tuple[bool | None, bool | None]:
+            before = await einsatz(database)
+            await database[Collection.SPIELE].update_one({"_id": VERDICT_SPIEL_ID}, {"$set": {"uhrzeit": "19:30:00"}})
+
+            return before, await einsatz(database)
+
+        assert on_a_refereed_fixture(mongo_url, rows, body, fixture=fixture) == (True, False)
+
+    def test_a_replaced_referees_open_row_is_not_the_booked_ones(self, mongo_url: str):
+        fixture = a_refereed_fixture()
+        rows = [a_referee_row(fixture, partei=REPLACED_REFEREE)]
+
+        assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=fixture) is None
+
+    def test_a_clubs_closed_row_never_counts_for_the_referee(self, mongo_url: str):
+        """The confirmations join may carry a club's closed row for the clubs' verdict; the referee's gate reads their own open rows."""
+
+        fixture = a_refereed_fixture()
+        rows = [a_row(fixture, VERDICT_HOME, antwort=zugesagt(), geschlossen={"am": "2026-04-21", "grund": "verworfen"})]
+
+        assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=fixture) is None
+
+    def test_an_empty_slot_stays_null(self, mongo_url: str):
+        """`$mergeObjects` onto a null slot builds an object: a booked referee with no id, which no reader can render."""
+
+        fixture = {**a_fixture(), "schiedsrichter": None}
+
+        assert on_a_refereed_fixture(mongo_url, [], joined, fixture=fixture)["schiedsrichter"] is None
+
+
+class TestTheRefereesNameFollowsTheirConsent:
+    """`READ-REFEREE-004`: served, the name is reduced where the referee published it and null otherwise."""
+
+    def test_an_agreed_referee_publishing_internally_is_served_nameless_and_named_on_the_admin_tier(self, mongo_url: str):
+        fixture = a_refereed_fixture()
+        rows = [a_referee_row(fixture, antwort=zugesagt())]
+        intern = {**published(), "umfang": "intern"}
+
+        document = on_a_refereed_fixture(mongo_url, rows, joined, einwilligung=intern, fixture=fixture)
+
+        served = FLSpielJoined.model_validate(document).schiedsrichter
+        assert served is not None and (served.schiedsrichter_id, served.name, served.name_is_public) == (REFEREE_ID, None, False)
+        admin = FLSpielJoinedAdmin.model_validate(document).schiedsrichter
+        assert admin is not None and admin.name == REFEREE_NAME
+
+    def test_a_published_name_is_served_reduced(self, mongo_url: str):
+        served = FLSpielJoined.model_validate(on_a_refereed_fixture(mongo_url, [], joined)).schiedsrichter
+
+        assert served is not None and served.name == PUBLIC_REFEREE_NAME
+
+    def test_a_booking_no_record_answers_is_withheld(self, mongo_url: str):
+        """The ghost's case and a join that stopped matching alike: nothing found never publishes."""
+
+        fixture = a_refereed_fixture(schiedsrichter_id=GHOST_SCHIEDSRICHTER_ID)
+
+        document = on_a_refereed_fixture(mongo_url, [], joined, fixture=fixture)
+
+        assert document["schiedsrichter"][NAME_IS_PUBLIC_KEY] is False
+        served = FLSpielJoined.model_validate(document).schiedsrichter
+        assert served is not None and served.name is None
+
+
+def test_the_referee_lookup_plans_an_index_scan(mongo_url: str):
+    """Every fixture of the most-read endpoint runs the sub-pipeline once, matching one referee by `_id`."""
+
+    async def body(database: AsyncDatabase) -> Mapping[str, Any]:
+        command = {"aggregate": str(Collection.SPIELE), "pipeline": build_spiele_pipeline(db_filter={"_id": VERDICT_SPIEL_ID}), "cursor": {}}
+        explained = await database.command({"explain": command, "verbosity": "executionStats"})
+
+        (stage,) = [stage for stage in explained["stages"] if stage.get("$lookup", {}).get("from") == Collection.SCHIEDSRICHTER]
+        return stage
+
+    stage = on_a_refereed_fixture(mongo_url, [], body)
+
+    assert (stage["indexesUsed"], stage["collectionScans"]) == (["_id_"], 0), stage
