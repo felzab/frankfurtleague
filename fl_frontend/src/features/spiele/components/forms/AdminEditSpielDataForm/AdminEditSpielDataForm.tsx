@@ -605,7 +605,9 @@ export function AdminEditSpielDataForm({
                 stand={spielbericht}
                 onUebernehmen={uebernehmeVorschlag}
                 uebernahmeGesperrt={
-                  spielbericht === null ? null : uebernahmeGesperrt(spielbericht.lesen.spiel, { team1: team1Payload, team2: team2Payload })
+                  spielbericht?.lesen.bericht == null
+                    ? null
+                    : uebernahmeGesperrt(spielbericht.lesen.bericht.seiten, { team1: team1Payload, team2: team2Payload })
                 }
                 istEingesetzt={uebernimmtBericht !== null}
                 hatEntwurf={isDirty}

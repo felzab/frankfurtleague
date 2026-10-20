@@ -7,7 +7,7 @@ import { SPIELBERICHT_ZUSTAENDE_OFFEN, SPIELBERICHT_ZUSTAND_TONE } from "./const
 
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLSpielberichtSpiel, FLSpielberichtSpieler, FLSpielberichtVorschlag, FLSpielberichtZustandEintrag } from "./schemas";
+import type { FLSpielberichtSeiten, FLSpielberichtSpieler, FLSpielberichtVorschlag, FLSpielberichtZustandEintrag } from "./schemas";
 
 /** A fixture card's word on its report, worn in its state's tone. */
 export type BerichtChip = { readonly text: string; readonly tone: PillTone };
@@ -30,6 +30,8 @@ export function vorschlagText(vorschlag: FLSpielberichtVorschlag): string {
  */
 export function berichtChip({ zustand, ergebnis_vorschlag }: FLSpielberichtZustandEintrag): BerichtChip | null {
   if (!SPIELBERICHT_ZUSTAENDE_OFFEN.has(zustand)) return null;
+  // No score: it was proposed for other clubs than the fixture fields now, and beside the card it would read as theirs.
+  if (zustand === "teams_geaendert") return { text: "Bericht zu anderen Teams", tone: SPIELBERICHT_ZUSTAND_TONE[zustand] };
 
   const worte = zustand === "vorgeschlagen" ? "Ergebnis vorgeschlagen" : "Bericht nicht übernommen";
   return { text: `${worte} ${vorschlagText(ergebnis_vorschlag)}`, tone: SPIELBERICHT_ZUSTAND_TONE[zustand] };
@@ -39,15 +41,12 @@ export function berichtChip({ zustand, ergebnis_vorschlag }: FLSpielberichtZusta
 type EntwurfSeite = { readonly team_id: string; readonly tore: number | null } | null;
 
 /**
- * Why „Vorschlag übernehmen“ cannot seed the editor's draft, `null` where it can. The goals, the shoot-out and a
- * no-show's event are by side, so a draft fielding other clubs, or the report's two swapped, would credit the wrong team.
+ * Why „Vorschlag übernehmen“ cannot seed the draft, `null` where it can. Against the report's `seiten`, never the
+ * fixture's: the goals go by side, and a correction upstream re-fields the fixture and the draft seeded from it alike.
  */
-export function uebernahmeGesperrt(
-  spiel: Pick<FLSpielberichtSpiel, "team1" | "team2">,
-  entwurf: { team1: EntwurfSeite; team2: EntwurfSeite },
-): string | null {
+export function uebernahmeGesperrt(seiten: FLSpielberichtSeiten, entwurf: { team1: EntwurfSeite; team2: EntwurfSeite }): string | null {
   if (entwurf.team1 === null || entwurf.team2 === null) return "Im Formular stehen noch nicht beide Teams.";
-  if (entwurf.team1.team_id !== spiel.team1?.team_id || entwurf.team2.team_id !== spiel.team2?.team_id) {
+  if (entwurf.team1.team_id !== seiten.team1 || entwurf.team2.team_id !== seiten.team2) {
     return "Die Teams im Formular sind nicht die des Spielberichts.";
   }
 

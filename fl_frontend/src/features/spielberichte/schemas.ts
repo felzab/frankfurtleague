@@ -48,10 +48,10 @@ const FLSpielberichtSonderereignisSchema = z.enum(["abgebrochen", "nichtantreten
 export type FLSpielberichtSonderereignis = z.infer<typeof FLSpielberichtSonderereignisSchema>;
 
 /**
- * Served, never stored: what the administrator's adoption makes of a report against the fixture's result, and
- * `abgesagt` where the fixture was called off or struck out after the report was sent.
+ * Served, never stored: what the adoption makes of a report against the fixture's result; `abgesagt` on a fixture
+ * called off or struck out since, `teams_geaendert` on one fielding other clubs than the report's last write found.
  */
-const FLSpielberichtZustandSchema = z.enum(["vorgeschlagen", "uebernommen", "abweichend", "abgesagt"]);
+const FLSpielberichtZustandSchema = z.enum(["vorgeschlagen", "uebernommen", "abweichend", "abgesagt", "teams_geaendert"]);
 export type FLSpielberichtZustand = z.infer<typeof FLSpielberichtZustandSchema>;
 
 const tore = z.int({ error: "Bitte gib die Tore ein." }).nonnegative({ error: "Die Tore dürfen nicht negativ sein." });
@@ -102,6 +102,13 @@ export const FLSpielberichtVonSchiedsrichterSchema = z.object({
 });
 export const FLSpielberichtVonAdminSchema = z.object({ art: z.literal("admin") });
 export const FLSpielberichtUebernommenVonSchema = z.object({ art: z.literal("admin") });
+
+/** The clubs the fixture fielded at the block's last write, `null` on a slot then open: what the proposal's sides are about. */
+export const FLSpielberichtSeitenSchema = z.object({
+  team1: CustomObjectIdStringSchema.nullable(),
+  team2: CustomObjectIdStringSchema.nullable(),
+});
+export type FLSpielberichtSeiten = z.infer<typeof FLSpielberichtSeitenSchema>;
 
 /** A no-show's goals are composed from the season's rules, so its proposal names no count, no shoot-out and no scorer. */
 const isNoShow = (sonderereignis: FLSpielberichtSonderereignis | null): boolean =>
@@ -195,6 +202,7 @@ export const FLSpielberichtBerichtSchema = z.object({
   torschuetzen: z.array(FLSpielberichtTorschuetzeSchema),
   karten: z.array(FLSpielberichtKarteSchema),
   bemerkungen: z.string().nonempty().nullable(),
+  seiten: FLSpielberichtSeitenSchema,
   eingereicht_am: z.string(),
   eingereicht_von: z.discriminatedUnion("art", [FLSpielberichtVonSchiedsrichterSchema, FLSpielberichtVonAdminSchema]),
   geaendert_am: z.string(),

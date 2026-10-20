@@ -51,6 +51,7 @@ export const SPIELBERICHT_ZUSTAND_LABELS: Record<FLSpielberichtZustand, string> 
   uebernommen: "Übernommen",
   abweichend: "Abweichend",
   abgesagt: "Abgesagt",
+  teams_geaendert: "Teams geändert",
 };
 
 /** One tone per state on the panel and on a fixture card alike; `abgesagt` in the fixture status chip's own. */
@@ -59,13 +60,14 @@ export const SPIELBERICHT_ZUSTAND_TONE: Record<FLSpielberichtZustand, PillTone> 
   uebernommen: "success",
   abweichend: "warning",
   abgesagt: "danger",
+  teams_geaendert: "warning",
 };
 
 /**
  * The states awaiting the administrator, named rather than read off the others, as the backend's
  * `BERICHT_ZUSTAENDE_OFFEN` names them: a state added later awaits nobody until it is named here.
  */
-export const SPIELBERICHT_ZUSTAENDE_OFFEN: ReadonlySet<FLSpielberichtZustand> = new Set(["vorgeschlagen", "abweichend"]);
+export const SPIELBERICHT_ZUSTAENDE_OFFEN: ReadonlySet<FLSpielberichtZustand> = new Set(["vorgeschlagen", "abweichend", "teams_geaendert"]);
 
 /**
  * What every report surface says while `SPIELBERICHT_EINGABE` reads off. Never „noch nicht“: the switch can go off again

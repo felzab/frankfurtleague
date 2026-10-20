@@ -11,6 +11,7 @@ from app.api.aktionen.crud import redact_images_in_session
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
+    FLSpielberichtSeite,
     FLSpielberichtSpieler,
     FLSpielberichtVon,
     FLSpielberichtZustandEintrag,
@@ -34,6 +35,7 @@ from app.api.spielberichte.services import (
     live_kader,
     referee_report_image_edits,
     season_end_report_image_edits,
+    seiten_of,
     team_id_of,
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN
@@ -149,7 +151,10 @@ async def write_bericht(
     A block already saying what the payload says is left as stored; otherwise answers the document as written.
     """
 
-    if gespeichert is not None and bericht_unveraendert(payload, gespeichert.get("bericht")):
+    # Off the fixture this write judged: a correction landing mid-write leaves the clubs before it stamped, and the
+    # report reads `teams_geaendert`, never adoptable.
+    seiten = seiten_of(spiel_raw)
+    if gespeichert is not None and bericht_unveraendert(payload, gespeichert.get("bericht"), seiten):
         return gespeichert
 
     if gespeichert is None:
@@ -160,15 +165,15 @@ async def write_bericht(
             document={
                 "saison_id": spiel_raw["saison_id"],
                 "spiel_id": spiel_raw["_id"],
-                "bericht": compose_neuer_bericht(payload, von=von, now=now),
+                "bericht": compose_neuer_bericht(payload, von=von, seiten=seiten, now=now),
             },
             session=session,
         )
     else:
         update = (
-            {"$set": {"bericht": compose_neuer_bericht(payload, von=von, now=now)}}
+            {"$set": {"bericht": compose_neuer_bericht(payload, von=von, seiten=seiten, now=now)}}
             if gespeichert.get("bericht") is None
-            else compose_bericht_update(payload, now=now)
+            else compose_bericht_update(payload, seiten=seiten, now=now)
         )
         await patch_one_in_db(
             collection=spielberichte_collection,
@@ -285,6 +290,8 @@ async def stamp_the_adoption(
     spielberichte_collection: AsyncCollection,
     spiel_id: CustomObjectId,
     version: int,
+    # The clubs the save leaves on the fixture: a report written about others credits neither.
+    seiten: Mapping[FLSpielberichtSeite, ObjectId | None],
     now: datetime,
     # REQUIRED: the fixture save's own, so a save that does not commit takes its stamp back with it.
     session: AsyncClientSession,
@@ -296,7 +303,7 @@ async def stamp_the_adoption(
 
     await patch_many_in_db(
         collection=spielberichte_collection,
-        db_filter={"spiel_id": spiel_id, "bericht.version": version},
+        db_filter={"spiel_id": spiel_id, "bericht.version": version, **{f"bericht.seiten.{seite}": seiten[seite] for seite in SEITEN}},
         update={
             "$set": {
                 "bericht.uebernommen_am": now,

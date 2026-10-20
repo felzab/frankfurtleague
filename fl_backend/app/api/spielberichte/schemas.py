@@ -50,7 +50,7 @@ FLSpielberichtSonderereignis = Literal["abgebrochen", "nichtantreten_team1", "ni
 
 # Derived on every read from the report and the fixture, and stored nowhere. `abgesagt` is a report on a fixture called
 # off or struck out since it was sent: the match took no place, so nothing awaits the administrator.
-FLSpielberichtZustand = Literal["vorgeschlagen", "uebernommen", "abweichend", "abgesagt"]
+FLSpielberichtZustand = Literal["vorgeschlagen", "uebernommen", "abweichend", "abgesagt", "teams_geaendert"]
 
 
 class FLSpielberichtVorschlag(BaseModel):
@@ -119,6 +119,16 @@ class FLSpielberichtUebernommenVon(BaseModel):
     art: Literal["admin"]
 
 
+class FLSpielberichtSeiten(BaseModel):
+    """The clubs the fixture fielded at the block's last write, null on a slot then open.
+
+    Stamped by every write and on no payload: entries go by side, and a knockout correction can re-field one.
+    """
+
+    team1: CustomObjectId | None
+    team2: CustomObjectId | None
+
+
 class FLSpielberichtBericht(BaseModel):
     """The referee's account of one match, one proposal: a correction returns all of it to proposed.
 
@@ -131,6 +141,7 @@ class FLSpielberichtBericht(BaseModel):
     karten: list[FLSpielberichtKarte]
     # Its length is the payload's: the read keeps a ban reason's floor alone.
     bemerkungen: CustomNonEmptyString | None
+    seiten: FLSpielberichtSeiten
     eingereicht_am: FLUtcInstant
     eingereicht_von: FLSpielberichtVon
     geaendert_am: FLUtcInstant

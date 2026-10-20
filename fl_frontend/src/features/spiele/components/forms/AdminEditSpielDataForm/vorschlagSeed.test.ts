@@ -44,8 +44,8 @@ const ohneErgebnis = (fields: Record<string, unknown> = {}): FLSpielAdmin =>
     }),
   );
 
-const editor = (spielData: FLSpielAdmin = ohneErgebnis(), vorschlag?: Record<string, unknown>) => {
-  const gelesen = spielberichtReadFixture();
+const editor = (spielData: FLSpielAdmin = ohneErgebnis(), vorschlag?: Record<string, unknown>, gelesenFelder: Record<string, unknown> = {}) => {
+  const gelesen = spielberichtReadFixture(gelesenFelder);
   const bericht = vorschlag === undefined ? gelesen.bericht : { ...gelesen.bericht, ergebnis_vorschlag: vorschlag };
   return underNext(
     h(AdminEditSpielDataForm, {
@@ -173,6 +173,29 @@ describe("carrying a report's proposal into the match editor", () => {
       );
     });
   }
+
+  /* A correction upstream fields Schiller on the fixture and in the draft seeded from it alike, while the report credits
+     Goethe: judged against the fixture's served sides, the press would carry Goethe's goals onto Schiller. */
+  it("offers no press where the fixture fields other clubs than the report was written about, and says why", () => {
+    const schiller = "68c1f0a2b3c4d5e6f7a8b9a3";
+    const spielData = ohneErgebnis({ team1: side(schiller, { name: "Schiller-Schule", shorthand: "SS", tore: null }) });
+    const gelesen = spielberichtReadFixture();
+    render(
+      editor(spielData, undefined, {
+        zustand: "teams_geaendert",
+        spiel: { ...gelesen.spiel, team1: { team_id: schiller, name: "Schiller-Schule" } },
+      }),
+    );
+
+    const press =
+      screen
+        .getAllByRole<HTMLButtonElement>("button", { name: /^Vorschlag übernehmen/ })
+        .find((button) => button.textContent === "Vorschlag übernehmen") ?? assert.fail("the panel renders no press");
+    assert.ok(press.disabled, "the press carries a report about Goethe onto Schiller");
+    assert.ok(screen.getAllByText(/Die Teams im Formular sind nicht die des Spielberichts/).length > 0, "the closed press names no reason");
+    assert.ok(screen.getByText("Teams geändert"), "the panel names no state of its own");
+    assert.ok(screen.getByText(/für andere Teams geschrieben/), "the panel does not say the report is about other teams");
+  });
 
   /* The save stamps the report as adopted, so a goal typed over the seed is the administrator's result and must not be
      recorded as the report's. */

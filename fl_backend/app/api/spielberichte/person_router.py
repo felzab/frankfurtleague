@@ -219,8 +219,9 @@ async def put_spielbericht_bericht(
 
     The proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every
     write changing it raises its `version`, so a report the administrator adopted reads `abweichend` again until it
-    is adopted anew, and a write changing nothing writes nothing. Writes no fixture: the result is the administrator's
-    to save.
+    is adopted anew, and a write changing nothing writes nothing. Every write stamps the clubs the fixture fields now,
+    so a report a knockout correction re-fielded a side under reads `teams_geaendert` until it is written again. Writes
+    no fixture: the result is the administrator's to save.
 
     `bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on
     another version would replace a report its sender never saw.
@@ -230,8 +231,9 @@ async def put_spielbericht_bericht(
     (`REQ-BERICHT-002`); a `bericht_stand` other than the version standing now, or than none where none stands
     (`REQ-BERICHT-006`); one undated or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out
     (`REQ-BERICHT-004`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil
-    the report already named on that side staying (`REQ-BERICHT-003`); and remarks naming a seat holder of either club,
-    the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal after the first but
+    the report already named on that side staying while the side fields the club it did (`REQ-BERICHT-003`); and
+    remarks naming a seat holder of either club, the booked referee or a pupil of either squad (`REQ-BERICHT-005`),
+    last. Every refusal after the first but
     `REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's records included, so
     a write landing mid-press on what was judged refuses the report rather than letting it stand; a write of the report
     itself landing mid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are
@@ -256,7 +258,7 @@ async def put_spielbericht_bericht(
         )
         gespeichert = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
         block = None if gespeichert is None else gespeichert.get("bericht")
-        neu = neu_genannt(payload, block)
+        neu = neu_genannt(payload, block, lage.spiel)
         refuse(find_nicht_geleitet_refusal(spiel_raw=lage.spiel, schiedsrichter_ids=eigene))
         refuse(find_bericht_stand_refusal(stand=bericht_data.bericht_stand, gespeichert=block))
         judge_bericht(lage=lage, payload=payload, neu=neu, today=today)

@@ -123,6 +123,12 @@ function BerichtInhalt({
               Das gespeicherte Ergebnis ist nicht aus diesem Bericht übernommen, oder der Bericht wurde seitdem geändert.
             </p>
           )}
+          {zustand === "teams_geaendert" && (
+            <p className="muted-hint">
+              Der Bericht wurde für andere Teams geschrieben, als jetzt im Spiel stehen. Übernehmen lässt er sich erst, wenn er für diese Teams
+              neu gespeichert ist.
+            </p>
+          )}
           {istAbgesagt && (
             <p className="muted-hint">Das Spiel ist ausgefallen oder annulliert. Der Bericht lässt sich weder übernehmen noch bearbeiten.</p>
           )}

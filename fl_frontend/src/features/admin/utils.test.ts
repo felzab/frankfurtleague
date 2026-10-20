@@ -175,12 +175,15 @@ describe("categorizeActionRequired", () => {
 
   /* A correction after adoption comes back as `abweichend`, so it asks for a second look as a first report does; an
      adopted one asks nothing, its result standing as the report proposes. */
-  it("files a fixture under its report's proposal while the report reads proposed or diverging, never once adopted or called off", () => {
+  it("files a fixture under its report's proposal while the report reads proposed, diverging or about other teams, never once adopted or called off", () => {
     const spiel = makeSpiel({ datum: TODAY, ergebnis: "3:1" });
     const nach = (zustand: FLSpielberichtZustand) =>
       categorizeActionRequired([spiel], TODAY, [], saisonBestaetigungen([], []), [{ spiel_id: spiel.id, zustand }]).ergebnis_vorschlag.length;
 
-    assert.deepEqual([nach("vorgeschlagen"), nach("abweichend"), nach("uebernommen"), nach("abgesagt")], [1, 1, 0, 0]);
+    assert.deepEqual(
+      [nach("vorgeschlagen"), nach("abweichend"), nach("teams_geaendert"), nach("uebernommen"), nach("abgesagt")],
+      [1, 1, 1, 0, 0],
+    );
   });
 
   it("leaves the category empty when no fault names a match in the list", () => {

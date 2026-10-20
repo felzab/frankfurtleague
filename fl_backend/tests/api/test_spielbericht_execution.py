@@ -211,10 +211,11 @@ async def put(
     *,
     email: str = REFEREE_EMAIL,
     response: Response | None = None,
+    spiel_id: ObjectId = SPIEL,
     **replaced: Any,
 ) -> Any:
     return await put_spielbericht_bericht(
-        spiel_id=SPIEL,
+        spiel_id=spiel_id,
         bericht_data=FLSpielberichtPayload.model_validate(body),
         response=Response() if response is None else response,
         identifier=email,
@@ -721,3 +722,95 @@ class TestACorrectionAfterTheAdoptionAwaitsTheAdministratorAgain:
 
         assert adopted == "uebernommen", "the premise: the save adopted the report"
         assert corrected == "abweichend", "a correction after the adoption read as adopted"
+
+
+async def correct_the_feeder(database: AsyncDatabase, client: AsyncMongoClient, team1: int, team2: int) -> None:
+    """The administrator's save of the round-of-16 result, whose winner the bracket resolves into the quarter-final's team 1."""
+
+    stored_spiel = await database[Collection.SPIELE].find_one({"_id": SPIEL})
+    assert stored_spiel is not None, "the seed holds no fixture"
+    spiel_data = spiel_patch_body(stored_spiel, team1={**side(TEAM1), "tore": team1}, team2={**side(TEAM2), "tore": team2})
+    await patch_spiel_data(
+        spiel_id=SPIEL,
+        spiel_data=FLPatchSpielDataPayload.model_validate(spiel_data),
+        db=client,
+        spiele_collection=database[Collection.SPIELE],
+        teams_collection=database[Collection.TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        spieltage_collection=database[Collection.SPIELTAGE],
+        spielorte_collection=database[Collection.SPIELORTE],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
+        uebernimmt_bericht=None,
+        now=NOW,
+    )
+
+
+async def a_reported_quarter_final(database: AsyncDatabase, client: AsyncMongoClient, scorer: ObjectId | None) -> None:
+    """Adler won the round of 16 and the referee reported the quarter-final 1:0 for Adler; then the round of 16 went to Biber."""
+
+    # A matchday of its own, dated today and booked to the referee: what a played tie holds.
+    await database[Collection.SPIELE].update_one(
+        {"_id": VIERTELFINALE},
+        {
+            "$set": {
+                "spieltag_id": ObjectId(),
+                "datum": DATUM,
+                "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": "Otto Gruber", "payment": 20},
+            }
+        },
+    )
+    await correct_the_feeder(database, client, 1, 0)
+    await put(database, client, bericht(torschuetzen=[tor("team1", scorer)], karten=[]), spiel_id=VIERTELFINALE)
+    await correct_the_feeder(database, client, 0, 1)
+
+
+async def quarter_final_block(database: AsyncDatabase) -> dict[str, Any]:
+    document = await database[Collection.SPIELBERICHTE].find_one({"spiel_id": VIERTELFINALE})
+    assert document is not None, "the referee's report on the quarter-final was never written"
+
+    return document["bericht"]
+
+
+class TestAReportOutlivingItsFixturesClub:
+    """A correction upstream fields Biber where the report credits Adler's goal: adopted, the 1:0 would be Biber's."""
+
+    def test_it_reads_teams_geaendert_until_the_referee_sends_it_again(self, mongo_replica_set_url: str):
+        """Sent again unchanged, the write re-stamps the clubs: a save the clubs moved under is not one that writes nothing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def zustaende() -> Any:
+                admin = await get_spielbericht_admin(spiel_id=VIERTELFINALE, db=client, **handles(database))
+                season = await get_spielberichte(
+                    spielberichte_collection=database[Collection.SPIELBERICHTE],
+                    saisons_collection=database[Collection.SAISONS],
+                    saison_id=SAISON_ID,
+                )
+                return admin.zustand, [eintrag.zustand for eintrag in season.spielberichte if eintrag.spiel_id == VIERTELFINALE]
+
+            await a_reported_quarter_final(database, client, None)
+            moved = await zustaende()
+            await put(database, client, bericht(torschuetzen=[tor("team1", None)], karten=[], stand=1), spiel_id=VIERTELFINALE)
+
+            return moved, await zustaende(), await quarter_final_block(database)
+
+        moved, sent_again, block = on_the_league(mongo_replica_set_url, body)
+
+        assert moved == ("teams_geaendert", ["teams_geaendert"]), "a report about the club that left read as one about Biber"
+        assert (block["version"], block["seiten"]) == (2, {"team1": TEAM2, "team2": None})
+        # The correction voided the quarter-final's result, so the report proposes again.
+        assert sent_again == ("vorgeschlagen", ["vorgeschlagen"])
+
+    def test_a_scorer_of_the_club_that_left_is_judged_against_the_squad_playing_now(self, mongo_replica_set_url: str):
+        """Lina scored for Adler: sent again unchanged, she would stand on the report as Biber's scorer."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_reported_quarter_final(database, client, LINA)
+            again = await outcome_of(
+                put(database, client, bericht(torschuetzen=[tor("team1", LINA)], karten=[], stand=1), spiel_id=VIERTELFINALE)
+            )
+
+            return again, (await quarter_final_block(database))["version"]
+
+        assert on_the_league(mongo_replica_set_url, body) == (BERICHT_NICHT_IM_KADER, 1)

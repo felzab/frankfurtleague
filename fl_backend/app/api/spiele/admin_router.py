@@ -10,7 +10,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.saisons.crud import pull_current_saison_id, pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielberichte.crud import pull_zustaende, stamp_the_adoption
-from app.api.spielberichte.services import BERICHT_ZUSTAENDE_OFFEN
+from app.api.spielberichte.services import BERICHT_ZUSTAENDE_OFFEN, seiten_of
 from app.api.spielbestaetigungen.services import ansetzung_stand_of, build_triage_rows_filter
 from app.api.spiele.crud import (
     advance_bracket_winners,
@@ -509,10 +509,18 @@ async def _write_spiel_data(
 
         # Here and with the session, never after the commit or off it: a save refused or rolled back stamps nothing.
         if adoption is not None:
+            # After every entry's resolution, which can re-field the adopted fixture's sides too.
+            gespeichert = await pull_one_from_db(
+                collection=spiele_collection,
+                db_filter={"_id": adoption.spiel_id},
+                projection={"team1.team_id": 1, "team2.team_id": 1},
+                session=session,
+            )
             await stamp_the_adoption(
                 spielberichte_collection=spielberichte_collection,
                 spiel_id=adoption.spiel_id,
                 version=adoption.version,
+                seiten=seiten_of(gespeichert),
                 now=adoption.now,
                 session=session,
             )
@@ -567,8 +575,8 @@ async def patch_spiel_data(
     leading the list, and carrying the fields beyond its Paarung that this payload replaced.
 
     With `uebernimmt_bericht`, the save also stamps the fixture's Spielbericht adopted at that version, in the same
-    transaction. A report corrected since that version is left unstamped, and the save lands all the same: nothing is
-    refused for it. A `dry_run` stamps nothing.
+    transaction. A report corrected since that version, or written about other clubs than the save leaves on the
+    fixture, is left unstamped, and the save lands all the same: nothing is refused for it. A `dry_run` stamps nothing.
     """
 
     written = await _write_spiel_data(
