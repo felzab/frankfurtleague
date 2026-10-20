@@ -202,11 +202,14 @@ async function removedNamingItsLog(containerId: string): Promise<string> {
 }
 
 /**
- * `container.start()`, but a failed start's message carries the tail of the container's log:
- * testcontainers rejects naming its health check or its port wait alone, and the health check's
- * failure removes the container and its log.
+ * `container.start()` then `ready`, but either's failure carries the tail of the container's log,
+ * which neither error holds: testcontainers names its health check or its port wait alone, and the
+ * health check's failure removes the container and its log.
  */
-async function startedNamingItsLog(container: ReplicaSetContainer): Promise<StartedMongoDBContainer> {
+async function startedNamingItsLog(
+  container: ReplicaSetContainer,
+  ready: (started: StartedMongoDBContainer) => Promise<void>,
+): Promise<StartedMongoDBContainer> {
   // Left empty where the start failed in the port wait, before testcontainers handed the consumer the log.
   const consumed: { log?: Readable; tail?: Promise<string> } = {};
   container.withLogConsumer((log) => {
@@ -214,15 +217,21 @@ async function startedNamingItsLog(container: ReplicaSetContainer): Promise<Star
     consumed.tail = lastLines(log);
   });
 
+  let started: StartedMongoDBContainer | undefined;
   try {
-    const started = await container.start();
+    started = await container.start();
+    await ready(started);
     // The consumer follows the log for the container's whole life otherwise.
     consumed.log?.destroy();
     return started;
   } catch (failure) {
     const { createdId } = container;
+    // A started container still runs, so its followed log never ends: it is read once stopped, as the port wait's is.
+    const pending =
+      started === undefined
+        ? (consumed.tail ?? (createdId === undefined ? undefined : removedNamingItsLog(createdId)))
+        : removedNamingItsLog(started.getId());
     // No container is a start Docker refused before creating one, whose own error names it.
-    const pending = consumed.tail ?? (createdId === undefined ? undefined : removedNamingItsLog(createdId));
     if (pending === undefined) throw failure;
 
     let tail: string;
@@ -246,8 +255,7 @@ export async function startJudged(container: ReplicaSetContainer): Promise<Judge
   const closes: (() => Promise<unknown>)[] = [];
   // A race beside the library's bound rather than instead of it: `withStartupTimeout` waits on the
   // health check alone, and the Docker calls before it (the pull, the create, the start) carry none.
-  const mongod = await startedInTime(startedNamingItsLog(container));
-  await watchExpiredTransactions(mongod);
+  const mongod = await startedInTime(startedNamingItsLog(container, watchExpiredTransactions));
 
   // Registered last, since no earlier place helps: a file failing while it loads runs no hook at all,
   // and the container it leaves is testcontainers' reaper's. First in the list, it stops last.
