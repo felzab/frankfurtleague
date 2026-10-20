@@ -705,6 +705,20 @@ REFERENCES: tuple[Reference, ...] = (
             "is a state the sweep never writes."
         ),
     ),
+    Reference(
+        source=Collection.SPIELBERICHTE,
+        fields=("spiel_id",),
+        target=Collection.SPIELE,
+        on_reference_created=Action.RESTRICT,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.CASCADE,
+        note=(
+            "Both writers read the fixture the path names and answer `DB-COMMON-001` for one that does not exist. A fixture "
+            "corrected afterwards leaves the report alone, its state being derived on every read against the result as it "
+            "stands. A fixture is removed only with its season's whole draw, by a confirmed replace or an undraw, and each "
+            "removes the season's reports in the same transaction (`app/api/saisons/admin_router.py :: undraw_spielplan`)."
+        ),
+    ),
 )
 
 

@@ -145,6 +145,7 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, saison_id
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(),
         today=TODAY,
@@ -159,6 +160,7 @@ async def call_undraw(database: AsyncDatabase, client: AsyncMongoClient, saison_
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
         db=client,
     )
 

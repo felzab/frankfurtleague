@@ -93,6 +93,7 @@ from app.core.dependencies import (
     SaisonSpielerCollection,
     SaisonTeamsCollection,
     SperrlisteCollection,
+    SpielberichteCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
     SpielerCollection,
@@ -803,6 +804,7 @@ async def generate_spielplan(
     spiele_collection: SpieleCollection,
     spieltage_collection: SpieltageCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    spielberichte_collection: SpielberichteCollection,
     db: DBClient,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     # An absent body is `replace: false`, so a first draw needs no confirmation and nothing replaces
@@ -814,8 +816,9 @@ async def generate_spielplan(
     Draw the whole season at once: every matchday and every fixture, undated, in one transaction.
 
     `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
-    deletes both lists first, inside `REQ-SPIELPLAN-005`'s window, and is refused `REQ-AUTH-009` from a sign-in or confirmation
-    older than `STEP_UP_WINDOW_HOURS`: nothing writes the removed rows back.
+    deletes both lists first, every fixture's confirmations and referee's report with them, inside
+    `REQ-SPIELPLAN-005`'s window, and is refused `REQ-AUTH-009` from a sign-in or confirmation older than
+    `STEP_UP_WINDOW_HOURS`: nothing writes the removed rows back.
     """
 
     if spielplan_data.replace:
@@ -954,6 +957,7 @@ async def generate_spielplan(
             # NOT extracted, though `undraw_spielplan` repeats it: two sites are no pattern yet
             # (`.claude/CLAUDE.md` §3).
             await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
+            await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
             removed_spiele = (
                 await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
             ).deleted_count
@@ -1018,10 +1022,13 @@ async def undraw_spielplan(
     spiele_collection: SpieleCollection,
     spieltage_collection: SpieltageCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    spielberichte_collection: SpielberichteCollection,
     db: DBClient,
 ) -> FLUndrawSpielplanResponse:
     """
     Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.
+
+    Every fixture's confirmations and referee's report go with it.
 
     The replace's window bounds it (`REQ-SPIELPLAN-006`). Undoing the draw is what reopens the shape
     rules to `PATCH` and the groups to an entry.
@@ -1060,9 +1067,10 @@ async def undraw_spielplan(
         )
 
         # Fixtures first, the reverse of the draw's write order: neither the log's rows nor a restore
-        # replaying them then holds a fixture whose matchday is already gone. Their confirmations go
-        # ahead of them for the same reason (`app/core/domain.py :: REFERENCES`).
+        # replaying them then holds a fixture whose matchday is already gone. Their confirmations and
+        # reports go ahead of them for the same reason (`app/core/domain.py :: REFERENCES`).
         await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
+        await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
         removed_spiele = await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
         removed_spieltage = await delete_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, session=session)
 

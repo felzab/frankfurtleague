@@ -5268,7 +5268,7 @@
     "/api/v0/saisons/{saison_id}/spielplan": {
       "post": {
         "summary": "Draw this Saison's Spielplan",
-        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, inside `REQ-SPIELPLAN-005`'s window, and is refused `REQ-AUTH-009` from a sign-in or confirmation\nolder than `STEP_UP_WINDOW_HOURS`: nothing writes the removed rows back.",
+        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, every fixture's confirmations and referee's report with them, inside\n`REQ-SPIELPLAN-005`'s window, and is refused `REQ-AUTH-009` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`: nothing writes the removed rows back.",
         "operationId": "generate_spielplan_api_v0_saisons__saison_id__spielplan_post",
         "security": [
           {
@@ -5335,7 +5335,7 @@
       },
       "delete": {
         "summary": "Undraw this Saison's Spielplan",
-        "description": "Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.\n\nThe replace's window bounds it (`REQ-SPIELPLAN-006`). Undoing the draw is what reopens the shape\nrules to `PATCH` and the groups to an entry.",
+        "description": "Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.\n\nEvery fixture's confirmations and referee's report go with it.\n\nThe replace's window bounds it (`REQ-SPIELPLAN-006`). Undoing the draw is what reopens the shape\nrules to `PATCH` and the groups to an entry.",
         "operationId": "undraw_spielplan_api_v0_saisons__saison_id__spielplan_delete",
         "security": [
           {
