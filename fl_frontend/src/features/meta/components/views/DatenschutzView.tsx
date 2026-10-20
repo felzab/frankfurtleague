@@ -625,10 +625,11 @@ export function DatenschutzView() {
             über den Link bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir
             einen Hinweis mit einem Link, über den sie die Änderung stoppen kann. Hat Deine Adresse Zugang zur Verwaltung, gilt die neue erst,
             wenn eine andere Person aus der Verwaltung zustimmt; ohne diese Zustimmung endet die Änderung {ADRESSWECHSEL_GENEHMIGUNG_DAUER} nach
-            ihrem Beginn. Erreichst Du Deine bisherige Adresse nicht mehr, ändert die Verwaltung sie auf Deine Bitte; die neue gilt dann erst{" "}
-            {ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung. Gilt die neue, gilt sie für alles, was unter der bisherigen steht: Deine
-            Einträge als Spielerin oder Spieler, einen bestätigten Eintrag als Schiedsrichterin oder Schiedsrichter, Deine bestätigten Plätze
-            als Kontaktperson, Deine Registrierungen und einen Zugang zur Verwaltung; die bisherige bekommt eine Nachricht darüber.
+            ihrem Beginn. Auf Deine Bitte trägt auch die Verwaltung die neue Adresse ein: Kannst Du Dich unter der bisherigen noch anmelden,
+            gibst Du die Änderung dort in Deinem Konto frei, bevor wir an die neue schreiben; erreichst Du die bisherige nicht mehr, gilt die
+            neue erst {ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung. Gilt die neue, gilt sie für alles, was unter der bisherigen steht:
+            Deine Einträge als Spielerin oder Spieler, einen bestätigten Eintrag als Schiedsrichterin oder Schiedsrichter, Deine bestätigten
+            Plätze als Kontaktperson, Deine Registrierungen und einen Zugang zur Verwaltung; die bisherige bekommt eine Nachricht darüber.
           </p>
           <p className={ABSATZ_CLASSES}>
             Rechtsgrundlage für die Daten, die wir für Deine Teilnahme brauchen, ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse
