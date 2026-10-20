@@ -30,6 +30,8 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
 
   // No duplicate round-trip with the render below, but only while both calls pass the SAME
   // filters: `statistik_scope` is part of the cache key, so omitting it here doubles the work.
+
+  // Unlogged: the body makes this read uncaught, so its failure reaches the error boundary, which logs it.
   const teamRes = await getTeam(team_id, {
     saison_id: saisonId,
     statistik_scope: "gesamt",

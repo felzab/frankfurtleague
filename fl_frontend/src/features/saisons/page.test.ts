@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { APIBadStatusError, APIMalformedDataError } from "@/core/errors.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { answer, answerReadsWith, EMPTIEST_ANSWER, pageBody, saisonFields } from "@/shared/testing/pageHarness.ts";
+import { APIBadStatusError, APIMalformedDataError, UnreadGrantError } from "@/core/errors.ts";
+import { doubleActionRequest, loggedErrorCodes, loggedErrorTraces } from "@/shared/testing/actionDoubles.ts";
+import { answer, answerReadsWith, EDGE_TRACE_ID, EMPTIEST_ANSWER, pageBody, saisonFields } from "@/shared/testing/pageHarness.ts";
 
 import { FLSaisonSchema } from "./schemas.ts";
 
@@ -65,6 +65,23 @@ describe("the count beside the rollover press", () => {
     });
 
     assert.equal((await rollover()).loeschung, "unlesbar");
+  });
+
+  /* A bug in the count's read shows the same unreadable count as a failed read, so only its line tells them apart. */
+  it("logs a count read that threw untyped", async () => {
+    vorschau = new TypeError("Cannot read properties of undefined (reading 'spieler')");
+
+    assert.equal((await rollover()).loeschung, "unlesbar");
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
+    assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
+  });
+
+  /* The guard logs an unread grant as it refuses (`FE-AUTH-010`): the count's handler adds no second line. */
+  it("logs nothing of its own for a count whose administrator's grant went unread", async () => {
+    vorschau = new UnreadGrantError();
+
+    assert.equal((await rollover()).loeschung, "unlesbar");
+    assert.deepEqual(loggedErrorCodes(), [], "the guard's outage was logged twice");
   });
 
   /* A contract break is a deploy out of step, which the error boundary logs, as every degraded read sends one. */

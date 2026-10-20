@@ -15,10 +15,13 @@ from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
 
 from app.api.aktionen.schemas import HERKUNFT_JE_KIND
 from app.api.bewerbungen import schemas as bewerbungen_schemas
+from app.api.bewerbungen.services import days_after
 from app.api.identitaet.schemas import ADRESSE_UNTER_INVALID, ANLASS_HOLDS_AN_ADDRESS, ErasureAdresse, FLErasurePayload
 from app.api.identitaet.services import grants_a_panel
 from app.api.saisons.schemas import FLSaisonStatus, TeamsPerGroup
+from app.api.spielbestaetigungen.services import ANSETZUNG_QUELLEN, anfrage_is_due
 from app.api.spiele.schemas import MAX_QUALIFIERS
+from app.api.spiele.services import CLASH_BUFFER_MINUTES
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.spielorte.admin_router import _maps_link
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
@@ -104,6 +107,10 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/teams/constants.ts", "EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH", "EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH"),
     Mirror("features/spiele/constants.ts", "NOTIZ_MAX_LENGTH", "SPIEL_NOTIZ_MAX_LENGTH"),
     Mirror("features/spiele/constants.ts", "PAARUNGEN_MAX", "LIST_LIMIT_DEFAULT"),
+    # The editor's rail banner says a fixture dated inside it is due at once; the deadline itself is the
+    # one each row stores.
+    Mirror("features/spiele/constants.ts", "SPIEL_BESTAETIGUNG_FRIST_TAGE", "SPIEL_BESTAETIGUNG_FRIST_TAGE"),
+    Mirror("features/spiele/constants.ts", "SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH", "SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH"),
     Mirror("features/berechtigungen/constants.ts", "ANKUENDIGUNGEN_MAX", "LIST_LIMIT_DEFAULT"),
     # The account sweep's batch: a larger one is refused whole, every pass alike, and nothing is deleted.
     Mirror("features/funktionen/constants.ts", "REFERENZEN_ADRESSEN_MAX", "REFERENZEN_ADRESSEN_MAX"),
@@ -147,6 +154,10 @@ UNMIRRORED_BOUNDS: Final[dict[str, str]] = {
     "DROSSELUNG_SPIELER_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
     "DROSSELUNG_SCHIEDSRICHTER_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
     "DROSSELUNG_KONTAKT_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
+    # The cadence is the fixture-confirmation pass's alone: no page or mail counts a link's window or a reminder's day.
+    "SPIEL_ANFRAGE_VORLAUF_TAGE": "how long before the deadline the pass asks, which no frontend page or mail states",
+    "SPIEL_ERINNERUNG_TAGE_ERSTE": "the day the pass reminds a team, which no frontend page or mail states",
+    "SPIEL_ERINNERUNG_TAGE_ZWEITE": "the day the pass reminds a team, which no frontend page or mail states",
 }
 
 MIRRORED_MODULES: Final = tuple(dict.fromkeys(mirror.module for mirror in MIRRORED_BOUNDS))
@@ -635,10 +646,11 @@ QUALIFIER_CEILING: Final = ("features/saisons/schemas.ts", "MAX_QUALIFIERS", "2 
 STRING_MEMBER: Final = re.compile(r'"([^"]+)"')
 
 
-def _declared_members(module: str, name: str) -> tuple[str, ...]:
+def _declared_members(module: str, name: str, *, exported: bool = True) -> tuple[str, ...]:
     """One frontend list literal's members. A member this reader cannot see fails a case below rather than dropping quietly out of it."""
 
-    found = re.search(rf"^export const {name} = (?:z\.enum\()?\[(?P<members>[^\]]*)\]", _source(module), re.MULTILINE)
+    prefix = "export " if exported else ""
+    found = re.search(rf"^{prefix}const {name} = (?:z\.enum\()?\[(?P<members>[^\]]*)\]", _source(module), re.MULTILINE)
 
     assert found is not None, f"{module} no longer opens {name} as one list literal on one line"
 
@@ -678,6 +690,38 @@ def test_the_bracket_ceiling_the_offer_opens_is_the_one_this_package_caps_a_seas
     assert phases, f"{PHASE_SET[1]} names no phase, so the ceiling derived from it below rests on nothing"
     assert 2 ** (len(phases) - 1) == MAX_QUALIFIERS, (
         f"{name} opens a bracket of {2 ** (len(phases) - 1)}, where this package caps one at {MAX_QUALIFIERS}"
+    )
+
+
+# The clash buffer as every frontend sentence naming it says it: in words, which no number reader above reads, so
+# this table gives each spelling its hours. A buffer outside it fails rather than passing unread.
+CLASH_BUFFER_TEXT: Final = ("features/spiele/constants.ts", "CLASH_BUFFER_TEXT")
+STUNDEN_IN_WORTEN: Final = (
+    "eine Stunde",
+    "zwei Stunden",
+    "drei Stunden",
+    "vier Stunden",
+    "fünf Stunden",
+    "sechs Stunden",
+    "sieben Stunden",
+    "acht Stunden",
+    "neun Stunden",
+    "zehn Stunden",
+    "elf Stunden",
+    "zwölf Stunden",
+)
+
+
+def test_the_clash_sentences_name_the_buffer_the_clash_check_holds():
+    """A sentence naming another buffer sends the administrator, or a club proposing a date, to a time the save refuses again."""
+
+    module, name = CLASH_BUFFER_TEXT
+    found = re.search(rf'^export const {name} = "([^"]+)";$', _source(module), re.MULTILINE)
+
+    assert found is not None, f"{module} no longer exports {name} as one string literal"
+    assert found[1] in STUNDEN_IN_WORTEN, f"{name} reads {found[1]!r}, which this table gives no hours"
+    assert (STUNDEN_IN_WORTEN.index(found[1]) + 1) * 60 == CLASH_BUFFER_MINUTES, (
+        f"{name} says {found[1]}, where the clash check spaces fixtures {CLASH_BUFFER_MINUTES} minutes apart"
     )
 
 
@@ -1673,6 +1717,69 @@ def test_the_panel_table_names_every_season_status_once():
 @pytest.mark.parametrize(("saison_status", "grants"), _panel_grants(), ids=lambda value: str(value))
 def test_a_seat_s_season_grants_the_panel_the_shared_table_says(saison_status: FLSaisonStatus, grants: bool):
     assert grants_a_panel(saison_status) is grants
+
+
+# Which fixtures the confirmation pass asks about is spelled again by the match editor's near-date warning, and both
+# run this one table, so a condition one tier gains alone fails at the other.
+ANFRAGE_IS_DUE: Final = Path(__file__).resolve().parent / "anfrage_is_due.json"
+ANFRAGE_TODAY: Final = "2026-04-01"
+ANFRAGE_SIDES: Final = (ObjectId("6890a1b2c3d4e5f607760001"), ObjectId("6890a1b2c3d4e5f607760002"))
+
+
+def _anfrage_case(anders: dict[str, Any]) -> tuple[dict[str, Any], dict[Any, str]]:
+    """The fixture and the club exits one row names, moved from a fixture set in full three days out.
+
+    A key this tier does not read fails the row, so the table never states a condition one tier cannot test.
+    """
+
+    spiel: dict[str, Any] = {
+        "datum": days_after(day=ANFRAGE_TODAY, days=3),
+        "uhrzeit": "18:00:00",
+        "ort": {"spielort_id": ObjectId("6890a1b2c3d4e5f6077600b1"), "name": "Sportpark", "maps_link": "Sportpark", "mietpreis": 80},
+        "team1": {"team_id": ANFRAGE_SIDES[0], "name": "Alpha", "shorthand": "AL", "tore": None},
+        "team2": {"team_id": ANFRAGE_SIDES[1], "name": "Beta", "shorthand": "BE", "tore": None},
+        "ergebnis": None,
+        "elfmeterschiessen": None,
+        "sonderereignis": None,
+    }
+    austritte: dict[Any, str] = {}
+    for key, value in anders.items():
+        match key:
+            case "tage":
+                spiel["datum"] = None if value is None else days_after(day=ANFRAGE_TODAY, days=value)
+            case "uhrzeit" | "sonderereignis" | "team1" | "team2" | "elfmeterschiessen":
+                spiel[key] = value
+            case "spielort":
+                spiel["ort"] = value
+            case "tore":
+                spiel["team1"] = {**spiel["team1"], "tore": value}
+            case "austritt_tage":
+                austritte[ANFRAGE_SIDES[1]] = days_after(day=ANFRAGE_TODAY, days=value)
+            case _:
+                raise ValueError(f"the table moves {key}, which this tier does not read")
+
+    return spiel, austritte
+
+
+# The inputs of the stand as the near-date warning compares them, so a save moving an input the warning never reads
+# re-asks the clubs unannounced.
+ANSETZUNG_QUELLEN_SET: Final = ("features/spiele/components/forms/AdminEditSpielDataForm/banners.ts", "ANSETZUNG_QUELLEN")
+
+
+def test_the_near_date_warning_compares_every_input_of_the_stand():
+    """The table below moves a fixture's fields, never its stand: an input on one side alone fails here instead."""
+
+    compared = _declared_members(*ANSETZUNG_QUELLEN_SET, exported=False)
+
+    assert compared, f"{ANSETZUNG_QUELLEN_SET[1]} names no input, so the comparison below rests on nothing"
+    assert sorted(compared) == sorted(re.sub(r"_(\w)", lambda found: found[1].upper(), quelle) for quelle in ANSETZUNG_QUELLEN)
+
+
+@pytest.mark.parametrize("row", json.loads(ANFRAGE_IS_DUE.read_bytes().decode("utf-8")), ids=lambda row: row["fall"])
+def test_the_pass_asks_about_a_fixture_as_the_shared_table_says(row: dict[str, Any]):
+    spiel, austritte = _anfrage_case(row["anders"])
+
+    assert anfrage_is_due(spiel=spiel, austritte=austritte, today=ANFRAGE_TODAY) is row["gefragt"]
 
 
 # The erasure's two refusals of a typed value are spelled once per tier, and the API's sentence reaches its log

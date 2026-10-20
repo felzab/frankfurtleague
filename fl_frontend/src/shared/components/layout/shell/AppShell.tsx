@@ -1,25 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 
 import { SkipToContentLink } from "../../ui/SkipToContentLink";
 import { Sidemenu } from "../sidemenu/Sidemenu";
+import { SidemenuEntries } from "../sidemenu/SidemenuNavLinks";
 import { AppTopBar } from "./AppTopBar";
-import { KONTO_SECTION } from "./kontoSection";
+import { ShellHeading, ShellTitle } from "./ShellHeading";
 import { ShellSaisonQueryProvider } from "./ShellSaisonQuery";
 
-import type { SidemenuHint, SidemenuStructure, SidemenuStructureSubOption, SignOutResult } from "@/shared/types/types";
+import type { SidemenuHint, SidemenuStructure, SignOutResult } from "@/shared/types/types";
 import type React from "react";
+import type { LinkPrefix } from "./linkPrefix";
 
 type ShellSection = { label: string; hint: SidemenuHint };
 
 /**
- * Owns both pieces of shell state, each being one control split across two places: the hamburger is in the bar and its
- * panel in the sidemenu, and the rail's toggle is in the footer while its width decides the bar's brand treatment.
+ * Owns both pieces of shell state, each split across two places: the hamburger in the bar, its panel in the sidemenu;
+ * the rail's toggle in the footer, its width sizing the brand. **Nothing here reads the address**
+ * (`docs/frontend/spec.md :: I735`).
  */
 export function AppShell<TIcon extends string>({
   structure,
+  entries,
+  heading,
   linkPrefix,
   keepsSaisonQuery,
   iconDictionary,
@@ -32,8 +36,16 @@ export function AppShell<TIcon extends string>({
   onSignOut,
   children,
 }: {
+  /** Every entry the area can list: what the bar's title resolves against, and the rail's list where no `entries` stands. */
   structure: SidemenuStructure<TIcon>;
-  linkPrefix: string;
+  /**
+   * The rail's list where which entries show is the session's to say, streamed in its own boundary: the area's
+   * own entries component, which binds its icons to its structure's type.
+   */
+  entries?: React.ReactNode;
+  /** The bar's heading where the session can change it, standing in for the one `structure` resolves once it renders. */
+  heading?: React.ReactNode;
+  linkPrefix: LinkPrefix;
   /**
    * Whether the season rides the query as `saison_id`, carried onto every sidemenu entry and the 404's
    * way out. Required: a default would put a stray `?saison_id=` on every link of a shell whose season
@@ -47,10 +59,6 @@ export function AppShell<TIcon extends string>({
    * is: a signed-in shell leaving it out would strand a person holding several in one area.
    */
   funktionSwitcher: React.ReactNode;
-  /**
-   * Sections with a route and no nav entry, by first segment. Such a page carries its own `h2` naming its subject, so
-   * the bar names the section and the page names the record.
-   */
   unlistedSections?: Readonly<Record<string, ShellSection>>;
   /** What the bar reads on an address no entry and no unlisted section claims — the area's name, never a section's. */
   fallbackTitle: string;
@@ -68,7 +76,6 @@ export function AppShell<TIcon extends string>({
   onSignOut?: () => Promise<SignOutResult>;
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
 
@@ -97,21 +104,15 @@ export function AppShell<TIcon extends string>({
     return () => rail.removeEventListener("change", closeOnRail);
   }, []);
 
-  // Matched on the first segment after the prefix, so a detail route resolves to its section's entry
-  // and still gets a title and a hint.
-  const baseSegment = pathname.replace(`${linkPrefix}/`, "").split("/")[0];
-  const activeOption: SidemenuStructureSubOption<TIcon> | undefined = structure
-    .flatMap((group) => group.sub_options)
-    .find((option) => option.id === baseSegment);
-  // `hasOwn`, never `in` or a bare index: the segment is whatever the address bar holds, and `/bereich/admin/constructor`
-  // would otherwise select a prototype member and head the page with nothing at all.
-  const unlistedSection = baseSegment !== undefined && Object.hasOwn(unlistedSections, baseSegment) ? unlistedSections[baseSegment] : undefined;
-  // Matched whole and ahead of the first segment, so the one address is headed alike in whichever shell
-  // declares it, and no shell lists it as an entry of its own.
-  const section: ShellSection =
-    kontoHref !== null && pathname === kontoHref
-      ? KONTO_SECTION
-      : (activeOption ?? unlistedSection ?? { label: fallbackTitle, hint: fallbackHint });
+  const resolvedHeading = (
+    <ShellHeading
+      structure={structure}
+      linkPrefix={linkPrefix}
+      unlistedSections={unlistedSections}
+      fallback={{ label: fallbackTitle, hint: fallbackHint }}
+      kontoHref={kontoHref}
+    />
+  );
 
   return (
     /* `data-app-shell` is read by one rule in `globals.css`, which releases the viewport's reserved scrollbar
@@ -123,13 +124,17 @@ export function AppShell<TIcon extends string>({
         <SkipToContentLink isTargetInert={isMobileOpen} />
 
         <AppTopBar
-          title={section.label}
-          hint={section.hint}
+          heading={
+            // The area's name and no hint wherever the address is unknown until the request: the build's shell of
+            // a route a segment parameter names. The fallback's own hint says the address belongs to no page.
+            <Suspense fallback={<ShellTitle label={fallbackTitle} />}>
+              {heading === undefined ? resolvedHeading : <Suspense fallback={resolvedHeading}>{heading}</Suspense>}
+            </Suspense>
+          }
           isMobileOpen={isMobileOpen}
           onToggleMobileMenu={() => setIsMobileOpen(!isMobileOpen)}
           isDesktopCollapsed={isDesktopCollapsed}
           kontoHref={kontoHref}
-          isOnKonto={section === KONTO_SECTION}
           onSignOut={onSignOut}
         />
 
@@ -145,15 +150,20 @@ export function AppShell<TIcon extends string>({
 
         <div className="flex min-h-0 w-full flex-1 flex-row">
           <Sidemenu
-            structure={structure}
+            entries={
+              entries ?? (
+                <SidemenuEntries
+                  structure={structure}
+                  iconDictionary={iconDictionary}
+                />
+              )
+            }
             linkPrefix={linkPrefix}
             keepsSaisonQuery={keepsSaisonQuery}
-            iconDictionary={iconDictionary}
             saisonMetadataDisplay={saisonMetadataDisplay}
             funktionSwitcher={funktionSwitcher}
             onSignOut={onSignOut}
             kontoHref={kontoHref}
-            pathname={pathname}
             isMobileOpen={isMobileOpen}
             onMobileClose={() => setIsMobileOpen(false)}
             isDesktopCollapsed={isDesktopCollapsed}

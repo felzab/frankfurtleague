@@ -9,7 +9,18 @@ import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
 // Silent: each refusal a case drives would otherwise print an ERROR line into a passing run.
 const inert = (): undefined => undefined;
-const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
+/**
+ * Every ERROR line the handler was handed: its message, and the code its own fields file it under, never the
+ * serialised arguments, where the error's own `code` would match whatever the line was filed under.
+ */
+const errors: { message: string; error_code: unknown }[] = [];
+const LOGGING = {
+  logger: {
+    info: inert,
+    warn: inert,
+    error: (message: string, _error: unknown, meta?: { error_code?: unknown }) => void errors.push({ message, error_code: meta?.error_code }),
+  },
+};
 
 const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint));
 
@@ -17,6 +28,8 @@ doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING } });
 
 const { POST } = await import("./route.ts");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
+const { APIMalformedDataError, APINetworkError } = await import("@/core/errors.ts");
+const { markOutcomeUnknown } = await import("@/core/requestScope.ts");
 const { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 
 /** The label the backend runs on this page, off the registry it generated. */
@@ -84,6 +97,7 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
 const ansichten = () => calls.filter((call) => call.endpoint === "/registrierungen/bestaetigung/ansicht").length;
 
 beforeEach(() => {
+  errors.length = 0;
   schreibAntwort = () => GESCHRIEBEN;
   ansichtAntwort = () => ANSICHT;
 });
@@ -147,10 +161,11 @@ describe("the pupil's confirmation handler", () => {
   /* The link died between the open and the press, so the page swaps the form for a panel; a field
      error would leave a dead link looking like a mistyped one. */
   it("answers an unknown, a lapsed and a spent link as a state rather than a field", async () => {
-    for (const [code, zustand] of [
-      ["REQ-REGISTRIERUNG-004", "ungueltig"],
-      ["REQ-REGISTRIERUNG-005", "abgelaufen"],
-      ["REQ-REGISTRIERUNG-006", "bestaetigt"],
+    for (const [code, zustand, gelesen] of [
+      ["REQ-REGISTRIERUNG-004", "ungueltig", 0],
+      // Each its own panel where the link's view reads open, the view telling apart the states the press judged after it.
+      ["REQ-REGISTRIERUNG-005", "abgelaufen", 1],
+      ["REQ-REGISTRIERUNG-006", "bestaetigt", 1],
     ] as const) {
       calls.length = 0;
       schreibAntwort = () => refusedOn(WRITE_OPERATION, code);
@@ -158,8 +173,47 @@ describe("the pupil's confirmation handler", () => {
       const answer = await bodyOf(aRequest(gueltigerKoerper));
 
       assert.deepEqual(answer.body, { success: false, zustand: zustand }, `${code} does not reach the page as a panel`);
-      assert.equal(ansichten(), 0, `${code} spent a second read on a floor it never words`);
+      assert.equal(ansichten(), gelesen, `${code} read the link's view otherwise than it needs`);
     }
+  });
+
+  /* A link confirmed in another window before its deadline passed reads as a reload shows it, never as lapsed. */
+  it("answers a lapsed link the view reads as confirmed with the confirmed panel", async () => {
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-REGISTRIERUNG-005");
+    ansichtAntwort = () => ({ ...ANSICHT, zustand: "bestaetigt" });
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, zustand: "bestaetigt" });
+  });
+
+  /* An answer off the view's schema is the deploy's fault, logged for whoever can repair it. The refusal settled the
+     write, so the person reads its panel as after a failed read, never that the answer may not have arrived. */
+  it("logs a view answered off its schema and answers the refusal as a failed read does", async () => {
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-REGISTRIERUNG-005");
+    ansichtAntwort = () => new Error("the backend did not answer");
+    const nachFehler = await bodyOf(aRequest(gueltigerKoerper));
+    ansichtAntwort = () =>
+      new APIMalformedDataError({
+        message: "Response failed schema.",
+        url: "http://localhost/registrierungen/bestaetigung/ansicht",
+        statusCode: 200,
+        endpoint: "/registrierungen/bestaetigung/ansicht",
+        method: "POST",
+        readOnly: true,
+        traceId: "0",
+      });
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, nachFehler.body, "a contract break after a refusal answered otherwise than a failed read");
+    assert.ok(
+      errors.some(
+        ({ message, error_code }) =>
+          message.includes("read broke its contract after its write was answered: postSpielerBestaetigung") && error_code === "FE-API-002",
+      ),
+      "the contract break left no line",
+    );
   });
 
   /* The one refusal that spends nothing, so the typed date survives it and the form stays live. */
@@ -206,6 +260,30 @@ describe("the pupil's confirmation handler", () => {
   it("puts the age refusal on the date naming no age where the link's own view could not be read", async () => {
     schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-REGISTRIERUNG-007");
     ansichtAntwort = () => new Error("the backend did not answer");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, {
+      success: false,
+      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt." },
+    });
+  });
+
+  /* The write was refused, so nothing stands to be unsure of: a floor read the request's deadline cut names no age,
+     never an unknown outcome. */
+  it("puts the age refusal on the date naming no age where the deadline cut the link's own view", async () => {
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-REGISTRIERUNG-007");
+    ansichtAntwort = () => {
+      markOutcomeUnknown();
+      return new APINetworkError({
+        message: "Request failed.",
+        url: "http://localhost/registrierungen/bestaetigung/ansicht",
+        method: "POST",
+        readOnly: true,
+        traceId: "0",
+        isTimeout: true,
+      });
+    };
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 

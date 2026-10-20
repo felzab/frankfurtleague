@@ -45,6 +45,7 @@ const HALBFINALE: FLSpiel = {
   saison_phase: "halbfinale",
   saison_id: "2025",
   notiz: null,
+  ansetzung_bestaetigt: null,
 };
 
 const UNGESPIELT: FLSpiel = { ...HALBFINALE, ergebnis: null, elfmeterschiessen: null };
@@ -184,5 +185,14 @@ describe("the fixture dialog's links into a club", () => {
       assert.equal(screen.getByRole("link", { name: "Kader" }).getAttribute("href"), `/dashboard/spieler/${teamId}?saison_id=2025`);
       await user.keyboard("{Escape}");
     }
+  });
+});
+
+describe("the fixture dialog's status chip", () => {
+  it("passes the served verdict, so a fixture still to come whose clubs have not both confirmed reads „Vorläufig“", () => {
+    const { dialog, unmount } = openDialog({ ...UNGESPIELT, datum: "2026-09-15", ansetzung_bestaetigt: false });
+
+    assert.match(dialog.textContent, /Vorläufig/);
+    unmount();
   });
 });

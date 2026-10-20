@@ -9,7 +9,7 @@ from collections.abc import Callable, Generator, Iterator, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, ExitStack, contextmanager
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from pydantic import BaseModel, ValidationError
@@ -19,6 +19,9 @@ from pymongo.database import Database
 from tests.documents import EINWILLIGUNG, rules_document
 from tests.tier import TIER_GUARD, UNMARKED_USE, expired_transaction_kills, expired_transactions_refusal
 from tests.worker import guard_every_database, release_every_database, worker_database
+
+if TYPE_CHECKING:
+    from testcontainers.core.container import DockerContainer
 
 # testcontainers' reaper teardown logs after pytest closes its capture stream, printing a traceback on
 # a passing run. Not `raiseExceptions = False`: that would hide real handler failures too.
@@ -313,6 +316,10 @@ UNSTARTED_KEY = "fl_mongodb_unstarted"
 
 REPLICA_SET_ELECTION_TIMEOUT_S = 60
 
+# A server's reason for exiting is its last lines, and under `-n` the message carrying them repeats in
+# every case the failed start errors.
+FAILED_START_LOG_LINES = 10
+
 # The controller's alone; empty on a serial run, where the fixtures below start their own.
 _SHARED_SERVERS: dict[str, str] = {}
 _UNSTARTED: dict[str, str] = {}
@@ -421,6 +428,49 @@ def _named_aborts(url: str) -> Iterator[str]:
         )
 
 
+def _log_tail(container: DockerContainer) -> str | None:
+    """`None` for a container the daemon never created, which ran nothing to log."""
+
+    from testcontainers.core.exceptions import ContainerStartException
+
+    try:
+        wrapped = container.get_wrapped_container()
+    except ContainerStartException:
+        return None
+
+    return wrapped.logs(tail=FAILED_START_LOG_LINES).decode("utf-8", errors="replace").rstrip()
+
+
+@contextmanager
+def _started(container: DockerContainer) -> Iterator[None]:
+    """`with container:`, but a failed start's message carries the tail of the container's log.
+
+    testcontainers raises without it, then removes the container and its log. In the message, never a
+    note: `pytest_configure_node` hands the workers `str(error)`.
+    """
+
+    try:
+        container.start()
+    except Exception as error:
+        try:
+            log = _log_tail(container)
+        finally:
+            container.stop()
+        if log is None:
+            raise
+        raise RuntimeError(
+            f"{type(error).__name__}: {error}\nThe container's last {FAILED_START_LOG_LINES} log lines:\n{log or '(it logged nothing)'}"
+        ) from error
+    except BaseException:
+        container.stop()
+        raise
+
+    try:
+        yield
+    finally:
+        container.stop()
+
+
 @contextmanager
 def _standalone_mongod() -> Iterator[str]:
     """Imported inside the function, so the default tier never pays for `testcontainers`."""
@@ -429,7 +479,8 @@ def _standalone_mongod() -> Iterator[str]:
     # a DeprecationWarning.
     from testcontainers.community.mongodb import MongoDbContainer
 
-    with MongoDbContainer(MONGO_IMAGE).with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS) as container:
+    container = MongoDbContainer(MONGO_IMAGE).with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS)
+    with _started(container):
         yield f"{container.get_connection_url()}/?{POLLING_MONITORS}"
 
 
@@ -453,7 +504,7 @@ def _replica_set_mongod() -> Iterator[str]:
         .waiting_for(LogMessageWaitStrategy(re.compile(r"waiting for connections", re.IGNORECASE)))
     )
 
-    with container:
+    with _started(container):
         # `directConnection=true`: the set advertises its container-internal address, which topology discovery would follow and find nothing.
         url = f"mongodb://{container.get_container_host_ip()}:{container.get_exposed_port(27017)}/?directConnection=true&{POLLING_MONITORS}"
 

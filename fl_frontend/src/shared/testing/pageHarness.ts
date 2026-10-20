@@ -9,15 +9,20 @@ import { JSDOM } from "jsdom";
 import { prerenderToNodeStream } from "react-dom/static";
 import z from "zod";
 
-import { APIBadStatusError, APIMalformedDataError } from "@/core/errors.ts";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
 import { exportingModule, registerDoubles } from "@/core/exportingModule.ts";
+import { formatTraceparent, TRACEPARENT_HEADER } from "@/core/trace.ts";
 import { hasDirective } from "@/core/treeWalk.ts";
-import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
+import { incomingHeaders, REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 import type { ReactElement, ReactNode } from "react";
+
+/** The trace the edge opens for every page request this harness serves, as nginx stamps one on each. */
+export const EDGE_TRACE_ID = "0af7651916cd43dd8448eb211c80319c";
+incomingHeaders.set(TRACEPARENT_HEADER, formatTraceparent({ traceId: EDGE_TRACE_ID, spanId: "b7ad6b7169203331" }));
 
 /** One step a page took against the backend or the request, in the order it took them. */
 export type PageStep =
@@ -48,7 +53,13 @@ registerDoubles(
     specifiers: {
       ...REQUEST_PACKAGES,
       // `connection()` is where a page opts out of prerendering, so its place among the reads is recorded.
-      "next/server": { connection: () => Promise.resolve(void steps.push({ kind: "connection" })) },
+      "next/server": {
+        connection: () => {
+          steps.push({ kind: "connection" });
+          // Never settling inside `prerenderShell`, as the build's own prerender holds it.
+          return holdsConnection ? new Promise<void>(() => undefined) : Promise.resolve();
+        },
+      },
     },
   },
   { mayGoUnserved: Object.keys(REQUEST_PACKAGES) },
@@ -108,6 +119,9 @@ registerHooks({
 
 /** Every step since the last `clearSteps`, across every page the process renders or calls. */
 export const steps: PageStep[] = [];
+
+/** Set while `prerenderShell` runs, so a `connection()` never settles. */
+let holdsConnection = false;
 
 export function clearSteps(): void {
   steps.length = 0;
@@ -188,6 +202,21 @@ export const backendNotFound = (endpoint: string): APIBadStatusError =>
     method: "GET",
     readOnly: true,
     traceId: "0",
+  });
+
+/**
+ * A read of `endpoint` the network never answered, as the API client raises it in production: a page's degraded
+ * read settles it to its panel with no line, where a bare `TypeError` stands for a bug and is logged.
+ */
+export const backendUnreachable = (endpoint: string, method = "GET"): APINetworkError =>
+  new APINetworkError({
+    message: "Network request failed. Please check your connection.",
+    url: backendUrl(endpoint),
+    method: method,
+    readOnly: true,
+    traceId: "0",
+    isTimeout: false,
+    originalError: new TypeError("fetch failed"),
   });
 
 const asParsed: HandOver = (_endpoint, parsed) => parsed;
@@ -371,6 +400,45 @@ export async function renderPage(tree: ReactNode): Promise<string> {
       await new Promise((resolve) => window.requestAnimationFrame(resolve));
     }
     for (const script of window.document.querySelectorAll("script")) script.remove();
+    return window.document.body.innerHTML;
+  } finally {
+    window.close();
+  }
+}
+
+/**
+ * The static shell the build prerenders, the prelude served before the request is read: `connection()`
+ * never settles, so whatever awaits it stands as its boundary's fallback. Aborted once the work it does
+ * not hold has run.
+ */
+export async function prerenderShell(tree: ReactNode): Promise<string> {
+  const errors: unknown[] = [];
+  const controller = new AbortController();
+  holdsConnection = true;
+  let markup: string;
+  try {
+    // A macrotask: every microtask a resolved read chains has run by then, so nothing short of the request is cut.
+    setImmediate(() => controller.abort());
+    const { prelude } = await prerenderToNodeStream(tree, {
+      signal: controller.signal,
+      onError: (error) => void (controller.signal.aborted ? undefined : errors.push(error)),
+    });
+    markup = await text(prelude);
+  } finally {
+    holdsConnection = false;
+    await popProviders();
+  }
+  if (errors.length > 0) throw errors.length === 1 ? errors[0] : new AggregateError(errors, "the shell's prerender reported errors");
+  // A boundary completed after the shell was written arrives beside its fallback with React's script swapping
+  // it in; one still held keeps its fallback, any part already rendered hidden for the resume, as the browser shows it.
+  const completed = [...markup.matchAll(/\$RC\("B:\w+","(S:\w+)"\)/g)].map(([, segment]) => `[id="${segment!}"]`);
+  const { window } = new JSDOM(`<!doctype html><html><body>${markup}</body></html>`, { runScripts: "dangerously", pretendToBeVisual: true });
+  try {
+    for (let frame = 0; completed.some((segment) => window.document.querySelector(segment) !== null); frame += 1) {
+      if (frame === REVEAL_FRAMES) throw new Error(`the shell's stream revealed no completed boundary in ${String(REVEAL_FRAMES)} frames`);
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    }
+    for (const hidden of window.document.querySelectorAll('script, div[hidden][id^="S:"]')) hidden.remove();
     return window.document.body.innerHTML;
   } finally {
     window.close();

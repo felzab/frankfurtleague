@@ -153,6 +153,18 @@ judging each pupil again in a transaction of their own
 ([`docs/backend/spec.md`](../backend/spec.md) I691). Its per-pass line is its record
 ([`runbooks.md`](runbooks.md) §9).
 
+**And the fixture confirmations, on a timer of their own under `SPIEL_SWEEP`.**
+`fl_frontend/src/instrumentation-node.ts :: registerOnNode` arms
+`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: armSpielSweep` under a production build
+with `SPIEL_SWEEP` on, off by default, on the same schedule, whatever any other switch reads
+([`docs/frontend/spec.md`](../frontend/spec.md) I740). Off is deliberate: the first armed passes
+mail every fixture of the running season inside the answer window, so a deploy never starts the
+league's fixture mail, and the switch alone stops it for every season at once. A pass mails before
+it stamps a first request and drops the fixtures cache after its last call
+([`docs/frontend/spec.md`](../frontend/spec.md) I741, I742). `GET /spielbestaetigungen/sweep`
+answers the day the last pass ran, and its per-pass line is its record
+([`runbooks.md`](runbooks.md) §9).
+
 **Note:** `API_VERSION` is a constant of the code rather than a setting
 ([`docs/backend/spec.md`](../backend/spec.md) §1.5), so bumping it is a code change — and the
 version is spelled again outside the code, at sites a commit does not all reach. §4 names the sites
@@ -250,6 +262,7 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | `= /api/bestaetigung/schiedsrichter`         | `frontend:3000` | Next route handler, the referee's confirmation link — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                               |
 | `= /api/bestaetigung/schiedsrichter/adresse` | `frontend:3000` | Next route handler, a confirmed referee's address link — its sibling's pair and burst, and `client_max_body_size 8k`                                                                                 |
 | `= /api/bestaetigung/spieler/adresse`        | `frontend:3000` | Next route handler, a pupil's address link — the referee's address link's pair and burst, never `spielerlink`'s, and `client_max_body_size 8k`                                                       |
+| `= /api/bestaetigung/spiel`                  | `frontend:3000` | Next route handler, a club's answer to a fixture confirmation link — paired `limit_req` `zone=spielbestaetigung burst=10` and `zone=spielbestaetigung48 burst=100`, and `client_max_body_size 8k`    |
 | `= /api/mail/zustellung`                     | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`, and `client_max_body_size 8k`                          |
 | the `/` twins                                | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
 | `= /api/revalidate` and its `/` twin         | none            | Answered `404` at the edge: the league caches' invalidation, a Next route handler this server alone calls over loopback                                                                              |
@@ -850,17 +863,39 @@ answer for it.
 
 **Most scopes carry that shape one level down, through the same pool**, so a scope costs its
 slowest check rather than the sum; the format, frontend-units and ops scopes run theirs
-in place, and so does the database scope wherever other scopes run beside it, the frontend's
-db-tier files asserting the sign-in store's 3 s bounds. **A pool's own wiring is refused at 3 before anything runs**, each refusal carrying its
+in place, and the database scope runs its two as units one after the other wherever other scopes
+run beside it, the frontend's db-tier files asserting the sign-in store's 3 s bounds, so a stalled
+case's stack still reaches a notice. **A pool's own wiring is refused at 3 before anything runs**, each refusal carrying its
 argument at the line it guards.
 
 **A failure is reported once the pool is done, never while it runs**, so a scope whose first check
 fails still costs its longest unit before saying so; what that buys is one mechanism for both
 levels, the alternative being a second per-unit join living beside the pool, and a green run — the
-common one — costs the same either way. **The pool ends its units rather than outliving them**
-(`scripts/gate/gate_pool.py :: terminate`), down to the build a unit was waiting on. **None of that
-is installed off POSIX** (`scripts/gate/gate_pool.py :: arm`), so on Windows a run under way is
-only ever waited out, and an interrupt there leaves the builds running.
+common one — costs the same either way. **A unit silent past `scripts/gate/gate_pool.py :: STALL_S`
+is named while it runs and never ended or failed**: the outermost pool prints which unit, how long,
+and the end of its capture, nested pools' notices relayed through it, and a pytest step's capture
+carries every thread's stack (`scripts/gate/verify.sh :: FAULTHANDLER_S`), the stalled thread's whole
+(`scripts/gate/gate_pool.py :: shown`). That names a synchronous case's stalled frame; an async
+case's suspended coroutine is on no thread, so its dump shows only the event loop. **The pool ends its units rather than outliving them**
+(`scripts/gate/gate_pool.py :: terminate`), down to the build a unit was waiting on. **On Windows,
+where no signal reaches a gate past its launching shell, the job object `scripts/gate/gate_watch.py`
+holds does the same**: every process the gate started ends once the gate ends, an interrupt
+included, or once whatever started the gate does. That stop is a POSIX group's: each shell takes
+SIGTERM and runs its trap, each pool outlives its units, and only what is still running after
+`scripts/gate/gate_watch.py :: GRACE_S` is ended outright, the gate saying so
+(`scripts/tests/test_gate_stop.py :: test_stopping_the_gate_ends_every_tool_it_started`, which also
+finds nothing the traps reclaim left behind). A console's Ctrl-C is the same stop: the watcher takes it,
+a shell with no console of its own never seeing one, and the gate exits as an interrupt
+(`:: test_an_interrupt_ends_every_tool_and_leaves_nothing_behind`). A launcher that holds its children
+in a job ended with it, as node does a shell it starts directly, ends the gate outright, no trap
+running; started through Git's own `bin\bash.exe`, as a harness starts Git Bash, the shell leaves
+that job and the stop stays a group's. **A run nothing can watch keeps
+none of this**: with no interpreter at the checkers' floor, or a watcher that did not arm, a stop
+leaves what the run started running, and the run says so where it announces its scopes
+(`scripts/gate/verify.sh :: join_the_job`); a watcher ended before the gate, by anything but its
+own stop, leaves the same and nothing says so. **Every run is unwatched until its watcher arms**:
+a console's Ctrl-C before then stops the run only where the gate's own shell takes the interrupt;
+in a console where it does not, the interrupt is lost and the run goes on to its verdict.
 
 **`next typegen` goes first and alone** because it writes the route types under
 `fl_frontend/.next/types/` and `fl_frontend/next-env.d.ts` that `tsc` reads: without them a
@@ -1163,17 +1198,19 @@ being the layer cache's before it is the tree's — the table's header records t
 stamped runs show and declines to say which of them ran warm, and the Dockerfile change most worth
 catching is the one that empties that cache —
 so the median report is its only
-guard. `format`'s budget is the cold job's — a runner starts without prettier's cache wherever the
-lockfile or a stylesheet moves — so it is cut from the widest cold run on record rather than from
-the stamped main runs alone, most of which restored the cache.
+guard. `format`'s and `frontend`'s budgets are the cold job's — a runner starts without prettier's
+cache wherever the lockfile or a stylesheet moves, and without the Next cache and pnpm's lockfile
+verdict wherever the lockfile does — so each is cut from the widest cold run on record rather than
+from the stamped main runs alone, most of which restored the cache, and a re-stamp never lowers it
+(`scripts/checks/check_gate_budget.py :: COLD_BUDGET`).
 **Raising a budget, a reference or a floor costs a measurement.** In a pull request's `docs` job,
 `scripts/checks/check_gate_budget.py` under `--base` holds the file against the pull request's base and refuses a
 figure that rose on an unchanged stamp or on one dated before the stamp it replaces, any stamp dated
 after today, a new stamp counting fewer runs than the figures beside it need or naming a pull-request
 run for a job whose cache is keyed on the tree, a total floor that rose beside references not all
-re-stamped from one population, a matrix job's instances on unequal budgets, or a
-budget dropped to `-`; lowering is free, and so is deleting the row of a job the gate no longer
-runs. Every mode reads the table through `--reference`, so a copy is judged before it is committed
+re-stamped from one population, a matrix job's instances on unequal budgets, a
+budget dropped to `-`, or a reference or floor the report compared dropped to `-`, which silences
+that comparison; lowering is free, and so is deleting the row of a job the gate does not run. Every mode reads the table through `--reference`, so a copy is judged before it is committed
 and the checker's suite needs no repository of its own. What the ceiling cannot see is a slowdown that stays under it — a check costing seconds on a
 job with a minute of headroom — which the median report names after the fact and the `gate` clause
 in [`.claude/rules/ops.md`](../../.claude/rules/ops.md) forbids before it; the ceiling, the report
@@ -1199,7 +1236,10 @@ than prose** are `scripts/checks/docs_gate/platform.py` and
 clauses. PLAT-1: a Python read of the platform is a module-level UPPER_CASE `Final`, or an
 allowlist row. PLAT-2: no test under
 `scripts/checks/docs_gate/platform.py :: TEST_SCOPES` skips, returns early or exits on the platform. PLAT-3:
-every admitted constant is bound to both values somewhere in that same test corpus. PLAT-4: a
+every admitted constant, and every allowlisted read whatever its row's anchor, is bound to both values
+somewhere in that same test corpus, save a row whose reason is
+`scripts/checks/docs_gate/platform.py :: Unbindable`, saying why no binding reaches its arms, and that
+row is itself a finding where a test binds both values or it excuses no read PLAT-3 binds. PLAT-4: a
 platform word in the _code_ of a shell script under `scripts/checks/docs_gate/platform.py :: SHELL_SCOPES`
 or `.githooks/` is an allowlist row, where the same word in a comment is not one. The allowlist is
 `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`, keyed by a COR-6 anchor with the reason beside

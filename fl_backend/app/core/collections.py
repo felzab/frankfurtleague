@@ -62,3 +62,6 @@ class Collection(StrEnum):
     #: storing that address and by its erasure, read by nothing, removed by its TTL index
     #: (`docs/backend/spec.md :: I719`).
     ADRESSANKER = "adressanker"
+    #: One party's answer about one Ansetzung of a fixture, held true against nothing: no fixture write
+    #: reaches it, and a move is reconciled by the next sweep pass closing the row.
+    SPIELBESTAETIGUNGEN = "spielbestaetigungen"

@@ -3773,7 +3773,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte": {
       "patch": {
         "summary": "Rewrite a team's season contacts, and nothing else on the row",
-        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrule's refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A clearing,\nwhich nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `eingetragen_von` and\n`bestaetigt_am` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed\non is stored as the league's entry, unconfirmed.\n\n**Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the\ncaller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person\nkeeps their link, and a seat emptied or handed on loses the one it held, so the person who left it holds nothing\nlive. A save newly seating an address the ban list holds is refused `REQ-KONTAKT-003`, as the re-send to one is. On\na row of a `past` season, or of a team that has left it, the link is how its person learns of the entry, and it\ntakes their Widerspruch alone. A save minting a link, or voiding one its person could still answer, is refused\n`REQ-AUTH-009` as the clearing is; a save doing neither is not.\n\n**A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled\nor handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a\nperson's own write grants one. Such a seat's label must be the application form's running one\n(`REQ-EINWILLIGUNG-001`). A kept seat may name its stored label back, whichever page it is a version of, or the\nrunning one, and its record is carried either way.",
+        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrule's refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A clearing,\nwhich nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `eingetragen_von` and\n`bestaetigt_am` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed\non is stored as the league's entry, unconfirmed.\n\n**Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the\ncaller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person\nkeeps their link, and a seat emptied or handed on loses the one it held and its links on the team's open match\nconfirmations, so the person who left it holds nothing live. A save newly seating an address the ban list holds is\nrefused `REQ-KONTAKT-003`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the\nlink is how its person learns of the entry, and it takes their Widerspruch alone. A save minting a link, emptying\nor handing on a seat, or voiding a link its person could still answer, is refused `REQ-AUTH-009` as the clearing\nis; a save doing none of these is not.\n\n**A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled\nor handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a\nperson's own write grants one. Such a seat's label must be the application form's running one\n(`REQ-EINWILLIGUNG-001`). A kept seat may name its stored label back, whichever page it is a version of, or the\nrunning one, and its record is carried either way.",
         "operationId": "patch_saison_team_kontakte_api_v0_teams__team_id__saisons__saison_id__kontakte_patch",
         "security": [
           {
@@ -6448,7 +6448,7 @@
     "/api/v0/identitaet/erasure/ansicht": {
       "post": {
         "summary": "Show what an erasure of an address would remove",
-        "description": "Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names\nevery one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,\nand no other. Another address's referee or pupil row holding a pending change to this address is named by its id, the\nchange going and the row standing. A squad row and a referee row each carry the day it was retired, null while live,\nand a referee row every season holding a fixture still to be played that it is booked on, as `REQ-RETIRE-004` judges\none. Reached and not named: the fixtures booking a referee row, which move onto the ghost, and the referee's name in\neach of those fixtures' log images, which goes; the grants, bans, invitations and decisions the address made for\nothers, which name a marker in its place; its day counts; its rows in the log; every log image of a record the\nerasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;\na dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the\naddress under another grant's id; and the address in every notice still queued, withheld. Written besides: the\nnotice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.\n`verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the\naddress, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless\nthe administrator holds an owner's power (`REQ-PURGE-005`), and with a 422 before any read, an address under the reserved\n`invalid` domain, where every referee row stored without an address shares one placeholder.",
+        "description": "Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names\nevery one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,\nand no other. Another address's referee or pupil row holding a pending change to this address is named by its id, the\nchange going and the row standing. A squad row and a referee row each carry the day it was retired, null while live,\nand a referee row every season holding a fixture still to be played that it is booked on, as `REQ-RETIRE-004` judges\none. Reached and not named: the fixtures booking a referee row, which move onto the ghost, and the referee's name in\neach of those fixtures' log images, which goes; the confirmations a referee row was asked for, which go, and its id\nand reason in a removed season's log images; the links its contact seats were mailed on their teams' open match\nconfirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,\nwhich goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for\nothers, which name a marker in its place; its day counts; its rows in the log; every log image of a record the\nerasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;\na dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the\naddress under another grant's id; and the address in every notice still queued, withheld. Written besides: the\nnotice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.\n`verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the\naddress, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless\nthe administrator holds an owner's power (`REQ-PURGE-005`), and with a 422 before any read, an address under the reserved\n`invalid` domain, where every referee row stored without an address shares one placeholder.",
         "operationId": "get_erasure_ansicht_auf_anfrage_api_v0_identitaet_erasure_ansicht_post",
         "requestBody": {
           "content": {
@@ -7273,7 +7273,7 @@
     "/api/v0/bewerbungen/einwilligung": {
       "post": {
         "summary": "Confirm or decline one seat of a Bewerbung or of a team's season row",
-        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update, each\nchoice with its evidence, and leaves who seated them as it stands; a decline empties their slot and redacts\nevery log image holding it, as an erasure does. Refuses, in this order: a token no seat holds (`REQ-BEWERBUNG-009`),\na link whose deadline has passed or whose application was decided (`REQ-BEWERBUNG-010`), a seat already answered\n(`REQ-BEWERBUNG-011`), a consent naming any label but the one the view answered as `laufende_fassung` for this link\n(`REQ-EINWILLIGUNG-001`), a consent from an address the ban list holds now, whenever the link was minted\n(`REQ-BEWERBUNG-020`), an age outside the span the seats this person holds ask for (`REQ-BEWERBUNG-012`), and a\nmedia consent from a person below `medien_mindestalter` (`REQ-EINWILLIGUNG-002`) -- the last four judged before\nanything is written, so a reloaded page or a mistyped year spends nothing. A decline\nstores no label and is taken from a barred address too: it empties the seat.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.\n\nA link on a team's season row (`quelle: saison`) is answered the same way on that row, refused in the same order but\nfor `REQ-BEWERBUNG-010`, nothing deciding a season row, and its answer carries nothing to compose a message from. Its\nown deadline passed is `REQ-KONTAKT-004`, and a consent once its season has ended or its team has left it is\n`REQ-KONTAKT-006`, a Widerspruch being taken all the same.",
+        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update, each\nchoice with its evidence, and leaves who seated them as it stands; a decline empties their slot and redacts\nevery log image holding it, as an erasure does. Refuses, in this order: a token no seat holds (`REQ-BEWERBUNG-009`),\na link whose deadline has passed or whose application was decided (`REQ-BEWERBUNG-010`), a seat already answered\n(`REQ-BEWERBUNG-011`), a consent naming any label but the one the view answered as `laufende_fassung` for this link\n(`REQ-EINWILLIGUNG-001`), a consent from an address the ban list holds now, whenever the link was minted\n(`REQ-BEWERBUNG-020`), an age outside the span the seats this person holds ask for (`REQ-BEWERBUNG-012`), and a\nmedia consent from a person below `medien_mindestalter` (`REQ-EINWILLIGUNG-002`) -- the last four judged before\nanything is written, so a reloaded page or a mistyped year spends nothing. A decline\nstores no label and is taken from a barred address too: it empties the seat.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.\n\nA link on a team's season row (`quelle: saison`) is answered the same way on that row, refused in the same order but\nfor `REQ-BEWERBUNG-010`, nothing deciding a season row, and its answer carries nothing to compose a message from. Its\nown deadline passed is `REQ-KONTAKT-004`, and a consent once its season has ended or its team has left it is\n`REQ-KONTAKT-006`, a Widerspruch being taken all the same. A Widerspruch there also voids the seat's links on the\nteam's match confirmations of that season, answered and closed ones too, takes those links and their mails' delivery\nrecords out of the confirmations' log images, and takes every reason its person typed answering a match confirmation,\nfrom any seat they held, from its row and its log images, the answer standing.",
         "operationId": "post_einwilligung_api_v0_bewerbungen_einwilligung_post",
         "requestBody": {
           "content": {
@@ -7690,7 +7690,7 @@
     "/api/v0/schiedsrichter/adresswechsel": {
       "post": {
         "summary": "Confirm or decline one Schiedsrichter's pending address",
-        "description": "Record whether the mailbox this link was sent to is the referee's: `bestaetigt` moves their address to it, `abgelehnt` discards the change.\n\nEither answer ends the change, so the link opens nothing afterwards. The confirmation asks no consent and writes none: the\nconsent record stands as the referee gave it, and only `kontakt.email` moves.\n\nRefuses a token no referee holds (`REQ-SCHIEDSRICHTER-002`), and a CONFIRMATION through a link whose deadline has passed\n(`REQ-SCHIEDSRICHTER-003`), one mailed to an address the ban list holds now (`REQ-SCHIEDSRICHTER-009`), and one whose change\nwould replace an address the ban list holds now (`REQ-SCHIEDSRICHTER-010`), so a barred person cannot move their record off\nthe address the ban keys on. **A decline is refused\nneither**: it removes an address nobody proved, which a lapsed or barred link has no reason to keep, and it takes that address out\nof every image the action log holds of this referee, those of every write while the change stood, a re-send included. The rest of\neach image stays, the referee's own earlier states among it.",
+        "description": "Record whether the mailbox this link was sent to is the referee's: `bestaetigt` moves their address to it, `abgelehnt` discards the change.\n\nEither answer ends the change, so the link opens nothing afterwards. The confirmation asks no consent and writes none: the\nconsent record stands as the referee gave it, and only `kontakt.email` moves.\n\nRefuses a token no referee holds (`REQ-SCHIEDSRICHTER-002`), and, in this order, a CONFIRMATION through a link mailed to an\naddress the ban list holds now (`REQ-SCHIEDSRICHTER-009`), one whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), and one\nwhose change would replace an address the ban list holds now (`REQ-SCHIEDSRICHTER-010`), so a barred person cannot move their\nrecord off the address the ban keys on: the order the link's view ranks its states in. **A decline is refused\nneither**: it removes an address nobody proved, which a lapsed or barred link has no reason to keep, and it takes that address out\nof every image the action log holds of this referee, those of every write while the change stood, a re-send included. The rest of\neach image stays, the referee's own earlier states among it.",
         "operationId": "post_adresswechsel_api_v0_schiedsrichter_adresswechsel_post",
         "requestBody": {
           "content": {
@@ -7806,7 +7806,7 @@
     "/api/v0/spieler/adresswechsel": {
       "post": {
         "summary": "Confirm or decline one Spieler's pending address",
-        "description": "Record whether the mailbox this link was sent to is the pupil's: `bestaetigt` moves their address to it, `abgelehnt` discards the change.\n\nEither answer ends the change, so the link opens nothing afterwards. The confirmation stores the address as the sign-in\ncompares it, asks no consent and writes none: the consent record stands as it was, and only `email` moves.\n\nRefuses a token no pupil holds (`REQ-SPIELER-001`), and a CONFIRMATION through a link whose deadline has passed\n(`REQ-SPIELER-002`), one mailed to an address the ban list holds now (`REQ-SPIELER-004`), one whose change would replace an\naddress the ban list holds now (`REQ-SPIELER-005`), so a barred person cannot move their record off the address the ban\nkeys on, one for a pupil who has come to hold no address (`REQ-SPIELER-008`), which a change corrects and never enters, and\none to an address another pupil has come to sign in on (`REQ-SPIELER-006`). **A decline is refused none of these**: it\nremoves an address nobody proved, and it takes that address out of every image the action log holds of this pupil, those of\nevery write while the change stood, a re-send included. The rest of each image stays.\n\nThe last three codes, and `DB-COMMON-002` for an address the erased pupils' sentinel was given by hand, tell a caller what\nthe view's `nicht_bestaetigbar` keeps alike. Only the edge keeps them from the link's holder: `nginx/shared/site.conf` routes no public\ncall to this service, and the frontend's route handler for the link's page answers all four as that one state.",
+        "description": "Record whether the mailbox this link was sent to is the pupil's: `bestaetigt` moves their address to it, `abgelehnt` discards the change.\n\nEither answer ends the change, so the link opens nothing afterwards. The confirmation stores the address as the sign-in\ncompares it, asks no consent and writes none: the consent record stands as it was, and only `email` moves.\n\nRefuses a token no pupil holds (`REQ-SPIELER-001`), and, in the order the link's view ranks its states, a CONFIRMATION through a\nlink mailed to an address the ban list holds now (`REQ-SPIELER-004`), one whose deadline has passed (`REQ-SPIELER-002`), one\nfor a pupil who has come to hold no address (`REQ-SPIELER-008`), which a change corrects and never enters, one whose change\nwould replace an address the ban list holds now (`REQ-SPIELER-005`), so a barred person cannot move their record off the address the ban\nkeys on, and one to an address another pupil has come to sign in on (`REQ-SPIELER-006`). **A decline is refused none of these**: it\nremoves an address nobody proved, and it takes that address out of every image the action log holds of this pupil, those of\nevery write while the change stood, a re-send included. The rest of each image stays.\n\nThe last three codes, and `DB-COMMON-002` for an address the erased pupils' sentinel was given by hand, tell a caller what\nthe view's `nicht_bestaetigbar` keeps alike. Only the edge keeps them from the link's holder: `nginx/shared/site.conf` routes no public\ncall to this service, and the frontend's route handler for the link's page answers all four as that one state.",
         "operationId": "post_adresswechsel_antwort_api_v0_spieler_adresswechsel_post",
         "requestBody": {
           "content": {
@@ -7865,6 +7865,122 @@
         "x-fl-tier": "base"
       }
     },
+    "/api/v0/spielbestaetigungen/ansicht": {
+      "post": {
+        "summary": "What one fixture confirmation link opens",
+        "description": "Answer what the page renders for the fixture this token asks a club about, and nobody's name or address (`READ-ANSETZUNG-001`).\n\nThe state, which side the reader's club plays, the fixture as it stands now (or, where it moved since the link, the\nAnsetzung the link asked about), the row's deadline, the other club's proposal and which role answered. A POST that\nreads, so the token travels in a body and never in a second URL. Refuses only a token no seat of any row holds\n(`REQ-ANSETZUNG-001`), a guess and a link voided when its seat changed hands alike: an answered, closed, moved,\ndecided or expired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The\nstate is `gesperrt`, ahead of every other, wherever the ban list holds the address the seat's links were mailed to.\n`vorschlag` is the state of an open link while the other club's decline proposes another date for the same\nAnsetzung, whose date and hour alone are served.",
+        "operationId": "get_spielbestaetigung_ansicht_api_v0_spielbestaetigungen_ansicht_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielbestaetigungAnsichtPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungAnsichtResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
+          },
+          "404": {
+            "$ref": "#/components/responses/404.REQ-ANSETZUNG-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base",
+        "x-fl-stores-nothing": true
+      }
+    },
+    "/api/v0/spielbestaetigungen": {
+      "post": {
+        "summary": "Confirm a fixture's Ansetzung, or decline it proposing another date",
+        "description": "Record one club's answer about one Ansetzung, from whichever of its three seats presses first, and the seat it came from.\n\nThe first press binds: the write itself takes only a row neither answered nor closed, so two seats pressing at once\nare one answer and one `REQ-ANSETZUNG-002`. Writes no fixture: a proposal is the administrator's to act on.\n\nRefuses, in this order: a token no seat holds (`REQ-ANSETZUNG-001`); a link whose seat's address the ban list holds\nnow, whenever it was minted (`REQ-ANSETZUNG-011`); a row already answered, closed since or not\n(`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club\n(`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the link (`REQ-ANSETZUNG-004`), each\nas the confirmation pass's close judges the row; an answer after the deadline's day (`REQ-ANSETZUNG-003`); a\nproposal dated before today (`REQ-ANSETZUNG-007`); and a proposal the administrator's own save of that date would be\nrefused, judged on what it newly claims and in that save's order: on or after a club's exit\n(`REQ-ELIGIBILITY-001`), outside the matchday (`REQ-DATE-001`), or within four hours of the ground's or the referee's\nother fixture (`REQ-CLASH-001`). The reason is stored as typed. Every refusal after the ban's is asked again outside\nthe transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather\nthan letting it stand.",
+        "operationId": "post_spielbestaetigung_api_v0_spielbestaetigungen_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielbestaetigungAntwortPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungAntwortResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-ANSETZUNG-007.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-ANSETZUNG-011"
+          },
+          "404": {
+            "$ref": "#/components/responses/404.REQ-ANSETZUNG-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001"
+          },
+          "410": {
+            "$ref": "#/components/responses/410.REQ-ANSETZUNG-002.REQ-ANSETZUNG-003.REQ-ANSETZUNG-004.REQ-ANSETZUNG-005.REQ-ANSETZUNG-009"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base"
+      }
+    },
     "/api/v0/bewerbungen/sweep": {
       "get": {
         "summary": "Every season the sweep has to visit",
@@ -7902,7 +8018,7 @@
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's retention clocks",
-        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. A seat whose address the ban list holds is\nsent nothing and has nothing written: it stays due, so every pass asks the ban list for it again until its deadline, and\nreminds it once a lift comes first; each pass logs how many mailboxes it withheld, never which. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n\nOne call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline\nfirst; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transactions, so no later step\nof the same call can answer an error in their place; where the request's deadline cuts them after one has committed, the call\nanswers what committed and warns once.\n\nAn application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,\nis passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it\nagain and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks\npassed over: a day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.\n\n404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,\nthough it logs the count of withheld seats again.\n\nThe accepted clock and the contact block run once a later season has ended while this one is not `active`, the moment the\nseason-after rule stops keeping this season's pupils: a running season keeps both, and a later season planned and never run\nholds neither back. A season whose id is not a four-digit year fails the whole pass rather than running the four clocks\nthat need no later season, because a pass that skipped those two quietly would leave both stopped for ever with nothing\nanywhere saying so.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
+        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. A seat whose address the ban list holds is\nsent nothing and has nothing written: it stays due, so every pass asks the ban list for it again until its deadline, and\nreminds it once a lift comes first; each pass logs how many mailboxes it withheld, never which. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n\nOne call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline\nfirst; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transactions, so no later step\nof the same call can answer an error in their place; where the request's deadline cuts them after one has committed, the call\nanswers what committed and warns once.\n\nAn application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,\nis passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it\nagain and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks\npassed over: a day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.\n\n404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,\nthough it logs the count of withheld seats again.\n\nThe accepted clock and the contact block run once a later season has ended while this one is not `active`, the moment the\nseason-after rule stops keeping this season's pupils: a running season keeps both, and a later season planned and never run\nholds neither back. A season whose id is not a four-digit year fails the whole pass rather than running the four clocks\nthat need no later season, because a pass that skipped those two quietly would leave both stopped for ever with nothing\nanywhere saying so. From that moment every pass also strips the season's fixture confirmation team rows, on the rows and in\ntheir log images, of whatever is still left on them: every seat's link entry, each reason whoever gave it, and a contact's\nholder digest; which way each answer went, its day and the answering role stay as the season's record. The strip is a\ntransaction of its own after the blocks' share: one that fails is logged under the season's id and counted in\n`fehlgeschlagen`, and the blocks clear all the same.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
         "operationId": "sweep_saison_api_v0_bewerbungen_sweep__saison_id__post",
         "security": [
           {
@@ -8238,7 +8354,7 @@
     "/api/v0/zustellung/angenommen": {
       "post": {
         "summary": "Record the message the provider accepted for this record",
-        "description": "Record that the mail provider accepted one message about the record named, under the id it answered with.\n\nThat id is the only join between a send and any later delivery event, so a record carrying none is a record every event about it\nis discarded for. Accepting a request is not delivering it: what this records is that the provider took the message, and\n`POST /zustellung` is where the recipient's own mail server is heard from.\n\nApplied only where this send is newer than the ACCEPT the record already holds, so a call retried after a later one landed\nwrites nothing, and the answer says whether anything was written; a delivery state the provider stamped never blocks it, that\nstamp being the provider's clock rather than this sender's. A record whose document carries no delivery bookkeeping at all --\nnever mailed, or emptied by an erasure -- is skipped rather than refused. 404 where no document of that kind has the id.\n\nA `kontakt` record sits under each contact seat, so its report names in `rollen` every seat the one message reached, each judged and\nwritten on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a 422.",
+        "description": "Record that the mail provider accepted one message about the record named, under the id it answered with.\n\nThat id is the only join between a send and any later delivery event, so a record carrying none is a record every event about it\nis discarded for. Accepting a request is not delivering it: what this records is that the provider took the message, and\n`POST /zustellung` is where the recipient's own mail server is heard from.\n\nApplied only where this send is newer than the ACCEPT the record already holds, so a call retried after a later one landed\nwrites nothing, and the answer says whether anything was written; a delivery state the provider stamped never blocks it, that\nstamp being the provider's clock rather than this sender's. A record whose document carries no delivery bookkeeping at all --\nnever mailed, or emptied by an erasure -- is skipped rather than refused. 404 where no document of that kind has the id.\n\nA `kontakt` or `spielbestaetigung` record sits under each contact seat, so its report names in `rollen` every seat the one message\nreached, each judged and written on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a\n422.",
         "operationId": "angenommen_zustellung_api_v0_zustellung_angenommen_post",
         "requestBody": {
           "content": {
@@ -8291,7 +8407,7 @@
     "/api/v0/zustellung/abgewiesen": {
       "post": {
         "summary": "Record the send the provider refused for this record",
-        "description": "Record that the mail provider refused the send itself, so no message about this record exists.\n\nThe send is where a refused address is learnt at all: nothing is minted, no delivery event ever follows, and a record left without\nthis state is one the reminder clocks chase and the deadline clocks erase as though the link had been read.\n\nJudged as an accepted send is, both stamps being this sender's: applied only where this refusal is newer than the ACCEPT the record\nalready holds, so a call retried after the re-send that repaired the address writes nothing, and a delivery state the provider\nstamped never blocks it. A record whose document carries no delivery bookkeeping at all is skipped rather than refused. 404 where no\ndocument of that kind has the id.\n\nA `kontakt` record sits under each contact seat, so its report names in `rollen` every seat the one message reached, each judged and\nwritten on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a 422.",
+        "description": "Record that the mail provider refused the send itself, so no message about this record exists.\n\nThe send is where a refused address is learnt at all: nothing is minted, no delivery event ever follows, and a record left without\nthis state is one the reminder clocks chase and the deadline clocks erase as though the link had been read.\n\nJudged as an accepted send is, both stamps being this sender's: applied only where this refusal is newer than the ACCEPT the record\nalready holds, so a call retried after the re-send that repaired the address writes nothing, and a delivery state the provider\nstamped never blocks it. A record whose document carries no delivery bookkeeping at all is skipped rather than refused. 404 where no\ndocument of that kind has the id.\n\nA `kontakt` or `spielbestaetigung` record sits under each contact seat, so its report names in `rollen` every seat the one message\nreached, each judged and written on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a\n422.",
         "operationId": "abgewiesen_zustellung_api_v0_zustellung_abgewiesen_post",
         "requestBody": {
           "content": {
@@ -8344,7 +8460,7 @@
     "/api/v0/zustellung": {
       "post": {
         "summary": "Apply one delivery event to the record its message was sent about",
-        "description": "Record what the mail provider reported about one message, on the record that message was sent about.\n\nApplied only where the event names the message the record still holds AND is stamped strictly later than the state it holds: a\nre-send mints a new message, so the old one's bounce must not mark the fresh link, and a redelivery or an event overtaken by a\nlater one changes nothing. Both are answered with `angewendet: false` rather than with a refusal, because the provider retries\nanything but a success and would resend a settled event for hours.\n\n404 where no document of that kind has the id, which a record erased between the send and the event is: a caller that must not\nretry maps it rather than repeating the call.\n\nA `kontakt` record sits under each contact seat, so its report names in `rollen` every seat the one message reached, each judged and\nwritten on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a 422.",
+        "description": "Record what the mail provider reported about one message, on the record that message was sent about.\n\nApplied only where the event names the message the record still holds AND is stamped strictly later than the state it holds: a\nre-send mints a new message, so the old one's bounce must not mark the fresh link, and a redelivery or an event overtaken by a\nlater one changes nothing. Both are answered with `angewendet: false` rather than with a refusal, because the provider retries\nanything but a success and would resend a settled event for hours.\n\n404 where no document of that kind has the id, which a record erased between the send and the event is: a caller that must not\nretry maps it rather than repeating the call.\n\nA `kontakt` or `spielbestaetigung` record sits under each contact seat, so its report names in `rollen` every seat the one message\nreached, each judged and written on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a\n422.",
         "operationId": "post_zustellung_api_v0_zustellung_post",
         "requestBody": {
           "content": {
@@ -8792,6 +8908,158 @@
           },
           "default": {
             "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/spielbestaetigungen/sweep": {
+      "get": {
+        "summary": "Every season the confirmation pass visits",
+        "description": "Answer every `active` season's id, oldest first, and the day a confirmation pass last ran over any of them.\n\n`active` alone: a confirmation serves no purpose once its season is over, and a season that ended with a fixture nobody\nentered a result for would otherwise be asked about a day long gone. System tier because this is the timer's own\nbookkeeping, asked by the process running the pass and by no page. Null means no pass has run over these seasons. Reading\nit writes nothing.",
+        "operationId": "get_spiel_sweep_saisons_api_v0_spielbestaetigungen_sweep_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungSweepSaisonsResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/spielbestaetigungen/sweep/{saison_id}": {
+      "post": {
+        "summary": "Run one season's fixture confirmation pass",
+        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_vergangen`, so nobody is asked about a past date. A\nteam row closed for a move whose first request went out is answered in `neue_ansetzungen`, a referee's in\n`schiedsrichter_neue_ansetzungen`.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `verworfen`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed.\nEach seat holding an address gets one link, a person holding two seats one link naming both, and the raw tokens are\nanswered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so a request that never went\nout shows as never asked. An open row's occupied seat holding no link -- its holder replaced,\nnewly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows are answered in\n`einteilungen`, with the referee's address and no token. A fixture holding rows about an Ansetzung it has left is asked\non the pass whose close shuts them, so the notice that their links are void goes out first.\n\nThe reminder mints a fresh link per seat on each team row whose deadline lies a reminder's count of days away\n(`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), appended beside the\nlinks already mailed so every one of them answers until the deadline, and stamps the day BEFORE answering: a failed send\ncosts one reminder, never a daily repeat. It passes over each seat whose last mail the provider refused, and reminds no\nrow this pass inserted nor one whose request was stamped today; where this pass's mint gave one of a row's seats a fresh\nlink, that request is the seat's message of the day and the row's other seats are reminded beside it.\n\nA row whose first request was never stamped as sent, inserted on an earlier pass, is asked again on every pass until a\nstamp lands or its deadline passes: a team row in `anfragen`, with a fresh link per seat appended the same way and each\nrefused seat passed over; a referee row in `einteilungen`, unless the provider refused the last mail recorded to the\nreferee's address. A row with nobody left to ask is not asked and stays unstamped, so it shows as never asked.\n\nA seat whose address the ban list holds is minted nothing and has nothing written, so it stays due and a later pass mints\nit once the ban is lifted; each pass logs how many seats it withheld, never which.\n\nEach step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has\ncommitted something owed a message, a later failure -- the stamp of the pass's day on this season included -- is logged\nand the call answers what committed. A row whose write or answer fails is passed over alone, logged by id and counted in\n`fehlgeschlagen`.\n\nA season that is not `active` is passed by whole -- nothing closed, minted, reminded or stamped, every list empty -- so a\nmistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.",
+        "operationId": "sweep_spielbestaetigungen_api_v0_spielbestaetigungen_sweep__saison_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungSweepResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/spielbestaetigungen/sweep/{saison_id}/angefragt": {
+      "post": {
+        "summary": "Stamp the confirmations whose first message went out",
+        "description": "Record that the first message about the rows named went out, team and referee rows alike.\n\nEvery named row of this season not yet stamped is stamped today, answered or closed since or not: the stamp says the\nrequest was mailed, which a row closed for a move needs before its parties are told the date changed. A row already\nstamped keeps the day it has, and an id of another season is skipped. A row whose stamp fails is passed over alone,\nlogged by id, left unstamped and counted in `fehlgeschlagen`. 404 where no season has the id. An empty list answers zero.",
+        "operationId": "angefragt_spielbestaetigungen_api_v0_spielbestaetigungen_sweep__saison_id__angefragt_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielbestaetigungSweepAngefragtPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungSweepAngefragtResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
@@ -9806,7 +10074,7 @@
     "/api/v0/identitaet/selbst/erasure": {
       "post": {
         "summary": "Erase every record the signed-in address holds",
-        "description": "Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.\n\nPERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one\n(`REQ-PURGE-004`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest\nfrom a passkey sign-in `ENROLMENT_WINDOW_MINUTES` old at most, as a revoke asks, else `REQ-AUTH-009`. No other\nprecondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still\nto be played included. Nothing is counted against the person's day.\n\nRemoved: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every\nfixture it was booked on moving to the one row that holds no person and keeping its own fee; every registration at the\naddress, pending or declined; another referee's or pupil's pending address change naming this address, that row itself\nstanding; every grant the address holds, an `owner` grant and the last two among them, every administrator being told it\nended; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an\napplication of any status, the row and its other seats standing. Every record the person made as an administrator or\ndecided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's decision -- and every\nlog row they wrote name a fixed marker in their place, this erasure's own rows included. The log images of the removed\nrecords are emptied, and every other image holding the address loses it, the people beside them keeping theirs.\n\nAn address holding nothing is answered with every count zero rather than refused. The 409 answers only a database\nchanged by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by\nid, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not\ntouched here: deleting it is the caller's, once this has answered.",
+        "description": "Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.\n\nPERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one\n(`REQ-PURGE-004`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest\nfrom a passkey sign-in `ENROLMENT_WINDOW_MINUTES` old at most, as a revoke asks, else `REQ-AUTH-009`. No other\nprecondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still\nto be played included. Nothing is counted against the person's day.\n\nRemoved: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every\nfixture it was booked on moving to the one row that holds no person and keeping its own fee, and every confirmation it\nwas asked for, answered or not; every registration at the\naddress, pending or declined; another referee's or pupil's pending address change naming this address, that row itself\nstanding; every grant the address holds, an `owner` grant and the last two among them, every administrator being told it\nended; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an\napplication of any status, the row and its other seats standing, an emptied seat's links on its team's open match\nconfirmations stopping to answer. Every reason the person typed answering a match confirmation, from any seat they held,\ngoes from its row and its log images, the answer standing. Every record the person made as an administrator or\ndecided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's decision -- and every\nlog row they wrote name a fixed marker in their place, this erasure's own rows included. The log images of the removed\nrecords are emptied, and every other image holding the address loses it, the people beside them keeping theirs.\n\nAn address holding nothing is answered with every count zero rather than refused. The 409 answers only a database\nchanged by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by\nid, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not\ntouched here: deleting it is the caller's, once this has answered.",
         "operationId": "erase_selbst_api_v0_identitaet_selbst_erasure_post",
         "responses": {
           "200": {
@@ -9852,7 +10120,7 @@
     "/api/v0/identitaet/selbst/erasure/ansicht": {
       "get": {
         "summary": "Show what an erasure of the signed-in address would remove",
-        "description": "Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.\n\nRead through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure\nremoves or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address\nand no birthdate is answered. A pending address change on another address's referee or pupil row is counted and not\nnamed, that row not being this address's until the change is confirmed. Reached and not named: the fixtures booking\ntheir referee record, which move onto the ghost, and their name in each of those fixtures' log images, which goes;\nwhat the person made or decided for others, which names a marker in their place; their day counts; their rows in the\nlog; every log image of a record the erasure removes, emptied whole whether or not it holds the address, and every\nother log image holding the address; each grant's announced row, and an announced row holding the address under\nanother grant's id; and the address in every notice still queued, withheld. Written besides: the notice that their\ngrant ended, which every administrator is sent. `verwaltung` is the tier of the live grant the address holds, or\nnull; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.\n\n`letzter_inhaber` says whether the press would be refused `REQ-PURGE-004` as the grants stand at this read: the address\nholds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;\nthe press judges again, and its answer alone decides.",
+        "description": "Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.\n\nRead through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure\nremoves or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address\nand no birthdate is answered. A pending address change on another address's referee or pupil row is counted and not\nnamed, that row not being this address's until the change is confirmed. Reached and not named: the fixtures booking\ntheir referee record, which move onto the ghost, and their name in each of those fixtures' log images, which goes; the\nconfirmations their referee record was asked for, which go, and its id and reason in a removed season's log images;\nthe links their contact seats were mailed on their teams' match confirmations, answered and closed ones too, which stop\nanswering, and those links and their mails' delivery records in the confirmations' log images, which go; every reason\nthey typed answering a match confirmation, from any seat they held, which goes from its row and its log images, the\nanswer standing; what the person made or decided for others, which names a marker in their place; their day counts; their rows in the\nlog; every log image of a record the erasure removes, emptied whole whether or not it holds the address, and every\nother log image holding the address; each grant's announced row, and an announced row holding the address under\nanother grant's id; and the address in every notice still queued, withheld. Written besides: the notice that their\ngrant ended, which every administrator is sent. `verwaltung` is the tier of the live grant the address holds, or\nnull; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.\n\n`letzter_inhaber` says whether the press would be refused `REQ-PURGE-004` as the grants stand at this read: the address\nholds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;\nthe press judges again, and its answer alone decides.",
         "operationId": "get_erasure_ansicht_api_v0_identitaet_selbst_erasure_ansicht_get",
         "responses": {
           "200": {
@@ -12631,7 +12899,7 @@
               "pattern": "^[0-9a-fA-F]{24}$"
             },
             "type": "array",
-            "maxItems": 84,
+            "maxItems": 83,
             "title": "Bewerbung Ids"
           }
         },
@@ -12758,7 +13026,7 @@
               "pattern": "^[0-9a-fA-F]{24}$"
             },
             "type": "array",
-            "maxItems": 84,
+            "maxItems": 83,
             "title": "Bewerbung Ids"
           }
         },
@@ -22943,6 +23211,17 @@
               }
             ],
             "title": "Notiz"
+          },
+          "ansetzung_bestaetigt": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ansetzung Bestaetigt"
           }
         },
         "type": "object",
@@ -22962,7 +23241,8 @@
           "spiel_nr",
           "sonderereignis",
           "saison_phase",
-          "saison_id"
+          "saison_id",
+          "ansetzung_bestaetigt"
         ],
         "title": "FLSpielJoined",
         "description": "One fixture as a BASE-TIER endpoint serves it: stored fields plus each side's joined season state.\n\nA model rather than a default on the stored side, which would make every internal read of a raw\ndocument quietly assert that nobody is disqualified."
@@ -23165,6 +23445,17 @@
               }
             ],
             "title": "Notiz"
+          },
+          "ansetzung_bestaetigt": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ansetzung Bestaetigt"
           }
         },
         "type": "object",
@@ -23184,7 +23475,8 @@
           "spiel_nr",
           "sonderereignis",
           "saison_phase",
-          "saison_id"
+          "saison_id",
+          "ansetzung_bestaetigt"
         ],
         "title": "FLSpielJoinedAdmin",
         "description": "The same fixture, carrying the two figures the base tier withholds (`READ-MONEY-001`).\n\nA second model rather than a projection per caller: a response whose shape follows the\ncredential is one no Zod mirror can express."
@@ -23852,6 +24144,750 @@
         ],
         "title": "FLSpielTeamFieldPayload",
         "description": "One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the server composes them from the season's `saison_teams` row\n(`docs/backend/spec.md :: I3`). A submitted copy is IGNORED rather than refused, as\n`docs/backend/spec.md :: I114` allows."
+      },
+      "FLSpielbestaetigungAnsichtAnsetzung": {
+        "properties": {
+          "team1_name": {
+            "type": "string",
+            "title": "Team1 Name"
+          },
+          "team2_name": {
+            "type": "string",
+            "title": "Team2 Name"
+          },
+          "datum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum"
+          },
+          "uhrzeit": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
+            "title": "Uhrzeit"
+          },
+          "spielort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielOrtFieldPublic"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "team1_name",
+          "team2_name",
+          "datum",
+          "uhrzeit",
+          "spielort"
+        ],
+        "title": "FLSpielbestaetigungAnsichtAnsetzung",
+        "description": "The clubs, the day, the hour and the ground a page or a message states.\n\nThe fixture as it stands, or on a link whose fixture moved since, the Ansetzung the row asked about."
+      },
+      "FLSpielbestaetigungAnsichtPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "FLSpielbestaetigungAnsichtPayload",
+        "description": "A POST that reads: the token travels in a body, never in a second URL."
+      },
+      "FLSpielbestaetigungAnsichtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "gueltig",
+              "vorschlag",
+              "zugesagt",
+              "abgelehnt",
+              "abgelaufen",
+              "ungueltig",
+              "gesperrt"
+            ],
+            "title": "Zustand"
+          },
+          "seite": {
+            "type": "string",
+            "enum": [
+              "team1",
+              "team2"
+            ],
+            "title": "Seite"
+          },
+          "ansetzung": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungAnsichtAnsetzung"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "vorschlag": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungTermin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "beantwortet_von": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FLSpielbestaetigungVonAdmin"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "art",
+                  "mapping": {
+                    "admin": "#/components/schemas/FLSpielbestaetigungVonAdmin",
+                    "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
+                    "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beantwortet Von"
+          }
+        },
+        "type": "object",
+        "required": [
+          "zustand",
+          "seite",
+          "ansetzung",
+          "frist",
+          "vorschlag",
+          "beantwortet_von"
+        ],
+        "title": "FLSpielbestaetigungAnsichtResponse",
+        "description": "What one link's page renders, filled in every state; the frontend narrows a spent one to its `zustand`."
+      },
+      "FLSpielbestaetigungAntwortPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          },
+          "antwort": {
+            "type": "string",
+            "enum": [
+              "zugesagt",
+              "abgelehnt"
+            ],
+            "title": "Antwort"
+          },
+          "vorschlag": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungVorschlagPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "begruendung": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "minLength": 1,
+                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Begruendung"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token",
+          "antwort",
+          "vorschlag",
+          "begruendung"
+        ],
+        "title": "FLSpielbestaetigungAntwortPayload",
+        "description": "One club's answer about one Ansetzung, from whichever of its seats pressed first."
+      },
+      "FLSpielbestaetigungAntwortResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "zugesagt",
+              "abgelehnt"
+            ],
+            "title": "Zustand"
+          },
+          "beantwortet_von": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungVonAdmin"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
+              }
+            ],
+            "title": "Beantwortet Von",
+            "discriminator": {
+              "propertyName": "art",
+              "mapping": {
+                "admin": "#/components/schemas/FLSpielbestaetigungVonAdmin",
+                "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
+                "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
+              }
+            }
+          },
+          "vorschlag": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungTermin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "zustand",
+          "beantwortet_von",
+          "vorschlag"
+        ],
+        "title": "FLSpielbestaetigungAntwortResponse",
+        "description": "What the answer recorded: its way, its role, and the answering club's own proposal, which no view of the link serves.\n\nSo a page shows that proposal from this response, never from a re-read. No receipt is mailed off it."
+      },
+      "FLSpielbestaetigungSweepAnfrage": {
+        "properties": {
+          "spielbestaetigung_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spielbestaetigung Id"
+          },
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "seite": {
+            "type": "string",
+            "enum": [
+              "team1",
+              "team2"
+            ],
+            "title": "Seite"
+          },
+          "ansetzung": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungAnsichtAnsetzung"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigungSweepLink"
+            },
+            "type": "array",
+            "title": "Links"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielbestaetigung_id",
+          "spiel_id",
+          "seite",
+          "ansetzung",
+          "frist",
+          "links"
+        ],
+        "title": "FLSpielbestaetigungSweepAnfrage",
+        "description": "One team row's request or reminder: the fixture, the stored deadline, and every link due a message."
+      },
+      "FLSpielbestaetigungSweepAngefragtPayload": {
+        "properties": {
+          "spielbestaetigung_ids": {
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            },
+            "type": "array",
+            "maxItems": 83,
+            "title": "Spielbestaetigung Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "spielbestaetigung_ids"
+        ],
+        "title": "FLSpielbestaetigungSweepAngefragtPayload",
+        "description": "Which rows' first messages went. Stamped whether or not answered or closed since: the stamp records the send."
+      },
+      "FLSpielbestaetigungSweepAngefragtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "angefragt": {
+            "type": "integer",
+            "title": "Angefragt"
+          },
+          "fehlgeschlagen": {
+            "type": "integer",
+            "title": "Fehlgeschlagen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "angefragt",
+          "fehlgeschlagen"
+        ],
+        "title": "FLSpielbestaetigungSweepAngefragtResponse"
+      },
+      "FLSpielbestaetigungSweepEinteilung": {
+        "properties": {
+          "spielbestaetigung_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spielbestaetigung Id"
+          },
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "ansetzung": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungAnsichtAnsetzung"
+          },
+          "address": {
+            "type": "string",
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielbestaetigung_id",
+          "spiel_id",
+          "ansetzung",
+          "address"
+        ],
+        "title": "FLSpielbestaetigungSweepEinteilung",
+        "description": "A referee row just minted, or one no stamp records as told: the referee is told to the panel, with no token."
+      },
+      "FLSpielbestaetigungSweepEmpfaenger": {
+        "properties": {
+          "address": {
+            "type": "string",
+            "title": "Address"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "address",
+          "rollen"
+        ],
+        "title": "FLSpielbestaetigungSweepEmpfaenger",
+        "description": "A mailbox told something without a link."
+      },
+      "FLSpielbestaetigungSweepLink": {
+        "properties": {
+          "address": {
+            "type": "string",
+            "title": "Address"
+          },
+          "rollen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Rollen"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "address",
+          "rollen",
+          "token"
+        ],
+        "title": "FLSpielbestaetigungSweepLink",
+        "description": "One LINK and its mailbox; the RAW token exists here and in the mail alone.\n\nPer link: one person on two seats gets one button naming both roles, two people on one inbox two."
+      },
+      "FLSpielbestaetigungSweepNeueAnsetzung": {
+        "properties": {
+          "spielbestaetigung_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spielbestaetigung Id"
+          },
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "team1_name": {
+            "type": "string",
+            "title": "Team1 Name"
+          },
+          "team2_name": {
+            "type": "string",
+            "title": "Team2 Name"
+          },
+          "alt": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungTermin"
+          },
+          "empfaenger": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigungSweepEmpfaenger"
+            },
+            "type": "array",
+            "title": "Empfaenger"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielbestaetigung_id",
+          "spiel_id",
+          "team1_name",
+          "team2_name",
+          "alt",
+          "empfaenger"
+        ],
+        "title": "FLSpielbestaetigungSweepNeueAnsetzung",
+        "description": "A team row a move closed, so a link in its mailboxes is known void before the fresh request arrives."
+      },
+      "FLSpielbestaetigungSweepResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "anfragen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigungSweepAnfrage"
+            },
+            "type": "array",
+            "title": "Anfragen"
+          },
+          "erinnerungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigungSweepAnfrage"
+            },
+            "type": "array",
+            "title": "Erinnerungen"
+          },
+          "einteilungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigungSweepEinteilung"
+            },
+            "type": "array",
+            "title": "Einteilungen"
+          },
+          "neue_ansetzungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigungSweepNeueAnsetzung"
+            },
+            "type": "array",
+            "title": "Neue Ansetzungen"
+          },
+          "schiedsrichter_neue_ansetzungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung"
+            },
+            "type": "array",
+            "title": "Schiedsrichter Neue Ansetzungen"
+          },
+          "geschlossen": {
+            "type": "integer",
+            "title": "Geschlossen"
+          },
+          "fehlgeschlagen": {
+            "type": "integer",
+            "title": "Fehlgeschlagen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "anfragen",
+          "erinnerungen",
+          "einteilungen",
+          "neue_ansetzungen",
+          "schiedsrichter_neue_ansetzungen",
+          "geschlossen",
+          "fehlgeschlagen"
+        ],
+        "title": "FLSpielbestaetigungSweepResponse",
+        "description": "One season's pass: the requests still to stamp, the reminders already stamped, and the void notices."
+      },
+      "FLSpielbestaetigungSweepSaisonsResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Saison Ids"
+          },
+          "spiel_sweep_gelaufen_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spiel Sweep Gelaufen Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_ids",
+          "spiel_sweep_gelaufen_am"
+        ],
+        "title": "FLSpielbestaetigungSweepSaisonsResponse",
+        "description": "The `active` seasons a pass visits, and the day a pass last ran over any of them."
+      },
+      "FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung": {
+        "properties": {
+          "spielbestaetigung_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spielbestaetigung Id"
+          },
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "team1_name": {
+            "type": "string",
+            "title": "Team1 Name"
+          },
+          "team2_name": {
+            "type": "string",
+            "title": "Team2 Name"
+          },
+          "alt": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungTermin"
+          },
+          "address": {
+            "type": "string",
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielbestaetigung_id",
+          "spiel_id",
+          "team1_name",
+          "team2_name",
+          "alt",
+          "address"
+        ],
+        "title": "FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung",
+        "description": "The same for a referee row: one address, no seat, the delivery lane recording no seat."
+      },
+      "FLSpielbestaetigungTermin": {
+        "properties": {
+          "datum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum"
+          },
+          "uhrzeit": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
+            "title": "Uhrzeit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "datum",
+          "uhrzeit"
+        ],
+        "title": "FLSpielbestaetigungTermin",
+        "description": "A date and time without a ground: a team's proposal, and the slot a moved fixture left."
+      },
+      "FLSpielbestaetigungVonAdmin": {
+        "properties": {
+          "art": {
+            "type": "string",
+            "const": "admin",
+            "title": "Art"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art"
+        ],
+        "title": "FLSpielbestaetigungVonAdmin",
+        "description": "An administrator's settlement, naming nobody: the row is the league's record of how a date was agreed, not of who typed it."
+      },
+      "FLSpielbestaetigungVonKontakt": {
+        "properties": {
+          "art": {
+            "type": "string",
+            "const": "kontakt",
+            "title": "Art"
+          },
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art",
+          "rolle"
+        ],
+        "title": "FLSpielbestaetigungVonKontakt",
+        "description": "The seat whose link was pressed, never the person: two seats one person holds share a link, and the first seat in order is recorded."
+      },
+      "FLSpielbestaetigungVonSchiedsrichter": {
+        "properties": {
+          "art": {
+            "type": "string",
+            "const": "schiedsrichter",
+            "title": "Art"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art"
+        ],
+        "title": "FLSpielbestaetigungVonSchiedsrichter"
+      },
+      "FLSpielbestaetigungVorschlagPayload": {
+        "properties": {
+          "datum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum"
+          },
+          "uhrzeit": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
+            "title": "Uhrzeit"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "datum",
+          "uhrzeit"
+        ],
+        "title": "FLSpielbestaetigungVorschlagPayload"
       },
       "FLSpieleActionRequiredResponse": {
         "properties": {
@@ -26320,7 +27356,8 @@
               "registrierung",
               "kontakt",
               "schiedsrichter_adresswechsel",
-              "spieler_adresswechsel"
+              "spieler_adresswechsel",
+              "spielbestaetigung"
             ],
             "title": "Ziel"
           },
@@ -26383,7 +27420,8 @@
               "registrierung",
               "kontakt",
               "schiedsrichter_adresswechsel",
-              "spieler_adresswechsel"
+              "spieler_adresswechsel",
+              "spielbestaetigung"
             ],
             "title": "Ziel"
           },
@@ -26439,7 +27477,8 @@
               "registrierung",
               "kontakt",
               "schiedsrichter_adresswechsel",
-              "spieler_adresswechsel"
+              "spieler_adresswechsel",
+              "spielbestaetigung"
             ],
             "title": "Ziel"
           },
@@ -26724,6 +27763,29 @@
                         "REQ-AUTH-004",
                         "REQ-AUTH-007",
                         "REQ-AUTH-009"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "403.REQ-ANSETZUNG-011": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-ANSETZUNG-011"
                       ]
                     }
                   }
@@ -27102,6 +28164,29 @@
                       "enum": [
                         "DB-COMMON-001",
                         "REQ-EINLADUNG-003"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "404.REQ-ANSETZUNG-001": {
+        "description": "Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-ANSETZUNG-001"
                       ]
                     }
                   }
@@ -27840,6 +28925,31 @@
           }
         }
       },
+      "409.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-CLASH-001",
+                        "REQ-DATE-001",
+                        "REQ-ELIGIBILITY-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "409.REQ-DATE-002.REQ-DATE-003.REQ-DATE-008": {
         "description": "Conflict",
         "content": {
@@ -28358,6 +29468,33 @@
           }
         }
       },
+      "410.REQ-ANSETZUNG-002.REQ-ANSETZUNG-003.REQ-ANSETZUNG-004.REQ-ANSETZUNG-005.REQ-ANSETZUNG-009": {
+        "description": "Gone",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-ANSETZUNG-002",
+                        "REQ-ANSETZUNG-003",
+                        "REQ-ANSETZUNG-004",
+                        "REQ-ANSETZUNG-005",
+                        "REQ-ANSETZUNG-009"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "410.REQ-BEWERBUNG-010.REQ-KONTAKT-004.REQ-KONTAKT-006": {
         "description": "Gone",
         "content": {
@@ -28443,6 +29580,30 @@
                     "error_code": {
                       "enum": [
                         "REQ-SPIELER-002"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "422.REQ-ANSETZUNG-007.REQ-VAL-001": {
+        "description": "Unprocessable Content",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLRefusedPayloadBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-ANSETZUNG-007",
+                        "REQ-VAL-001"
                       ]
                     }
                   }

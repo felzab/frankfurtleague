@@ -334,8 +334,13 @@ def _held_at(literal: _Literal, key: str) -> Values:
     return _distinct(value for keys, held in literal.entries if key in keys for value in held) or (UNRESOLVED,)
 
 
-def _joined(node: ast.JoinedStr, scope: Mapping[str, Values], module: ModuleType) -> str | _Prefix | _SubPath:
-    """An f-string, its holes filled where each holds one plain `str`, read only up to the first that does not.
+# How many spellings an f-string's holes may branch into before it is read up to the hole instead.
+# That reading is sound, so the ceiling costs precision and never hides a reach.
+JOINED_SPELLINGS_CEILING = 64
+
+
+def _joined(node: ast.JoinedStr, scope: Mapping[str, Values], module: ModuleType) -> Values:
+    """An f-string, one spelling per plain `str` each hole may hold, each read only up to the first hole holding anything else.
 
     A dot written after that hole still says the path runs two segments or more.
     """
@@ -345,10 +350,10 @@ def _joined(node: ast.JoinedStr, scope: Mapping[str, Values], module: ModuleType
         dotted = any(isinstance(part, ast.Constant) and isinstance(part.value, str) and "." in part.value for part in rest)
         return _SubPath(lead) if dotted else _Prefix(lead)
 
-    leading = ""
+    spellings = [""]
     for index, part in enumerate(node.values):
         if isinstance(part, ast.Constant) and isinstance(part.value, str):
-            leading += part.value
+            spellings = [spelling + part.value for spelling in spellings]
             continue
         plain = isinstance(part, ast.FormattedValue) and part.conversion == -1 and part.format_spec is None
         held = _values(part.value, scope, module) if isinstance(part, ast.FormattedValue) and plain else ()
@@ -356,13 +361,13 @@ def _joined(node: ast.JoinedStr, scope: Mapping[str, Values], module: ModuleType
         texts = [value if type(value) is str else value.text if isinstance(value, _Prefix) else None for value in held]
         known = [text for text in texts if isinstance(text, str)]
         if not known or len(known) != len(texts):
-            return unknown_past(index, leading)
-        if len(held) == 1 and type(held[0]) is str:
-            leading += known[0]
+            return _distinct(unknown_past(index, spelling) for spelling in spellings)
+        if all(type(value) is str for value in held) and len(spellings) * len(known) <= JOINED_SPELLINGS_CEILING:
+            spellings = [spelling + text for spelling in spellings for text in known]
             continue
-        return unknown_past(index, leading + os.path.commonprefix(known))
+        return _distinct(unknown_past(index, spelling + os.path.commonprefix(known)) for spelling in spellings)
 
-    return leading
+    return _distinct(iter(spellings))
 
 
 def _included(call: ast.Call, scope: Mapping[str, Values], module: ModuleType) -> frozenset[str] | None:
@@ -517,20 +522,15 @@ def _values(node: ast.expr, scope: Mapping[str, Values], module: ModuleType) -> 
         )
 
     if isinstance(node, ast.ListComp | ast.GeneratorExp):
-        inner = dict(scope) | {
-            target.id: (UNRESOLVED,) for generator in node.generators for target in ast.walk(generator.target) if isinstance(target, ast.Name)
-        }
+        inner = _comprehension_scope(node.generators, scope, module)
         return (_Sequence(_values(node.elt, inner, module)),)
 
     if isinstance(node, ast.DictComp):
-        # Each loop variable stands for any value, so a key is read up to its first hole naming one.
-        inner = dict(scope) | {
-            target.id: (UNRESOLVED,) for generator in node.generators for target in ast.walk(generator.target) if isinstance(target, ast.Name)
-        }
+        inner = _comprehension_scope(node.generators, scope, module)
         return (_Literal(((_values(node.key, inner, module), _values(node.value, inner, module)),)),)
 
     if isinstance(node, ast.JoinedStr):
-        return (_joined(node, scope, module),)
+        return _joined(node, scope, module)
 
     if isinstance(node, ast.IfExp):
         return _distinct(iter((*_values(node.body, scope, module), *_values(node.orelse, scope, module))))
@@ -556,6 +556,64 @@ def _values(node: ast.expr, scope: Mapping[str, Values], module: ModuleType) -> 
     return (UNRESOLVED,)
 
 
+def _iterated(node: ast.expr, scope: Mapping[str, Values], module: ModuleType) -> Values:
+    """What a loop over `node` binds: a list's or constant collection's members, or a dict's `items()` pairs.
+
+    `UNRESOLVED` where any is unreadable, an empty one included: a loop read as running over nothing writes nothing.
+    """
+
+    found: list[Any] = []
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "items"
+        and not node.args
+        and not node.keywords
+    ):
+        for held in _values(node.func.value, scope, module):
+            entries = _entries(held)
+            if entries is None or any(key is SPREAD for keys, _ in entries for key in keys):
+                return (UNRESOLVED,)
+            found += [(key, value) for keys, values in entries for key in keys for value in values]
+    else:
+        for held in _values(node, scope, module):
+            if isinstance(held, _Sequence):
+                found += held.elements
+            elif isinstance(held, list | tuple | set | frozenset):
+                found += held
+            else:
+                return (UNRESOLVED,)
+
+    return _distinct(iter(found)) or (UNRESOLVED,)
+
+
+def _bound_targets(target: ast.expr, held: Values) -> dict[str, Values]:
+    """Each name a loop target binds; a name inside a tuple target takes its position of each pair, anything else any value."""
+
+    if isinstance(target, ast.Name):
+        return {target.id: held}
+    if isinstance(target, ast.Tuple | ast.List) and not any(isinstance(element, ast.Starred) for element in target.elts):
+        bound: dict[str, Values] = {}
+        for position, element in enumerate(target.elts):
+            at = _distinct(value[position] if type(value) is tuple and len(value) == len(target.elts) else UNRESOLVED for value in held)
+            bound |= _bound_targets(element, at)
+        return bound
+    return {name.id: (UNRESOLVED,) for name in ast.walk(target) if isinstance(name, ast.Name)}
+
+
+def _comprehension_scope(generators: list[ast.comprehension], scope: Mapping[str, Values], module: ModuleType) -> dict[str, Values]:
+    """`scope` with each loop variable bound to what its iterable yields, `if` clauses admitting everything.
+
+    `app/api/zustellung/router.py :: _apply` names its carriers through comprehensions: read as any
+    value, each leaves a path a partial filter's document field could sit under.
+    """
+
+    inner = dict(scope)
+    for generator in generators:
+        inner |= _bound_targets(generator.target, _iterated(generator.iter, inner, module))
+    return inner
+
+
 def _read_only(node: ast.AST, parents: Mapping[int, ast.AST]) -> bool:
     """Whether a held dict, or anything read out of it, keeps the keys the trace read.
 
@@ -575,6 +633,8 @@ def _read_only(node: ast.AST, parents: Mapping[int, ast.AST]) -> bool:
     if isinstance(parent, ast.IfExp | ast.BoolOp):
         return _read_only(parent, parents)
     if isinstance(parent, ast.Compare | ast.UnaryOp | ast.FormattedValue | ast.Return):
+        return True
+    if isinstance(parent, ast.comprehension | ast.For) and node is parent.iter:
         return True
     if isinstance(parent, ast.keyword) and parent.arg in WRITTEN_ARGUMENTS:
         call = parents.get(id(parent))
@@ -608,11 +668,16 @@ def _is_binding(node: ast.Name, parents: Mapping[int, ast.AST]) -> bool:
 
 
 @functools.cache
-def _changes(declaration: Declaration) -> tuple[frozenset[str], Mapping[str, tuple[_Fill, ...]]]:
-    """Every name `declaration` may change a held dict through unreadably, and each other's readable stores into it."""
+def _changes(declaration: Declaration) -> tuple[frozenset[str], Mapping[str, tuple[_Fill, ...]], frozenset[str]]:
+    """Every name `declaration` may change a held dict through unreadably, each other's readable stores into it, and more.
+
+    The third: each dict whose held VALUES a loop variable may change, its keys still read.
+    """
 
     parents = {id(child): node for node in ast.walk(declaration) for child in ast.iter_child_nodes(node)}
     changed: set[str] = set()
+    # Names a load may change through, a store into them included: what a loop variable's own uses are judged by.
+    changing: set[str] = set()
     fills: dict[str, list[_Fill]] = {}
     for node in ast.walk(declaration):
         if not isinstance(node, ast.Name):
@@ -620,6 +685,7 @@ def _changes(declaration: Declaration) -> tuple[frozenset[str], Mapping[str, tup
         if isinstance(node.ctx, ast.Load):
             if _read_only(node, parents):
                 continue
+            changing.add(node.id)
             if (fill := _fill(node, parents)) is not None:
                 fills.setdefault(node.id, []).append(fill)
             else:
@@ -628,13 +694,56 @@ def _changes(declaration: Declaration) -> tuple[frozenset[str], Mapping[str, tup
         elif not (isinstance(node.ctx, ast.Store) and _is_binding(node, parents)):
             changed.add(node.id)
 
-    return frozenset(changed), {name: tuple(found) for name, found in fills.items() if name not in changed}
+    through_their_values = _changed_through_their_loops(declaration, changing) - changed
+
+    return frozenset(changed), {name: tuple(found) for name, found in fills.items() if name not in changed}, frozenset(through_their_values)
+
+
+def _changed_through_their_loops(declaration: Declaration, changing: set[str]) -> set[str]:
+    """Each held dict a loop over `.items()` or `.values()` iterates whose bound value a load may change: an alias, as `x = held.get(k)` is.
+
+    A loop over the dict itself or its `.keys()` binds strings, which alias nothing.
+    """
+
+    loops = [
+        (held, {name.id for name in ast.walk(target) if isinstance(name, ast.Name)})
+        for node in ast.walk(declaration)
+        if isinstance(node, ast.For | ast.comprehension)
+        for held, target in [_values_bound(node.iter, node.target)]
+        if held is not None
+    ]
+    reached = set(changing)
+    # Until settled: a loop variable may itself be the dict an inner loop iterates.
+    while True:
+        more = {iterated for iterated, bound in loops if bound & reached} - reached
+        if not more:
+            return {iterated for iterated, bound in loops if bound & reached}
+        reached |= more
+
+
+def _values_bound(iterated: ast.expr, target: ast.expr) -> tuple[str | None, ast.expr]:
+    """The dict whose held values a loop over `name.items()` or `name.values()` binds, and the part of `target` binding them.
+
+    `.items()` unpacked to a pair binds its key to the first, a string, which aliases nothing.
+    """
+
+    if not (
+        isinstance(iterated, ast.Call)
+        and not iterated.args
+        and isinstance(iterated.func, ast.Attribute)
+        and iterated.func.attr in {"items", "values"}
+        and isinstance(iterated.func.value, ast.Name)
+    ):
+        return None, target
+    if iterated.func.attr == "items" and isinstance(target, ast.Tuple) and len(target.elts) == 2:
+        return iterated.func.value.id, target.elts[1]
+    return iterated.func.value.id, target
 
 
 def _filled(scope: Mapping[str, Values], declaration: Declaration, module: ModuleType) -> dict[str, Values]:
     """`scope` with each held dict's stores added to it, and a dict changed past reading unresolved."""
 
-    changed, fills = _changes(declaration)
+    changed, fills, through_their_values = _changes(declaration)
     result: dict[str, Values] = {}
     for name, values in scope.items():
         added: list[tuple[Values, Values]] | None = []
@@ -653,7 +762,13 @@ def _filled(scope: Mapping[str, Values], declaration: Declaration, module: Modul
             if not isinstance(value, _Literal | _Dump)
             else UNRESOLVED
             if name in changed or added is None
-            else _Literal((*(_entries(value) or ()), *added))
+            else _Literal(
+                tuple(
+                    # A value changed through a loop variable may now hold any field; the key it sits under is unchanged.
+                    (keys, (UNRESOLVED,) if name in through_their_values else held)
+                    for keys, held in (*(_entries(value) or ()), *added)
+                )
+            )
             for value in values
         )
 
@@ -981,6 +1096,8 @@ def _may_match(value: Any, condition: Any) -> bool:
             return False
         if isinstance(value, _Typed):
             return issubclass(value.kind, wanted)
+        # A dict literal stays a yes: at a path the trace cannot name it may be the parent of this field, setting it to
+        # anything. `_meets_index` weighs one written at the field itself through `_document_may_match`.
         return isinstance(value, wanted) if plain else True
 
     # An equality, which a missing field meets only where it asks for null.
@@ -989,6 +1106,15 @@ def _may_match(value: Any, condition: Any) -> bool:
     if isinstance(value, _Typed):
         return isinstance(condition, value.kind)
     return value == condition if plain else True
+
+
+def _document_may_match(condition: Any) -> bool:
+    """Whether a document standing at a field may meet a partial filter's condition on it: never null, a string or a scalar."""
+
+    if not isinstance(condition, Mapping):
+        return False
+
+    return set(condition) != {"$type"} or condition["$type"] not in BSON_TYPES
 
 
 def _bson_type(value: Any) -> str | None:
@@ -1051,13 +1177,18 @@ def _meets_index(path: FieldPath, written: Values, index: _Index) -> bool:
         first = path.lead.split(".")[0]
         under = (lambda name: name == first) if "." in path.lead else (lambda name: name.startswith(path.lead))
         return any(under(name) and _holds_a_document(index.types.get(name)) for name in fields)
-    # A key set exactly is weighed against the filter's own condition on it; a path inside it is not.
+    # A key set exactly is weighed against the filter's own condition on it; a path inside it is not, a key's value
+    # being indexed whatever it holds.
     if any(_meets(path, key) and (path != key or any(_indexed_with(key, value, index) for value in written)) for key in index.keys):
         return True
-    return any(
-        _meets(path, name) and (path != name or any(_may_match(value, condition) for value in written))
-        for name, condition in index.conditions.items()
-    )
+
+    def may_move_the_row_in(name: str, condition: Any) -> bool:
+        if path == name:
+            return any(_document_may_match(condition) if isinstance(value, _Literal) else _may_match(value, condition) for value in written)
+        # A path inside the field leaves a document there, and a removal under it leaves one too; one holding it is unread.
+        return _document_may_match(condition) if isinstance(path, str) and path.startswith(f"{name}.") else True
+
+    return any(_meets(path, name) and may_move_the_row_in(name, condition) for name, condition in index.conditions.items())
 
 
 def _reaches(write: Write) -> bool:
@@ -1389,6 +1520,38 @@ def _update_reaches(source: str, collection: Collection, scope: Mapping[str, Val
             {"zustellung_pfad": (zustellung_pfad,)},
             False,
         ),
+        # A loop variable holds what its iterable yields, and a hole holding several names spells each.
+        (
+            '{"$set": {f"{carrier}.zustellung": entry for carrier in carriers}}',
+            Collection.SPIELBESTAETIGUNGEN,
+            {"carriers": (_Sequence(("kontakte.trainer", "kontakte.stellvertretung")),)},
+            False,
+        ),
+        # A path inside `antwort` leaves a document there, which the open-row index's null filter never takes.
+        (
+            '{"$set": {f"{carrier}.zustellung": entry for carrier in carriers}}',
+            Collection.SPIELBESTAETIGUNGEN,
+            {"carriers": (_Sequence(("kontakte.trainer", "antwort")),)},
+            False,
+        ),
+        ('{"$set": {"antwort.begruendung": None, "antwort.von.halter": None}}', Collection.SPIELBESTAETIGUNGEN, None, False),
+        ('{"$unset": {"antwort.begruendung": ""}}', Collection.SPIELBESTAETIGUNGEN, None, False),
+        # Written whole: a null moves the row back in, a document out of it.
+        ('{"$set": {"antwort": None}}', Collection.SPIELBESTAETIGUNGEN, None, True),
+        ('{"$set": {"antwort": {"art": art}}}', Collection.SPIELBESTAETIGUNGEN, {"art": (UNRESOLVED,)}, False),
+        (
+            '{"$set": {f"{carrier}.zustellung": entry for carrier, entry in held.items()}}',
+            Collection.SPIELBESTAETIGUNGEN,
+            {"held": (_Literal(((("kontakte.trainer",), (UNRESOLVED,)),)),)},
+            False,
+        ),
+        # An iterable the trace cannot read whole binds any value, a path under `antwort` among them.
+        (
+            '{"$set": {f"{carrier}.zustellung": entry for carrier in carriers}}',
+            Collection.SPIELBESTAETIGUNGEN,
+            {"carriers": (UNRESOLVED,)},
+            True,
+        ),
         # A path the trace cannot name reaches only a key its validator lets hold what is written there.
         ('{"$set": {side: None}}', Collection.SPIELE, {"side": (UNRESOLVED,)}, False),
         ('{"$set": {side: None}}', Collection.SCHIEDSRICHTER, {"side": (UNRESOLVED,)}, True),
@@ -1454,6 +1617,17 @@ def test_a_path_the_trace_cannot_name_reaches_a_key_its_validator_leaves_open():
     assert not _meets_index(UNRESOLVED, (None,), optional_key)
 
 
+def test_a_document_written_where_the_trace_cannot_name_the_path_may_set_a_filtered_field_under_it():
+    """The unnamed path may be the field's parent, so the document there may hold any value at the field."""
+
+    # No key, which a written document would reach on its own.
+    under_a_parent = _Index(frozenset(), {"p.s": {"$type": "string"}}, {"p.s": frozenset({"string"})}, frozenset())
+
+    assert _meets_index(UNRESOLVED, (_Literal(((("s",), ("x",)),)),), under_a_parent)
+    # The premise: at the field itself, a document meets no string condition.
+    assert not _meets_index("p.s", (_Literal(((("s",), ("x",)),)),), under_a_parent)
+
+
 @pytest.mark.parametrize(
     "change",
     [
@@ -1465,6 +1639,11 @@ def test_a_path_the_trace_cannot_name_reaches_a_key_its_validator_leaves_open():
         "inner = changes['$set']\n    inner['email'] = None",
         "add_address(changes)",
         "changes |= {'email': None}",
+        # A loop variable bound to a value the dict holds is an alias of it, as `inner` above is.
+        "for _, inner in changes.items():\n        inner['email'] = None",
+        "for inner in changes.values():\n        inner.update(email=None)",
+        "[inner.update(email=None) for inner in changes.values()]",
+        "for inner in changes.values():\n        for deeper in inner.values():\n            deeper['email'] = None",
     ],
 )
 def test_a_literal_the_function_may_change_after_binding_counts_as_writing_every_field(change: str):
@@ -1480,6 +1659,24 @@ def test_a_literal_the_function_may_change_after_binding_counts_as_writing_every
     [unchanged] = ast.parse(source.replace(f"    {change}\n", "    assert changes['$set'].get('vorname') is not None\n")).body
     assert isinstance(unchanged, ast.FunctionDef)
     read = _updated_fields(_return_values(unchanged, {"name": (UNRESOLVED,)}, module))
+    assert read is not None and [path for path, _ in read] == ["vorname"]
+
+
+def test_a_loop_reading_the_dicts_values_keeps_its_keys():
+    """The other half of the loop arms above: a variable the loop binds and only reads aliases nothing."""
+
+    source = (
+        "def compose(name):\n"
+        "    changes = {'$set': {'vorname': name}}\n"
+        "    for key, inner in changes.items():\n"
+        "        assert inner.get(key) is None\n"
+        "    return changes\n"
+    )
+    [declaration] = ast.parse(source).body
+    assert isinstance(declaration, ast.FunctionDef)
+
+    read = _updated_fields(_return_values(declaration, {"name": (UNRESOLVED,)}, importlib.import_module(COMPOSERS)))
+
     assert read is not None and [path for path, _ in read] == ["vorname"]
 
 

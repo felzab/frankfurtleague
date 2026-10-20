@@ -44,6 +44,7 @@ const SPIEL: FLSpielAdmin = {
   saison_phase: "gruppenphase",
   saison_id: "2026",
   notiz: null,
+  ansetzung_bestaetigt: null,
 };
 
 describe("the match editor's undo whose dispatch never answered", () => {
@@ -61,6 +62,8 @@ describe("the match editor's undo whose dispatch never answered", () => {
           saisonSpiele: [SPIEL],
           numberOfGroups: 2,
           isFinishedSaison: false,
+          isActiveSaison: true,
+          isSpielSweepOn: true,
           today: "2026-09-14",
           categorize: () => new Set<never>(),
           pageHeader: { title: "Spiel 1" },

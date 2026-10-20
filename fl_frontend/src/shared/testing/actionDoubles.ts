@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
-import { afterEach, beforeEach } from "node:test";
+import { afterEach, before, beforeEach } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { blankComments } from "@/core/blankComments.ts";
@@ -163,8 +163,11 @@ export const NEXT_CACHE_DOUBLE = replacingPackage("next/cache", {
   ...INERT_DECLARATIONS,
 });
 
-/** `next/headers` for a request that carries none, for a harness that doubles its packages itself. */
-export const NEXT_HEADERS_DOUBLE = replacingPackage("next/headers", { headers: () => Promise.resolve(new Headers()) });
+/** The headers the doubled request arrived with: none, unless a harness sets the edge's own here. */
+export const incomingHeaders = new Headers();
+
+/** `next/headers` for a request carrying `incomingHeaders`, for a harness that doubles its packages itself. */
+export const NEXT_HEADERS_DOUBLE = replacingPackage("next/headers", { headers: () => Promise.resolve(new Headers(incomingHeaders)) });
 
 /**
  * Each answers only inside a request Next itself is serving: `updateTag`, `refresh` and `headers`
@@ -184,13 +187,51 @@ export type LoggedLine = { level: "debug" | "info" | "warn" | "error"; message: 
  */
 export const loggedLines: LoggedLine[] = [];
 
+/** The request trace each line was written under, which the real logger stamps where the line's own fields name none. */
+const traceOfLine = new WeakMap<LoggedLine, string | undefined>();
+
+/** The scope's trace as the subject's own `requestScope` holds it, once `readTracesOnceLoaded` has reached it. */
+let requestTraceId: () => string | undefined = () => undefined;
+
+/**
+ * Reaches the request scope after the suite's own `await import`s, never at this module's load: loaded first, it binds
+ * to the React build a suite has not yet chosen for it (`fl_frontend/src/core/cacheScope.ts :: serveServerReactTo`).
+ */
+function readTracesOnceLoaded(): void {
+  before(async () => {
+    ({ getRequestTraceId: requestTraceId } = await import("@/core/requestScope.ts"));
+  });
+}
+
 const logAt =
   (level: LoggedLine["level"]) =>
   (message: string, ...rest: unknown[]): void => {
     // `error` takes the thrown value before its fields, the other three their fields alone.
-    loggedLines.push({ level, message, meta: level === "error" ? rest[1] : rest[0] });
+    const line: LoggedLine = { level, message, meta: level === "error" ? rest[1] : rest[0] };
+    traceOfLine.set(line, requestTraceId());
+    loggedLines.push(line);
   };
 const SILENT_LOGGER = { logger: { debug: logAt("debug"), info: logAt("info"), warn: logAt("warn"), error: logAt("error") } };
+
+/** The `error_code` of every error line logged since the case began, in order. */
+export const loggedErrorCodes = (): unknown[] =>
+  loggedLines.filter(({ level }) => level === "error").map(({ meta }) => (meta as { error_code?: unknown } | undefined)?.error_code);
+
+/** The request trace each error line was written under, in order: `undefined` for one written outside every request's scope. */
+export const loggedErrorTraces = (): (string | undefined)[] =>
+  loggedLines.filter(({ level }) => level === "error").map((line) => traceOfLine.get(line));
+
+/**
+ * Records every line into `loggedLines` for a suite whose subject runs in no action's request, which
+ * `doubleActionRequest` records already. Registered before the subject's `await import`.
+ */
+export function doubleLogger(): void {
+  readTracesOnceLoaded();
+  beforeEach(() => {
+    loggedLines.length = 0;
+  });
+  registerDoubles({ modules: { "core/logging.ts": SILENT_LOGGER } });
+}
 
 /** What the doubled sign-in store's `getAdminSession` answers: an administrator, nobody signed in, or a store that threw this. */
 type AdminSessionDouble = { user: { email: string } } | null | Error;
@@ -389,6 +430,7 @@ export function doubleActionRequest({
     answers.fresh = true;
     answers.refusal = null;
   });
+  readTracesOnceLoaded();
   // The request every action runs in, each action reaching what its own guard and writes read; every
   // action reaches the sign-in store, which is held.
   registerDoubles(

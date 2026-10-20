@@ -2,10 +2,12 @@ import { after } from "node:test";
 
 import { MongoDBContainer } from "@testcontainers/mongodb";
 import { MongoClient } from "mongodb";
+import { getContainerRuntimeClient } from "testcontainers";
 
 import { recordVerdict } from "./verdicts.ts";
 
 import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
+import type { Readable } from "node:stream";
 
 // Kills, not transactions: a later pass meeting a transaction still running after a timed-out kill counts it again.
 const EXPIRED = (killed: number): string =>
@@ -164,16 +166,87 @@ async function startedInTime<T>(started: Promise<T>): Promise<T> {
   }
 }
 
-/** A db suite's one way to a replica set (`docs/frontend/spec.md` §1.9). */
-export async function startJudgedReplicaSet(): Promise<JudgedReplicaSet> {
+/** A server's reason for exiting is its last lines. */
+const FAILED_START_LOG_LINES = 10;
+
+/** The last lines `log` carried, once it ends. */
+async function lastLines(log: Readable): Promise<string> {
+  let text = "";
+  try {
+    for await (const chunk of log) text += String(chunk);
+  } catch {
+    // Destroyed once the start succeeds, whose log nobody reads.
+  }
+  return text.trimEnd().split("\n").slice(-FAILED_START_LOG_LINES).join("\n");
+}
+
+/** Keeps the id Docker created its container under: testcontainers' port wait fails naming none, and leaves the container. */
+class ReplicaSetContainer extends MongoDBContainer {
+  createdId: string | undefined;
+
+  protected override containerCreated(containerId: string): Promise<void> {
+    this.createdId = containerId;
+    return Promise.resolve();
+  }
+}
+
+/** The container's last log lines, then the container removed, as testcontainers removes one its health check failed. */
+async function removedNamingItsLog(containerId: string): Promise<string> {
+  const client = await getContainerRuntimeClient();
+  const container = client.container.getById(containerId);
+  // Stopped first: the log of a running container never ends.
+  await client.container.stop(container, { timeout: 0 });
+  const tail = await lastLines(await client.container.logs(container));
+  await client.container.remove(container, { removeVolumes: true });
+  return tail;
+}
+
+/**
+ * `container.start()`, but a failed start's message carries the tail of the container's log:
+ * testcontainers rejects naming its health check or its port wait alone, and the health check's
+ * failure removes the container and its log.
+ */
+async function startedNamingItsLog(container: ReplicaSetContainer): Promise<StartedMongoDBContainer> {
+  // Left empty where the start failed in the port wait, before testcontainers handed the consumer the log.
+  const consumed: { log?: Readable; tail?: Promise<string> } = {};
+  container.withLogConsumer((log) => {
+    consumed.log = log;
+    consumed.tail = lastLines(log);
+  });
+
+  try {
+    const started = await container.start();
+    // The consumer follows the log for the container's whole life otherwise.
+    consumed.log?.destroy();
+    return started;
+  } catch (failure) {
+    const { createdId } = container;
+    // No container is a start Docker refused before creating one, whose own error names it.
+    const pending = consumed.tail ?? (createdId === undefined ? undefined : removedNamingItsLog(createdId));
+    if (pending === undefined) throw failure;
+
+    let tail: string;
+    try {
+      tail = (await pending) || "(it logged nothing)";
+    } catch (unread) {
+      throw new AggregateError([failure, unread], `${messageOf(failure)}\n${messageOf(unread)}`);
+    }
+    throw new Error(`${messageOf(failure)}\nThe container's last ${String(FAILED_START_LOG_LINES)} log lines:\n${tail}`, { cause: failure });
+  }
+}
+
+/** The replica set every db suite runs, unstarted. */
+export const replicaSetContainer = (): ReplicaSetContainer =>
+  new ReplicaSetContainer("mongo:8.3.13@sha256:0e900a3364da37b76d642b73b0bba56bd4c6c509ab470cf700436fd866bee3ff").withStartupTimeout(
+    HEALTHY_WITHIN_MS,
+  );
+
+/** `container` started and handed the file's judging teardown; db suites take `startJudgedReplicaSet`. */
+export async function startJudged(container: ReplicaSetContainer): Promise<JudgedReplicaSet> {
   const closes: (() => Promise<unknown>)[] = [];
   // A race beside the library's bound rather than instead of it: `withStartupTimeout` waits on the
   // health check alone, and the Docker calls before it (the pull, the create, the start) carry none.
-  const mongod = await startedInTime(
-    new MongoDBContainer("mongo:8.3.13@sha256:0e900a3364da37b76d642b73b0bba56bd4c6c509ab470cf700436fd866bee3ff")
-      .withStartupTimeout(HEALTHY_WITHIN_MS)
-      .start(),
-  );
+  const mongod = await startedInTime(startedNamingItsLog(container));
   await watchExpiredTransactions(mongod);
 
   // Registered last, since no earlier place helps: a file failing while it loads runs no hook at all,
@@ -182,3 +255,6 @@ export async function startJudgedReplicaSet(): Promise<JudgedReplicaSet> {
 
   return { mongod, closing: (close) => void closes.push(close) };
 }
+
+/** A db suite's one way to a replica set (`docs/frontend/spec.md` §1.9). */
+export const startJudgedReplicaSet = (): Promise<JudgedReplicaSet> => startJudged(replicaSetContainer());

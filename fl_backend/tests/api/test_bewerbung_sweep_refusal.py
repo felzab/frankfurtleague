@@ -467,16 +467,16 @@ ROUND_TRIPS_A_ROW = 3
 
 # Each worst call's commands beside its rows, counted on the wire by
 # `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
-SWEEP_OTHER_COMMANDS = 32
+SWEEP_OTHER_COMMANDS = 75
 ANGEKUENDIGT_OTHER_COMMANDS = 3
 
 
-# The per-command cost from whole passes timed locally, 2026-09-23.
+# Each call's per-command cost, the widest of fifteen whole passes at a full share timed locally, 2026-10-20.
 @pytest.mark.parametrize(
     ("rows", "other_commands", "per_command_s", "round_trip_s"),
     [
-        pytest.param(REMINDERS_PER_PASS + BLOCKS_CLEARED_PER_PASS, SWEEP_OTHER_COMMANDS, 0.00135, 0.036, id="the sweep"),
-        pytest.param(DELETIONS_LISTED_PER_PASS, ANGEKUENDIGT_OTHER_COMMANDS, 0.00101, 0.038, id="/angekuendigt"),
+        pytest.param(REMINDERS_PER_PASS + BLOCKS_CLEARED_PER_PASS, SWEEP_OTHER_COMMANDS, 0.00138, 0.036, id="the sweep"),
+        pytest.param(DELETIONS_LISTED_PER_PASS, ANGEKUENDIGT_OTHER_COMMANDS, 0.00131, 0.038, id="/angekuendigt"),
     ],
 )
 def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names(

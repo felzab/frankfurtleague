@@ -17,7 +17,8 @@ export async function AdminAuthGuard({ children }: { children: React.ReactNode }
   // The builder stage has no reachable Mongo, so a session lookup resolved at build time fails the
   // image build.
   await connection();
-  // The grant's check, which `proxy.ts` leaves to every guard (`docs/frontend/spec.md :: I243`).
+  // The session's, its factor's and the grant's check: `proxy.ts` judges nothing past the cookie
+  // (`docs/frontend/spec.md :: I122`).
   const judged = await judgeAdminRequest();
   if ("refused" in judged) {
     // An outage keeps the administrator in place with the admin boundary's retry, as

@@ -15,9 +15,10 @@ from app.api.spiele.crud import (
     find_bracket_faults,
     preview_bracket_after_patch,
     pull_booked_referee,
+    pull_booked_slots,
     pull_booked_venue,
     pull_saison_membership,
-    pull_slot_holders,
+    pull_spieltag_span,
     release_spieltag_sides,
     report_prior_paarungen,
 )
@@ -57,7 +58,6 @@ from app.api.spiele.services import (
     find_state_refusal,
     find_wiring_refusal,
     judge_spieltag_occupancy,
-    slots_booked_against,
     stored_in_slice,
 )
 from app.core.config import API_VERSION
@@ -320,24 +320,10 @@ async def _write_spiel_data(
         verdict = judge_spieltag_occupancy(spiel_id, spiel_data, season)
         refuse(verdict.refusal)
 
-        # `find_one` directly, because `pull_one_from_db` raises on a miss and this branches on one.
         # The session is what makes a matchday widened by a concurrent write visible.
-        spieltag_raw = await spieltage_collection.find_one(
-            {"_id": stored.spieltag_id},
-            {"beginn": 1, "ende": 1},
-            session=session,
-        )
-        if spieltag_raw is not None:
-            # Passed RAW, never through `str()`: a drawn matchday stores a null span, and "None"
-            # sorts above every date, so stringifying it would refuse every fixture the season
-            # drew rather than reaching the rule's own absent-span branch.
-            refuse(
-                find_fixture_date_refusal(
-                    datum=spiel_data.datum,
-                    spieltag_beginn=spieltag_raw["beginn"],
-                    spieltag_ende=spieltag_raw["ende"],
-                )
-            )
+        span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=session)
+        if span is not None:
+            refuse(find_fixture_date_refusal(datum=spiel_data.datum, spieltag_beginn=span.beginn, spieltag_ende=span.ende))
 
         # Read whatever the payload names, unchanged reference included: these rows are where the
         # saved names come FROM, so a copy that went stale is repaired by the next save either way.
@@ -357,15 +343,12 @@ async def _write_spiel_data(
         # Before the clash: whether a ground exists at all is more basic than who else is on it.
         refuse(find_booking_refusal(spiel_id, spiel_data, season, resolved, saison_rules))
 
-        claims = find_claims_made(stored, spiel_data)
-        holders = await pull_slot_holders(spiele_collection=spiele_collection, claims=claims, session=session)
-        refuse(
-            find_clash_refusal(
-                datum=spiel_data.datum,
-                uhrzeit=spiel_data.uhrzeit,
-                booked=[slot for claim in claims for slot in slots_booked_against(claim, holders, spiel_id=spiel_id)],
-            )
+        # Read after every refusal but the one it feeds: it validates fixtures of every season, and a
+        # hand-edited one raises, which would answer 500 for a save an earlier rule refuses.
+        booked = await pull_booked_slots(
+            spiele_collection=spiele_collection, spiel_id=spiel_id, claims=find_claims_made(stored, spiel_data), session=session
         )
+        refuse(find_clash_refusal(datum=spiel_data.datum, uhrzeit=spiel_data.uhrzeit, booked=booked))
 
         return (
             season,

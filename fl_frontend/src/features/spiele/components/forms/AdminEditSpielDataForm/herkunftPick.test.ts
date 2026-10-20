@@ -52,6 +52,7 @@ const SPIEL: FLSpiel = FLSpielSchema.parse({
   saison_phase: "halbfinale",
   saison_id: SAISON,
   notiz: null,
+  ansetzung_bestaetigt: null,
 } satisfies FLSpiel);
 
 const spiel = (spielNr: number, phase: FLSaisonPhase, quelle: FLSpielQuelle | null = null): FLSpiel => ({
@@ -282,6 +283,8 @@ describe("the Herkunft picker's group placing", () => {
             saisonSpiele: saisonSpiele.map((one) => (one.id === WIRED.id ? WIRED : one)),
             numberOfGroups: 2,
             isFinishedSaison: false,
+            isActiveSaison: true,
+            isSpielSweepOn: true,
             today: "2026-09-14",
             categorize: () => new Set<never>(),
             pageHeader: { title: "Spiel 3" },
@@ -311,6 +314,8 @@ describe("the editor's section pickers", () => {
           saisonSpiele: [GRUPPENSPIEL],
           numberOfGroups: 2,
           isFinishedSaison: false,
+          isActiveSaison: true,
+          isSpielSweepOn: true,
           today: "2026-09-14",
           categorize: () => new Set<never>(),
           pageHeader: { title: "Spiel 1" },

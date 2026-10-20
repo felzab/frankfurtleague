@@ -32,15 +32,13 @@ registerDoubles({
   },
 });
 
-const { AENDERUNG_STEHT_WEITERHIN } = await import("@/shared/utils/actionError.ts");
-const { ADMIN_FORBIDDEN } = await import("@/shared/utils/adminMutation.ts");
-const { KONTO_FORBIDDEN } = await import("@/shared/utils/kontoMutation.ts");
+const { AENDERUNG_STEHT_WEITERHIN, ANMELDUNG_ABGELAUFEN } = await import("@/shared/utils/actionError.ts");
 
 /**
  * The answers a session spine gives a caller nobody signed in as, the undo spine's closing on the change
  * standing: a write behind one is a signed-in person's.
  */
-const SESSION_REFUSALS: ReadonlySet<unknown> = new Set([ADMIN_FORBIDDEN, `${ADMIN_FORBIDDEN} ${AENDERUNG_STEHT_WEITERHIN}`, KONTO_FORBIDDEN]);
+const SESSION_REFUSALS: ReadonlySet<unknown> = new Set([ANMELDUNG_ABGELAUFEN, `${ANMELDUNG_ABGELAUFEN} ${AENDERUNG_STEHT_WEITERHIN}`]);
 
 /**
  * Every anonymous entry point that may go without the bot check, and why; none is called. A reason names
@@ -63,6 +61,7 @@ const EXEMPT: Readonly<Record<string, string>> = {
     "its credential is a link the league minted and mailed; it mails no address the request types",
   "app/api/bestaetigung/spieler/adresse/route.ts POST":
     "its credential is a link the league minted and mailed; it mails no address the request types",
+  "app/api/bestaetigung/spiel/route.ts POST": "its credential is a link the league minted and mailed; it mails no address the request types",
   "app/api/bewerbung/kuerzel/route.ts GET": "a read: it writes nothing and mails nobody",
   "app/api/revalidate/route.ts POST": "its credential is the system key, which no visitor holds, and the edge refuses it; it mails nobody",
   "features/auth/actions.ts :: signOutAction": "it ends the caller's own session and mails nobody",

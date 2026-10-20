@@ -1,13 +1,15 @@
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.spielbestaetigungen.services import SeatVoid, build_team_rows_filter, group_seat_voids
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import find_entry_refusal
-from app.core.crud import anchor_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import anchor_in_db, patch_many_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.shared.schemas.bounds import LIST_LIMIT_MAX
 
 
 async def refuse_a_full_gruppe(
@@ -75,3 +77,42 @@ async def pull_a_club_to_enter(
     )
 
     return club
+
+
+async def pull_team_names(
+    *, teams_collection: AsyncCollection, team_ids: Iterable[Any], session: AsyncClientSession | None = None
+) -> dict[Any, str]:
+    """These clubs' names off their `teams` documents, one read and no command for none; a club no document holds is absent."""
+
+    wanted = list({team_id for team_id in team_ids if team_id is not None})
+    if not wanted:
+        return {}
+
+    teams = await pull_many_from_db(
+        collection=teams_collection, db_filter={"_id": {"$in": wanted}}, projection=["name"], limit=LIST_LIMIT_MAX, session=session
+    )
+
+    return {team["_id"]: str(team.get("name") or "") for team in teams}
+
+
+async def void_moved_seats(
+    *,
+    spielbestaetigungen_collection: AsyncCollection,
+    # One per season row the transaction wrote, from `app/api/spielbestaetigungen/services.py :: seat_void_of`.
+    voids: Sequence[SeatVoid | None],
+    # REQUIRED: the void commits with the seat writes or neither does, so the old holder's link dies at the write.
+    session: AsyncClientSession,
+) -> None:
+    """Null the links of every seat these writes emptied or handed on, on their teams' confirmations (`docs/backend/spec.md :: I758`).
+
+    Once per transaction, after its seat writes: a call costs the same however many rows it covers.
+    """
+
+    for seats, pairs in group_seat_voids([void for void in voids if void is not None]):
+        await patch_many_in_db(
+            collection=spielbestaetigungen_collection,
+            db_filter=build_team_rows_filter(pairs),
+            # Spelled here, so the write traces read the seat entries it sets, none of them a unique key.
+            update={"$set": {f"kontakte.{seat}": None for seat in seats}},
+            session=session,
+        )

@@ -64,9 +64,20 @@ TEMPFILE_OPENERS: Final[dict[str, int]] = {"NamedTemporaryFile": 0, "TemporaryFi
 WRITING_MODE_RE: Final = re.compile(r"^[rwaxt+]*[wax+][rwaxt+]*$")
 WRITE_REMEDY: Final = 'pass newline="" or write bytes'
 
+
+@dataclass(frozen=True)
+class Unbindable:
+    """A `PLATFORM_ALLOW` reason where no test can bind both values of the read it excuses, which then owes PLAT-3 nothing.
+
+    A type, not a phrase in the reason, so the exemption is declared and checked.
+    """
+
+    reason: str
+
+
 # Keyed by an anchor the file spells WHOLE -- an enclosing function, an assigned name, a `step` or
 # message label, or the line itself -- never a fragment.
-PLATFORM_ALLOW: Final[dict[str, str]] = {
+PLATFORM_ALLOW: Final[dict[str, str | Unbindable]] = {
     "scripts/gate/gate_pool.py :: terminate": "reads `sys.platform` per call, not `POSIX`: the one spelling pyright narrows `os.killpg` on",
     "scripts/tests/test_gate_pool.py :: OWN_GROUP": "a unit's group is compared to its pid on POSIX alone, so the case stands down elsewhere",
     "scripts/lib/_lib.sh :: require_platform": "the one `uname -s` classifying the host, which every machine-specific script declares through",
@@ -76,6 +87,12 @@ PLATFORM_ALLOW: Final[dict[str, str]] = {
     "scripts/gate/selfcheck.sh :: run_actionlint": "the same rewrite, in front of the actionlint image",
     "scripts/gate/verify.sh :: POOL_BASH": "`cygpath -w` so a Windows python can launch the parent's own bash",
     "scripts/gate/verify.sh :: ops · nginx accepts prod.conf": "MSYS rewrites the container-side path of the nginx config mount",
+    "scripts/gate/verify.sh :: join_the_job": "no signal reaches a Windows gate past its launching shell, so there the gate joins a job",
+    'scripts/gate/gate_watch.py :: if sys.platform != "win32":': Unbindable(
+        "Windows' job API, read where pyright narrows its calls, and off Windows the module refuses to load, which "
+        "`scripts/tests/test_gate_stop.py :: "
+        "test_the_watcher_tells_an_ended_launcher_from_one_it_cannot_see_or_one_a_reused_pid_names` drives"
+    ),
     "scripts/ops/local.sh :: take_dump": "MSYS rewrites the container-side `/dump` mount",
     "scripts/ops/local.sh :: restore_dump": "MSYS rewrites `/dump` on the way into the container",
     "scripts/ops/local.sh :: dump_collections_seen": "MSYS rewrites `/dump` in the container-side find",
@@ -102,6 +119,8 @@ class _Scan:
     sites: list[_Site] = field(default_factory=list)
     constants: list[tuple[str, str, int]] = field(default_factory=list)
     predicates: list[tuple[str, str, int]] = field(default_factory=list)
+    # The reads an `Unbindable` row excuses, each with that row's key.
+    exempted: list[tuple[str, str, int, str]] = field(default_factory=list)
 
 
 def _rel(path: Path) -> str:
@@ -248,8 +267,12 @@ def _site(rel: str, line: int, symbol: str, detail: str, source: Sequence[str]) 
     return _Site(rel, line, detail, _anchors((symbol,), code))
 
 
-def _scan_module(rel: str, tree: ast.Module, source: Sequence[str], scan: _Scan, allow: Mapping[str, str]) -> None:
-    """PLAT-1 over one module: a predicate read outside the admitted shapes is a site."""
+def _scan_module(rel: str, tree: ast.Module, source: Sequence[str], scan: _Scan, allow: Mapping[str, str | Unbindable]) -> None:
+    """PLAT-1 over one module: a predicate read outside the admitted shapes is a site.
+
+    A site any row shields owes PLAT-3 both values, whatever anchor the row uses, unless the row is
+    `Unbindable`.
+    """
 
     def visit(node: ast.AST, scope: str) -> None:
         for child in ast.iter_child_nodes(node):
@@ -267,8 +290,12 @@ def _scan_module(rel: str, tree: ast.Module, source: Sequence[str], scan: _Scan,
             # a branch.
             if predicate is not None and not (isinstance(child, ast.Attribute) and isinstance(child.ctx, ast.Store)):
                 detail = f"PLAT-1: `{predicate}` read in `{symbol or rel}` -- bind the platform once as an UPPER_CASE Final, or allowlist it"
-                scan.sites.append(_site(rel, _line(child), symbol, detail, source))
-                if f"{rel} :: {symbol}" in allow:
+                site = _site(rel, _line(child), symbol, detail, source)
+                scan.sites.append(site)
+                row = _row_for(site, allow)
+                if row is not None and isinstance(allow[row], Unbindable):
+                    scan.exempted.append((rel, predicate, _line(child), row))
+                elif row is not None:
                     scan.predicates.append((rel, predicate.removesuffix("()"), _line(child)))
             visit(child, symbol)
 
@@ -385,6 +412,30 @@ def _both_values(scan: _Scan) -> list[_Site]:
     return found
 
 
+def _unbindable_rows(scan: _Scan, sites: list[_Site], allow: Mapping[str, str | Unbindable]) -> list[_Site]:
+    """PLAT-3's exemption held to its claim: an `Unbindable` row excuses a read PLAT-3 binds, and no test binds both of its values.
+
+    A row that shields nothing at all is `_resolve`'s finding, and is left to it.
+    """
+    found: list[_Site] = []
+    held: set[str] = set()
+    for rel, predicate, line, row in scan.exempted:
+        if predicate not in WINDOWS_VALUE:
+            continue
+        held.add(row)
+        bound = _bindings(Path(rel).stem, predicate)
+        if WINDOWS_VALUE[predicate] in bound and bound - {WINDOWS_VALUE[predicate]}:
+            detail = f"PLAT-3: allowlist row `{row}` is `Unbindable`, yet a test binds both values of `{predicate}` -- make it a plain reason"
+            found.append(_Site(rel, line, detail, ()))
+    shielding = {_row_for(site, allow) for site in sites}
+    for key, reason in allow.items():
+        if isinstance(reason, Unbindable) and key not in held and key in shielding:
+            rel = key.partition(" :: ")[0]
+            detail = f"PLAT-3: allowlist row `{key}` is `Unbindable` but excuses no read PLAT-3 binds, so the exemption means nothing"
+            found.append(_Site(rel, 0, detail, ()))
+    return found
+
+
 def _shell_code(line: str) -> str:
     """The code half of a shell line, read the way `scripts/checks/docs_gate/kernel.py :: _shell_comments` reads the other half."""
     if line.lstrip().startswith("#"):
@@ -418,7 +469,7 @@ def _scan_shell(rel: str, lines: Sequence[str]) -> list[_Site]:
     return found
 
 
-def _row_for(site: _Site, allow: Mapping[str, str]) -> str | None:
+def _row_for(site: _Site, allow: Mapping[str, str | Unbindable]) -> str | None:
     """The row excusing a site: the first whose anchor this site spells whole.
 
     Equality, never containment: `mount_source`'s row must not excuse a line that merely calls it,
@@ -428,7 +479,9 @@ def _row_for(site: _Site, allow: Mapping[str, str]) -> str | None:
     return next((key for key in allow if key.startswith(prefix) and key[len(prefix) :] in site.candidates), None)
 
 
-def _resolve(check: str, sites: list[_Site], allow: Mapping[str, str], reached: frozenset[str], population: frozenset[str]) -> list[Finding]:
+def _resolve(
+    check: str, sites: list[_Site], allow: Mapping[str, str | Unbindable], reached: frozenset[str], population: frozenset[str]
+) -> list[Finding]:
     """Findings for the sites no row shields, and for the rows the tree no longer bears out."""
     used: set[str] = set()
     findings: list[Finding] = []
@@ -459,7 +512,7 @@ def _resolve(check: str, sites: list[_Site], allow: Mapping[str, str], reached: 
     return findings
 
 
-def check_platform_branches(allow: Mapping[str, str] = PLATFORM_ALLOW) -> list[Finding]:
+def check_platform_branches(allow: Mapping[str, str | Unbindable] = PLATFORM_ALLOW) -> list[Finding]:
     """The clauses: a predicate read outside a constant, a test skip, a one-sided constant, a shell token.
 
     The population is every listed file of the kind under the prefixes, never the files mentioning
@@ -486,6 +539,7 @@ def check_platform_branches(allow: Mapping[str, str] = PLATFORM_ALLOW) -> list[F
         if (lines := _source_lines(path)) is not None:
             sites.extend(_scan_shell(_rel(path), lines))
             reached.add(_rel(path))
+    sites.extend(_unbindable_rows(scan, sites, allow))
     population = frozenset(_rel(path) for path in (*_python_files(), *shell))
     return _resolve(PLATFORM_CHECK, sites, allow, frozenset(reached), population)
 

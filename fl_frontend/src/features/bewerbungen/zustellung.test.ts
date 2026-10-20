@@ -298,6 +298,25 @@ describe("which record one event names", () => {
     assert.deepEqual(gelesen?.ziel === "kontakt" ? gelesen.meldung.rollen : undefined, ["ansprechperson", "trainer"]);
   });
 
+  /* A team's fixture confirmation goes to up to three mailboxes, and its record is kept per seat: read
+     without its seats, the bounce would be unplaceable and the silent row would read as silence. */
+  it("reads a fixture confirmation's seats off the message's own tag", () => {
+    const gelesen = leseZustellEreignis(
+      zielEvent({ ziel: "spielbestaetigung", ziel_id: ZIEL_ID, rollen: "trainer-stellvertretung", anlass: "anfrage" }),
+    );
+
+    assert.equal(gelesen?.ziel, "spielbestaetigung");
+    assert.deepEqual(gelesen?.ziel === "spielbestaetigung" ? gelesen.meldung : undefined, {
+      ziel: "spielbestaetigung",
+      ziel_id: ZIEL_ID,
+      rollen: ["trainer", "stellvertretung"],
+      nachricht_id: MESSAGE_ID,
+      stand: "unzustellbar",
+      grund: "Suppressed",
+      am: EVENT_AT,
+    });
+  });
+
   /* The endpoint refuses a season row's event naming no seat, and that 422 is answered 200 upstream,
      so the bounce would vanish with nothing to say so. */
   it("marks a season row's event naming no seat it knows as unplaceable", () => {
@@ -588,6 +607,31 @@ describe("POST /api/mail/zustellung", () => {
     assert.equal(logs[0]?.level, "warn");
     assert.equal(logs[0]?.message, "mail.saisonendenotiz_nicht_zugestellt");
     assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-013");
+    assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
+    assert.equal(logs[0]?.meta?.["nachricht_id"], MESSAGE_ID);
+    assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
+  });
+
+  /* A referee's fixture row holds no seat, so a booking or a move notice that missed them is a line or nothing:
+     read as the application's fall-through it would be dropped as untagged. */
+  it("writes one line for a referee's fixture message that did not arrive, and none for one that did", async () => {
+    const hinweis = (type: string) =>
+      eventFor(type, { bounce: { type: "Permanent", subType: "Suppressed" }, tags: { spielleitung: "hinweis" } });
+
+    const zugestellt = await answerTo(signed(JSON.stringify(hinweis("email.delivered"))));
+    assert.equal(logs.length, 0, "a delivered message wrote a line");
+
+    const { status, body } = await answerTo(signed(JSON.stringify(hinweis("email.bounced"))));
+
+    assert.equal(zugestellt.status, 200);
+    assert.equal(status, 200);
+    assert.deepEqual(body, { angewendet: [] });
+    assert.deepEqual(calls, [], "the referee's lane reached the application's endpoint");
+    assert.deepEqual(zielCalls, [], "the referee's lane reached the generic endpoint");
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0]?.level, "warn");
+    assert.equal(logs[0]?.message, "mail.spielleitung_nicht_zugestellt");
+    assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-014");
     assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
     assert.equal(logs[0]?.meta?.["nachricht_id"], MESSAGE_ID);
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");

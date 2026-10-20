@@ -41,6 +41,9 @@ ZIEL_PFADE: Mapping[FLZustellungZiel, ZielPfad] = {
     "schiedsrichter_adresswechsel": ZielPfad(Collection.SCHIEDSRICHTER, "adresswechsel"),
     # The pupil's twin, its own kind for the referee's reason: the link goes to the address the change names.
     "spieler_adresswechsel": ZielPfad(Collection.SPIELER, "adresswechsel"),
+    # A team's request to confirm a fixture: one Anfrage goes to up to three mailboxes, so a record
+    # kept once per row would judge one mailbox's bounce against another's message and drop it.
+    "spielbestaetigung": ZielPfad(Collection.SPIELBESTAETIGUNGEN, "kontakte"),
 }
 
 

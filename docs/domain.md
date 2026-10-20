@@ -40,7 +40,8 @@ model holds; read this for the shape those tables are stating.
 - **Drawn** — the matchdays and the fixtures (`spieltage`, `spiele`), composed by one operation from a
   season's rules and the clubs entered into it.
 - **Standing apart** — one school's application to play one season (`bewerbungen`), one pupil's registration
-  to play it (`registrierungen`), one minted registration link (`einladungen`), one barred address
+  to play it (`registrierungen`), one minted registration link (`einladungen`), one party's answer about one
+  fixture's Ansetzung (`spielbestaetigungen`), one barred address
   (`sperrliste`), one address's access to the administration (`berechtigungen`), what the
   administrators have been told of it (`berechtigungen_angekuendigt`) and what they are still to be
   told (`berechtigungen_postausgang`), one recorded write (`aktionen`), and one person's count of
@@ -76,6 +77,14 @@ application does write outside its own boundary, creating the club and its `sais
 transaction, and what holds those writes to the season's rules is
 `fl_backend/app/api/teams/services.py :: find_entry_refusal`, which belongs to the season's boundary and is
 reused rather than restated.
+
+**A fixture confirmation is held true against nothing too, and is NOT in the season's boundary however close it
+sits.** A row states what one party answered about one Ansetzung, which stays true however the fixture moves
+afterwards. Membership would claim an invariant holding a row and its fixture true together, and the design holds
+none on purpose: the answer writes no fixture, no fixture write reaches a row, and the sweep closes a row a move
+overtook up to an hour later. What a reader may rely on is a comparison rather than a membership -- the answer
+compares the row's `ansetzung.stand` against the fixture's at the press -- and the one rule the collection holds
+alone, one open row per party per Ansetzung (`docs/backend/spec.md :: I745`).
 
 **A boundary is what must be true together; what must not outlive a person is a different question**, and it
 is that one which reaches into the log. A row keeps an image of the document a write replaced, so a person's

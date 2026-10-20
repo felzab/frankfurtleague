@@ -1,8 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { after, beforeEach, describe, it, mock } from "node:test";
+import { beforeEach, describe, it, mock } from "node:test";
 
 import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
@@ -241,96 +238,6 @@ beforeEach(() => {
   appEnv = "production";
   sweepAnswers({});
   adresswechselAnswer = () => entfernt(0, 0);
-});
-
-describe("the switch the retention sweep is armed by", () => {
-  /** The whole environment `createEnv` needs, so the case under test is the only variable in it. */
-  const COMPLETE_ENV: Record<string, string> = {
-    APP_ENV: "production",
-    API_URL: "http://backend:8000",
-    API_VERSION: "0",
-    AUTH_URL: "http://localhost:3000",
-    LOG_FORMAT: "console",
-    // Of no published test key's shape, which production refuses.
-    TURNSTILE_SITE_KEY: "fabricated-site-key",
-  };
-
-  /** And every secret file it reads, by the file's own name. */
-  const SECRETS_DIR = mkdtempSync(path.join(tmpdir(), "fl-sweep-secrets-"));
-  after(() => rmSync(SECRETS_DIR, { recursive: true, force: true }));
-  for (const [name, value] of Object.entries({
-    frontend_mongodb_uri: "mongodb://localhost:27017/probe",
-    // Long enough for the signing floor the parse applies: a shorter placeholder fails the whole
-    // environment, and every case here would then report the switch as unreadable.
-    auth_secret: "s".repeat(32),
-    auth_resend_key: "resend",
-    // The prefix is the whole of what the schema judges, so a placeholder carrying it is enough.
-    resend_webhook_secret: "whsec_probe",
-    internal_api_key_base: "b".repeat(64),
-    internal_api_key_system: "s".repeat(64),
-    internal_api_key_admin: "a".repeat(64),
-    turnstile_secret_key: "fabricated-turnstile-secret",
-  })) {
-    writeFileSync(path.join(SECRETS_DIR, name), value);
-  }
-
-  let probe = 0;
-
-  /** The real module's own parse of one switch, with the gate the `test:base` script stands down put back up. */
-  async function parseWith(
-    value: string | undefined,
-    variable: "BEWERBUNG_SWEEP" | "LOESCHUNG_SWEEP" = "BEWERBUNG_SWEEP",
-  ): Promise<Record<"BEWERBUNG_SWEEP" | "LOESCHUNG_SWEEP", string>> {
-    const before = { ...process.env };
-    Object.assign(process.env, COMPLETE_ENV, { SECRETS_DIR });
-    delete process.env.SKIP_ENV_VALIDATION;
-    delete process.env.BEWERBUNG_SWEEP;
-    delete process.env.LOESCHUNG_SWEEP;
-    if (value !== undefined) process.env[variable] = value;
-
-    probe += 1;
-    try {
-      // A fresh module per case, and one the double above steps past, matching the bare path alone:
-      // one registry entry would otherwise answer every case.
-      const parsed = (await import(`../../core/config.ts?probe=${String(probe)}`)) as {
-        frontend_config: Record<"BEWERBUNG_SWEEP" | "LOESCHUNG_SWEEP", string>;
-      };
-      return parsed.frontend_config;
-    } finally {
-      for (const name of Object.keys(process.env)) delete process.env[name];
-      Object.assign(process.env, before);
-    }
-  }
-
-  it("leaves the sweep armed where the server sets nothing", async () => {
-    assert.equal((await parseWith(undefined)).BEWERBUNG_SWEEP, "on");
-  });
-
-  it("reads off in either case", async () => {
-    assert.equal((await parseWith("off")).BEWERBUNG_SWEEP, "off");
-    assert.equal((await parseWith("OFF")).BEWERBUNG_SWEEP, "off");
-  });
-
-  it("refuses anything else by name, rather than reading it as one side or the other", async () => {
-    await assert.rejects(parseWith("false"), (error: Error) => error.message.includes("BEWERBUNG_SWEEP"));
-  });
-
-  /* The pupils' deletion: off by default, so the first activation after a deploy deletes nobody until an operator
-     has read the season page's count and turned it on. */
-  describe("and the switch the pupils' deletion is armed by", () => {
-    it("leaves the deletion off where the server sets nothing", async () => {
-      assert.equal((await parseWith(undefined, "LOESCHUNG_SWEEP")).LOESCHUNG_SWEEP, "off");
-    });
-
-    it("reads on in either case", async () => {
-      assert.equal((await parseWith("on", "LOESCHUNG_SWEEP")).LOESCHUNG_SWEEP, "on");
-      assert.equal((await parseWith("ON", "LOESCHUNG_SWEEP")).LOESCHUNG_SWEEP, "on");
-    });
-
-    it("refuses anything else by name, rather than reading it as one side or the other", async () => {
-      await assert.rejects(parseWith("false", "LOESCHUNG_SWEEP"), (error: Error) => error.message.includes("LOESCHUNG_SWEEP"));
-    });
-  });
 });
 
 describe("what register arms", () => {

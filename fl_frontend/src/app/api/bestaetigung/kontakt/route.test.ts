@@ -13,7 +13,21 @@ import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 /** Every line the handler's logger was handed, serialised whole. */
 const logs: string[] = [];
 const line = (...args: unknown[]): void => void logs.push(JSON.stringify(args));
-const LOGGING = { logger: { info: line, warn: line, error: line } };
+/**
+ * Every ERROR line's message and the code its own fields file it under, read apart from the serialisation above,
+ * where the error's own `code` would match whatever the line was filed under.
+ */
+const coded: { message: string; error_code: unknown }[] = [];
+const LOGGING = {
+  logger: {
+    info: line,
+    warn: line,
+    error: (message: string, error: unknown, meta?: { error_code?: unknown }): void => {
+      line(message, error, meta);
+      coded.push({ message, error_code: meta?.error_code });
+    },
+  },
+};
 /* The serving origin every link in a message is minted on. */
 const ORIGIN = "http://localhost:3000";
 const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } };
@@ -34,6 +48,8 @@ const route = await import("./route.ts");
 const { buildBewerbungWiderspruchEmail } = await import("@/core/bewerbungEmail.ts");
 const { rollenText, rolleText } = await import("@/features/bewerbungen/notifications.ts");
 const { formatSpielDatum } = await import("@/shared/utils/format.ts");
+const { APIMalformedDataError, APINetworkError } = await import("@/core/errors.ts");
+const { markOutcomeUnknown } = await import("@/core/requestScope.ts");
 
 const WRITE = "/bewerbungen/einwilligung";
 
@@ -94,6 +110,29 @@ function aRequest(body: unknown) {
   return { headers: new Headers(), json: async () => body } as unknown as Parameters<typeof POST>[0];
 }
 
+/** A read of the link that never answered. */
+const aLostRead = () =>
+  new APINetworkError({
+    message: "Request failed.",
+    url: `http://localhost${ANSICHT_ENDPOINT}`,
+    method: "POST",
+    readOnly: true,
+    traceId: "0",
+    isTimeout: true,
+  });
+
+/** A read of the link answered off its schema, which only a deploy repairs. */
+const anOffSchemaRead = () =>
+  new APIMalformedDataError({
+    message: "Response failed schema.",
+    url: `http://localhost${ANSICHT_ENDPOINT}`,
+    statusCode: 200,
+    endpoint: ANSICHT_ENDPOINT,
+    method: "POST",
+    readOnly: true,
+    traceId: "0",
+  });
+
 /** What each endpoint answers in this case; the write's answer is what a case chooses. */
 let schreibAntwort: () => unknown = () => GESCHRIEBEN;
 let ansichtAntwort: () => unknown = () => ANSICHT;
@@ -112,6 +151,7 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
 
 beforeEach(() => {
   logs.length = 0;
+  coded.length = 0;
   schreibAntwort = () => GESCHRIEBEN;
   ansichtAntwort = () => ANSICHT;
 });
@@ -218,6 +258,84 @@ describe("the contact seat's confirmation handler", () => {
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
     assert.deepEqual(answer.body, { success: false, zustand: "abgelehnt" });
+  });
+
+  /* The press judges a decided application, a passed deadline and an ended season ahead of the seat and the ban, which
+     the view ranks first: each answers the panel a reload would open, and its own where that reads open. */
+  for (const [code, gelesen, zustand] of [
+    ["REQ-BEWERBUNG-010", "bestaetigt", "bestaetigt"],
+    ["REQ-BEWERBUNG-017", "abgelehnt", "abgelehnt"],
+    ["REQ-KONTAKT-004", "gesperrt", "gesperrt"],
+    ["REQ-KONTAKT-006", "gesperrt", "gesperrt"],
+    ["REQ-BEWERBUNG-010", "gueltig", "abgelaufen"],
+    ["REQ-KONTAKT-006", "gueltig", "saison_vorbei"],
+  ] as const) {
+    it(`answers ${code} with the ${zustand} panel where the link's view reads ${gelesen}`, async () => {
+      schreibAntwort = () => aRefusal(code);
+      ansichtAntwort = () => ({ ...ANSICHT, zustand: gelesen, text_version: null });
+
+      const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+      assert.deepEqual(answer.body, { success: false, zustand: zustand });
+    });
+  }
+
+  /* The backend refused the write, so nothing stands to be unsure of: a read failing after it, or cut by the request's
+     deadline, leaves the panel naming nobody. */
+  for (const [wie, lesen] of [
+    ["fails", () => aLostRead()],
+    [
+      "is cut by the deadline",
+      () => {
+        markOutcomeUnknown();
+        return aLostRead();
+      },
+    ],
+  ] as const) {
+    it(`answers a seat already answered whose read ${wie} with the dead-link panel`, async () => {
+      schreibAntwort = () => aRefusal("REQ-BEWERBUNG-011");
+      ansichtAntwort = lesen;
+
+      const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+      assert.deepEqual(answer.body, { success: false, zustand: "ungueltig" });
+    });
+  }
+
+  /* The floor's read is as dispensable after a refusal that spends nothing: cut, it names no age, never an unknown outcome. */
+  it("puts the age refusal on the date naming no age where the deadline cut the link's view", async () => {
+    schreibAntwort = () => aRefusal("REQ-BEWERBUNG-012");
+    ansichtAntwort = () => {
+      markOutcomeUnknown();
+      return aLostRead();
+    };
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, {
+      success: false,
+      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du für Deine Bestätigung zu jung oder zu alt." },
+    });
+  });
+
+  /* An answer off the view's schema is the deploy's fault, logged for whoever can repair it. The refusal settled the
+     write, so the person reads its panel as after a failed read, never that the answer may not have arrived. */
+  it("logs a view answered off its schema and answers the refusal as a failed read does", async () => {
+    schreibAntwort = () => aRefusal("REQ-BEWERBUNG-012");
+    ansichtAntwort = aLostRead;
+    const nachFehler = await bodyOf(aRequest(gueltigerKoerper));
+    ansichtAntwort = anOffSchemaRead;
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, nachFehler.body, "a contract break after a refusal answered otherwise than a failed read");
+    assert.ok(
+      coded.some(
+        ({ message, error_code }) =>
+          message.includes("read broke its contract after its write was answered: postEinwilligung") && error_code === "FE-API-002",
+      ),
+      "the contract break left no line",
+    );
   });
 
   it("files the answer under the label this server renders, echoing what was stored", async () => {
@@ -346,6 +464,18 @@ describe("a seat an administrator typed onto a team's season row", () => {
     assert.deepEqual(mails, []);
   });
 
+  /* The page opened on the row as open, so only the read after the press can say the team left since, which the
+     closed row's page names apart from an ended season, as a reload of it does. */
+  it("hands that page the view the read after the refusal answered, naming the team's withdrawal", async () => {
+    const ausgetreten = { ...ANSICHT, zustand: "saison_vorbei", quelle: "saison", zeile: "ausgetreten", text_version: null };
+    schreibAntwort = () => aRefusal("REQ-KONTAKT-006");
+    ansichtAntwort = () => ausgetreten;
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, zustand: "saison_vorbei", ansicht: ausgetreten });
+  });
+
   it("answers the browser the same echo an application's seat is answered", async () => {
     schreibAntwort = () => SAISON_GESCHRIEBEN;
 
@@ -366,24 +496,27 @@ describe("a seat an administrator typed onto a team's season row", () => {
 });
 
 describe("what the confirmation handler answers the browser", () => {
-  /* `nachlesen` is this handler's own instruction to read the link again, and the page has no arm for
-     it: carried out, the page renders nothing it knows. */
-  it("hands no refusal's instruction to the browser", async () => {
-    const refusals = [
-      aRefusal("REQ-BEWERBUNG-009"),
-      aRefusal("REQ-BEWERBUNG-010"),
-      aRefusal("REQ-BEWERBUNG-011"),
-      aRefusal("REQ-BEWERBUNG-017"),
-      aRefusal("REQ-BEWERBUNG-012"),
-      refusedPayload([bodyField(["geburtsdatum"], "date_from_datetime_parsing")], WRITE),
-    ];
-
-    for (const refusal of refusals) {
+  /* Each read after a refusal is a backend round trip under its own cut: a refusal answering from the view reads it
+     once for its floor and its panel alike, and one naming its own panel or sentence reads nothing. */
+  it("reads the link's view once for a refusal the view answers, and never for one that answers itself", async () => {
+    for (const [refusal, gelesen] of [
+      [aRefusal("REQ-BEWERBUNG-011"), 1],
+      [aRefusal("REQ-KONTAKT-006"), 1],
+      [aRefusal("REQ-BEWERBUNG-012"), 1],
+      [aRefusal("REQ-BEWERBUNG-009"), 0],
+      [aRefusal("REQ-BEWERBUNG-020"), 0],
+      [refusedPayload([bodyField(["geburtsdatum"], "date_from_datetime_parsing")], WRITE), 0],
+    ] as const) {
+      calls.length = 0;
       schreibAntwort = () => refusal;
-      const answer = (await bodyOf(aRequest(gueltigerKoerper))).body as Record<string, unknown>;
 
-      assert.equal(answer.success, false, `${String(refusal.serverErrorCode)} was answered as a success`);
-      assert.ok(!("nachlesen" in answer), `${String(refusal.serverErrorCode)} carries the handler's instruction out`);
+      await bodyOf(aRequest(gueltigerKoerper));
+
+      assert.equal(
+        calls.filter((call) => call.endpoint === ANSICHT_ENDPOINT).length,
+        gelesen,
+        `${String(refusal.serverErrorCode)} read the link's view otherwise than it needs`,
+      );
     }
   });
 

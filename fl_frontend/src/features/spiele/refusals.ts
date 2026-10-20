@@ -1,6 +1,8 @@
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
+import { CLASH_BUFFER_TEXT } from "./constants";
+
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /**
@@ -41,7 +43,7 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
     return {
       error: buildRefusal({
         reason: "Spielort oder Schiedsrichter ist zu dieser Zeit schon für ein anderes Spiel eingeteilt",
-        repair: "Wähle eine Uhrzeit mit mindestens vier Stunden Abstand, oder teile das Spiel anders ein",
+        repair: `Wähle eine Uhrzeit mit mindestens ${CLASH_BUFFER_TEXT} Abstand, oder teile das Spiel anders ein`,
       }),
     };
   }

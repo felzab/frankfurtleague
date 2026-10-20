@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 
 import ArrowRightFromSquare from "@gravity-ui/icons/ArrowRightFromSquare";
 import Ellipsis from "@gravity-ui/icons/Ellipsis";
@@ -20,45 +20,63 @@ import { RAIL_SQUARE_HEROUI_RING_CLASSES } from "./railGutter";
 
 import type { SignOutResult } from "@/shared/types/types";
 
-/**
- * A second placement of the bar's two controls; the behaviour is shared through `useSignOut`, the appearance is not.
- * `Dropdown.Trigger` renders the button itself, so a `<button>` nested inside would swallow the press.
- */
-export function SidemenuOptionsMenu({
-  isDesktopCollapsed,
-  onSignOut,
-  kontoHref,
-}: {
+type OptionsMenuProps = {
   isDesktopCollapsed: boolean;
   /** Injected by the shell that has a session to end, and its presence is the gate — `shared` cannot import from `features`. */
   onSignOut?: () => Promise<SignOutResult>;
   /** The person's account page, the same address the bar links from `lg`; `null` in a shell no session stands behind. */
   kontoHref: string | null;
-}) {
+};
+
+/**
+ * A second placement of the bar's two controls, sharing `useSignOut`'s behaviour. The closed trigger stands in the
+ * boundary's stead: closing on a route change reads the address, which hangs in a prerender wherever a segment is unknown.
+ */
+export function SidemenuOptionsMenu(props: OptionsMenuProps) {
+  return (
+    <Suspense
+      fallback={
+        <Dropdown>
+          <OptionsTrigger isDesktopCollapsed={props.isDesktopCollapsed} />
+        </Dropdown>
+      }>
+      <OptionsMenu {...props} />
+    </Suspense>
+  );
+}
+
+/** `Dropdown.Trigger` renders the button itself, so a `<button>` nested inside would swallow the press. */
+function OptionsTrigger({ isDesktopCollapsed }: { isDesktopCollapsed: boolean }) {
+  return (
+    <IconTooltip
+      label="Weitere Optionen"
+      placement="right"
+      isEnabled={isDesktopCollapsed}>
+      {/* `transform-none` cancels HeroUI's `.dropdown__trigger` press, which reads wrong on a full-width row.
+          `scale-100` would not work: v4's standalone `scale` composes with `transform` rather than replacing it. */}
+      <Dropdown.Trigger
+        aria-label="Weitere Optionen"
+        className={`flex h-9 shrink-0 items-center rounded-md text-foreground-muted transition-colors data-hovered:bg-hover data-hovered:text-foreground data-[pressed=true]:transform-none ${
+          isDesktopCollapsed ? `w-9 justify-center p-0 ${RAIL_SQUARE_HEROUI_RING_CLASSES}` : "w-full justify-start gap-2 px-3"
+        }`}>
+        <Ellipsis
+          aria-hidden="true"
+          className="size-4.5 shrink-0"
+        />
+        {!isDesktopCollapsed && <span className="fluid-sm font-medium">Optionen</span>}
+      </Dropdown.Trigger>
+    </IconTooltip>
+  );
+}
+
+function OptionsMenu({ isDesktopCollapsed, onSignOut, kontoHref }: OptionsMenuProps) {
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
 
   return (
     <Dropdown
       isOpen={isOpen}
       onOpenChange={setIsOpen}>
-      <IconTooltip
-        label="Weitere Optionen"
-        placement="right"
-        isEnabled={isDesktopCollapsed}>
-        {/* `transform-none` cancels HeroUI's `.dropdown__trigger` press, which reads wrong on a full-width row.
-            `scale-100` would not work: v4's standalone `scale` composes with `transform` rather than replacing it. */}
-        <Dropdown.Trigger
-          aria-label="Weitere Optionen"
-          className={`flex h-9 shrink-0 items-center rounded-md text-foreground-muted transition-colors data-hovered:bg-hover data-hovered:text-foreground data-[pressed=true]:transform-none ${
-            isDesktopCollapsed ? `w-9 justify-center p-0 ${RAIL_SQUARE_HEROUI_RING_CLASSES}` : "w-full justify-start gap-2 px-3"
-          }`}>
-          <Ellipsis
-            aria-hidden="true"
-            className="size-4.5 shrink-0"
-          />
-          {!isDesktopCollapsed && <span className="fluid-sm font-medium">Optionen</span>}
-        </Dropdown.Trigger>
-      </IconTooltip>
+      <OptionsTrigger isDesktopCollapsed={isDesktopCollapsed} />
 
       {/* `offset` rather than a margin class: it feeds react-aria's positioning maths, so the gap is measured from
           the trigger in whichever direction the menu ends up opening. */}

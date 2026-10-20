@@ -465,6 +465,7 @@ const EDITORS: Record<string, Editor> = {
         saison_phase: "gruppenphase" as const,
         saison_id: "2026",
         notiz: null,
+        ansetzung_bestaetigt: null,
       };
 
       return renderEditor(
@@ -476,6 +477,8 @@ const EDITORS: Record<string, Editor> = {
           saisonSpiele: [spiel],
           numberOfGroups: 2,
           isFinishedSaison: false,
+          isActiveSaison: true,
+          isSpielSweepOn: true,
           today: "2026-09-14",
           categorize: () => new Set<never>(),
           pageHeader: { title: "Spiel 1" },

@@ -1,5 +1,7 @@
 "use server";
 
+import { unstable_rethrow } from "next/navigation";
+
 import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
 import { APIBadStatusError } from "@/core/errors";
@@ -10,6 +12,7 @@ import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { linkVersandOf } from "@/features/zustellung/notifications";
 import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { explainsItself, logCodedFailure } from "@/shared/utils/degradedRead";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -116,7 +119,14 @@ async function notifyBewerbung({
 async function kollisionsHerkunft(error: unknown, bewerbungId: string): Promise<BewerbungHerkunft | null> {
   if (!(error instanceof APIBadStatusError) || error.serverErrorCode !== "DB-COMMON-002") return null;
 
-  const gelesen = await getBewerbungById(bewerbungId).catch(() => null);
+  const gelesen = await getBewerbungById(bewerbungId).catch((failed: unknown) => {
+    // A redirect the read's admin guard threw is a navigation, never a failed read.
+    unstable_rethrow(failed);
+    // Logged and settled, a contract break included: only the refusal's wording rests on this read.
+    if (!explainsItself(failed))
+      logCodedFailure("An application's collision read failed and its refusal takes the shared words", failed, "FE-ACT-001");
+    return null;
+  });
 
   return gelesen === null ? null : bewerbungHerkunft(gelesen.bewerbung);
 }

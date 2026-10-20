@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
+from pydantic import ValidationError
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
@@ -592,6 +593,53 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
 
         assert spiele[GRUPPE_FILLING_NR]["uhrzeit"] == "19:00:00"
         assert spiele[GRUPPE_FILLING_NR]["ort"] == booking(SPIELORT_RETIRED)
+
+
+def hand_edited_at(spielort_id: ObjectId) -> dict[str, Any]:
+    """Another season's fixture at `spielort_id` on the matchday's day, its hour stored as no read model admits."""
+
+    return documents.spiel_document(
+        spiel_id=ObjectId("6890a1b2c3d4e5f6072200e1"),
+        saison_id="2025",
+        spiel_nr=99,
+        spieltag_id=SPIELTAG_GRUPPE,
+        datum=SPIELTAGE[SPIELTAG_GRUPPE][1],
+        uhrzeit="18:00",
+        ort=booking(spielort_id),
+    )
+
+
+class TestAHandEditedFixtureOfAnotherSeasonAnswersTheRefusal:
+    """The booking read validates every season's fixtures, so it sits below every refusal it does not feed.
+
+    Read earlier, a hand-stored hour answers 500 where the booking rule refuses.
+    """
+
+    @pytest.mark.parametrize(
+        ("chosen", "raises"),
+        [
+            pytest.param(SPIELORT_RETIRED, False, id="refused-at-the-booking-rule"),
+            # The premise: a save the booking rule lets through reaches the read, which raises.
+            pytest.param(SPIELORT, True, id="reaching-the-read"),
+        ],
+    )
+    def test_a_save_refused_ahead_of_the_booking_read_answers_its_refusal(self, mongo_replica_set_url: str, chosen: ObjectId, raises: bool):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELE].insert_one(hand_edited_at(chosen))
+            spiel_data = await payload_for(database, GRUPPE_FILLING, ort={"spielort_id": chosen, "mietpreis": 80})
+
+            try:
+                await call_patch(database, client, GRUPPE_FILLING, spiel_data)
+            except WriteRefusalException as refused:
+                return refused.error_code
+            except ValidationError:
+                return ValidationError
+
+            return None
+
+        answered = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
+
+        assert answered == (ValidationError if raises else BOOKING_UNKNOWN_RESOURCE)
 
 
 class TestASavedSideIsNamedByTheSeason:

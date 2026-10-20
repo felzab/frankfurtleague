@@ -24,6 +24,7 @@ import {
 
 import type { FLEinladungAnsichtResponse } from "./schemas.ts";
 import type { RegistrierungFormDraft } from "./types.ts";
+import type { GelesenerLink } from "./utils.ts";
 
 const ANSICHT: FLEinladungAnsichtResponse = {
   acknowledged: 1,
@@ -191,16 +192,20 @@ describe("what one refused submission shows", () => {
 });
 
 /**
- * The floors a link's own read answered, as the handler hands them: resolved only where an age is refused,
- * `null` where the read failed. The media floor is one no link is served today.
+ * A link's own read as the handler hands it: an open link at these floors, or `null` where the read failed. The
+ * media floor is one no link is served today.
  */
-const floorOf = (jahre: number | null, medienJahre = 21) => {
+const floorOf = (jahre: number | null, medienJahre = 21) =>
+  readOf(jahre === null ? null : { zustand: "gueltig", ansicht: { mindestalter: jahre, medien_mindestalter: medienJahre } });
+
+/** A link's own read answering `link`, counting how often it was asked. */
+const readOf = (link: GelesenerLink | null) => {
   let gelesen = 0;
 
   return {
     lesen: async () => {
       gelesen += 1;
-      return Promise.resolve(jahre === null ? null : { mindestalter: jahre, medien_mindestalter: medienJahre });
+      return Promise.resolve(link);
     },
     gelesen: () => gelesen,
   };
@@ -224,19 +229,31 @@ describe("what one refused confirmation shows", () => {
     });
   });
 
-  /* Every code but the age refusal is a link state, and a second backend read spent on each of them
-     is a round trip per refusal that answers nothing the page renders. */
-  it("reads the floor for the age refusal alone", async () => {
+  /* A code naming one state alone answers without the view, and a backend read spent on it is a round trip per
+     refusal that answers nothing the page renders. */
+  it("reads the view for the age refusal and the states it tells apart alone", async () => {
     const zustaende = floorOf(16);
-
-    for (const code of ["REQ-REGISTRIERUNG-004", "REQ-REGISTRIERUNG-005", "REQ-REGISTRIERUNG-006"]) {
-      await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, code), zustaende.lesen);
-    }
+    await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-004"), zustaende.lesen);
+    await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-012"), zustaende.lesen);
     assert.equal(zustaende.gelesen(), 0, "a link state spent a read on the floor");
 
     const alter = floorOf(16);
     await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-007"), alter.lesen);
     assert.equal(alter.gelesen(), 1, "the age refusal reached the reader no number of its own could answer");
+  });
+
+  /* Judged ahead of the ban, which the view ranks first, the deadline ahead of a confirmation too: the view's state
+     stands, and the press's own panel where the read finds the link open or fails. */
+  it("answers a lapsed or a spent link with the panel the link's view reads", async () => {
+    for (const [code, link, zustand] of [
+      ["REQ-REGISTRIERUNG-005", { zustand: "bestaetigt" }, "bestaetigt"],
+      ["REQ-REGISTRIERUNG-005", { zustand: "gesperrt" }, "gesperrt"],
+      ["REQ-REGISTRIERUNG-006", { zustand: "gesperrt" }, "gesperrt"],
+      ["REQ-REGISTRIERUNG-005", null, "abgelaufen"],
+      ["REQ-REGISTRIERUNG-006", null, "bestaetigt"],
+    ] as const) {
+      assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, code), readOf(link).lesen), { zustand: zustand }, code);
+    }
   });
 
   it("states the floor the link answered rather than one of its own", async () => {

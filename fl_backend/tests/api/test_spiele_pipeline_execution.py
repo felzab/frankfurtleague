@@ -1,13 +1,22 @@
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
 import pytest
 from bson import ObjectId
+from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.spiele.services import SAISON_TEAMS_AS_NAME, build_spiele_pipeline
+from app.api.spiele.services import ANSETZUNG_BESTAETIGT, SAISON_TEAMS_AS_NAME, SPIELBESTAETIGUNGEN_AS_NAME, build_spiele_pipeline
+from app.core.collections import Collection
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import spiel_document, spielbestaetigung_document
+from tests.worker import worker_database
 
 from .conftest import AUSTRITT, PRIOR_SAISON, SAISON, TEAM_OIDS, SeededLeague
 
 pytestmark = pytest.mark.db
+
+# Its own database: the verdict's cases write rows and move a fixture, and `league` is shared.
+VERDICT_DATABASE = worker_database("fl_spiele_verdict_test")
 
 
 def spiel(league: SeededLeague, spiel_nr: int, saison_id: str = SAISON) -> dict[str, Any]:
@@ -96,3 +105,168 @@ class TestTheFilterAndTheOrder:
         """The empty result is a list, which is why `get_spiel` raises its own 404 rather than reading a `None`."""
 
         assert list(league.database.spiele.aggregate(build_spiele_pipeline(db_filter={"_id": ObjectId()}))) == []
+
+
+VERDICT_SPIEL_ID = ObjectId("6890a1b2c3d4e5f607250001")
+VERDICT_HOME = ObjectId("6890a1b2c3d4e5f607250011")
+VERDICT_AWAY = ObjectId("6890a1b2c3d4e5f607250012")
+VERDICT_SPIELORT_ID = ObjectId("6890a1b2c3d4e5f607250021")
+
+HOME_SIDE = {"team_id": VERDICT_HOME, "name": "Alpha", "shorthand": "AL", "tore": None}
+AWAY_SIDE = {"team_id": VERDICT_AWAY, "name": "Beta", "shorthand": "BE", "tore": None}
+GROUND = {"spielort_id": VERDICT_SPIELORT_ID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80}
+OTHER_GROUND = {**GROUND, "spielort_id": ObjectId("6890a1b2c3d4e5f607250022")}
+
+# One per Ansetzung value, the sides moving together since a fixture never holds one club twice.
+MOVES: Mapping[str, Mapping[str, Any]] = {
+    "the date": {"datum": "2026-05-09"},
+    "the time": {"uhrzeit": "19:30:00"},
+    "the ground": {"ort": OTHER_GROUND},
+    "the ground removed": {"ort": None},
+    "the sides swapped": {"team1": AWAY_SIDE, "team2": HOME_SIDE},
+}
+
+REFEREE = {"art": "schiedsrichter", "schiedsrichter_id": ObjectId("6890a1b2c3d4e5f607250031")}
+
+
+def a_fixture(*, with_ground: bool = True) -> dict[str, Any]:
+    return spiel_document(
+        spiel_id=VERDICT_SPIEL_ID,
+        saison_id=SAISON,
+        spiel_nr=1,
+        spieltag_id=ObjectId("6890a1b2c3d4e5f6072500a1"),
+        team1=HOME_SIDE,
+        team2=AWAY_SIDE,
+        datum="2026-05-02",
+        uhrzeit="18:00:00",
+        ort=GROUND if with_ground else None,
+    )
+
+
+def zugesagt() -> dict[str, Any]:
+    return {"art": "zugesagt", "am": "2026-04-20", "von": {"art": "kontakt", "rolle": "trainer"}, "vorschlag": None, "begruendung": None}
+
+
+def a_row(fixture: Mapping[str, Any], team_id: ObjectId, **fields: Any) -> dict[str, Any]:
+    return spielbestaetigung_document(fixture, partei={"art": "team", "team_id": team_id}, **fields)
+
+
+Body = Callable[[AsyncDatabase], Awaitable[Any]]
+
+
+def on_a_fixture(url: str, fixture: dict[str, Any], rows: list[dict[str, Any]], body: Body) -> Any:
+    async def _run() -> Any:
+        async with a_clean_database(url, VERDICT_DATABASE, constraints=True) as (_, database):
+            await database[Collection.SPIELE].insert_one(fixture)
+            if rows:
+                await database[Collection.SPIELBESTAETIGUNGEN].insert_many(rows)
+
+            return await body(database)
+
+    return on_the_seed_loop(_run())
+
+
+async def joined(database: AsyncDatabase) -> dict[str, Any]:
+    cursor = await database[Collection.SPIELE].aggregate(build_spiele_pipeline(db_filter={"_id": VERDICT_SPIEL_ID}))
+    (document,) = await cursor.to_list()
+
+    return document
+
+
+async def verdict(database: AsyncDatabase) -> bool | None:
+    return (await joined(database))[ANSETZUNG_BESTAETIGT]
+
+
+class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
+    @pytest.mark.parametrize("with_ground", [pytest.param(True, id="with a ground"), pytest.param(False, id="without a ground")])
+    def test_both_clubs_agreeing_confirms_it(self, mongo_url: str, with_ground: bool):
+        """Without a ground the row stores a null the fixture's path lacks: drop an `$ifNull` from the `let` and no such fixture confirms."""
+
+        fixture = a_fixture(with_ground=with_ground)
+        rows = [a_row(fixture, VERDICT_HOME, antwort=zugesagt()), a_row(fixture, VERDICT_AWAY, antwort=zugesagt())]
+
+        document = on_a_fixture(mongo_url, fixture, rows, joined)
+
+        assert document[ANSETZUNG_BESTAETIGT] is True
+        assert SPIELBESTAETIGUNGEN_AS_NAME not in document
+
+    def test_a_club_yet_to_answer_leaves_it_provisional(self, mongo_url: str):
+        fixture = a_fixture()
+        rows = [a_row(fixture, VERDICT_HOME, antwort=zugesagt()), a_row(fixture, VERDICT_AWAY)]
+
+        assert on_a_fixture(mongo_url, fixture, rows, verdict) is False
+
+    def test_an_answer_whose_row_closed_stops_counting(self, mongo_url: str):
+        """A discarded agreement stays on its row; read as open, it would go on confirming the fixture."""
+
+        fixture = a_fixture()
+        rows = [
+            a_row(fixture, VERDICT_HOME, antwort=zugesagt()),
+            a_row(fixture, VERDICT_AWAY, antwort=zugesagt(), geschlossen={"am": "2026-04-21", "grund": "verworfen"}),
+        ]
+
+        assert on_a_fixture(mongo_url, fixture, rows, verdict) is False
+
+    @pytest.mark.parametrize("move", list(MOVES.values()), ids=list(MOVES))
+    def test_a_moved_fixture_reads_as_provisional_in_the_very_next_read(self, mongo_url: str, move: Mapping[str, Any]):
+        """No sweep runs, so both agreements stay open: a comparison missing a key reads its move as settled.
+
+        And a join reading only the current Ansetzung's rows reads every move as never asked.
+        """
+
+        fixture = a_fixture()
+        rows = [a_row(fixture, VERDICT_HOME, antwort=zugesagt()), a_row(fixture, VERDICT_AWAY, antwort=zugesagt())]
+
+        async def body(database: AsyncDatabase) -> tuple[bool | None, bool | None]:
+            before = await verdict(database)
+            await database[Collection.SPIELE].update_one({"_id": VERDICT_SPIEL_ID}, {"$set": move})
+
+            return before, await verdict(database)
+
+        assert on_a_fixture(mongo_url, fixture, rows, body) == (True, False)
+
+    def test_a_referees_open_row_never_holds_the_clubs_agreement_back(self, mongo_url: str):
+        fixture = a_fixture()
+        rows = [
+            a_row(fixture, VERDICT_HOME, antwort=zugesagt()),
+            a_row(fixture, VERDICT_AWAY, antwort=zugesagt()),
+            spielbestaetigung_document(fixture, partei=REFEREE),
+        ]
+
+        assert on_a_fixture(mongo_url, fixture, rows, verdict) is True
+
+    def test_two_agreements_of_one_club_leave_it_provisional(self, mongo_url: str):
+        """Nothing in the database stops a second open row once a club has answered: counting rows would confirm without the other club."""
+
+        fixture = a_fixture()
+        rows = [a_row(fixture, VERDICT_HOME, antwort=zugesagt()), a_row(fixture, VERDICT_HOME, antwort=zugesagt())]
+
+        assert on_a_fixture(mongo_url, fixture, rows, verdict) is False
+
+    @pytest.mark.parametrize(
+        "parteien",
+        [pytest.param([], id="no row at all"), pytest.param([REFEREE], id="a referee's row alone")],
+    )
+    def test_no_clubs_open_row_reads_as_never_asked(self, mongo_url: str, parteien: list[Mapping[str, Any]]):
+        fixture = a_fixture()
+        rows = [spielbestaetigung_document(fixture, partei=partei) for partei in parteien]
+
+        assert on_a_fixture(mongo_url, fixture, rows, verdict) is None
+
+
+def test_the_confirmation_lookup_plans_an_index_scan(mongo_url: str):
+    """Every fixture of the most-read endpoint runs the sub-pipeline once, a scan no test database of a few rows shows."""
+
+    fixture = a_fixture()
+
+    async def body(database: AsyncDatabase) -> Mapping[str, Any]:
+        command = {"aggregate": str(Collection.SPIELE), "pipeline": build_spiele_pipeline(db_filter={"_id": VERDICT_SPIEL_ID}), "cursor": {}}
+        explained = await database.command({"explain": command, "verbosity": "executionStats"})
+
+        # The `$lookup` reports what its sub-pipeline used beside the stage itself.
+        (stage,) = [stage for stage in explained["stages"] if stage.get("$lookup", {}).get("from") == Collection.SPIELBESTAETIGUNGEN]
+        return stage
+
+    stage = on_a_fixture(mongo_url, fixture, [a_row(fixture, VERDICT_HOME), a_row(fixture, VERDICT_AWAY)], body)
+
+    assert (stage["indexesUsed"], stage["collectionScans"]) == (["spielbestaetigungen_saison_id_spiel_id"], 0), stage

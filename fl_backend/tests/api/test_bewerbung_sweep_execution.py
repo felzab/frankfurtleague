@@ -46,7 +46,7 @@ from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db
+from app.core.crud import delete_many_from_db, patch_one_in_db
 from app.core.exception_handlers import DATABASE_FAILED, STORED_DATA_INVALID
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.logging import FL_LOGGER_NAME
@@ -216,6 +216,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
         aktionen_collection=database[Collection.AKTIONEN],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         sperrliste=ban_list(database),
         db=client,
         today=today,
@@ -1184,6 +1185,7 @@ class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
                     saisons_collection=database[Collection.SAISONS],
                     teams_collection=database[Collection.TEAMS],
                     aktionen_collection=database[Collection.AKTIONEN],
+                    spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                     sperrliste=ban_list(database),
                     db=client,
                     today=TODAY,
@@ -1601,7 +1603,7 @@ class TestThePassRecordsTheDayItRan:
         assert days == [TODAY, TODAY, TODAY]
 
     def test_the_days_second_pass_appends_no_row_at_all(self, mongo_replica_set_url: str):
-        """`patch_many_in_db` files a row per call even where its filter matches nothing, so the guard read is what the hourly pass rests on."""
+        """The stamp reaches only a season not yet stamped today, and a fan-out that changed nothing logs nothing: one row a day."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client, saison_id=NEXT_SAISON_ID)
@@ -1845,6 +1847,29 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
         assert (twice - few) / FEW == budget.ROUND_TRIPS_A_ROW
 
 
+def open_confirmation(team_id: ObjectId) -> dict[str, Any]:
+    """One team's open row about a fixture, every seat holding the link it was mailed."""
+
+    fixture = documents.spiel_document(
+        spiel_id=ObjectId(),
+        saison_id=SAISON_ID,
+        spiel_nr=1,
+        spieltag_id=None,
+        datum="2026-04-18",
+        uhrzeit="14:00:00",
+        team1={"team_id": team_id},
+        team2={"team_id": CLUB_OID},
+    )
+
+    return documents.spielbestaetigung_document(
+        fixture,
+        partei={"art": "team", "team_id": team_id},
+        frist="2026-04-11",
+        angefragt_am=TODAY,
+        kontakte={seat: {"token_hashes": ["b" * 64], "zustellung": None} for seat in KONTAKT_ROLLEN},
+    )
+
+
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
     """`tests/api/test_bewerbung_sweep_refusal.py`'s budget, its rows at the per-row cost and the rest as it names them.
 
@@ -1852,12 +1877,15 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
     """
 
     def test_the_sweep(self, mongo_replica_set_url: str):
-        """Every clock takes a page and every conditional read is made: two applications name a club, and the images take all three shapes."""
+        """Every clock takes a page, every conditional read is made: two applications name a club, the images take all three shapes.
+
+        Two cleared clubs hold open confirmations, the void at its widest; the strip meets its worst images.
+        """
 
         link = {"token_hash": "a" * 64, "verschickt_am": "2026-03-02", "frist": "2026-03-16", "abgelehnt_am": None, "zustellung": None}
         links = {"trainer": link, "ansprechperson": None, "stellvertretung": None}
 
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             await database[Collection.BEWERBUNGEN].update_many(
                 {"_id": {"$in": [REMIND_OID, DELETE_OID]}}, {"$set": {"team_id": CLUB_OID, "schule": None}}
             )
@@ -1867,6 +1895,8 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
                     {**junction_row(), "_id": numbered(2), "team_id": numbered(2), "bestaetigungen": links},
                 ]
             )
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many([open_confirmation(CLUB_OID), open_confirmation(numbered(2))])
+            await images_of_every_strip_edit_set(database, client)
 
             return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
 
@@ -1953,3 +1983,184 @@ class TestAPageAndOneMoreIsDrained:
             return (await sweep(database, client)).abgelehnte_geloescht
 
         assert on_a_league(mongo_replica_set_url, body) == 1
+
+
+# A club the season replaced: its season row went to the incoming club, so no block clearing names its rows.
+REPLACED_CLUB_OID = ObjectId("6890a1b2c3d4e5f6079600f1")
+
+
+def a_declined_confirmation(team_id: ObjectId, saison_id: str) -> dict[str, Any]:
+    """A team row its Trainer declined with a reason, closed since, every seat holding a link and the delivery record of its mail."""
+
+    fixture = documents.spiel_document(
+        spiel_id=ObjectId(),
+        saison_id=saison_id,
+        spiel_nr=1,
+        spieltag_id=None,
+        datum=f"{saison_id}-04-18",
+        uhrzeit="14:00:00",
+        team1={"team_id": team_id},
+        team2={"team_id": CLUB_OID},
+    )
+    delivered = {"nachricht_id": "msg-1", "stand": "zugestellt", "grund": None, "am": f"{saison_id}-04-02T09:00:00+00:00"}
+
+    return documents.spielbestaetigung_document(
+        fixture,
+        partei={"art": "team", "team_id": team_id},
+        angefragt_am=f"{saison_id}-04-01",
+        kontakte={seat: {"token_hashes": ["b" * 64], "zustellung": delivered} for seat in KONTAKT_ROLLEN},
+        antwort=documents.kontakt_antwort_document("trainer", "trainer@example.com", begruendung="Wir sind auf Klassenfahrt"),
+        geschlossen={"am": f"{saison_id}-04-19", "grund": "spiel_vergangen"},
+    )
+
+
+# The server's first batch for a cursor naming no size: one imaged row more takes the strip's image read a `getMore`.
+IMAGES_A_FIRST_BATCH = 101
+
+
+def a_strip_edit_set(mask: int, begruendung: bool, halter: bool) -> dict[str, Any]:
+    """A row holding the seats `mask` names and, where asked, a reason and a holder digest: one set of fields the strip nulls."""
+
+    row = a_declined_confirmation(CLUB_OID, SAISON_ID)
+    row["kontakte"] = {seat: row["kontakte"][seat] if mask >> bit & 1 else None for bit, seat in enumerate(KONTAKT_ROLLEN)}
+    antwort = row["antwort"]
+    row["antwort"] = (
+        {
+            **antwort,
+            "begruendung": antwort["begruendung"] if begruendung else None,
+            "von": {**antwort["von"], "halter": antwort["von"]["halter"] if halter else None},
+        }
+        if begruendung or halter
+        else None
+    )
+
+    return row
+
+
+async def images_of_every_strip_edit_set(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    """An image for each set of fields the strip can null, single images past the read's first batch, and an undraw's list.
+
+    A reason and a digest apart: an administrator's settle reason holds no digest, a Zusage no reason.
+    """
+
+    edit_sets = [
+        (mask, begruendung, halter)
+        for mask in range(2 ** len(KONTAKT_ROLLEN))
+        for begruendung in (False, True)
+        for halter in (False, True)
+        if mask or begruendung or halter
+    ]
+    confirmations = database[Collection.SPIELBESTAETIGUNGEN]
+    for position in range(IMAGES_A_FIRST_BATCH + 1):
+        row = a_strip_edit_set(*edit_sets[position % len(edit_sets)])
+        await confirmations.insert_one(row)
+        await patch_one_in_db(
+            collection=confirmations, db_filter={"_id": row["_id"]}, update={"$set": {"erinnert_am": []}}, return_document=ReturnDocument.BEFORE
+        )
+
+    # An undraw's removal, whose one log row holds every removed row's image in a list.
+    undrawn = [a_strip_edit_set(1, True, True), a_strip_edit_set(2, False, True)]
+    await confirmations.insert_many(undrawn)
+    async with client.start_session() as session:
+        await session.with_transaction(
+            lambda session: delete_many_from_db(
+                collection=confirmations, db_filter={"_id": {"$in": [row["_id"] for row in undrawn]}}, session=session
+            )
+        )
+
+
+class TestTheSeasonsEndStripsItsConfirmations:
+    def test_its_team_rows_and_their_images_keep_the_answer_alone_and_another_season_keeps_everything(self, mongo_replica_set_url: str):
+        """The club's own row, a replaced club's no clearing names, and the next season's row as the control; each with an image."""
+
+        rows = {
+            "own": a_declined_confirmation(CLUB_OID, SAISON_ID),
+            "replaced": a_declined_confirmation(REPLACED_CLUB_OID, SAISON_ID),
+            "next season": a_declined_confirmation(CLUB_OID, NEXT_SAISON_ID),
+        }
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            confirmations = database[Collection.SPIELBESTAETIGUNGEN]
+            await confirmations.insert_many([dict(row) for row in rows.values()])
+            for row in rows.values():
+                await patch_one_in_db(
+                    collection=confirmations,
+                    db_filter={"_id": row["_id"]},
+                    update={"$set": {"erinnert_am": []}},
+                    return_document=ReturnDocument.BEFORE,
+                )
+            response = await sweep(database, client)
+            stored = {name: await confirmations.find_one({"_id": row["_id"]}) for name, row in rows.items()}
+            images = {
+                name: (await database[Collection.AKTIONEN].find_one({"document_id": row["_id"], "before": {"$ne": None}}) or {})["before"]
+                for name, row in rows.items()
+            }
+
+            return response, stored, images
+
+        response, stored, images = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+
+        # The premise: the pass cleared the season's one block, which is what owes the strip.
+        assert response.kontaktbloecke_geleert == 1
+        kept = rows["own"]["antwort"]
+        stripped = {**kept, "begruendung": None, "von": {**kept["von"], "halter": None}}
+        for name in ("own", "replaced"):
+            for left in (stored[name], images[name]):
+                assert (left["antwort"], left["kontakte"]) == (stripped, dict.fromkeys(KONTAKT_ROLLEN)), name
+        for left in (stored["next season"], images["next season"]):
+            assert (left["antwort"], left["kontakte"]) == (rows["next season"]["antwort"], rows["next season"]["kontakte"])
+
+    def test_a_season_with_no_block_left_to_clear_is_stripped_all_the_same(self, mongo_replica_set_url: str):
+        """The club entered no contacts, as a replacement's incoming side holds none: no pass clears a block of the season."""
+
+        row = a_declined_confirmation(CLUB_OID, SAISON_ID)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISON_TEAMS].update_one({"_id": JUNCTION_OID}, {"$set": {"kontakte": None, "bestaetigungen": None}})
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(row)
+            response = await sweep(database, client)
+            return response, await database[Collection.SPIELBESTAETIGUNGEN].find_one({"_id": row["_id"]})
+
+        response, stripped = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+
+        assert (response.kontaktbloecke_geleert, response.fehlgeschlagen) == (0, 0)
+        assert (stripped["antwort"]["begruendung"], stripped["antwort"]["von"]["halter"], stripped["kontakte"]) == (
+            None,
+            None,
+            dict.fromkeys(KONTAKT_ROLLEN),
+        )
+
+    def test_a_strip_failing_holds_back_no_block_and_is_passed_over_under_the_season(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
+        """A replaced club's row the validator refuses, which no block clearing writes: the strip alone meets it."""
+
+        refused = {key: value for key, value in a_declined_confirmation(REPLACED_CLUB_OID, SAISON_ID).items() if key != "frist"}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(refused, bypass_document_validation=True)
+            with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
+                response = await sweep(database, client)
+            return response, await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID})
+
+        response, junction = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+
+        assert (response.kontaktbloecke_geleert, response.fehlgeschlagen, junction["kontakte"]) == (1, 1, None)
+        assert [(level, message.split(":")[0]) for level, _, message in passed_over(caplog)] == [
+            ("ERROR", f"Season {SAISON_ID} was passed over by the confirmation strip clock")
+        ]
+
+    def test_an_administrators_settle_reason_goes_and_their_answer_gains_no_holder(self, mongo_replica_set_url: str):
+        settled = {
+            **a_declined_confirmation(CLUB_OID, SAISON_ID),
+            "antwort": {"art": "abgelehnt", "am": "2026-04-03", "von": {"art": "admin"}, "vorschlag": None, "begruendung": "Platz gesperrt"},
+        }
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(settled)
+            await sweep(database, client)
+            return await database[Collection.SPIELBESTAETIGUNGEN].find_one({"_id": settled["_id"]})
+
+        stripped = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+
+        assert stripped["antwort"] == {**settled["antwort"], "begruendung": None}

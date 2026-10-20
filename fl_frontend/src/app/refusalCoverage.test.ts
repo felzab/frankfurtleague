@@ -34,6 +34,7 @@ const schiedsrichter = await import("@/features/schiedsrichter/refusals.ts");
 const schiedsrichterQueries = await import("@/features/schiedsrichter/queries.ts");
 const sperrliste = await import("@/features/sperrliste/refusals.ts");
 const spiele = await import("@/features/spiele/refusals.ts");
+const spielbestaetigungen = await import("@/features/spielbestaetigungen/utils.ts");
 const spieler = await import("@/features/spieler/refusals.ts");
 const spielerQueries = await import("@/features/spieler/queries.ts");
 const spielorte = await import("@/features/spielorte/refusals.ts");
@@ -64,7 +65,25 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "DELETE /berechtigungen/{berechtigung_id}": berechtigungen.mapEntziehenRefusal,
   "PATCH /berechtigungen/{berechtigung_id}": berechtigungen.mapStufeRefusal,
   "POST /bewerbungen": bewerbungUtils.mapBewerbungSubmitRefusal,
-  "POST /bewerbungen/einwilligung": (error) => bewerbungUtils.mapEinwilligungRefusal(error, BEWERBUNG_MIN_ALTER, MEDIEN_MIN_ALTER),
+  "POST /bewerbungen/einwilligung": (error) =>
+    bewerbungUtils.mapEinwilligungRefusal(error, async () => ({
+      zustand: "gueltig" as const,
+      // The floors the link's read serves, as the contact page takes them.
+      ansicht: {
+        acknowledged: 1 as const,
+        zustand: "gueltig" as const,
+        quelle: "bewerbung" as const,
+        zeile: null,
+        saison_id: "2026",
+        schule: "Lessing-Kolleg",
+        rolle: "ansprechperson" as const,
+        zugleich_rolle: null,
+        text_version: null,
+        laufende_fassung: "bestaetigung_kontakt",
+        mindestalter: BEWERBUNG_MIN_ALTER,
+        medien_mindestalter: MEDIEN_MIN_ALTER,
+      },
+    })),
   "POST /bewerbungen/einwilligung/ansicht": bewerbungUtils.mapEinwilligungAnsichtRefusal,
   "POST /bewerbungen/{bewerbung_id}/annehmen": (error) => bewerbungen.mapTriageRefusal(error, "neue_schule"),
   "POST /bewerbungen/{bewerbung_id}/ablehnen": (error) => bewerbungen.mapTriageRefusal(error, null),
@@ -78,8 +97,8 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /registrierungen": registrierungen.mapRegistrierungSubmitRefusal,
   "POST /registrierungen/bestaetigung": (error) =>
     registrierungen.mapBestaetigungRefusal(error, async () => ({
-      mindestalter: REGISTRIERUNG_MIN_ALTER,
-      medien_mindestalter: MEDIEN_MIN_ALTER,
+      zustand: "gueltig" as const,
+      ansicht: { mindestalter: REGISTRIERUNG_MIN_ALTER, medien_mindestalter: MEDIEN_MIN_ALTER },
     })),
   "POST /registrierungen/einladung/ansicht": registrierungen.mapRegistrierungAnsichtRefusal,
   "POST /registrierungen/bestaetigung/ansicht": registrierungen.mapRegistrierungAnsichtRefusal,
@@ -100,9 +119,9 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": schiedsrichter.mapEinladenRefusal,
   "POST /schiedsrichter/bestaetigung": (error) =>
     schiedsrichterQueries.mapSchiedsrichterBestaetigungRefusal(error, async () => ({
+      zustand: "gueltig" as const,
       // The floor the link's read serves, as the referee page takes it.
-      mindestalter: 16,
-      medien_mindestalter: MEDIEN_MIN_ALTER,
+      ansicht: { mindestalter: 16, medien_mindestalter: MEDIEN_MIN_ALTER },
     })),
   "POST /schiedsrichter/bestaetigung/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,
   "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": schiedsrichter.mapAdresswechselRefusal,
@@ -117,6 +136,8 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /identitaet/abmeldung": funktionen.mapAbmeldungRefusal,
   "POST /sperrliste": sperrliste.mapSperreRefusal,
   "PATCH /spiele/{spiel_id}": spiele.mapSpielRefusal,
+  "POST /spielbestaetigungen": spielbestaetigungen.mapAnsetzungRefusal,
+  "POST /spielbestaetigungen/ansicht": spielbestaetigungen.mapAnsetzungAnsichtRefusal,
   // Written by the match undo's replay alone.
   "PATCH /spiele/paarungen": (error) => replayRefusal(error, spiele.PAARUNGEN_REPLAY_REFUSALS) ?? null,
   "POST /spieler/{spieler_id}/adresswechsel": spieler.mapAdresswechselAntragRefusal,

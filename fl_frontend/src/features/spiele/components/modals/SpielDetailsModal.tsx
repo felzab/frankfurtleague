@@ -128,6 +128,7 @@ export function SpielDetailsModal({
                   {/* Computed inside the guard, so narrowing flows and no cast is needed. */}
                   <SpielStatusChip
                     spielStatus={computeSpielStatus({ datum: spielData.datum, sonderereignis: spielData.sonderereignis, today })}
+                    ansetzungBestaetigt={spielData.ansetzung_bestaetigt}
                   />
                   <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
                 </div>

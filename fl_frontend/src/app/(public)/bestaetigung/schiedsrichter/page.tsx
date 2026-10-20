@@ -3,11 +3,11 @@ import { connection } from "next/server";
 
 import { getLaufendeFassung } from "@/core/einwilligung";
 import { gekeyteFassung, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
-import { nullUnlessContractBreak } from "@/core/errors";
 import { SchiedsrichterBestaetigungView } from "@/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView";
 import { SCHIEDSRICHTER_UMFANG_WERTE } from "@/features/schiedsrichter/constants";
 import { getSchiedsrichterBestaetigungAnsicht } from "@/features/schiedsrichter/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
+import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { openGraphFor } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
@@ -53,8 +53,8 @@ async function SchiedsrichterBestaetigungContent(props: NextPageProps) {
   // together, so a contract break in either read reaches the error boundary whatever the link's state
   // rather than rejecting unobserved.
   const [gelesen, geleseneWorte] = await Promise.all([
-    getSchiedsrichterBestaetigungAnsicht(token).catch(nullUnlessContractBreak),
-    runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_schiedsrichter")).catch(nullUnlessContractBreak),
+    runWithIncomingTrace(() => getSchiedsrichterBestaetigungAnsicht(token).catch(nullUnlessContractBreak)),
+    runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_schiedsrichter").catch(nullUnlessContractBreak)),
   ]);
 
   if (gelesen === null) return <SchiedsrichterBestaetigungView start={{ zustand: "unlesbar" }} />;

@@ -620,10 +620,14 @@ def restamped(measured: str, *, job: str = "backend", seconds: str = "37", floor
     )
 
 
+# BASE with no reference, so a re-stamp leaving `-` beside its budget silences nothing.
+UNREFERENCED = budget.parse_reference(table(row("backend", "-", "-", "60", STAMP), row("total", "0", "5", "-", "-")))
+
+
 def test_a_new_stamp_under_ten_runs_is_a_finding_even_on_a_raise():
     """One run's stamp lifted a budget unrefused before; ten keeps the slow runner class in the population."""
     findings = budget.check_raise(
-        BASE, budget.parse_reference(table(row("backend", "-", "-", "115", "1@2026-09-02"), row("total", "0", "5", "-", "-"))), TODAY
+        UNREFERENCED, budget.parse_reference(table(row("backend", "-", "-", "115", "1@2026-09-02"), row("total", "0", "5", "-", "-"))), TODAY
     )
 
     assert details(findings) == ["`backend`'s new stamp 1@2026-09-02 counts 1, and a stamp counts at least 10 runs"]
@@ -631,11 +635,27 @@ def test_a_new_stamp_under_ten_runs_is_a_finding_even_on_a_raise():
 
 def test_a_stamp_of_ten_runs_carries_a_budget_and_no_reference():
     """Ten is the budget's minimum and not the reference's: two windows of twelve need twenty-four."""
-    assert budget.check_raise(BASE, restamped("10@2026-09-02", seconds="-", floor="-"), TODAY) == []
+    assert budget.check_raise(UNREFERENCED, restamped("10@2026-09-02", seconds="-", floor="-"), TODAY) == []
 
     findings = budget.check_raise(BASE, restamped("23@2026-09-02"), TODAY)
 
     assert details(findings) == ["`backend`'s new stamp 23@2026-09-02 counts 23, and a reference and its floor are cut from at least 24 runs"]
+
+
+def test_a_reference_or_floor_the_report_compared_dropped_to_none_is_a_finding_whatever_the_stamp():
+    """The report reads a row only as a reference beside a floor, so `-` in either is a comparison removed rather than lowered."""
+    for seconds, floor, became in (("-", "-", "(-, -)"), ("37", "-", "(37 s, -)"), ("-", "14", "(-, 14%)")):
+        findings = budget.check_raise(BASE, restamped(LATER, seconds=seconds, floor=floor), TODAY)
+        assert details(findings) == [
+            f"`backend`'s reference and floor (37 s, 14%) became {became}, which silences the report's comparison of it; no stamp justifies it"
+        ], details(findings)
+
+    findings = budget.check_raise(
+        BASE, budget.parse_reference(table(row("backend", "37", "14", "60", STAMP), row("total", "37", "-", "-", "-"))), TODAY
+    )
+    assert details(findings) == [
+        "`total`'s reference and floor (37 s, 5%) became (37 s, -), which silences the report's comparison of it; no stamp justifies it"
+    ]
 
 
 def test_a_pull_request_stamp_on_a_job_whose_cache_is_keyed_on_the_tree_is_a_finding():
@@ -844,15 +864,20 @@ def test_a_job_whose_cache_is_keyed_on_the_tree_counts_first_attempts_of_pushes_
 
 
 def test_an_unbudgeted_row_stays_unbudgeted_and_the_cold_budget_never_falls():
-    """`images`' budget is `-` by the header's decision, and `format`'s is the cold job's, which warm runs cannot lower."""
+    """`images`' budget is `-` by the header's decision, and `format`'s and `frontend`'s are the cold job's, which warm runs cannot lower."""
     rows = budget.parse_reference(
-        table(row("format", "-", "-", "70", STAMP), row("images", "-", "-", "-", STAMP), row("total", "0", "-", "-", "-"))
+        table(
+            row("format", "-", "-", "70", STAMP),
+            row("frontend", "-", "-", "220", STAMP),
+            row("images", "-", "-", "-", STAMP),
+            row("total", "0", "-", "-", "-"),
+        )
     )
-    attempts = [attempt(n, 1, {"format": 30, "images": 90}) for n in range(1, 11)]
+    attempts = [attempt(n, 1, {"format": 30, "frontend": 108, "images": 90}) for n in range(1, 11)]
 
     proposed, _, _ = budget.stamp(rows, attempts, None, None)
 
-    assert (proposed["format"].budget, proposed["images"].budget) == (70, None)
+    assert (proposed["format"].budget, proposed["frontend"].budget, proposed["images"].budget) == (70, 220, None)
     assert budget.stamp(rows, [attempt(n, 1, {"format": 80}) for n in range(1, 11)], None, ["format"])[0]["format"].budget == 100
 
 
@@ -899,6 +924,19 @@ def test_the_total_takes_a_floor_only_where_every_reference_beside_it_was_cut_he
     proposed, lines, _ = budget.stamp(budget.parse_reference(BASELINE), attempts, None, ["backend"])
     assert proposed["total"].floor is None
     assert lines[-1] == f"total: {proposed['total'].seconds} s, floor - -- a reference cut from another population: images"
+
+
+def test_a_stamp_moving_no_reference_keeps_the_total_s_floor():
+    """Each row's draws are seeded on its own, so the base's floor is what a recount would give, and `-` would silence the whole-gate line."""
+    attempts = [attempt(n, 1, {"commits": 20}) for n in range(1, 11)]
+    rows = budget.parse_reference(BASELINE)
+
+    proposed, lines, missed = budget.stamp(rows, attempts, None, ["commits"])
+
+    assert missed == [] and proposed["commits"].measured == "10@2026-09-01"
+    assert (proposed["total"].seconds, proposed["total"].floor) == (134, 5)
+    assert lines[-1] == "total: 134 s, floor 5% kept -- no reference beside it moved"
+    assert budget.check_raise(rows, proposed, TODAY) == []
 
 
 def test_one_pull_request_run_stamps_and_two_or_a_mix_are_refused():
@@ -986,9 +1024,19 @@ def test_an_attempt_that_cannot_stand_in_a_population_is_refused(tmp_path: Path)
         raise AssertionError("an attempt with no files was read")
 
 
+# BASELINE with `images` unreferenced, so a re-stamp of `backend` alone cuts the total's floor from
+# every reference beside it.
+ONE_REFERENCE = table(
+    row("backend", "37", "14", "60", STAMP),
+    row("commits", "-", "-", "25", "7@2026-09-01"),
+    row("images", "-", "-", "-", STAMP),
+    row("total", "37", "5", "-", "-"),
+)
+
+
 def test_main_writes_a_proposal_every_mode_reads_and_keeps_the_header(tmp_path: Path):
     """The exit contract end to end: the proposal parses, names the run it was cut from, and the header above it is untouched."""
-    reference = written(tmp_path / "ref.tsv", "# the header\n" + BASELINE)
+    reference = written(tmp_path / "ref.tsv", "# the header\n" + ONE_REFERENCE)
     data = tmp_path / "attempts"
     for number in range(1, 25):
         saved(data, 9, number, {"backend": 40 + number % 6, "images": 90})
@@ -1003,7 +1051,7 @@ def test_main_writes_a_proposal_every_mode_reads_and_keeps_the_header(tmp_path: 
     assert text.startswith("# the header\n# job\tseconds\tfloor\tbudget\tmeasured\n") and "\r" not in text
     rows = budget.parse_reference(text)
     assert rows["backend"].measured == "24@2026-09-01/9"
-    assert rows["images"] == budget.parse_reference(BASELINE)["images"]
+    assert rows["images"] == budget.parse_reference(ONE_REFERENCE)["images"]
     assert "24 attempts of pull-request run 9, the merge commit it tests" in stdout
 
 
@@ -1072,6 +1120,18 @@ def test_main_reports_a_proposal_its_own_base_check_would_refuse(tmp_path: Path)
 
     assert code == 1
     assert "older than the 30@2026-09-05 it replaces" in stdout
+
+    # One reference re-stamped beside another left standing: the total's floor has no single
+    # population to be cut from, and `-` in its place would turn the whole-gate line off.
+    reference = written(tmp_path / "baseline.tsv", BASELINE)
+    for number in range(1, 25):
+        saved(data, 9, number, {"backend": 40 + number % 6, "images": 90})
+    code, stdout, _ = run_main(
+        "--stamp", str(data), "--attempts", *(f"9/{n}" for n in range(1, 25)), "--out", str(tmp_path / "out.tsv"), "--reference", str(reference)
+    )
+
+    assert code == 1
+    assert "`total`'s reference and floor (134 s, 5%) became (140 s, -), which silences the report's comparison of it" in stdout
 
 
 def test_the_stamp_flags_are_refused_apart_from_their_mode(tmp_path: Path):

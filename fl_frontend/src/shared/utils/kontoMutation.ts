@@ -1,14 +1,12 @@
 import { getKontoSession, isFreshlySignedIn } from "@/core/auth";
 import { ENROLMENT_WINDOW_MS, isWithinEnrolmentWindow, STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
 
+import { ANMELDUNG_ABGELAUFEN } from "./actionError";
 import { runGuardedMutation, stepUpRequired } from "./adminMutation";
 
 import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
 import type { ActionFailure } from "@/shared/types/types";
 import type { StepUpRequired } from "./adminMutation";
-
-/** A press from a session the account page does not admit, one that expired between the render and the press. */
-export const KONTO_FORBIDDEN = "Deine Anmeldung ist abgelaufen. Melde Dich neu an.";
 
 /** The signed-in holder of the account page, in either lane; never the row's `token` (`docs/frontend/spec.md :: I198`). */
 export type KontoSession = NonNullable<Awaited<ReturnType<typeof getKontoSession>>>;
@@ -49,7 +47,7 @@ export async function runKontoStepUp<T extends { success: boolean }>(
   mutationName: string,
   fn: (served: KontoSession) => Promise<T>,
 ): Promise<T | ActionFailure> {
-  return runGuardedMutation(mutationName, { lane: "Account", resolve: getKontoSession, forbidden: KONTO_FORBIDDEN }, fn);
+  return runGuardedMutation(mutationName, { lane: "Account", resolve: getKontoSession, forbidden: ANMELDUNG_ABGELAUFEN }, fn);
 }
 
 /**
@@ -60,7 +58,7 @@ export async function runKontoMutation<T extends { success: boolean }>(
   mutationName: string,
   fn: (served: KontoSession) => Promise<T>,
 ): Promise<T | ActionFailure | StepUpRequired> {
-  return runGuardedMutation(mutationName, { lane: "Account", resolve: getKontoSession, forbidden: KONTO_FORBIDDEN }, async (served) =>
+  return runGuardedMutation(mutationName, { lane: "Account", resolve: getKontoSession, forbidden: ANMELDUNG_ABGELAUFEN }, async (served) =>
     isFreshlySignedIn(served) ? fn(served) : stepUpRequired(),
   );
 }

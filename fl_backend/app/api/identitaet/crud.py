@@ -67,6 +67,8 @@ from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session, remove_pending_addresses_in_session
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
 from app.api.sperrliste.lookup import BanList
+from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_session
+from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session, remove_pending_pupil_addresses_in_session
 from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_spieler_filter
 from app.core.adressanker import anchor_the_addresses
@@ -554,13 +556,18 @@ class ErasureStep:
 # address pass after every image they filed.
 ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ErasureStep(
-        reaches=frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN, Collection.AKTIONEN}),
+        reaches=frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN, Collection.SPIELBESTAETIGUNGEN, Collection.AKTIONEN}),
         personengruppe="kontakt",
         run=erase_kontaktperson_in_session,
     ),
     # No kind's alone, either of them: the row each waits on is another address's.
     ErasureStep(reaches=frozenset({Collection.SCHIEDSRICHTER}), personengruppe=None, run=remove_pending_addresses_in_session),
     ErasureStep(reaches=frozenset({Collection.SPIELER}), personengruppe=None, run=remove_pending_pupil_addresses_in_session),
+    ErasureStep(
+        reaches=frozenset({Collection.SPIELBESTAETIGUNGEN, Collection.AKTIONEN}),
+        personengruppe="schiedsrichter",
+        run=erase_referee_confirmations_in_session,
+    ),
     ErasureStep(
         reaches=frozenset({Collection.SCHIEDSRICHTER, Collection.SPIELE, Collection.AKTIONEN}),
         personengruppe="schiedsrichter",
@@ -622,6 +629,7 @@ async def erase_everything(
     bewerbungen_collection: AsyncCollection,
     schiedsrichter_collection: AsyncCollection,
     spiele_collection: AsyncCollection,
+    spielbestaetigungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
     drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
@@ -678,8 +686,10 @@ async def erase_everything(
             await erase_kontaktperson_in_session(
                 saison_teams_collection=saison_teams_collection,
                 bewerbungen_collection=bewerbungen_collection,
+                spielbestaetigungen_collection=spielbestaetigungen_collection,
                 aktionen_collection=aktionen_collection,
                 identifier=identifier,
+                schluessel=schluessel,
                 saison_team_rows=subject.saison_teams,
                 bewerbung_rows=subject.bewerbungen,
                 stamp=stamp,
@@ -697,6 +707,15 @@ async def erase_everything(
     if _runs(remove_pending_pupil_addresses_in_session, scope):
         adresswechsel += await remove_pending_pupil_addresses_in_session(
             spieler_collection=spieler_collection, spieler_ids=[row["_id"] for row in subject.spieler_adresswechsel], session=session
+        )
+
+    if _runs(erase_referee_confirmations_in_session, scope):
+        await erase_referee_confirmations_in_session(
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            aktionen_collection=aktionen_collection,
+            schiedsrichter_ids=[row["_id"] for row in subject.schiedsrichter],
+            stamp=stamp,
+            session=session,
         )
 
     spiele = 0
@@ -827,6 +846,7 @@ class ErasureJournal[Erased: FLErasure]:
             person_hash=loeschung_journal_hash(self._identifier, schluessel=self._schluessel),
             art="loeschung",
             pseudonym=akteur_pseudonym(self._identifier, schluessel=self._schluessel),
+            halter=halter_of(self._identifier, schluessel=self._schluessel),
         )
         journal_logger.info(line.text())
 
@@ -946,6 +966,7 @@ async def erase_if_still_due(
     bewerbungen_collection: AsyncCollection,
     schiedsrichter_collection: AsyncCollection,
     spiele_collection: AsyncCollection,
+    spielbestaetigungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
     drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
@@ -1011,6 +1032,7 @@ async def erase_if_still_due(
         bewerbungen_collection=bewerbungen_collection,
         schiedsrichter_collection=schiedsrichter_collection,
         spiele_collection=spiele_collection,
+        spielbestaetigungen_collection=spielbestaetigungen_collection,
         registrierungen_collection=registrierungen_collection,
         drosselung_collection=drosselung_collection,
         aktionen_collection=aktionen_collection,

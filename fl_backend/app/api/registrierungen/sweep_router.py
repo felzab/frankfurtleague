@@ -25,6 +25,7 @@ from app.api.registrierungen.services import (
 )
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.api.teams.crud import pull_team_names
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import erase_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
@@ -42,7 +43,6 @@ from app.core.logging import fl_logger
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated, transaction_session
-from app.shared.schemas.bounds import LIST_LIMIT_MAX
 
 # System tier and the system actor, as the application sweep's own router is: this pass holds no
 # session, so `bind_actor` would refuse it.
@@ -55,26 +55,10 @@ router = APIRouter(
 # a pass that stops on a club somebody retired.
 _TEAM_UNBEKANNT = ""
 
-# Three commands a row beside the nineteen of the worst call erasing one page per clock
-# (`tests/api/test_registrierung_sweep_refusal.py :: OTHER_COMMANDS`): 262 commands at a 37 ms round trip
-# plus 1.07 ms take 9.97 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S` (`docs/backend/spec.md :: I322`).
+# Three commands a row beside the eighteen of the worst call erasing one page per clock
+# (`tests/api/test_registrierung_sweep_refusal.py :: OTHER_COMMANDS`): 261 commands at a 37 ms round trip
+# plus 1.27 ms take 9.99 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S` (`docs/backend/spec.md :: I322`).
 REMINDERS_PER_PASS: Final = 81
-
-
-async def _team_names(
-    *, teams_collection: TeamsCollection, rows: Sequence[Mapping[str, Any]], session: AsyncClientSession | None
-) -> dict[Any, str]:
-    """The teams' names, one read for the pass: a message names the team and a registration holds only its id."""
-
-    team_ids = [row["team_id"] for row in rows if row.get("team_id") is not None]
-    if not team_ids:
-        return {}
-
-    teams = await pull_many_from_db(
-        collection=teams_collection, db_filter={"_id": {"$in": team_ids}}, projection=["name"], limit=LIST_LIMIT_MAX, session=session
-    )
-
-    return {team["_id"]: str(team.get("name") or "") for team in teams}
 
 
 async def _redact(*, aktionen_collection: AktionenCollection, ids: Sequence[Any], stamp: str, session: AsyncClientSession) -> int:
@@ -162,21 +146,9 @@ async def sweep_registrierungen(
     async def stamp_the_run(session: AsyncClientSession) -> None:
         """One fan-out over every season today has not reached, inside the pass's LAST transaction, so a stamped day is a committed call."""
 
-        stale = await pull_many_from_db(
-            collection=saisons_collection,
-            db_filter=build_stale_stamp_filter(today=today),
-            projection=["_id"],
-            limit=LIST_LIMIT_MAX,
-            session=session,
-        )
-        # The guard that keeps a day to ONE log row: `patch_many_in_db` files one per call, a call
-        # matching nothing included, and this runs hourly against every season.
-        if not stale:
-            return
-
         await patch_many_in_db(
             collection=saisons_collection,
-            db_filter={"_id": {"$in": [row["_id"] for row in stale]}},
+            db_filter=build_stale_stamp_filter(today=today),
             update=compose_sweep_stamp(today=today),
             session=session,
         )
@@ -211,7 +183,10 @@ async def sweep_registrierungen(
         def told(row: Mapping[str, Any]) -> bool:
             return registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung"))
 
-        team_names = await _team_names(teams_collection=teams_collection, rows=[row for row in due if told(row)], session=session)
+        # One read for the page: a message names the team, and a registration holds only its id.
+        team_names = await pull_team_names(
+            teams_collection=teams_collection, team_ids=[row.get("team_id") for row in due if told(row)], session=session
+        )
 
         def notiz_of(row: Mapping[str, Any]) -> FLRegistrierungSweepBenachrichtigung | None:
             if not told(row):
@@ -307,7 +282,9 @@ async def sweep_registrierungen(
         )
         reachable = [row for row in due if not (row.get("email") and str(row["email"]) in gesperrt)]
         batch.withheld = len(due) - len(reachable)
-        team_names = await _team_names(teams_collection=teams_collection, rows=reachable, session=session)
+        team_names = await pull_team_names(
+            teams_collection=teams_collection, team_ids=[row.get("team_id") for row in reachable], session=session
+        )
 
         def erinnerung_of(row: Mapping[str, Any]) -> tuple[FLRegistrierungSweepErinnerung, str]:
             raw, token_hash = mint_token()

@@ -54,6 +54,22 @@ from app.api.saisons.schemas import (
 )
 from app.api.schiedsrichter.schemas import FLSchiedsrichter, FLSchiedsrichterAdresswechsel, FLSchiedsrichterBestaetigung
 from app.api.sperrliste.schemas import FLSperrlisteEintrag
+from app.api.spielbestaetigungen.schemas import (
+    FLSpielbestaetigung,
+    FLSpielbestaetigungAnsetzung,
+    FLSpielbestaetigungAntwort,
+    FLSpielbestaetigungAntwortArt,
+    FLSpielbestaetigungGeschlossen,
+    FLSpielbestaetigungGrund,
+    FLSpielbestaetigungKontakte,
+    FLSpielbestaetigungParteiSchiedsrichter,
+    FLSpielbestaetigungParteiTeam,
+    FLSpielbestaetigungSitz,
+    FLSpielbestaetigungTermin,
+    FLSpielbestaetigungVonAdmin,
+    FLSpielbestaetigungVonKontakt,
+    FLSpielbestaetigungVonSchiedsrichter,
+)
 from app.api.spiele.schemas import (
     FLSaisonPhase,
     FLSonderereignis,
@@ -78,12 +94,14 @@ from app.api.spieler.schemas import (
 from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import (
+    KONTAKT_ROLLEN,
     FLAustritt,
     FLGruppenNames,
     FLKontaktEingetragenVon,
     FLKontaktKenntnisnahme,
     FLKontaktKenntnisnahmeQuelle,
     FLKontaktperson,
+    FLKontaktRolle,
     FLSaisonTeamBestaetigung,
     FLSaisonTeamBestaetigungen,
     FLSaisonTeamKontakte,
@@ -249,6 +267,24 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.BEWERBUNGEN, ("bestaetigungen", "trainer", "zustellung"), FLBewerbungZustellung, frozenset()),
     (Collection.BEWERBUNGEN, ("bestaetigungen", "ansprechperson", "zustellung"), FLBewerbungZustellung, frozenset()),
     (Collection.BEWERBUNGEN, ("bestaetigungen", "stellvertretung", "zustellung"), FLBewerbungZustellung, frozenset()),
+    # One party's confirmation of one Ansetzung, every nested model at its path, the seat block
+    # three times over as the validator declares it.
+    (Collection.SPIELBESTAETIGUNGEN, (), FLSpielbestaetigung, frozenset()),
+    # Discriminated on `art`, as `team1_quelle` is on `type`: the validator declares both variants' keys.
+    (Collection.SPIELBESTAETIGUNGEN, ("partei",), (FLSpielbestaetigungParteiTeam, FLSpielbestaetigungParteiSchiedsrichter), frozenset()),
+    (Collection.SPIELBESTAETIGUNGEN, ("ansetzung",), FLSpielbestaetigungAnsetzung, frozenset()),
+    (Collection.SPIELBESTAETIGUNGEN, ("kontakte",), FLSpielbestaetigungKontakte, frozenset()),
+    *((Collection.SPIELBESTAETIGUNGEN, ("kontakte", seat), FLSpielbestaetigungSitz, frozenset()) for seat in KONTAKT_ROLLEN),
+    *((Collection.SPIELBESTAETIGUNGEN, ("kontakte", seat, "zustellung"), FLBewerbungZustellung, frozenset()) for seat in KONTAKT_ROLLEN),
+    (Collection.SPIELBESTAETIGUNGEN, ("antwort",), FLSpielbestaetigungAntwort, frozenset()),
+    (
+        Collection.SPIELBESTAETIGUNGEN,
+        ("antwort", "von"),
+        (FLSpielbestaetigungVonKontakt, FLSpielbestaetigungVonAdmin, FLSpielbestaetigungVonSchiedsrichter),
+        frozenset(),
+    ),
+    (Collection.SPIELBESTAETIGUNGEN, ("antwort", "vorschlag"), FLSpielbestaetigungTermin, frozenset()),
+    (Collection.SPIELBESTAETIGUNGEN, ("geschlossen",), FLSpielbestaetigungGeschlossen, frozenset()),
     # The junction's declared shape; nothing validates a stored row through it.
     (Collection.SAISON_SPIELER, (), FLSaisonSpielerRow, frozenset()),
     (Collection.SPERRLISTE, (), FLSperrlisteEintrag, frozenset()),
@@ -476,6 +512,30 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # pupil may answer neither.
     (Collection.REGISTRIERUNGEN, (), "position", get_args(FLSpielerPosition), True),
     (Collection.REGISTRIERUNGEN, (), "stufe", get_args(FLSpielerStufe), True),
+    (
+        Collection.SPIELBESTAETIGUNGEN,
+        ("partei",),
+        "art",
+        get_args(FLSpielbestaetigungParteiTeam.model_fields["art"].annotation)
+        + get_args(FLSpielbestaetigungParteiSchiedsrichter.model_fields["art"].annotation),
+        False,
+    ),
+    (Collection.SPIELBESTAETIGUNGEN, ("antwort",), "art", get_args(FLSpielbestaetigungAntwortArt), False),
+    (
+        Collection.SPIELBESTAETIGUNGEN,
+        ("antwort", "von"),
+        "art",
+        get_args(FLSpielbestaetigungVonKontakt.model_fields["art"].annotation)
+        + get_args(FLSpielbestaetigungVonAdmin.model_fields["art"].annotation)
+        + get_args(FLSpielbestaetigungVonSchiedsrichter.model_fields["art"].annotation),
+        False,
+    ),
+    (Collection.SPIELBESTAETIGUNGEN, ("antwort", "von"), "rolle", get_args(FLKontaktRolle), False),
+    (Collection.SPIELBESTAETIGUNGEN, ("geschlossen",), "grund", get_args(FLSpielbestaetigungGrund), False),
+    *(
+        (Collection.SPIELBESTAETIGUNGEN, ("kontakte", seat, "zustellung"), "stand", get_args(FLBewerbungZustellstand), False)
+        for seat in KONTAKT_ROLLEN
+    ),
     # Who seated the person, at every seat's home: the page its link opens is read off it.
     *((collection, block, "eingetragen_von", get_args(FLKontaktEingetragenVon), True) for collection, block in SEAT_RECORD_HOMES),
 ]
@@ -576,7 +636,7 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     (Collection.BEWERBUNGEN, ("bestaetigungen", "stellvertretung")): frozenset({"token_hash", "token_hash_zuvor"}),
     # Each pass's own clock rather than a fact about the season they are stored on: an operator asks
     # whether the sweeps ran, and no page of a season is that question.
-    (Collection.SAISONS, ()): frozenset({"sweep_gelaufen_am", "registrierung_sweep_gelaufen_am"}),
+    (Collection.SAISONS, ()): frozenset({"sweep_gelaufen_am", "registrierung_sweep_gelaufen_am", "spiel_sweep_gelaufen_am"}),
     # The lookup key, and the whole of what a row holds about a person. Serving it would hand
     # whoever reads the list the one value a leaked collection is missing, and the label beside it
     # says which key that is.
@@ -600,6 +660,10 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     (Collection.SAISON_TEAMS, ("bestaetigungen", "trainer")): frozenset({"token_hash"}),
     (Collection.SAISON_TEAMS, ("bestaetigungen", "ansprechperson")): frozenset({"token_hash"}),
     (Collection.SAISON_TEAMS, ("bestaetigungen", "stellvertretung")): frozenset({"token_hash"}),
+    # Every link a seat of a confirmation row was mailed, for the application's reason.
+    **{(Collection.SPIELBESTAETIGUNGEN, ("kontakte", seat)): frozenset({"token_hashes"}) for seat in KONTAKT_ROLLEN},
+    # Who answered, kept for the person's erasure alone: served, an address's digest confirms anyone's guess of it.
+    (Collection.SPIELBESTAETIGUNGEN, ("antwort", "von")): frozenset({"halter"}),
     # The registration's pair after its admission, read by the submission's replay lookup alone.
     (Collection.SAISON_SPIELER, ()): frozenset({"idempotenz_schluessel", "idempotenz_fingerabdruck"}),
 }
@@ -1216,8 +1280,18 @@ def test_every_retrofitted_ttl_index_is_one_declared():
 @pytest.mark.parametrize("index", UNIQUE_INDEXES, ids=lambda index: index.name)
 def test_every_index_key_is_a_field_the_validator_declares(index):
     """MongoDB indexes a missing field as null, so a unique index on a misspelt key permits one document and rejects every other."""
-    declared = set(properties_at(index.collection, ()))
-    assert set(index.keys) <= declared, f"{index.name} indexes {sorted(set(index.keys) - declared)}, which {index.collection} has no field for"
+    undeclared = [key for key in index.keys if not declares(index.collection, key)]
+    assert not undeclared, f"{index.name} indexes {undeclared}, which {index.collection} has no field for"
+
+
+def declares(collection: Collection, dotted: str) -> bool:
+    """Whether the validator declares this key, a dotted one step by step: a sub-document's key is misspelt as silently."""
+
+    *parents, leaf = dotted.split(".")
+    try:
+        return leaf in properties_at(collection, tuple(parents))
+    except KeyError:
+        return False
 
 
 def test_the_failure_raised_is_the_one_declared_first_not_the_one_that_arrives_first():

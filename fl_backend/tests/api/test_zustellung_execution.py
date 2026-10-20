@@ -11,6 +11,7 @@ from app.api.bewerbungen.services import days_after
 from app.api.registrierungen.services import build_erinnerung_filter
 from app.api.registrierungen.services import compose_bestaetigung as compose_registrierung_bestaetigung
 from app.api.schiedsrichter.services import compose_adresswechsel, compose_bestaetigung
+from app.api.spielbestaetigungen.services import compose_seat_entry
 from app.api.spieler.services import compose_spieler_adresswechsel
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.api.zustellung.router import abgewiesen_zustellung, angenommen_zustellung, post_zustellung
@@ -26,13 +27,15 @@ from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
 from app.shared.schemas.bounds import REGISTRIERUNG_ERINNERUNG_TAGE
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import saison_team_document, spieler_document
+from tests.documents import saison_team_document, spiel_document, spielbestaetigung_document, spieler_document
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_zustellung_test")
 
 ZIEL_OID = ObjectId("6890a1b2c3d4e5f607970001")
 ABSENT_OID = ObjectId("6890a1b2c3d4e5f607979999")
+SPIEL_OID = ObjectId("6890a1b2c3d4e5f607970005")
+OTHER_ROW_OID = ObjectId("6890a1b2c3d4e5f607970006")
 
 FIRST_MESSAGE = "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"
 SECOND_MESSAGE = "7c1f2b5e-3d44-4a91-9f0b-1e2d3c4b5a60"
@@ -93,6 +96,24 @@ ZIEL_FIXTURES: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
     },
     # A pupil whose address an administrator asked to move, the link's carrier beside the stored address.
     "spieler_adresswechsel": spieler_document(ZIEL_OID, "Thessaly", "Okonkwo-Brandt", email="thessaly@example.invalid"),
+    # One team's open request about one fixture. Its seat block is a required key, so a row nothing was
+    # mailed about holds every seat empty rather than no block.
+    "spielbestaetigung": spielbestaetigung_document(
+        spiel_document(
+            spiel_id=SPIEL_OID,
+            saison_id="2026",
+            spiel_nr=1,
+            spieltag_id=None,
+            datum="2026-04-12",
+            uhrzeit="18:00:00",
+            team1={"team_id": ObjectId("6890a1b2c3d4e5f607970002")},
+            team2={"team_id": ObjectId("6890a1b2c3d4e5f607970004")},
+        ),
+        partei={"art": "team", "team_id": ObjectId("6890a1b2c3d4e5f607970002")},
+        _id=ZIEL_OID,
+        frist="2026-04-05",
+        angefragt_am="2026-03-28",
+    ),
 }
 
 ZIELE = sorted(ZIEL_PFADE)
@@ -112,6 +133,7 @@ CARRIER_SEEDS: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
     "kontakt": compose_kontakt_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
     "schiedsrichter_adresswechsel": compose_adresswechsel(email="quillon@example.com", token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
     "spieler_adresswechsel": compose_spieler_adresswechsel(email="okonkwo@example.com", token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
+    "spielbestaetigung": compose_seat_entry(token_hash=SEEDED_TOKEN_HASH),
 }
 
 # The seats each kind's report names: the Trainer's for a seat kind, none for every other.
@@ -124,7 +146,7 @@ TRAEGER: Mapping[FLZustellungZiel, str] = {ziel: traeger_pfade(ziel, ROLLEN[ziel
 def target(ziel: FLZustellungZiel, *, carrier: bool = True) -> dict[str, Any]:
     """One row of that kind's own collection, carrying the confirmation bookkeeping a message is sent about.
 
-    `carrier=False` seeds the key nowhere at all, which is a record nothing was ever mailed about.
+    `carrier=False` seeds no carrier, a record nothing was mailed about: no key, or every seat empty where the validator requires one.
     """
 
     row = dict(ZIEL_FIXTURES[ziel])
@@ -544,3 +566,64 @@ class TestTheSeatAxis:
             return await state_of(database, "kontakt", "bestaetigungen.stellvertretung")
 
         assert on_a_league(mongo_replica_set_url, "kontakt", body) is None
+
+    def test_a_bounce_on_one_mailbox_s_request_stands_beside_another_mailbox_s_later_accept(self, mongo_replica_set_url: str):
+        """The reason a confirmation keeps its record per seat: one record per row would hold the later accept alone and drop the bounce.
+
+        The other team's row on the same fixture is one `ziel_id` does not name, and stays unwritten.
+        """
+
+        other_row = {
+            **ZIEL_FIXTURES["spielbestaetigung"],
+            "_id": OTHER_ROW_OID,
+            "partei": {"art": "team", "team_id": ObjectId("6890a1b2c3d4e5f607970004")},
+            "kontakte": {"trainer": compose_seat_entry(token_hash=SEEDED_TOKEN_HASH), "ansprechperson": None, "stellvertretung": None},
+        }
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            collection = database[Collection.SPIELBESTAETIGUNGEN]
+            stellvertretung = compose_seat_entry(token_hash=SEEDED_TOKEN_HASH)
+            await collection.update_one({"_id": ZIEL_OID}, {"$set": {"kontakte.stellvertretung": stellvertretung}})
+            await collection.insert_one(other_row)
+            await accept(database, client, ziel="spielbestaetigung", rollen=["trainer"])
+            await accept(database, client, ziel="spielbestaetigung", rollen=["stellvertretung"], nachricht_id=SECOND_MESSAGE, am=DELIVERED_AT)
+            bounced = await report(database, client, ziel="spielbestaetigung", rollen=["trainer"], stand="unzustellbar", grund="NoEmail")
+
+            return bounced, await collection.find_one({"_id": ZIEL_OID}), await collection.find_one({"_id": OTHER_ROW_OID})
+
+        bounced, document, other = on_a_league(mongo_replica_set_url, "spielbestaetigung", body)
+
+        assert bounced.angewendet is True
+        assert document["kontakte"]["trainer"]["zustellung"] == {
+            "nachricht_id": FIRST_MESSAGE,
+            "stand": "unzustellbar",
+            "grund": "NoEmail",
+            "am": BOUNCED_AT,
+        }
+        assert document["kontakte"]["stellvertretung"]["zustellung"] == {
+            "nachricht_id": SECOND_MESSAGE,
+            "stand": "angenommen",
+            "grund": None,
+            "am": DELIVERED_AT,
+        }
+        assert document["kontakte"]["ansprechperson"] is None
+        assert other["kontakte"]["trainer"]["zustellung"] is None
+
+
+@pytest.mark.db
+class TestANeueAnsetzungReportOnASeatHoldingNoLink:
+    """The void notice goes to the seats as they stand now, so its report may name a seat the closed row holds no entry for."""
+
+    def test_the_seat_is_skipped_its_sibling_written_and_one_naming_it_alone_writes_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            both = await accept(database, client, ziel="spielbestaetigung", rollen=["trainer", "ansprechperson"])
+            alone = await report(database, client, ziel="spielbestaetigung", rollen=["ansprechperson"], stand="unzustellbar", grund="NoEmail")
+            document = await database[Collection.SPIELBESTAETIGUNGEN].find_one({"_id": ZIEL_OID})
+
+            return both, alone, document
+
+        both, alone, document = on_a_league(mongo_replica_set_url, "spielbestaetigung", body)
+
+        assert (both.angewendet, alone.angewendet) == (True, False)
+        assert document["kontakte"]["ansprechperson"] is None
+        assert document["kontakte"]["trainer"]["zustellung"]["nachricht_id"] == FIRST_MESSAGE

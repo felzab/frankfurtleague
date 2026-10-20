@@ -13,6 +13,7 @@ import type { SidemenuStructure } from "@/shared/types/types";
    (`docs/frontend/spec.md` §1.9), the icon package too: its ESM imports `./x` bare, which only the
    harness's resolver completes. */
 const { Sidemenu } = await import("./Sidemenu.tsx");
+const { SidemenuEntries } = await import("./SidemenuNavLinks.tsx");
 const { default: Calendar } = await import("@gravity-ui/icons/Calendar");
 const { default: Magnifier } = await import("@gravity-ui/icons/Magnifier");
 const { default: Persons } = await import("@gravity-ui/icons/Persons");
@@ -38,13 +39,11 @@ function rail(isDesktopCollapsed: boolean, keepsSaisonQuery = true): string {
   return renderTree(
     underNext(
       h(Sidemenu, {
-        structure: STRUCTURE,
+        entries: h(SidemenuEntries, { structure: STRUCTURE, iconDictionary: ICONS }),
         linkPrefix: "/dashboard",
         keepsSaisonQuery,
         saisonMetadataDisplay: null,
         funktionSwitcher: null,
-        iconDictionary: ICONS,
-        pathname: "/dashboard/spielplan",
         isMobileOpen: false,
         onMobileClose: () => undefined,
         isDesktopCollapsed,
@@ -221,13 +220,11 @@ describe("which entry the rail marks current where the area has a landing", () =
     const markup = renderTree(
       underNext(
         h(Sidemenu, {
-          structure: LANDING,
+          entries: h(SidemenuEntries, { structure: LANDING, iconDictionary: ICONS }),
           linkPrefix: PREFIX,
           keepsSaisonQuery: false,
           saisonMetadataDisplay: null,
           funktionSwitcher: null,
-          iconDictionary: ICONS,
-          pathname,
           isMobileOpen: false,
           onMobileClose: () => undefined,
           isDesktopCollapsed: false,

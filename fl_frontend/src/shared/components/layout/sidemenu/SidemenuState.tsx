@@ -3,12 +3,19 @@
 import { createContext, useContext } from "react";
 
 import type { ReactNode } from "react";
+import type { LinkPrefix } from "../shell/linkPrefix";
 
-type SidemenuState = { isDesktopCollapsed: boolean; onMobileClose: () => void };
+type SidemenuState = {
+  isDesktopCollapsed: boolean;
+  onMobileClose: () => void;
+  linkPrefix: LinkPrefix;
+  keepsSaisonQuery: boolean;
+};
 
 /**
- * **A context rather than props**: a slot the shell is handed, `AppShell`'s `funktionSwitcher`, arrives
- * built by a layout that knows neither the rail's width nor the drawer, and may stream in under a guard.
+ * **A context rather than props**: a slot the shell is handed, `AppShell`'s `funktionSwitcher` or `entries`,
+ * arrives built by a layout that knows neither the rail's width, the drawer nor the area's prefix, and may
+ * stream in under a session read.
  */
 const SidemenuStateContext = createContext<SidemenuState | undefined>(undefined);
 

@@ -1816,6 +1816,7 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         aktionen_collection=database[Collection.AKTIONEN],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         sperrliste=ban_list(database),
         db=client,
         config=build_test_config(),

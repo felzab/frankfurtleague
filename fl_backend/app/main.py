@@ -47,6 +47,8 @@ from app.api.schiedsrichter.person_router import router as schiedsrichter_person
 from app.api.schiedsrichter.router import router as schiedsrichter_router
 from app.api.schiedsrichter.sweep_router import router as schiedsrichter_sweep_router
 from app.api.sperrliste.admin_router import router as sperrliste_admin_router
+from app.api.spielbestaetigungen.router import router as spielbestaetigungen_router
+from app.api.spielbestaetigungen.sweep_router import router as spielbestaetigungen_sweep_router
 from app.api.spiele.admin_router import router as spiele_admin_router
 from app.api.spiele.router import router as spiele_router
 from app.api.spieler.admin_router import router as spieler_admin_router
@@ -151,6 +153,7 @@ PUBLIC_ROUTERS = (
     schiedsrichter_bestaetigung_router,
     schiedsrichter_adresswechsel_router,
     spieler_adresswechsel_router,
+    spielbestaetigungen_router,
 )
 # Its own group for the same reason: system-tier operations the application makes to itself, which
 # neither tuple above describes. A POST that stores nothing sits here too, both guard sheets listing
@@ -164,6 +167,7 @@ SYSTEM_ROUTERS = (
     berechtigungen_sweep_router,
     identitaet_sweep_router,
     schiedsrichter_sweep_router,
+    spielbestaetigungen_sweep_router,
 )
 # Its own group, as the two above are: a signed-in person's routers read and write on the admin key
 # with a person's binder in place of `bind_actor`, which no tuple above describes. A sweep walking

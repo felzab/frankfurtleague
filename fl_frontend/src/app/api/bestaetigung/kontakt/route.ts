@@ -8,20 +8,20 @@ import { FLBewerbungEinwilligungAntwortPayloadSchema } from "@/features/bewerbun
 import { mapEinwilligungRefusal } from "@/features/bewerbungen/utils";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { handlePublicRequest } from "@/shared/utils/publicRoute";
+import { handlePublicRequest, readAfterAnsweredWrite } from "@/shared/utils/publicRoute";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type { FLBewerbungEinwilligungAntwortResponse } from "@/features/bewerbungen/schemas";
-import type { LinkZustand } from "@/features/bewerbungen/types";
+import type { EinwilligungAnsicht } from "@/features/bewerbungen/types";
 import type { NextRequest } from "next/server";
 
-/** Which way a seat answered in another window went; a failed read throws rather than guessing one. */
-async function beantworteterZustand(token: string): Promise<LinkZustand> {
-  const { zustand } = await getEinwilligungAnsicht(token);
+const ROUTE_NAME = "postEinwilligung";
 
-  // An open link is the write's refusal and this read disagreeing, and the panel naming nobody is the
-  // one answer that claims nothing about a record.
-  return zustand === "gueltig" || zustand === "saison_vorbei" ? "ungueltig" : zustand;
+// Never resolved in front of the mapper: a caller reading the view first spends a backend read on every refusal
+// naming one state alone.
+/** This link's own view, for the refusals that name a floor or a state the view tells apart. A failed read is `null`. */
+async function ansichtFuerToken(token: string): Promise<EinwilligungAnsicht | null> {
+  return readAfterAnsweredWrite(ROUTE_NAME, () => getEinwilligungAnsicht(token));
 }
 
 /**
@@ -76,7 +76,7 @@ async function notifyAnsprechperson(antwort: FLBewerbungEinwilligungAntwortRespo
  */
 export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {
-    routeName: "postEinwilligung",
+    routeName: ROUTE_NAME,
     run: async () => {
       const body: unknown = await request.json().catch(() => null);
 
@@ -88,24 +88,11 @@ export async function POST(request: NextRequest) {
       try {
         antwort = await postEinwilligung(parsed.data);
       } catch (error) {
-        // Read on this path alone: the age refusals spend nothing, so the link still answers the
-        // floors its own seats ask (`fl_frontend/src/features/bewerbungen/utils.ts :: mapEinwilligungRefusal`).
-        const ansicht = await getEinwilligungAnsicht(parsed.data.token).then(
-          (gelesen) => (gelesen.zustand === "gueltig" ? gelesen.ansicht : null),
-          () => null,
-        );
-
         // The refusal belongs under the field or on the dead-link panel, not on the error page.
-        const refusal = mapEinwilligungRefusal(error, ansicht?.mindestalter ?? null, ansicht?.medien_mindestalter ?? null);
+        const refusal = await mapEinwilligungRefusal(error, () => ansichtFuerToken(parsed.data.token));
         if (refusal === null) throw error;
 
-        // Destructured rather than spread whole: `nachlesen` is this handler's instruction, and the
-        // page has no arm for it.
-        const { nachlesen, ...panel } = refusal;
-
-        if (nachlesen === true) return { success: false as const, zustand: await beantworteterZustand(parsed.data.token) };
-
-        return { success: false as const, ...panel };
+        return { success: false as const, ...refusal };
       }
 
       // A season row's seat was typed in by an administrator: no application stands behind it, so no

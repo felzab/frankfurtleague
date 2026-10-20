@@ -3,6 +3,7 @@ import z from "zod";
 import { ANMELDUNG_CODE, ANMELDUNG_TAG } from "@/core/anmeldeTag";
 import { BERECHTIGUNG_HINWEIS, BERECHTIGUNG_TAG } from "@/core/berechtigungTag";
 import { SAISONENDE_NOTIZ, SAISONENDE_TAG } from "@/core/saisonendeTag";
+import { SPIELLEITUNG_HINWEIS, SPIELLEITUNG_TAG } from "@/core/spielleitungTag";
 import { FLZustellungEreignisPayloadSchema, FLZustellungZielSchema, zielHatSitze } from "@/features/zustellung/schemas";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
@@ -24,7 +25,17 @@ import type { FLBewerbung, FLBewerbungZustellungEreignisPayload, FLKontaktRolle 
  * operation names the log lines use: a tag value admits ASCII letters, digits, `_` and `-` alone.
  */
 export type ZustellAnlass =
-  "eingang" | "empfang" | "erinnerung" | "erneut" | "vollstaendig" | "widerspruch" | "loeschung" | "einladung" | "ablehnung";
+  | "eingang"
+  | "empfang"
+  | "erinnerung"
+  | "erneut"
+  | "vollstaendig"
+  | "widerspruch"
+  | "loeschung"
+  | "einladung"
+  | "ablehnung"
+  | "anfrage"
+  | "neue_ansetzung";
 
 /** One message and every seat it answers for. A mirrored pair is one message naming two seats. */
 export type ZustellSendung = {
@@ -130,6 +141,8 @@ const OHNE_EINTRAG = [
   { ziel: "berechtigung", tag: BERECHTIGUNG_TAG, wert: BERECHTIGUNG_HINWEIS },
   // The pupil's registration is erased before the season-end note goes.
   { ziel: "saisonende", tag: SAISONENDE_TAG, wert: SAISONENDE_NOTIZ },
+  // A referee's fixture row holds no seat to record a delivery on, and a seat kind refuses a send naming none.
+  { ziel: "spielleitung", tag: SPIELLEITUNG_TAG, wert: SPIELLEITUNG_HINWEIS },
 ] as const;
 
 /**

@@ -631,13 +631,35 @@ Every ruling below is the sign-up flow as it stands for the next season.
   and the season it ran to, and no barred address — for the twelve
   months every stamped log row is kept (`docs/backend/spec.md :: I48`, `:: I119`), so a removed ban
   is readable at `/bereich/admin/aktionen` for that period and enforced by nothing from the moment it goes.
+- **A club's answer about a fixture names its answerer by role, and what that person typed goes with
+  their erasure.** A seat's answer stores the role and a keyed digest of its holder's folded address
+  (`antwort.von.halter`, `fl_backend/app/api/spielbestaetigungen/services.py :: halter_of`), and never
+  the address or a name. The digest is pseudonymised personal data, as the anchor is, this controller
+  holding the key that recomputes it, and it is what lets the person's erasure, and their Widerspruch
+  on a season row, find every reason they typed from any seat they held and null it with the digest,
+  on the rows and in the log's images, another holder's staying (`docs/backend/spec.md :: I759`);
+  ruled 2026-10-19. Their seats' links and the delivery records of the messages that carried them go too, on answered
+  and closed rows as on open ones and in the log's images of those rows
+  (`fl_backend/app/api/spielbestaetigungen/crud.py :: redact_seat_entries_in_images`), as a seat's
+  own confirmation bookkeeping goes with its person
+  (`fl_backend/app/api/kontakte/services.py :: build_clearing_update`). Which way the club answered,
+  its day, the role and a proposed date stay: they are the club's, and name nobody once the digest
+  is gone. A referee's erasure removes every row naming them as its party rather than repointing it
+  at the ghost (`docs/backend/spec.md :: I761`).
 - **Free text that may name a person outlives their erasure.** A fixture's note (`spiele.notiz`),
   an application's wished opponent (`bewerbungen.wunschgegner`) and its decision's reason
   (`bewerbungen.entscheidung.grund`), a team's reason for leaving a season
   (`saison_teams.austritt.grund`), a registration's decision reason
   (`registrierungen.entscheidung.grund`) and a club's description (`teams.description`) are typed
   about others and keyed on no address, so no step reaches them: only a name could find them, and a
-  name search would take a namesake's text with it. The request an administrator's erasure answers
+  name search would take a namesake's text with it. A club's reason for declining a fixture's date
+  (`spielbestaetigungen.antwort.begruendung`) may name anyone, no name in it being checked; it goes
+  with its own writer's erasure (above), so a person it names, a squad pupil most likely, stays in it
+  past their own erasure until it is deleted with the season's contact data
+  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)); the reason box's hint asks for
+  no names, nothing enforces it, and the published notice says a name may stand in the reason
+  (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19, the unchecked text 2026-10-20. The request an
+  administrator's erasure answers
   (`aktionen.anlass`) stands on every log row that erasure files, for the log's twelve months
   (`docs/backend/spec.md :: I683`, `:: I119`). It is refused where it holds an address
   (`fl_backend/app/api/identitaet/schemas.py :: refuse_an_address_in_the_anlass`) or a name of the
@@ -842,8 +864,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   registration's with the registration at whichever of its clocks takes it, a referee's with
   their row on request or with the link a re-send replaces, and a season contact person's with
   their seat's link, which a re-send replaces and an erasure, the row's clearing or replacement and
-  the season-and-one clock below each remove. **A Widerspruch empties the seat and keeps its link
-  entry, the delivery state of the message included**, on an application until the application goes
+  the season-and-one clock below each remove; a fixture confirmation's sits beside each seat's link
+  on the row, which any write emptying or handing on that seat removes from every row of its team
+  that season, answered and closed ones too, the person's erasure and their Widerspruch on the season
+  row among them (`docs/backend/spec.md :: I758`), and which that same clock removes. **A Widerspruch
+  empties the seat and keeps its link entry, the delivery state of the message included**, on an application until the application goes
   and on a team's season row until a save fills that seat again or the row is cleared or replaced
   (`fl_backend/app/api/teams/services.py :: compose_bestaetigungen_nach`), because that entry is what lets
   the page answer a second press as already declined
@@ -870,6 +895,20 @@ Every ruling below is the sign-up flow as it stands for the next season.
   beside it with it (`fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison`). The consent text scopes
   itself to one season, and the clearing uses the mechanism the erasure already had. Ruled
   2026-09-02.
+- **A season's fixture confirmations keep the clubs' answers as the season's record, and lose from
+  that same clearing on everything that tells the people apart.** From the pass that clears the
+  contact blocks, every pass strips the season's `spielbestaetigungen` team rows of their reason, their
+  holder digest, their seats' link hashes and their delivery records, on the rows and in the log's
+  images, until nothing of them is left. The strip is a transaction of its own after the blocks'
+  share, so a failing strip holds back no block and is tried again on the next pass
+  (`fl_backend/app/api/bewerbungen/sweep_router.py :: strip_the_confirmations`,
+  `docs/backend/spec.md :: I757`). Which way each club answered,
+  its day, the answering role and a proposed date stay, naming nobody, and the rows have no clock of
+  their own, a season's fixtures being kept as the league's record. A person's erasure or
+  Widerspruch takes their part sooner ([section 5](#5-erasure-reaches-everyone-who-asks)). A
+  referee's rows hold the referee's id, no seat and no reason, and stand while the referee's row
+  does, their erasure removing them (`docs/backend/spec.md :: I761`). The published notice tabulates it
+  (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19.
 - **Timers in the frontend process are what turn those clocks from an intention into a mechanism**
   (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, calling
   `fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison` and
@@ -902,9 +941,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   change**, so a pass copying a late line into a day starts that day's thirty again. Each line names
   a requested erasure, or a consent its person withdrew, a Widerspruch or an address change declined
   through its link, and its person by keyed hashes of the address alone. An erasure's line holds
-  two, the journal's own and the pseudonym the action log and the day counts key that person on, so
-  a restore holding the address nowhere still finds those rows (`docs/backend/spec.md :: I666`, `:: I731`); a
-  choice's line holds the journal's one, beside the record that act changed and its moment, a
+  three, the journal's own, the pseudonym the action log and the day counts key that person on, and
+  the digest their fixture answers carry, so a restore holding the address nowhere still finds those
+  rows and the reasons those answers hold (`docs/backend/spec.md :: I666`, `:: I731`); a choice's
+  line holds the journal's one, beside the record that act changed and its moment, a
   withdrawal's text version and the withholding values it set, and the seats a Widerspruch emptied
   (`:: I706`). The day file keeps each line's whole log envelope, its trace and span ids among them,
   and the trace id joins the line to the edge's access line, which names the visitor's address for

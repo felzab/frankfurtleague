@@ -614,8 +614,8 @@ One person can hold several — a referee is a pupil, and a contact person can b
 | Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Pupil          | `/bereich/admin/spieler/{spieler_id}`, and the squad rows under each season; `/bereich/admin/registrierungen` for a registration still awaiting its team                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.entscheidung.von`), which no page renders and a read-only Playground query on that field finds                                                                                                                                                                                                                                                    |
+| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.partei.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds                                                                                                                                                                                                                                                                          |
+| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.entscheidung.von`), which no page renders and a read-only Playground query on that field finds; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                       |
 | Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address as the actor of every log row they wrote (`aktionen.actor.email`, `/bereich/admin/aktionen`) and as the author of every ban, invite and application decision they made (`sperrliste.erstellt_von`, `einladungen.erstellt_von`, `bewerbungen.entscheidung.von`), and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `erteilt_von` on every grant they made, and each queued notice naming them in `berechtigungen_postausgang` |
 | Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
@@ -634,6 +634,24 @@ their request is what deletes it then. Read the store for an access request: the
 address as the sign-in box folds it, in lower case
 (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`), and the `session`, `account` and
 `passkey` rows whose `userId` is that row's `_id`.
+
+**A contact person's fixture confirmations are found from their address only through its digest.**
+A seat's answer stores neither the address nor a name: the reason its holder typed
+(`antwort.begruendung`) sits beside a keyed digest of the holder's address (`antwort.von.halter`),
+so compute that address's digest under `secrets/sperrliste_schluessel` — the same derivation
+`fl_backend/app/api/spielbestaetigungen/services.py :: halter_of` performs, label and fold included
+— and look it up against `spielbestaetigungen.antwort.von.halter`, which finds every answer they
+gave from any seat. The paste belongs in the operator's own checklist, as the ban's does (below).
+Their seats' links and the delivery records of the messages that carried them sit under
+`kontakte.<seat>` on their club's rows of each season in which they hold a seat now (`saison_id`,
+`partei.team_id`), read beside that season's contact block, which says whose seat it is: a seat they
+have left took its entries off every row of that team and season, answered and closed ones too
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I758). Send the fixture, the answer, its day and the
+reason, and never the digest, the value that identifies them.
+**Once the season's contact block is cleared, its rows keep the answers alone**: the reasons, the
+digests, the links and the delivery records go with the block
+([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)), so an
+answer for that season names nobody to send.
 
 `/bereich/admin/aktionen` answers what was written about them and by whom, and is the only place that
 question is answered at all. **Two populations sit in that collection and only one has an expiry**:
@@ -970,8 +988,10 @@ sign being a second ban of an address already on the list admitted rather than r
 action log's pseudonyms of signed-in people too, so a replacement leaves one person's rows under two
 pseudonyms and the older can never be recomputed; the erasure journal's hashes, so every line
 written before a replacement matches no address a restore holds and its erasure cannot be run again
-after the restore (§13); and the addresses' anchors, which a replacement merely strands until their
-next expiry pass ([`../backend/spec.md`](../backend/spec.md#15-environment)). Treat it as
+after the restore (§13); the digests naming who answered a fixture confirmation, so an erasure
+after a replacement finds none of the reasons its person typed before it; and the addresses'
+anchors, which a replacement merely strands until their next expiry pass
+([`../backend/spec.md`](../backend/spec.md#15-environment)). Treat it as
 the one backend secret with no recovery: back it up where the database's own access details are
 backed up, and where it is genuinely gone, clear the list and enter the bans again from whatever
 record names the addresses.
@@ -1270,7 +1290,10 @@ failure, with the file, line and function it was raised in. The rest of that clo
 the named one stays due: every later pass names it again until its record is repaired
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I720). **An application whose
 announcement stamp is passed over is mailed its deletion notice again each day**, and stands past
-its fourteen days until the stamp lands or its season is `past`.
+its fourteen days until the stamp lands or its season is `past`. **The confirmation strip clock
+names the season**, as it takes an ended season's fixture confirmations whole: its line says what of
+theirs the season's end could not strip, the contact blocks clear all the same, and every later pass
+tries again ([`../backend/spec.md`](../backend/spec.md#2-invariants) I757).
 
 **A fresh date beside a `bewerbung.sweep_pass` or `registrierung.sweep_pass` warning is a clock
 passing rows over, not a pass that ran clean.** A clock failing on every row still moves its date,
@@ -1379,6 +1402,45 @@ so neither an activation nor a pass deletes a pupil until you set it.
 
 **Switching it off is that line set to `off`, and a deploy**: until the frontend has booted on it, a
 pass or a press can still delete.
+
+**The fixture confirmations run on a timer of their own wherever `SPIEL_SWEEP` reads `on`**, a
+minute after the frontend starts and then hourly, whatever any other switch reads
+(`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: armSpielSweep`). One call answers
+whether they ran, as the retention sweep's does:
+
+    docker compose exec frontend node -e "fetch('http://backend:8000/api/v0/spielbestaetigungen/sweep',{headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim()}}).then(r=>r.text()).then(console.log)"
+
+**`spiel_sweep_gelaufen_am` is the day the last pass ran**, today or yesterday on a healthy stack
+with the switch on, and null where none ever has. Each pass that could list the seasons writes one
+`spielbestaetigung.sweep_pass` line counting the rows it closed, the first requests and Einteilungen
+it stamped as asked, the reminders the backend stamped for it to mail, whether or not each then
+went, and the rows it passed over, at `INFO`, and as a warning under `FE-SWEEP-004` where it passed
+rows over. A season it could not sweep files `spielbestaetigung.sweep_failed` besides, and a listing
+that failed files that line and no pass line, its cache drop still running and filing
+`cache.revalidation_failed` where that fails. A request or an Einteilung whose stamp never landed
+is asked again on every pass until one does or its row's deadline passes, each address whose last
+mail the provider refused passed over, so a stamp call failing hour after hour mails those seats
+and referees hourly: switch the confirmations off until it is repaired. Every link such a mail
+carried stays live until the deadline beside the later ones. A `spielbestaetigung.sweep_skipped` line in every hour says a pass is stuck, which
+recreating the frontend service ends:
+
+    docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_
+
+**Turn the confirmations on once, on a day you choose: the first armed passes are a burst.**
+`SPIEL_SWEEP` ships off, so a deploy mails no team. Armed, the passes ask about every dated fixture
+of the running season inside the answer window
+(`fl_backend/app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE` plus
+`:: SPIEL_ANFRAGE_VORLAUF_TAGE` days ahead), every mailbox of both clubs' seats and each booked
+referee, spread over as many hourly passes as the per-pass share needs, and a fixture inside the
+deadline's own days is due the day it is asked.
+
+1. Add `SPIEL_SWEEP=on` to the server's `fl_frontend/.env` and deploy (§1). The frontend reads it
+   once as it boots.
+2. The next day, read `spiel_sweep_gelaufen_am` with the call above, and the pass lines.
+
+**Switching it off is that line set to `off`, and a deploy**, and it stops every season's fixture
+mail at once, the lever for an outage or a fault at the mail provider: until the frontend has booted
+on it, a pass can still mail.
 
 **The account sweep stores no date, so its own line in the frontend's log is the answer**
 ([`spec.md`](spec.md) §1.1). Every pass that completes writes one `konto.sweep_completed` line,
@@ -1584,14 +1646,32 @@ registrations written since the snapshot, and activate again a season whose acti
 the switch still off. Its deletions are re-derived rather than replayed: it journals none
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I691), so the steps below never list them.
 
+**Before restoring, switch `SPIEL_SWEEP` off as well (§9), and on again only once every step below
+is done:** the restore brings back every seat holder and referee erased since the snapshot, still
+seated or booked and holding their address, and a pass before their erasure runs again below mails
+them a request or a booking.
+
+**Switched on again, it asks once more about what the window asked**, the restore having taken back
+every confirmation row minted and every answer given since the snapshot:
+
+- **A request mailed inside the window** names a row that is gone, so its link answers nothing; the
+  first pass mints the fixture again and mails a fresh request.
+- **An answer given inside the window** is gone, and the fixture reads unconfirmed again. The link
+  of a first request mailed before the snapshot answers again; a reminder's mailed inside the
+  window does not.
+
+Write to each club mailed inside the window, which the mail provider's list of sent messages names
+by subject, that a link from those days answers nothing and an answer given then is to be given
+again.
+
 **The action log cannot be the list, because the restore rolls it back too; the erasure journal is.**
 Everything written between the snapshot and the restore is gone, the log's own rows about it
 included. Every erasure a person or an administrator asked for left one line in the backend's
 stream, and so did every consent a person withdrew, every Widerspruch made through a seat's link and
 every address change declined through its link, each naming its person by a keyed hash and never
-by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by, whether
-its commit landed or lost its answer ([`../backend/spec.md`](../backend/spec.md#2-invariants) I666,
-I706). §7's day files keep those lines outside the database for thirty days. **Once the restore has
+by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by and by
+the digest their fixture answers carry, whether its commit landed or lost its answer
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706). §7's day files keep those lines outside the database for thirty days. **Once the restore has
 completed, run the export once more**, which reads every journal line the backend's stream and the
 deploy copies of those thirty days still hold into the day files:
 
@@ -1636,10 +1716,11 @@ the export wrote no file for. Each line is listed by its act and its record, nev
   "held nowhere". Every stored spelling is matched, folded as the sign-in folds it: a registration
   or a contact seat keeps its address as typed. The `auth` database is not read, an account whose
   address no league record holds going with the account sweep within the hour (§5). Held nowhere,
-  the address leaves its pseudonym: where that still marks log rows or day counts, which a restore
-  brings back with the snapshot, the listing says how many, with the rows' ids, and reads `to replay`
-  ([`../backend/spec.md`](../backend/spec.md#2-invariants) I731); a line naming no pseudonym reads
-  `nothing to run`.
+  the address leaves its pseudonym and its holder digest: where the pseudonym still marks log rows or
+  day counts, or the digest still finds a confirmation or a log image holding a reason of theirs,
+  which a restore brings back with the snapshot, the listing says how many, with the log rows' ids,
+  and reads `to replay` ([`../backend/spec.md`](../backend/spec.md#2-invariants) I731); a line naming
+  neither a pseudonym nor a holder digest reads `nothing to run`.
 - **A choice** reads `to replay`; `already done` where the restored record already stands as the
   choice left it, or the restored site set it since: the choice granted again by evidence later than
   the line, the seat sent a link or the address a change on a day after the snapshot's; `left for
@@ -1659,8 +1740,9 @@ unreadable, naming files and never a value, or a validator not this build's; and
 again in a transaction of its own. A choice is written as its person's own press wrote it, the same
 update and the same log redaction, its evidence stamped with the instant on its line, the moment the
 person acted and never the replay's ([`../backend/spec.md`](../backend/spec.md#2-invariants) I710).
-An erasure held nowhere has its pseudonym's log rows marked and its day counts erased, as the erasure
-did, the log keeping one row for them under „Pseudonyme“ (I731). The action log records each under
+An erasure held nowhere has its pseudonym's log rows marked, its day counts erased and every reason
+its holder digest finds nulled with the digest, on the rows and in the log's images, as the erasure
+did (I731); the log keeps one row under „Pseudonyme“ for the marks and the counts. The action log records each under
 the system, its call reading `REPLAY` and the line's act, record and journalling instant, never its
 person nor the journal's token, and a second run writes nothing. **A record left for review is
 written by nothing**: read it beside the person's mail thread and settle it by hand, the listing

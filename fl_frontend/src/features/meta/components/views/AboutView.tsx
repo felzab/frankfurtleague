@@ -58,7 +58,7 @@ export function AboutView() {
           </span>
           <p className="fluid-base leading-relaxed font-medium text-pretty text-foreground">
             Die Finanzierung unserer Abschlussfeiern und Abibälle. Wir organisieren dafür einen stadtweiten Ligabetrieb im Großfeldfußball.
-            Jedes Spiel bringt durch Ticket- und Cateringverkäufe direkte Einnahmen für den ausrichtenden Jahrgang.
+            Jedes Spiel bringt durch Ticket- und Cateringverkäufe direkte Einnahmen für beide Jahrgänge.
           </p>
         </div>
       </MetaSection>

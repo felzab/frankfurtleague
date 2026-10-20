@@ -15,8 +15,8 @@ import type { ActionRequiredCategory } from "@/features/spiele/types";
  * takes the lookup lists as props (frontend spec I12). It runs `categorizeActionRequired` over the one
  * fixture, so that rule has a single copy.
  */
-export function AdminSpielEditView({ spielData, today }: { spielData: FLSpielAdmin; today: string }) {
-  const { teams, spielorte, schiedsrichter, saisonSpiele, numberOfGroups, isFinishedSaison } = useAdmin();
+export function AdminSpielEditView({ spielData, today, isSpielSweepOn }: { spielData: FLSpielAdmin; today: string; isSpielSweepOn: boolean }) {
+  const { teams, spielorte, schiedsrichter, saisonSpiele, numberOfGroups, isFinishedSaison, isActiveSaison } = useAdmin();
 
   /**
    * A function and not a set, because the answer moves with the draft: toggling Absage empties "Offene
@@ -42,7 +42,9 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpielAdm
         saisonSpiele={saisonSpiele}
         numberOfGroups={numberOfGroups}
         isFinishedSaison={isFinishedSaison}
+        isActiveSaison={isActiveSaison}
         today={today}
+        isSpielSweepOn={isSpielSweepOn}
         categorize={categorize}
         pageHeader={{
           title: `Spiel ${String(spielData.spiel_nr)}`,

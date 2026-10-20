@@ -2,12 +2,13 @@ import { refresh, updateTag } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
 import { isFreshlySignedIn, judgeAdminRequest } from "@/core/auth";
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } from "@/core/errors";
+import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { declareWriteTags, requestWriteSent, requestWriteTags } from "@/core/requestScope";
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
 
-import { outcomeUnknown, ZUGANG_WEG } from "./actionError";
+import { ANMELDUNG_ABGELAUFEN, outcomeUnknown, ZUGANG_WEG } from "./actionError";
+import { logCodedFailure } from "./degradedRead";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "./refusal";
 import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
@@ -18,12 +19,6 @@ import type { StepUpDemand } from "@/shared/components/ui/stepUp";
 import type { ActionFailure } from "@/shared/types/types";
 import type { Wording } from "./actionError";
 import type { FieldErrors } from "./validation";
-
-/**
- * What an admin write answers a session a sign-in repairs: none, or one short of the administrator's
- * factor or window. It reaches a toast, so it names the remedy rather than the role that is absent.
- */
-export const ADMIN_FORBIDDEN = "Deine Sitzung hat keine Administratorrechte. Melde Dich neu an.";
 
 /** A grant the backend did not answer: nothing ran, and a sign-in would meet the same unread grant. */
 export const BERECHTIGUNG_UNGELESEN = "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen.";
@@ -103,12 +98,7 @@ async function runGuarded<S, T extends { success: boolean }>(
       // A framework control-flow throw (redirect(), notFound()) is a navigation rather than a failure.
       unstable_rethrow(error);
 
-      const typed = error instanceof APIBadStatusError || error instanceof APINetworkError || error instanceof APIMalformedDataError;
-      logger.error(`${guard.lane} mutation failed: ${mutationName}`, error, {
-        error_code: typed || error instanceof ApiUnsentError ? error.code : "FE-ACT-001",
-        server_error_code: error instanceof APIBadStatusError ? error.serverErrorCode : undefined,
-        status: error instanceof APIBadStatusError || error instanceof APIMalformedDataError ? error.statusCode : undefined,
-      });
+      logCodedFailure(`${guard.lane} mutation failed: ${mutationName}`, error, "FE-ACT-001");
 
       // Judged by what this request sent, a server action being a POST whatever it does.
       answer = answerThrow(error, guard.wording);
@@ -181,7 +171,7 @@ function judgingGuard(): { readonly guard: Guard<AdminSession>; readonly verdict
 
 /** Each reason the guard turns an admin write away for, in the words of its remedy; a record, so a reason added to the guard is worded here. */
 export const FORBIDDEN_BY_REFUSAL: Readonly<Record<AdminRefusal, string>> = {
-  signIn: ADMIN_FORBIDDEN,
+  signIn: ANMELDUNG_ABGELAUFEN,
   // One sentence for an address holding no grant, whether it was revoked or never held: no sign-in repairs either.
   noGrant: ZUGANG_WEG,
   grantGone: ZUGANG_WEG,
@@ -246,10 +236,6 @@ function isConfirmationRefused(error: unknown): error is APIBadStatusError {
 function confirmationRefused(mutationName: string, error: unknown): StepUpRequired {
   if (!isConfirmationRefused(error)) throw error;
 
-  logger.error(`Admin mutation refused for want of a confirmation: ${mutationName}`, error, {
-    error_code: error.code,
-    server_error_code: error.serverErrorCode,
-    status: error.statusCode,
-  });
+  logCodedFailure(`Admin mutation refused for want of a confirmation: ${mutationName}`, error, "FE-ACT-001");
   return stepUpRequired();
 }

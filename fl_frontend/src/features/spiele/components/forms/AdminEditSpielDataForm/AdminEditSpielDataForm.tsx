@@ -26,7 +26,7 @@ import { patchAdminSpielDataAction, undoAdminSpielEditAction } from "../../../ac
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
 import { buildPatchSpielDataPayloadSchema, FLPatchSpielDataPayloadSchema } from "../../../schemas";
 import { collectKnockoutTeamIds, collectSpieltagTeamOccupancy, isFirstKnockoutRound, listDependentSpiele, toStoredSide } from "../../../utils";
-import { buildSpielBanners, isSpielRefusalBannerId, isSpielRefusalCode } from "./banners";
+import { ansetzungGeaendert, buildSpielBanners, isSpielRefusalBannerId, isSpielRefusalCode } from "./banners";
 import { FormAnsetzungSection } from "./FormAnsetzungSection";
 import { FormErgebnisSection } from "./FormErgebnisSection";
 import { FormMatchupSection } from "./FormMatchupSection";
@@ -61,7 +61,7 @@ import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeade
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate, Time } from "@internationalized/date";
-import type { SpielRefusalCode } from "./banners";
+import type { SpielBannerAnsetzung, SpielRefusalCode } from "./banners";
 
 /**
  * Lookup lists arrive as props: `useAdmin()` here would make `spiele` depend on `admin`.
@@ -77,7 +77,9 @@ export function AdminEditSpielDataForm({
   saisonSpiele,
   numberOfGroups,
   isFinishedSaison,
+  isActiveSaison,
   today,
+  isSpielSweepOn,
   categorize,
   pageHeader,
 }: {
@@ -89,7 +91,10 @@ export function AdminEditSpielDataForm({
   /** The season's `rules.number_of_groups`, bounding the Herkunft group offer; `null` offers all. */
   numberOfGroups: number | null;
   isFinishedSaison: boolean;
+  isActiveSaison: boolean;
   today: string;
+  /** `SPIEL_SWEEP` reads `on`, so the confirmations' pass runs at all. */
+  isSpielSweepOn: boolean;
   /** Rendered inside the scroll container, so it scrolls while the action bar stays put. */
   pageHeader: EditPageHeaderContent;
   /**
@@ -255,6 +260,21 @@ export function AdminEditSpielDataForm({
   const dropsShootOut =
     hasEnteredShootOut && elfmeterschiessenInDraft === null && admitsShootOut(spielData.saison_phase, team1Payload, team2Payload, null);
 
+  const ansetzung: SpielBannerAnsetzung = {
+    datum: draft.datum,
+    uhrzeit: draft.uhrzeit,
+    spielortId: ortPayload?.spielort_id ?? null,
+    team1Id: team1Payload?.team_id ?? null,
+    team2Id: team2Payload?.team_id ?? null,
+  };
+  const storedAnsetzung: SpielBannerAnsetzung = {
+    datum: spielData.datum,
+    uhrzeit: spielData.uhrzeit,
+    spielortId: spielData.ort?.spielort_id ?? null,
+    team1Id: spielData.team1?.team_id ?? null,
+    team2Id: spielData.team2?.team_id ?? null,
+  };
+
   // The void and release entries name fixtures the dry run actually voided, never possibilities —
   // so a `null` preview contributes no fixture, never "nothing would be lost", and a failed one says so.
   const banners = buildSpielBanners({
@@ -289,12 +309,23 @@ export function AdminEditSpielDataForm({
     sonderereignis,
     dependentSpielNummern: dependentSpiele.map((spiel) => spiel.spiel_nr),
     hasAnyTore,
+    hasShootOut: elfmeterschiessenInDraft !== null,
     hasDecidedErgebnis,
     dropsShootOut,
     voidedSpielNummern: voidPreview.preview?.voided ?? [],
     releasedSpielNummern: voidPreview.preview?.released ?? [],
     voidPreviewFailed: voidPreview.failed,
     refusalCode: refusal?.key === refusalKey ? refusal.code : null,
+    ansetzung,
+    storedAnsetzung,
+    isActiveSaison,
+    isSpielSweepOn,
+    // From `teams`, which joins each club's exit on every read; the payload's copy of a side carries none.
+    austrittTage: [team1Payload, team2Payload].flatMap((seite) => {
+      const datum = teams.find((team) => team.id === seite?.team_id)?.austritt?.datum;
+      return datum === undefined ? [] : [datum];
+    }),
+    today,
   });
 
   // Forgiveness runs on every draft change and only ever RETRACTS: a corrected field clears without a blur.
@@ -473,6 +504,8 @@ export function AdminEditSpielDataForm({
             rail={
               <SpielRail
                 previewSpiel={previewSpiel}
+                // The served verdict is about the stored Ansetzung, so it stands while the draft keeps that one.
+                ansetzungBestaetigt={ansetzungGeaendert(ansetzung, storedAnsetzung) ? null : spielData.ansetzung_bestaetigt}
                 today={today}
                 isFinishedSaison={isFinishedSaison}
                 banners={banners}

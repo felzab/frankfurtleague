@@ -1202,6 +1202,7 @@ def joined(
         "sonderereignis": sonderereignis,
         "saison_phase": saison_phase,
         "saison_id": SAISON_ID,
+        "ansetzung_bestaetigt": None,
     }
 
 

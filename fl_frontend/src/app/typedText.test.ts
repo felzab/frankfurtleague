@@ -81,6 +81,11 @@ const refusedCeremony = () => Promise.resolve({ data: null, error: { status: 400
 registerDoubles({
   modules: {
     "features/konto/sicherheit.ts": { readSicherheit: () => Promise.resolve(SICHERHEIT) },
+    // The erasure link's read of the grant holder's session, which opens the same store; the holder has a passkey.
+    "features/konto/loeschungStepUp.ts": {
+      readGrantHolderStepUp: () =>
+        Promise.resolve({ stepUp: { freshUntil: null, enrolmentUntil: null, servedAt: 0, holderId: SICHERHEIT.inhaberId }, hasPasskey: true }),
+    },
     // The browser's credential calls, which a press reaches and this runner has none of.
     "core/authClient.ts": { authClient: { passkey: { addPasskey: refusedCeremony }, signIn: { passkey: refusedCeremony } } },
     // The app's one way to load a document, recorded with the address jsdom's own notice leaves out.
@@ -90,6 +95,9 @@ registerDoubles({
     },
   },
 });
+
+/* `await import`, never a static import beside the doubles, which register as this module evaluates. */
+const { LINK_UNLESBAR_TITEL } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
 
 /** Open for applications and for registrations, so the public forms render rather than their closed panels. */
 const FENSTER = { offen: true, von: "2026-01-01", bis: "2026-12-31" };
@@ -176,6 +184,15 @@ const LISTED: Readonly<Record<string, Record<string, unknown>>> = {
     ],
   },
   [`/spieler/kader/${OBJECT_ID}/2026`]: { team_id: OBJECT_ID, saison_id: "2026", erlaubte_stufen: ["Q1"], kader: [KADER_ZEILE] },
+  // The fixture a club's link opens, open for an answer: its dates take no empty value, so `OPEN` alone answers none.
+  "/spielbestaetigungen/ansicht": {
+    zustand: "gueltig",
+    seite: "team1",
+    ansetzung: { team1_name: CLUB.name, team2_name: "FC Beta", datum: "2026-11-07", uhrzeit: "14:30:00", spielort: null },
+    frist: "2026-10-31",
+    vorschlag: null,
+    beantwortet_von: null,
+  },
 };
 
 /** What a read answers wherever its schema takes it: a link still valid, a window running. */
@@ -229,6 +246,9 @@ const LINKED: ReadonlySet<string> = new Set([
   "(public)/bestaetigung/schiedsrichter/page.tsx",
   "(public)/bestaetigung/schiedsrichter/adresse/page.tsx",
   "(public)/bestaetigung/spieler/page.tsx",
+  "(public)/bestaetigung/spieler/adresse/page.tsx",
+  "(public)/bestaetigung/spiel/page.tsx",
+  "(public)/loeschung/page.tsx",
 ]);
 
 /** Every URL the page's own script sent, by each of the browser's ways to send one that the app could reach for. */
@@ -320,6 +340,9 @@ const NAVIGATIONS: ReadonlySet<Way> = new Set(["router.push", "router.replace", 
 
 /** What one action on the page did: typing into a field by its accessible name, or a press, and each trace it left. */
 type Reached = { name: string; typed: boolean; traces: Trace[] };
+
+/** What a page showed before the sweep touched it: its headings, and how many forms and buttons a reader could answer with. */
+type FirstView = { headings: string[]; controls: number };
 
 const ROLES = ["textbox", "searchbox", "combobox"] as const;
 
@@ -571,7 +594,11 @@ const MOST_PRESSED = 150;
  * Types a marker into every field the page shows and submits each form holding one, then opens every closed control,
  * picking each option, and presses every other button: what each action reached that it never may.
  */
-async function typeIntoEvery(tree: ReactNode, pathname: string, params: Record<string, string | string[]>): Promise<Reached[]> {
+async function typeIntoEvery(
+  tree: ReactNode,
+  pathname: string,
+  params: Record<string, string | string[]>,
+): Promise<{ firstView: FirstView; reached: Reached[] }> {
   const prefetched: string[] = [];
   const { router, seen } = recordingRouter({ prefetch: (href: string) => void prefetched.push(href) });
   const watched = watching(window.document);
@@ -586,6 +613,10 @@ async function typeIntoEvery(tree: ReactNode, pathname: string, params: Record<s
   try {
     const { container } = render(underNext(tree, { router, pathname, params }));
     await act(async () => undefined);
+    const firstView: FirstView = {
+      headings: [...container.querySelectorAll("h1, h2, h3, h4, h5, h6")].map((heading) => (heading.textContent ?? "").trim()),
+      controls: container.querySelectorAll('form, button, [role="button"]').length,
+    };
     // Every write a submit or a press sends from here is refused: the one answer each action shares, where a success is
     // shaped as its own action answers it, and a handler handed another's shape takes the page down.
     answerWith(() => Promise.resolve(REFUSED));
@@ -690,7 +721,7 @@ async function typeIntoEvery(tree: ReactNode, pathname: string, params: Record<s
       // A press opening a dialog, a confirmation among them, closes it again before the next.
       if (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) await press("Escape", escape);
     }
-    return reached;
+    return { firstView, reached };
   } finally {
     cleanup();
     consoleError.mock.restore();
@@ -698,24 +729,40 @@ async function typeIntoEvery(tree: ReactNode, pathname: string, params: Record<s
   }
 }
 
-/** What one page did: threw on the way to its tree, or rendered and reached these. */
-type Visit = { thrown: unknown } | { reached: Reached[] };
+/** What one page did: threw on the way to its tree, or rendered and reached these; and which query parameters it read. */
+type Visit = ({ thrown: unknown } | { firstView: FirstView; reached: Reached[] }) & { asked: ReadonlySet<string> };
+
+/**
+ * A page's query parameters as it reads them: none answered, every name it asks for recorded. Read off the render rather
+ * than the source, so a token reached through a helper or a renamed binding is caught alike.
+ */
+function askedParameters(): { searchParams: Record<string, string>; asked: Set<string> } {
+  const asked = new Set<string>();
+  // `then` is `Promise.resolve`'s own question of every value it settles, never the page's.
+  const record = (_target: object, name: string | symbol): undefined => {
+    if (typeof name === "string" && name !== "then") asked.add(name);
+    return undefined;
+  };
+
+  return { searchParams: new Proxy({}, { get: record }), asked };
+}
 
 async function visit(page: string): Promise<Visit> {
   const { default: Page } = (await import(pathToFileURL(page).href)) as { default: (props: unknown) => unknown };
   const { params, pathname } = addressOf(page);
   if (label(page).startsWith("(public)/")) setSession(null);
 
+  const unlinked = askedParameters();
   let tree: ReactNode;
   try {
     tree = await resolvedPage(Page, {
       params: Promise.resolve(params),
-      searchParams: Promise.resolve(LINKED.has(label(page)) ? { token: "zz-link-aus-der-mail" } : {}),
+      searchParams: Promise.resolve(LINKED.has(label(page)) ? { token: "zz-link-aus-der-mail" } : unlinked.searchParams),
     });
   } catch (error) {
-    return { thrown: error };
+    return { thrown: error, asked: unlinked.asked };
   }
-  return { reached: await typeIntoEvery(tree, pathname, params) };
+  return { ...(await typeIntoEvery(tree, pathname, params)), asked: unlinked.asked };
 }
 
 const NOT_MATCHED = "the area's 404, answered for an address no other route takes";
@@ -1038,7 +1085,7 @@ describe("what a visitor types into a page", () => {
   /* The control: a sweep blind to one of these passes a page taking it. */
   for (const { way, trace, tree } of WAYS_OUT) {
     it(`is caught leaving by ${way}`, async () => {
-      const reached = await typeIntoEvery(tree, "/kontrolle", {});
+      const { reached } = await typeIntoEvery(tree, "/kontrolle", {});
 
       assert.ok(
         reached.some((each) => each.typed),
@@ -1054,6 +1101,8 @@ describe("what a visitor types into a page", () => {
   for (const page of PAGES) {
     it(`reaches no URL from ${label(page)}`, async () => {
       const visited = await visit(page);
+      // Visited without one, a page reading a token renders only its dead-link panel, and the floor below never reaches it.
+      assert.ok(!visited.asked.has("token"), "the page reads a link's token: add it to `LINKED`, so the sweep opens it with one");
       const excuse = TURNED_AWAY[label(page)];
       if ("thrown" in visited) {
         assert.ok(isNavigation(visited.thrown), `the page crashed: ${String(visited.thrown)}`);
@@ -1065,6 +1114,13 @@ describe("what a visitor types into a page", () => {
         return;
       }
       assert.equal(excuse, undefined, "the page renders: drop its excuse, so the sweep types into it");
+      // A link whose read the sweep cannot answer opens on a panel holding links alone, nothing to type into or press.
+      if (LINKED.has(label(page))) {
+        assert.ok(
+          !visited.firstView.headings.includes(LINK_UNLESBAR_TITEL) && visited.firstView.controls > 0,
+          `the link opened on no form and no button, so the sweep proved nothing about it; answer its read in \`LISTED\`: ${visited.firstView.headings.join(" | ")}`,
+        );
+      }
 
       const byDesign = URL_BY_DESIGN[label(page)] ?? {};
       const leaked = visited.reached.flatMap(({ name, typed, traces }) => {

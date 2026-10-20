@@ -9,9 +9,7 @@ import { PERSON_ACTION_MODULES, srcPathOf } from "@/shared/testing/actionLanes.t
 
 const { setRefusal } = doubleActionRequest({ session: null });
 
-const { ADMIN_FORBIDDEN } = await import("./adminMutation.ts");
-const { KONTO_FORBIDDEN } = await import("./kontoMutation.ts");
-const { AENDERUNG_STEHT_WEITERHIN } = await import("./actionError.ts");
+const { AENDERUNG_STEHT_WEITERHIN, ANMELDUNG_ABGELAUFEN } = await import("./actionError.ts");
 
 /**
  * The two actions that authorize nobody, named by export rather than by their slice, so an admin action added
@@ -98,7 +96,7 @@ const expectedOf = (
       action,
       {
         success: false,
-        error: ACCOUNT_ACTIONS.has(action) ? KONTO_FORBIDDEN : UNDO_ACTIONS.has(action) ? undoLane : adminLane,
+        error: ACCOUNT_ACTIONS.has(action) ? ANMELDUNG_ABGELAUFEN : UNDO_ACTIONS.has(action) ? undoLane : adminLane,
       },
     ]),
   );
@@ -109,7 +107,7 @@ describe("every admin server action", () => {
   it("answers a caller with no admin session through the spine's guard, before any work", async () => {
     const { answers, exempted } = await answerOfEveryAction();
 
-    assert.deepEqual(answers, expectedOf(answers, ADMIN_FORBIDDEN), "an action did work for a caller nobody authorized");
+    assert.deepEqual(answers, expectedOf(answers, ANMELDUNG_ABGELAUFEN), "an action did work for a caller nobody authorized");
     // Each exemption met its export, so one outliving its action cannot stand ready for a later one of that name.
     assert.deepEqual([...exempted].sort(), [...AUTHORIZES_NOBODY].sort());
     assert.deepEqual(

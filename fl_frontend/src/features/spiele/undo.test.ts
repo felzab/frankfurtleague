@@ -194,7 +194,7 @@ describe("the match save's undo, driven", () => {
 
     assert.deepEqual(answered, {
       success: false,
-      error: "Deine Sitzung hat keine Administratorrechte. Melde Dich neu an. Die Änderung steht weiterhin.",
+      error: "Deine Anmeldung ist abgelaufen. Melde Dich neu an. Die Änderung steht weiterhin.",
     });
     assert.equal(calls.length, 0);
   });

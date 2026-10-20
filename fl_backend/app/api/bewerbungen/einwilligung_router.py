@@ -50,8 +50,11 @@ from app.api.bewerbungen.services import (
     zustand_of,
 )
 from app.api.einwilligung.services import find_fassung_refusal, find_selbst_medien_refusal
-from app.api.kontakte.crud import redact_the_decliner
+from app.api.kontakte.crud import redact_the_decliner, remove_their_reasons
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
+from app.api.spielbestaetigungen.services import kontakte_ohne, seat_void_of
+from app.api.teams.crud import void_moved_seats
 from app.api.teams.services import kontakt_zeile_of
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -62,6 +65,7 @@ from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
     SaisonTeamsCollection,
+    SpielbestaetigungenCollection,
     TeamsCollection,
     get_german_date_str,
     get_germany_now,
@@ -235,6 +239,7 @@ async def post_einwilligung(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     aktionen_collection: AktionenCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -262,7 +267,10 @@ async def post_einwilligung(
     A link on a team's season row (`quelle: saison`) is answered the same way on that row, refused in the same order but
     for `REQ-BEWERBUNG-010`, nothing deciding a season row, and its answer carries nothing to compose a message from. Its
     own deadline passed is `REQ-KONTAKT-004`, and a consent once its season has ended or its team has left it is
-    `REQ-KONTAKT-006`, a Widerspruch being taken all the same.
+    `REQ-KONTAKT-006`, a Widerspruch being taken all the same. A Widerspruch there also voids the seat's links on the
+    team's match confirmations of that season, answered and closed ones too, takes those links and their mails' delivery
+    records out of the confirmations' log images, and takes every reason its person typed answering a match confirmation,
+    from any seat they held, from its row and its log images, the answer standing.
     """
 
     token_hash = hash_token(antwort_data.token)
@@ -345,12 +353,33 @@ async def post_einwilligung(
                 ergebnis="bestaetigt", geburtsdatum=geburtsdatum, whatsapp=antwort_data.whatsapp, medien=antwort_data.medien
             )
 
-        await patch_one_in_db(
+        before = await patch_one_in_db(
             collection=saison_teams_collection,
             db_filter={"_id": row["_id"]},
             update=compose_saison_decline_update(seats=seats, today=today),
             session=session,
             return_document=ReturnDocument.BEFORE,
+        )
+        # The emptied seats' links on the team's confirmations, answered and closed ones too, go with them (`docs/backend/spec.md :: I758`).
+        stored_kontakte = before.get("kontakte")
+        voids = [
+            seat_void_of(
+                saison_id=before["saison_id"],
+                team_id=before["team_id"],
+                stored_kontakte=stored_kontakte,
+                kontakte=kontakte_ohne(stored_kontakte, seats),
+            )
+        ]
+        await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
+        await redact_seat_entries_in_images(aktionen_collection=aktionen_collection, voids=voids, stamp=am, session=session)
+        # As an erasure takes them: the person's reasons on every confirmation, from whichever seat they typed them.
+        await remove_their_reasons(
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            aktionen_collection=aktionen_collection,
+            adressen=seat_adressen(kontakte=kontakte, seats=seats),
+            schluessel=config.sperrliste_schluessel,
+            stamp=am,
+            session=session,
         )
 
         # LAST, for the application's reason: it reaches the pre-image the clearing patch just filed,

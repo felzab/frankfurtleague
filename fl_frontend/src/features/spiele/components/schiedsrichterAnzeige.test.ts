@@ -50,6 +50,7 @@ const A_FIXTURE: FLSpiel = {
   saison_phase: "gruppenphase",
   saison_id: "2026",
   notiz: null,
+  ansetzung_bestaetigt: null,
 };
 
 /** The fixture as the draft preview reads it: the admin shape, so the fee is present. */
@@ -68,7 +69,9 @@ function draftOf(name: string | null, { booked = true, id = REFEREE_ID } = {}): 
  * the same placeholder, so a search over the markup cannot tell which of the two produced one.
  */
 function refereeCell(spiel: FLSpielWithDraftFields): string {
-  const rendered = textOf(renderMarkup(SpielDraftPreview, { previewSpiel: spiel, today: TODAY, isDirty: false, isFinishedSaison: false }));
+  const rendered = textOf(
+    renderMarkup(SpielDraftPreview, { previewSpiel: spiel, ansetzungBestaetigt: null, today: TODAY, isDirty: false, isFinishedSaison: false }),
+  );
   const at = rendered.indexOf("Schiedsrichter");
 
   assert.notEqual(at, -1, `the preview rendered no referee cell at all: ${rendered}`);

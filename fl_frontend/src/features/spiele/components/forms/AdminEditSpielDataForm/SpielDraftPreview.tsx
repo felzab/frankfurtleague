@@ -18,11 +18,14 @@ import type { FLSpielWithDraftFields } from "@/features/spiele/schemas";
  */
 export function SpielDraftPreview({
   previewSpiel,
+  ansetzungBestaetigt,
   today,
   isDirty,
   isFinishedSaison,
 }: {
   previewSpiel: FLSpielWithDraftFields;
+  /** The served verdict where the draft keeps the stored Ansetzung it is about, `null` where it moved one of the five. */
+  ansetzungBestaetigt: boolean | null;
   today: string;
   isDirty: boolean;
   isFinishedSaison: boolean;
@@ -60,7 +63,10 @@ export function SpielDraftPreview({
           <span className="muted-meta">{uhrzeit}</span>
         </div>
         <div className="flex w-full flex-row flex-wrap items-center gap-2">
-          <SpielStatusChip spielStatus={spielStatus} />
+          <SpielStatusChip
+            spielStatus={spielStatus}
+            ansetzungBestaetigt={ansetzungBestaetigt}
+          />
           <SaisonPhaseChip saisonPhase={previewSpiel.saison_phase} />
         </div>
       </div>

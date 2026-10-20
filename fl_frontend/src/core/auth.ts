@@ -9,6 +9,7 @@ import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { passkey } from "@better-auth/passkey";
 import { betterAuth, getCurrentAdapter } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
+import { getSessionCookie, SECURE_COOKIE_PREFIX } from "better-auth/cookies";
 import { makeSignature } from "better-auth/crypto";
 import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins/email-otp";
@@ -871,6 +872,29 @@ async function eraseBeforeTheAccount(user: { id: string; email: string }): Promi
   await deleteSignInRowsOf(adapter, secret, user.email, user.id);
 }
 
+/**
+ * Host-bound over https (`docs/frontend/spec.md :: I401`). Through the prefix and never a cookie name: the
+ * library puts `__Secure-` ahead of any name while `useSecureCookies` is on, and a `__Secure-__Host-` cookie
+ * is bound to no host.
+ */
+const cookieNaming = (origin: URL): { useSecureCookies?: false; cookiePrefix?: string } =>
+  origin.protocol === "https:" ? { useSecureCookies: false, cookiePrefix: `__Host-${MONGO_DB_NAME}` } : {};
+
+/**
+ * The session cookie the request carries, read as the library names it and never validated: the proxy's
+ * optimistic check, which reads no store and slides nothing (`docs/frontend/spec.md :: I243`).
+ */
+export function sessionCookieOf(requestHeaders: Headers): string | null {
+  // The library reads a `__Secure-` spelling of the name ahead of the name, which a sibling subdomain can plant where it
+  // cannot plant a `__Host-` one. This origin writes none, `useSecureCookies` being off, so none is read.
+  const ownCookies = (requestHeaders.get("cookie") ?? "")
+    .split(";")
+    .filter((pair) => !pair.trimStart().startsWith(SECURE_COOKIE_PREFIX))
+    .join(";");
+
+  return getSessionCookie(new Headers({ cookie: ownCookies }), { cookiePrefix: cookieNaming(new URL(frontend_config.AUTH_URL)).cookiePrefix });
+}
+
 // Called by `build`, never at import: `next build` imports this module in every page-data worker
 // holding no environment, where neither the URL nor the client can be built
 // (`docs/frontend/spec.md :: I45`). `origin` gives both halves of the WebAuthn binding.
@@ -897,10 +921,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
       database: { joins: true },
       // The edge's own access line already carries the address, under a bound (`docs/datenschutz.md` §6).
       ipAddress: { disableIpTracking: true },
-      // Host-bound over https (`docs/frontend/spec.md :: I401`). Through the prefix and never a cookie
-      // name: the library puts `__Secure-` ahead of any name while `useSecureCookies` is on, and a
-      // `__Secure-__Host-` cookie is bound to no host.
-      ...(origin.protocol === "https:" ? { useSecureCookies: false, cookiePrefix: `__Host-${MONGO_DB_NAME}` } : {}),
+      ...cookieNaming(origin),
     },
 
     // Never "hashed": the hook below matches a code row by its plain prefix, and each bound writes through
@@ -1545,8 +1566,8 @@ export async function readAdmittedSession(requestHeaders: Headers): Promise<Serv
  * refresh past `updateAge` lands whole, `nextCookies()` carrying its cookie onto the proxy's answer
  * (`docs/frontend/spec.md :: I495`).
  */
-export async function slideSession(requestHeaders: Headers): Promise<ServedSession | null> {
-  return readLibrarySession(requestHeaders, true);
+export async function slideSession(requestHeaders: Headers): Promise<void> {
+  await readLibrarySession(requestHeaders, true);
 }
 
 /**
@@ -1570,7 +1591,7 @@ export function endedByItsAccount({ user, session }: { user: object; session: ob
  * holds made it: a sign-in racing that passkey's removal inserts its session after the removal's
  * sign-out ran (`docs/frontend/spec.md :: I313`).
  */
-export async function servedSessionOf(served: ServedSession | null): Promise<ServedSession | null> {
+async function servedSessionOf(served: ServedSession | null): Promise<ServedSession | null> {
   if (served === null || endedByItsAccount(served)) return null;
   if (served.session.authFactor !== PASSKEY_FACTOR) return served;
 
@@ -1745,8 +1766,7 @@ async function ended(read: ServedSession): Promise<Landing> {
 async function destinationOf(served: ServedSession, verwaltung: Verwaltung): Promise<SignInDestination> {
   if (verwaltung.verwaltung !== null) {
     // The guard's own verdict rather than a second spelling of it: `/bereich` sends a granted session
-    // the guard refuses on to `/bereich/admin`, which the proxy (a session no passkey made) or
-    // `runAdminRead` (any other refused one) sends back here.
+    // the guard refuses on to `/bereich/admin`, whose guards send it back here.
     if (isAdminSession(served, verwaltung)) return "/bereich";
 
     // Where the passkey page has no step to offer, the session is spent, and an administrator signs in

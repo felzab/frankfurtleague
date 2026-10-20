@@ -13,9 +13,20 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import BulkWriteError, DuplicateKeyError
 from pymongo.helpers_shared import _index_document
+from pymongo.results import DeleteResult
 
 from app.core.collections import Collection
-from app.core.crud import DUPLICATE_KEY_ERROR, build_query, build_sort, literal_pattern, patch_one_in_db, post_many_to_db, pull_one_from_db
+from app.core.crud import (
+    DUPLICATE_KEY_ERROR,
+    build_query,
+    build_sort,
+    delete_many_from_db,
+    erase_many_from_db,
+    literal_pattern,
+    patch_one_in_db,
+    post_many_to_db,
+    pull_one_from_db,
+)
 from app.core.exception_handlers import refused_index_of
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.shared.schemas.custom import CustomObjectId
@@ -285,6 +296,52 @@ class TestPatchOneInDb:
         assert excinfo.value.error_code == DOCUMENT_NOT_FOUND
         # The filter travels with the exception, which is what lets the handler log what was looked for.
         assert excinfo.value.filter == FILTER
+
+
+class _Cursor:
+    def __init__(self, documents: list[Mapping[str, Any]]) -> None:
+        self.documents = documents
+
+    async def to_list(self, length: int | None) -> list[Mapping[str, Any]]:
+        return self.documents
+
+
+class _SetCollection(_OneDocumentCollection):
+    """Answers a removal's read and its delete with the set the test hands it."""
+
+    def __init__(self, documents: list[Mapping[str, Any]]) -> None:
+        super().__init__(None)
+        self.documents = documents
+
+    def find(self, *, filter: Any, session: Any) -> _Cursor:
+        return _Cursor(self.documents)
+
+    async def delete_many(self, *, filter: Any, session: Any) -> DeleteResult:
+        return DeleteResult({"n": len(self.documents)}, acknowledged=True)
+
+
+class TestDeleteManyFromDb:
+    @pytest.mark.parametrize(("documents", "rows"), [pytest.param([], 0, id="nothing removed"), pytest.param([STORED], 1, id="one removed")])
+    def test_a_removal_records_a_row_exactly_where_it_took_something(self, documents: list[Mapping[str, Any]], rows: int):
+        """The empty row named no document and imaged none, and a cascade keyed on a season would file one on every replace."""
+
+        stub = _SetCollection(documents)
+
+        asyncio.run(delete_many_from_db(collection=as_collection(stub), db_filter=FILTER, session=TRANSACTION))
+
+        assert len(stub.recorded) == rows
+
+
+class TestEraseManyFromDb:
+    @pytest.mark.parametrize(("documents", "rows"), [pytest.param([], 0, id="nothing removed"), pytest.param([STORED], 1, id="one removed")])
+    def test_a_removal_records_a_row_exactly_where_it_took_something(self, documents: list[Mapping[str, Any]], rows: int):
+        """`delete_many_from_db`'s rule, by the driver's count: this removal reads nothing first, keeping no image."""
+
+        stub = _SetCollection(documents)
+
+        asyncio.run(erase_many_from_db(collection=as_collection(stub), db_filter=FILTER, session=TRANSACTION))
+
+        assert len(stub.recorded) == rows
 
 
 class TestPullOneFromDb:

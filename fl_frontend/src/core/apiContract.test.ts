@@ -79,6 +79,9 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLZustellungZiel: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLEinwilligungUmfang: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLRegistrierungAblehnungsgrund: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLSpielbestaetigungAntwortArt: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLSpielbestaetigungZustand: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLSpielbestaetigungSeite: "a Pydantic Literal alias, inlined as an enum at each use site",
 
   // Both fields are path segments of `POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut`,
   // so the request carries no body for FastAPI to describe.
@@ -96,6 +99,8 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLEinwilligungAntwortResponse: "the discriminated union is published inline at POST /bewerbungen/einwilligung; both members are paired",
 
   FLSpielQuelle: "the discriminated union is published inline on each teamN_quelle; both variants are paired",
+
+  FLSpielbestaetigungVon: "the discriminated union is published inline on each answer's `beantwortet_von`; all three variants are paired",
 
   FLAktor: "the discriminated union is published inline on the actor of FLAktion and FLAktionMitStand; both variants are paired",
 
@@ -344,7 +349,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 340;
+const EXPECTED_PAIRS = 360;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

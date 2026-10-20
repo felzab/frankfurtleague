@@ -328,6 +328,20 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "conflict, so no anchor is ever kept for safety."
         ),
     ),
+    Aggregate(
+        name="Spielbestaetigung",
+        root=Collection.SPIELBESTAETIGUNGEN,
+        members=(),
+        boundary=(
+            "One party's answer about one Ansetzung of a fixture. Held true against nothing: a row states what one party "
+            "answered about one stand, which stays true however the fixture moves afterwards -- so it is in no boundary with "
+            "`spiele`, and NOT a member of the season's: the answer writes no fixture, no fixture write reaches a row, and a "
+            "move is reconciled up to an hour later by the sweep, which closes the row with why it stopped applying. Nothing "
+            "reads a row as the fixture's current state but through a comparison: the answer compares `ansetzung.stand` "
+            "against the fixture's own, and the public verdict the five stored values. What is held is a rule over this "
+            "collection alone, `uniq_spielbestaetigung_offen`: one open row per party per stand."
+        ),
+    ),
 )
 
 
@@ -631,6 +645,52 @@ REFERENCES: tuple[Reference, ...] = (
             "(`REQ-EINLADUNG-003`), so every registration names an invite that stood when it was made. A REVOKED invite keeps "
             "its row, which is what leaves this reference resolvable after a reissue; nothing writes back to the invite, so a "
             "registration marks no link as used and a link opens as many registrations as a team's pupils make."
+        ),
+    ),
+    Reference(
+        source=Collection.SPIELBESTAETIGUNGEN,
+        fields=("spiel_id",),
+        target=Collection.SPIELE,
+        on_reference_created=Action.NO_ACTION,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.CASCADE,
+        note=(
+            "No request names a fixture: the sweep mints a row from the fixture it has just read. A fixture moved is left "
+            "alone at its write and reconciled by the next pass, which closes every row about the stand it left; the answer "
+            "compares stands at the press, so nothing between the two lets a link confirm a moved fixture. A fixture is "
+            "removed only with its season's whole draw, by a confirmed replace or an undraw, and each removes the season's "
+            "rows in the same transaction (`app/api/saisons/admin_router.py :: undraw_spielplan`)."
+        ),
+    ),
+    Reference(
+        source=Collection.SPIELBESTAETIGUNGEN,
+        fields=("partei.team_id",),
+        target=Collection.TEAMS,
+        on_reference_created=Action.NO_ACTION,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.NO_ACTION,
+        note=(
+            "Copied off the fixture's side by the sweep, which names a club the fixture already holds. Nothing is embedded: "
+            "the club's name is read off the fixture whenever a page or a message states it. A club is retired by a date "
+            "and never deleted, so the reference stays resolvable."
+        ),
+    ),
+    Reference(
+        source=Collection.SPIELBESTAETIGUNGEN,
+        fields=("partei.schiedsrichter_id",),
+        target=Collection.SCHIEDSRICHTER,
+        on_reference_created=Action.NO_ACTION,
+        on_target_change=Action.NO_ACTION,
+        on_target_removed=Action.CASCADE,
+        note=(
+            "Copied off the fixture's booking by the sweep, which mints no row for the ghost. Nothing is embedded, and a "
+            "retirement deletes nothing. The erasure is the one removal, run for a person's own request and for an "
+            "administrator answering one alike, and it CASCADES ahead of the referee's own step "
+            "(`app/api/spielbestaetigungen/crud.py :: erase_referee_confirmations_in_session`): every row naming the referee "
+            "is removed in the same transaction with its log images, and an image of a row removed earlier, an undraw's, "
+            "names the ghost in their place and loses their reason. Removed rather than repointed as the fixtures are: the "
+            "fixture is the league's record, the row the referee's own answer about their booking, and a row the ghost holds "
+            "is a state the sweep never writes."
         ),
     ),
 )
@@ -1282,6 +1342,23 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "control puts it back, so a mistyped date is corrected by registering again",
         "app.api.registrierungen.services.find_alter_refusal",
     ),
+    FieldPolicy(
+        Collection.SPIELBESTAETIGUNGEN,
+        "antwort",
+        Editability.CONDITIONAL,
+        "written once, by the party or by an administrator settling for it, while neither `antwort` nor `geschlossen` "
+        "holds a value: the write filters on both, so a second press finds the row answered and changes nothing, and a "
+        "close never touches it -- the answer stands as the record of what was agreed",
+        "app.api.spielbestaetigungen.services.build_answerable_filter",
+    ),
+    FieldPolicy(
+        Collection.SPIELBESTAETIGUNGEN,
+        "geschlossen",
+        Editability.COMPOSED,
+        "on no payload: the sweep stamps it on a row whose fixture moved, was decided or called off, lost a club or "
+        "changed referee, or whose day went by without any of those, and an administrator discarding a proposal stamps "
+        "it on the declining row, each composing the reason itself",
+    ),
 )
 
 
@@ -1816,7 +1893,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-DATE-001",
         status=HTTPStatus.CONFLICT,
-        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen · POST /spielbestaetigungen",
         aggregate="Saison-Spielplan",
         summary="a fixture's date must fall inside the span of the matchday it belongs to",
         implemented_by="app.api.spiele.services.find_fixture_date_refusal",
@@ -1837,7 +1914,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-CLASH-001",
         status=HTTPStatus.CONFLICT,
-        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen · POST /spielbestaetigungen",
         aggregate="Saison-Spielplan",
         summary="a venue OR a referee needs four hours between two fixtures it serves; either alone refuses the write",
         implemented_by="app.api.spiele.services.find_clash_refusal",
@@ -1901,7 +1978,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-ELIGIBILITY-001",
         status=HTTPStatus.CONFLICT,
-        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen · POST /spielbestaetigungen",
         aggregate="Saison-Spielplan",
         summary=(
             "a team that left the season may not be fielded on or after its exit -- judged whenever the side, the date "
@@ -2787,6 +2864,81 @@ RULES: tuple[Rule, ...] = (
         ),
         implemented_by="app.api.konto.services.find_erteilung_refusal",
         tested_by="tests/api/test_konto_einwilligung.py::TestARecordNotHeld",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-001",
+        status=HTTPStatus.NOT_FOUND,
+        operation="POST /spielbestaetigungen/ansicht · POST /spielbestaetigungen",
+        aggregate="Spielbestaetigung",
+        summary="a token no seat of any confirmation row holds opens nothing, whether a guess or a link voided when its seat changed hands",
+        implemented_by="app.api.spielbestaetigungen.services.find_unknown_link_refusal",
+        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestATokenNoSeatHolds",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-011",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /spielbestaetigungen",
+        aggregate="Spielbestaetigung",
+        summary="a link mailed to an address the ban list now holds answers nothing, whenever it was minted, ahead of every state of its row",
+        implemented_by="app.api.spielbestaetigungen.services.find_gesperrt_link_refusal",
+        tested_by="tests/api/test_spielbestaetigung_execution.py::TestALinkToAnAddressBarredAfterTheMint",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-002",
+        status=HTTPStatus.GONE,
+        operation="POST /spielbestaetigungen",
+        aggregate="Spielbestaetigung",
+        summary="a row already answered, by any of the club's seats, takes no second answer, closed since or not",
+        implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
+        tested_by="tests/api/test_spielbestaetigung_execution.py::TestTheSeatTheAnswerRecords",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-009",
+        status=HTTPStatus.GONE,
+        operation="POST /spielbestaetigungen",
+        aggregate="Spielbestaetigung",
+        summary="a row closed before anybody answered takes no answer",
+        implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
+        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestASpentLinkMeetsTheCodeThatNamesWhy",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-003",
+        status=HTTPStatus.GONE,
+        operation="POST /spielbestaetigungen",
+        aggregate="Spielbestaetigung",
+        summary="a row takes no answer after its deadline's day",
+        implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
+        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestASpentLinkMeetsTheCodeThatNamesWhy",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-004",
+        status=HTTPStatus.GONE,
+        operation="POST /spielbestaetigungen",
+        aggregate="Spielbestaetigung",
+        summary="a row takes no answer once the fixture's date, time, ground or sides differ from the Ansetzung it asks about",
+        implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
+        tested_by="tests/api/test_spielbestaetigung_execution.py::TestAFixtureMovedMidAnswerIsJudgedAgain",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-005",
+        status=HTTPStatus.GONE,
+        operation="POST /spielbestaetigungen",
+        aggregate="Spielbestaetigung",
+        summary=(
+            "a row takes no answer once its fixture carries a result or a `sonderereignis`, or either club left the season on or"
+            " before the fixture's day"
+        ),
+        implemented_by="app.api.spielbestaetigungen.services.find_spent_link_refusal",
+        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestASpentLinkMeetsTheCodeThatNamesWhy",
+    ),
+    Rule(
+        code="REQ-ANSETZUNG-007",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="POST /spielbestaetigungen",
+        aggregate="Spielbestaetigung",
+        summary="a declining club's proposed date is today or later",
+        implemented_by="app.api.spielbestaetigungen.services.find_vorschlag_vergangen_refusal",
+        tested_by="tests/api/test_spielbestaetigung_refusal.py::TestAProposalBeforeToday",
     ),
 )
 

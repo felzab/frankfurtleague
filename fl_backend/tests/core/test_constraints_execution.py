@@ -34,6 +34,7 @@ from app.core.constraints import (
 from app.shared.schemas.bounds import TEAM_DESCRIPTION_MAX_LENGTH
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.documents import spiel_document, spielbestaetigung_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -67,6 +68,8 @@ SPERRLISTE_OID = ObjectId("6890a1b2c3d4e5f60720000a")
 EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f60720000b")
 REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f60720000c")
 BERECHTIGUNG_OID = ObjectId("6890a1b2c3d4e5f60720000d")
+SPIELBESTAETIGUNG_OID = ObjectId("6890a1b2c3d4e5f60720000e")
+SPIEL_OID = ObjectId("6890a1b2c3d4e5f60720000f")
 # A submission key as a public form mints it (`app/api/bewerbungen/public_router.py :: post_bewerbung`).
 IDEMPOTENZ_SCHLUESSEL = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
 
@@ -333,6 +336,29 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "beanspruchung": "a-claim",
             "versuche": 1,
         },
+        # An open team row as the pass mints it: one seat holding the link the request went out with,
+        # one sharing it as a mirrored pair does, one empty.
+        "spielbestaetigungen": spielbestaetigung_document(
+            spiel_document(
+                spiel_id=SPIEL_OID,
+                saison_id=SAISON_ID,
+                spiel_nr=1,
+                spieltag_id=SPIELTAG_OID,
+                team1={"team_id": TEAM_OID, "name": "Lessing", "shorthand": "LE", "tore": None},
+                team2={"team_id": OTHER_TEAM_OID, "name": "Helmholtz", "shorthand": "HE", "tore": None},
+                datum="2026-03-15",
+                uhrzeit="18:00:00",
+                ort={"spielort_id": SPIELORT_OID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80},
+            ),
+            partei={"art": "team", "team_id": TEAM_OID},
+            _id=SPIELBESTAETIGUNG_OID,
+            frist="2026-03-08",
+            kontakte={
+                "trainer": {"token_hashes": ["e" * 64]},
+                "ansprechperson": {"token_hashes": ["e" * 64], "zustellung": None},
+                "stellvertretung": None,
+            },
+        ),
         "drosselung": {
             "_id": "kontakt:" + "a" * 64 + ":2026-03-15",
             "n": 1,
@@ -621,6 +647,12 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_documents()["berechtigungen"],
         valid_document("berechtigungen", _id=TEAM_OID, verwaltung="administration", erteilt_von="zweite@example.invalid"),
     ),
+    # Both rows open, one party, one stand, differing in their seats: the index refuses on its five keys
+    # alone, and a pair the partial filter reached on neither side would pass.
+    "uniq_spielbestaetigung_offen": (
+        valid_documents()["spielbestaetigungen"],
+        valid_document("spielbestaetigungen", _id=TEAM_OID, kontakte={"trainer": None, "ansprechperson": None, "stellvertretung": None}),
+    ),
     # Two seasons, each `active`: a second row in any other status would pass while the filter matched nothing.
     "uniq_saison_active": (valid_documents()["saisons"], valid_document("saisons", _id="2027", start_date="2027-01-01", end_date="2027-06-30")),
 }
@@ -699,6 +731,28 @@ def test_every_season_but_the_active_one_is_outside_the_rule(mongo_url: str):
         return await database.saisons.count_documents({})
 
     assert on_the_shipped_schema(mongo_url, body) == 5
+
+
+def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):
+    """An answered row, a closed one and the other club's open one stand beside a party's open row on one stand.
+
+    A dropped filter or a lost team key refuses one, and with it a reinstated fixture's fresh request.
+    """
+
+    antwort = {"art": "zugesagt", "am": "2026-03-01", "von": {"art": "kontakt", "rolle": "trainer"}, "vorschlag": None, "begruendung": None}
+
+    async def body(database: AsyncDatabase) -> int:
+        await database.spielbestaetigungen.insert_one(valid_documents()["spielbestaetigungen"])
+        await database.spielbestaetigungen.insert_one(valid_document("spielbestaetigungen", _id=TEAM_OID, antwort=antwort))
+        await database.spielbestaetigungen.insert_one(
+            valid_document("spielbestaetigungen", _id=SPIELER_OID, geschlossen={"am": "2026-03-02", "grund": "abgesagt"})
+        )
+        await database.spielbestaetigungen.insert_one(
+            valid_document("spielbestaetigungen", _id=SPIELTAG_OID, partei={"art": "team", "team_id": OTHER_TEAM_OID})
+        )
+        return await database.spielbestaetigungen.count_documents({})
+
+    assert on_the_shipped_schema(mongo_url, body) == 4
 
 
 def test_every_validator_is_attached_strictly(mongo_url: str):
@@ -1563,3 +1617,28 @@ def test_the_erasure_marks_a_persons_log_rows_through_an_index(mongo_url: str):
     assert sum("actor.pseudonym" in db_filter for db_filter, _ in planned) == 2, planned
     for db_filter, stages in planned:
         assert "COLLSCAN" not in stages, f"marking {db_filter} scans the whole log: {stages}"
+
+
+OTHER_SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607200010")
+
+
+class TestTwoRefereesOpenRowsOnOneStand:
+    def test_each_referee_holds_an_open_row_of_their_own(self, mongo_url: str):
+        """The mint inserts a new referee's row while the close's share still leaves the old one's open.
+
+        Without the referee key that insert collides, passing the fixture over every pass until the close shuts the old row.
+        """
+
+        async def body(database: AsyncDatabase) -> int:
+            for row_id, schiedsrichter_id in ((SPIELBESTAETIGUNG_OID, SCHIEDSRICHTER_OID), (SPIELER_OID, OTHER_SCHIEDSRICHTER_OID)):
+                await database.spielbestaetigungen.insert_one(
+                    valid_document(
+                        "spielbestaetigungen",
+                        _id=row_id,
+                        partei={"art": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id},
+                        kontakte=None,
+                    )
+                )
+            return await database.spielbestaetigungen.count_documents({"antwort": None, "geschlossen": None})
+
+        assert on_the_shipped_schema(mongo_url, body) == 2

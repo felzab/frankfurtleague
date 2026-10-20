@@ -22,7 +22,8 @@ import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
 
-type WiderspruchAntwort = { success: true } | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei" });
+type WiderspruchAntwort =
+  { success: true } | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei"; ansicht?: EinwilligungGeoeffnet });
 
 const NICHT_GESPEICHERT = `Dein Widerspruch wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
@@ -70,7 +71,7 @@ export function BestaetigungSaisonVorbei({
         return;
       }
       reportRefusedConfirmation(antwort, {
-        onZustand: (zustand) => onAbschluss({ zustand }),
+        onZustand: (zustand) => onAbschluss({ zustand, ansicht: antwort.ansicht }),
         onRefusal: () =>
           appToast.danger("Widerspruch nicht gespeichert", { description: antwort.error ?? antwort.unplacedError ?? NICHT_GESPEICHERT }),
       });

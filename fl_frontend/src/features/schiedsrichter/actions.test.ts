@@ -9,9 +9,16 @@ import { createElement as h } from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { doubleActionRequest, doubleActions, doubleToasts, loggedLines } from "@/shared/testing/actionDoubles.ts";
+import {
+  doubleActionRequest,
+  doubleActions,
+  doubleToasts,
+  loggedErrorCodes,
+  loggedErrorTraces,
+  loggedLines,
+} from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
-import { answer, answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
+import { answer, answerReadsWith, EDGE_TRACE_ID, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapNameRefusal as mapSpielortNameRefusal } from "../spielorte/refusals.ts";
@@ -109,7 +116,7 @@ describe("the referee's writes against the codes their endpoints publish", () =>
   it("words every refusal the referee's own link publishes", async () => {
     for (const code of publishedRefusals(BESTAETIGUNG_OPERATION)) {
       const own = await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, code), () =>
-        Promise.resolve({ mindestalter: 16, medien_mindestalter: 18 }),
+        Promise.resolve({ zustand: "gueltig" as const, ansicht: { mindestalter: 16, medien_mindestalter: 18 } }),
       );
       assert.notEqual(
         own ?? answerShown(BESTAETIGUNG_OPERATION, code, () => null),
@@ -352,6 +359,9 @@ describe("the referee's editor page", () => {
         null,
         "a failed registry read reached the editor as a verdict",
       );
+      // Untyped, as a cached read's throw arrives: only this line tells it from a bug.
+      assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
+      assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
     } finally {
       registerFehlt = false;
       stored = { ...RECORD, inactive_since: null };

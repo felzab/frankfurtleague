@@ -45,6 +45,7 @@ const STORED: FLSpielAdmin = FLSpielAdminSchema.parse({
   ergebnis: "3:1",
   elfmeterschiessen: null,
   notiz: null,
+  ansetzung_bestaetigt: null,
 } satisfies FLSpielAdmin);
 
 function makeStored(overrides: Partial<FLSpielAdmin> = {}): FLSpielAdmin {

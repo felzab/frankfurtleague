@@ -20,6 +20,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
 from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET
+from app.api.spielbestaetigungen.services import halter_of, seite_of
 from app.core.collections import Collection
 from app.core.db import NO_OWNER
 from app.core.exception_handlers import DATABASE_FAILED, UNKNOWN_OUTCOME
@@ -28,6 +29,7 @@ from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from tests.whole_database import where_held
 
+from . import test_spielbestaetigung_sweep_execution as confirmations
 from .test_erasure_auf_anfrage import CONFIG as REQUEST_CONFIG
 from .test_erasure_auf_anfrage import erased_by_the_handler as erased_on_request
 from .test_erasure_auf_anfrage import journal_lines
@@ -214,7 +216,8 @@ class TestAnErasureOnRequest:
 
         assert journal_lines(caplog) == [
             f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} loeschung "
-            f"pseudonym={akteur_pseudonym(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
+            f"pseudonym={akteur_pseudonym(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} "
+            f"halter={halter_of(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
         ]
         # The premise last: one commit refused, so the line above is the rerun's alone.
         assert (refused, erased) == ([WRITE_CONFLICT, None], 1)
@@ -242,7 +245,8 @@ class TestAnErasureOnRequest:
         assert (commits, labelled, after) == ([MAX_TIME_EXPIRED], True, {IDENTIFIER: []})
         assert journal_lines(caplog) == [
             f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} loeschung "
-            f"pseudonym={akteur_pseudonym(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
+            f"pseudonym={akteur_pseudonym(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} "
+            f"halter={halter_of(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
         ]
 
 
@@ -388,3 +392,73 @@ class TestTheSweepsNameACommitTheyCannotRead:
                 "the call stops, and the rest stay due",
             )
         ]
+
+
+@pytest.mark.db
+class TestTheConfirmationPassNamesAMintItCannotRead:
+    """The driver's own lost answer, a `WTimeoutError` whose label the driver adds and the server's reply never carries.
+
+    The sweep sheet's stand-in carries it in the reply, so a judge reading the reply rather than `has_error_label` passes there alone.
+    """
+
+    def test_the_mints_rows_stand_unmailed_the_line_names_them_and_the_next_pass_asks_them(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
+        """The close's notices committed first, so the pass answers them rather than raising (`docs/backend/spec.md :: I753`).
+
+        Its rows hold links nobody was mailed, so the next pass asks each again (`:: I765`), a fresh link a seat beside the first.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await confirmations.sweep(database, client)
+            await confirmations.angefragt(database, client, [row["_id"] for row in await confirmations.rows(database)])
+            await database[Collection.SPIELE].update_one({"_id": confirmations.SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
+            commits = _Commits()
+            losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
+            # The close's commit passes; the mint's, the next one this client sends, lands and loses its answer.
+            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"skip": 1}, data=UNANSWERED)
+            try:
+                answer = await confirmations.sweep(losing[database.name], losing)
+            finally:
+                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
+                await losing.close()
+            standing = await confirmations.rows(database, geschlossen=None)
+
+            return (
+                commits.answered,
+                answer,
+                standing,
+                await confirmations.sweep(database, client),
+                await confirmations.rows(database, geschlossen=None),
+            )
+
+        with caplog.at_level(logging.WARNING):
+            commits, answer, standing, nxt, asked = confirmations.on_a_league(
+                mongo_replica_set_url, body, spiele=[confirmations.fixture(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
+            )
+
+        # The premise first: the close committed, and the mint's commit landed with its answer lost.
+        assert commits == [None, MAX_TIME_EXPIRED]
+        assert (len(answer.neue_ansetzungen), len(answer.schiedsrichter_neue_ansetzungen)) == (2, 1)
+        assert (answer.anfragen, answer.einteilungen) == ([], [])
+        # Each side's fresh row and the referee's, about the moved Ansetzung, none recorded as sent.
+        assert sorted((row["partei"]["art"], row["ansetzung"]["uhrzeit"], row["angefragt_am"]) for row in standing) == [
+            ("schiedsrichter", "19:00:00", None),
+            ("team", "19:00:00", None),
+            ("team", "19:00:00", None),
+        ]
+        assert _stopping_lines(caplog) == [
+            (
+                UNKNOWN_OUTCOME,
+                "The mint clock's commit went unanswered after the call committed messages it owes: the rows minted for "
+                f"fixture(s) {confirmations.SPIEL} may have been written with nobody told, the call answers what else committed, "
+                "and the rest stay due",
+            )
+        ]
+        assert sorted((anfrage.spielbestaetigung_id, anfrage.seite) for anfrage in nxt.anfragen) == sorted(
+            (row["_id"], seite_of(row)) for row in standing if row["partei"]["art"] == "team"
+        )
+        assert [einteilung.spielbestaetigung_id for einteilung in nxt.einteilungen] == [
+            row["_id"] for row in standing if row["partei"]["art"] == "schiedsrichter"
+        ]
+        assert {len(entry["token_hashes"]) for row in asked if row["kontakte"] is not None for entry in row["kontakte"].values()} == {2}

@@ -631,11 +631,7 @@ REGISTRIERUNG_SWEEP_FELD: Final = "registrierung_sweep_gelaufen_am"
 
 
 def build_stale_stamp_filter(*, today: str) -> Mapping[str, Any]:
-    """Every season this pass has not stamped today.
-
-    Read before the write rather than fanning out unconditionally: `patch_many_in_db` files one log
-    row per call, a call matching nothing included, and this pass runs hourly over every season.
-    """
+    """Every season this pass has not stamped today, so the hourly pass writes, and logs, the first of the day alone."""
 
     return {REGISTRIERUNG_SWEEP_FELD: {"$ne": today}}
 

@@ -180,6 +180,11 @@ async def patch_many_in_db(
     _sending_a_write()
     result = await collection.update_many(filter=db_filter, update=update, session=session)
 
+    # A fan-out that changed nothing records nothing, as a removal that took nothing (`docs/backend/spec.md :: I744`): so a
+    # caller sends its write unguarded, and an hourly pass matching nothing files no row saying so.
+    if not result.modified_count:
+        return result
+
     await record_write(
         collection=collection,
         operation="patch_many",
@@ -344,6 +349,11 @@ async def delete_many_from_db(
         # cost of it being wrong is a log row nobody can trust, and the count is free to compare.
         raise RuntimeError(f"{collection.name}: removed {result.deleted_count} documents against {len(before)} images")
 
+    # A removal that took nothing records nothing (`docs/backend/spec.md :: I744`): a cascade keyed on a
+    # season would otherwise log an empty row on every replace of a season holding none.
+    if not before:
+        return result
+
     await record_write(
         collection=collection,
         operation="delete_many",
@@ -375,6 +385,10 @@ async def erase_many_from_db(
     # `session` carries no default here for its own reason: an erasure is one transaction over the
     # person, their squad rows and the log, and any one of the three alone leaves it defeated.
     result = await collection.delete_many(filter=db_filter, session=session)
+
+    # A removal that took nothing records nothing, as `delete_many_from_db` (`docs/backend/spec.md :: I744`).
+    if not result.deleted_count:
+        return result
 
     await record_write(
         collection=collection,

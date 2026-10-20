@@ -1,13 +1,18 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
+
+import { z } from "zod";
 
 import { resolveBlockingBanners, resolveRailBanners } from "@/shared/components/ui/railBanner.ts";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { SONDEREREIGNIS_LABELS } from "../../../constants.ts";
+import { SONDEREREIGNIS_LABELS, SPIEL_BESTAETIGUNG_FRIST_TAGE } from "../../../constants.ts";
+import { FLSonderereignisSchema } from "../../../schemas.ts";
 import { buildSpielBanners, isSpielRefusalBannerId, isSpielRefusalCode } from "./banners.ts";
 
-import type { SpielBanner, SpielBannerSide } from "./banners.ts";
+import type { SpielBanner, SpielBannerAnsetzung, SpielBannerSide } from "./banners.ts";
 
 const side = (fieldName: "team1" | "team2", overrides: Partial<SpielBannerSide> = {}): SpielBannerSide => {
   const draft = {
@@ -23,6 +28,21 @@ const side = (fieldName: "team1" | "team2", overrides: Partial<SpielBannerSide> 
   return { storedQuelle: draft.quelle, storedTeam: draft.team, ...draft };
 };
 
+/** The day every case is rendered on, and a fixture's day so many days after it. */
+const HEUTE = "2026-10-19";
+const tagNach = (tage: number): string => new Date(Date.parse(HEUTE) + tage * 86_400_000).toISOString().slice(0, 10);
+
+const KEINE_ANSETZUNG: SpielBannerAnsetzung = { datum: null, uhrzeit: null, spielortId: null, team1Id: null, team2Id: null };
+
+/** A fixture the sweep would ask about, on this day: a kick-off, a ground and both sides. */
+const angesetzt = (datum: string | null): SpielBannerAnsetzung => ({
+  datum: datum,
+  uhrzeit: "14:30:00",
+  spielortId: "spielort-a",
+  team1Id: "team-a",
+  team2Id: "team-b",
+});
+
 const team = (teamId: string, name: string) => ({ team_id: teamId, name, shorthand: name.slice(0, 3), tore: null, austritt: null });
 
 const build = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]> = {}): readonly SpielBanner[] =>
@@ -37,16 +57,53 @@ const build = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]> = {})
     sonderereignis: null,
     dependentSpielNummern: [],
     hasAnyTore: false,
+    hasShootOut: false,
     hasDecidedErgebnis: false,
     dropsShootOut: false,
     voidedSpielNummern: [],
     releasedSpielNummern: [],
     voidPreviewFailed: false,
     refusalCode: null,
+    ansetzung: KEINE_ANSETZUNG,
+    storedAnsetzung: KEINE_ANSETZUNG,
+    isActiveSaison: true,
+    isSpielSweepOn: true,
+    austrittTage: [],
+    today: HEUTE,
     ...overrides,
   });
 
 const ids = (banners: readonly SpielBanner[]): string[] => banners.map((banner) => banner.id);
+
+const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..", "..", "..", "..");
+
+/**
+ * The rows both tiers run, each moving one thing of a fixture set in full three days out. Strict, so a row moving
+ * something this tier does not read fails rather than passing on the unmoved fixture.
+ */
+const ANFRAGE_IS_DUE = z
+  .array(
+    z.strictObject({
+      fall: z.string(),
+      anders: z.strictObject({
+        tage: z.int().nullable().optional(),
+        uhrzeit: z.null().optional(),
+        spielort: z.null().optional(),
+        team1: z.null().optional(),
+        team2: z.null().optional(),
+        tore: z.int().optional(),
+        elfmeterschiessen: z.strictObject({ team1: z.int(), team2: z.int() }).optional(),
+        sonderereignis: FLSonderereignisSchema.optional(),
+        austritt_tage: z.int().optional(),
+      }),
+      gefragt: z.boolean(),
+    }),
+  )
+  .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "anfrage_is_due.json"), "utf8")));
+
+/** Whether the confirmation's lost-notice banner is raised. */
+const sofort = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]>): boolean =>
+  ids(build(overrides)).includes("spiel.bestaetigung-sofort");
 
 describe("buildSpielBanners", () => {
   it("raises nothing for an untouched knockout fixture with both sides wired", () => {
@@ -412,6 +469,100 @@ describe("buildSpielBanners", () => {
     assert.ok(!isSpielRefusalCode("REQ-STATE-003"));
     assert.ok(!isSpielRefusalCode(undefined));
   });
+
+  /* A date inside the deadline's days leaves the teams no notice: the next pass asks at once, and the
+     link answers only that day. Whose doing it is decides whether the save confirms. */
+  it("raises the confirmation's lost notice as this save's doing where the stored date was outside the window", () => {
+    const banner = build({ ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(30)) }).find(
+      ({ id }) => id === "spiel.bestaetigung-sofort",
+    );
+
+    assert.equal(banner?.raisedBy, "change");
+    assert.equal(banner?.severity, "warning");
+    assert.equal(banner?.inline, null, "the banner sits at a field rather than on the rail");
+    assert.equal(
+      banner?.title,
+      `Ein Spiel in den nächsten ${String(SPIEL_BESTAETIGUNG_FRIST_TAGE)} Tagen müssen die Teams noch am Tag der Anfrage bestätigen`,
+    );
+  });
+
+  it("raises it as the fixture's standing state where the stored date was already inside the window", () => {
+    const banner = build({ ansetzung: angesetzt(tagNach(2)), storedAnsetzung: angesetzt(tagNach(5)) }).find(
+      ({ id }) => id === "spiel.bestaetigung-sofort",
+    );
+
+    assert.equal(banner?.raisedBy, "state");
+  });
+
+  /* The case a window check alone gets wrong: no pass asks about a fixture whose day has come. The deadline's last
+     day still raises it, the first day past it does not. */
+  it("raises nothing for a date in the past or today, whatever else is true, and nothing past the window", () => {
+    for (const [datum, gespeichert] of [
+      [tagNach(-2), tagNach(30)],
+      [tagNach(-2), tagNach(3)],
+      [HEUTE, tagNach(30)],
+      [tagNach(SPIEL_BESTAETIGUNG_FRIST_TAGE + 1), tagNach(30)],
+      [null, tagNach(3)],
+    ] as const) {
+      assert.ok(!sofort({ ansetzung: angesetzt(datum), storedAnsetzung: angesetzt(gespeichert) }), `raised for ${String(datum)}`);
+    }
+    assert.ok(
+      sofort({ ansetzung: angesetzt(tagNach(SPIEL_BESTAETIGUNG_FRIST_TAGE)), storedAnsetzung: angesetzt(tagNach(30)) }),
+      "the window's last day raised nothing",
+    );
+  });
+
+  /* An unchanged stand mints nothing, so the near fixtures edited most often, a referee added, carry no warning. */
+  it("raises nothing for a save that leaves the Ansetzung as it stands, however near the fixture", () => {
+    assert.ok(!sofort({ ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(3)) }));
+  });
+
+  /* Every input of the stand moves it, so each mints afresh and warns where the date is near. */
+  it("raises it for a save moving any one input of the Ansetzung", () => {
+    const gespeichert = angesetzt(tagNach(3));
+    for (const anders of [{ uhrzeit: "18:00:00" }, { spielortId: "spielort-b" }, { team1Id: "team-c" }, { team2Id: "team-c" }] as const) {
+      assert.ok(
+        sofort({ ansetzung: { ...gespeichert, ...anders }, storedAnsetzung: gespeichert }),
+        `raised nothing for ${Object.keys(anders)[0]}`,
+      );
+    }
+  });
+
+  /* Off, as it ships, the pass runs at all nowhere, which no fixture's fields can say. */
+  it("raises nothing for a re-dated fixture while the confirmations' pass is switched off", () => {
+    assert.ok(!sofort({ ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(30)), isSpielSweepOn: false }));
+  });
+
+  /* The pass visits the running season alone, which the shared table below cannot say: it holds a fixture's own fields. */
+  it("raises nothing for a re-dated fixture of a season not yet running", () => {
+    assert.ok(!sofort({ ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(30)), isActiveSaison: false }));
+  });
+
+  /* Read rather than retyped: the backend's predicate answers the same rows in its own suite, so a condition one tier
+     gains alone fails at the other. Each row moves a draft re-dated from a month out. */
+  for (const { fall, anders, gefragt } of ANFRAGE_IS_DUE) {
+    it(`raises it for a re-dated fixture, ${fall}, exactly where the pass asks`, () => {
+      const ansetzung = {
+        ...angesetzt(anders.tage === undefined ? tagNach(3) : anders.tage === null ? null : tagNach(anders.tage)),
+        ...(anders.uhrzeit === undefined ? {} : { uhrzeit: anders.uhrzeit }),
+        ...(anders.spielort === undefined ? {} : { spielortId: anders.spielort }),
+        ...(anders.team1 === undefined ? {} : { team1Id: anders.team1 }),
+        ...(anders.team2 === undefined ? {} : { team2Id: anders.team2 }),
+      };
+
+      assert.equal(
+        sofort({
+          ansetzung,
+          storedAnsetzung: angesetzt(tagNach(30)),
+          hasAnyTore: anders.tore !== undefined,
+          hasShootOut: anders.elfmeterschiessen !== undefined,
+          sonderereignis: anders.sonderereignis ?? null,
+          austrittTage: anders.austritt_tage === undefined ? [] : [tagNach(anders.austritt_tage)],
+        }),
+        gefragt,
+      );
+    });
+  }
 
   it("sorts danger over warning over info on the rail", () => {
     const built = resolveRailBanners(build({ sonderereignis: "ausgefallen", releasedSpielNummern: [31], voidedSpielNummern: [29] }));

@@ -15,8 +15,7 @@ const { setSubject } = doubleActionRequest({ session: null });
 
 const { runPersonMutation, runPersonRecordMutation } = await import("./personMutation.ts");
 const { runPersonRead } = await import("./personRead.ts");
-const { KONTO_FORBIDDEN } = await import("./kontoMutation.ts");
-const { SITZ_WEG } = await import("./actionError.ts");
+const { ANMELDUNG_ABGELAUFEN, SITZ_WEG } = await import("./actionError.ts");
 const { getRequestActor, markOutcomeUnknown, recordWriteSent } = await import("@/core/requestScope.ts");
 const { PersonReadWithoutSubjectError } = await import("@/core/errors.ts");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
@@ -147,7 +146,7 @@ describe("every person's server action", () => {
     const { answers, sent } = await answersOf(await everyPersonAction(), undefined);
 
     assert.equal(sent, 0, "a person's action reached the network for a caller nobody signed in as");
-    assert.deepEqual(answers, new Map([...answers.keys()].map((action) => [action, { success: false, error: KONTO_FORBIDDEN }])));
+    assert.deepEqual(answers, new Map([...answers.keys()].map((action) => [action, { success: false, error: ANMELDUNG_ABGELAUFEN }])));
   });
 
   /* The seat the action claims is the one the spine derives and judges, never the caller's word: a
@@ -170,7 +169,7 @@ describe("the person spine's record entry", () => {
 
     const answer = await runPersonRecordMutation("probeAction", body);
 
-    assert.deepEqual(answer, { success: false, error: KONTO_FORBIDDEN });
+    assert.deepEqual(answer, { success: false, error: ANMELDUNG_ABGELAUFEN });
     assert.equal(ran.count, 0, "the body ran for a caller nobody signed in as");
     assert.deepEqual(loggedLines, [
       { level: "info", message: "funktion.verweigert", meta: { operation: "probeAction", grund: "keine_sitzung" } },
@@ -200,6 +199,23 @@ describe("the person spine's record entry", () => {
     );
 
     assert.deepEqual(answer, { success: false, error: SITZ_WEG });
+  });
+
+  it("answers the backend's want of a confirmation as the step-up, its line under the error's own codes", async () => {
+    setSubject(person());
+    const refused = refusedOn("POST /identitaet/selbst/erasure", "REQ-AUTH-009");
+
+    const answer = await runPersonRecordMutation("probeAction", () => Promise.reject(refused));
+
+    assert.equal("stepUp" in answer && answer.stepUp, true);
+    const line = loggedLines.find(({ message }) => message === "Person mutation refused for want of a confirmation: probeAction");
+    assert.deepEqual(line?.meta, {
+      error_code: "FE-API-001",
+      status: refused.statusCode,
+      server_error_code: "REQ-AUTH-009",
+      trace_id: refused.traceId,
+      digest: undefined,
+    });
   });
 
   it("answers a write of unknown outcome as unanswered, and refreshes", async () => {

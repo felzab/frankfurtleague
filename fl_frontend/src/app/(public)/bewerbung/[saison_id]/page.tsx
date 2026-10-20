@@ -4,12 +4,12 @@ import { connection } from "next/server";
 
 import { frontend_config } from "@/core/config";
 import { getLaufendeFassung } from "@/core/einwilligung";
-import { isContractBreak, nullUnlessContractBreak } from "@/core/errors";
 import { BewerbungView } from "@/features/bewerbungen/components/views/BewerbungView";
 import { getBewerbungFenster, getBewerbungSchulen, getBewerbungTrikotfarben } from "@/features/bewerbungen/queries";
 import { parseSaisonIdParam, resolveSaisonIdParam } from "@/features/saisons/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
+import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { openGraphFor } from "@/shared/utils/metadata";
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
@@ -28,6 +28,8 @@ export async function generateMetadata(props: NextPageProps<{ saison_id: string 
 
   // Caught for the body's reason: a window this page could not read is a state it renders, and a
   // failed read answering not-found would take the season down with the backend.
+
+  // Unlogged: the body's handler logs this same memoised read's failure.
   const antwort = await getBewerbungFenster(saison_id).catch(() => undefined);
   if (antwort === null) return NOT_FOUND_METADATA;
 
@@ -64,11 +66,9 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
   // Caught, so a failure reaches the view as its own state: „abgelaufen“ would be a deadline this
   // read never learnt. A broken contract is no failed read: it reaches the error boundary, which logs it.
 
-  const antwort = await getBewerbungFenster(saison_id).catch((error: unknown) => {
-    if (isContractBreak(error)) throw error;
-    return undefined;
-  });
-  // Outside the read's own handlers: a `notFound()` thrown inside `.then` would be caught as a failed read.
+  const antwort = await runWithIncomingTrace(() =>
+    getBewerbungFenster(saison_id).catch((error: unknown) => nullUnlessContractBreak(error) ?? undefined),
+  );
   if (antwort === null) notFound();
   const fenster = antwort === undefined ? { isUnlesbar: true, fenster: null } : { isUnlesbar: false, fenster: antwort.fenster };
 
@@ -77,12 +77,11 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
   // form down with it.
   const schulen =
     fenster.fenster?.laeuft === true
-      ? await getBewerbungSchulen().then(
-          (antwort) => ({ isSchulenLesbar: true, schulen: antwort.schulen }),
-          (error: unknown) => {
-            if (isContractBreak(error)) throw error;
-            return { isSchulenLesbar: false, schulen: [] };
-          },
+      ? await runWithIncomingTrace(() =>
+          getBewerbungSchulen().then(
+            (antwort) => ({ isSchulenLesbar: true, schulen: antwort.schulen }),
+            (error: unknown) => nullUnlessContractBreak(error) ?? { isSchulenLesbar: false, schulen: [] },
+          ),
         )
       : { isSchulenLesbar: true, schulen: [] };
 
@@ -90,12 +89,11 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
   // palette.
   const vergeben =
     fenster.fenster?.laeuft === true
-      ? await getBewerbungTrikotfarben(saison_id).then(
-          (antwort) => antwort.vergeben,
-          (error: unknown) => {
-            if (isContractBreak(error)) throw error;
-            return [];
-          },
+      ? await runWithIncomingTrace(() =>
+          getBewerbungTrikotfarben(saison_id).then(
+            (antwort) => antwort.vergeben,
+            (error: unknown) => nullUnlessContractBreak(error) ?? [],
+          ),
         )
       : [];
 
@@ -103,9 +101,11 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
   // against. A failed read is the page's own state rather than a form stamping nothing.
   const fassung =
     fenster.fenster?.laeuft === true
-      ? await runWithIncomingTrace(() => getLaufendeFassung("bewerbung")).then(
-          (gelesen) => ({ textVersion: gelesen.text_version, absaetze: gelesen.absaetze, schalter: gelesen.schalter }),
-          nullUnlessContractBreak,
+      ? await runWithIncomingTrace(() =>
+          getLaufendeFassung("bewerbung").then(
+            (gelesen) => ({ textVersion: gelesen.text_version, absaetze: gelesen.absaetze, schalter: gelesen.schalter }),
+            nullUnlessContractBreak,
+          ),
         )
       : null;
 

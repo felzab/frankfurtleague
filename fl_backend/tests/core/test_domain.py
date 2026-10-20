@@ -622,7 +622,7 @@ def test_in_every_scope_a_cascade_onto_a_persons_references_runs_before_the_pers
 
 
 def test_the_registry_runs_every_step_by_name_in_its_declared_order():
-    """`ERASURE_STEPS` is the population every case here reads: a step called but undeclared, or declared but never called, misleads them all.
+    """`ERASURE_STEPS` is the population every case here reads: a step declared but never called, or out of order, misleads them all.
 
     By name, never through the tuple: the transaction sweeps follow a session handed on by a bare name alone.
     """
@@ -680,3 +680,25 @@ def test_the_importer_reading_resolves_every_spelling_of_the_import():
 
     assert all(DECLARATION_MODULE in _modules_imported(beside, ast.parse(source)) for source in spellings)
     assert DECLARATION_MODULE not in _modules_imported(beside, ast.parse("from . import collections"))
+
+
+# What `erase_everything` hands its session to ahead of any step, erasing nothing of the person: the address anchor,
+# the subject read, and the two sentinels a step repoints onto.
+NOT_A_STEP = frozenset({"anchor_the_addresses", "resolve_subject", "ensure_ghost_schiedsrichter", "ensure_ghost_spieler"})
+
+
+class TestEveryCallTheErasureHandsItsSessionIsADeclaredStep:
+    def test_the_calls_are_the_registry_and_the_named_prelude(self):
+        """Read off the body rather than `ERASURE_STEPS`: a step called but never declared is in no scope's reckoning.
+
+        By the session, which every step requires (`docs/backend/spec.md :: I52`), so an undeclared one is handed it too.
+        """
+
+        handed = {
+            node.func.id
+            for node in ast.walk(declared(erase_everything))
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and any(keyword.arg == "session" for keyword in node.keywords)
+        }
+
+        assert NOT_A_STEP <= handed, f"{sorted(NOT_A_STEP - handed)} named here but never called, so the name excuses the next such call"
+        assert handed - NOT_A_STEP == {step.run.__name__ for step in ERASURE_STEPS}

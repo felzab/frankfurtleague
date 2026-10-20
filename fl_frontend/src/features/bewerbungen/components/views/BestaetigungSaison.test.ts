@@ -142,6 +142,34 @@ describe("the confirmation page for a seat on a team's season row", () => {
     unmount();
   });
 
+  /* The page's own read named the row open; the read the route made after the refused press is the one that knows the
+     team left, and a reload of the link names that cause rather than an ended season. */
+  it("names the team's withdrawal a refused press found, as a reload names it, never an ended season", async () => {
+    fetchMock.mock.mockImplementation(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({ success: false, zustand: "saison_vorbei", ansicht: { ...ANSICHT, zustand: "saison_vorbei", zeile: "ausgetreten" } }),
+          { status: 200 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    const { container, unmount } = render(
+      h(BestaetigungView, { start: { zustand: "gueltig", ansicht: ANSICHT, token: "kein-echtes-token", fassung: KONTAKT } }),
+    );
+
+    const [jahr = "", monat = "", tag = ""] = parseDate(getGermanTodayStr()).subtract({ years: 30 }).toString().split("-");
+    await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
+    await user.keyboard(`${tag}${monat}${jahr}`);
+    await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+    await act(fetchMock.answered);
+
+    const text = (container.textContent ?? "").replace(/\s+/g, " ");
+    unmount();
+    assert.match(text, /Das Team Lessing-Kolleg spielt in der Saison 2627 nicht mehr mit\./);
+    assert.doesNotMatch(text, /ist für das Team Lessing-Kolleg vorbei/);
+  });
+
   it("asks a paired seat once without calling the entry an application", () => {
     const offen = page({ zustand: "gueltig", ansicht: ANSICHT, token: "kein-echtes-token", fassung: KONTAKT });
 

@@ -1,45 +1,30 @@
 import { NextResponse } from "next/server";
 
-import { PASSKEY_FACTOR, servedSessionOf, slideSession } from "./core/auth";
-import { SIGN_IN_LANDING } from "./core/signInLanding";
+import { sessionCookieOf, slideSession } from "./core/auth";
 
 import type { NextRequest } from "next/server";
 
 /**
  * No per-request nonce CSP here: the one enforced policy lives in `nginx/shared/security_headers.conf`. That is what lets
- * the matcher stay scoped to the pages a session serves — the session read is a Mongo round trip, never on a public load.
+ * the matcher stay scoped to the pages a session serves — the slide is a Mongo round trip, never on a public load.
  */
 export async function proxy(req: NextRequest): Promise<NextResponse> {
-  let session: Awaited<ReturnType<typeof servedSessionOf>>;
+  // Optimistic, as Next and the library document a proxy's check: the cookie alone, before any read, so a
+  // visitor holding none meets sign-in, never an area's frame. Every verdict past it is a guard's
+  // (`docs/frontend/spec.md :: I122`).
+  if (sessionCookieOf(req.headers) === null) {
+    // No return destination carried across: honouring one needs it checked against an allowlist first.
+    return inBereich(req.nextUrl.pathname) ? turnAway(req, "/signin") : NextResponse.next();
+  }
+
   try {
-    // Every arm, before any answer is chosen: only here can a read by a person who only reads slide
-    // their cookie as well as their row (`docs/frontend/spec.md :: I495`).
-    const slid = await slideSession(req.headers);
-
-    // Every other word is a person's or the sign-in's, guarded by its own page: judged here by the
-    // administrator's checks, it would turn every person away.
-    if (!inAdminArea(req.nextUrl.pathname)) {
-      return NextResponse.next();
-    }
-
-    // A server action's POST takes the checks below too: an action writing a cookie makes Next render
-    // the tree at the POSTed URL into its answer, admin layout and all (`docs/frontend/spec.md :: I243`).
-    session = await servedSessionOf(slid);
+    // Only here can a person who only reads slide their cookie with their row (`docs/frontend/spec.md :: I495`).
+    // Its answer decides nothing: the library expires a cookie whose row is gone or expired, and the
+    // page's guard refuses the rest.
+    await slideSession(req.headers);
   } catch {
     // A store that did not answer signs nobody out: the page's own guard reads it again and fails
     // into its area's error boundary, which renders nothing it guards (`docs/frontend/spec.md :: I519`).
-    return NextResponse.next();
-  }
-
-  // No return destination carried across: honouring one needs it checked against an allowlist first.
-  if (!session) {
-    return turnAway(req, "/signin");
-  }
-
-  // Optimistic, as Next documents a proxy's check: the session and its factor, never the grant, which every
-  // guard reads (`docs/frontend/spec.md :: I122`). The landing answers a code-borne session its passkey step.
-  if (session.session.authFactor !== PASSKEY_FACTOR) {
-    return turnAway(req, SIGN_IN_LANDING);
   }
 
   return NextResponse.next();
@@ -55,12 +40,11 @@ function turnAway(req: NextRequest, destination: string): NextResponse {
   return NextResponse.redirect(new URL(destination, req.nextUrl));
 }
 
-// eslint-disable-next-line local/admin-link -- the subtree this guard refuses on, not a link
-const ADMIN_AREA = "/bereich/admin";
+const BEREICH = "/bereich";
 
-/** Raw and decoded both, as Next tests `config.matcher`: the subtree is judged on every spelling the matcher admits. */
-function inAdminArea(pathname: string): boolean {
-  return [pathname, decoded(pathname)].some((path) => path === ADMIN_AREA || path.startsWith(`${ADMIN_AREA}/`));
+/** Raw and decoded both, as Next tests `config.matcher`: the area is judged on every spelling the matcher admits. */
+function inBereich(pathname: string): boolean {
+  return [pathname, decoded(pathname)].some((path) => path === BEREICH || path.startsWith(`${BEREICH}/`));
 }
 
 // A malformed escape is left as written, as Next leaves it: a person's address never throws here.
@@ -73,12 +57,39 @@ function decoded(pathname: string): string {
 }
 
 export const config = {
-  // Next tests the raw path and its decoded spelling both, so an escaped `admin` is matched too.
+  // Next tests the raw path and its decoded spelling both, so an escaped `bereich` is matched too.
   matcher: [
-    // eslint-disable-next-line local/admin-link -- the subtree this guard judges, not a link
-    "/bereich/admin/:path*",
-    // A prefetch is no page anybody read, and Next runs the proxy on every one a page's links make.
-    { source: "/bereich/:path*", missing: [{ type: "header", key: "next-router-prefetch" }] },
-    { source: "/signin/:path*", missing: [{ type: "header", key: "next-router-prefetch" }] },
+    // A prefetch is no page anybody read, and Next runs the proxy on every one a page's links make. Next
+    // strips the prefetch header before the proxy runs, so only the matcher can keep it from sliding.
+    {
+      source: "/bereich/:path*",
+      missing: [
+        // No `value`, so it matches the header whatever it carries, a partial prefetch's `2` and `3` among them. A full
+        // prefetch sends no header and runs the proxy, which `fl_frontend/eslint.config.mjs :: FULL_PREFETCH` refuses.
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
+    // Save a prefetch carrying no session cookie: the cookie check turns it away before any read, so a visitor
+    // holding none is sent to sign-in rather than shown the prefetched frame.
+    {
+      source: "/bereich/:path*",
+      has: [{ type: "header", key: "next-router-prefetch" }],
+      // A matcher holds literals, so the name is matched on its suffix, of any prefix: a foreign cookie bearing it
+      // skips the proxy, and its prefetched frame paints until the page's guard sends it on.
+      missing: [{ type: "header", key: "cookie", value: ".*\\.session_token=.*" }],
+    },
+    {
+      source: "/bereich/:path*",
+      has: [{ type: "header", key: "purpose", value: "prefetch" }],
+      missing: [{ type: "header", key: "cookie", value: ".*\\.session_token=.*" }],
+    },
+    {
+      source: "/signin/:path*",
+      missing: [
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
   ],
 };

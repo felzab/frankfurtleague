@@ -1,4 +1,4 @@
-import type { FLSonderereignis } from "./schemas";
+import type { FLSonderereignis, FLSpielStatus } from "./schemas";
 
 /**
  * The note's bound, mirroring the backend's `SPIEL_NOTIZ_MAX_LENGTH`
@@ -14,6 +14,25 @@ export const NOTIZ_MAX_LENGTH = 4096;
 export const PAARUNGEN_MAX = 1024;
 
 /**
+ * The days before its fixture a team's answer is due, mirroring the backend's
+ * `SPIEL_BESTAETIGUNG_FRIST_TAGE` (`fl_backend/app/shared/schemas/bounds.py`). A row's own deadline
+ * is the one it stores; this number only says whether a date is inside the notice period.
+ */
+export const SPIEL_BESTAETIGUNG_FRIST_TAGE = 7;
+
+/**
+ * `fl_backend/app/api/spiele/services.py :: CLASH_BUFFER_MINUTES` in the words every clash sentence says it in, held to
+ * that number by `fl_backend/tests/shared/test_frontend_mirrors.py`.
+ */
+export const CLASH_BUFFER_TEXT = "vier Stunden";
+
+/**
+ * The reason box's bound on a fixture confirmation, mirroring the backend's
+ * `SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH` (`fl_backend/app/shared/schemas/bounds.py`).
+ */
+export const SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH = 500;
+
+/**
  * The one German spelling of each Sonderereignis. **A label table and never a predicate**: what a
  * member means differs per consumer, and each of those sets is written at its own call site.
  */
@@ -23,6 +42,19 @@ export const SONDEREREIGNIS_LABELS: Record<FLSonderereignis, string> = {
   nichtantreten_team2: "Nichtantreten Team 2",
   abgebrochen: "Abgebrochen",
   annulliert: "Annulliert",
+};
+
+/**
+ * The one German spelling of each derived status, read by the status chip and the status filter alike:
+ * two spellings of one state read as two. Not the schema value, which would couple the visible German
+ * to the API contract.
+ */
+export const SPIEL_STATUS_LABELS: Record<FLSpielStatus, string> = {
+  ausstehend: "Ausstehend",
+  heute: "Heute",
+  vergangen: "Vergangen",
+  abgesagt: "Abgesagt",
+  unbekannt: "Ohne Datum",
 };
 
 /**

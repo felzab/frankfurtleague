@@ -93,9 +93,14 @@ them, one made in the database included, is mailed to every holder by a pass thi
 return value has to be checked — [`spec.md`](spec.md) I8 says what happens when it is not.
 
 **Route protection is layered**: `fl_frontend/src/proxy.ts` runs on every page a session serves,
-where it slides the session a person only reads ([`spec.md`](spec.md) I495), and under
-`/bereich/admin/:path*` it turns away a request with no session or one no passkey made, reading
-nothing but the session, as Next's own guidance has a proxy check. The grant is judged where the data
+and under `/bereich`, the administrator's subtree included, it turns away a request carrying no
+session cookie before any read, a prefetch among them, so a visitor holding none meets sign-in
+rather than an area's frame ([`spec.md`](spec.md) I243). Past the cookie it judges nothing, as Next's
+and Better Auth's guidance has a proxy check: it slides the session a person only reads
+([`spec.md`](spec.md) I495), and the slide's answer turns nobody away. So a cookie whose session
+ended, or that no passkey made, is painted the area's empty frame before the page's own guard,
+which reads the session it serves, sends it on; a soft navigation, rerunning no layout, paints the
+destination page's static chrome instead. The session, its factor and the grant are judged where the data
 is read: every admin-tier read checks the administrator verdict through
 `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`, sending a session it refuses to the
 sign-in landing and a grant the backend left unread to the admin boundary's retry, since Next renders

@@ -5,13 +5,14 @@ import { describe, it } from "node:test";
 
 import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { ADMIN_SIDEMENU_STRUCTURE } from "@/features/admin/constants.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, loggedErrorCodes, loggedErrorTraces } from "@/shared/testing/actionDoubles.ts";
 import {
   answer,
   answerReadsWith,
   backendNotFound,
   callPage,
   clearSteps,
+  EDGE_TRACE_ID,
   EMPTIEST_ANSWER,
   pageBody,
   readsOf,
@@ -36,6 +37,16 @@ describe("the route the sidemenu names", () => {
     assert.ok(entry, "no sidemenu entry is labelled Bewerbungen");
     assert.equal(entry.id, "bewerbungen", "the entry's id moved off this slice's route segment");
     assert.ok(existsSync(path.join(SRC_DIR, "app", "bereich", "admin", entry.id, "page.tsx")), `/bereich/admin/${entry.id} has no page`);
+  });
+
+  /* A school that played before keeps its team: an acceptance creates one only for a new school, so a hint
+     promising a new team on every acceptance misleads the administrator deciding a returning club's application. */
+  it("tells the administrator an acceptance creates a team only for a new school", () => {
+    const entry = ADMIN_SIDEMENU_STRUCTURE.flatMap((group) => group.sub_options).find((option) => option.id === "bewerbungen");
+
+    assert.deepEqual(entry?.hint?.points, [
+      { term: "Eine Zusage", detail: "nimmt das Team in die Saison auf und legt es an, wenn die Schule neu ist." },
+    ]);
   });
 
   /* Both segments draw a skeleton while their data resolves; without one the shell holds an empty
@@ -282,6 +293,9 @@ describe("what the public application page answers for a season nobody knows", (
 
     assert.equal(props.isUnlesbar, true, "a failed window read is reported as a state the page knows");
     assert.equal(props.fenster, null, "a failed window read hands the view a window it never got");
+    // Untyped, as a bug in the read's narrowing throws: only this line tells it from a read that failed.
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
+    assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
   });
 });
 
@@ -330,6 +344,8 @@ describe("what the public application page reads while its window runs", () => {
 
     assert.equal(props.isSchulenLesbar, false, "a failed club list read is reported as a list that was read");
     assert.deepEqual(props.schulen, [], "a failed club list read hands the view clubs it never got");
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
+    assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
   });
 
   /* The season's ASSIGNED colours, never another application's wish: a wish is no claim on a colour,
@@ -347,6 +363,8 @@ describe("what the public application page reads while its window runs", () => {
 
     assert.deepEqual(props.vergebeneFarben, []);
     assert.equal(props.isSchulenLesbar, true, "the colours' failure took the club list with it");
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
+    assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
   });
 });
 
@@ -370,6 +388,9 @@ describe("the admin application page over a registry it cannot read", () => {
      decision on the application standing. */
   it("hands the view no reseat, and renders, where the registry read failed", async () => {
     assert.equal((await adminBody(new Error("backend unreachable"))).neubesetzung, null, "a failed registry read reached the view as words");
+    // Untyped, as a bug in the read's narrowing throws: only this line tells it from a read that failed.
+    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
+    assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
   });
 
   it("hands the view the reseat's label and words where the registry answers", async () => {

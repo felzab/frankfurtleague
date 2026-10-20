@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { frontend_config } from "@/core/config";
 import { AdminContextWrapper } from "@/features/admin/components/providers/AdminContextWrapper";
 import { AdminSpielEditView } from "@/features/admin/components/views/AdminSpielEditView";
 import { getAdminSpiel } from "@/features/spiele/queries";
@@ -51,6 +52,8 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
         key={spielStateKey(spielRes.spiel)}
         spielData={spielRes.spiel}
         today={getGermanTodayStr()}
+        // The comparison the timer is armed on, so the near-date warning never announces a request no pass sends.
+        isSpielSweepOn={frontend_config.SPIEL_SWEEP === "on"}
       />
     </AdminContextWrapper>
   );

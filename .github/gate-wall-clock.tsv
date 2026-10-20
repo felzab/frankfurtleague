@@ -54,7 +54,8 @@
 # budget, a reference or a floor that rises against main carries a new stamp, a new stamp counts the
 # runs its figures need, and a pull-request run stamps no job whose cache is keyed on the tree, each
 # refused otherwise by `scripts/checks/check_gate_budget.py :: check_raise` in the pull request's
-# `docs` job. Lowering one is free.
+# `docs` job. Lowering one is free; dropping a budget, or a reference or floor the report compares,
+# to `-` removes a ceiling or a comparison rather than lowering it, and is refused whatever the stamp.
 #
 # A check joining the gate records its measured cost here, the **gate** clause in
 # `.claude/rules/ops.md` being what asks for it. Only a new job is refused without a row; a check
@@ -962,11 +963,100 @@
 # bounds, the runner's own registry round trips unmeasured. The row carries `-` for its reference, so
 # the check moves no figure and answers to the budget alone; the budget does not move.
 #
+# `frontend` is re-cut from the 16 first attempts of pushes to main since its unit tests became the
+# `frontend-units` jobs, 2026-09-24 to 2026-10-19: median 108 s, widest 176 s, so 220 s by the rule
+# above, the reference staying `-` under twenty-four runs. The budget is the cold job's, as `format`'s
+# is. Each of the seven runs whose lockfile differed from the run before it restored no Next cache
+# and no pnpm verdict, and spanned 83-176 s; the five since the 145 s budget spanned 132-176 s, four
+# of them past it. Its Next cache is keyed on the lockfile as Next's own CI guide keys it, and main
+# reads no cache a pull request wrote, so the first push after a dependency change builds and
+# verifies cold: `next build`, after the pool, 24-36 s against 3.7-6.1 s from an exact key, and the
+# toolchain 18-40 s against 13-19 s. tsc's cold 22-48 s runs inside the pool beside eslint, which a
+# runner never caches (`docs/ops/spec.md` §1.6) and which took 25-86 s across the population. The
+# first run of a pull request with warm caches, 39308852735 on 2026-10-19, spanned 156 s: a slow-class
+# runner (knip 5.6 s, the fast class reading 3.0-3.9 s) and a source change large enough that tsc
+# re-checked for 51 s and the build took 27 s from a prefix restore.
+#
+# `scripts` gained the gate's stop and stall cases, measured locally on 2026-10-20 on a sixteen-core
+# Windows machine running nothing else, at 1 percent CPU before the series and 8-11 percent mean
+# during each run, four interleaved rounds of each module alone, each exit 0, so upper bounds; a Linux
+# runner's figures are not measured here:
+#
+# - `scripts/tests/test_gate_stop.py`, 29.3-31.5 s whole, 28.3-30.5 s of it pytest's own span: its
+#   four Windows stop launchers 3.5-3.7 s each, of which Linux runs one, the interrupt case 3.8 s in
+#   a console with no window and 3.9 s in a hidden one, which Windows alone runs, the unlisted-tool
+#   case and the stall case 1.5 s each, every other under 0.7 s
+# - `scripts/tests/test_gate_pool.py`, 33.8-34.1 s whole, 32.8-33.1 s of it pytest's own span: the
+#   db tier's full-run stall case 8.4-8.7 s, the two stalled-pytest cases 4.4-4.8 s each, the nested
+#   and silent-unit cases 2.6-2.9 s each, every other under 1.3 s
+#
+# Beside other agent sessions earlier that day, at 1-27 percent CPU, mean 9, the two modules took
+# 37.4-37.7 s and 47.9-48.0 s whole over three interleaved rounds, the same cases each a quarter to
+# a third slower, which no change to the modules explains. In that window the stop and
+# interrupt cases alone at the fork's tree and at this branch's, three interleaved rounds: the
+# launchers 4.4-4.7 s against 4.5-5.0 s, the no-window interrupt 4.8 s against 4.9 s. The stop's own
+# cost moves by less than its spread; the module's added seconds are the hidden-window case and five
+# cases under 2 s each.
+#
+# The pools' registry cases, measured on the same machine later on 2026-10-20 at 9-38 percent CPU
+# beside other agent sessions, three interleaved rounds of each module alone with them and without:
+# `scripts/tests/test_gate_pool.py` 33.3-33.6 s against 32.1-32.6 s, its racing-pools case 0.8-1.5 s;
+# `scripts/tests/test_gate_stop.py` 28.2-29.8 s against 28.3-29.3 s, its two removal cases under 0.2 s
+# each, inside the spread. Compare figures only within one window.
+#
+# Each module is one chunk under `--dist loadfile`, shorter than the suite's longest; the row carries
+# `-` for its reference, so they move no figure and answer to the budget alone.
+#
+# The fixture confirmations added test modules to three jobs, each module run alone, three
+# interleaved rounds of each job's modules, measured locally on 2026-10-20 on a sixteen-core Windows
+# machine running nothing else, at 1.0-1.4 percent CPU before each series and 4-16 percent mean
+# during each run, every run exit 0, so upper bounds:
+#
+# - `backend`, by pytest's own span, each run 2.8 s longer from the interpreter's start:
+#   `fl_backend/tests/api/test_seat_writers.py`, 4 cases, 3.14 s;
+#   `fl_backend/tests/api/test_spielbestaetigung_refusal.py`, 72 cases, 0.79-0.80 s;
+#   `fl_backend/tests/api/test_spielbestaetigung_sweep_refusal.py`, 47 cases, 0.75-0.76 s; and
+#   `fl_backend/tests/api/test_spielbestaetigung_shapes.py`, 22 cases, 0.73 s
+# - `db`, by pytest's own span over the module's db-marked cases, each holding 2.4-2.6 s of its first
+#   case's setup starting the servers, which the gate starts once a run:
+#   `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py`, 62 cases, 11.95-12.35 s;
+#   `fl_backend/tests/api/test_spielbestaetigung_seats_execution.py`, 20 cases, 5.86-6.42 s;
+#   `fl_backend/tests/api/test_spielbestaetigung_execution.py`, 35 cases, 5.75-6.30 s; and
+#   `fl_backend/tests/core/test_conftest_servers.py`, 4 cases starting servers of their own,
+#   2.70-3.39 s. Each module has a pair of runs within 0.2 s, and its run outside the pair read
+#   0.3-0.7 s higher.
+# - `frontend-units`, by the runner's own `duration_ms` through `test:base`, each run 1.2-1.4 s
+#   longer from pnpm's start:
+#   `fl_frontend/src/features/spielbestaetigungen/components/views/SpielbestaetigungView.test.ts`,
+#   18 cases, 13.32-13.39 s; `fl_frontend/src/app/(public)/bestaetigung/spiel/page.test.ts`, 18
+#   cases, 9.59-9.63 s; `fl_frontend/src/app/bereich/admin/spiele/[spiel_id]/page.test.ts`, 8 cases,
+#   2.93-3.46 s; `fl_frontend/src/app/bereich/areaFrames.test.ts`, 16 cases, 2.94-3.37 s; and twelve
+#   more under 2 s each, 12.1 s together at their medians:
+#   `fl_frontend/src/features/spiele/components/ui/SpielStatusChip.test.ts` 1.91-1.92 s,
+#   `fl_frontend/src/features/spiele/components/collections/RecentAndUpcomingSpieleGrid.test.ts`
+#   1.84-1.96 s, `fl_frontend/src/proxyCookie.test.ts` 1.59-1.60 s,
+#   `fl_frontend/src/app/api/bestaetigung/spiel/route.test.ts` 1.53-1.61 s,
+#   `fl_frontend/src/features/system/components/ui/ServerIsLive.test.ts` 1.31-1.36 s,
+#   `fl_frontend/src/features/meta/components/views/AboutView.test.ts` 1.19-1.29 s,
+#   `fl_frontend/src/features/spielbestaetigungen/sweep.test.ts` 0.85 s,
+#   `fl_frontend/src/features/admin/components/views/AdminSpielEditView.test.ts` 0.72 s,
+#   `fl_frontend/src/shared/utils/degradedRead.test.ts` 0.37-0.38 s,
+#   `fl_frontend/src/core/spielEmail.test.ts` 0.32-0.33 s,
+#   `fl_frontend/src/features/spielbestaetigungen/bestaetigungLink.test.ts` 0.31 s and
+#   `fl_frontend/src/features/spielbestaetigungen/utils.test.ts` 0.14-0.16 s
+#
+# On the runner, over the ten verify runs of the branch carrying them on 2026-10-20, 01:16-05:17 UTC,
+# each job's span read first log line to last over the attempts that passed: `backend` 65-104 s
+# against its 105 s budget, `db` 112-157 s against 160 s, and the four `frontend-units` shards
+# 127-190, 94-169, 109-176 and 107-154 s against 205 s. No row moves and none takes a stamp.
+#
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
-# reference was re-stamped from the one population it reads, and `--base` refuses a total floor that
-# rose any other way (`scripts/checks/check_gate_budget.py :: check_total_floor`); otherwise it is
-# `-`. Move a job's seconds and move the total with it: where the two
+# reference was re-stamped from the one population it reads, keeps the base's where it re-stamped
+# none of them, and otherwise proposes `-`, which `--base` refuses as it refuses any compared row's
+# reference or floor dropped to `-` (`scripts/checks/check_gate_budget.py :: check_raise`): re-stamp
+# every referenced row from one population instead. `--base` also refuses a total floor that rose
+# any other way (`:: check_total_floor`). Move a job's seconds and move the total with it: where the two
 # disagree `scripts/checks/check_gate_budget.py` refuses the file at parse, in any of its modes, and
 # compares nothing at all.
 #
@@ -975,7 +1065,7 @@ backend	78	21	105	24@2026-10-07/37627541547
 db	113	7	160	24@2026-10-07/37627541547
 docs	42	8	60	24@2026-10-07/37627541547
 format	-	-	70	3@2026-09-26
-frontend	-	-	145	3@2026-09-26
+frontend	-	-	220	16@2026-10-19
 frontend-units (1)	156	5	205	24@2026-10-07/37627541547
 frontend-units (2)	132	4	205	24@2026-10-07/37627541547
 frontend-units (3)	139	11	205	24@2026-10-07/37627541547

@@ -240,7 +240,7 @@ async def remove_pending_pupil_addresses_in_session(
     The row's log images still carry the address: the erasure's pass over other documents' images, run after this, takes it out of them.
     """
 
-    # No write for none: a fan-out matching nothing still files a log row.
+    # No command for none.
     if not spieler_ids:
         return 0
 

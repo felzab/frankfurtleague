@@ -17,14 +17,26 @@ const NEXT_CACHE = {
 };
 // Silent: each refusal a case drives would otherwise print an ERROR line into a passing run.
 const inert = (): undefined => undefined;
-const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
+/**
+ * Every ERROR line the handler was handed: its message, and the code its own fields file it under, never the
+ * serialised arguments, where the error's own `code` would match whatever the line was filed under.
+ */
+const errors: { message: string; error_code: unknown }[] = [];
+const LOGGING = {
+  logger: {
+    info: inert,
+    warn: inert,
+    error: (message: string, _error: unknown, meta?: { error_code?: unknown }) => void errors.push({ message, error_code: meta?.error_code }),
+  },
+};
 
 const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint));
 
 doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING }, specifiers: { "next/cache": NEXT_CACHE } });
 
 const { POST } = await import("./route.ts");
-const { APINetworkError } = await import("@/core/errors.ts");
+const { APIMalformedDataError, APINetworkError } = await import("@/core/errors.ts");
+const { markOutcomeUnknown } = await import("@/core/requestScope.ts");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 const { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
@@ -96,6 +108,7 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
   (await POST(request)) as unknown as Record<string, unknown>;
 
 beforeEach(() => {
+  errors.length = 0;
   tags.length = 0;
   gelesen = 0;
   schreibAntwort = () => GESCHRIEBEN;
@@ -182,25 +195,59 @@ describe("the referee's confirmation handler", () => {
 
   /* The link died between the open and the press, so the page swaps the form for a panel; a field
      error would leave a dead link looking like a mistyped one. */
-  for (const [code, zustand, zurueckgelesen] of [
+  for (const [code, zustand, zurueckgelesen, lesungen] of [
     // The administrator re-sent while the page stood open, so the token matches no stored hash.
-    ["REQ-SCHIEDSRICHTER-002", "ungueltig", () => refusedOn(VIEW_OPERATION, "REQ-SCHIEDSRICHTER-002")],
-    ["REQ-SCHIEDSRICHTER-003", "abgelaufen", () => ({ ...ANSICHT, zustand: "abgelaufen" })],
-    ["REQ-SCHIEDSRICHTER-004", "bestaetigt", () => ({ ...ANSICHT, zustand: "bestaetigt" })],
+    ["REQ-SCHIEDSRICHTER-002", "ungueltig", () => refusedOn(VIEW_OPERATION, "REQ-SCHIEDSRICHTER-002"), 0],
+    // Judged ahead of the ban, which the view ranks first, so the view says which panel a reload opens.
+    ["REQ-SCHIEDSRICHTER-003", "abgelaufen", () => ({ ...ANSICHT, zustand: "abgelaufen" }), 1],
+    ["REQ-SCHIEDSRICHTER-004", "bestaetigt", () => ({ ...ANSICHT, zustand: "bestaetigt" }), 1],
+    ["REQ-SCHIEDSRICHTER-004", "gesperrt", () => ({ ...ANSICHT, zustand: "gesperrt" }), 1],
   ] as const) {
-    it(`answers ${code} as the ${zustand} panel, without waiting on a second read`, async () => {
+    it(`answers ${code} as the ${zustand} panel, reading the link ${String(lesungen)} times`, async () => {
       schreibAntwort = () => refusedOn(WRITE_OPERATION, code);
       leseAntwort = zurueckgelesen;
 
       const answer = await bodyOf(aRequest(gueltigerKoerper));
 
       assert.deepEqual(answer.body, { success: false, zustand: zustand }, `${code} does not reach the page as a panel`);
-      assert.equal(gelesen, 0, `${code} paid for a read of a link the write had already judged`);
+      assert.equal(gelesen, lesungen, `${code} read the link otherwise than its panel needs`);
     });
   }
 
+  /* An answer off the view's schema is the deploy's fault, logged for whoever can repair it. The refusal settled the
+     write, so the person reads its panel as after a failed read, never that the answer may not have arrived. */
+  it("logs a view answered off its schema and answers the refusal as a failed read does", async () => {
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-SCHIEDSRICHTER-003");
+    leseAntwort = () => new Error("the backend did not answer");
+    const nachFehler = await bodyOf(aRequest(gueltigerKoerper));
+    leseAntwort = () =>
+      new APIMalformedDataError({
+        message: "Response failed schema.",
+        url: "http://localhost/schiedsrichter/bestaetigung/ansicht",
+        statusCode: 200,
+        endpoint: "/schiedsrichter/bestaetigung/ansicht",
+        method: "POST",
+        readOnly: true,
+        traceId: "0",
+      });
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, nachFehler.body, "a contract break after a refusal answered otherwise than a failed read");
+    // Nothing dropped: the refusal stood, so the fixture list holds nothing new.
+    assert.deepEqual(tags, []);
+    assert.ok(
+      errors.some(
+        ({ message, error_code }) =>
+          message.includes("read broke its contract after its write was answered: postSchiedsrichterBestaetigung") &&
+          error_code === "FE-API-002",
+      ),
+      "the contract break left no line",
+    );
+  });
+
   /* The one refusal that spends nothing, so the typed date survives it and the form stays live —
-     and the ONLY one that pays for a second read, the sentence naming a number. */
+     reading the floor its sentence names. */
   it("puts the age refusal on the date the person typed, reading the floor once", async () => {
     schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-SCHIEDSRICHTER-005");
 
@@ -251,6 +298,31 @@ describe("the referee's confirmation handler", () => {
       success: false,
       fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt." },
     });
+  });
+
+  /* The write was refused, so nothing stands to be unsure of: a floor read the request's deadline cut names no age,
+     never an unknown outcome, and drops no cache for a write that did not land. */
+  it("puts the age refusal on the date naming no age where the deadline cut the floor's read", async () => {
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-SCHIEDSRICHTER-005");
+    leseAntwort = () => {
+      markOutcomeUnknown();
+      return new APINetworkError({
+        message: "Request failed.",
+        url: "http://localhost/schiedsrichter/bestaetigung/ansicht",
+        method: "POST",
+        readOnly: true,
+        traceId: "0",
+        isTimeout: true,
+      });
+    };
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, {
+      success: false,
+      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt." },
+    });
+    assert.deepEqual(tags, []);
   });
 
   it("refuses a body no schema admits without reaching the endpoint", async () => {

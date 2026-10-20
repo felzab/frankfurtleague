@@ -7,6 +7,7 @@ import { beforeEach, describe, it } from "node:test";
 import { act, createElement as h } from "react";
 
 import { render, screen } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 
 import { APINetworkError } from "@/core/errors.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -14,6 +15,9 @@ import { underNext } from "@/shared/testing/nextContexts.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 import type { FLSpielAdmin } from "@/features/spiele/schemas.ts";
+import type { FLSpielort } from "@/features/spielorte/schemas.ts";
+import type { FLTeam } from "@/features/teams/schemas.ts";
+import type { UserEvent } from "@testing-library/user-event";
 import type { TestContext } from "node:test";
 
 /* The dry run's transport timed out, answered as `runAdminMutation` answers the preview's read-only
@@ -58,6 +62,7 @@ const spiel = (id: string, spiel_nr: number, team1: ReturnType<typeof side>, tea
   saison_phase: "gruppenphase",
   saison_id: "2026",
   notiz: null,
+  ansetzung_bestaetigt: null,
 });
 
 const EDITED = spiel(
@@ -88,6 +93,8 @@ async function renderAndPreview(t: TestContext): Promise<void> {
         saisonSpiele: [EDITED, NEIGHBOUR],
         numberOfGroups: 2,
         isFinishedSaison: false,
+        isActiveSaison: true,
+        isSpielSweepOn: true,
         today: "2026-09-14",
         categorize: () => new Set<never>(),
         pageHeader: { title: "Spiel 1" },
@@ -141,5 +148,214 @@ describe("the match editor's preview when its dry run is not answered", () => {
     await renderAndPreview(t);
 
     assert.equal(screen.queryAllByText(UNGEPRUEFT).length, 0, "a preview that answered is worded as one that could not check");
+  });
+});
+
+/** The day every editor below is rendered on, and a fixture's day so many days after it. */
+const HEUTE = "2026-09-14";
+const tagNach = (tage: number): string => new Date(Date.parse(HEUTE) + tage * 86_400_000).toISOString().slice(0, 10);
+
+const SOFORT = /müssen die Teams noch am Tag der Anfrage bestätigen/;
+
+/** EDITED, dated, with a kick-off and a ground: a fixture the confirmations' sweep asks about. */
+const angesetzt = (datum: string): FLSpielAdmin => ({
+  ...EDITED,
+  datum: datum,
+  uhrzeit: "14:30:00",
+  ort: { spielort_id: "68c1f0a2b3c4d5e6f7a8b9d1", name: "Sportpark Rebstock", maps_link: "Sportpark Rebstock, Frankfurt", mietpreis: 0 },
+});
+
+const ADRESSE = { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" };
+
+/** A second ground the picker offers beside the stored one. */
+const ANDERER_ORT: FLSpielort = {
+  id: "68c1f0a2b3c4d5e6f7a8b9d2",
+  name: "Sporthalle Süd",
+  address: ADRESSE,
+  maps_link: "Sporthalle Süd, Frankfurt",
+  default_mietpreis: 0,
+  inactive_since: null,
+};
+
+/** A club of the season, as the editor's team list reads it. */
+const verein = (id: string, name: string, shorthand: string): FLTeam => ({
+  id: id,
+  name: name,
+  gruppe: "A",
+  statistik: {
+    anzahl_gespielte_spiele: 0,
+    siege: 0,
+    niederlagen: 0,
+    unentschieden: 0,
+    tore_geschossen: 0,
+    tore_kassiert: 0,
+    punkte: 0,
+    anzahl_abgesagte_spiele: 0,
+  },
+  austritt: null,
+  shorthand: shorthand,
+  description: "",
+  full_name: name,
+  website_url: null,
+  address: ADRESSE,
+  schulform: null,
+  inactive_since: null,
+});
+
+/** Both stored sides, and a third club the second side's picker can take instead. */
+const VEREINE: FLTeam[] = [
+  verein("68c1f0a2b3c4d5e6f7a8b9c1", "SG Alpha", "SA"),
+  verein("68c1f0a2b3c4d5e6f7a8b9c2", "SG Beta", "SB"),
+  verein("68c1f0a2b3c4d5e6f7a8b9c5", "SG Epsilon", "SE"),
+];
+
+/** The editor over one fixture of a running season, with no Spieltag neighbour to ask the dry run about. */
+function renderEditor(spielData: FLSpielAdmin, teams: FLTeam[] = VEREINE, isSpielSweepOn = true): void {
+  render(
+    underNext(
+      h(AdminEditSpielDataForm, {
+        spielData: spielData,
+        teams: teams,
+        spielorte: [ANDERER_ORT],
+        schiedsrichter: [],
+        saisonSpiele: [spielData],
+        numberOfGroups: 2,
+        isFinishedSaison: false,
+        isActiveSaison: true,
+        isSpielSweepOn: isSpielSweepOn,
+        today: HEUTE,
+        categorize: () => new Set<never>(),
+        pageHeader: { title: "Spiel 1" },
+      }),
+      { search: "saison_id=2026" },
+    ),
+  );
+}
+
+/** The picker's trigger group, whose own click toggles the list: HeroUI wraps the select's button in it. */
+function pickerTrigger(label: string): HTMLElement {
+  const button = [...document.querySelectorAll<HTMLElement>('button[aria-haspopup="listbox"]')].find((candidate) =>
+    (candidate.getAttribute("aria-labelledby") ?? "")
+      .split(" ")
+      .some((id) => document.getElementById(id)?.textContent?.trim().startsWith(label) === true),
+  );
+  return button?.closest<HTMLElement>('[data-slot="autocomplete-trigger"]') ?? assert.fail(`no picker trigger labelled ${label}`);
+}
+
+/* The form's half of the banner: which date is the draft's and which the stored one is decided here alone. */
+describe("the match editor's warning that a near date leaves the teams no notice", () => {
+  beforeEach(() => {
+    calls.length = 0;
+  });
+
+  /* A save leaving the Ansetzung alone asks nobody, so a near fixture opened to add a referee warns of nothing. */
+  it("raises nothing on opening a fixture stored inside the deadline's days", () => {
+    renderEditor(angesetzt(tagNach(3)));
+
+    assert.equal(screen.queryAllByText(SOFORT).length, 0, "an unchanged near fixture warns of a request no save causes");
+  });
+
+  /* Read the stored date as the draft's, or the draft's twice, and this re-dating raises nothing and saves unasked. */
+  it("raises it once a date is moved into the deadline's days, and asks before saving", async () => {
+    const user = userEvent.setup();
+    renderEditor(angesetzt(tagNach(8)));
+
+    // One day back puts the fixture on the deadline's last day.
+    const tag = screen.getAllByRole("spinbutton", { name: /^Tag/ }).at(-1) ?? assert.fail("the editor renders no day to step");
+    await act(async () => tag.focus());
+    await user.keyboard("{ArrowDown}");
+
+    assert.ok(screen.queryAllByText(SOFORT).length > 0, "a date moved into the window raised nothing");
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    assert.ok(screen.queryByRole("button", { name: "Trotzdem speichern" }) !== null, "the save went unasked");
+    assert.deepEqual(calls, [], "the save was sent before it was confirmed");
+  });
+
+  /* The served verdict is about the stored Ansetzung: the preview keeps it through an edit leaving the five values
+     alone, and drops it once one moves, the draft's copy of the field still reading as served. */
+  it("keeps „Vorläufig“ on the preview until the draft moves the Ansetzung", async () => {
+    const user = userEvent.setup();
+    renderEditor({ ...angesetzt(tagNach(3)), ansetzung_bestaetigt: false });
+    // Folded where the rail is no column of its own, which is every width a page without a viewport has.
+    await user.click(screen.getByRole("button", { name: "Vorschau" }));
+    assert.ok(screen.queryAllByText("Vorläufig").length > 0, "the preview of an unchanged fixture drops its verdict");
+
+    await user.type(screen.getByRole("textbox", { name: "Notiz zum Spiel" }), "Halle");
+    assert.ok(screen.queryAllByText("Vorläufig").length > 0, "an edit leaving the Ansetzung alone drops the verdict");
+
+    const tag = screen.getAllByRole("spinbutton", { name: /^Tag/ }).at(-1) ?? assert.fail("the editor renders no day to step");
+    await act(async () => tag.focus());
+    await user.keyboard("{ArrowUp}");
+    assert.equal(screen.queryAllByText("Vorläufig").length, 0, "a moved Ansetzung keeps the verdict about the stored one");
+  });
+
+  /* The pass is switched off as shipped, so it asks nobody: a warning and a confirmation over a save would announce a
+     request that never comes. */
+  it("raises nothing, and saves unasked, where the confirmations' pass is switched off", async () => {
+    const user = userEvent.setup();
+    renderEditor(angesetzt(tagNach(8)), VEREINE, false);
+
+    const tag = screen.getAllByRole("spinbutton", { name: /^Tag/ }).at(-1) ?? assert.fail("the editor renders no day to step");
+    await act(async () => tag.focus());
+    await user.keyboard("{ArrowDown}");
+
+    assert.equal(screen.queryAllByText(SOFORT).length, 0, "a date moved into the window warned of a request no pass sends");
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    assert.equal(screen.queryAllByRole("button", { name: "Trotzdem speichern" }).length, 0, "the save asked about a request no pass sends");
+  });
+
+  /* The date stays inside the window, so only the stored ground, side or kick-off tells this save from one that
+     leaves the Ansetzung alone: any of them read off the draft, and the move raises nothing. */
+  for (const [was, verlegen] of [
+    [
+      "the ground",
+      async (user: UserEvent) => {
+        await user.click(pickerTrigger("Spielort"));
+        await user.click(screen.getByRole("option", { name: ANDERER_ORT.name }));
+      },
+    ],
+    ...(["Team 1", "Team 2"] as const).map(
+      (seite) =>
+        [
+          `${seite}'s club`,
+          async (user: UserEvent) => {
+            await user.click(pickerTrigger(seite));
+            await user.click(screen.getByRole("option", { name: "SG Epsilon" }));
+          },
+        ] as const,
+    ),
+    [
+      "the kick-off",
+      async (user: UserEvent) => {
+        const stunde = screen.getAllByRole("spinbutton", { name: /^Stunde/ }).at(-1) ?? assert.fail("the editor renders no hour to step");
+        await act(async () => stunde.focus());
+        await user.keyboard("{ArrowUp}");
+      },
+    ],
+  ] as const) {
+    it(`raises it once ${was} moves on a fixture stored inside the deadline's days`, async () => {
+      const user = userEvent.setup();
+      renderEditor(angesetzt(tagNach(3)));
+      assert.equal(screen.queryAllByText(SOFORT).length, 0, "the warning stood before anything moved");
+
+      await verlegen(user);
+
+      assert.ok(screen.queryAllByText(SOFORT).length > 0, `moving ${was} inside the window raised nothing`);
+    });
+  }
+
+  /* The pass asks nothing about a fixture a club has left by its day, and only the season's team list says so. */
+  it("raises nothing once the ground moves on a fixture whose second club left before its day", async () => {
+    const user = userEvent.setup();
+    const austritt = { type: "rueckzug" as const, grund: "Kein Team mehr", datum: tagNach(1) };
+    renderEditor(
+      angesetzt(tagNach(3)),
+      VEREINE.map((verein) => (verein.name === "SG Beta" ? { ...verein, austritt: austritt } : verein)),
+    );
+
+    await user.click(pickerTrigger("Spielort"));
+    await user.click(screen.getByRole("option", { name: ANDERER_ORT.name }));
+
+    assert.equal(screen.queryAllByText(SOFORT).length, 0, "a fixture the pass never asks about warned of a request");
   });
 });

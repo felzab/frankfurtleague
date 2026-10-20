@@ -141,6 +141,22 @@ SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE: Final = 14
 # and its own constant, for the floors' reason below: the two links wait on different people.
 SPIELER_ADRESSWECHSEL_FRIST_TAGE: Final = 14
 
+# A row stores the deadline it was given, so raising this moves no request already sent; a fixture
+# dated inside it is due the day it is asked.
+SPIEL_BESTAETIGUNG_FRIST_TAGE: Final = 7
+# Also the longest a confirmation link answers, as long as `BEWERBUNG_BESTAETIGUNG_FRIST_TAGE` and
+# `SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE` let the other adult links: `docs/logging/spec.md` accepts a
+# link's token in the edge's error log because it answers nothing past such a deadline.
+SPIEL_ANFRAGE_VORLAUF_TAGE: Final = 14
+# Two integers rather than a list: a tuple is no `int`, so neither register of
+# `fl_backend/tests/shared/test_frontend_mirrors.py` would see it.
+SPIEL_ERINNERUNG_TAGE_ERSTE: Final = 3
+SPIEL_ERINNERUNG_TAGE_ZWEITE: Final = 1
+
+# `SPERRLISTE_GRUND_MAX_LENGTH`'s figure for its reason: a sentence read on a card, neither mailed as a
+# decline's reason is nor copied onto a year of log rows as an erasure's occasion is.
+SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH: Final = 500
+
 # The age a referee consents at. Its own constant rather than the application contact's, though the
 # numbers agree: the two floors are separate judgements, so raising one must not silently raise the
 # other.

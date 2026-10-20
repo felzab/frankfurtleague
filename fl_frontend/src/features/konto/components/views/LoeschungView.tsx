@@ -67,6 +67,8 @@ const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
 
 const PROTOKOLL_ZEILE = "Deine Adresse im Änderungsprotokoll und als Urheberin von Sperren, Einladungen, Entscheidungen und Zugängen";
 
+const BEGRUENDUNGEN_ZEILE = "Deine Begründungen zu Spielterminen, die Du über einen Bestätigungslink abgegeben hast";
+
 /** Each record in the words the account page heads it with, so the list names what its reader already knows there. */
 function zeilenOf({ spieler, schiedsrichter, sitze, bewerbungen, registrierungen, adresswechsel, verwaltung }: LoeschungAnsicht): string[] {
   return [
@@ -189,6 +191,9 @@ function LoeschungInhalt({ start }: { start: LoeschungStart }) {
             {zeilenOf(stand.ansicht).map((zeile, index) => (
               <li key={`${String(index)}-${zeile}`}>{zeile}</li>
             ))}
+            {/* Named whatever the read found, as the log's line below is: the reasons are matched by a digest of the
+                address, which no read counts. */}
+            <li>{BEGRUENDUNGEN_ZEILE}</li>
             {/* Named whatever the read found, as the administrator's reveal names it: no read lists the log's or the
                 authorship's rewrite, which reaches an address holding no record too. */}
             <li>{PROTOKOLL_ZEILE}</li>

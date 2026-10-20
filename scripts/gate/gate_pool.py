@@ -15,11 +15,14 @@ import argparse
 import contextlib
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -43,6 +46,29 @@ POSIX: Final = sys.platform != "win32"
 
 # A second's grace is nothing beside a build running to its end for a reader who has gone.
 CALLER_POLL_S: Final = 1.0
+
+# Above the widest green unit on a runner, the db tier's 129 s (2026-10-20); a cold local unit, unmeasured, may
+# cross it and costs a line. A pytest unit is named at this plus `scripts/gate/verify.sh :: FAULTHANDLER_S`.
+STALL_S: Final = 300.0
+STALL_POLL_S: Final = 5.0
+# The end of a capture a notice shows.
+STALL_TAIL_LINES: Final = 100
+# A faulthandler dump lists threads newest first, each innermost frame first, so the stalled frame
+# opens its last block, which a tail cuts first: `shown` keeps that block from its header.
+DUMP_RE: Final = re.compile(r"^Timeout \([0-9]+:[0-9]{2}:[0-9]{2}(\.[0-9]+)?\)!$")
+# The header names its thread in brackets where the platform can (`[python]` on Linux, none on Windows).
+THREAD_RE: Final = re.compile(r"^(Current thread|Thread) 0x[0-9a-fA-F]+( \[.*\])? \(most recent call first\):$")
+
+# Where a pool nested in a unit sends its notices, the one pool whose stderr reaches the reader
+# relaying them: a nested pool's own stderr is a capture nobody reads until the run ends.
+NOTICES: Final = "FL_GATE_NOTICES"
+
+# The registry a watched Windows gate's pools name themselves in, each by its pid, which its stop
+# spares until their units have ended (`scripts/gate/gate_watch.py :: wind_down`); unset everywhere
+# else.
+POOLS: Final = "FL_GATE_POOLS"
+# The entry a stop makes there before it reads the pools.
+STOPPED: Final = "stop"
 
 ASSIGNMENT: Final = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
@@ -174,10 +200,12 @@ def terminate(pool: Pool) -> None:
     for child in children:
         # Gone between the snapshot and here is the ordinary case, not a fault.
         with contextlib.suppress(OSError):
-            if sys.platform == "win32":
-                child.terminate()
-            else:
+            if sys.platform != "win32":
                 os.killpg(child.pid, signal.SIGTERM)
+            # A watched Windows gate's own stop signals each unit and waits on its trap
+            # (`scripts/gate/gate_watch.py :: wind_down`), where this would end the unit beneath it.
+            elif not os.environ.get(POOLS):
+                child.terminate()
 
 
 def watch_caller(pool: Pool, caller: int, stop: threading.Event) -> None:
@@ -192,6 +220,158 @@ def watch_caller(pool: Pool, caller: int, stop: threading.Event) -> None:
             return
 
 
+def captures(pool: Pool, name: str) -> list[Path]:
+    """The files a unit's streams are written to, as `spawn` opens them."""
+    out = pool.directory / (name + ".out")
+    return [out] if pool.merge else [out, pool.directory / (name + ".err")]
+
+
+def spelled(seconds: float) -> str:
+    """A span the way `scripts/lib/_lib.sh :: fmt_ms` spells one past two minutes."""
+    whole = int(seconds)
+    return f"{whole // 60}m {whole % 60:02d}s"
+
+
+def shown(lines: list[str]) -> list[str]:
+    """The lines of a capture a notice carries: its tail, and the last dump's stalled thread where the tail starts below it."""
+    tail = max(0, len(lines) - STALL_TAIL_LINES)
+    dumps = [index for index, line in enumerate(lines) if DUMP_RE.match(line)]
+    if not dumps or dumps[-1] >= tail:
+        return lines[tail:]
+    headers = [index for index in range(dumps[-1], len(lines)) if THREAD_RE.match(lines[index])]
+    if not headers:
+        return lines[tail:]
+    block = headers[-1]
+    # A frame line is indented; the block ends at the first that is not.
+    end = next((index for index in range(block + 1, len(lines)) if not lines[index].startswith("  ")), len(lines))
+    if block >= tail:
+        return [lines[dumps[-1]], *lines[tail:]]
+    return [lines[dumps[-1]], *lines[block:end], *lines[max(end, tail) :]]
+
+
+def stall_notice(pool: Pool, name: str, quiet: float) -> bytes:
+    """What the reader is told of a unit silent past `STALL_S`: which, for how long, and the end of what it wrote."""
+    lines = [f"  !!  the {name} unit has written nothing for {spelled(quiet)} and is still running. Its output so far ends:"]
+    for capture in captures(pool, name):
+        text = capture.read_bytes().decode("utf-8", errors="replace") if capture.is_file() else ""
+        lines.append(f"      ({capture})")
+        lines += [f"      {line}" for line in shown(text.splitlines())]
+    return ("\n".join(lines) + "\n").encode("utf-8")
+
+
+def watch_stalls(pool: Pool, stop: threading.Event, sink: Callable[[bytes], None], relay: Path | None) -> None:
+    """Name each unit silent past `STALL_S`, and pass on nested pools' notices.
+
+    Silence, not age: a unit printing progress is moving however long it runs, and a tsc printing
+    nothing until done meets the bound a hung one does.
+    """
+    # Per unit: the size its captures last grew to, when, and when it was last named.
+    heard: dict[str, tuple[int, float, float]] = {}
+    relayed = 0
+    while not stop.wait(STALL_POLL_S):
+        now = time.monotonic()
+        with pool.live_lock:
+            names = list(pool.live)
+        for name in names:
+            size = sum(capture.stat().st_size for capture in captures(pool, name) if capture.is_file())
+            last = heard.get(name)
+            if last is None or last[0] != size:
+                heard[name] = (size, now, now)
+            elif now - last[2] >= STALL_S:
+                sink(stall_notice(pool, name, now - last[1]))
+                heard[name] = (size, last[1], now)
+        if relay is not None:
+            relayed = relay_notices(relay, relayed, sink)
+
+
+def relay_notices(relay: Path, offset: int, sink: Callable[[bytes], None]) -> int:
+    """Pass on every whole line nested pools have appended since `offset`, and answer the new offset."""
+    with relay.open("rb") as notices:
+        notices.seek(offset)
+        written = notices.read()
+    # Whole lines only: a nested pool may be mid-append.
+    complete = written[: written.rfind(b"\n") + 1]
+    if complete:
+        sink(complete)
+    return offset + len(complete)
+
+
+def notice_route(pool: Pool) -> tuple[Callable[[bytes], None], Path | None]:
+    """Where this pool's notices go, and the file it relays nested pools' from where it is the outermost."""
+    inherited = os.environ.get(NOTICES)
+    if inherited:
+        target = Path(inherited)
+
+        def append(notice: bytes) -> None:
+            with target.open("ab") as notices:
+                notices.write(notice)
+
+        return append, None
+    relay = pool.directory / "notices"
+    relay.write_bytes(b"")
+    # Before any unit starts: each inherits it, and so does every pool a unit starts.
+    os.environ[NOTICES] = str(relay)
+
+    def emit(notice: bytes) -> None:
+        sys.stderr.buffer.write(notice)
+        sys.stderr.flush()
+
+    return emit, relay
+
+
+def new_registry() -> Path:
+    """A directory, never a file appended to.
+
+    Windows' C runtime appends by seeking to the end and then writing, so two pools appending at once
+    can share an offset and lose one, where an entry is created whole.
+    """
+    return Path(tempfile.mkdtemp(prefix="fl-gate-pools-"))
+
+
+def enter(registry: Path, name: str) -> bool:
+    """Make the registry's entry `name`; False where the registry is gone, as only its gate's end leaves it."""
+    try:
+        (registry / name).touch()
+    except FileNotFoundError:
+        return False
+    return True
+
+
+def pools_named(registry: Path) -> set[int]:
+    """Each pool the registry names, and none once the gate's own trap has removed it."""
+    try:
+        return {int(entry.name) for entry in registry.iterdir() if entry.name.isdigit()}
+    except FileNotFoundError:
+        return set()
+
+
+def remove_registry(registry: Path) -> None:
+    """Remove the registry, which the gate's own trap may have done first (`scripts/gate/verify.sh :: gate_exit`)."""
+    with contextlib.suppress(FileNotFoundError):
+        shutil.rmtree(registry)
+
+
+def mark_stop(registry: Path) -> set[int]:
+    """Mark a stop in the registry, then answer each pool named there.
+
+    Marked before it is read: a pool naming itself meanwhile finds the mark and starts nothing
+    (`announce`), so every pool with units is named here.
+    """
+    enter(registry, STOPPED)
+    return pools_named(registry)
+
+
+def announce() -> bool:
+    """Name this pool where a stop reads it before any unit starts; True where a stop came first, or the gate has ended.
+
+    Named, then looks, as a stop marks, then reads (`mark_stop`): racing, each finds the other.
+    """
+    registry = os.environ.get(POOLS)
+    if not registry:
+        return False
+    return not enter(Path(registry), str(os.getpid())) or (Path(registry) / STOPPED).exists()
+
+
 def stop_on_signal(number: int, frame: FrameType | None) -> None:
     """Turn a SIGTERM into an unwind in the main thread, which is where the units are stopped.
 
@@ -204,8 +384,8 @@ def stop_on_signal(number: int, frame: FrameType | None) -> None:
 def arm(pool: Pool, stop: threading.Event) -> None:
     """Install both ways a run can be ended before its units are done.
 
-    Off POSIX neither can be, so neither is installed and the run is only ever waited out --
-    the reason is on `POSIX`.
+    Off POSIX neither can be, for the reason on `POSIX`, and on Windows the job
+    `scripts/gate/gate_watch.py` holds ends the run instead.
     """
     if not POSIX:
         return
@@ -270,10 +450,13 @@ def main() -> int:
         started=time.monotonic(),
     )
 
+    stopped = announce()
     watched = threading.Event()
     arm(pool, watched)
+    sink, relay = notice_route(pool)
+    threading.Thread(target=watch_stalls, args=(pool, watched, sink, relay), daemon=True).start()
     try:
-        return drive(pool, units)
+        return EXIT_INTERRUPTED if stopped else drive(pool, units)
     finally:
         watched.set()
         # Without a manifest a crash here reads as a gate that proved nothing rather than one that

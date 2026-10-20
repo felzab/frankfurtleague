@@ -173,6 +173,7 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, *, saison
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(),
         today=TODAY,
@@ -186,6 +187,7 @@ async def call_undraw(database: AsyncDatabase, client: AsyncMongoClient, *, sais
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         spieltage_collection=database[Collection.SPIELTAGE],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         db=client,
     )
 
@@ -548,6 +550,42 @@ class TestAnUndrawReachesNoOtherSeason:
 
         assert (neighbours.subject_spieltage, neighbours.subject_spiele) == (0, 0)
         assert neighbours.undrawn.spiele > 0
+
+
+def a_confirmation(saison_id: str) -> dict[str, Any]:
+    """An open team row of one season's fixture, as the sweep mints it; the fixture itself need not exist for the removal's filter."""
+
+    home = ObjectId()
+    fixture = documents.spiel_document(
+        spiel_id=ObjectId(),
+        saison_id=saison_id,
+        spiel_nr=1,
+        spieltag_id=ObjectId(),
+        team1={"team_id": home, "name": "Alpha", "shorthand": "AL", "tore": None},
+        team2={"team_id": ObjectId(), "name": "Beta", "shorthand": "BE", "tore": None},
+        datum="2026-05-01",
+        uhrzeit="18:00:00",
+    )
+
+    return documents.spielbestaetigung_document(fixture, partei={"art": "team", "team_id": home})
+
+
+class TestAnUndrawTakesTheSeasonsConfirmations:
+    def test_the_seasons_rows_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
+        """Drop the undraw's confirmation delete and this fails: a row would name a fixture the undraw removed."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
+            await call_draw(database, client)
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many([a_confirmation(SAISON_ID), a_confirmation(NEIGHBOUR_SAISON_ID)])
+            await call_undraw(database, client)
+
+            confirmations = database[Collection.SPIELBESTAETIGUNGEN]
+            return (
+                await confirmations.count_documents({"saison_id": SAISON_ID}),
+                await confirmations.count_documents({"saison_id": NEIGHBOUR_SAISON_ID}),
+            )
+
+        assert on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
 
 
 @dataclass(frozen=True)
