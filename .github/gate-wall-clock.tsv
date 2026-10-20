@@ -1030,7 +1030,9 @@
 #   `fl_backend/tests/api/test_spielbestaetigung_seats_execution.py`, 20 cases, 5.86-6.42 s;
 #   `fl_backend/tests/api/test_spielbestaetigung_execution.py`, 35 cases, 5.75-6.30 s; and
 #   `fl_backend/tests/core/test_conftest_servers.py`, 5 cases starting servers of their own,
-#   2.70-3.39 s. Each module has a pair of runs within 0.2 s, and its run outside the pair read
+#   2.70-3.39 s over four of them, the fifth
+#   (`:: test_a_replica_set_that_never_initiates_fails_naming_its_log_and_leaves_no_container`)
+#   unmeasured. Each module has a pair of runs within 0.2 s, and its run outside the pair read
 #   0.3-0.7 s higher.
 # - `frontend-units`, by the runner's own `duration_ms` through `test:base`, each run 1.2-1.4 s
 #   longer from pnpm's start:

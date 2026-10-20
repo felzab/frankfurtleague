@@ -181,9 +181,19 @@ jobs:
 
           const config = JSON.parse(readFileSync("../.prettierrc.json", "utf8"));
           const roots = new Set(["prettier", config.tailwindPackageName ?? "tailwindcss", ...(config.plugins ?? [])]);
+          // The key carries packages and the stylesheets under src alone, so any other file the
+          // Tailwind plugin reads -- a script a relative `@plugin` or `@config` names, a sheet outside
+          // src -- is refused rather than left unkeyed.
+          const src = path.resolve("src");
+          const keyed = (file) => file.startsWith(src + path.sep) && file.endsWith(".css");
+          if (config.tailwindStylesheet && !keyed(path.resolve("..", config.tailwindStylesheet))) {
+            throw new Error(`tailwindStylesheet ${config.tailwindStylesheet} is no stylesheet under fl_frontend/src, which the cache key carries`);
+          }
           for (const sheet of readdirSync("src", { recursive: true }).filter((name) => name.endsWith(".css"))) {
-            for (const [, id] of readFileSync(path.join("src", sheet), "utf8").matchAll(/@(?:import|plugin|config|reference)\s+["']([^"'./][^"']*)["']/g)) {
-              roots.add(id.split("/").slice(0, id.startsWith("@") ? 2 : 1).join("/"));
+            // Quoted ids alone: Tailwind loads nothing for an `@import url(...)`.
+            for (const [, id] of readFileSync(path.join("src", sheet), "utf8").matchAll(/@(?:import|plugin|config|reference)\s+["']([^"']+)["']/g)) {
+              if (!/^[./]/.test(id)) roots.add(id.split("/").slice(0, id.startsWith("@") ? 2 : 1).join("/"));
+              else if (!keyed(path.resolve("src", path.dirname(sheet), id))) throw new Error(`src/${sheet} loads ${id}, which the cache key does not carry`);
             }
           }
           const find = (from, name) => {
@@ -201,7 +211,9 @@ jobs:
               for (const name of new Set(fields.flatMap((field) => Object.keys(manifest[field] ?? {})))) {
                 const found = find(dir, name);
                 if (found) visit(found);
-                else if (required) throw new Error(`${manifest.name} depends on ${name}, which is not installed`);
+                // A name under both lists is optional, as npm reads it
+                // (https://docs.npmjs.com/cli/v11/configuring-npm/package-json#optionaldependencies).
+                else if (required && !Object.hasOwn(manifest.optionalDependencies ?? {}, name)) throw new Error(`${manifest.name} depends on ${name}, which is not installed`);
               }
             }
           };
