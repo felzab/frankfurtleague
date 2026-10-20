@@ -313,7 +313,7 @@
       },
       "patch": {
         "summary": "Update a Spiel",
-        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten, and every name it carries is\ncomposed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,\nand every fixture this call changed arrives in `prior_paarungen` as it stood before it — this one\nleading the list, and carrying the fields beyond its Paarung that this payload replaced.",
+        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten, and every name it carries is\ncomposed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,\nand every fixture this call changed arrives in `prior_paarungen` as it stood before it — this one\nleading the list, and carrying the fields beyond its Paarung that this payload replaced.\n\nWith `uebernimmt_bericht`, the save also stamps the fixture's Spielbericht adopted at that version, in the same\ntransaction. A report corrected since that version is left unstamped, and the save lands all the same: nothing is\nrefused for it. A `dry_run` stamps nothing.",
         "operationId": "patch_spiel_data_api_v0_spiele__spiel_id__patch",
         "security": [
           {
@@ -330,6 +330,25 @@
               "pattern": "^[0-9a-fA-F]{24}$",
               "title": "Spiel Id"
             }
+          },
+          {
+            "name": "uebernimmt_bericht",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted",
+              "title": "Uebernimmt Bericht"
+            },
+            "description": "The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"
           },
           {
             "name": "dry_run",

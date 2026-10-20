@@ -27,11 +27,13 @@ from app.api.spielberichte.services import (
     BERICHT_NICHT_GESPIELT,
     BERICHT_NICHT_IM_KADER,
 )
-from app.api.spiele.admin_router import get_spiele_action_required
+from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel_data
+from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.core.collections import Collection
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.payloads import spiel_patch_body
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -673,3 +675,49 @@ class TestTheTriageFindsEveryReportAwaitingTheAdministrator:
         assert SPIEL in typed
         # Adopted as it stands: awaiting nothing.
         assert SPIEL not in adopted
+
+
+async def adopt(database: AsyncDatabase, client: AsyncMongoClient, *, version: int) -> None:
+    """The administrator's save of the proposed 1:0, seeded from the report at `version`."""
+
+    # The seed's quarter-final shares the round's matchday, where the winner the save resolves into it is refused.
+    await database[Collection.SPIELE].update_one({"_id": VIERTELFINALE}, {"$set": {"spieltag_id": ObjectId()}})
+    stored_spiel = await database[Collection.SPIELE].find_one({"_id": SPIEL})
+    assert stored_spiel is not None, "the seed holds no fixture"
+    spiel_data = spiel_patch_body(stored_spiel, team1={**side(TEAM1), "tore": 1}, team2={**side(TEAM2), "tore": 0})
+    await patch_spiel_data(
+        spiel_id=SPIEL,
+        spiel_data=FLPatchSpielDataPayload.model_validate(spiel_data),
+        db=client,
+        spiele_collection=database[Collection.SPIELE],
+        teams_collection=database[Collection.TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        spieltage_collection=database[Collection.SPIELTAGE],
+        spielorte_collection=database[Collection.SPIELORTE],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
+        uebernimmt_bericht=version,
+        now=NOW,
+    )
+
+
+class TestACorrectionAfterTheAdoptionAwaitsTheAdministratorAgain:
+    def test_the_referees_correction_returns_an_adopted_report_to_abweichend(self, mongo_replica_set_url: str):
+        """The correction moves a scorer's minute alone, so the proposal still equals the saved result: only the version tells."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def zustand() -> Any:
+                return (await get_spielbericht_admin(spiel_id=SPIEL, db=client, **handles(database))).zustand
+
+            await put(database, client, bericht())
+            await adopt(database, client, version=1)
+            adopted = await zustand()
+            await put(database, client, bericht(torschuetzen=[tor("team1", LINA, minute="24")], stand=1))
+
+            return adopted, await zustand()
+
+        adopted, corrected = on_the_league(mongo_replica_set_url, body)
+
+        assert adopted == "uebernommen", "the premise: the save adopted the report"
+        assert corrected == "abweichend", "a correction after the adoption read as adopted"

@@ -209,7 +209,20 @@ export function AdminEditSpielDataForm({
   // knockout-cancellation warning cannot disagree.
   const previewSpiel = applyDraftToSpiel(spielData, draft);
 
-  const status = deriveSpielDraftStatus({ stored: spielData, draft, expectedCategories: categorize(previewSpiel), fieldErrors });
+  // Adopted only while every seeded atom holds what the press set: a hand edit since is the administrator's own
+  // result, which the save's stamp must not name as the report's. Derived before the status, which reads it.
+  const uebernimmtBericht =
+    eingesetzt !== null && haeltVorschlag(eingesetzt.vorschlag, { team1: team1Payload, team2: team2Payload, elfmeterschiessen, sonderereignis })
+      ? eingesetzt.version
+      : null;
+
+  const status = deriveSpielDraftStatus({
+    stored: spielData,
+    draft,
+    uebernimmtBericht,
+    expectedCategories: categorize(previewSpiel),
+    fieldErrors,
+  });
   const isDirty = status.isDirty && !hasSaved;
 
   // Unlatched as soon as the props catch up: left latched, a later edit on a restored tree would
@@ -416,13 +429,6 @@ export function AdminEditSpielDataForm({
     setEingesetzt({ version: bericht.version, vorschlag: bericht.ergebnis_vorschlag });
   };
 
-  // Adopted only while every seeded atom holds what the press set: a hand edit since is the administrator's own
-  // result, which the save's stamp must not name as the report's.
-  const uebernimmtBericht =
-    eingesetzt !== null && haeltVorschlag(eingesetzt.vorschlag, { team1: team1Payload, team2: team2Payload, elfmeterschiessen, sonderereignis })
-      ? eingesetzt.version
-      : null;
-
   const writeAfterBlock = () => {
     const payload = buildPayload();
     // Never `safeParse` here: the gate proved this draft parses before either route reached here, and the
@@ -431,7 +437,7 @@ export function AdminEditSpielDataForm({
 
     startSaving(async () => {
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
-      const res = await patchAdminSpielDataAction(narrowed, spielData.saison_id).catch(unansweredAction);
+      const res = await patchAdminSpielDataAction(narrowed, spielData.saison_id, uebernimmtBericht).catch(unansweredAction);
 
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so bare it commits before the pending state lifts.
