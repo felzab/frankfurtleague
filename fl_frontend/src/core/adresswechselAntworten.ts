@@ -5,3 +5,6 @@ export const JA_MEINE_ADRESSE = "Ja, das ist meine Adresse";
  * mail modules can read it, so a reworded press takes the mails with it.
  */
 export const NICHT_MEINE_ADRESSE = "Das ist nicht meine Adresse";
+
+/** The address on file's one press, named by its notice and offered by both address pages and the account page, for the same reason. */
+export const ADRESSWECHSEL_STOPPEN = "Änderung stoppen";

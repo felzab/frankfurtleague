@@ -65,8 +65,16 @@ describe("the notice an address change sends the address in force", () => {
     mailSchiedsrichterAdresswechsel({
       operation: "PATCH /schiedsrichter/{schiedsrichter_id}",
       schiedsrichterId: "6890a1b2c3d4e5f607190003",
-      name: "Anna Beispiel",
-      mint: { token: TOKEN, frist: "2026-10-05", email: NEU, bisherige_email: BISHER },
+      mint: {
+        weg: "konto",
+        token: TOKEN,
+        stopp_token: "stopp-token",
+        gueltig_bis: "2026-10-05T10:00:00Z",
+        email: NEU,
+        bisherige_email: BISHER,
+        vorname: "Anna",
+        adresse_belegt: false,
+      },
       anlass: "empfang",
     });
 
@@ -80,7 +88,7 @@ describe("the notice an address change sends the address in force", () => {
       return [ended, requestOutcomeUnknown()] as const;
     });
 
-    assert.deepEqual(versand, { link: "gesendet", hinweis: "ungewiss" });
+    assert.deepEqual(versand, { weg: "konto", link: "gesendet", hinweis: "ungewiss" });
     assert.equal(markedUnknown, false, "a notice that may have landed answered the whole request as of unknown outcome");
   });
 

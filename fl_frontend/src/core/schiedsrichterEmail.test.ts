@@ -10,13 +10,8 @@ const ORIGIN = "http://localhost:3000";
 
 registerDoubles();
 
-const {
-  buildSchiedsrichterAdresswechselEmail,
-  buildSchiedsrichterAdresswechselHinweisEmail,
-  buildSchiedsrichterBestaetigungEmail,
-  schiedsrichterBestaetigungsLink,
-  SCHIEDSRICHTER_BESTAETIGUNG_PATH,
-} = await import("./schiedsrichterEmail.ts");
+const { buildSchiedsrichterBestaetigungEmail, schiedsrichterBestaetigungsLink, SCHIEDSRICHTER_BESTAETIGUNG_PATH } =
+  await import("./schiedsrichterEmail.ts");
 const { KONTAKT_EMAIL } = await import("./brand.ts");
 
 const TOKEN = "abc123";
@@ -127,8 +122,6 @@ describe("no value can open a line of its own in the text part", () => {
   /** Each builder with the break in each value it prints, one value at a time. */
   const faelle = (): { name: string; mail: { subject: string; text: string } }[] => [
     { name: "the confirmation link's fristText", mail: buildSchiedsrichterBestaetigungEmail({ ...daten, fristText: wert }) },
-    { name: "the address link's fristText", mail: buildSchiedsrichterAdresswechselEmail({ ...daten, fristText: wert }) },
-    { name: "the notice's vorname", mail: buildSchiedsrichterAdresswechselHinweisEmail({ origin: ORIGIN, vorname: wert }) },
   ];
 
   it("folds every value a message prints onto one line, in the text part and the subject", () => {

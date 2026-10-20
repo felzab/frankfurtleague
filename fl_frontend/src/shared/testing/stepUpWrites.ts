@@ -401,6 +401,9 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormBestaetigungSection.tsx": {
     einladeSchiedsrichterAction: "one-press",
   },
+  "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormKontaktSection.tsx": {
+    beantrageAdresswechselAction: "one-press",
+  },
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAdresswechselSection.tsx": {
     einladeAdresswechselAction: "one-press",
     verwirfAdresswechselAction: "one-press",

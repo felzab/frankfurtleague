@@ -4,10 +4,10 @@ import { apiClient } from "@/core/api";
 import { FLSelbstErasureAnsichtResponseSchema } from "@/core/schemas";
 import { runPersonRead } from "@/shared/utils/personRead";
 
-import { FLKontoEinwilligungenResponseSchema } from "./schemas";
+import { FLKontoAdresswechselResponseSchema, FLKontoEinwilligungenResponseSchema } from "./schemas";
 
 import type { FLSelbstErasureAnsichtResponse } from "@/core/schemas";
-import type { FLKontoEinwilligungenResponse } from "./schemas";
+import type { FLKontoAdresswechselResponse, FLKontoEinwilligungenResponse } from "./schemas";
 
 /**
  * Every confirmed consent record the signed-in address holds, empty rather than refused where it holds
@@ -27,5 +27,13 @@ export const getLoeschungAnsicht = cache(async (): Promise<FLSelbstErasureAnsich
     apiClient<FLSelbstErasureAnsichtResponse>("/identitaet/selbst/erasure/ansicht", FLSelbstErasureAnsichtResponseSchema, {
       authType: "admin",
     }),
+  ),
+);
+
+/** The signed-in address's address control: whether it holds a record to move, and the change pending there, never its new address. */
+// Never `"use cache"`, for `getKontoEinwilligungen`'s reason.
+export const getKontoAdresswechsel = cache(async (): Promise<FLKontoAdresswechselResponse> =>
+  runPersonRead(() =>
+    apiClient<FLKontoAdresswechselResponse>("/konto/adresswechsel", FLKontoAdresswechselResponseSchema, { authType: "admin" }),
   ),
 );

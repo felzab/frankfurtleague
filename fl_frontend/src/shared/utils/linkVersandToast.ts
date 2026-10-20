@@ -44,11 +44,27 @@ const LINK_HINWEIS_UNKLAR_TITEL: VersandTitel = {
   abgelegt: "Link zurückgehalten, Hinweis unklar",
 };
 
-/** An address change's toast: its link's, and a warning titled for the notice too where that failed or may have (`docs/frontend/spec.md :: I679`). */
+/** A change awaiting the address on file's approval, whose one message is the request to that address. */
+const ANFRAGE_TITEL: VersandTitel = {
+  gesendet: "Anfrage gesendet",
+  fehlgeschlagen: "Anfrage nicht verschickt",
+  abgelegt: "Anfrage zurückgehalten",
+};
+
+/**
+ * An address change's toast: its link's, and a warning titled for the notice too where that failed or may
+ * have (`docs/frontend/spec.md :: I679`). With no link, the notice is the press's one message and titles it.
+ */
 export function meldeAdresswechselVersand(
-  { versand, hinweis }: { versand: LinkVersand; hinweis?: HinweisVersand | null },
+  { versand, hinweis }: { versand: LinkVersand | null; hinweis?: HinweisVersand | null },
   description: string,
 ): void {
+  if (versand === null) {
+    if (hinweis === "ungewiss") appToast.warning("Unklar, ob die Anfrage verschickt wurde", { description });
+    else meldeLinkVersand(hinweis ?? "fehlgeschlagen", ANFRAGE_TITEL, description);
+    return;
+  }
+
   const titel = hinweis === "ungewiss" ? LINK_HINWEIS_UNKLAR_TITEL : LINK_OHNE_HINWEIS_TITEL;
 
   if (hinweisFehlt(hinweis)) appToast.warning(titel[versandGrad(versand)], { description });

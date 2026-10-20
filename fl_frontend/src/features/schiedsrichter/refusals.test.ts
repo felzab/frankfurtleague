@@ -5,7 +5,13 @@ import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
 
-import { mapGesperrteAdresseRefusal, mapNameRefusal, mapReactivateRefusal, mapRetireRefusal } from "./refusals.ts";
+import {
+  mapBestaetigteAdresseRefusal,
+  mapGesperrteAdresseRefusal,
+  mapNameRefusal,
+  mapReactivateRefusal,
+  mapRetireRefusal,
+} from "./refusals.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -82,6 +88,8 @@ describe("what each referee write answers a refusal with", () => {
      holding the value it refused: a write asking one mapper alone reports the other as a conflict. */
   it("answers the create's and the save's refusals on the name box and the address box", async () => {
     const saveAnswer = (refusal: unknown) => mapNameRefusal(refusal) ?? mapGesperrteAdresseRefusal(refusal);
+    // The save's alone also refuses to move a confirmed referee's address, which only a page older than the confirmation sends.
+    const patchAnswer = (refusal: unknown) => saveAnswer(refusal) ?? mapBestaetigteAdresseRefusal(refusal);
 
     await assertEachAnswered({
       operation: CREATE_OPERATION,
@@ -93,7 +101,7 @@ describe("what each referee write answers a refusal with", () => {
       operation: SAVE_OPERATION,
       refuseWith: answerWith,
       act: () => patchSchiedsrichterAction({ id: SCHIEDSRICHTER_ID, ...REFEREE }),
-      mapped: saveAnswer,
+      mapped: patchAnswer,
     });
   });
 

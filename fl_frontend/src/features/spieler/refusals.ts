@@ -69,15 +69,19 @@ export function mapAlreadyInSaisonRefusal(error: unknown): string | null {
   return ALREADY_IN_SAISON;
 }
 
-const ADRESSE_BELEGT = "Diese Adresse ist schon bei einer anderen Spielerin oder einem anderen Spieler hinterlegt.";
+// Exported for the referee's start, which moves a pupil row at the address as well and is refused alike.
+export const ADRESSE_BELEGT = "Diese Adresse ist schon bei einer anderen Spielerin oder einem anderen Spieler hinterlegt.";
 
-const SCHON_HINTERLEGT = "Das ist schon die hinterlegte Adresse.";
+export const SCHON_HINTERLEGT = "Das ist schon die hinterlegte Adresse.";
 
 /** Shown where the control is missing too: a pupil holding no address takes no change, and the panel says where one comes from. */
 export const KEINE_ADRESSE_HINTERLEGT =
   "Für diesen Eintrag ist keine Adresse hinterlegt. Sie kommt mit der Registrierung über den Link des Teams.";
 
 const EINTRAG_WEG = buildRefusal({ reason: "Diesen Eintrag gibt es nicht mehr", repair: LADE_DIE_SEITE_NEU });
+
+/** The reason is kept with the log a year, where no erasure reaches it: the backend refuses a name of the person in it. */
+export const NAME_IM_GRUND = "Der Grund enthält ein Wort, das einem Namen der Person gleicht.";
 
 /**
  * An address change's request, or `null`. The address's own refusals land on the box that holds it,
@@ -94,6 +98,8 @@ export function mapAdresswechselAntragRefusal(error: unknown): { error?: string;
       return { error: ADRESSE_BELEGT, fieldErrors: { email: ADRESSE_BELEGT } };
     case "REQ-SPIELER-007":
       return { error: SCHON_HINTERLEGT, fieldErrors: { email: SCHON_HINTERLEGT } };
+    case "REQ-SPIELER-009":
+      return { error: NAME_IM_GRUND, fieldErrors: { grund: NAME_IM_GRUND } };
     // No address control stands where none is stored, so only a page older than the address's removal sends this.
     case "REQ-SPIELER-008":
       return { error: KEINE_ADRESSE_HINTERLEGT };
@@ -130,8 +136,10 @@ const KEINE_ADRESSE_ZU_ERSETZEN = buildRefusal({
   repair: "Verwirf die Änderung",
 });
 
+// A re-send is offered only while the new mailbox is asked, so its 404 is a page older than an answer,
+// an approval still owed or a waiting time begun.
 const KEIN_ADRESSWECHSEL = buildRefusal({
-  reason: "Für diesen Eintrag wartet keine neue E-Mail-Adresse mehr auf Bestätigung",
+  reason: "Für diesen Eintrag wartet keine neue E-Mail-Adresse mehr auf ihre Bestätigung",
   repair: LADE_DIE_SEITE_NEU,
 });
 

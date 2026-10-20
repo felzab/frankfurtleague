@@ -635,6 +635,10 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   "PATCH /schiedsrichter/{schiedsrichter_id}": { name: "patchSchiedsrichterAction", payload: refereeReplay("anna@neu.example") },
   "POST /schiedsrichter/{schiedsrichter_id}/reactivate": { name: "reactivateSchiedsrichterAction", payload: { id: REFEREE_ID } },
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": { name: "einladeSchiedsrichterAction", payload: { id: REFEREE_ID } },
+  "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel": {
+    name: "beantrageAdresswechselAction",
+    payload: { id: REFEREE_ID, email: "anna@neu.example", grund: null },
+  },
   "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": { name: "einladeAdresswechselAction", payload: { id: REFEREE_ID } },
   "DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel": { name: "verwirfAdresswechselAction", payload: { id: REFEREE_ID } },
   "POST /sperrliste": { name: "postSperreAction", payload: { email: "zorbanax@beispielschule.de", grund: "Falsches Geburtsdatum angegeben" } },
@@ -649,7 +653,7 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   },
   "POST /spieler/{spieler_id}/adresswechsel": {
     name: "beantrageSpielerAdresswechselAction",
-    payload: { id: SPIELER_ID, email: "lena@neu.example" },
+    payload: { id: SPIELER_ID, email: "lena@neu.example", grund: null },
   },
   "POST /spieler/{spieler_id}/adresswechsel/einladen": { name: "einladeSpielerAdresswechselAction", payload: { id: SPIELER_ID } },
   "DELETE /spieler/{spieler_id}/adresswechsel": { name: "verwirfSpielerAdresswechselAction", payload: { id: SPIELER_ID } },
@@ -662,10 +666,14 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
 
 /**
  * Per person's route publishing the confirmation refusal, the action sending it, driven in its own suite
- * (`fl_frontend/src/features/konto/loeschung.test.ts :: "the backend's confirmation refusal"`). Named, never told apart by
- * REQ-AUTH-008: an administrator's route publishing that too would escape the sweep.
+ * (`fl_frontend/src/features/konto/loeschung.test.ts`, `fl_frontend/src/features/konto/personActions.test.ts`). Named,
+ * never told apart by REQ-AUTH-008: an administrator's route publishing that too would escape the sweep.
  */
-const CONFIRMED_ON_A_PERSON_ROUTE: Readonly<Record<string, string>> = { "POST /identitaet/selbst/erasure": "loescheKontoAction" };
+const CONFIRMED_ON_A_PERSON_ROUTE: Readonly<Record<string, string>> = {
+  "POST /identitaet/selbst/erasure": "loescheKontoAction",
+  "POST /konto/adresswechsel": "starteAdresswechselAction",
+  "POST /konto/adresswechsel/freigabe": "gibAdresswechselFreiAction",
+};
 
 /**
  * Per administrator's route publishing the confirmation refusal whose action opens behind a switch this sweep leaves

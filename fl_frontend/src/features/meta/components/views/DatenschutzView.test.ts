@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
 
+import { ADRESSWECHSEL_GUELTIG_STUNDEN } from "@/core/adresswechsel.ts";
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { ADMIN_WINDOW_HOURS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes.ts";
 import { CODE_FAILURE_WINDOW_HOURS } from "@/core/signInCode.ts";
@@ -16,7 +17,6 @@ import {
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants.ts";
 import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants.ts";
 import { SPERRE_DAUER_HINWEIS, SPERRE_DAUER_SAISONS } from "@/features/sperrliste/constants.ts";
-import { SPIELER_ADRESSWECHSEL_FRIST_TAGE } from "@/features/spieler/constants.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 const { DatenschutzView } = await import("./DatenschutzView.tsx");
@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "21. Oktober 2026", digest: "df3b014abd525c4e6dc24147b3d739a2617df5d90d5924623121789d71a64f94" } as const;
+const FASSUNG = { stand: "21. Oktober 2026", digest: "e33c14f5f33822fc9f70ad14f38c411b525c3324046517e961391d6ac85d0436" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -208,7 +208,9 @@ describe("the privacy notice's retention table", () => {
     assert.ok(
       ANGABEN.has(
         "Vermerk eines Schritts, den Du veranlasst hast: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines " +
-          "Widerspruchs als Kontaktperson oder der Ablehnung einer neuen E-Mail-Adresse. Deine E-Mail-Adresse steht darin nur als " +
+          "Widerspruchs als Kontaktperson, der Ablehnung einer neuen E-Mail-Adresse, des Stopps ihrer Änderung oder der Änderung " +
+          "selbst, sobald sie gilt. Deine " +
+          "E-Mail-Adresse steht darin nur als " +
           "unlesbarer Schlüssel, bei einer Löschung als drei solche Schlüssel. Außerdem enthält er die Art des Schritts und den " +
           "Zeitpunkt, bei den übrigen Schritten den betroffenen Eintrag, bei einem Widerruf die Fassung des Textes und die Antworten, " +
           "die er setzt, bei einem Widerspruch die Rollen, die er leert, und Kennungen der Anfrage, über die er sich dem Eintrag im " +
@@ -241,46 +243,34 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
-  /* The address may be a stranger's, so its retention is stated with the clock that ends it once its link has lapsed:
-     the hourly pass removes it the day after (`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`). */
-  it("gives a referee's unconfirmed new address its retention and the removal the day after its link lapsed", () => {
+  /* One row for both lanes, a change belonging to an address: the pending address may be a stranger's, so its retention is
+     stated with the clocks that end it, the hourly pass removing a lapsed one within the hour. */
+  it("gives a pending new address its retention, each link's clock and the waiting time", () => {
     assert.equal(
       ANGABEN.get(
-        "Neue E-Mail-Adresse einer Schiedsrichterin oder eines Schiedsrichters, solange sie nicht bestätigt ist, dazu ihr " +
-          "Link als unlesbarer Schlüssel mit Versanddatum und Frist",
+        "Neue E-Mail-Adresse eines Kontos, solange sie nicht gilt, dazu ihr Link und der Stopp-Link an die bisherige Adresse als " +
+          "unlesbare Schlüssel, das Versanddatum, die Frist, gegebenenfalls die Freigabe, der Grund der Verwaltung, die Bestätigung " +
+          "und der Zeitpunkt, ab dem sie gilt",
       ),
-      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft. Mit dem Eintrag " +
-        "wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen," +
-        " löschen wir die Adresse am Tag danach",
+      "Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird oder die Verwaltung " +
+        `sie verwirft. Mit dem Eintrag wird sie gelöscht. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem ` +
+        "Versand, der Stopp-Link bis die Änderung gilt. Ist ein Link abgelaufen, löschen wir die Adresse innerhalb einer Stunde. Hat " +
+        "die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie eine Woche nach ihrer Bestätigung",
     );
   });
 
-  /* Two addresses are in play, so the sentence names the one the notice of the change goes to rather than a „sie“ fitting both. */
-  it("says the address on file stays in force and is the one told of a confirmed referee's address change", () => {
+  /* Two addresses are in play, so the sentence names the one the notice goes to rather than a „sie“ fitting both. */
+  it("says the person changes the address on their account page, and the address on file is told and can stop it", () => {
     rendert(
-      "Ändert die Verwaltung Deine E-Mail-Adresse, nachdem Du Deinen Eintrag bestätigt hast, gilt die neue erst, wenn Du sie über den " +
-        "Link bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen " +
-        "Hinweis auf die Änderung.",
+      "Deine E-Mail-Adresse änderst Du selbst in Deinem Konto. Die neue gilt erst, wenn Du sie über den Link bestätigt hast, den wir " +
+        "an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen Hinweis mit einem Link, über " +
+        "den sie die Änderung stoppen kann. Kannst Du Dich nicht mehr anmelden, ändert die Verwaltung sie auf Deine Bitte: Entweder " +
+        "gibst Du die neue mit der bisherigen Adresse frei, oder sie gilt erst eine Woche nach ihrer Bestätigung. Gilt die neue, gilt " +
+        "sie für jeden bestätigten Eintrag unter der bisherigen, und die bisherige bekommt eine Nachricht darüber.",
     );
-  });
-
-  /* The referee's twin, on the clock the pupil's has: the lapsed address goes the day after. */
-  it("gives a pupil's unconfirmed new address its retention, its link's clock in words and the removal the day after it lapses", () => {
-    assert.equal(
-      ANGABEN.get(
-        "Neue E-Mail-Adresse einer Spielerin oder eines Spielers, solange sie nicht bestätigt ist, dazu ihr Link als unlesbarer " +
-          "Schlüssel mit Versanddatum und Frist",
-      ),
-      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft. Mit dem Eintrag wird " +
-        `sie gelöscht. Ihr Link gilt ${inWorten(SPIELER_ADRESSWECHSEL_FRIST_TAGE)} Tage ab dem Versand, und jeder neue Link ersetzt ` +
-        "den vorigen. Ist er abgelaufen, löschen wir die Adresse am Tag danach",
-    );
-  });
-
-  it("says the address on file stays in force and is the one told of a pupil's address change", () => {
     rendert(
-      "Ändert die Verwaltung Deine E-Mail-Adresse, gilt die neue erst, wenn Du sie über den Link bestätigt hast, den wir an sie " +
-        "schicken. Bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen Hinweis auf die Änderung.",
+      "Hast Du Deinen Eintrag bestätigt, änderst Du Deine E-Mail-Adresse wie eine Spielerin oder ein Spieler selbst in Deinem Konto, " +
+        "und die neue gilt für jeden bestätigten Eintrag unter der bisherigen.",
     );
   });
 
@@ -790,7 +780,8 @@ describe("the privacy notice's publication and retention rows keep their ruled b
       vorkommen(
         "Eine Einwilligung, auf die sich bei uns noch etwas stützt, kannst Du außerdem selbst in Deinem Konto zurücknehmen: Melde " +
           "Dich mit der Adresse an, unter der wir Dich heute erreichen; dort steht jede solche Einwilligung. Eine abgelehnte Bewerbung " +
-          "oder Registrierung steht dort nicht; wir löschen sie einen Monat nach der Entscheidung.",
+          "oder Registrierung steht dort nicht; wir löschen sie einen Monat nach der Entscheidung. Deine E-Mail-Adresse änderst Du " +
+          "selbst in Deinem Konto.",
       ),
       1,
     );

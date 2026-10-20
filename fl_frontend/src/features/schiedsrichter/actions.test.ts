@@ -22,7 +22,14 @@ import { answer, answerReadsWith, EDGE_TRACE_ID, EMPTIEST_ANSWER, pageBody } fro
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapNameRefusal as mapSpielortNameRefusal } from "../spielorte/refusals.ts";
-import { mapEinladenRefusal, mapGesperrteAdresseRefusal, mapNameRefusal, mapReactivateRefusal, mapRetireRefusal } from "./refusals.ts";
+import {
+  mapBestaetigteAdresseRefusal,
+  mapEinladenRefusal,
+  mapGesperrteAdresseRefusal,
+  mapNameRefusal,
+  mapReactivateRefusal,
+  mapRetireRefusal,
+} from "./refusals.ts";
 
 import type { ReactNode } from "react";
 
@@ -56,6 +63,9 @@ const ANSICHT_OPERATION = "POST /schiedsrichter/bestaetigung/ansicht";
 /** The create's and the save's own answer: the name's mapper first, then the ban's, as both actions ask them. */
 const saveAnswer = (error: unknown) => mapNameRefusal(error) ?? mapGesperrteAdresseRefusal(error);
 
+/** The save's alone adds the confirmed referee's address, which only a page older than the confirmation sends. */
+const patchAnswer = (error: unknown) => saveAnswer(error) ?? mapBestaetigteAdresseRefusal(error);
+
 describe("the referee's writes against the codes their endpoints publish", () => {
   /* Coming back mints for an unanswered referee, so the reactivation meets the ban list as every mint
      does; left unmapped it reaches the admin as the shared fallback, which names no rule. */
@@ -80,15 +90,15 @@ describe("the referee's writes against the codes their endpoints publish", () =>
     // No `REQ-SCHIEDSRICHTER-001`: a retired referee's new address is stored and mails nothing.
     assert.deepEqual(
       publishedRefusals(SAVE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-SCHIEDSRICHTER-007"],
+      ["REQ-SCHIEDSRICHTER-007", "REQ-SCHIEDSRICHTER-011"],
     );
-    for (const [operation, published] of [
-      [CREATE_OPERATION, publishedRefusals(CREATE_OPERATION)],
-      [SAVE_OPERATION, publishedRefusals(SAVE_OPERATION)],
+    for (const [operation, published, answer] of [
+      [CREATE_OPERATION, publishedRefusals(CREATE_OPERATION), saveAnswer],
+      [SAVE_OPERATION, publishedRefusals(SAVE_OPERATION), patchAnswer],
     ] as const) {
       assert.ok(published.includes(DUPLICATE_KEY), `${operation} no longer publishes the duplicate name its mapper places`);
       for (const code of published) {
-        assert.notEqual(answerShown(operation, code, saveAnswer), null, `${code} reaches the admin as an unhandled conflict on ${operation}`);
+        assert.notEqual(answerShown(operation, code, answer), null, `${code} reaches the admin as an unhandled conflict on ${operation}`);
       }
     }
   });
@@ -274,42 +284,6 @@ describe("what the save tells the administrator about the message it sent", () =
     });
   }
 
-  /* A notice to the address in force that failed asks the administrator to tell the person, which a clean save
-     contradicts; one held back asks nothing (`docs/frontend/spec.md :: I679`). */
-  for (const [hinweis, variant, title] of [
-    ["fehlgeschlagen", "warning", "Mit Folgen gespeichert"],
-    ["zurueckgehalten", "success", "Änderung gespeichert"],
-  ] as const) {
-    it(`grades a save whose link went and whose notice is ${hinweis} a ${variant}`, async () => {
-      answerWith(() =>
-        Promise.resolve({
-          success: true,
-          updated_document: null,
-          message: "Schiedsrichter bearbeitet",
-          versandSatz: VERSAND_SATZ,
-          versand: "gesendet",
-          hinweis: hinweis,
-        }),
-      );
-
-      const user = userEvent.setup();
-      const { unmount } = renderEditor();
-      const before = toasts.length;
-      await user.type(screen.getByRole("textbox", { name: /Schule/ }), "n");
-      await user.click(screen.getAllByRole("button", { name: "Speichern" })[0]!);
-      await act(answered);
-      await waitFor(() => {
-        assert.ok(toasts.length > before, "the save raised no toast at all");
-      });
-
-      assert.deepEqual(
-        toasts.slice(before).map((raised) => [raised.variant, raised.title]),
-        [[variant, title]],
-      );
-      unmount();
-    });
-  }
-
   it("falls back to the editor's own sentence where the save mailed nothing", async () => {
     answerWith(() => Promise.resolve({ success: true, updated_document: null, message: "Schiedsrichter bearbeitet" }));
 
@@ -467,7 +441,17 @@ describe("which link the editor's page marks as lapsed", () => {
     const record = {
       einwilligung: BESTAETIGT,
       bestaetigung,
-      adresswechsel: { email: "anna@neu.example", verschickt_am: "2026-10-01", frist, zustellung: null },
+      adresswechsel: {
+        email: "anna@neu.example",
+        weg: "konto" as const,
+        verschickt_am: "2026-10-01",
+        gueltig_bis: "2020-01-01T11:00:00Z",
+        freigegeben_am: null,
+        grund: null,
+        bestaetigt_am: null,
+        wirksam_ab: null,
+        zustellung: null,
+      },
     };
     const served = { bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: true };
 

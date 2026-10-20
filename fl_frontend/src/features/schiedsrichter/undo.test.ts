@@ -29,9 +29,7 @@ const reportsDelivery = ({ endpoint }: ApiCall): boolean => endpoint.startsWith(
 const REPORTED = { acknowledged: 1, angewendet: true };
 const client = doubleApiAnswers((call) =>
   Promise.resolve(
-    reportsDelivery(call)
-      ? REPORTED
-      : { acknowledged: 1, updated_document: STORED, fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null },
+    reportsDelivery(call) ? REPORTED : { acknowledged: 1, updated_document: STORED, fanned_out_to_spiele: 0, bestaetigung: null },
   ),
 );
 const calls = client.calls;
@@ -52,17 +50,11 @@ const BODY = {
   default_payment: 20,
 };
 
-/** What the editor sends: those values, and whether the save being undone left a new address waiting. */
-const REQUEST = { ...BODY, adresswechsel_gespeichert: false };
+/** What the editor sends: the values as they stood. */
+const REQUEST = BODY;
 
 /** The referee as the replay stored it, which every answer below echoes. */
 const STORED = { ...BODY, inactive_since: null, geburtsdatum: null, einwilligung: null, bestaetigung: null, adresswechsel: null };
-
-/** A change still waiting on its mailbox after the replay, which writes the fields back and leaves it standing. */
-const WARTEND = {
-  ...STORED,
-  adresswechsel: { email: "neu@example.de", verschickt_am: "2026-10-01", frist: "2026-10-15", zustellung: null },
-};
 
 /** The sentence an answer carries, success or not, which a case matches against. */
 const said = (answer: Awaited<ReturnType<typeof undoAdminSchiedsrichterEditAction>>): string =>
@@ -87,7 +79,6 @@ describe("the referee save's undo", () => {
         updated_document: STORED,
         fanned_out_to_spiele: 0,
         bestaetigung: { token: "abc", frist: "2026-10-05", email: "alt@example.de" },
-        adresswechsel: null,
       }),
     );
 
@@ -110,7 +101,6 @@ describe("the referee save's undo", () => {
         updated_document: STORED,
         fanned_out_to_spiele: 0,
         bestaetigung: { token: "abc", frist: "2026-10-05", email: "inzwischen@example.de" },
-        adresswechsel: null,
       }),
     );
 
@@ -133,7 +123,6 @@ describe("the referee save's undo", () => {
         updated_document: STORED,
         fanned_out_to_spiele: 0,
         bestaetigung: { token: "abc", frist: "2026-10-05", email: "alt@example.de" },
-        adresswechsel: null,
       }),
     );
 
@@ -162,35 +151,10 @@ describe("the referee save's undo", () => {
 
   /* It may still have landed, so it is titled unclear and never says the change stands. */
   it("answers an unacknowledged replay as of unknown outcome, sending the admin to the referee", async () => {
-    answerWith(() =>
-      Promise.resolve({ acknowledged: 0, updated_document: STORED, fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null }),
-    );
+    answerWith(() => Promise.resolve({ acknowledged: 0, updated_document: STORED, fanned_out_to_spiele: 0, bestaetigung: null }));
 
     const answer = await undoAdminSchiedsrichterEditAction(REQUEST);
 
     assert.deepEqual(answer, unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten."));
-  });
-
-  /* The discard is the editor's control, so an undo of the save that typed the address says it still waits. */
-  it("says the new address still waits where the undone save was the one that left it", async () => {
-    answerWith(() =>
-      Promise.resolve({ acknowledged: 1, updated_document: WARTEND, fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null }),
-    );
-
-    const answer = await undoAdminSchiedsrichterEditAction({ ...REQUEST, adresswechsel_gespeichert: true });
-
-    assert.equal(answer.success, true);
-    assert.match(said(answer), /Die neue E-Mail-Adresse wartet weiter auf Bestätigung/);
-  });
-
-  it("says nothing of a waiting address where the undone save moved something else", async () => {
-    answerWith(() =>
-      Promise.resolve({ acknowledged: 1, updated_document: WARTEND, fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null }),
-    );
-
-    const answer = await undoAdminSchiedsrichterEditAction(REQUEST);
-
-    assert.equal(answer.success, true);
-    assert.doesNotMatch(said(answer), /wartet weiter/);
   });
 });

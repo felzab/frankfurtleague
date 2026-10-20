@@ -20,7 +20,7 @@ import {
   reactivateSpieler,
   verwirfSpielerAdresswechsel,
 } from "./mutations";
-import { describeSpielerAdresswechselMail, mailSpielerAdresswechsel } from "./notifications";
+import { describeAdresswechselMail, mailSpielerAdresswechsel } from "./notifications";
 import {
   mapAdresswechselAntragRefusal,
   mapAdresswechselLinkRefusal,
@@ -132,12 +132,12 @@ export async function reactivateSpielerAction(
 }
 
 /**
- * Asks a pupil's new address to confirm itself: the link goes to the new mailbox and a notice to the
- * stored one, which stays in force until the link is answered.
+ * An administrator's start of a change for a person who cannot sign in: without a reason the address on
+ * file approves it first, with one a waiting time follows the confirmation. Either way it gets a stop link.
  */
 export async function beantrageSpielerAdresswechselAction(
   rawPayload: FLSpielerAdresswechselPayload,
-): Promise<ActionResult<{ versand: LinkVersand; hinweis: HinweisVersand }>> {
+): Promise<ActionResult<{ versand: LinkVersand | null; hinweis: HinweisVersand | null }>> {
   return runAdminMutation("beantrageSpielerAdresswechselAction", { stepUp: true }, async () => {
     const validated = FLSpielerAdresswechselPayloadSchema.safeParse(rawPayload);
 
@@ -171,17 +171,20 @@ export async function beantrageSpielerAdresswechselAction(
       success: true,
       // The address the mint names, never the one typed: a rival request landing between the two
       // replaced the mailbox the credential was made for.
-      message: describeSpielerAdresswechselMail(wechsel.email, versand),
+      message: describeAdresswechselMail(wechsel, versand),
       versand: versand.link,
       hinweis: versand.hinweis,
     };
   });
 }
 
-/** A fresh link to the pending address, mailed with a fresh notice to the stored one: the earlier link is dead either way. */
+/**
+ * A fresh link to the pending address: the earlier link is dead either way. The address on file is not
+ * mailed again, its stop link still working.
+ */
 export async function einladeSpielerAdresswechselAction(
   rawPayload: FLSpielerAdresswechselEinladenPayload,
-): Promise<ActionResult<{ versand: LinkVersand; hinweis: HinweisVersand }>> {
+): Promise<ActionResult<{ versand: LinkVersand | null; hinweis: HinweisVersand | null }>> {
   return runAdminMutation("einladeSpielerAdresswechselAction", { stepUp: true }, async () => {
     const validated = FLSpielerAdresswechselEinladenPayloadSchema.safeParse(rawPayload);
 
@@ -214,7 +217,7 @@ export async function einladeSpielerAdresswechselAction(
       success: true,
       // Said whichever way the send went: the previous link is dead either way, which is the fact an
       // administrator has to act on when the message did not leave.
-      message: `${describeSpielerAdresswechselMail(wechsel.email, versand)} Der vorherige Link gilt nicht mehr.`,
+      message: `${describeAdresswechselMail(wechsel, versand)} Der vorherige Link gilt nicht mehr.`,
       versand: versand.link,
       hinweis: versand.hinweis,
     };

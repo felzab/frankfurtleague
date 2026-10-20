@@ -2,6 +2,7 @@ import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
+import { ansichtOf } from "@/features/konto/adresswechselLink";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
@@ -17,6 +18,7 @@ import {
   FLSpielerSelbstResponseSchema,
 } from "./schemas";
 
+import type { AdresswechselAnsicht, AdresswechselLinkZustand } from "@/features/konto/adresswechselLink";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   FLKaderResponse,
@@ -25,7 +27,7 @@ import type {
   FLSpielerNachnominierungResponse,
   FLSpielerSelbstResponse,
 } from "./schemas";
-import type { FLSpielerFilterParams, SpielerAdresswechselAnsicht, SpielerAdresswechselZustand } from "./types";
+import type { FLSpielerFilterParams } from "./types";
 
 export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<FLSpielerListResponse> {
   "use cache";
@@ -100,19 +102,15 @@ export function mapSpielerAdresswechselAnsichtRefusal(error: unknown): "unguelti
 }
 
 /** What one address link opens, the referee's twin (`fl_frontend/src/features/schiedsrichter/queries.ts :: getSchiedsrichterAdresswechselAnsicht`). */
-export async function getSpielerAdresswechselAnsicht(token: string): Promise<SpielerAdresswechselAnsicht> {
+export async function getSpielerAdresswechselAnsicht(token: string): Promise<AdresswechselAnsicht> {
   return runWithIncomingTrace(() =>
-    postSpielerAdresswechselAnsicht({ token: token }).then(
-      (ansicht): SpielerAdresswechselAnsicht =>
-        ansicht.zustand === "gueltig" ? { zustand: "gueltig", frist: ansicht.frist } : { zustand: ansicht.zustand },
-      (error: unknown): SpielerAdresswechselAnsicht => {
-        // Anything but a refusal is a failed read, which is the page's own state rather than a panel
-        // calling a live link void.
-        const zustand = mapSpielerAdresswechselAnsichtRefusal(error);
-        if (zustand !== null) return { zustand: zustand };
-        throw error;
-      },
-    ),
+    postSpielerAdresswechselAnsicht({ token: token }).then(ansichtOf, (error: unknown): AdresswechselAnsicht => {
+      // Anything but a refusal is a failed read, which is the page's own state rather than a panel
+      // calling a live link void.
+      const zustand = mapSpielerAdresswechselAnsichtRefusal(error);
+      if (zustand !== null) return { zustand: zustand };
+      throw error;
+    }),
   );
 }
 
@@ -120,7 +118,7 @@ export type SpielerAdresswechselRefusal = {
   error?: string;
   fieldErrors?: FieldErrors;
   unplacedError?: string;
-  zustand?: SpielerAdresswechselZustand;
+  zustand?: AdresswechselLinkZustand;
 };
 
 /** A refused answer as the panel or the sentence the address page shows, or `null` where the code is none of these. */
@@ -133,6 +131,8 @@ export function mapSpielerAdresswechselRefusal(error: unknown): SpielerAdresswec
     case "REQ-VAL-001":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     case "REQ-SPIELER-001":
+    // The discard body's own miss: the change went between the read and the press, as an unknown token's did.
+    case "DB-COMMON-001":
       return { zustand: "ungueltig" };
     case "REQ-SPIELER-002":
       return { zustand: "abgelaufen" };

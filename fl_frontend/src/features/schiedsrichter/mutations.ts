@@ -4,8 +4,9 @@ import {
   FLPatchSchiedsrichterResponseSchema,
   FLPostSchiedsrichterResponseSchema,
   FLSchiedsrichterAdresswechselAnsichtResponseSchema,
+  FLSchiedsrichterAdresswechselAntwortResponseSchema,
   FLSchiedsrichterAdresswechselMintResponseSchema,
-  FLSchiedsrichterAdresswechselResponseSchema,
+  FLSchiedsrichterAdresswechselStoppResponseSchema,
   FLSchiedsrichterAdresswechselSweepResponseSchema,
   FLSchiedsrichterBestaetigungAnsichtResponseSchema,
   FLSchiedsrichterBestaetigungResponseSchema,
@@ -22,10 +23,13 @@ import type {
   FLPostSchiedsrichterResponse,
   FLSchiedsrichterAdresswechselAnsichtPayload,
   FLSchiedsrichterAdresswechselAnsichtResponse,
+  FLSchiedsrichterAdresswechselAntwortPayload,
+  FLSchiedsrichterAdresswechselAntwortResponse,
   FLSchiedsrichterAdresswechselEinladenPayload,
   FLSchiedsrichterAdresswechselMintResponse,
   FLSchiedsrichterAdresswechselPayload,
-  FLSchiedsrichterAdresswechselResponse,
+  FLSchiedsrichterAdresswechselStoppPayload,
+  FLSchiedsrichterAdresswechselStoppResponse,
   FLSchiedsrichterAdresswechselSweepResponse,
   FLSchiedsrichterAdresswechselVerwerfenPayload,
   FLSchiedsrichterBestaetigungAnsichtPayload,
@@ -84,7 +88,20 @@ export async function einladeSchiedsrichter({ id }: FLSchiedsrichterEinladenPayl
   });
 }
 
-// Replaces the pending block but its address, so the previous address link stops working at once.
+// Writes the whole pending block, ending every other change at the address, the pupil's twin: the
+// save refuses to move a confirmed referee's address.
+export async function beantrageSchiedsrichterAdresswechsel({
+  id,
+  ...body
+}: FLSchiedsrichterAdresswechselPayload): Promise<FLSchiedsrichterAdresswechselMintResponse> {
+  return apiClient<FLSchiedsrichterAdresswechselMintResponse>(
+    `/schiedsrichter/${id}/adresswechsel`,
+    FLSchiedsrichterAdresswechselMintResponseSchema,
+    { method: "POST", authType: "admin", body: JSON.stringify(body) },
+  );
+}
+
+// A fresh link to the new mailbox, so the previous one stops working at once; the stop link stays.
 export async function einladeAdresswechsel({
   id,
 }: FLSchiedsrichterAdresswechselEinladenPayload): Promise<FLSchiedsrichterAdresswechselMintResponse> {
@@ -96,7 +113,7 @@ export async function einladeAdresswechsel({
 }
 
 /**
- * The hourly pass's, on the system tier: a timer holds no session, and a lapsed address is the clock's to remove.
+ * The hourly pass's, on the system tier: a timer holds no session, and a lapsed change or a due one is the clock's.
  * `nach` is the previous call's answer.
  */
 export async function postSchiedsrichterAdresswechselSweep(nach: string | null): Promise<FLSchiedsrichterAdresswechselSweepResponse> {
@@ -134,13 +151,24 @@ export async function postSchiedsrichterAdresswechselAnsicht(
 
 /** The mailbox's own answer, `base` for `postSchiedsrichterBestaetigung`'s reason. */
 export async function postSchiedsrichterAdresswechsel(
-  payload: FLSchiedsrichterAdresswechselPayload,
-): Promise<FLSchiedsrichterAdresswechselResponse> {
-  return apiClient<FLSchiedsrichterAdresswechselResponse>("/schiedsrichter/adresswechsel", FLSchiedsrichterAdresswechselResponseSchema, {
-    method: "POST",
-    authType: "base",
-    body: JSON.stringify(payload),
-  });
+  payload: FLSchiedsrichterAdresswechselAntwortPayload,
+): Promise<FLSchiedsrichterAdresswechselAntwortResponse> {
+  return apiClient<FLSchiedsrichterAdresswechselAntwortResponse>(
+    "/schiedsrichter/adresswechsel",
+    FLSchiedsrichterAdresswechselAntwortResponseSchema,
+    { method: "POST", authType: "base", body: JSON.stringify(payload) },
+  );
+}
+
+/** The stop of the address on file, `base` for `postSchiedsrichterBestaetigung`'s reason; it hands nothing over. */
+export async function postSchiedsrichterAdresswechselStopp(
+  payload: FLSchiedsrichterAdresswechselStoppPayload,
+): Promise<FLSchiedsrichterAdresswechselStoppResponse> {
+  return apiClient<FLSchiedsrichterAdresswechselStoppResponse>(
+    "/schiedsrichter/adresswechsel/stopp",
+    FLSchiedsrichterAdresswechselStoppResponseSchema,
+    { method: "POST", authType: "base", body: JSON.stringify(payload) },
+  );
 }
 
 /**

@@ -212,7 +212,17 @@ const spielerList = (rows: ReturnType<typeof spieler>[]) =>
   h(AdminSpielerView, { spieler: rows, teams: SAISON_TEAMS, selectedSaisonId: "2026" });
 
 /** A pupil's new address waiting on its mailbox. */
-const SP_ADRESSWECHSEL = { email: "lena@neu.example", verschickt_am: "2026-09-21", frist: "2026-10-05", zustellung: null };
+const SP_ADRESSWECHSEL = {
+  email: "lena@neu.example",
+  weg: "konto" as const,
+  verschickt_am: "2026-09-21",
+  gueltig_bis: "2026-10-05T11:30:00Z",
+  freigegeben_am: null,
+  grund: null,
+  bestaetigt_am: null,
+  wirksam_ab: null,
+  zustellung: null,
+};
 
 /** The player's editor in the season its squad row stands in, retired as the case says. */
 const spielerEditor = (inactiveSince: string | null, inKader = true, adresswechsel: typeof SP_ADRESSWECHSEL | null = null) =>
@@ -1288,7 +1298,17 @@ const LANDINGS: Record<string, Landing> = {
         istFassungBekannt: true,
         schiedsrichter: {
           ...SR_RECORD,
-          adresswechsel: { email: "pia@neu.example", verschickt_am: "2026-09-21", frist: "2026-10-05", zustellung: null },
+          adresswechsel: {
+            email: "pia@neu.example",
+            weg: "konto" as const,
+            verschickt_am: "2026-09-21",
+            gueltig_bis: "2026-10-05T11:30:00Z",
+            freigegeben_am: null,
+            grund: null,
+            bestaetigt_am: null,
+            wirksam_ab: null,
+            zustellung: null,
+          },
         },
         inactiveSince: null,
       }),
