@@ -322,7 +322,8 @@ class FLAdresswechselVerwaltungMintResponse(BaseAPIResponse):
     gueltig_bis: FLUtcInstant
     email: CustomNonEmptyString
     bisherige_email: str
-    vorname: str
+    # Null on the lost-mailbox way: the address on file may have passed to a stranger, so its notice greets nobody.
+    vorname: str | None
     # Whether the new address holds records of its own, which the effect would join to these, read in the start's transaction.
     adresse_belegt: bool
     # Whom the frontend's server tells an approval waits; empty where no grant moves.

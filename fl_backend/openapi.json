@@ -11857,7 +11857,7 @@
           "aufgegeben"
         ],
         "title": "FLAdresswechselPostausgangZeile",
-        "description": "One owed notice a pass claimed, server to server alone: no browser receives an address of it.\n\n`wirksam`: whom the completion notice greets, and the sign-in account to carry. `verworfen`: the new address alone,\ntold it did not take effect, and never why."
+        "description": "One owed notice a pass claimed, server to server alone: no browser receives an address of it.\n\n`wirksam`: whom the completion notice greets, and the sign-in account to carry. `verworfen`: the new address alone,\nnever told why."
       },
       "FLAdresswechselStoppPayload": {
         "properties": {
@@ -12180,7 +12180,14 @@
             "title": "Bisherige Email"
           },
           "vorname": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Vorname"
           },
           "adresse_belegt": {

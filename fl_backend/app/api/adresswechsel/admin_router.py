@@ -380,7 +380,7 @@ async def post_adresswechsel_verwaltung(
             gueltig_bis=record["gueltig_bis"],
             email=email,
             bisherige_email=identifier,
-            vorname=bestand.vorname,
+            vorname=None if weg == "wartezeit" else bestand.vorname,
             adresse_belegt=await _belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session),
             genehmiger=genehmiger,
         )
@@ -475,7 +475,7 @@ async def einladen_adresswechsel(
             gueltig_bis=gueltig_bis,
             email=email,
             bisherige_email=identifier,
-            vorname=bestand.vorname,
+            vorname=None if updated["weg"] == "wartezeit" else bestand.vorname,
             adresse_belegt=await _belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session),
             genehmiger=[],
         )

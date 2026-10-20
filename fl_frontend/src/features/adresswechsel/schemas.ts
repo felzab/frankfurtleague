@@ -280,8 +280,8 @@ export const FLAdresswechselVerwaltungMintResponseSchema = BaseAPIResponseSchema
   email: z.string().nonempty(),
   // The address still in force, which is told a change was asked and never which one.
   bisherige_email: z.string().nonempty(),
-  // What the notice greets with, read in the mint's own transaction.
-  vorname: z.string(),
+  // What the notice greets with, read in the mint's own transaction; null on the lost-mailbox way, greeting nobody.
+  vorname: z.string().nullable(),
   // The administrator's warning that the new address already holds records of its own, which merge.
   adresse_belegt: z.boolean(),
   // Who is told an approval waits, empty where no grant moves (`fl_frontend/src/features/adresswechsel/notifications.ts :: mailGenehmigungWartet`).

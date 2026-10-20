@@ -67,7 +67,7 @@ export async function mailAdresswechsel({
             stoppToken: stoppToken,
             weg: mint.weg,
             gueltigBis: mint.gueltig_bis,
-            vorname: mint.vorname,
+            vorname: mint.vorname ?? "",
           }),
           "adresswechsel.hinweis_failed",
           operation,

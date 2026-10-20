@@ -623,6 +623,22 @@ class TestTheToolsStart:
         assert joined.adresse_belegt is True
         assert record["grund"] is None  # ended by the second start, its reason out of the record
 
+    def test_the_mint_names_the_person_only_where_the_address_on_file_is_asked_first(self, mongo_replica_set_url: str):
+        """On the lost-mailbox way the address on file may be a stranger's by now, so its notice is handed no name to greet."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            asked = await administrator_starts(database, client, grund=None)
+            lost = await administrator_starts(database, client, grund=GRUND)
+            return asked, lost, await resend(database, client, lost.id)
+
+        asked, lost, resent = on_a_person(mongo_replica_set_url, body)
+
+        assert [(mint.weg, mint.vorname) for mint in (asked, lost, resent)] == [
+            ("freigabe", "Lenore"),
+            ("wartezeit", None),
+            ("wartezeit", None),
+        ]
+
     @staticmethod
     def refused_start(url: str, setup: str = "", **payload: Any) -> tuple[str, int]:
         """The tool's refusal, and that it wrote no change."""

@@ -50,12 +50,13 @@ const wartezeit = {
   gueltig_bis: "2026-10-21T11:30:00Z",
   email: NEU,
   bisherige_email: BISHER,
-  vorname: "Lena",
+  // None on the lost-mailbox way, whose address on file may be a stranger's by now.
+  vorname: null as string | null,
   adresse_belegt: false,
   genehmiger: [] as string[],
 };
 /** A start without one: nothing goes to the new mailbox before the address on file approves. */
-const freigabe = { ...wartezeit, weg: "freigabe", token: null };
+const freigabe = { ...wartezeit, weg: "freigabe", token: null, vorname: "Lena" };
 /** A re-send: the link alone, the stop link already in the mailbox of the address on file. */
 const erneut = { ...wartezeit, stopp_token: null };
 
@@ -181,17 +182,29 @@ describe("an administrator's start of a change", () => {
 
   /* The change may be a mistake or a pretext: the mailbox on file is owed the word, never the other mailbox's name; the
      new mailbox has proved nothing, so a minor's first name goes to the mailbox on file alone. */
-  it("names the new address to nobody but its own mailbox, which is greeted by no name", async () => {
-    antwort[START] = () => ({ ...wartezeit, vorname: "Mirabel" });
-
+  it("names the new address to nobody but its own mailbox", async () => {
     await beantrageAdresswechselAction({ adresse: BISHER, email: GETIPPT, grund: GRUND });
 
     const notice = hinweis();
     const link = linkMail();
     assert.ok(notice !== undefined && link !== undefined, "a mailbox was told nothing, so the case judges nothing");
     assert.ok(!`${notice.text}${notice.html}`.toLowerCase().includes(NEU.toLowerCase()), "the notice names the new address");
-    for (const teil of [readable(notice.html), notice.text]) assert.match(teil, /Hallo Mirabel,/);
-    for (const teil of [link.text, link.html]) assert.ok(!teil.includes("Mirabel"), "a part of the link mail names the person");
+  });
+
+  /* The lost-mailbox way's address on file may have passed to a stranger, so the mint hands no name there; the address
+     asked first is the person's own, and greeted by name. */
+  it("greets the address on file by name where it is asked first, and nobody on the lost-mailbox way", async () => {
+    antwort[START] = () => ({ ...freigabe, vorname: "Mirabel" });
+    await beantrageAdresswechselAction({ adresse: BISHER, email: GETIPPT, grund: null });
+    const asked = hinweis();
+    mail.sent.length = 0;
+    antwort[START] = () => wartezeit;
+    await beantrageAdresswechselAction({ adresse: BISHER, email: GETIPPT, grund: GRUND });
+    const lost = hinweis();
+
+    assert.ok(asked !== undefined && lost !== undefined, "the address on file was told nothing, so the case judges nothing");
+    for (const teil of [readable(asked.html), asked.text]) assert.match(teil, /Hallo Mirabel,/);
+    for (const teil of [readable(lost.html), lost.text]) assert.match(teil, /Hallo,/);
   });
 
   it("files the link's delivery under the change's own id", async () => {
