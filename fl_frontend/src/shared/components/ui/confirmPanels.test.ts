@@ -155,6 +155,7 @@ const M = {
   saison: "features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx",
   registrierungen: "features/registrierungen/components/collections/RegistrierungenList.tsx",
   einsaetze: "features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx",
+  spielbestaetigungLink: "features/spielbestaetigungen/components/views/SpielbestaetigungFormPanel.tsx",
 };
 
 const C = {
@@ -183,6 +184,7 @@ const C = {
   saison: await component(M.saison, "FormSaisonSection"),
   registrierungen: await component(M.registrierungen, "RegistrierungenList"),
   einsaetze: await component(M.einsaetze, "SchiedsrichterEinsaetzeSection"),
+  spielbestaetigungLink: await component(M.spielbestaetigungLink, "SpielbestaetigungFormPanel"),
 };
 
 const einladungPanel = () =>
@@ -655,6 +657,9 @@ const PANELS: Record<string, Arming[]> = {
     { render: registrierungenList, resting: "Ablehnen: Registrierung von Lena Meier" },
   ],
   [M.einsaetze]: [{ render: einsaetzeSection, resting: "Zusagen: SG Alpha gegen SG Beta am 20.11.2026" }],
+  [M.spielbestaetigungLink]: [
+    { render: () => el(C.spielbestaetigungLink, { token: "kein-echtes-token", onAbschluss: () => undefined }), resting: "Zusagen" },
+  ],
 };
 
 /** Every module rendering the shared row or reveal, read off its syntax tree. */
@@ -787,6 +792,7 @@ const NOT_ADMINISTRATORS: Readonly<Record<string, string>> = {
     "the deletion link's interstitial, a person's own press on their own link, a grant holder's asking through the page's own window",
   [M.registrierungen]: "a seat holder's decision on the person lane, which holds no administrator's step-up window",
   [M.einsaetze]: "a referee's own answer on the person lane, which holds no administrator's step-up window",
+  [M.spielbestaetigungLink]: "the public fixture confirmation page, a club's own answer to its own link, which holds no step-up window",
 };
 
 /** Every step-up write each administrator panel's armed presses have sent, filled by the cases below. */

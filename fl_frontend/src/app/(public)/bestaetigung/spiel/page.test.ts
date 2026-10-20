@@ -23,6 +23,7 @@ import {
   steps,
 } from "@/shared/testing/pageHarness.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
+import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import type { SpielbestaetigungStart } from "@/features/spielbestaetigungen/components/views/SpielbestaetigungView.tsx";
@@ -208,7 +209,7 @@ describe("what a link to a barred address opens on", () => {
     viewAnswers(() => ANSICHT);
     const { unmount } = render(await pageBody(SpielbestaetigungPage, PROPS));
 
-    await userEvent.setup().click(screen.getByRole("button", { name: /Zusagen/ }));
+    await pressTwice(userEvent.setup(), { resting: "Zusagen", armed: "Ja, zusagen" });
     await act(fetchMock.answered);
 
     const shown = await screen.findByText(LINK_ADRESSE_GESPERRT);
