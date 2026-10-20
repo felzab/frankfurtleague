@@ -40,6 +40,7 @@ class FLAdresswechselGenehmigung(BaseModel):
     """The approval a change moving a grant waits on."""
 
     verwaltung: FLAdresswechselVerwaltung
+    angefragt_am: datetime
     bis: datetime
     gestartet_von: str
     genehmigt_am: datetime | None

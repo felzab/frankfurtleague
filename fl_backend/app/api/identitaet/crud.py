@@ -16,7 +16,7 @@ from app.api.adresswechsel.crud import (
     end_an_emptied_change_in_session,
     end_the_address_changes_in_session,
 )
-from app.api.aktionen.crud import redact_address_in_images
+from app.api.aktionen.crud import reattribute_administrator_in_session, redact_address_in_images
 from app.api.berechtigungen.crud import read_berechtigungen
 from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
 from app.api.identitaet.lookup import RecordCollections
@@ -61,7 +61,7 @@ from app.api.identitaet.services import (
     unreferenced,
 )
 from app.api.kontakte.crud import erase_kontaktperson_in_session
-from app.api.kontakte.services import rows_naming, same_address
+from app.api.kontakte.services import rows_naming
 from app.api.registrierungen.crud import erase_registrierungen_in_session
 from app.api.registrierungen.services import build_eigene_registrierung_filter
 from app.api.saisons.schemas import FLSaisonStatus
@@ -472,21 +472,11 @@ async def unattribute_in_session(
     """
 
     as_person = await unattribute_pseudonym_in_session(aktionen_collection=aktionen_collection, pseudonym=pseudonym, session=session)
-
-    # Read then judged on the fold, as every stored address is: the pre-filter reads every mailbox sharing the local part.
-    candidates = await aggregate_many_from_db(
-        collection=aktionen_collection,
-        pipeline=[{"$match": {"actor.email": same_address(identifier)}}, {"$project": {"actor.email": 1}}],
-        session=session,
-    )
-    as_administrator = await patch_many_in_db(
-        collection=aktionen_collection,
-        db_filter={"_id": {"$in": [row["_id"] for row in candidates if folds_to(row["actor"].get("email"), identifier)]}},
-        update={"$set": {"actor.email": ERASED_ACTOR_MARKER}},
-        session=session,
+    as_administrator = await reattribute_administrator_in_session(
+        aktionen_collection=aktionen_collection, identifier=identifier, value=ERASED_ACTOR_MARKER, session=session
     )
 
-    return as_person + as_administrator.modified_count
+    return as_person + as_administrator
 
 
 async def unattribute_pseudonym_in_session(*, aktionen_collection: AsyncCollection, pseudonym: str, session: AsyncClientSession) -> int:

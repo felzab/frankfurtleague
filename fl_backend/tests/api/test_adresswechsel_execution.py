@@ -24,6 +24,7 @@ from app.api.adresswechsel.services import (
     ADRESSWECHSEL_BESTAETIGUNG_GESPERRT,
     ADRESSWECHSEL_ERSETZTE_GESPERRT,
     ADRESSWECHSEL_GENEHMIGUNG_INHABER,
+    ADRESSWECHSEL_GENEHMIGUNG_JUENGER,
     ADRESSWECHSEL_GENEHMIGUNG_VERWEHRT,
     ADRESSWECHSEL_GESPERRT,
     ADRESSWECHSEL_KEIN_GENEHMIGER,
@@ -57,12 +58,12 @@ from app.core.collections import Collection
 from app.core.crud import ANCHOR_FIELD, patch_one_in_db
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.journal import JOURNAL_TOKEN, parse_line
-from app.core.recording import PersonActor, actor_var
+from app.core.recording import Actor, PersonActor, actor_var
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.shared.schemas.bounds import ADRESSWECHSEL_NACHLAUF_TAGE
 from tests import documents
 from tests.bans import ban_list, ban_through_the_route
-from tests.config import build_test_config
+from tests.config import build_test_config, grants_for_the_suite
 from tests.documents import spieler_document
 from tests.holds import HeldCollection
 from tests.records import record_collections
@@ -943,6 +944,134 @@ class TestTheMovedGrant:
 
         assert answered.mitteilung is not None and answered.mitteilung.bisherige_email == SECOND_ADMIN
         assert NEW_EMAIL in addresses and SECOND_ADMIN not in addresses
+
+
+# Where the suite's owner moves to, and an administrator granted after a change was asked.
+OWNER_NEW_EMAIL = "inhaberin.neu@anderswo.example.org"
+LATE_ADMIN = "spaet.gekommen@anderswo.example.org"
+# Where a person moves on to after a first change.
+THIRD_EMAIL = "lenore.dritte@nochwoanders.example.org"
+
+
+async def as_administrator(adresse: str, write: Awaitable[Any]) -> Any:
+    """`write` recorded under this administrator, as their request's binder records it."""
+
+    token = actor_var.set(Actor(kind="admin_session", email=adresse))
+    try:
+        return await write
+    finally:
+        actor_var.reset(token)
+
+
+async def granted_later(database: AsyncDatabase, adresse: str, *, at: Any) -> None:
+    """A grant taking effect at `at`, after the requests a case started before it."""
+
+    await database[Collection.BERECHTIGUNGEN].insert_one(
+        {**grants_for_the_suite()[1], "_id": ObjectId.from_datetime(at), "adresse": adresse, "erteilt_am": at}
+    )
+
+
+class TestTheAdministratorFollowsTheirMove:
+    """An administrator's identity is their address: an effect carries every record they made, or the rules keyed on it lapse."""
+
+    def test_the_starter_of_a_change_approves_nothing_of_it_after_moving_their_own_address(self, mongo_replica_set_url: str):
+        """Each step at one instant, so the approver's grant is no younger than the request and the carried starter alone refuses."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            # A second owner, so the starter's own change has an approver.
+            await database[Collection.BERECHTIGUNGEN].update_one({"adresse": SECOND_ADMIN}, {"$set": {"verwaltung": "owner"}})
+            theirs = await administrator_starts(database, client, grund=GRUND, operator=OWNER)
+            own = await start(database, client, identifier=OWNER, email=OWNER_NEW_EMAIL)
+            await approve(database, client, own.id, operator=SECOND_ADMIN)
+            await answer(database, client, own.token)
+            refused = await refused_code(approve(database, client, theirs.id, operator=OWNER_NEW_EMAIL))
+            return refused, await change(database, theirs.id)
+
+        refused, record = on_a_person(mongo_replica_set_url, body, pupil=False, records=False)
+
+        assert (refused, record["genehmigung"]["gestartet_von"], record["genehmigung"]["genehmigt_am"]) == (
+            ADRESSWECHSEL_GENEHMIGUNG_VERWEHRT,
+            OWNER_NEW_EMAIL,
+            None,
+        )
+
+    def test_no_record_or_image_keeps_a_moved_administrator_s_replaced_address_past_their_erasure(self, mongo_replica_set_url: str):
+        """A grant they made, its image and log row, their own change's starter and their revoked grant's image named it.
+
+        The queued notice of the old grant's end keeps it until the reconciliation, unrun here, has told the administrators.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            await database[Collection.BERECHTIGUNGEN].insert_one(
+                {**grants_for_the_suite()[1], "_id": ObjectId(), "adresse": FOREIGN_EMAIL, "erteilt_von": EMAIL}
+            )
+            await as_administrator(
+                EMAIL,
+                patch_one_in_db(
+                    collection=database[Collection.BERECHTIGUNGEN],
+                    db_filter={"adresse": FOREIGN_EMAIL},
+                    update={"$set": {"gesehen_am": NOW}},
+                    return_document=ReturnDocument.BEFORE,
+                ),
+            )
+            minted = await start(database, client)
+            await approve(database, client, minted.id)
+            await answer(database, client, minted.token)
+            await erased(database, client, NEW_EMAIL)
+            return await where_held(database, EMAIL, folded=True)
+
+        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: [Collection.BERECHTIGUNGEN_POSTAUSGANG]}
+
+    def test_an_approval_whose_approver_lost_their_grant_since_is_taken_off_and_asked_again(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            minted = await start(database, client)
+            await approve(database, client, minted.id, operator=ADMIN)
+            # Revoked in the database, as no route's refusal can reach: the effect judges it again.
+            await database[Collection.BERECHTIGUNGEN].delete_one({"adresse": ADMIN})
+            answered = await answer(database, client, minted.token)
+            waiting = await change(database, minted.id), await everything(database)
+            listed = await call(get_berechtigungen, database, client, operator=SECOND_ADMIN)
+            approved = await approve(database, client, minted.id, operator=SECOND_ADMIN)
+            return answered, waiting, listed, approved
+
+        answered, (record, rows), listed, approved = on_a_person(mongo_replica_set_url, body)
+
+        assert (answered.mitteilung, answered.genehmigung_offen) == (None, True)
+        assert (record["genehmigung"]["genehmigt_am"], record["genehmigung"]["genehmigt_von"], rows["pupil"]["email"]) == (None, None, EMAIL)
+        assert {row.adresse: row.adresswechsel for row in listed.berechtigungen}[EMAIL] is not None
+        assert approved.wirksam
+
+    def test_an_administrator_granted_after_the_request_approves_nothing_of_it(self, mongo_replica_set_url: str):
+        """Else one person grants a second mailbox they hold and approves with it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            minted = await start(database, client)
+            later = NOW + timedelta(hours=1)
+            await granted_later(database, LATE_ADMIN, at=later)
+            refused = await refused_code(approve(database, client, minted.id, operator=LATE_ADMIN, germany_now=later))
+            listed = await call(get_berechtigungen, database, client, operator=LATE_ADMIN)
+            return refused, {row.adresse: row.adresswechsel for row in listed.berechtigungen}[EMAIL]
+
+        refused, row = on_a_person(mongo_replica_set_url, body)
+
+        assert (refused, row is not None and row.verwehrt) == (ADRESSWECHSEL_GENEHMIGUNG_JUENGER, "juenger")
+
+    def test_a_second_change_leaves_the_first_one_s_address_in_no_image_past_the_erasure(self, mongo_replica_set_url: str):
+        """The first change kept its new address in its images, which the second makes the replaced one."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            first = await start(database, client)
+            await answer(database, client, first.token)
+            second = await start(database, client, identifier=NEW_EMAIL, email=THIRD_EMAIL)
+            await answer(database, client, second.token)
+            await erased(database, client, THIRD_EMAIL)
+            return await where_held(database, NEW_EMAIL, folded=True)
+
+        assert on_a_person(mongo_replica_set_url, body) == {NEW_EMAIL: []}
 
 
 async def outcome_code(call: Awaitable[Any]) -> str | None:

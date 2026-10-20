@@ -404,9 +404,10 @@ _ADRESSWECHSEL_ENDE_ARTEN = ["wirksam", "abgelehnt", "gestoppt", "abgelaufen", "
 # The approval a change moving a grant waits on. Its two addresses are administrators', as `erteilt_von` is.
 _ADRESSWECHSEL_GENEHMIGUNG = _object(
     nullable=True,
-    required=("verwaltung", "bis", "gestartet_von", "genehmigt_am", "genehmigt_von"),
+    required=("verwaltung", "angefragt_am", "bis", "gestartet_von", "genehmigt_am", "genehmigt_von"),
     properties={
         "verwaltung": {"bsonType": "string", "enum": ["owner", "administration"]},
+        "angefragt_am": {"bsonType": "date"},
         "bis": {"bsonType": "date"},
         "gestartet_von": {"bsonType": "string"},
         "genehmigt_am": {"bsonType": ["date", "null"]},

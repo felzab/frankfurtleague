@@ -3,7 +3,6 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
-from app.api.adresswechsel.services import FLAdresswechselVerwehrt
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomStrippedNonEmptyString
 from app.shared.schemas.kontakt import CustomEmail
@@ -22,6 +21,10 @@ FLUtcInstant = Annotated[datetime, AfterValidator(as_utc)]
 # Closed, and mirrored by `app/core/constraints.py :: _VERWALTUNG`. `owner` holds every power
 # `administration` does and is reached only by an owner's tier change, never by a grant (`docs/backend/spec.md :: I436`).
 FLVerwaltung = Literal["owner", "administration"]
+
+# Why an administrator may not approve an act on a grant: their own address, their own start, an owner's act without an
+# owner's power, or a grant or tier younger than the request.
+FLGenehmigungVerwehrt = Literal["eigene", "gestartet", "inhaber", "juenger"]
 
 # What happened to one grant: added, removed, or its tier changed in place, by the tier change or by
 # a database edit. An address changed in place is a removal and a grant, never `geaendert`.
@@ -70,7 +73,7 @@ class FLBerechtigungAdresswechsel(BaseModel):
     bestaetigt: bool
     bis: FLUtcInstant
     # Why the reader may not approve it, or null where they may.
-    verwehrt: FLAdresswechselVerwehrt | None
+    verwehrt: FLGenehmigungVerwehrt | None
 
 
 class FLBerechtigungZeile(BaseModel):

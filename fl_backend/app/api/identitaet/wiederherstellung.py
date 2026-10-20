@@ -32,6 +32,8 @@ from pymongo.errors import PyMongoError
 
 from app.api.adresswechsel.crud import end_the_change_in_session, move_the_address_in_session, read_the_bestand
 from app.api.adresswechsel.services import FLAdresswechselEndeArt, deckt
+from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
+from app.api.berechtigungen.services import genehmigung_steht
 from app.api.bewerbungen.services import compose_decline_update, compose_saison_decline_update, seat_adressen, seat_is_answered
 from app.api.identitaet.crud import unattribute_pseudonym_in_session
 from app.api.identitaet.lookup import RecordCollections
@@ -434,8 +436,23 @@ async def _plan_adresswechsel_wirksam(
     if bestand.leer:
         return Plan("left for review", detail="the address it replaced holds nothing in the restored database")
     genehmigung = record.get("genehmigung")
+    sperrliste = BanList(
+        sperrliste_collection=database[Collection.SPERRLISTE], saisons_collection=database[Collection.SAISONS], schluessel=schluessel
+    )
     if bestand.berechtigung is not None and (
-        not deckt(genehmigung, bestand.berechtigung.get("verwaltung")) or (genehmigung or {}).get("genehmigt_am") is None
+        not deckt(genehmigung, bestand.berechtigung.get("verwaltung"))
+        or (genehmigung or {}).get("genehmigt_am") is None
+        # Judged as the effect judges it: an approver revoked or demoted in the restored database approves nothing. Never
+        # barred there: a ban the snapshot holds predates the approval, which the actor check would then have refused.
+        or not genehmigung_steht(
+            betroffen=record["adresse"],
+            genehmigung=genehmigung,
+            grants=await read_berechtigungen(berechtigungen_collection=database[Collection.BERECHTIGUNGEN], session=session),
+            announced=await read_the_announced(
+                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT], session=session
+            ),
+            gesperrt=frozenset(),
+        )
     ):
         return Plan("left for review", detail="its approval is not in the restored database: an administrator approves it again")
 
@@ -443,9 +460,7 @@ async def _plan_adresswechsel_wirksam(
         await move_the_address_in_session(
             record=record,
             bestand=bestand,
-            sperrliste=BanList(
-                sperrliste_collection=database[Collection.SPERRLISTE], saisons_collection=database[Collection.SAISONS], schluessel=schluessel
-            ),
+            sperrliste=sperrliste,
             adresswechsel_collection=database[Collection.ADRESSWECHSEL],
             spieler_collection=database[Collection.SPIELER],
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
@@ -456,6 +471,8 @@ async def _plan_adresswechsel_wirksam(
             berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            einladungen_collection=database[Collection.EINLADUNGEN],
+            sperrliste_collection=database[Collection.SPERRLISTE],
             aktionen_collection=database[Collection.AKTIONEN],
             adressanker_collection=database[Collection.ADRESSANKER],
             schluessel=schluessel,

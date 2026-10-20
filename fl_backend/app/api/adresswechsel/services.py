@@ -16,6 +16,7 @@ from http import HTTPStatus
 from typing import Any, Final, Literal, get_args
 from zoneinfo import ZoneInfo
 
+from app.api.berechtigungen.schemas import FLGenehmigungVerwehrt
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import canonical_address
 from app.shared.schemas.bounds import ADRESSWECHSEL_GENEHMIGUNG_TAGE, ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_TAGE
@@ -43,10 +44,6 @@ ADRESSWECHSEL_ENDE_ARTEN: Final[tuple[str, ...]] = get_args(FLAdresswechselEndeA
 # The tier of the grant a change moves, and so who may approve it: `owner` another owner alone.
 FLAdresswechselVerwaltung = Literal["administration", "owner"]
 _RANG: Final[Mapping[str, int]] = {"administration": 0, "owner": 1}
-
-# Why the acting administrator may not approve a change: it is their own address's, they started it, or it moves an
-# owner's grant they hold no owner's power for.
-FLAdresswechselVerwehrt = Literal["eigene", "gestartet", "inhaber"]
 
 # The one filter every read of a live change carries: `uniq_adresswechsel_adresse` indexes these rows alone.
 LIVE_TERMS: Final[Mapping[str, Any]] = {"beendet": {"$type": "null"}}
@@ -82,10 +79,12 @@ def _german_day(now: datetime) -> str:
 
 
 def compose_genehmigung(*, verwaltung: str, gestartet_von: str, now: datetime) -> dict[str, Any]:
-    """The approval a change moving a grant waits on: the tier it moves, who started it, and the end of its week."""
+    """The approval a change moving a grant waits on: the tier it moves, who started it, when, and the end of its week."""
 
     return {
         "verwaltung": verwaltung,
+        # Its approver held their grant since then (`app/api/berechtigungen/services.py :: haelt_seit`).
+        "angefragt_am": now.astimezone(UTC),
         "bis": now.astimezone(UTC) + timedelta(days=ADRESSWECHSEL_GENEHMIGUNG_TAGE),
         # Folded, as `erteilt_von` stores an administrator: the one compared with the approver.
         "gestartet_von": gestartet_von,
@@ -158,6 +157,12 @@ def compose_confirmation_update(*, record: Mapping[str, Any], now: datetime) -> 
 
 def compose_genehmigt_update(*, akteur: str, now: datetime) -> dict[str, Any]:
     return {"$set": {"genehmigung.genehmigt_am": now.astimezone(UTC), "genehmigung.genehmigt_von": akteur}}
+
+
+def compose_genehmigung_widerrufen_update() -> dict[str, Any]:
+    """An approval that does not stand, taken off: its request's instant and deadline stay, so a new approval is judged as the first."""
+
+    return {"$set": {"genehmigung.genehmigt_am": None, "genehmigung.genehmigt_von": None}}
 
 
 def compose_end_update(*, art: FLAdresswechselEndeArt, now: datetime) -> dict[str, Any]:
@@ -325,25 +330,6 @@ def deckt(genehmigung: Any, verwaltung: Any) -> bool:
     return isinstance(genehmigung, Mapping) and _RANG.get(str(genehmigung.get("verwaltung")), -1) >= _RANG.get(str(verwaltung), 2)
 
 
-def verwehrt_fuer(record: Mapping[str, Any], *, akteur: str, inhaber: bool) -> FLAdresswechselVerwehrt | None:
-    """Why this folded administrator may not approve the change, or `None`; `inhaber` whether they hold an owner's power now.
-
-    Four eyes on every start: the changed address never approves, and the administrator who started it for a lost mailbox
-    neither.
-    """
-
-    genehmigung = record.get("genehmigung")
-    genehmigung = genehmigung if isinstance(genehmigung, Mapping) else {}
-    if record.get("adresse") == akteur:
-        return "eigene"
-    if genehmigung.get("gestartet_von") == akteur:
-        return "gestartet"
-    if genehmigung.get("verwaltung") == "owner" and not inhaber:
-        return "inhaber"
-
-    return None
-
-
 def maskierte_adresse(email: str) -> str:
     """The pending address a league-started change shows its address on file (`docs/backend/spec.md :: I822`).
 
@@ -378,6 +364,8 @@ ADRESSWECHSEL_GENEHMIGUNG_VERWEHRT = "REQ-ADRESSWECHSEL-013"
 ADRESSWECHSEL_GENEHMIGUNG_INHABER = "REQ-ADRESSWECHSEL-014"
 ADRESSWECHSEL_NICHT_GEDECKT = "REQ-ADRESSWECHSEL-015"
 ADRESSWECHSEL_NEUE_BERECHTIGT = "REQ-ADRESSWECHSEL-016"
+# 403 as `-013`: about who asks; an administrator holding their grant since before the start lifts it.
+ADRESSWECHSEL_GENEHMIGUNG_JUENGER = "REQ-ADRESSWECHSEL-017"
 
 
 def find_unbekannt_refusal(*, found: bool) -> WriteRefusal | None:
@@ -544,11 +532,21 @@ def find_keine_genehmigung_offen_refusal(*, offen: bool) -> WriteRefusal | None:
     )
 
 
-def find_genehmigung_verwehrt_refusal(*, verwehrt: FLAdresswechselVerwehrt | None) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-013` for the changed address or the starter, `-014` for an owner's grant without an owner's power."""
+def find_genehmigung_verwehrt_refusal(*, verwehrt: FLGenehmigungVerwehrt | None) -> WriteRefusal | None:
+    """`REQ-ADRESSWECHSEL-013` for the changed address or the starter, `-014` for an owner's grant without an owner's power.
+
+    `-017` for an approver whose grant, or owner's tier, took effect after the change's start.
+    """
 
     if verwehrt is None:
         return None
+
+    if verwehrt == "juenger":
+        return WriteRefusal(
+            error_code=ADRESSWECHSEL_GENEHMIGUNG_JUENGER,
+            status=HTTPStatus.FORBIDDEN,
+            message="a change is approved by an administrator who held their access since before it started",
+        )
 
     if verwehrt == "inhaber":
         return WriteRefusal(

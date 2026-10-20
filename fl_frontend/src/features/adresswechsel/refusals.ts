@@ -213,8 +213,12 @@ const ohneGenehmigung = (grund: string): string =>
     where: ADRESSWECHSEL_EINTRAG.label,
   });
 
+/** An approver whose access, or owner's tier, is younger than the request: the press and the row's reason say it alike. */
+export const GENEHMIGUNG_JUENGER = "Genehmigen kann nur, wer schon vor dem Beginn der Änderung Zugang zur Verwaltung hatte.";
+
 /** Said beside the press it refuses, the administrators page holding the change's row. */
 const GENEHMIGUNG_WORTE: Readonly<Record<string, string>> = {
+  "REQ-ADRESSWECHSEL-017": GENEHMIGUNG_JUENGER,
   "REQ-ADRESSWECHSEL-002": BEENDET,
   "REQ-ADRESSWECHSEL-012": buildRefusal({ reason: "Diese Änderung wartet auf keine Genehmigung mehr", repair: LADE_DIE_SEITE_NEU }),
   "REQ-ADRESSWECHSEL-013": "Eine Änderung Deiner eigenen Adresse oder eine, die Du selbst begonnen hast, genehmigt jemand anderes.",

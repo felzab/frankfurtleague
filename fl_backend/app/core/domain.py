@@ -3257,6 +3257,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_adresswechsel_execution.py::TestTheMovedGrant",
     ),
     Rule(
+        code="REQ-ADRESSWECHSEL-017",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /adresswechsel/{adresswechsel_id}/genehmigung",
+        aggregate="Adresswechsel",
+        summary="a change is approved by an administrator holding their access, an owner's change their tier, since before it started",
+        implemented_by="app.api.adresswechsel.services.find_genehmigung_verwehrt_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheAdministratorFollowsTheirMove",
+    ),
+    Rule(
         code="REQ-BERICHT-006",
         status=HTTPStatus.CONFLICT,
         operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",

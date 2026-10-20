@@ -6,6 +6,7 @@ import CircleCheck from "@gravity-ui/icons/CircleCheck";
 
 import { adresswechselZeitpunkt } from "@/core/adresswechsel";
 import { genehmigeAdresswechselAction } from "@/features/adresswechsel/actions";
+import { GENEHMIGUNG_JUENGER } from "@/features/adresswechsel/refusals";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
@@ -24,6 +25,7 @@ const VERWEHRT: Readonly<Record<NonNullable<FLBerechtigungAdresswechsel["verwehr
   eigene: "Eine Änderung Deiner eigenen Adresse genehmigt eine andere Person aus der Verwaltung.",
   gestartet: "Eine Änderung, die Du selbst begonnen hast, genehmigt eine andere Person aus der Verwaltung.",
   inhaber: "Die neue Adresse eines Zugangs als Inhaberin oder Inhaber genehmigt nur eine andere Inhaberin oder ein anderer Inhaber.",
+  juenger: GENEHMIGUNG_JUENGER,
 };
 
 /**

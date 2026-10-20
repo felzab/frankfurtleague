@@ -103,6 +103,22 @@ IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = Mappin
 )
 
 
+def carried_by_the_effect(addresses: Sequence[ImageAddress], neue: str) -> tuple[ImageAddress, ...]:
+    """What an effect writes over the replaced address in these images: who acted carries to the new address.
+
+    A record's own subject's address goes, as the erasure takes it (`docs/backend/spec.md :: I834`).
+    """
+
+    return tuple(
+        ImageAddress(address.path, address.overwritten, neue if address.replacement == ERASED_ACTOR_MARKER else None) for address in addresses
+    )
+
+
+# The collections whose images an effect re-keys: a change's and a grant's, reached by address alone once the effect has
+# moved the person; every other record's images are reached by their record's id.
+EFFECT_IMAGE_COLLECTIONS: Final = (DbCollection.ADRESSWECHSEL, DbCollection.BERECHTIGUNGEN)
+
+
 def build_address_images_filter(collection: DbCollection, identifier: str) -> Mapping[str, Any]:
     """The log rows of one collection whose images may hold this address; `address_image_edits` decides on the fold."""
 

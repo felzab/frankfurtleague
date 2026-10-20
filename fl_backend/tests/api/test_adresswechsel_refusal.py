@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+from bson import ObjectId
 from pydantic import BaseModel, ValidationError
 from pymongo import ASCENDING
 
@@ -18,9 +19,11 @@ from app.api.adresswechsel.schemas import (
     FLAdresswechselAnsichtNeu,
     FLAdresswechselAntwortPayload,
 )
-from app.api.adresswechsel.services import ist_abgelaufen, maskierte_adresse, neu_zustand, verwehrt_fuer
+from app.api.adresswechsel.services import ist_abgelaufen, maskierte_adresse, neu_zustand
+from app.api.berechtigungen.services import genehmigung_steht, genehmigung_verwehrt
 from app.core.collections import Collection
 from app.core.constraints import SUPPORT_INDEXES, UNIQUE_INDEXES
+from app.core.recording import ERASED_ACTOR_MARKER
 
 ADMIN = "verwaltung@frankfurtleague.de"
 OWNER = "inhaberin@frankfurtleague.de"
@@ -111,21 +114,94 @@ class TestTheLinksLookups:
         assert not [index for index in UNIQUE_INDEXES if index.collection == Collection.ADRESSWECHSEL and key in index.keys]
 
 
-def a_change(*, gestartet_von: str | None, verwaltung: str = "administration") -> dict[str, Any]:
-    genehmigung = None if gestartet_von is None else {"verwaltung": verwaltung, "gestartet_von": gestartet_von}
-    return {"adresse": CHANGED, "genehmigung": genehmigung}
+# Each grant in effect since a day before the request, but `LATE`'s, granted after it, and `PROMOTED`'s owner tier, made after it.
+SECOND_OWNER = "zweite.inhaberin@frankfurtleague.de"
+LATE = "spaet@frankfurtleague.de"
+PROMOTED = "befoerdert@frankfurtleague.de"
+BEFORE, AFTER = NOW - timedelta(days=1), NOW + timedelta(hours=1)
+
+
+def a_grant(adresse: str, verwaltung: str, *, at: datetime = BEFORE, ernannt_am: datetime | None = None) -> dict[str, Any]:
+    """A grant pasted at `at`, which no reconciliation has seen: its date is its own and its id's."""
+
+    return {
+        "_id": ObjectId.from_datetime(at),
+        "adresse": adresse,
+        "verwaltung": verwaltung,
+        "erteilt_von": OWNER,
+        "erteilt_am": at,
+        **({} if ernannt_am is None else {"ernannt_am": ernannt_am}),
+    }
+
+
+GRANTS = [
+    a_grant(ADMIN, "administration"),
+    a_grant(OWNER, "owner"),
+    a_grant(SECOND_OWNER, "owner"),
+    a_grant(LATE, "administration", at=AFTER),
+    a_grant(PROMOTED, "owner", ernannt_am=AFTER),
+]
+
+
+def a_change(*, gestartet_von: str, verwaltung: str = "administration", genehmigt_von: str | None = None) -> dict[str, Any]:
+    return {
+        "verwaltung": verwaltung,
+        "angefragt_am": NOW,
+        "bis": NOW + timedelta(days=7),
+        "gestartet_von": gestartet_von,
+        "genehmigt_am": None if genehmigt_von is None else NOW,
+        "genehmigt_von": genehmigt_von,
+    }
 
 
 class TestWhoMayNotApprove:
     @pytest.mark.parametrize(
-        ("record", "akteur", "inhaber", "verwehrt"),
+        ("genehmigung", "akteur", "inhaber", "verwehrt"),
         [
-            pytest.param(a_change(gestartet_von=None), CHANGED, True, "eigene", id="the changed address, an owner or not"),
+            pytest.param(a_change(gestartet_von=CHANGED), CHANGED, True, "eigene", id="the changed address, an owner or not"),
             pytest.param(a_change(gestartet_von=OWNER), OWNER, True, "gestartet", id="the administrator who started it"),
             pytest.param(a_change(gestartet_von=OWNER, verwaltung="owner"), ADMIN, False, "inhaber", id="an owner's grant, no owner's power"),
-            pytest.param(a_change(gestartet_von=OWNER, verwaltung="owner"), ADMIN, True, None, id="an owner's grant, another owner"),
-            pytest.param(a_change(gestartet_von=None), ADMIN, False, None, id="the person's own start, another administrator"),
+            pytest.param(a_change(gestartet_von=OWNER, verwaltung="owner"), SECOND_OWNER, True, None, id="an owner's grant, another owner"),
+            pytest.param(a_change(gestartet_von=CHANGED), ADMIN, False, None, id="the person's own start, another administrator"),
+            pytest.param(a_change(gestartet_von=CHANGED), LATE, False, "juenger", id="an administrator granted after the request"),
+            pytest.param(
+                a_change(gestartet_von=OWNER, verwaltung="owner"), PROMOTED, True, "juenger", id="an owner promoted after the request"
+            ),
         ],
     )
-    def test_four_eyes_and_the_owner_s_tier(self, record: dict[str, Any], akteur: str, inhaber: bool, verwehrt: str | None):
-        assert verwehrt_fuer(record, akteur=akteur, inhaber=inhaber) == verwehrt
+    def test_four_eyes_the_owner_s_tier_and_a_grant_older_than_the_request(
+        self, genehmigung: dict[str, Any], akteur: str, inhaber: bool, verwehrt: str | None
+    ):
+        assert (
+            genehmigung_verwehrt(betroffen=CHANGED, genehmigung=genehmigung, akteur=akteur, inhaber=inhaber, grants=GRANTS, announced=[])
+            == verwehrt
+        )
+
+
+class TestWhetherAnApprovalStillStands:
+    """Judged where the change takes effect, so an approval never outlives the grant, the tier or the standing that gave it."""
+
+    @pytest.mark.parametrize(
+        ("genehmigung", "grants", "gesperrt", "steht"),
+        [
+            pytest.param(a_change(gestartet_von=CHANGED, genehmigt_von=ADMIN), GRANTS, set(), True, id="its approver as they were"),
+            pytest.param(
+                a_change(gestartet_von=CHANGED, genehmigt_von=ADMIN), GRANTS[1:], set(), False, id="its approver's grant revoked since"
+            ),
+            pytest.param(a_change(gestartet_von=CHANGED, genehmigt_von=ADMIN), GRANTS, {ADMIN}, False, id="its approver barred since"),
+            pytest.param(
+                a_change(gestartet_von=OWNER, verwaltung="owner", genehmigt_von=SECOND_OWNER),
+                [*GRANTS[:2], {**GRANTS[2], "verwaltung": "administration"}, *GRANTS[3:]],
+                set(),
+                False,
+                id="an owner's change, its approver demoted since",
+            ),
+            pytest.param(
+                a_change(gestartet_von=CHANGED, genehmigt_von=ERASED_ACTOR_MARKER), GRANTS, set(), False, id="its approver erased since"
+            ),
+        ],
+    )
+    def test_it_stands_only_while_its_approver_may_approve_it(
+        self, genehmigung: dict[str, Any], grants: list[dict[str, Any]], gesperrt: set[str], steht: bool
+    ):
+        assert genehmigung_steht(betroffen=CHANGED, genehmigung=genehmigung, grants=grants, announced=[], gesperrt=gesperrt) is steht

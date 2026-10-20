@@ -318,7 +318,9 @@ async def post_adresswechsel(
             announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
             gesperrt = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in lebendige(grants)], session=session)
             verwaltung = str(bestand.berechtigung["verwaltung"])
-            genehmiger = genehmiger_of(verwaltung=verwaltung, ausgenommen={identifier}, grants=grants, announced=announced, gesperrt=gesperrt)
+            genehmiger = genehmiger_of(
+                verwaltung=verwaltung, ausgenommen={identifier}, grants=grants, announced=announced, gesperrt=gesperrt, vor=germany_now
+            )
             refuse(find_kein_genehmiger_refusal(genehmiger=len(genehmiger)))
             genehmigung = compose_genehmigung(verwaltung=verwaltung, gestartet_von=identifier, now=germany_now)
 

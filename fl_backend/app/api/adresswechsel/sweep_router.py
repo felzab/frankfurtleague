@@ -30,9 +30,11 @@ from app.core.dependencies import (
     BerechtigungenPostausgangCollection,
     BewerbungenCollection,
     DBClient,
+    EinladungenCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
+    SperrlisteCollection,
     SpielbestaetigungenCollection,
     SpielerCollection,
     get_germany_now,
@@ -119,13 +121,15 @@ async def _make_the_due_change_take_effect(
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
     berechtigungen_postausgang_collection: AsyncCollection,
+    einladungen_collection: AsyncCollection,
+    sperrliste_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     adressanker_collection: AsyncCollection,
     db: AsyncMongoClient,
     schluessel: SecretStr,
     now: datetime,
     stamp: str,
-) -> FLAdresswechselMitteilung | FLAdresswechselVerworfenMitteilung:
+) -> FLAdresswechselMitteilung | FLAdresswechselVerworfenMitteilung | None:
     """One due change in its own transaction, judged again as its confirmation was.
 
     Answers the completion's notice, or the new address alone where refused; `DocumentNotFoundException` where stopped,
@@ -135,7 +139,7 @@ async def _make_the_due_change_take_effect(
     journal = Journal()
 
     @journal.attempted
-    async def take_effect(session: AsyncClientSession) -> FLAdresswechselMitteilung | FLAdresswechselVerworfenMitteilung:
+    async def take_effect(session: AsyncClientSession) -> FLAdresswechselMitteilung | FLAdresswechselVerworfenMitteilung | None:
         record = await pull_one_from_db(
             collection=adresswechsel_collection, db_filter={"_id": row["_id"], **build_due_terms(now)}, session=session
         )
@@ -154,6 +158,8 @@ async def _make_the_due_change_take_effect(
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
             berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            einladungen_collection=einladungen_collection,
+            sperrliste_collection=sperrliste_collection,
             aktionen_collection=aktionen_collection,
             adressanker_collection=adressanker_collection,
             schluessel=schluessel,
@@ -163,8 +169,10 @@ async def _make_the_due_change_take_effect(
         )
         if mitteilung is not None:
             return mitteilung
-        # A due change's approval was given: the due terms read it.
-        assert not urteil.wartet
+        # A due change's approval was given, the due terms reading it, and waits again only where it does not stand.
+        if urteil.wartet:
+            assert urteil.widerrufen
+            return None
 
         # Every judgement the confirmation makes, at the end of the waiting time as at its start (`docs/backend/spec.md :: I795`).
         if not urteil.leer:
@@ -210,6 +218,8 @@ async def sweep_adresswechsel(
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    einladungen_collection: EinladungenCollection,
+    sperrliste_collection: SperrlisteCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
     adressanker_collection: AdressankerCollection,
@@ -276,6 +286,8 @@ async def sweep_adresswechsel(
                     berechtigungen_collection=berechtigungen_collection,
                     berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
                     berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                    einladungen_collection=einladungen_collection,
+                    sperrliste_collection=sperrliste_collection,
                     aktionen_collection=aktionen_collection,
                     adressanker_collection=adressanker_collection,
                     db=db,
@@ -319,6 +331,9 @@ async def sweep_adresswechsel(
 
         if not row["faellig"]:
             entfernt += 1
+        elif ergebnis is None:
+            # Its approval did not stand and was taken off, so it waits on another and is due no more.
+            uebersprungen += 1
         elif isinstance(ergebnis, FLAdresswechselVerworfenMitteilung):
             verworfen.append(ergebnis)
         else:

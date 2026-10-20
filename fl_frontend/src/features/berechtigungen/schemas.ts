@@ -20,7 +20,7 @@ export const FLBerechtigungAdresswechselSchema = z.object({
   // Whether the new mailbox has confirmed, so an approval now takes effect at once.
   bestaetigt: z.boolean(),
   bis: z.string(),
-  verwehrt: z.enum(["eigene", "gestartet", "inhaber"]).nullable(),
+  verwehrt: z.enum(["eigene", "gestartet", "inhaber", "juenger"]).nullable(),
 });
 export type FLBerechtigungAdresswechsel = z.infer<typeof FLBerechtigungAdresswechselSchema>;
 

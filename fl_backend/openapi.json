@@ -7460,7 +7460,7 @@
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
           },
           "403": {
-            "$ref": "#/components/responses/403.REQ-ADRESSWECHSEL-004.REQ-ADRESSWECHSEL-013.REQ-ADRESSWECHSEL-014.REQ-AUTH-006"
+            "$ref": "#/components/responses/403.REQ-ADRESSWECHSEL-004.REQ-ADRESSWECHSEL-013.REQ-ADRESSWECHSEL-014.REQ-ADRESSWECHSEL-017.REQ-AUTH-006"
           },
           "410": {
             "$ref": "#/components/responses/410.REQ-ADRESSWECHSEL-003"
@@ -10581,7 +10581,7 @@
     "/api/v0/konto/adresswechsel/freigabe": {
       "post": {
         "summary": "Approve the address change an administrator asked of the signed-in person",
-        "description": "Approve the change `id` names, one an administrator started without a reason, minting the new mailbox's link once, for the frontend's server to mail.\n\n**Nothing reaches the new mailbox before this press** (`docs/backend/spec.md :: I794`). Nothing about the new address is\njudged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the\nchange its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.\n\nRefused `REQ-AUTH-009` as the start is; `REQ-ADRESSWECHSEL-002` where the change `id` names has ended; 404 where it\nis no change of this address awaiting its approval; `REQ-ADRESSWECHSEL-003` past the approval's deadline; and\n`REQ-DROSSELUNG-001` as the start is.",
+        "description": "Approve the change `id` names, which an administrator started without a reason, minting the new mailbox's link once.\n\n**Nothing reaches the new mailbox before this press** (`docs/backend/spec.md :: I794`). Nothing about the new address is\njudged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the\nchange its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.\n\nRefused `REQ-AUTH-009` as the start is; `REQ-ADRESSWECHSEL-002` where the change `id` names has ended; 404 where it\nis no change of this address awaiting its approval; `REQ-ADRESSWECHSEL-003` past the approval's deadline; and\n`REQ-DROSSELUNG-001` as the start is.",
         "operationId": "post_adresswechsel_freigabe_api_v0_konto_adresswechsel_freigabe_post",
         "requestBody": {
           "content": {
@@ -13050,7 +13050,8 @@
                 "enum": [
                   "eigene",
                   "gestartet",
-                  "inhaber"
+                  "inhaber",
+                  "juenger"
                 ]
               },
               {
@@ -31143,7 +31144,7 @@
           }
         }
       },
-      "403.REQ-ADRESSWECHSEL-004.REQ-ADRESSWECHSEL-013.REQ-ADRESSWECHSEL-014.REQ-AUTH-006": {
+      "403.REQ-ADRESSWECHSEL-004.REQ-ADRESSWECHSEL-013.REQ-ADRESSWECHSEL-014.REQ-ADRESSWECHSEL-017.REQ-AUTH-006": {
         "description": "Forbidden",
         "content": {
           "application/json": {
@@ -31159,6 +31160,7 @@
                         "REQ-ADRESSWECHSEL-004",
                         "REQ-ADRESSWECHSEL-013",
                         "REQ-ADRESSWECHSEL-014",
+                        "REQ-ADRESSWECHSEL-017",
                         "REQ-AUTH-006"
                       ]
                     }
