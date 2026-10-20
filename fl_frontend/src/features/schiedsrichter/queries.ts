@@ -3,6 +3,7 @@ import { cache } from "react";
 import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
 import { medienNochNicht } from "@/features/bewerbungen/utils";
+import { ansichtOf } from "@/features/konto/adresswechselLink";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
@@ -13,15 +14,10 @@ import { alterAusserhalb } from "./constants";
 import { postSchiedsrichterAdresswechselAnsicht, postSchiedsrichterBestaetigungAnsicht } from "./mutations";
 import { FLSchiedsrichterListResponseSchema, FLSchiedsrichterSelbstResponseSchema, FLSchiedsrichterSingleResponseSchema } from "./schemas";
 
+import type { AdresswechselAnsicht, AdresswechselLinkZustand } from "@/features/konto/adresswechselLink";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLSchiedsrichterListResponse, FLSchiedsrichterSelbstResponse, FLSchiedsrichterSingleResponse } from "./schemas";
-import type {
-  AdresswechselAnsicht,
-  AdresswechselLinkZustand,
-  FLSchiedsrichterFilterParams,
-  SchiedsrichterAnsicht,
-  SchiedsrichterLinkZustand,
-} from "./types";
+import type { FLSchiedsrichterFilterParams, SchiedsrichterAnsicht, SchiedsrichterLinkZustand } from "./types";
 
 /**
  * Every referee, with their contact details, school and fee. Admin-tier: a referee is a pupil
@@ -169,19 +165,15 @@ export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promi
   );
 }
 
-/** What one address link opens, narrowed here for the consent link's reason: a dead link's panel carries no deadline. */
+/** What one address link opens, the pupil's twin (`fl_frontend/src/features/spieler/queries.ts :: getSpielerAdresswechselAnsicht`). */
 export async function getSchiedsrichterAdresswechselAnsicht(token: string): Promise<AdresswechselAnsicht> {
   return runWithIncomingTrace(() =>
-    postSchiedsrichterAdresswechselAnsicht({ token: token }).then(
-      (ansicht): AdresswechselAnsicht =>
-        ansicht.zustand !== "gueltig" ? { zustand: ansicht.zustand } : { zustand: "gueltig", frist: ansicht.frist },
-      (error: unknown): AdresswechselAnsicht => {
-        // The consent link's reading of a refused read: a token nothing could place.
-        const zustand = mapSchiedsrichterAnsichtRefusal(error);
-        if (zustand !== null) return { zustand: zustand };
-        throw error;
-      },
-    ),
+    postSchiedsrichterAdresswechselAnsicht({ token: token }).then(ansichtOf, (error: unknown): AdresswechselAnsicht => {
+      // The consent link's reading of a refused read: a token nothing could place.
+      const zustand = mapSchiedsrichterAnsichtRefusal(error);
+      if (zustand !== null) return { zustand: zustand };
+      throw error;
+    }),
   );
 }
 
@@ -207,8 +199,11 @@ export function mapSchiedsrichterAdresswechselRefusal(error: unknown): Schiedsri
       return { zustand: "abgelaufen" };
     case "REQ-SCHIEDSRICHTER-009":
       return { zustand: "gesperrt" };
-    // A ban entered on the replaced address after the page opened: the panel the view opens on then.
+    // A ban entered on the replaced address after the page opened, or a pupil row at it that would move onto
+    // an address another pupil holds: one panel, so the link's holder learns nothing about who holds an address.
     case "REQ-SCHIEDSRICHTER-010":
+    case "REQ-SPIELER-006":
+    case "DB-COMMON-002":
       return { zustand: "nicht_bestaetigbar" };
     default:
       return null;

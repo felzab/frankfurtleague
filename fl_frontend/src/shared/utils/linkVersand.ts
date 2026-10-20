@@ -35,6 +35,16 @@ export function versandWarnt(versand: LinkVersand | undefined): boolean {
 export type HinweisVersand = LinkVersand | "ungewiss";
 
 /**
+ * How an address change's two messages ended, each `null` where the mint answered no token for it: no
+ * link before an approval, no notice on a re-send.
+ */
+export type AdresswechselVersand = {
+  weg: "konto" | "freigabe" | "wartezeit";
+  link: LinkVersand | null;
+  hinweis: HinweisVersand | null;
+};
+
+/**
  * Whether an address change's notice to the stored address failed or may have, which its sentence asks the
  * administrator to make good by hand: one held back, or none stored, asks nothing (`docs/frontend/spec.md :: I679`).
  */

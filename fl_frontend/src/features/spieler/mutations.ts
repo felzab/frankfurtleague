@@ -7,6 +7,7 @@ import {
   FLSpielerAdresswechselAnsichtResponseSchema,
   FLSpielerAdresswechselAntwortResponseSchema,
   FLSpielerAdresswechselMintResponseSchema,
+  FLSpielerAdresswechselStoppResponseSchema,
   FLSpielerSelbstEinwilligungResponseSchema,
 } from "./schemas";
 
@@ -29,6 +30,8 @@ import type {
   FLSpielerAdresswechselEinladenPayload,
   FLSpielerAdresswechselMintResponse,
   FLSpielerAdresswechselPayload,
+  FLSpielerAdresswechselStoppPayload,
+  FLSpielerAdresswechselStoppResponse,
   FLSpielerAdresswechselVerwerfenPayload,
   FLSpielerSelbstEinwilligungPayload,
   FLSpielerSelbstEinwilligungResponse,
@@ -110,8 +113,8 @@ export async function deleteKaderZeile({ team_id, saison_id, spieler_id }: FLKad
   });
 }
 
-// Writes the whole pending block, so a link minted before stops working at once; the stored address
-// stays in force until the new mailbox confirms.
+// Writes the whole pending block, ending every other change at the address, so a link minted before
+// stops working at once; the stored address stays in force until the change takes effect.
 export async function beantrageSpielerAdresswechsel({
   id,
   ...body
@@ -123,7 +126,7 @@ export async function beantrageSpielerAdresswechsel({
   });
 }
 
-// Replaces the pending block but its address, so the previous address link stops working at once.
+// A fresh link to the new mailbox, so the previous one stops working at once; the stop link stays.
 export async function einladeSpielerAdresswechsel({ id }: FLSpielerAdresswechselEinladenPayload): Promise<FLSpielerAdresswechselMintResponse> {
   return apiClient<FLSpielerAdresswechselMintResponse>(`/spieler/${id}/adresswechsel/einladen`, FLSpielerAdresswechselMintResponseSchema, {
     method: "POST",
@@ -157,6 +160,15 @@ export async function postSpielerAdresswechselAnsicht(
  */
 export async function postSpielerAdresswechsel(payload: FLSpielerAdresswechselAntwortPayload): Promise<FLSpielerAdresswechselAntwortResponse> {
   return apiClient<FLSpielerAdresswechselAntwortResponse>("/spieler/adresswechsel", FLSpielerAdresswechselAntwortResponseSchema, {
+    method: "POST",
+    authType: "base",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** The stop of the address on file, `base` for `postSpielerAdresswechsel`'s reason; it hands nothing over. */
+export async function postSpielerAdresswechselStopp(payload: FLSpielerAdresswechselStoppPayload): Promise<FLSpielerAdresswechselStoppResponse> {
+  return apiClient<FLSpielerAdresswechselStoppResponse>("/spieler/adresswechsel/stopp", FLSpielerAdresswechselStoppResponseSchema, {
     method: "POST",
     authType: "base",
     body: JSON.stringify(payload),

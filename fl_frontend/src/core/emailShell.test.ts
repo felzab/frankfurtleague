@@ -63,12 +63,11 @@ const {
   buildRegistrierungErinnerungEmail,
   buildRegistrierungSaisonendeEmail,
 } = await import("./registrierungEmail.ts");
-const { buildSchiedsrichterAdresswechselEmail, buildSchiedsrichterAdresswechselHinweisEmail, buildSchiedsrichterBestaetigungEmail } =
-  await import("./schiedsrichterEmail.ts");
+const { buildSchiedsrichterBestaetigungEmail } = await import("./schiedsrichterEmail.ts");
 const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
 const { buildSpielAnfrageEmail, buildSpielEinteilungEmail, buildSpielErinnerungEmail, buildSpielNeueAnsetzungEmail } =
   await import("./spielEmail.ts");
-const { buildSpielerAdresswechselEmail, buildSpielerAdresswechselHinweisEmail } = await import("./spielerEmail.ts");
+const { buildAdresswechselEmail, buildAdresswechselHinweisEmail, buildAdresswechselWirksamEmail } = await import("./adresswechselEmail.ts");
 const { art21Satz, escapeHtml, FALLBACK_SATZ, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
 const { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
 
@@ -247,14 +246,23 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
     }),
   buildSchiedsrichterBestaetigungEmail: (origin) =>
     buildSchiedsrichterBestaetigungEmail({ origin: origin, token: "beispiel-fuenf", fristText: "05.10.2026" }),
-  buildSchiedsrichterAdresswechselEmail: (origin) =>
-    buildSchiedsrichterAdresswechselEmail({ origin: origin, token: "beispiel-sechs", fristText: "05.10.2026" }),
-  buildSchiedsrichterAdresswechselHinweisEmail: (origin) => buildSchiedsrichterAdresswechselHinweisEmail({ origin: origin, vorname: "Anna" }),
   buildSperreEmail: (origin) =>
     buildSperreEmail({ grund: "Falsches Geburtsdatum bei der Anmeldung", gesperrtBisSaisonId: "2031", origin: origin }),
-  buildSpielerAdresswechselEmail: (origin) =>
-    buildSpielerAdresswechselEmail({ origin: origin, token: "beispiel-sieben", fristText: "05.10.2026" }),
-  buildSpielerAdresswechselHinweisEmail: (origin) => buildSpielerAdresswechselHinweisEmail({ origin: origin, vorname: "Lena" }),
+  // The waiting time's variant, the one carrying every sentence a link mail can.
+  buildAdresswechselEmail: (origin) =>
+    buildAdresswechselEmail({ origin: origin, art: "spieler", token: "beispiel-sieben", weg: "wartezeit", gueltigBis: "2026-10-05T10:00:00Z" }),
+  // The approval's variant, the one carrying two controls.
+  buildAdresswechselHinweisEmail: (origin) =>
+    buildAdresswechselHinweisEmail({
+      origin: origin,
+      art: "schiedsrichter",
+      stoppToken: "beispiel-sechs",
+      weg: "freigabe",
+      gueltigBis: "2026-10-05T10:00:00Z",
+      vorname: "Anna",
+    }),
+  buildAdresswechselWirksamEmail: (origin) =>
+    buildAdresswechselWirksamEmail({ origin: origin, vorname: "Lena", zeitpunkt: new Date("2026-10-05T10:00:00Z") }),
   buildSpielAnfrageEmail: (origin) =>
     buildSpielAnfrageEmail({
       origin: origin,
@@ -628,9 +636,9 @@ describe("the shared email shell", () => {
       "buildEinladungEmail",
       "buildKontaktBestaetigungEmail",
       "buildRegistrierungBestaetigungEmail",
-      "buildSchiedsrichterAdresswechselEmail",
+      "buildAdresswechselEmail",
+      "buildAdresswechselHinweisEmail",
       "buildSchiedsrichterBestaetigungEmail",
-      "buildSpielerAdresswechselEmail",
       "buildSpielAnfrageEmail",
       "buildSpielErinnerungEmail",
     ]) {
