@@ -336,6 +336,8 @@ describe("the contacts save that takes a mailbox off the row", () => {
       notice?.text ?? "",
       /in der Saison 2627 nicht mehr als Ansprechperson und Trainerin oder Trainer für Lessing-Kolleg eingetragen/,
     );
+    // The two links the seat took with it and no more: the team's registration link still opens for the row.
+    assert.match(notice?.text ?? "", /Der Link zum Bestätigen dieses Eintrags und die Links zum Bestätigen von Spielterminen, die Du dafür/);
     assert.doesNotMatch(notice?.text ?? "", /Meier|https?:\/\/\S*token/);
     assert.deepEqual(
       zustellung.map(({ ziel }) => ziel),

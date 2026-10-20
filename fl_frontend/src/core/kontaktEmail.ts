@@ -212,9 +212,10 @@ export interface KontaktAbgangData {
   saisonId: string;
 }
 
-// The link is gone with the seat, and a reader still holding the confirmation or a fixture request
-// would otherwise press it and meet a refusal with no reason.
-const ABGANG_FOLGE = "Links, die Du für diesen Eintrag bekommen hast, funktionieren nicht mehr. Du musst nichts tun.";
+// The two links that die with the seat, never "every link": the team's registration link stays live for the contacts who
+// remain. Unnamed, a dead one is pressed and meets a refusal with no reason.
+const ABGANG_FOLGE =
+  "Der Link zum Bestätigen dieses Eintrags und die Links zum Bestätigen von Spielterminen, die Du dafür bekommen hast, funktionieren nicht mehr. Du musst nichts tun.";
 
 /** The word to a mailbox that its seat on a team's season row is gone: no button, since nothing is left for it to answer. */
 export function buildKontaktAbgangEmail({ origin, rollenText, schule, saisonId }: KontaktAbgangData): KontaktEmail {
