@@ -315,7 +315,9 @@ describe("the contact seat's confirmation handler", () => {
 
     assert.deepEqual(answer.body, nachFehler.body, "a contract break after a refusal answered otherwise than a failed read");
     assert.ok(
-      logs.some((logged) => logged.includes("read broke its contract after a refusal: postEinwilligung") && logged.includes("FE-API-002")),
+      logs.some(
+        (logged) => logged.includes("read broke its contract after its write was answered: postEinwilligung") && logged.includes("FE-API-002"),
+      ),
       "the contract break left no line",
     );
   });

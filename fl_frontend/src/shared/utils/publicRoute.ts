@@ -5,7 +5,7 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentErr
 import { logger } from "@/core/logging";
 import { requestWriteSent, requestWriteTags, runAnsweringOwnCut } from "@/core/requestScope";
 
-import { isRuleRefusal, outcomeUnknown, refusedFailure } from "./actionError";
+import { isRefusal, isRuleRefusal, outcomeUnknown, refusedFailure } from "./actionError";
 import { UNHANDLED_FIELD_REFUSAL, UNKNOWN_REFUSAL } from "./refusal";
 import { runWithIncomingTrace } from "./traceScope";
 import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
@@ -37,14 +37,19 @@ function logRouteError(message: string, error: unknown): void {
 }
 
 /**
- * A read after the backend REFUSED the write, `null` where it fails: the refusal settled the outcome, so neither a
- * deadline cut nor a contract break may reach the spine as an unknown one. A break is logged here.
+ * A read after the backend ANSWERED the write, refusing or storing it, `null` where it fails: that answer settled the
+ * outcome, so neither a deadline cut nor a contract break may reach the spine as an unknown one.
  */
-export async function readAfterRefusal<T>(routeName: string, read: () => Promise<T>): Promise<T | null> {
+export async function readAfterAnsweredWrite<T>(routeName: string, read: () => Promise<T>): Promise<T | null> {
   try {
     return await runAnsweringOwnCut(read);
   } catch (error) {
-    if (isContractBreak(error)) logRouteError(`Public route read broke its contract after a refusal: ${routeName}`, error);
+    if (isContractBreak(error)) logRouteError(`Public route read broke its contract after its write was answered: ${routeName}`, error);
+    // Only an unanswered read and a refused one explain themselves: anything else, a bug in a read's narrowing
+    // included, would otherwise leave a plausible panel standing with nothing logged.
+    else if (!(error instanceof APINetworkError || error instanceof ApiUnsentError || isRefusal(error))) {
+      logRouteError(`Public route read failed after its write was answered: ${routeName}`, error);
+    }
     return null;
   }
 }

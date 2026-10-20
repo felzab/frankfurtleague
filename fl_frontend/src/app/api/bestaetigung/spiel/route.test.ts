@@ -24,7 +24,7 @@ const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint)
 doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING }, specifiers: { "next/cache": NEXT_CACHE } });
 
 const { POST } = await import("./route.ts");
-const { APIMalformedDataError, APINetworkError } = await import("@/core/errors.ts");
+const { APIBadStatusError, APIMalformedDataError, APINetworkError } = await import("@/core/errors.ts");
 const { publishedRefusals, refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
@@ -107,6 +107,7 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
 
 beforeEach(() => {
   tags.length = 0;
+  errors.length = 0;
   gelesen = 0;
   schreibAntwort = () => GESCHRIEBEN;
   leseAntwort = () => BEANTWORTET;
@@ -174,9 +175,7 @@ describe("a club's answer to a fixture confirmation link", () => {
      message would leave a dead link looking like a mistyped proposal. */
   for (const [code, zustand] of [
     ["REQ-ANSETZUNG-001", "ungueltig"],
-    ["REQ-ANSETZUNG-003", "abgelaufen"],
     ["REQ-ANSETZUNG-004", "ungueltig"],
-    ["REQ-ANSETZUNG-005", "abgelaufen"],
     ["REQ-ANSETZUNG-011", "gesperrt"],
   ] as const) {
     it(`answers ${code} as the ${zustand} panel, without waiting on a second read`, async () => {
@@ -220,6 +219,27 @@ describe("a club's answer to a fixture confirmation link", () => {
     });
   }
 
+  /* Neither refusal says whether the fixture's day has gone by: a press on a tab left open past it, before the hourly
+     pass closes the row, reads the panel a reload would, never that the league still sets the date. */
+  for (const code of ["REQ-ANSETZUNG-003", "REQ-ANSETZUNG-005"] as const) {
+    for (const [uhr, panel] of [
+      ["T10:00:00Z", "abgelaufen"],
+      // Half past midnight in Berlin after the fixture's day.
+      ["T23:30:00Z", "termin-vorbei"],
+    ] as const) {
+      it(`answers ${code} at ${uhr} on the fixture's day with the ${panel} panel its read gives`, async (t) => {
+        t.mock.timers.enable({ apis: ["Date"], now: Date.parse(`${BEANTWORTET.ansetzung.datum}${uhr}`) });
+        schreibAntwort = () => refusedOn(WRITE_OPERATION, code);
+        leseAntwort = () => ({ ...BEANTWORTET, zustand: "abgelaufen", beantwortet_von: null });
+
+        const answer = await bodyOf(aRequest(vorschlagKoerper));
+
+        assert.deepEqual(answer.body, { success: false, zustand: panel });
+        assert.equal(gelesen, 1);
+      });
+    }
+  }
+
   /* An answer off the view's schema is the deploy's fault, logged for whoever can repair it. The refusal settled the
      write, so the club reads the panel a failed read gives, and never that its answer may not have arrived. */
   it("logs a view answered off its schema after a refusal and answers the dead-link panel, dropping nothing", async () => {
@@ -241,11 +261,83 @@ describe("a club's answer to a fixture confirmation link", () => {
     assert.deepEqual(tags, []);
     assert.ok(
       errors.some(
-        (logged) => logged.includes("read broke its contract after a refusal: postSpielbestaetigung") && logged.includes("FE-API-002"),
+        (logged) =>
+          logged.includes("read broke its contract after its write was answered: postSpielbestaetigung") && logged.includes("FE-API-002"),
       ),
       "the contract break left no line",
     );
   });
+
+  /* A `ContractBreakError` carries no code of its own, so only the line's words tell it from a bug: a helper reading
+     contract breaks as the malformed-data error alone files this one as an untyped throw. */
+  it("logs an answered view naming no seat as a contract break and answers the dead-link panel", async () => {
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-ANSETZUNG-002");
+    leseAntwort = () => ({ ...BEANTWORTET, beantwortet_von: null });
+
+    const answer = await bodyOf(aRequest(vorschlagKoerper));
+
+    assert.deepEqual(answer.body, { success: false, zustand: "ungueltig" });
+    assert.ok(
+      errors.some(
+        (logged) =>
+          logged.includes("read broke its contract after its write was answered: postSpielbestaetigung") && logged.includes("FE-ACT-001"),
+      ),
+      "the contract break left no line of its own",
+    );
+  });
+
+  /* The refusal settled the write, so a failed read answers the panel claiming nothing whatever failed. An unanswered
+     and a refused read explain themselves; anything else, a bug in the read included, is logged under its own code. */
+  for (const [wie, lesen, code] of [
+    ["is never answered", () => aLostRead(), null],
+    [
+      "is refused",
+      () =>
+        new APIBadStatusError({
+          message: "Forbidden.",
+          url: "http://localhost/spielbestaetigungen/ansicht",
+          statusCode: 403,
+          serverErrorCode: "REQ-AUTH-001",
+          endpoint: "/spielbestaetigungen/ansicht",
+          method: "POST",
+          readOnly: true,
+          traceId: "0",
+        }),
+      null,
+    ],
+    [
+      "meets a server error",
+      () =>
+        new APIBadStatusError({
+          message: "Internal Server Error.",
+          url: "http://localhost/spielbestaetigungen/ansicht",
+          statusCode: 500,
+          serverErrorCode: "DB-FAIL-001",
+          endpoint: "/spielbestaetigungen/ansicht",
+          method: "POST",
+          readOnly: true,
+          traceId: "0",
+        }),
+      "FE-API-001",
+    ],
+    ["throws a programming error", () => new TypeError("Cannot read properties of undefined"), "FE-ACT-001"],
+  ] as const) {
+    it(`answers a read that ${wie} with the dead-link panel, ${code === null ? "logging nothing" : `logging it as ${code}`}`, async () => {
+      schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-ANSETZUNG-002");
+      leseAntwort = lesen;
+
+      const answer = await bodyOf(aRequest(vorschlagKoerper));
+      const zeilen = errors.filter((logged) => logged.includes("after its write was answered: postSpielbestaetigung"));
+
+      assert.deepEqual(answer.body, { success: false, zustand: "ungueltig" });
+      if (code === null) assert.deepEqual(zeilen, [], "a read that explains itself was logged");
+      else
+        assert.ok(
+          zeilen.length === 1 && zeilen[0]!.includes("read failed after its write was answered") && zeilen[0]!.includes(code),
+          zeilen.join("\n"),
+        );
+    });
+  }
 
   /* The write's refusal and the read disagreeing claims nothing about the row. */
   it("answers an already answered row whose read finds it open with the dead-link panel", async () => {

@@ -200,7 +200,8 @@ describe("the pupil's confirmation handler", () => {
     assert.deepEqual(answer.body, nachFehler.body, "a contract break after a refusal answered otherwise than a failed read");
     assert.ok(
       errors.some(
-        (logged) => logged.includes("read broke its contract after a refusal: postSpielerBestaetigung") && logged.includes("FE-API-002"),
+        (logged) =>
+          logged.includes("read broke its contract after its write was answered: postSpielerBestaetigung") && logged.includes("FE-API-002"),
       ),
       "the contract break left no line",
     );

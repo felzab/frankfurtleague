@@ -328,6 +328,27 @@ describe("which first requests the pass stamps", () => {
     assert.equal(gesendet().length, 6, "a link went unmailed once its row counted as asked");
   });
 
+  /* The pass answers an unstamped referee's booking again each later day until the deadline: each is mailed and stamped
+     as a first one, under that day's key, so the provider never folds one day's send into the last. */
+  it("mails and stamps a booking a later day's pass answers again, under that day's key", async (t) => {
+    t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-11-02T09:00:00Z") });
+    passAnswer = (saisonId) => ({ ...leererPass(saisonId), einteilungen: [einteilung(1, "schiri@schule.de")] });
+
+    await runSpielSweep();
+    t.mock.timers.setTime(Date.parse("2026-11-03T09:00:00Z"));
+    await runSpielSweep();
+
+    const [erste, zweite] = gesendet();
+    assert.deepEqual(
+      gesendet().map(({ to }) => to),
+      ["schiri@schule.de", "schiri@schule.de"],
+      "the booking answered again was not mailed again",
+    );
+    assert.equal(zweite?.subject, erste?.subject, "the booking answered again went out in other words");
+    assert.deepEqual(gestempelt(), [id(1), id(1)], "the booking answered again was not stamped");
+    assert.ok(erste?.idempotencyKey !== undefined && erste.idempotencyKey !== zweite?.idempotencyKey, "both days' sends share a key");
+  });
+
   it("asks for no stamp where no request counts as made", async () => {
     ausgang.set("a@schule.de", "refused");
     passAnswer = (saisonId) => ({ ...leererPass(saisonId), anfragen: [anfrage(1, "a@schule.de")] });

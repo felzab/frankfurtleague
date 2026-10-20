@@ -193,8 +193,8 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
         </BestaetigungErgebnis>
       )}
 
-      {/* One wording for both: a replaced link, a moved fixture and a passed deadline cannot be told apart
-          after the fact. A day gone by can, and has the panel below. */}
+      {/* One wording for both, though the view tells them apart: each sentence names one case's way on, and a guessed
+          link, read `ungueltig`, passes for a real one before its day. A day gone by has the panel below. */}
       {(stand.zustand === "abgelaufen" || stand.zustand === "ungueltig") && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}

@@ -17,8 +17,8 @@ export function kontakteMayMoveLinks(stored: FLSaisonTeamKontakte | null, sent: 
   return SITZE.some((rolle) => {
     const neu = sent[rolle];
     const alt = stored?.[rolle] ?? null;
-    // Filling a seat mints, and emptying one voids its links on the team's open match confirmations,
-    // a confirmed seat's included (`fl_backend/app/api/teams/services.py :: voids_a_live_link`).
+    // Filling a seat mints, and emptying one voids its links on the team's match confirmations that season, answered and
+    // closed ones too, a confirmed seat's included (`fl_backend/app/api/teams/services.py :: voids_a_live_link`).
     if (alt === null) return neu !== null;
     if (neu === null) return true;
 
