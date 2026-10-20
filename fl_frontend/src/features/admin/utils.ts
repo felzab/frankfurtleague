@@ -4,6 +4,7 @@ import {
   istSofortFaellig,
   istUeberfaellig,
   istVorschlagOffen,
+  schiedsrichterAbsage,
   terminText,
 } from "@/features/spielbestaetigungen/utils";
 import { deriveSlotHerkunft, isAbgesagt } from "@/features/spiele/utils";
@@ -91,6 +92,13 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
     desc: "Spiele ohne Schiedsrichter",
     urgency: "details",
   },
+  // „Abgelehnt“ as the confirmation chip says every decline, never „Absage“ beside the called-off tab's „Abgesagt“.
+  schiedsrichter_abgesagt: {
+    name: "Schiedsrichter hat abgelehnt",
+    short: "Abgelehnt",
+    desc: "Spiele, deren eingeteilte Schiedsrichterin oder eingeteilter Schiedsrichter abgelehnt hat",
+    urgency: "details",
+  },
   abgesagt: {
     name: "Abgesagt",
     short: "Abgesagt",
@@ -127,6 +135,7 @@ export function categorizeActionRequired<
     uhrzeit_missing: [],
     ort_missing: [],
     schiedsrichter_missing: [],
+    schiedsrichter_abgesagt: [],
     abgesagt: [],
   };
 
@@ -151,6 +160,9 @@ export function categorizeActionRequired<
     if (spiel.uhrzeit === null) categorized.uhrzeit_missing.push(spiel);
     if (spiel.ort === null) categorized.ort_missing.push(spiel);
     if (spiel.schiedsrichter === null) categorized.schiedsrichter_missing.push(spiel);
+    if (schiedsrichterAbsage(bestaetigungenBySpielId.get(spiel.id) ?? [], spiel) !== undefined) {
+      categorized.schiedsrichter_abgesagt.push(spiel);
+    }
 
     if (spiel.datum !== null && spiel.datum < today && spiel.ergebnis === null) {
       categorized.ergebnis_pending.push(spiel);

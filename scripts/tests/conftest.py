@@ -248,48 +248,58 @@ _SECOND_DEFINITION_RE: Final = re.compile(r"\b[A-Za-z_][\w-]*\s*\(\)\s*\{")
 
 
 @functools.cache
-def _closed_on_its_line(opening: str) -> bool | None:
-    """bash's own verdict on whether the opening line ends the definition; None where it starts no body one brace closes.
+def _parses(text: str) -> bool:
+    """bash's own verdict that `text` is whole, asked of bash because a pattern misreads quotes, expansions and here-documents."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    said = subprocess.run([BASH, "-n"], input=text.encode("utf-8"), capture_output=True, check=False)
+    # A warning, such as a here-document running to the end of the text, is a body bash read past the text.
+    return said.returncode == 0 and not said.stderr
 
-    Asked of bash because a pattern misreads quotes, expansions and every terminator after the brace.
+
+def _joined(lines: tuple[str, ...]) -> str:
+    return "\n".join(lines) + "\n"
+
+
+@functools.cache
+def _reads_as_code(lines: tuple[str, ...], at: int) -> bool:
+    """Whether bash, over text it parses whole, reads line `at` as code rather than as a here-document's or a string's text.
+
+    A lone `)` is a syntax error wherever a command may start and plain text inside either.
     """
-
-    def parses(text: str) -> bool:
-        assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
-        said = subprocess.run([BASH, "-n"], input=text.encode("utf-8"), capture_output=True, check=False)
-        # A warning, such as a here-document running to the end of the text, is a body bash read past the line.
-        return said.returncode == 0 and not said.stderr
-
-    if parses(opening + "\n"):
-        return True
-    # `:`, as a group holding no command is a syntax error. None is a body one brace cannot close
-    # (`scripts/lib/_lib.sh :: require_file`'s open quote), where the walk would take the next
-    # function's closing line as this one's.
-    return False if parses(opening + "\n:\n}\n") else None
+    return not _parses(_joined((*lines[:at], ")", *lines[at:])))
 
 
 def lift_function(script: Path, name: str, indent: str = "") -> str:
-    """One shell function's source, dedented to the margin: a one-line one whole, a block by its closing line.
+    """One shell function's source, dedented to the margin: from its opening line to the first line bash ends it on.
 
     Read rather than reimplemented: a copy in a test passes while the gate's own copy regresses.
     """
-    lines = script.read_text(encoding="utf-8").splitlines()
+    lines = tuple(script.read_text(encoding="utf-8").splitlines())
+    assert _parses(_joined(lines)), f"{_cited(script)} does not parse whole, so {name}'s lines cannot be told code from text"
     # Anchored on the opening line's own text rather than on a position, so a function that moves
     # inside its script is still found. The run of spaces is the column `scripts/gate/verify.sh`
     # aligns a block of definitions on.
     opens = re.compile(re.escape(indent) + re.escape(name) + r"\(\) +\{")
-    start, opener = next(((i, found) for i, line in enumerate(lines) if (found := opens.match(line))), (-1, None))
+    start, opener = next(((i, found) for i, line in enumerate(lines) if (found := opens.match(line)) and _reads_as_code(lines, i)), (-1, None))
     assert opener is not None, f"{_cited(script)} no longer defines {name}"
     opening = lines[start]
     # bash's verdict is on the whole line, so a second definition opened there would answer for this one.
     assert not _SECOND_DEFINITION_RE.search(opening, opener.end()), f"{_cited(script)}'s {name} shares its opening line: {opening}"
-    closed = _closed_on_its_line(opening)
-    assert closed is not None, f"{_cited(script)}'s {name} opens a body its own line does not close: {opening}"
-    if closed:
-        return opening.removeprefix(indent)
-    end = next((i for i in range(start + 1, len(lines)) if lines[i] == f"{indent}}}"), -1)
-    assert end > start, f"{_cited(script)}'s {name} closes on neither its own opening line nor a line at that indent"
-    return "\n".join(line.removeprefix(indent) for line in lines[start : end + 1])
+    # Only a line opening with a brace at the definition's own indent is asked, each question costing
+    # a bash process; a body closed on any other line runs on to a later block's, refused below.
+    closers = (start, *(i for i in range(start + 1, len(lines)) if lines[i].startswith(indent + "}")))
+    end = next((i for i in closers if _parses(_joined(lines[start : i + 1]))), -1)
+    assert end >= start, f"{_cited(script)}'s {name} has no line at its indent that ends what its opening line begins"
+    run = lines[start : end + 1]
+    assert end == start or not _SECOND_DEFINITION_RE.search(run[-1]), f"{_cited(script)}'s {name} shares its closing line: {run[-1]}"
+    # Code at or left of the definition's own column inside the run is code after the function's end.
+    beyond = [line for at, line in enumerate(run[1:-1], 1) if _outdented(line, indent) and _reads_as_code(run, at)]
+    assert not beyond, f"{_cited(script)}'s {name} ends before the line closing it, which is a later block's: {beyond[0]}"
+    return "\n".join(line.removeprefix(indent) for line in run)
+
+
+def _outdented(line: str, indent: str) -> bool:
+    return bool(line.strip()) and len(line) - len(line.lstrip()) <= len(indent)
 
 
 def lift_assignment(script: Path, name: str) -> str:

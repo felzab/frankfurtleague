@@ -194,6 +194,10 @@ ADMIN_READS = [
     ("/api/v0/spieler/selbst", "get"),
     ("/api/v0/schiedsrichter/selbst", "get"),
     ("/api/v0/konto/einwilligungen", "get"),
+    # A report's remarks and card reasons, which only the administrator and the booked referee read; the squads
+    # beside them carry every surname whole.
+    ("/api/v0/spielberichte/{spiel_id}/admin", "get"),
+    ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
 ]
 
 
@@ -257,6 +261,9 @@ PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
         ("/api/v0/identitaet/selbst/erasure/ansicht", "get"),
         ("/api/v0/spielbestaetigungen/selbst", "get"),
         ("/api/v0/spielbestaetigungen/{spielbestaetigung_id}/antwort", "post"),
+        ("/api/v0/spielberichte/person", "get"),
+        ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
+        ("/api/v0/spielberichte/{spiel_id}/bericht", "put"),
     }
 )
 

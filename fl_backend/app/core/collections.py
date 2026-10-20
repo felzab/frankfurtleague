@@ -65,3 +65,6 @@ class Collection(StrEnum):
     #: One party's answer about one Ansetzung of a fixture, held true against nothing: no fixture write
     #: reaches it, and a move is reconciled by the next sweep pass closing the row.
     SPIELBESTAETIGUNGEN = "spielbestaetigungen"
+    #: One fixture's report: the referee's proposed result, scorers, cards and remarks, which the fixture's
+    #: result never reads. Created by its first writer, one per fixture.
+    SPIELBERICHTE = "spielberichte"

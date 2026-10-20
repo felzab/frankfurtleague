@@ -574,7 +574,7 @@ def build_triage_rows_filter(*, saison_id: str, today: str) -> dict[str, Any]:
 
 
 def find_verwerfen_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> WriteRefusal | None:
-    """`build_verwerfbar_filter` asked of the row read, and the row about the fixture as it stands (`docs/backend/spec.md :: I786`)."""
+    """`build_verwerfbar_filter` asked of the row read, and the row about the fixture as it stands (`docs/backend/spec.md :: I791`)."""
 
     partei, antwort = spielbestaetigung_raw.get("partei") or {}, spielbestaetigung_raw.get("antwort") or {}
     if (
@@ -766,7 +766,7 @@ def _day_passed(*, ansetzung: Mapping[str, Any], today: str) -> bool:
 def grund_to_end(
     *, row: Mapping[str, Any], spiel: Mapping[str, Any], austritte: Mapping[Any, str], today: str
 ) -> FLSpielbestaetigungGrund | None:
-    """Why the pass's close shuts a row holding its party's question, or `None` (`docs/backend/spec.md :: I785`)."""
+    """Why the pass's close shuts a row holding its party's question, or `None` (`docs/backend/spec.md :: I790`)."""
 
     grund = grund_to_close(row=row, spiel=spiel, austritte=austritte, today=today)
     if row.get("geschlossen") is None or grund in GRUENDE_ENDING_AN_ANSWER:

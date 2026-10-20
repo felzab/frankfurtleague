@@ -39,6 +39,7 @@ const leererPass = (saisonId: string) => ({
   einteilungen: [],
   neue_ansetzungen: [],
   schiedsrichter_neue_ansetzungen: [],
+  schiedsrichter_gewechselt: [],
   geschlossen: 0,
   fehlgeschlagen: 0,
 });
@@ -496,6 +497,32 @@ describe("what one pass mails", () => {
     const [nachricht] = gesendet();
     assert.deepEqual(nachricht?.tags, { spielleitung: "hinweis" });
     assert.ok(!nachricht?.text.includes("token="), "the booking carries a token");
+  });
+
+  /* The referee the close answered, on their own lane: their row is closed, so a stamp would mark nothing asked. */
+  it("tells a referee taken off a fixture on the referee's lane, and stamps nothing", async () => {
+    passAnswer = (saisonId) => ({
+      ...leererPass(saisonId),
+      schiedsrichter_gewechselt: [
+        {
+          spielbestaetigung_id: id(4),
+          spiel_id: id(500),
+          team1_name: "Ernst-Reuter-Schule",
+          team2_name: "Goethe-Gymnasium",
+          alt: { datum: "2026-11-13", uhrzeit: "10:00:00" },
+          address: "schiri@schule.de",
+        },
+      ],
+    });
+
+    await runSpielSweep();
+
+    assert.deepEqual(
+      gesendet().map(({ to, subject, tags }) => [to, subject, tags]),
+      [["schiri@schule.de", "Nicht mehr eingeteilt: Ernst-Reuter-Schule gegen Goethe-Gymnasium", { spielleitung: "hinweis" }]],
+    );
+    assert.ok(gesendet()[0]?.idempotencyKey !== undefined, "a link-free notice went unkeyed");
+    assert.deepEqual(gestempelt(), [], "the pass stamped a row it only told of its close");
   });
 
   /* Never in parallel: a fan-out would put every season's mail on the transport at once. */

@@ -18,6 +18,7 @@ const PATCH_OPERATION = "PATCH /spiele/{spiel_id}";
 /** The rules restated, so a code retired from the endpoint fails here rather than leaving a dead arm behind. */
 const PATCH_CODES = [
   "REQ-BOOKING-001",
+  "REQ-BOOKING-002",
   "REQ-CLASH-001",
   "REQ-DATE-001",
   "REQ-ELIGIBILITY-001",

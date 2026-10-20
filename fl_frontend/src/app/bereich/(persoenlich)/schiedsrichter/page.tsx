@@ -6,6 +6,7 @@ import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { logPageVerweigert } from "@/features/funktionen/verweigert";
 import { SchiedsrichterSelbstView } from "@/features/schiedsrichter/components/views/SchiedsrichterSelbstView";
 import { getSchiedsrichterSelbst } from "@/features/schiedsrichter/queries";
+import { getEigeneSpielbestaetigungen } from "@/features/spielbestaetigungen/queries";
 import { isFunktionLost } from "@/shared/utils/actionError";
 
 export default async function PersoenlichSchiedsrichterPage() {
@@ -19,9 +20,10 @@ export default async function PersoenlichSchiedsrichterPage() {
     redirect("/bereich");
   }
 
-  let selbst;
+  let selbst, einsaetze;
   try {
-    selbst = await getSchiedsrichterSelbst();
+    // Side by side: neither read waits on the other, and each answers the same lost record alike.
+    [selbst, einsaetze] = await Promise.all([getSchiedsrichterSelbst(), getEigeneSpielbestaetigungen()]);
   } catch (error) {
     // The row went between the page's own check and the backend's, which is the check above failing
     // late: the same landing. Every other failure is the area's boundary's.
@@ -29,5 +31,10 @@ export default async function PersoenlichSchiedsrichterPage() {
     redirect("/bereich");
   }
 
-  return <SchiedsrichterSelbstView schiedsrichter={selbst.schiedsrichter} />;
+  return (
+    <SchiedsrichterSelbstView
+      schiedsrichter={selbst.schiedsrichter}
+      einsaetze={einsaetze.spielbestaetigungen}
+    />
+  );
 }

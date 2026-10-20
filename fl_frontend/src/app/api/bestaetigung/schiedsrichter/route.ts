@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {
     routeName: ROUTE_NAME,
     run: async () => {
-      // Ahead of the fixture read joining this record, which will serve the referee's name by its scope:
-      // the cached fixture list is dropped wherever the answer may stand, and nowhere a write was not sent.
+      // The fixture read serves the referee's name by this record's scope: the cached fixture list is
+      // dropped wherever the answer may stand, and nowhere a write was not sent.
       invalidatesOnWrite("spiele");
       const body: unknown = await request.json().catch(() => null);
 

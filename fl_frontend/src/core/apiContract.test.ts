@@ -83,6 +83,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSpielbestaetigungZustand: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielbestaetigungSeite: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielbestaetigungGrund: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLSpielbestaetigungSchiedsrichterZustand: "a Pydantic Literal alias, inlined as an enum at each use site",
 
   // Both fields are path segments of `POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut`,
   // so the request carries no body for FastAPI to describe.
@@ -137,6 +138,7 @@ const FRONTEND_ONLY: Record<string, string> = {
 
   // One form creates the row and its junction: without one the club is invisible (backend spec I11).
   FLCreateTeamFormPayload: "the create action's own argument; the action splits it into two requests",
+  SchiedsrichterAbsage: "the decline action's own argument; the action wraps it in the answer's payload",
 };
 
 /**
@@ -353,7 +355,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 372;
+const EXPECTED_PAIRS = 377;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

@@ -89,6 +89,21 @@ export const istSofortFaellig = (zeile: FLSpielbestaetigung, today: string): boo
   zeile.frist === today &&
   (zeile.angefragt_am === null || zeile.angefragt_am === today);
 
+/**
+ * The referee's own decline while the slot it emptied stays empty. Never among `geltendeBestaetigungen`: the decline
+ * closes its row in its own write. The newest referee row decides (the read serves newest first), so a later booking
+ * ends it.
+ */
+export function schiedsrichterAbsage(
+  bestaetigungen: readonly FLSpielbestaetigung[],
+  spiel: { id: string; schiedsrichter: object | null },
+): FLSpielbestaetigung | undefined {
+  if (spiel.schiedsrichter !== null) return undefined;
+  const zeile = bestaetigungen.find((kandidat) => kandidat.spiel_id === spiel.id && kandidat.partei.art === "schiedsrichter");
+
+  return zeile?.geschlossen?.grund === "schiedsrichter_abgelehnt" ? zeile : undefined;
+}
+
 export function antwortStand(zeile: FLSpielbestaetigung, today: string): AntwortStand {
   if (zeile.antwort !== null) return zeile.antwort.art;
   return istUeberfaellig(zeile, today) ? "ueberfaellig" : "offen";
@@ -226,6 +241,48 @@ export function mapAnsetzungRefusal(error: unknown): SpielbestaetigungRefusal | 
           repair: `Schlag einen anderen Tag vor, oder eine Uhrzeit mit mindestens ${CLASH_BUFFER_TEXT} Abstand`,
         }),
       };
+    default:
+      return null;
+  }
+}
+
+/** A referee's two answers' toast titles, each failure the negation of its success (`docs/frontend/spec.md :: I250`). */
+export const ZUSAGE_GESPEICHERT = "Deine Zusage ist gespeichert";
+export const ZUSAGE_NICHT_GESPEICHERT = "Deine Zusage wurde nicht gespeichert";
+export const ABSAGE_GESPEICHERT = "Deine Absage ist gespeichert";
+export const ABSAGE_NICHT_GESPEICHERT = "Deine Absage wurde nicht gespeichert";
+
+/** Every spent row's repair: the panel re-read shows the row as it stands, which a refused press never redraws. */
+const NEU_LADEN = "Lade die Seite neu.";
+
+/**
+ * A referee's answer's refusals, as their own panel words them: the link page's column reads a club's link, which a
+ * referee holds none of. `null` where the code is none of these, which the person spine answers.
+ */
+export function mapSchiedsrichterAntwortRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors; unplacedError?: string } | null {
+  if (!isRefusal(error)) return null;
+
+  switch (error.serverErrorCode) {
+    // The body shape is mirrored, so a refusal the reason box cannot take is of a page older than the running one.
+    case "REQ-VAL-002":
+    case "REQ-VAL-001":
+      return refusedPayloadAnswer(error, "Lade die Seite neu und antworte erneut.");
+    // Ahead of the shared reader's sentence, which names a team.
+    case "REQ-FUNKTION-001":
+      return { error: `Du bist nicht mehr als Schiedsrichterin oder Schiedsrichter eingetragen. ${NEU_LADEN}` };
+    case "REQ-ANSETZUNG-015":
+      return { error: `Für dieses Spiel bist Du nicht eingeteilt. ${NEU_LADEN}` };
+    case "REQ-ANSETZUNG-002":
+      return { error: `Auf diese Einteilung hast Du schon geantwortet. ${NEU_LADEN}` };
+    case "REQ-ANSETZUNG-009":
+      return { error: `Diese Einteilung ist schon abgeschlossen. ${NEU_LADEN}` };
+    case "REQ-ANSETZUNG-005":
+      return { error: `Das Spiel ist entschieden oder abgesagt, oder ein Team spielt nicht mehr mit. ${NEU_LADEN}` };
+    case "REQ-ANSETZUNG-004":
+      return { error: `Das Spiel hat einen neuen Termin, oder Du bist nicht mehr eingeteilt. ${NEU_LADEN}` };
+    // A referee's answer keeps no deadline, so the day alone spends it.
+    case "REQ-ANSETZUNG-003":
+      return { error: `Das Spiel liegt schon in der Vergangenheit. ${NEU_LADEN}` };
     default:
       return null;
   }

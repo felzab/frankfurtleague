@@ -154,6 +154,9 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   // landing, as each page's own check sends a person holding none.
   "GET /spieler/selbst": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
   "GET /schiedsrichter/selbst": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
+  // Read beside the referee's own records, so the same page's landing.
+  "GET /spielbestaetigungen/selbst": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
+  "POST /spielbestaetigungen/{spielbestaetigung_id}/antwort": spielbestaetigungen.mapSchiedsrichterAntwortRefusal,
   "PATCH /spieler/selbst/einwilligung": (error) => konto.mapEigeneEinwilligungRefusal(error, MEDIEN_MIN_ALTER),
   "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": (error) => konto.mapEigeneEinwilligungRefusal(error, MEDIEN_MIN_ALTER),
   "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung": (error) => konto.mapEigeneEinwilligungRefusal(error, MEDIEN_MIN_ALTER),

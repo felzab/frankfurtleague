@@ -6,7 +6,13 @@ import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
 import { revalidateOverLoopback } from "@/core/revalidation";
-import { buildSpielAnfrageEmail, buildSpielEinteilungEmail, buildSpielErinnerungEmail, buildSpielNeueAnsetzungEmail } from "@/core/spielEmail";
+import {
+  buildSpielAnfrageEmail,
+  buildSpielEinteilungAufgehobenEmail,
+  buildSpielEinteilungEmail,
+  buildSpielErinnerungEmail,
+  buildSpielNeueAnsetzungEmail,
+} from "@/core/spielEmail";
 import { SPIELLEITUNG_HINWEIS, SPIELLEITUNG_TAG } from "@/core/spielleitungTag";
 import { versandAusfallOf } from "@/core/versandAusfall";
 import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
@@ -23,6 +29,7 @@ import type {
   FLSpielbestaetigungSweepAnfrage,
   FLSpielbestaetigungSweepEinteilung,
   FLSpielbestaetigungSweepNeueAnsetzung,
+  FLSpielbestaetigungSweepSchiedsrichterGewechselt,
   FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung,
 } from "./schemas";
 
@@ -124,6 +131,8 @@ async function sweepSaison(saisonId: string, zaehler: Zaehler): Promise<void> {
   // First, so a mailbox reads that the earlier request is void before the fresh one for the moved fixture.
   for (const neu of antwort.neue_ansetzungen) await mailNeueAnsetzung(neu);
   for (const neu of antwort.schiedsrichter_neue_ansetzungen) await mailSchiedsrichterNeueAnsetzung(neu);
+  // Never stamped, as the move notices are not: the stamp marks a row asked, and this one is closed.
+  for (const weg of antwort.schiedsrichter_gewechselt) await mailSchiedsrichterGewechselt(weg);
 
   for (const erinnerung of antwort.erinnerungen) await mailAnfrage(erinnerung, "erinnerung");
 
@@ -239,6 +248,18 @@ async function mailSchiedsrichterNeueAnsetzung(neu: FLSpielbestaetigungSweepSchi
       altDatumText: formatSpielDatum(neu.alt.datum),
       altUhrzeitText: formatUhrzeit(neu.alt.uhrzeit),
       empfaenger: "schiedsrichter",
+    }),
+  );
+}
+
+async function mailSchiedsrichterGewechselt(weg: FLSpielbestaetigungSweepSchiedsrichterGewechselt): Promise<void> {
+  await mailSpielleitung(weg.address, ["schiedsrichter_gewechselt", weg.spielbestaetigung_id], () =>
+    buildSpielEinteilungAufgehobenEmail({
+      origin: frontend_config.AUTH_URL,
+      team1: weg.team1_name,
+      team2: weg.team2_name,
+      altDatumText: formatSpielDatum(weg.alt.datum),
+      altUhrzeitText: formatUhrzeit(weg.alt.uhrzeit),
     }),
   );
 }
