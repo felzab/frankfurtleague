@@ -892,8 +892,9 @@ carries every thread's stack (`scripts/gate/verify.sh :: FAULTHANDLER_S`), the s
 (`scripts/gate/gate_pool.py :: shown`). That names a synchronous case's stalled frame; an async
 case's suspended coroutine is on no thread, so its dump shows only the event loop. In CI the notice
 lands before the job's timeout ends the job, which names no unit, for a stall starting anywhere
-inside the job's budget; a job carrying no budget is held to its timeout alone, so there a stall is
-named only where it starts early enough
+inside the job's budget, after the widest wait for a job's first step yet observed, on which GitHub
+documents no bound; a job carrying no budget is held to its timeout alone, so there a stall is named
+only where it starts early enough
 (`scripts/tests/test_gate_pool.py :: test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout`).
 **The pool ends its units rather than outliving them**
 (`scripts/gate/gate_pool.py :: terminate`), down to the build a unit was waiting on. **On Windows,
