@@ -189,6 +189,7 @@ def bericht_document(**fields: Any) -> dict[str, Any]:
         "torschuetzen": [{"seite": "team1", "spieler_id": ObjectId(), "minute": "23", "eigentor": False}],
         "karten": [{"seite": "team2", "spieler_id": ObjectId(), "minute": "45+2", "farbe": "gelb", "grund": "foulspiel"}],
         "bemerkungen": None,
+        "seiten": {"team1": None, "team2": None},
         "eingereicht_am": am,
         "eingereicht_von": {"art": "schiedsrichter", "schiedsrichter_id": ObjectId()},
         "geaendert_am": am,
@@ -200,8 +201,20 @@ def bericht_document(**fields: Any) -> dict[str, Any]:
     }
 
 
+def spielbericht_seiten(spiel: Mapping[str, Any]) -> dict[str, Any]:
+    """The clubs `spiel` fields, as a report written on it stamps them."""
+
+    return {seite: (spiel.get(seite) or {}).get("team_id") for seite in ("team1", "team2")}
+
+
 def spielbericht_document(spiel: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
-    return {"_id": ObjectId(), "saison_id": spiel["saison_id"], "spiel_id": spiel["_id"], "bericht": bericht_document(), **fields}
+    return {
+        "_id": ObjectId(),
+        "saison_id": spiel["saison_id"],
+        "spiel_id": spiel["_id"],
+        "bericht": bericht_document(seiten=spielbericht_seiten(spiel)),
+        **fields,
+    }
 
 
 def kontakt_antwort_document(rolle: str, adresse: str, *, begruendung: str | None, am: str = "2026-04-01", **fields: Any) -> dict[str, Any]:

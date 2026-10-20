@@ -352,8 +352,9 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "`spiele`. The report writes no fixture; the administrator carries a proposal into the fixture by their own "
             "save, and the state the report reads in is derived on every read from both. One fixture write reaches the "
             "report: a save adopting it stamps the version it took, in the save's transaction and only while the report "
-            "still stands at that version, so the stamp records the adoption and holds no rule over the fixture, and a "
-            "report corrected since is left unadopted rather than refusing the save. What is held is a rule over this "
+            "still stands at that version and names the clubs the save leaves on the fixture, so the stamp records the "
+            "adoption and holds no rule over the fixture, and a report corrected since, or written about other clubs, is "
+            "left unadopted rather than refusing the save. What is held is a rule over this "
             "collection alone, `uniq_spielbericht_spiel_id`: one report per fixture."
         ),
     ),
@@ -1450,25 +1451,35 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     FieldPolicy(
         Collection.SPIELBERICHTE,
+        "bericht.seiten",
+        Editability.COMPOSED,
+        "on no payload: every write of the block stamps the clubs the fixture fields, so a report whose fixture "
+        "fields others since reads `teams_geaendert` and no save adopts it until a write stamps them again",
+        "app.api.spielberichte.services.seiten_of",
+    ),
+    FieldPolicy(
+        Collection.SPIELBERICHTE,
         "bericht.uebernommene_version",
         Editability.CONTROL_ONLY,
         "on no payload: the fixture save carrying `uebernimmt_bericht` writes it inside its own transaction, and only on a "
-        "report still at that version, so a report corrected since the editor read it is left unadopted rather than "
-        "adopted unread",
+        "report still at that version whose `seiten` are the clubs the save leaves, so a report corrected since the "
+        "editor read it is left unadopted rather than adopted unread, and one about other clubs credits neither. The undo of "
+        "that save writes back what the stamp replaced, from the save's own answer, on a report still at the version "
+        "stamped",
         "app.api.spielberichte.crud.stamp_the_adoption",
     ),
     FieldPolicy(
         Collection.SPIELBERICHTE,
         "bericht.uebernommen_am",
         Editability.CONTROL_ONLY,
-        "on no payload: written beside `bericht.uebernommene_version`, by the same stamp",
+        "on no payload: written beside `bericht.uebernommene_version`, by the same stamp and the same undo",
         "app.api.spielberichte.crud.stamp_the_adoption",
     ),
     FieldPolicy(
         Collection.SPIELBERICHTE,
         "bericht.uebernommen_von",
         Editability.CONTROL_ONLY,
-        "on no payload: written beside `bericht.uebernommene_version`, by the same stamp",
+        "on no payload: written beside `bericht.uebernommene_version`, by the same stamp and the same undo",
         "app.api.spielberichte.crud.stamp_the_adoption",
     ),
 )

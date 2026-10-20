@@ -68,6 +68,28 @@ MIXED: Final = "\n".join(
 
 NESTED: Final = "\n".join(("#!/usr/bin/env bash", "outer() {", "  " + INDENTED, "  inner x", "}", ""))
 
+# An indented function whose here-document body holds its terminator's text at the function's margin, and
+# whose string runs on to a second line: both are text, whose leading spaces are the text's own.
+NESTED_TEXT: Final = "\n".join(
+    (
+        "#!/usr/bin/env bash",
+        "outer() {",
+        "  inner() {",
+        "    cat <<EOF",
+        "first",
+        "  EOF",
+        "last",
+        "EOF",
+        '    printf "%s" "a',
+        '    b"',
+        "  }",
+        "  inner",
+        "}",
+        "",
+    )
+)
+LIFTED_TEXT: Final = ("inner() {", "  cat <<EOF", "first", "  EOF", "last", "EOF", '  printf "%s" "a', '    b"', "}")
+
 # Closed at a margin the caller did not name, so neither shape matches and the lift has no answer.
 ADRIFT: Final = "\n".join(("#!/usr/bin/env bash", "adrift() {", '  printf "%s" "$1"', "  }", ""))
 
@@ -212,6 +234,13 @@ def test_an_indented_one_line_function_is_lifted_dedented(tmp_path: Path) -> Non
     script = write_shell(tmp_path / "nested.sh", NESTED)
 
     assert lift_function(script, "inner", "  ") == INDENTED
+
+
+def test_an_indented_function_keeps_its_here_documents_and_strings_as_written(tmp_path: Path) -> None:
+    """Dedented, the body's `  EOF` ends the document early and the line after it runs as a command; the string prints fewer spaces."""
+    script = write_shell(tmp_path / "nested_text.sh", NESTED_TEXT)
+
+    assert lift_function(script, "inner", "  ") == "\n".join(LIFTED_TEXT)
 
 
 def test_a_function_closing_on_neither_shape_is_refused_by_its_name(tmp_path: Path) -> None:

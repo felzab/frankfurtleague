@@ -313,7 +313,7 @@
       },
       "patch": {
         "summary": "Update a Spiel",
-        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten, and every name it carries is\ncomposed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,\nand every fixture this call changed arrives in `prior_paarungen` as it stood before it — this one\nleading the list, and carrying the fields beyond its Paarung that this payload replaced.\n\nWith `uebernimmt_bericht`, the save also stamps the fixture's Spielbericht adopted at that version, in the same\ntransaction. A report corrected since that version is left unstamped, and the save lands all the same: nothing is\nrefused for it. A `dry_run` stamps nothing.",
+        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten, and every name it carries is\ncomposed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,\nand every fixture this call changed arrives in `prior_paarungen` as it stood before it — this one\nleading the list, and carrying the fields beyond its Paarung that this payload replaced.\n\nWith `uebernimmt_bericht`, the save also stamps the fixture's Spielbericht adopted at that version, in the same\ntransaction. A report corrected since that version, or written about other clubs than the save leaves on the\nfixture, is left unstamped, and the save lands all the same: nothing is refused for it. A stamp answers the\nadoption it replaced in `prior_bericht`, which the undo sends back; null where nothing was stamped. A `dry_run`\nstamps nothing.",
         "operationId": "patch_spiel_data_api_v0_spiele__spiel_id__patch",
         "security": [
           {
@@ -3258,7 +3258,7 @@
     "/api/v0/spiele/paarungen": {
       "patch": {
         "summary": "Restore the Paarungen one save moved",
-        "description": "Put every fixture one save moved back as it stood, in ONE transaction, and resolve the bracket again.\n\n**All of it lands or none of it does.** A refusal on any entry takes the entries already written\nback with it, so a replay never leaves a season half restored — which it otherwise would, the\nleading entry's resolution being what empties the scorelines the entries after it put back.\n\n**The list is replayed in the order it arrives and is never re-sorted**, that order being\n`prior_paarungen`'s: a fixture is restored after whatever feeds it, or its occupant is refused as\na hand-set team on a slot its `quelle` maintains.\n\nEach entry carries the four fields a bracket resolution can rewrite, and beyond them only the\nones its `other_fields.replaced` names: the date, the venue, the referee, the note and both\n`quelle`s are otherwise read from the stored document rather than from the request, so a value\nsomebody moved since that save survives. Every refusal, and the resolution itself, are\n`PATCH /spiele/{spiel_id}`'s.\n\n`advanced_to` and `released_sides` report what the replay cost fixtures it was NOT asked to\nrestore; one it puts back afterwards is the order doing its work rather than a loss. No\n`dry_run`: what these bodies would move is what the save they undo already reported.",
+        "description": "Put every fixture one save moved back as it stood, in ONE transaction, and resolve the bracket again.\n\n**All of it lands or none of it does.** A refusal on any entry takes the entries already written\nback with it, so a replay never leaves a season half restored — which it otherwise would, the\nleading entry's resolution being what empties the scorelines the entries after it put back.\n\n**The list is replayed in the order it arrives and is never re-sorted**, that order being\n`prior_paarungen`'s: a fixture is restored after whatever feeds it, or its occupant is refused as\na hand-set team on a slot its `quelle` maintains.\n\nEach entry carries the four fields a bracket resolution can rewrite, and beyond them only the\nones its `other_fields.replaced` names: the date, the venue, the referee, the note and both\n`quelle`s are otherwise read from the stored document rather than from the request, so a value\nsomebody moved since that save survives. Every refusal, and the resolution itself, are\n`PATCH /spiele/{spiel_id}`'s.\n\n`bericht` is the undone save's `prior_bericht`: the Spielbericht adoption that save stamped over is put back in\nthe same transaction, while the report still stands at the version stamped, so a report adopted by the save reads\nas it did before it. A report corrected since keeps the stamp, its raised version reading past it already.\n\n`advanced_to` and `released_sides` report what the replay cost fixtures it was NOT asked to\nrestore; one it puts back afterwards is the order doing its work rather than a loss. No\n`dry_run`: what these bodies would move is what the save they undo already reported.",
         "operationId": "patch_spiele_paarungen_api_v0_spiele_paarungen_patch",
         "requestBody": {
           "content": {
@@ -10923,7 +10923,7 @@
       },
       "put": {
         "summary": "Write one fixture's report as its referee",
-        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every\nwrite changing it raises its `version`, so a report the administrator adopted reads `abweichend` again until it\nis adopted anew, and a write changing nothing writes nothing. Writes no fixture: the result is the administrator's\nto save.\n\n`bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on\nanother version would replace a report its sender never saw.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records\n(`REQ-BERICHT-002`); a `bericht_stand` other than the version standing now, or than none where none stands\n(`REQ-BERICHT-006`); one undated or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out\n(`REQ-BERICHT-004`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil\nthe report already named on that side staying (`REQ-BERICHT-003`); and remarks naming a seat holder of either club,\nthe booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal after the first but\n`REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's records included, so\na write landing mid-press on what was judged refuses the report rather than letting it stand; a write of the report\nitself landing mid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are\ntwo forms opened on no report: the later is refused.",
+        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every\nwrite changing it raises its `version`, so a report the administrator adopted reads `abweichend` again until it\nis adopted anew, and a write changing nothing writes nothing. Every write stamps the clubs the fixture fields now,\nso a report a knockout correction re-fielded a side under reads `teams_geaendert` until it is written again. Writes\nno fixture: the result is the administrator's to save.\n\n`bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on\nanother version would replace a report its sender never saw.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records\n(`REQ-BERICHT-002`); a `bericht_stand` other than the version standing now, or than none where none stands\n(`REQ-BERICHT-006`); one undated or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out\n(`REQ-BERICHT-004`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil\nthe report already named on that side staying while the side fields the club it did (`REQ-BERICHT-003`); and\nremarks naming a seat holder of either club, the booked referee or a pupil of either squad (`REQ-BERICHT-005`),\nlast. Every refusal after the first but\n`REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's records included, so\na write landing mid-press on what was judged refuses the report rather than letting it stand; a write of the report\nitself landing mid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are\ntwo forms opened on no report: the later is refused.",
         "operationId": "put_spielbericht_bericht_api_v0_spielberichte__spiel_id__bericht_put",
         "security": [
           {
@@ -20157,6 +20157,16 @@
             },
             "type": "array",
             "title": "Prior Paarungen"
+          },
+          "prior_bericht": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielPriorBericht"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -20252,15 +20262,26 @@
             "maxItems": 1024,
             "minItems": 1,
             "title": "Paarungen"
+          },
+          "bericht": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielPriorBericht"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "paarungen"
+          "paarungen",
+          "bericht"
         ],
         "title": "FLPatchSpielePaarungenPayload",
-        "description": "Restore every fixture one save moved, in the order the report named them."
+        "description": "Restore every fixture one save moved, in the order the report named them, and the report adoption it stamped."
       },
       "FLPatchSpielePaarungenResponse": {
         "properties": {
@@ -25368,6 +25389,78 @@
         "title": "FLSpielOrtFieldPublic",
         "description": "The venue as a BASE-TIER read serves it: which ground, and where to find it.\n\nNo `mietpreis`: what one fixture agreed to pay is admin-tier (`READ-MONEY-001`)."
       },
+      "FLSpielPriorBericht": {
+        "properties": {
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version"
+          },
+          "uebernommen_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uebernommen Am"
+          },
+          "uebernommen_von": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielPriorBerichtVon"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "uebernommene_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uebernommene Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_id",
+          "version",
+          "uebernommen_am",
+          "uebernommen_von",
+          "uebernommene_version"
+        ],
+        "title": "FLSpielPriorBericht",
+        "description": "A Spielbericht's adoption as it stood before a save stamped it at `version`: what an undo of that save puts back.\n\nLax, as `FLSpielPriorOrt` is, for its reason: a response reaches it too."
+      },
+      "FLSpielPriorBerichtVon": {
+        "properties": {
+          "art": {
+            "type": "string",
+            "const": "admin",
+            "title": "Art"
+          }
+        },
+        "type": "object",
+        "required": [
+          "art"
+        ],
+        "title": "FLSpielPriorBerichtVon"
+      },
       "FLSpielPriorOrt": {
         "properties": {
           "spielort_id": {
@@ -25997,7 +26090,8 @@
                   "vorgeschlagen",
                   "uebernommen",
                   "abweichend",
-                  "abgesagt"
+                  "abgesagt",
+                  "teams_geaendert"
                 ]
               },
               {
@@ -26048,6 +26142,9 @@
               }
             ],
             "title": "Bemerkungen"
+          },
+          "seiten": {
+            "$ref": "#/components/schemas/FLSpielberichtSeiten"
           },
           "eingereicht_am": {
             "type": "string",
@@ -26121,6 +26218,7 @@
           "torschuetzen",
           "karten",
           "bemerkungen",
+          "seiten",
           "eingereicht_am",
           "eingereicht_von",
           "geaendert_am",
@@ -26473,6 +26571,41 @@
         "title": "FLSpielberichtSchiedsrichterResponse",
         "description": "The booked referee's form: the remarks and the card reasons included, no derived state."
       },
+      "FLSpielberichtSeiten": {
+        "properties": {
+          "team1": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{24}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team1"
+          },
+          "team2": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{24}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team2"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team1",
+          "team2"
+        ],
+        "title": "FLSpielberichtSeiten",
+        "description": "The clubs the fixture fielded at the block's last write, null on a slot then open.\n\nStamped by every write and on no payload: entries go by side, and a knockout correction can re-field one."
+      },
       "FLSpielberichtSpiel": {
         "properties": {
           "spiel_id": {
@@ -26809,7 +26942,8 @@
               "vorgeschlagen",
               "uebernommen",
               "abweichend",
-              "abgesagt"
+              "abgesagt",
+              "teams_geaendert"
             ],
             "title": "Zustand"
           },

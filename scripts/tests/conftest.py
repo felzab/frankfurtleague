@@ -270,7 +270,7 @@ def _reads_as_code(lines: tuple[str, ...], at: int) -> bool:
 
 
 def lift_function(script: Path, name: str, indent: str = "") -> str:
-    """One shell function's source, dedented to the margin: from its opening line to the first line bash ends it on.
+    """One shell function's source, its code dedented to the margin: from its opening line to the first line bash ends it on.
 
     Read rather than reimplemented: a copy in a test passes while the gate's own copy regresses.
     """
@@ -295,7 +295,24 @@ def lift_function(script: Path, name: str, indent: str = "") -> str:
     # Code at or left of the definition's own column inside the run is code after the function's end.
     beyond = [line for at, line in enumerate(run[1:-1], 1) if _outdented(line, indent) and _reads_as_code(run, at)]
     assert not beyond, f"{_cited(script)}'s {name} ends before the line closing it, which is a later block's: {beyond[0]}"
-    return "\n".join(line.removeprefix(indent) for line in run)
+    source = "\n".join(run)
+    dedented = "\n".join(line.removeprefix(indent) for line in run)
+    if not indent or _defines_alike(name, source, dedented):
+        return dedented
+    # A here-document's body and a string's later lines are text, whose leading spaces are their own: dedented,
+    # a body line reading as the terminator ends the document early. Asked line by line only here, a process each.
+    kept = "\n".join(line if at and not _reads_as_code(run, at) else line.removeprefix(indent) for at, line in enumerate(run))
+    assert _defines_alike(name, source, kept), f"{_cited(script)}'s {name} reads otherwise once dedented: {kept}"
+    return kept
+
+
+@functools.cache
+def _defines_alike(name: str, first: str, second: str) -> bool:
+    """bash's verdict that both texts define `name` alike: its own printing drops code's indentation and keeps text's."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    probe = f'{first}\nprinted="$(declare -f {name})"\nunset -f {name}\n{second}\n[[ "$printed" == "$(declare -f {name})" ]]\n'
+    said = subprocess.run([BASH, "-s"], input=probe.encode("utf-8"), capture_output=True, check=False)
+    return said.returncode == 0
 
 
 def _outdented(line: str, indent: str) -> bool:

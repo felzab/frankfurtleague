@@ -12,6 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
+import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
@@ -28,8 +29,13 @@ const fetchMock = doubleFetch();
 const { SpielbestaetigungView } = await import("./SpielbestaetigungView.tsx");
 const { ANDEREN_TERMIN_VORSCHLAGEN } = await import("./SpielbestaetigungFormPanel.tsx");
 const { LinkUnlesbar } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
+const { mapAnsetzungRefusal } = await import("../../utils.ts");
 
 const TOKEN = "abc123";
+
+/** The route's words for a proposal clashing with another fixture's venue or referee (`REQ-CLASH-001`), which no box takes. */
+const KOLLISION =
+  mapAnsetzungRefusal(refusedOn("POST /spielbestaetigungen", "REQ-CLASH-001"))?.error ?? assert.fail("the clash refusal is unworded");
 
 /** The route's words for a proposal before today (`REQ-ANSETZUNG-007`), on the date box. */
 const IN_DER_VERGANGENHEIT = "Dieses Datum liegt in der Vergangenheit.";
@@ -377,6 +383,25 @@ describe("what a refused press does to the page", () => {
         .join("."),
       "14.11.2026",
       "the typed date went",
+    );
+  });
+
+  /* The clash names its own repair, another day or a wider gap: the generic retry sends the club to a press the
+     same proposal is refused on again. */
+  it("raises a refusal no box takes as the failure toast's own sentence", async () => {
+    answerEveryFetch({ success: false, error: KOLLISION });
+    const user = userEvent.setup();
+
+    render(h(SpielbestaetigungView, { start: OFFEN }));
+    await schlageVor(user, { datum: "2026-11-14", uhrzeit: "16:00" });
+    await user.click(screen.getByRole("button", { name: /Vorschlag senden/ }));
+    await act(fetchMock.answered);
+
+    await waitFor(() =>
+      assert.deepEqual(
+        toasts.map((toast) => [toast.variant, toast.title, toast.description]),
+        [["danger", "Antwort nicht gespeichert", KOLLISION]],
+      ),
     );
   });
 });

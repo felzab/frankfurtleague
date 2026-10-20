@@ -65,7 +65,7 @@ def test_the_response_model_inventory_clears_its_floor():
             # `prior_paarungen` too, and it is what the undo replays from: a save that moved no fixture
             # has nothing to send back, where an absent key would read as an undo nobody can compose.
             FLPatchSpielDataResponse,
-            {"acknowledged": 1, "advanced_to": [], "released_sides": [], "bracket_faults": [], "prior_paarungen": []},
+            {"acknowledged": 1, "advanced_to": [], "released_sides": [], "bracket_faults": [], "prior_paarungen": [], "prior_bericht": None},
         ),
     ],
 )

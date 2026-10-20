@@ -31,7 +31,7 @@ from app.core.logging import trace_id_var
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.isolation import InterleavedCollection, outcome_of
+from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -594,9 +594,17 @@ class TestAnUndrawTakesTheSeasonsConfirmations:
 
 
 def a_report(saison_id: str, *, bericht: bool = True) -> dict[str, Any]:
-    """A fixture's report document, submitted or holding no report; the fixture itself need not exist for the removal's filter."""
+    """A report document on no fixture, submitted or holding no report: the removal's filter reads the season alone."""
 
     return documents.spielbericht_document({"_id": ObjectId(), "saison_id": saison_id}, **({} if bericht else {"bericht": None}))
+
+
+async def report_a_drawn_fixture(database: AsyncDatabase) -> None:
+    """A submitted report on a fixture the draw holds: the refusal counts only a report whose fixture stands."""
+
+    spiel = await database[Collection.SPIELE].find_one({"saison_id": SAISON_ID})
+    assert spiel is not None, "the premise: the season is drawn"
+    await database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(spiel))
 
 
 class TestAnUndrawTakesTheSeasonsReports:
@@ -632,7 +640,7 @@ class TestASubmittedReportKeepsTheSpielplan:
     def test_the_undraw_is_refused_and_removes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             drawn = await call_draw(database, client)
-            await database[Collection.SPIELBERICHTE].insert_one(a_report(SAISON_ID))
+            await report_a_drawn_fixture(database)
             outcome = await outcome_of(call_undraw(database, client))
 
             return drawn, outcome, await counts_now(database), await database[Collection.SPIELBERICHTE].count_documents({})
@@ -642,14 +650,31 @@ class TestASubmittedReportKeepsTheSpielplan:
         assert outcome == SPIELPLAN_BERICHTE_EINGEREICHT
         assert (counts, berichte) == ((drawn.spieltage, drawn.spiele), 1)
 
+    def test_a_report_whose_fixture_is_gone_refuses_nothing(self, mongo_replica_set_url: str):
+        """A report write crossing an earlier undraw can outlive its fixture (`docs/backend/spec.md :: I118`).
+
+        Counted, it would refuse every later undraw of the season while no read shows it.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await call_draw(database, client)
+            await database[Collection.SPIELBERICHTE].insert_one(a_report(SAISON_ID))
+            outcome = await outcome_of(call_undraw(database, client))
+
+            return outcome, await counts_now(database), await database[Collection.SPIELBERICHTE].count_documents({})
+
+        outcome, counts, berichte = on_a_seeded_saison(mongo_replica_set_url, body)
+
+        assert outcome == COMMITTED, "a report on no fixture kept the season's draw"
+        # The undraw takes the season's reports, the orphan among them.
+        assert (counts, berichte) == ((0, 0), 0)
+
     def test_a_report_submitted_mid_undraw_is_counted_again_outside_it(self, mongo_replica_set_url: str):
         """A report's write reads the fixture and never writes it, so it conflicts with nothing the undraw writes."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             drawn = await call_draw(database, client)
-            berichte = BerichteRunningARivalBeforeTheirRemoval(
-                database[Collection.SPIELBERICHTE], lambda: database[Collection.SPIELBERICHTE].insert_one(a_report(SAISON_ID))
-            )
+            berichte = BerichteRunningARivalBeforeTheirRemoval(database[Collection.SPIELBERICHTE], lambda: report_a_drawn_fixture(database))
             outcome = await outcome_of(call_undraw(database, client, spielberichte_collection=berichte))
             berichte.assert_landed_inside(serially=0)
 

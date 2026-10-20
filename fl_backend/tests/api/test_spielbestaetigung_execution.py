@@ -1186,6 +1186,54 @@ class TestWhatTheAdministratorsReadServes:
             None,
         )
 
+    def test_a_row_closing_between_the_two_reads_is_served_closed(self, mongo_replica_set_url: str):
+        """Served open, the row offers the administrator a press its close refuses."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            async def close() -> None:
+                await database[Collection.SPIELBESTAETIGUNGEN].update_one(
+                    {"_id": ROW1}, {"$set": {"geschlossen": {"am": TODAY, "grund": "ansetzung_geaendert"}}}
+                )
+
+            confirmations = ConfirmationsRunningARivalAfterTheFirstRead(database[Collection.SPIELBESTAETIGUNGEN], close)
+            served = await lesen(database, spielbestaetigungen=confirmations)
+
+            return served, confirmations.passes
+
+        served, passes = on_a_fixture(mongo_replica_set_url, body)
+
+        # The premise: both reads went through the collection, so the close landed after the first and before the second.
+        assert passes == 2
+        assert [(row.id, row.geschlossen and row.geschlossen.grund) for row in served.spielbestaetigungen] == [
+            (ROW2, None),
+            (ROW1, "ansetzung_geaendert"),
+        ]
+
+
+class ConfirmationsRunningARivalAfterTheFirstRead(InterleavedCollection):
+    """The confirmations the administrator's read lists, a rival run once as soon as the first of its reads has answered."""
+
+    def find(self, *args: Any, **kwargs: Any) -> Any:
+        return _RivalAfterTheList(self._collection.find(*args, **kwargs), self.run_the_rival)
+
+
+class _RivalAfterTheList:
+    def __init__(self, cursor: Any, rival: Callable[[], Awaitable[None]]) -> None:
+        self._cursor, self._rival = cursor, rival
+
+    def sort(self, *args: Any, **kwargs: Any) -> _RivalAfterTheList:
+        self._cursor = self._cursor.sort(*args, **kwargs)
+        return self
+
+    def limit(self, *args: Any, **kwargs: Any) -> _RivalAfterTheList:
+        self._cursor = self._cursor.limit(*args, **kwargs)
+        return self
+
+    async def to_list(self, length: int | None = None) -> list[Any]:
+        documents = await self._cursor.to_list(length=length)
+        await self._rival()
+        return documents
+
 
 DECLINE = {
     "art": "abgelehnt",

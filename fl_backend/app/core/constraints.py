@@ -768,6 +768,7 @@ _SPIELBERICHT_BERICHT = _object(
         "torschuetzen",
         "karten",
         "bemerkungen",
+        "seiten",
         "eingereicht_am",
         "eingereicht_von",
         "geaendert_am",
@@ -781,6 +782,11 @@ _SPIELBERICHT_BERICHT = _object(
         "torschuetzen": {"bsonType": "array", "items": _SPIELBERICHT_TORSCHUETZE},
         "karten": {"bsonType": "array", "items": _SPIELBERICHT_KARTE},
         "bemerkungen": {"bsonType": _STRING_OR_NULL},
+        # Null on a slot still open when the block was written.
+        "seiten": _object(
+            required=_SPIELBERICHT_SEITEN,
+            properties={seite: {"bsonType": ["objectId", "null"]} for seite in _SPIELBERICHT_SEITEN},
+        ),
         # Instants rather than German days: a correction and an adoption on one day are two moments a reader orders.
         "eingereicht_am": {"bsonType": "date"},
         # Keyed on `art` as `_SPIELBESTAETIGUNG_PARTEI` is, requiring the discriminator alone for its reason.

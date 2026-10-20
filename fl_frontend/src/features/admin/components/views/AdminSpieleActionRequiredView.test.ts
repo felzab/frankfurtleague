@@ -71,6 +71,14 @@ describe("the triage's reports", () => {
     assert.ok(screen.getByText("Bericht nicht übernommen 3:1"), "the card does not say the result stands on no adopted report");
   });
 
+  /* A correction upstream fielded other clubs since the report: it awaits a new save, and its score belongs to the clubs that left. */
+  it("files a report about other teams under the proposal, its card naming no score", () => {
+    triage([bericht("teams_geaendert")]);
+
+    assert.equal(screen.getByRole("tab", { name: /^Bericht/ }).textContent, "Bericht1", "the fixture is not filed under the proposal");
+    assert.ok(screen.getByText("Bericht zu anderen Teams"), "the card does not say the report is about other teams");
+  });
+
   /* A report on a fixture called off since awaits nobody, as an adopted one does: the triage names the states that wait. */
   for (const zustand of ["uebernommen", "abgesagt"] as const) {
     it(`files nothing and names nothing for a report reading ${zustand}`, () => {

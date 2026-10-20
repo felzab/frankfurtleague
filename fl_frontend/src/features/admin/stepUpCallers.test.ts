@@ -25,7 +25,7 @@ import { BERICHT_SPIEL_ID, spielberichtReadFixture } from "@/shared/testing/spie
 import { CONDITIONALLY_STEPPED_UP, STEP_UP_CALLERS, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
 
 import type { StepUpPress } from "@/shared/testing/stepUpWrites.ts";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 const SRC = path.resolve(import.meta.dirname, "..", "..");
 
@@ -150,17 +150,23 @@ const BESTAETIGT = {
   medien: false,
   nachweis: { umfang: null, medien: null },
 };
-const retiredReferee = (answered: boolean) => ({
+const refereeRecord = (answered: boolean) => ({
   id: REFEREE_ID,
   name: "Anna Körner",
   schule: null,
   default_payment: 20,
   kontakt: { telefon: null, email: "anna.koerner@schule.de" },
-  inactive_since: "2026-01-10",
   geburtsdatum: answered ? "1990-01-01" : null,
   einwilligung: answered ? BESTAETIGT : null,
   bestaetigung: null,
+  adresswechsel_id: null,
 });
+
+/** As the list serves the record. */
+const retiredReferee = (answered: boolean) => ({ ...refereeRecord(answered), inactive_since: "2026-01-10" });
+
+/** As the editor takes the record, which hands the retirement in beside it. */
+const editedReferee = (answered: boolean) => ({ ...refereeRecord(answered), abgelaufen: { bestaetigung: false } });
 
 const seat = (vorname: string, email: string, bestaetigtAm: string | null = null) => ({
   vorname,
@@ -208,10 +214,10 @@ const refereeEditor = (answered: boolean) =>
   underNext(
     h(AdminSchiedsrichterEditForm, {
       istFassungBekannt: true,
-      schiedsrichter: { ...retiredReferee(answered), inactive_since: undefined, abgelaufen: { bestaetigung: false } },
+      schiedsrichter: editedReferee(answered),
       isRetired: false,
       pageHeader: { title: "Anna Körner" },
-    } as never),
+    } satisfies ComponentProps<typeof AdminSchiedsrichterEditForm>),
     { router: nextRouter(), search: "saison_id=2526" },
   );
 
@@ -401,7 +407,7 @@ const DRIVES: Record<string, Drive[]> = {
             filteredSchiedsrichter: [retiredReferee(!unanswered)],
             emptiness: "none",
             setDeletingSchiedsrichter: () => undefined,
-          } as never),
+          } satisfies ComponentProps<typeof AdminSchiedsrichterTable>),
           { search: "saison_id=2026" },
         ),
       press: "Reaktivieren: Schiedsrichter Anna Körner",
@@ -414,13 +420,9 @@ const DRIVES: Record<string, Drive[]> = {
         underNext(
           h(AdminSchiedsrichterEditView, {
             istFassungBekannt: true,
-            schiedsrichter: {
-              ...retiredReferee(!unanswered),
-              inactive_since: undefined,
-              abgelaufen: { bestaetigung: false },
-            },
+            schiedsrichter: editedReferee(!unanswered),
             inactiveSince: "2026-01-10",
-          } as never),
+          } satisfies ComponentProps<typeof AdminSchiedsrichterEditView>),
           { search: "saison_id=2526" },
         ),
       press: "Reaktivieren",
@@ -509,7 +511,7 @@ const DRIVES: Record<string, Drive[]> = {
               swap: SWAP,
               teamId: TEAM_ID,
               isDirty: false,
-            } as never),
+            } satisfies ComponentProps<typeof FormSaisonSection>),
           }),
         ),
       press: "In Saison 2027 aufnehmen",
