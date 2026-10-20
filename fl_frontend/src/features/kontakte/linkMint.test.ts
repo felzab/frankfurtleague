@@ -45,8 +45,8 @@ describe("whether a contacts save may move a seat's link", () => {
     assert.equal(kontakteMayMoveLinks(null, block(null)), false);
   });
 
-  /* A confirmed seat's own link is spent, but its links on the team's open match confirmations die with
-     it, which only a read could rule out (`fl_backend/app/api/teams/services.py :: voids_a_live_link`). */
+  /* A confirmed seat's own link is spent, but its links on the team's match confirmations that season, answered and
+     closed ones too, die with it, which only a read could rule out (`fl_backend/app/api/teams/services.py :: voids_a_live_link`). */
   it("asks where the seat emptied had confirmed", () => {
     const anna = gespeichert("Anna", "anna@schule.example");
     const bestaetigt = {
