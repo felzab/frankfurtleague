@@ -73,7 +73,7 @@ export const FLAdresswechselAnsichtNeuSchema = z.object({
   seite: z.literal("neu"),
   // `bestaetigt` is a pressed link whose change still stands, waiting on its time or an approval.
   zustand: z.enum(["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar", "bestaetigt"]),
-  // Null exactly on `bestaetigt`, whose link no longer runs to a deadline.
+  // Null exactly on `bestaetigt`, a pressed link running to no deadline.
   gueltig_bis: z.string().nullable(),
   wirksam_ab: z.string().nullable(),
   weg: FLAdresswechselWegSchema,

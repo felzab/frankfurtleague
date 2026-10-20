@@ -1869,16 +1869,15 @@ async function deleteEndedSessions(adapter: Pick<DBTransactionAdapter, "deleteMa
 export type KontoUmzug = "umgezogen" | "keines" | "belegt";
 
 /**
- * Moves the replaced address's account to the new one in place, its passkeys keyed by the account with it, and
- * ends every session it held. The league's confirmed link is the verification the library's own change of
- * address would mail, so this is that change's completing write (`better-auth/api :: verifyEmail`) without its round.
+ * Moves the replaced address's account, passkeys included, to the new address and ends its sessions: the confirmed
+ * link is the verification the library's own change of address mails, so this is that change's completing write
+ * (`better-auth/api :: verifyEmail`).
  */
 export async function carryAccount(bisherige: string, neue: string): Promise<KontoUmzug> {
   const { adapter, internalAdapter } = await auth.$context;
   try {
-    // Matched and written on the sign-in fold, which every sign-in stores. The stamp rides the same write, so no
-    // session opened at the replaced address is served at the new one; the library's revocations each act on the
-    // session a request carries, and none of the three callers holds this account's.
+    // The stamp rides the same write, so no session opened at the replaced address is served at the new one; the
+    // library's revocations each end only the requesting session, which no caller here holds.
     const account = await internalAdapter.updateUserByEmail(asSignInIdentifier(bisherige), {
       email: asSignInIdentifier(neue),
       emailVerified: true,

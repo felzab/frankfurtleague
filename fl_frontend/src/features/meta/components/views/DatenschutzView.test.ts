@@ -259,8 +259,8 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
-  /* One record per address: the pending address may be a stranger's, so its retention is stated with the clocks that end
-     it, the hourly pass ending a lapsed one within the hour, and what an ended change keeps is said to hold no address. */
+  /* One record per address, perhaps a stranger's: its retention is stated with the clocks that end it, the hourly pass
+     ending a lapsed one within the hour, and an ended change's record holds no address. */
   it("gives a pending new address its retention, each link's clock, the waiting time and the ended change's record", () => {
     assert.equal(
       ANGABEN.get(

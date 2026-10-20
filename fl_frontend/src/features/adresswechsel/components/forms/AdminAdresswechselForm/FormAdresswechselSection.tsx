@@ -67,10 +67,8 @@ function bestandZeilen({ berechtigung, ...anzahl }: FLAdresswechselVerwaltungBes
 }
 
 /**
- * The address tool: what an address holds, the change standing at it, and an administrator's start for a person who
- * cannot sign in. Keyed by the address the person writes from, never browsed; a link from an editor, a reveal or a
- * page names the change by id, which the page reads on the server; every later read is keyed by the address it answered.
- * In no `<form>`: Enter in either box would submit it.
+ * The address tool: what an address holds and the change standing at it, read by the address the person writes from
+ * or the id a link names, never browsed. In no `<form>`: Enter in either box would submit it.
  */
 export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsichtGelesen | null }) {
   const [adresse, setAdresse] = useState(anfang?.status === "read" ? anfang.ansicht.adresse : "");

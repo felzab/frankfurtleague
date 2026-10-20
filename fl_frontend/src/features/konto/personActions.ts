@@ -101,8 +101,7 @@ const GENEHMIGUNG_SATZ =
 
 /**
  * One sentence for a link sent and one the ban list kept: naming the ban would tell a stranger typing the
- * address that it is known here. Each repair is one the page then offers: the start's change is taken back
- * and started again, and an approval's link is the league's to send again.
+ * address that it is known here. Each repair is one the page then offers.
  */
 function gesendetSatz(versand: LinkVersand, gueltigBis: string, art: "start" | "freigabe"): { versand: LinkVersand; message: string } {
   if (versand === "fehlgeschlagen") {
@@ -132,9 +131,8 @@ async function istFrischBestaetigt(): Promise<boolean> {
 }
 
 /**
- * The person's own start of a change from the account page, inside the enrolment window
- * (`docs/frontend/spec.md :: I806`): the link goes to the new address, a notice with a stop link to the
- * one signed in, and where a grant moves, word to the administrators who may approve it.
+ * The person's own start from the account page, inside the enrolment window (`docs/frontend/spec.md :: I806`): the
+ * link goes to the new address, a stop link to the signed-in one, and, where a grant moves, word to its approvers.
  */
 export async function starteAdresswechselAction(rawPayload: { email: string }): Promise<AdresswechselGesendet | StepUpRequired> {
   return runPersonRecordMutation("starteAdresswechselAction", async () => {

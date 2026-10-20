@@ -26,9 +26,8 @@ export function AdresswechselOffen({ adresswechselId }: { adresswechselId: strin
 }
 
 /**
- * Under a sign-in address on the pupil and referee editors, the same words on each: they read the address and the
- * change pending at it, and change neither. One tool for every editor, so a change pending for one record is seen
- * from all of them.
+ * Under a sign-in address on the pupil and referee editors, the same words on each: they read the address and its
+ * pending change and change neither. One tool for every editor, so a change is seen from each.
  */
 export function AdresswechselHinweis({ adresswechselId }: { adresswechselId: string | null }) {
   const saisonHref = useSaisonHref();

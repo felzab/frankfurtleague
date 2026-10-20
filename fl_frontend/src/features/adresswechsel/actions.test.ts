@@ -163,8 +163,8 @@ describe("an administrator's start of a change", () => {
     }
   });
 
-  /* The change may be somebody's mistake or a pretext: the mailbox on file is owed the word, never the other mailbox's name;
-     and the new mailbox has proved nothing, so a minor's first name goes to the mailbox on file alone. */
+  /* The change may be a mistake or a pretext: the mailbox on file is owed the word, never the other mailbox's name; the
+     new mailbox has proved nothing, so a minor's first name goes to the mailbox on file alone. */
   it("names the new address to nobody but its own mailbox, which is greeted by no name", async () => {
     antwort[START] = () => ({ ...wartezeit, vorname: "Mirabel" });
 

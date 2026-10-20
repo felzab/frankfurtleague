@@ -87,9 +87,8 @@ export async function mailGenehmigungWartet({ operation, genehmiger }: { operati
 }
 
 /**
- * What a change taking effect owes after its commit: the replaced address's sign-in account moved with it, and that
- * address's completion notice. Never thrown from, the change being done; each failure is logged and the person signs
- * in anew at the new address.
+ * What a change taking effect owes after its commit: the replaced address's account moved with it, and that address's
+ * completion notice. Never thrown from: each failure is logged and the person signs in anew at the new address.
  */
 export async function adresswechselWirksam({
   operation,
@@ -160,9 +159,9 @@ async function sendeHinweis(adresse: string, mail: AdresswechselEmail, ereignis:
 }
 
 /**
- * What the administrator is told of a change's messages, naming the new address alone. A failed notice is said:
- * its stop link is the address on file's one way to refuse the change. The warning that the new address already
- * holds records is the toast's own (`fl_frontend/src/shared/utils/linkVersandToast.ts :: meldeAdresswechselVersand`).
+ * What the administrator is told of the messages, naming only the new address. A failed notice is said: its stop link
+ * is the address on file's one refusal. The toast warns of records at the new address
+ * (`fl_frontend/src/shared/utils/linkVersandToast.ts :: meldeAdresswechselVersand`).
  */
 export function describeAdresswechselMail(mint: Pick<AdresswechselMint, "email" | "gueltig_bis">, versand: AdresswechselVersand): string {
   const { email } = mint;

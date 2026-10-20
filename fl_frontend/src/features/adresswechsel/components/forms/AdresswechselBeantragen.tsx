@@ -50,8 +50,8 @@ const WEGE: readonly { id: Weg; label: string }[] = [
 const WEG_LABEL_ID = "adresswechsel-weg";
 
 /**
- * The box's typing, held by the tool above every read it makes, so a read answering after a write never drops the
- * way or the reason: a reason dropped while its way stands would start a change asking the lost mailbox.
+ * The box's typing, held by the tool above every read it makes, so a read answering after a write keeps the way and
+ * the reason: a way reset to its default would start a change asking the lost mailbox.
  */
 export type AdresswechselEntwurf = { email: string; weg: Weg; grund: string };
 

@@ -27,8 +27,8 @@ const VERWEHRT: Readonly<Record<NonNullable<FLBerechtigungAdresswechsel["verwehr
 };
 
 /**
- * The approval of a grant holder's change, on the grant it moves: four eyes on the one change that hands a grant to
- * another address. Two presses, the enrolment's window as a grant's: what it hands over outlives the session giving it.
+ * The approval of a grant holder's change, on the grant it moves: four eyes on the change that hands a grant to
+ * another address. Two presses in the enrolment's window: what it hands over outlives the session giving it.
  */
 export function AdminBerechtigungGenehmigenPanel({
   adresse,

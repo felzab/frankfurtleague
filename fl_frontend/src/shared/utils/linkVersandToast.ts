@@ -52,9 +52,9 @@ const ANFRAGE_TITEL: VersandTitel = {
 };
 
 /**
- * An address change's toast: its link's, and a warning titled for the notice too where that failed or may
- * have (`docs/frontend/spec.md :: I679`). With no link, the notice is the press's one message and titles it.
- * A new address already holding records warns whatever the messages did: the body names the merge.
+ * An address change's toast: its link's, and a warning titled for the notice where that failed or may
+ * have (`docs/frontend/spec.md :: I679`). With no link the notice titles the toast. Records at the new address
+ * warn whatever the messages did.
  */
 export function meldeAdresswechselVersand(
   { versand, hinweis, adresseBelegt = false }: { versand: LinkVersand | null; hinweis?: HinweisVersand | null; adresseBelegt?: boolean },

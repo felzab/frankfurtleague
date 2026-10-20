@@ -216,7 +216,7 @@ export function buildAdresswechselWirksamEmail({
   const name = einzeilig(vorname);
   const seit = adresswechselZeitpunkt(zeitpunkt);
 
-  // Never "this address no longer signs in": a seat not yet confirmed stays behind and can still sign in here.
+  // Never says the old address stops signing in: a seat not yet confirmed stays behind and still signs in there.
   const gilt = (zeit: string): string =>
     `für Dein Konto bei der ${BRAND_NAME} gilt seit ${zeit} eine neue E-Mail-Adresse. Deine Einträge stehen jetzt unter ihr, und mit ihr meldest Du Dich an.`;
   const nichtVeranlasst = (kontakt: string): string => `Hast Du das nicht veranlasst? Schreib uns sofort an ${kontakt}.`;

@@ -54,9 +54,8 @@ const VERWERFEN_OHNE_ANTWORT =
   "Prüfe die Verbindung und zeige die Adresse erneut an. Wartet die neue Adresse dann noch, verwirf die Änderung erneut.";
 
 /**
- * The change standing at the address, **the address on file still in force**. Both writes name this change by its id,
- * so a page older than a newer change meets this one's end rather than acting on its successor. The re-send is
- * offered only while the new mailbox is asked: before an approval, or once confirmed, no link exists.
+ * The change at the address, **the address on file still in force**. Both writes name it by id: an older page meets
+ * its end, never its successor. The re-send stands only while the new mailbox is asked.
  */
 export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAdresswechselVerwaltungOffen; onGeschrieben: () => void }) {
   const router = useRouter();

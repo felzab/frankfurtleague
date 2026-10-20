@@ -5,10 +5,9 @@
 export const ADRESSWECHSEL_GUELTIG_STUNDEN = 24;
 
 /**
- * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days a change an administrator started
- * with a reason waits after its confirmation, so the address on file can still stop it. Exported for
- * `fl_backend/tests/shared/test_frontend_mirrors.py`, which reads it by its `export const` line; the privacy notice's
- * render test holds its words to it.
+ * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days a change started with a reason waits after its
+ * confirmation, so the address on file can still stop it. Exported for the mirror test, which reads its
+ * `export const` line.
  * @internal
  */
 export const ADRESSWECHSEL_WARTEZEIT_TAGE = 7;

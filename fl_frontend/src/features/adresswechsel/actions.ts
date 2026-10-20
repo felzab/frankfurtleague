@@ -166,9 +166,9 @@ export async function verwirfAdresswechselAction(rawPayload: FLAdresswechselVerw
 }
 
 /**
- * Another administrator's approval of a grant holder's change. Where it was the last step the change took effect in
- * this press, and what the confirmation would owe is owed here: the account's move, the completion notice, and the
- * grant's announcement to every holder, as a new grant's is.
+ * Another administrator's approval of a grant holder's change. Where it was the last step, the change took effect in
+ * this press, which owes what a confirmation would: the account's move, the completion notice, and the grant's
+ * announcement.
  */
 export async function genehmigeAdresswechselAction(rawPayload: FLAdresswechselGenehmigungPayload): Promise<ActionResult> {
   // The enrolment's window, the grant write's own: the approval hands a grant to another address (`docs/frontend/spec.md :: I458`).
