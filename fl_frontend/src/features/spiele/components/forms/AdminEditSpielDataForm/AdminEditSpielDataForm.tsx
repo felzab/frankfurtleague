@@ -103,7 +103,7 @@ export function AdminEditSpielDataForm({
   isSpielSweepOn: boolean;
   /** The fixture's confirmations, `null` where their read failed; absent, the editor mounts no panel for them. */
   bestaetigungen?: SpielbestaetigungenStand | null;
-  /** The fixture's report as the page read it on this open; absent where `SPIELBERICHT_EINGABE` reads off. */
+  /** The fixture's report as the page read it on this open; absent where the page hands none, the panel with it. */
   spielbericht?: FLSpielberichtAdminResponse | null;
   /** Rendered inside the scroll container, so it scrolls while the action bar stays put. */
   pageHeader: EditPageHeaderContent;

@@ -70,7 +70,7 @@ export function AdminSpieleActionRequiredView({
   /** The season's confirmation rows; `null` where their read failed, which the page says rather than showing empty tabs as clear. */
   bestaetigungen: readonly FLSpielbestaetigung[] | null;
   bestaetigungenVollstaendig: boolean;
-  /** The season's reports and their states, empty while `SPIELBERICHT_EINGABE` reads off. */
+  /** The season's reports and their states, read whatever `SPIELBERICHT_EINGABE` reads. */
   spielberichte: readonly FLSpielberichtZustandEintrag[];
   today: string;
   isFinishedSaison: boolean;

@@ -20,6 +20,7 @@ import {
   saisonFields,
   steps,
 } from "@/shared/testing/pageHarness.ts";
+import { spielberichtReadFixture } from "@/shared/testing/spielberichtFixtures.ts";
 
 import type { FLSpielAdmin } from "@/features/spiele/schemas.ts";
 import type { NextPageProps } from "@/shared/types/types.ts";
@@ -37,6 +38,7 @@ const { AdminContextWrapper } = await import("@/features/admin/components/provid
 const { FLSaisonSchema } = await import("@/features/saisons/schemas.ts");
 const { default: nextConfig } = await import("../../../../../../next.config.ts");
 const { frontend_config } = await import("@/core/config.ts");
+const { FLSpielberichtAdminResponseSchema } = await import("@/features/spielberichte/schemas.ts");
 
 const ENDPOINT = `/spiele/${OBJECT_ID}/admin`;
 const PROPS: NextPageProps<{ spiel_id: string }> = { params: Promise.resolve({ spiel_id: OBJECT_ID }), searchParams: Promise.resolve({}) };
@@ -154,6 +156,38 @@ describe("the confirmations the match editor reads", () => {
     });
 
     assert.equal(await handed(), null);
+  });
+});
+
+/* The triage files a standing report's fixture whatever the switch reads, and only „Vorschlag übernehmen“ here clears
+   it; closed, a fixture holding no report shows no panel. */
+describe("the report the match editor reads", () => {
+  const BERICHT_ENDPOINT = `/spielberichte/${OBJECT_ID}/admin`;
+  const ohneBericht = { ...spielberichtReadFixture(), bericht: null, zustand: null };
+
+  const handed = async (eingabe: "on" | "off", gelesen: Record<string, unknown>): Promise<unknown> => {
+    const gesetzt = frontend_config.SPIELBERICHT_EINGABE;
+    Reflect.set(frontend_config, "SPIELBERICHT_EINGABE", eingabe);
+    answerReadsWith((endpoint, schema, params) => {
+      if (endpoint === ENDPOINT) return answer(schema, endpoint, { spiel: stored });
+      if (endpoint === BERICHT_ENDPOINT) return schema.safeParse(gelesen).data;
+      return EMPTIEST_ANSWER(endpoint, schema, params);
+    });
+    try {
+      const body = (await pageBody(AdminSpielEditPage, PROPS)) as ReactElement<{ children: ReactElement<{ spielbericht: unknown }> }>;
+      return body.props.children.props.spielbericht;
+    } finally {
+      Reflect.set(frontend_config, "SPIELBERICHT_EINGABE", gesetzt);
+    }
+  };
+
+  it("hands the editor a standing report while the switch reads off", async () => {
+    assert.deepEqual(await handed("off", spielberichtReadFixture()), FLSpielberichtAdminResponseSchema.parse(spielberichtReadFixture()));
+  });
+
+  it("hands it no report where none stands and the switch reads off, and the empty read where it reads on", async () => {
+    assert.equal(await handed("off", ohneBericht), null);
+    assert.deepEqual(await handed("on", ohneBericht), FLSpielberichtAdminResponseSchema.parse(ohneBericht));
   });
 });
 

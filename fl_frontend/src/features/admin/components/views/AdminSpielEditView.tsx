@@ -29,7 +29,7 @@ export function AdminSpielEditView({
   isSpielSweepOn: boolean;
   /** `null` where the read failed, which the panel says. */
   bestaetigungen: SpielbestaetigungenStand | null;
-  /** `null` where `SPIELBERICHT_EINGABE` reads off, the page then reading no report. */
+  /** `null` where its read failed, or where `SPIELBERICHT_EINGABE` reads off and no report stands. */
   spielbericht: FLSpielberichtAdminResponse | null;
 }) {
   const { teams, spielorte, schiedsrichter, saisonSpiele, numberOfGroups, isFinishedSaison, isActiveSaison } = useAdmin();

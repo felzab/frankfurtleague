@@ -37,14 +37,18 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
   await connection();
   const spielId = await resolveSpielId(params);
 
-  const [spielRes, spielbericht] = await Promise.all([
+  const [spielRes, berichtRes] = await Promise.all([
     // Admin-tier and uncached, so the editor seeds from the fixture as it stands rather than from a
     // cache entry hours old. `null` is "no such fixture"; everything else throws.
     getAdminSpiel(spielId),
     // Uncached for the same reason: „Vorschlag übernehmen“ seeds from the report version standing now. A failed read
-    // leaves the editor without its panel; a closed switch reads nothing.
-    frontend_config.SPIELBERICHT_EINGABE === "on" ? getAdminSpielbericht(spielId).catch(nullAfterLoggingUnexplained) : null,
+    // leaves the editor without its panel.
+    getAdminSpielbericht(spielId).catch(nullAfterLoggingUnexplained),
   ]);
+  // Read whatever the switch: the triage files a standing report's fixture whatever it reads, and only the adoption
+  // here clears it. Closed, a fixture with no report shows no panel.
+  const spielbericht =
+    berichtRes !== null && (frontend_config.SPIELBERICHT_EINGABE === "on" || berichtRes.bericht !== null) ? berichtRes : null;
 
   if (!spielRes) {
     notFound();
