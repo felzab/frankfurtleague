@@ -7,7 +7,7 @@ import { parseDate, parseTime } from "@internationalized/date";
 
 import { AdminCreateSchiedsrichterForm } from "@/features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm";
 import { AdminSpielberichtPanel } from "@/features/spielberichte/components/views/AdminSpielberichtPanel";
-import { haeltVorschlag, uebernahmeGesperrt } from "@/features/spielberichte/utils";
+import { eingesetztStand, haeltVorschlag, uebernahmeGesperrt } from "@/features/spielberichte/utils";
 import { SpielbestaetigungPanel } from "@/features/spielbestaetigungen/components/forms/SpielbestaetigungPanel";
 import { spielAnsetzung } from "@/features/spielbestaetigungen/utils";
 import { AdminCreateSpielortForm } from "@/features/spielorte/components/forms/AdminCreateSpielortForm";
@@ -613,7 +613,7 @@ export function AdminEditSpielDataForm({
                     ? null
                     : uebernahmeGesperrt(spielbericht.lesen.bericht.seiten, { team1: team1Payload, team2: team2Payload })
                 }
-                istEingesetzt={uebernimmtBericht !== null}
+                eingesetzt={eingesetztStand(uebernimmtBericht, spielbericht?.lesen.bericht?.version ?? null)}
                 hatEntwurf={isDirty}
               />
             )}

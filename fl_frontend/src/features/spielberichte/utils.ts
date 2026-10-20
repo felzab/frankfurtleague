@@ -8,6 +8,7 @@ import { SPIELBERICHT_ZUSTAENDE_OFFEN, SPIELBERICHT_ZUSTAND_TONE } from "./const
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLSpielberichtSeiten, FLSpielberichtSpieler, FLSpielberichtVorschlag, FLSpielberichtZustandEintrag } from "./schemas";
+import type { Eingesetzt } from "./types";
 
 /** A fixture card's word on its report, worn in its state's tone. */
 export type BerichtChip = { readonly text: string; readonly tone: PillTone };
@@ -76,6 +77,15 @@ export function haeltVorschlag(
     entwurf.sonderereignis === vorschlag.sonderereignis &&
     gleicherElfmeter
   );
+}
+
+/**
+ * The seed's standing against the report read now: a refresh after any write on the page can bring a newer report
+ * under the mounted editor, whose draft still holds the older proposal and whose save names the older version.
+ */
+export function eingesetztStand(seedVersion: number | null, berichtVersion: number | null): Eingesetzt {
+  if (seedVersion === null) return null;
+  return seedVersion === berichtVersion ? "aktuell" : "veraltet";
 }
 
 /** A pupil as a report's reader sees them: shirt number and name, and the erased pupils' sentinel as „anonym“. */

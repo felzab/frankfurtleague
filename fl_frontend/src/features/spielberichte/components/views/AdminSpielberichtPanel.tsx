@@ -22,7 +22,7 @@ import {
 import { berlinZeitpunkt, spielerLabel, vorschlagText } from "../../utils";
 
 import type { FLSpielberichtBericht, FLSpielberichtSeite } from "../../schemas";
-import type { SpielberichtStand } from "../../types";
+import type { Eingesetzt, SpielberichtStand } from "../../types";
 
 const KORREKTUR = "Spielbericht bearbeiten";
 
@@ -34,7 +34,7 @@ export function AdminSpielberichtPanel({
   stand,
   onUebernehmen,
   uebernahmeGesperrt,
-  istEingesetzt,
+  eingesetzt,
   hatEntwurf,
 }: {
   /** `null` where the read failed, which the panel says rather than reading as a fixture with no report. */
@@ -43,8 +43,8 @@ export function AdminSpielberichtPanel({
   onUebernehmen: (bericht: FLSpielberichtBericht) => void;
   /** Why the draft cannot take the proposal, `null` where it can. */
   uebernahmeGesperrt: string | null;
-  /** The draft holds the proposal the press seeded. */
-  istEingesetzt: boolean;
+  /** The draft holds the proposal the press seeded: from the report's version standing now, or from an older one. */
+  eingesetzt: Eingesetzt;
   /** The editor holds unsaved changes, which the correction page's client-side navigation would drop unasked. */
   hatEntwurf: boolean;
 }) {
@@ -69,7 +69,7 @@ export function AdminSpielberichtPanel({
             stand={stand}
             onUebernehmen={onUebernehmen}
             uebernahmeGesperrt={uebernahmeGesperrt}
-            istEingesetzt={istEingesetzt}
+            eingesetzt={eingesetzt}
             hatEntwurf={hatEntwurf}
           />
         )}
@@ -82,13 +82,13 @@ function BerichtInhalt({
   stand,
   onUebernehmen,
   uebernahmeGesperrt,
-  istEingesetzt,
+  eingesetzt,
   hatEntwurf,
 }: {
   stand: SpielberichtStand;
   onUebernehmen: (bericht: FLSpielberichtBericht) => void;
   uebernahmeGesperrt: string | null;
-  istEingesetzt: boolean;
+  eingesetzt: Eingesetzt;
   hatEntwurf: boolean;
 }) {
   const saisonHref = useSaisonHref();
@@ -151,8 +151,15 @@ function BerichtInhalt({
                       Vorschlag übernehmen
                     </Button>
                   </Hint>
-                  {istEingesetzt && <span className={labelBadge("info")}>Eingesetzt</span>}
+                  {eingesetzt === "aktuell" && <span className={labelBadge("info")}>Eingesetzt</span>}
                 </div>
+                {/* A refresh can bring a newer report under a mounted editor: the badge would vouch for a proposal the
+                    draft does not hold, and the save would stamp nothing. */}
+                {eingesetzt === "veraltet" && (
+                  <p className="muted-hint">
+                    Der Spielbericht wurde geändert, seit Du seinen Vorschlag eingesetzt hast. Übernimm den Vorschlag erneut.
+                  </p>
+                )}
                 <Hint
                   mode="reveal"
                   label="Hinweis zum Vorschlag"
