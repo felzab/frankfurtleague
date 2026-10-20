@@ -132,6 +132,12 @@ BLOCKS: Final = "\n".join(
     )
 )
 
+# A here-document opened on a one-liner's line: bash parses the line, warning that the document runs
+# past it.
+HEREDOC_ONE_LINER: Final = "\n".join(
+    ("#!/usr/bin/env bash", "heredoc_one_liner() { cat <<EOF; }", "not this", "EOF", "", "a_block() {", '  printf "not this"', "}", "")
+)
+
 # A block whose brace shares its last body line, ahead of code at the margin that closes on a bare `}`.
 SHARED_CLOSER: Final = "\n".join(("#!/usr/bin/env bash", "shared_closer() {", '  printf "%s" "$1"; }', "", "{", '  printf "not this"', "}", ""))
 
@@ -254,6 +260,18 @@ def test_a_block_sharing_its_closing_line_with_another_definition_is_refused_by_
         assert "shared_closing" in str(refusal), refusal
     else:
         raise AssertionError("a block sharing its closing line with another definition was lifted anyway")
+
+
+def test_a_here_document_opened_on_a_one_line_functions_line_is_refused_by_its_name(tmp_path: Path) -> None:
+    """bash parses that line with a warning alone, so a reader taking a parse for the end hands back the line without its document."""
+    script = write_shell(tmp_path / "heredoc.sh", HEREDOC_ONE_LINER)
+
+    try:
+        lift_function(script, "heredoc_one_liner")
+    except AssertionError as refusal:
+        assert "heredoc_one_liner" in str(refusal), refusal
+    else:
+        raise AssertionError("a one-line function whose here-document runs past its line was lifted anyway")
 
 
 def test_a_script_bash_does_not_parse_whole_is_refused_by_the_function_s_name(tmp_path: Path) -> None:
