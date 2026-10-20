@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
-import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { cacheCalls, doubleActionRequest, loggedErrorCodes, loggedLines } from "@/shared/testing/actionDoubles.ts";
 
 /* The trace seed, the refresh, the session and the framework's control-flow rethrow are the
    framework's, and the spine between them and the action is what is driven. */
@@ -289,6 +289,48 @@ describe("a throw of an API call inside an admin action", () => {
 
     assert.equal("outcome" in answer ? answer.outcome : undefined, "unknown");
     assert.equal(refreshes(), 1, "a write that may have landed left the admin's page standing");
+  });
+});
+
+describe("the line a failed admin action writes", () => {
+  const SENT = { url: "http://api/x", endpoint: "/x", traceId: "b".repeat(32), method: "PATCH", readOnly: false };
+  const lineOf = (message: string) => loggedLines.find((line) => line.level === "error" && line.message === message)?.meta;
+
+  /* A bug in an action's own code carries no code of its own, so the spine's is the only one its line can carry. */
+  it("files an untyped throw under the spine's own code", async () => {
+    await runAdminMutation("probeAction", () => Promise.reject(new TypeError("Cannot read properties of undefined")));
+
+    assert.deepEqual(loggedErrorCodes(), ["FE-ACT-001"]);
+  });
+
+  /* The trace is the one the call sent, which the backend's own line of the failure carries. */
+  it("files an API failure under the error's own code, status, server code and trace", async () => {
+    const failed = new APIBadStatusError({ ...SENT, message: "failed", statusCode: 500, serverErrorCode: "DB-FAIL-001" });
+
+    await runAdminMutation("probeAction", () => Promise.reject(failed));
+
+    assert.deepEqual(lineOf("Admin mutation failed: probeAction"), {
+      error_code: "FE-API-001",
+      status: 500,
+      server_error_code: "DB-FAIL-001",
+      trace_id: SENT.traceId,
+      digest: undefined,
+    });
+  });
+
+  it("files the backend's want of a confirmation under the error's own code and server code", async () => {
+    const refused = new APIBadStatusError({ ...SENT, message: "refused", statusCode: 403, serverErrorCode: "REQ-AUTH-009" });
+
+    const answer = await runAdminMutation("probeAction", () => Promise.reject(refused));
+
+    assert.equal("stepUp" in answer && answer.stepUp, true);
+    assert.deepEqual(lineOf("Admin mutation refused for want of a confirmation: probeAction"), {
+      error_code: "FE-API-001",
+      status: 403,
+      server_error_code: "REQ-AUTH-009",
+      trace_id: SENT.traceId,
+      digest: undefined,
+    });
   });
 });
 

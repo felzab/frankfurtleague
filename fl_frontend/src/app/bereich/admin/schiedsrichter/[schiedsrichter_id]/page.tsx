@@ -7,7 +7,7 @@ import { AdminSchiedsrichterEditView } from "@/features/schiedsrichter/component
 import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
 import { resolveSchiedsrichterId } from "@/features/schiedsrichter/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
-import { nullAfterLoggingContractBreak } from "@/shared/utils/degradedRead";
+import { nullAfterLoggingUnexplained } from "@/shared/utils/degradedRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { NextPageProps } from "@/shared/types/types";
@@ -39,8 +39,8 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   // Resolved through the words read rather than a copy here: the registry is the backend's.
   // `null` where the registry's read failed or broke its contract, so the editor stands and says the
   // label went unchecked.
-  const fassungBekannt = await runWithIncomingTrace(() => istFassungBekannt(schiedsrichter.einwilligung?.text_version ?? null)).catch(
-    nullAfterLoggingContractBreak,
+  const fassungBekannt = await runWithIncomingTrace(() =>
+    istFassungBekannt(schiedsrichter.einwilligung?.text_version ?? null).catch(nullAfterLoggingUnexplained),
   );
 
   return (

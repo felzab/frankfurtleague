@@ -406,7 +406,7 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
     ):
         """The close's notices committed first, so the pass answers them rather than raising (`docs/backend/spec.md :: I753`).
 
-        Its rows hold links nobody was mailed, so the next pass asks each again (`:: I781`), a fresh link a seat beside the first.
+        Its rows hold links nobody was mailed, so the next pass asks each again (`:: I765`), a fresh link a seat beside the first.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

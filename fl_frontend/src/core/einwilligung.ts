@@ -36,8 +36,8 @@ async function leseEinwilligungFassung(textVersion: string): Promise<GeleseneFas
     cacheLife("max");
     return { fassung: antwort.fassung };
   } catch (error) {
-    // Each answered inside the cached scope rather than thrown: a production build redacts what a
-    // `"use cache"` function throws to a digest no caller can tell apart (`docs/frontend/spec.md` §1.2).
+    // Each answered inside the cached scope rather than thrown: what a `"use cache"` function throws
+    // loses its class in every build, so no caller can tell them apart (`docs/frontend/spec.md` §1.2).
     if (isRecordMissing(error)) {
       cacheLife("max");
       return { fassung: null };

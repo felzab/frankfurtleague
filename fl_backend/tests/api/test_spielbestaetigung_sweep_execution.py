@@ -672,7 +672,7 @@ class TestAReplacedClubsRowsClose:
 
 
 class TestARowClosesOnceItsDayHasPassed:
-    """`docs/backend/spec.md :: I777`: a fixture nobody entered a result for keeps no row open past its day."""
+    """`docs/backend/spec.md :: I749`: a fixture nobody entered a result for keeps no row open past its day."""
 
     def test_the_day_after_closes_every_row_answered_or_not_and_the_day_itself_none(self, mongo_replica_set_url: str):
         day_after = days_after(day=NEXT_WEEK, days=1)
@@ -1618,7 +1618,7 @@ class TestEachPassCountsTheSeatsABanKeptFromALink:
 
 
 class TestARefereeErasedBesideTheMintIsToldNothing:
-    """`docs/backend/spec.md :: I779`: the erasure deletes the referee's rows its snapshot holds, and the mint's is not yet one."""
+    """`docs/backend/spec.md :: I760`: the erasure deletes the referee's rows its snapshot holds, and the mint's is not yet one."""
 
     def test_the_mint_runs_again_and_writes_the_erased_referee_no_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1641,7 +1641,7 @@ class TestARefereeErasedBesideTheMintIsToldNothing:
 
 
 class TestAnErasedContactIsNotToldTheirFixtureMoved:
-    """`docs/backend/spec.md :: I780`: a seat holding no link on the closed row is one the erasure's void writes nothing for."""
+    """`docs/backend/spec.md :: I762`: a seat holding no link on the closed row is one the erasure's void writes nothing for."""
 
     def test_the_close_runs_again_and_leaves_the_erased_trainer_out_of_the_notice(self, mongo_replica_set_url: str):
         erased_address = address(ALPHA, "trainer")
@@ -1776,7 +1776,7 @@ class TestARequestNeverStampedIsAskedAgain:
 
 
 class TestASeatMintedAfreshOnAReminderDay:
-    """`docs/backend/spec.md :: I782`: the seat's request is its message of the day, and its row's other seats are reminded beside it."""
+    """`docs/backend/spec.md :: I767`: the seat's request is its message of the day, and its row's other seats are reminded beside it."""
 
     def _passes(self, url: str, emptied: list[str]) -> Any:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1868,7 +1868,7 @@ async def a_lost_einteilung_stamp(database: AsyncDatabase, client: AsyncMongoCli
 
 
 class TestAnEinteilungNeverStampedIsToldAgain:
-    """`docs/backend/spec.md :: I781` for a referee row: the referee is told on every later pass until a stamp records it."""
+    """`docs/backend/spec.md :: I765` for a referee row: the referee is told on every later pass until a stamp records it."""
 
     def test_the_next_pass_tells_the_referee_again(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

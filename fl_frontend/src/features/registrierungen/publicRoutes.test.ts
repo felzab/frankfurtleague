@@ -15,10 +15,10 @@ import { einwilligungAnswer } from "@/core/einwilligungDocument.ts";
 import { KONTO_HREF } from "@/core/kontoHref.ts";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken.ts";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants.ts";
-import { doubleLogger, doubleToasts, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
+import { doubleLogger, doubleToasts, loggedErrorCodes, loggedErrorTraces } from "@/shared/testing/actionDoubles.ts";
 import { laufendeSpielerFassung, laufendeSpielerWiederkehrendFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
-import { answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
+import { answerReadsWith, backendUnreachable, EDGE_TRACE_ID, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
@@ -324,12 +324,13 @@ describe("the registration page over an invite read that did not answer", () => 
       })) as ReactElement<{ start: unknown }>
     ).props.start;
 
-  it("opens on its own state where the read failed, rather than calling a live invite void", async () => {
-    answerReadsWith(() => {
-      throw new TypeError("fetch failed");
+  it("opens on its own state where the network never answered the read, rather than calling a live invite void", async () => {
+    answerReadsWith((endpoint) => {
+      throw backendUnreachable(endpoint, "POST");
     });
 
     assert.deepEqual(await registrierungStart(), { zustand: "unlesbar" });
+    assert.deepEqual(loggedErrorCodes(), [], "a read the network never answered was logged as a fault");
   });
 
   /* A bug in the read's narrowing opens the same panel as a read that failed, so only its line tells them apart. */
@@ -340,6 +341,7 @@ describe("the registration page over an invite read that did not answer", () => 
 
     assert.deepEqual(await registrierungStart(), { zustand: "unlesbar" });
     assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
+    assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
   });
 
   /* An answer off its schema is a broken contract, never a failed read: the error boundary logs it, and the reload panel would hide it. */
@@ -733,26 +735,37 @@ describe("which of the confirmation page's words its stamped version covers", ()
     );
   });
 
-  it("opens a link on the failed read's panel where the link's own read fails", async () => {
-    answerReadsWith((endpoint, schema, params) => {
-      if (endpoint === "/registrierungen/bestaetigung/ansicht") throw new TypeError("fetch failed");
-      return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
-    });
-    const body = (await pageBody(SpielerBestaetigungPage, {
-      params: Promise.resolve({}),
-      searchParams: Promise.resolve({ token: "kein-echtes-token" }),
-    })) as ReactElement<{ start: unknown }>;
+  for (const [wie, thrown, codes] of [
+    ["went unanswered", () => backendUnreachable("/registrierungen/bestaetigung/ansicht", "POST"), []],
+    // A bug in the read's narrowing: only this line tells it from a read that failed.
+    ["threw untyped", () => new TypeError("Cannot read properties of undefined (reading 'zustand')"), ["FE-RSC-001"]],
+  ] as const) {
+    it(`opens a link on the failed read's panel where the link's own read ${wie}, logging ${codes.length === 0 ? "nothing" : "it"}`, async () => {
+      answerReadsWith((endpoint, schema, params) => {
+        if (endpoint === "/registrierungen/bestaetigung/ansicht") throw thrown();
+        return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
+      });
+      const body = (await pageBody(SpielerBestaetigungPage, {
+        params: Promise.resolve({}),
+        searchParams: Promise.resolve({ token: "kein-echtes-token" }),
+      })) as ReactElement<{ start: unknown }>;
 
-    assert.deepEqual(body.props.start, { zustand: "unlesbar" });
-    // Untyped, as a bug in the read's narrowing throws: only this line tells it from a read that failed.
-    assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
-  });
+      assert.deepEqual(body.props.start, { zustand: "unlesbar" });
+      assert.deepEqual(loggedErrorCodes(), codes);
+      assert.deepEqual(
+        loggedErrorTraces(),
+        codes.map(() => EDGE_TRACE_ID),
+        "a line names no request",
+      );
+    });
+  }
 
   /* The read failing is a state of its own, which a reload may clear. */
   it("hands the view no words where the words read fails", async () => {
     assert.equal(await handedFassung({ scheitert: true }), null, "a failed words read reached the view as words");
     // Both pages' words, each untyped as a cached read's throw arrives: only these lines tell them from a bug.
     assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001", "FE-RSC-001"], "a failure went unlogged");
+    assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID, EDGE_TRACE_ID], "a line names no request");
     assert.equal(
       textOf(
         renderMarkup(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: GEOEFFNET, token: "kein-echtes-token" }, fassung: null }),

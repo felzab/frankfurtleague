@@ -132,7 +132,7 @@ function ohneVorlauf(datum: string | null, today: string): boolean {
 
 /**
  * The conditions the sweep mints a fixture's rows on, spelled again for the draft: a banner over a fixture no pass asks
- * about warns of a request that never comes. Both tiers run one table of them (`docs/frontend/spec.md :: I776`).
+ * about warns of a request that never comes. Both tiers run one table of them (`docs/frontend/spec.md :: I743`).
  */
 function wirdAngefragt(
   ansetzung: SpielBannerAnsetzung,

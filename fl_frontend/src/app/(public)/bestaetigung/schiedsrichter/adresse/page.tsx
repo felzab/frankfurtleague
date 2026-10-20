@@ -7,6 +7,7 @@ import { getSchiedsrichterAdresswechselAnsicht } from "@/features/schiedsrichter
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { openGraphFor } from "@/shared/utils/metadata";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { SchiedsrichterAdresswechselStart } from "@/features/schiedsrichter/adresswechselStart";
 import type { NextPageProps } from "@/shared/types/types";
@@ -40,9 +41,11 @@ async function SchiedsrichterAdresswechselContent(props: NextPageProps) {
 
   // A failed read is its own state, the dead-link panel calling a live link void. A broken contract is
   // no failed read: it reaches the error boundary, which logs it.
-  const start: SchiedsrichterAdresswechselStart = await getSchiedsrichterAdresswechselAnsicht(token).then(
-    (gelesen) => startOf(gelesen, token),
-    (error: unknown): SchiedsrichterAdresswechselStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
+  const start: SchiedsrichterAdresswechselStart = await runWithIncomingTrace(() =>
+    getSchiedsrichterAdresswechselAnsicht(token).then(
+      (gelesen) => startOf(gelesen, token),
+      (error: unknown): SchiedsrichterAdresswechselStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
+    ),
   );
 
   return <SchiedsrichterAdresswechselView start={start} />;

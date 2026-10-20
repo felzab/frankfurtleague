@@ -902,7 +902,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   images, until nothing of them is left. The strip is a transaction of its own after the blocks'
   share, so a failing strip holds back no block and is tried again on the next pass
   (`fl_backend/app/api/bewerbungen/sweep_router.py :: strip_the_confirmations`,
-  `docs/backend/spec.md :: I778`). Which way each club answered,
+  `docs/backend/spec.md :: I757`). Which way each club answered,
   its day, the answering role and a proposed date stay, naming nobody, and the rows have no clock of
   their own, a season's fixtures being kept as the league's record. A person's erasure or
   Widerspruch takes their part sooner ([section 5](#5-erasure-reaches-everyone-who-asks)). A

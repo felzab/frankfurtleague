@@ -19,6 +19,7 @@ import { getAdminSpieltage } from "@/features/spieltage/queries";
 import { getAdminTeams, getTeamMemberships } from "@/features/teams/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { FLLoeschungVorschauResponse } from "@/features/saisons/schemas";
 import type { SaisonGruppenSwapContext, SaisonOffeneSpiel, SaisonRolloverContext, SaisonSpielplanContext } from "@/features/saisons/types";
@@ -75,7 +76,9 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     presentsRollover ? getAdminSpiele({ saison_id: outgoingSaisonId }) : Promise.resolve(null),
     // Degraded rather than awaited whole: a count the press does not need takes down no page it is pressed from.
     presentsRollover
-      ? getLoeschungVorschau(saison.id).catch((error: unknown) => nullUnlessContractBreak(error) ?? ("unlesbar" as const))
+      ? runWithIncomingTrace(() =>
+          getLoeschungVorschau(saison.id).catch((error: unknown) => nullUnlessContractBreak(error) ?? ("unlesbar" as const)),
+        )
       : Promise.resolve(null),
     // `include_inactive` because an admin picker hiding a retired club that still holds a junction
     // row would make a swap the endpoint accepts look impossible.

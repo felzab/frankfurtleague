@@ -951,7 +951,7 @@ class ConfirmationsRunningARivalBeforeTheFirstFanOut(InterleavedCollection):
 
 
 class TestAnAnswerAndItsWritersErasureCross:
-    """`docs/backend/spec.md :: I783`: the answer writes its row and the erasure voids the writer's entry on it, so one retries.
+    """`docs/backend/spec.md :: I772`: the answer writes its row and the erasure voids the writer's entry on it, so one retries.
 
     Neither anchors the address: a holder digest stored under an erasure's snapshot would stand until the season's end.
     """

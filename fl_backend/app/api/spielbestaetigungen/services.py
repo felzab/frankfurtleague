@@ -697,9 +697,9 @@ def erinnerung_tage(*, today: str) -> list[str]:
 
 
 def build_erinnerung_filter(*, saison_id: str, today: str, inserted: Sequence[Any]) -> dict[str, Any]:
-    """The season's open rows owed a message: a team row's reminder due today, or an unstamped request (`docs/backend/spec.md :: I781`).
+    """The season's open rows owed a message: a team row's reminder due today, or an unstamped request (`docs/backend/spec.md :: I765`).
 
-    Never a row this pass inserted, nor reminded on its request's day (`:: I782`); asked again until its deadline.
+    Never a row this pass inserted, nor reminded on its request's day (`:: I767`); asked again until its deadline.
     """
 
     return {
@@ -816,7 +816,7 @@ def build_seat_entry_images_filter(voids: Sequence[SeatVoid]) -> dict[str, Any]:
 def seat_entry_image_edits(image: Mapping[str, Any], voids: Sequence[SeatVoid]) -> dict[str, None]:
     """One image's entries of the voided seats nulled: a link's hashes and its mail's delivery record.
 
-    An earlier holder's go too, an image naming no holder; the season's end strips them anyway (`docs/backend/spec.md :: I778`).
+    An earlier holder's go too, an image naming no holder; the season's end strips them anyway (`docs/backend/spec.md :: I757`).
     """
 
     partei = image.get("partei")

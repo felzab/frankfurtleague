@@ -9,9 +9,19 @@ import { act, createRef, createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { doubleLogger, doubleToasts, loggedErrorCodes } from "@/shared/testing/actionDoubles.ts";
+import { doubleLogger, doubleToasts, loggedErrorCodes, loggedErrorTraces } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
-import { answerReadsWith, callPage, clearSteps, EMPTIEST_ANSWER, pageBody, readsOf, steps } from "@/shared/testing/pageHarness.ts";
+import {
+  answerReadsWith,
+  backendUnreachable,
+  callPage,
+  clearSteps,
+  EDGE_TRACE_ID,
+  EMPTIEST_ANSWER,
+  pageBody,
+  readsOf,
+  steps,
+} from "@/shared/testing/pageHarness.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
@@ -147,12 +157,13 @@ describe("what a spent link's page carries", () => {
   });
 
   /* The dead-link panel here would call a live link void on a day the backend was merely unreachable. */
-  it("opens a link whose read failed on the failed read's panel", async () => {
+  it("opens a link whose read the network never answered on the failed read's panel, logging nothing", async () => {
     const start = await startFor(() => {
-      throw new TypeError("fetch failed");
+      throw backendUnreachable(VIEW_ENDPOINT, "POST");
     });
 
     assert.deepEqual(start, { zustand: "unlesbar" });
+    assert.deepEqual(loggedErrorCodes(), [], "a read the network never answered was logged as a fault");
   });
 
   /* A bug in the read's narrowing opens the same panel as a read that failed, so only its line tells them apart. */
@@ -163,6 +174,7 @@ describe("what a spent link's page carries", () => {
 
     assert.deepEqual(start, { zustand: "unlesbar" });
     assert.deepEqual(loggedErrorCodes(), ["FE-RSC-001"], "the failure went unlogged");
+    assert.deepEqual(loggedErrorTraces(), [EDGE_TRACE_ID], "the line names no request");
   });
 
   /* An answered view naming nobody who answered is a broken contract, which the error boundary logs. */
@@ -222,7 +234,7 @@ describe("the address the fixture confirmation page opened under", () => {
   it("keeps the token where the link could not be read, so a reload can retry it", async () => {
     window.history.replaceState(null, "", `/bestaetigung/spiel?token=${TOKEN}`);
     viewAnswers(() => {
-      throw new TypeError("fetch failed");
+      throw backendUnreachable(VIEW_ENDPOINT, "POST");
     });
     const { unmount } = render(await pageBody(SpielbestaetigungPage, PROPS));
     const adresse = `${window.location.pathname}${window.location.search}`;

@@ -17,9 +17,18 @@ const NEXT_CACHE = {
 };
 // Silent: each refusal a case drives would otherwise print an ERROR line into a passing run.
 const inert = (): undefined => undefined;
-/** Every ERROR line the handler was handed, serialised whole. */
-const errors: string[] = [];
-const LOGGING = { logger: { info: inert, warn: inert, error: (...args: unknown[]) => void errors.push(JSON.stringify(args)) } };
+/**
+ * Every ERROR line the handler was handed: its message, and the code its own fields file it under, never the
+ * serialised arguments, where the error's own `code` would match whatever the line was filed under.
+ */
+const errors: { message: string; error_code: unknown }[] = [];
+const LOGGING = {
+  logger: {
+    info: inert,
+    warn: inert,
+    error: (message: string, _error: unknown, meta?: { error_code?: unknown }) => void errors.push({ message, error_code: meta?.error_code }),
+  },
+};
 
 const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint));
 
@@ -229,9 +238,9 @@ describe("the referee's confirmation handler", () => {
     assert.deepEqual(tags, []);
     assert.ok(
       errors.some(
-        (logged) =>
-          logged.includes("read broke its contract after its write was answered: postSchiedsrichterBestaetigung") &&
-          logged.includes("FE-API-002"),
+        ({ message, error_code }) =>
+          message.includes("read broke its contract after its write was answered: postSchiedsrichterBestaetigung") &&
+          error_code === "FE-API-002",
       ),
       "the contract break left no line",
     );

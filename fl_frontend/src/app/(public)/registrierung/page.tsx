@@ -7,6 +7,7 @@ import { getEinladungAnsicht } from "@/features/registrierungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { openGraphFor } from "@/shared/utils/metadata";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { RegistrierungStart } from "@/features/registrierungen/types";
 import type { NextPageProps } from "@/shared/types/types";
@@ -44,11 +45,13 @@ async function RegistrierungContent(props: NextPageProps) {
   // A missing or repeated parameter is no link at all and reads as the dead link.
   const start: RegistrierungStart =
     typeof token === "string" && token !== ""
-      ? await getEinladungAnsicht(token).then(
-          (gelesen) => gelesen,
-          // A failed read is its own state, the dead-link panel calling a live invite void. A broken contract
-          // is no failed read: it reaches the error boundary, which logs it.
-          (error: unknown): RegistrierungStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
+      ? await runWithIncomingTrace(() =>
+          getEinladungAnsicht(token).then(
+            (gelesen) => gelesen,
+            // A failed read is its own state, the dead-link panel calling a live invite void. A broken contract
+            // is no failed read: it reaches the error boundary, which logs it.
+            (error: unknown): RegistrierungStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
+          ),
         )
       : { zustand: "ungueltig" };
 

@@ -8,6 +8,8 @@ import { ctaButton } from "@/shared/components/ui/formButtons";
 import { CARDS_CASCADE_CLASSES } from "@/shared/components/ui/motion";
 import { StatusPanel } from "@/shared/components/ui/StatusPanel";
 import { getGermanTodayStr } from "@/shared/utils/date";
+import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { getSpiele } from "../../queries";
 import { SpielCardGrid } from "../ui/SpielCardGrid";
@@ -128,8 +130,10 @@ export async function RecentAndUpcomingSpieleGrid() {
     saison === null
       ? [KEINE_SPIELE, KEINE_SPIELE]
       : await Promise.all([
-          getSpiele({ spiel_status: "ausstehend", limit: 6 }).catch(() => null),
-          getSpiele({ spiel_status: "vergangen", sort_by: "datum", order: "desc", limit: 6 }).catch(() => null),
+          runWithIncomingTrace(() => getSpiele({ spiel_status: "ausstehend", limit: 6 }).catch(nullUnlessContractBreak)),
+          runWithIncomingTrace(() =>
+            getSpiele({ spiel_status: "vergangen", sort_by: "datum", order: "desc", limit: 6 }).catch(nullUnlessContractBreak),
+          ),
         ]);
 
   // Safe to read the clock: `connection()` above already made this dynamic.

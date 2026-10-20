@@ -45,7 +45,7 @@ async function AdminKontakteEditContent({
     resolveAdminSaison(searchParams),
     // Per request, as every stamper reads the running label: a deploy moves it. `null` where the read
     // failed, which closes opening a seat blank and leaves every stored one editable.
-    runWithIncomingTrace(() => getLaufendesLabel("bewerbung")).catch(nullUnlessContractBreak),
+    runWithIncomingTrace(() => getLaufendesLabel("bewerbung").catch(nullUnlessContractBreak)),
   ]);
   if (!selectedSaison) {
     notFound();
