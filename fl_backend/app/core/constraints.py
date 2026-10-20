@@ -846,7 +846,7 @@ _SPIELBERICHT_BERICHT = _object(
 COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
     Collection.SAISONS: {
         "$jsonSchema": _object(
-            required=("_id", "start_date", "end_date", "status", "rules"),
+            required=("_id", "start_date", "end_date", "status", "rules", "bewerbung", "registrierung"),
             properties={
                 "_id": {"bsonType": "string"},
                 "start_date": {"bsonType": "string"},
@@ -879,9 +879,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                         "erlaubte_stufen": {"bsonType": "array", "items": {"bsonType": "string", "enum": _STUFEN}},
                     },
                 ),
-                # Deliberately out of `required`: every stored season predates the field, so making
-                # the key mandatory would refuse every one of them and owe a backfill. A missing key
-                # and a stored null both read as never generated.
+                # Deliberately out of `required`: the season's creation writes none, the generator
+                # being what writes it. A missing key and a stored null both read as never generated.
                 "spielplan": _object(
                     nullable=True,
                     required=("generiert_am", "spieltage", "spiele"),
@@ -891,11 +890,11 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                         "spiele": {"bsonType": "int"},
                     },
                 ),
-                # Nullable and out of `required` as `spielplan` is, and for its reason. Both halves
-                # together: a switch with no span cannot say when the window closes, and a span with
-                # no switch cannot be shut early.
+                # Nullable, a season taking no applications holding none. Both halves together: a
+                # switch with no span cannot say when the window closes, and a span with no switch
+                # cannot be shut early.
                 "bewerbung": _SAISON_BEWERBUNG,
-                # Out of `required` on the same terms as the window above it.
+                # On the same terms as the window above it.
                 "registrierung": _SAISON_REGISTRIERUNG,
                 # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
                 # null both read as a database no retention pass has ever run against.
@@ -911,7 +910,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
     },
     Collection.TEAMS: {
         "$jsonSchema": _object(
-            required=("_id", "name", "shorthand", "description", "full_name", "website_url", "address", "inactive_since"),
+            required=("_id", "name", "shorthand", "description", "full_name", "website_url", "address", "schulform", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "name": {"bsonType": "string"},
@@ -920,8 +919,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "full_name": {"bsonType": "string"},
                 "website_url": {"bsonType": _STRING_OR_NULL},
                 "address": _ADDRESS,
-                # Out of `required` for `saisons.spielplan`'s reason. A missing key and a stored
-                # null both read as a school form nobody has recorded.
+                # A stored null reads as a school form nobody has recorded.
                 "schulform": {"bsonType": _STRING_OR_NULL, "enum": [*_SCHULFORMEN, None]},
                 # A retired CLUB, not a club out of one season. `uniq_shorthand` keeps indexing it,
                 # so its two letters stay reserved.
@@ -934,17 +932,17 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             # Transcribed from the documents: this junction has no Pydantic model of the ROW. A club
             # leaves by an `austritt` or by a replacement repointing the row, never by retiring it, so
             # there is no `inactive_since` here (`docs/backend/spec.md :: I19`).
-            required=("_id", "saison_id", "team_id", "gruppe", "austritt", "name", "shorthand"),
+            required=("_id", "saison_id", "team_id", "gruppe", "austritt", "trikot_farbe", "kontakte", "name", "shorthand"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "saison_id": {"bsonType": "string"},
                 "team_id": {"bsonType": "objectId"},
                 "gruppe": {"bsonType": "string", "enum": _GRUPPEN},
                 "austritt": _AUSTRITT,
-                # Both out of `required` for `saisons.spielplan`'s reason.
+                # Both written by the entry, null until a club is given its kit or its people.
                 "trikot_farbe": {"bsonType": _STRING_OR_NULL, "enum": [*_TRIKOT_FARBEN, None]},
                 "kontakte": _SAISON_TEAM_KONTAKTE,
-                # Out of `required` for `saisons.spielplan`'s reason: no row carried links before them.
+                # Out of `required`: the entry writes none, the first save minting a link writes it.
                 "bestaetigungen": _SAISON_TEAM_BESTAETIGUNGEN,
                 # The name this club was PLAYED under, seeded at entry and rewritten by a rename only
                 # while the season is not `past` (`docs/backend/spec.md :: I13`). What makes the copy

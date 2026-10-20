@@ -95,8 +95,7 @@ WINDOW_PROJECTION = ["bewerbung", "status"]
 async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -> tuple[Mapping[str, Any] | None, Any]:
     """One season's application window, `None` where unreadable, beside its status.
 
-    A null, no key -- every season stored before the field carries none -- or an object short of a
-    field: none is readable, and all are a miss rather than an error.
+    A null or an object short of a field: neither is readable, and both are a miss rather than an error.
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=WINDOW_PROJECTION)

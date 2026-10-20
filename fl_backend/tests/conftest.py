@@ -276,6 +276,8 @@ def saison() -> PayloadFactory:
             # The points the model suites read back, and the shape the schedule below follows from, passed
             # rather than left to the builder's default.
             "rules": rules_document(win_points=3, number_of_groups=4, teams_per_group=4, qualifiers_per_group=2),
+            "bewerbung": None,
+            "registrierung": None,
             # Derived and on no document; spelled out rather than computed, so a `schedule_for` change shows here.
             "schedule": [
                 {"phase": "gruppenphase", "matchdays": 3, "matches_per_matchday": 8},

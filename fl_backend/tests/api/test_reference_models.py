@@ -638,10 +638,7 @@ class TestTheSeasonsSpans:
 
 
 class TestTheSeasonsWindowsAreRequiredWithNoDefault:
-    """Parametrised over both windows: a default added to either would leave the other's case green.
-
-    The `None` re-declaration on the read model is what lets a season stored before a field validate.
-    """
+    """Parametrised over both windows: a default added to either would leave the other's case green."""
 
     @pytest.mark.parametrize("field", ["bewerbung", "registrierung"])
     def test_a_payload_omitting_a_window_is_refused_rather_than_closing_it(self, saison, field, assert_rejects):
@@ -654,12 +651,6 @@ class TestTheSeasonsWindowsAreRequiredWithNoDefault:
         body = {**TestTheSeasonsSpans.payload(saison), field: None}
 
         assert getattr(FLPatchSaisonPayload.model_validate(body), field) is None
-
-    @pytest.mark.parametrize("field", ["bewerbung", "registrierung"])
-    def test_a_stored_season_carrying_no_window_key_still_validates(self, saison, field):
-        stored = {key: value for key, value in saison().items() if key != field}
-
-        assert getattr(FLSaison.model_validate(stored), field) is None
 
 
 class TestSpielBooking:

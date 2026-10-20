@@ -90,6 +90,8 @@ def saison_document(saison_id: str, status: str, **fields: Any) -> dict[str, Any
         "end_date": f"{saison_id}-06-30",
         "status": status,
         "rules": rules_document(),
+        "bewerbung": None,
+        "registrierung": None,
         **fields,
     }
 
@@ -105,6 +107,7 @@ def team_document(team_id: Any, name: str, shorthand: str, **fields: Any) -> dic
         "full_name": f"{name}-Schule",
         "website_url": f"https://{name.lower()}.example.de",
         "address": dict(ADDRESS),
+        "schulform": None,
         "inactive_since": None,
         **fields,
     }
@@ -118,6 +121,8 @@ def saison_team_document(saison_id: str, team_id: Any, name: str, shorthand: str
         "team_id": team_id,
         "gruppe": "A",
         "austritt": None,
+        "trikot_farbe": None,
+        "kontakte": None,
         "name": name,
         "shorthand": shorthand,
         **fields,

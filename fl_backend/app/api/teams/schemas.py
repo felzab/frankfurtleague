@@ -452,11 +452,6 @@ class _TeamWritable(BaseModel):
 class FLTeam(_TeamWritable):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
-    # Re-declared with a default, as `FLSpieler` re-declares the junction's newer fields: a club
-    # whose document predates the field still has to be describable, and a model that 422s over one
-    # describes it as impossible.
-    schulform: FLSchulform | None = None
-
     gruppe: FLGruppenNames
     statistik: FLTeamStatistik
     # Joined from the junction on every read, and copied into no match document.
@@ -477,9 +472,6 @@ class FLTeamRecord(_TeamWritable):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     inactive_since: CustomOptionalDateString
-    # Defaulted for `FLTeam`'s reason: the retire and reactivate endpoints echo this off a stored
-    # document, which is the one a club nobody has edited since is read back through.
-    schulform: FLSchulform | None = None
 
 
 class FLGruppenTeam(BaseModel):
@@ -516,11 +508,10 @@ class FLTeamMembership(BaseModel):
     saison_id: str
     gruppe: FLGruppenNames
     austritt: FLAustritt | None
-    # Defaulted because `$project` omits a key the stored row has not got: a season entered before
-    # either field existed would otherwise 500 the whole admin club list.
-    trikot_farbe: FLTrikotFarbe | None = None
-    kontakte: FLSaisonTeamKontakte | None = None
-    # Each seat's link as the editor shows it, the referee editor's twin; defaulted for `kontakte`'s reason.
+    trikot_farbe: FLTrikotFarbe | None
+    kontakte: FLSaisonTeamKontakte | None
+    # Each seat's link as the editor shows it, the referee editor's twin. Defaulted: `$project` omits a
+    # key the stored row has not got, and a row holds none until a save mints its first link.
     bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | None = None
 
     @computed_field

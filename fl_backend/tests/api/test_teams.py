@@ -221,14 +221,6 @@ class TestFLTeamRecord:
 
 
 class TestTheClubsSchulform:
-    def test_a_club_stored_before_the_field_still_reads(self, team):
-        """The whole reason the READ models default it: a required one would 500 the list over every club nobody has edited."""
-
-        stored = team()
-        del stored["schulform"]
-
-        assert FLTeam.model_validate(stored).schulform is None
-
     def test_a_form_outside_the_set_is_refused(self, team):
         with pytest.raises(ValidationError):
             FLTeam.model_validate(team(schulform="grundschule"))
