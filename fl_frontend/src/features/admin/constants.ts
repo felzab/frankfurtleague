@@ -304,7 +304,6 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
     category_name: "Zugang",
     sub_options: [
       SPERRLISTE_EINTRAG,
-      ADRESSWECHSEL_EINTRAG,
       {
         id: "administratoren",
         label: "Administratoren",
@@ -318,11 +317,11 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
     ],
   },
 
-  // Its own group rather than a row under „Protokoll“, which records what an administrator did: an erasure is a
-  // thing done, answering a person's request.
+  // Its own group rather than a row under „Protokoll“, which records what an administrator did: an erasure and an address change are
+  // things done, each answering a person's request.
   {
     category_name: "Datenschutz",
-    sub_options: [LOESCHUNG_EINTRAG],
+    sub_options: [LOESCHUNG_EINTRAG, ADRESSWECHSEL_EINTRAG],
   },
 
   {
