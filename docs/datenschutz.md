@@ -902,7 +902,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   which nothing deletes (above), past the erasure of the contact person it was mailed to
   ([section 11](#11-open-and-owed-a-decision))
   (`docs/glossary.md :: Zustellstand`, `fl_backend/app/api/zustellung/services.py :: ZIEL_PFADE`).
-  **No delivery state has a clock of its own**, so none outlives the record it hangs on and none is
+  A message about no record kept, on each lane
+  `fl_frontend/src/app/api/mail/zustellung/route.ts :: OHNE_EINTRAG` names, stores no state: any
+  state but delivered is a line in the application's log without the address, and goes with that
+  log. **No delivery state has a clock of its own**, so none outlives the record it hangs on and none is
   kept for its own sake. Ruled 2026-09-08.
 - **A declined application is kept for one month after the decision, its three people's contact
   details included, then deleted. An accepted application is kept for the season it was accepted
