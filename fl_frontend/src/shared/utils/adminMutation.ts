@@ -6,7 +6,7 @@ import { isFreshlySignedIn, judgeAdminRequest } from "@/core/auth";
 import { frontend_config } from "@/core/config";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { declareWriteTags, requestWriteSent, requestWriteTags } from "@/core/requestScope";
+import { declareWriteTags, requestEndsOwnSession, requestWriteSent, requestWriteTags } from "@/core/requestScope";
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
 
 import { ANMELDUNG_ABGELAUFEN, outcomeUnknown, ZUGANG_WEG } from "./actionError";
@@ -97,7 +97,9 @@ async function runGuarded<S, T extends { success: boolean }>(
   mutationName: string,
   guard: Guard<S>,
   fn: (session: S) => Promise<T>,
-): Promise<{ forbidden: true } | { forbidden: false; answer: T | ActionFailure; wrote: boolean; tags: readonly string[] }> {
+): Promise<
+  { forbidden: true } | { forbidden: false; answer: T | ActionFailure; wrote: boolean; tags: readonly string[]; endsOwnSession: boolean }
+> {
   return runWithIncomingTrace(async () => {
     let answer: T | ActionFailure;
     try {
@@ -121,15 +123,16 @@ async function runGuarded<S, T extends { success: boolean }>(
     // Read once the body has settled and inside this scope, which closes with the callback.
     const wrote = requestWriteSent();
     const tags = requestWriteTags();
+    const endsOwnSession = requestEndsOwnSession();
 
     // Whatever the action made of it: part of the write may stand.
     if (writeOutcomeUnknown()) {
       logger.error(`${guard.lane} mutation of unknown outcome: ${mutationName}`, undefined, { error_code: "FE-NET-001" });
 
-      return { forbidden: false, answer: outcomeUnknown(guard.wording), wrote: wrote, tags: tags };
+      return { forbidden: false, answer: outcomeUnknown(guard.wording), wrote: wrote, tags: tags, endsOwnSession: endsOwnSession };
     }
 
-    return { forbidden: false, answer: answer, wrote: wrote, tags: tags };
+    return { forbidden: false, answer: answer, wrote: wrote, tags: tags, endsOwnSession: endsOwnSession };
   });
 }
 
@@ -145,11 +148,18 @@ export async function runGuardedMutation<S, T extends { success: boolean }>(
   const guarded = await runGuarded(mutationName, guard, fn);
   if (guarded.forbidden) return { success: false, error: typeof guard.forbidden === "string" ? guard.forbidden : await guard.forbidden() };
 
-  const { answer, wrote, tags } = guarded;
+  const { answer, wrote, tags, endsOwnSession } = guarded;
   const outcome = "outcome" in answer ? answer.outcome : undefined;
   // Wherever a write may stand, a lost answer and a partial one included: a cached public read the
   // write feeds keeps serving what it replaced for days otherwise (`docs/frontend/spec.md :: I640`).
-  if (wrote && (answer.success || outcome !== undefined)) for (const tag of tags) updateTag(tag);
+  const drops = wrote && (answer.success || outcome !== undefined);
+
+  // A write that may have ended the caller's own session renders no page again, its area guard unmounting the whole
+  // frame; the page leaves by a document load (`docs/frontend/spec.md :: I831`). It drops nothing: no such write
+  // declares a tag, which `adminMutation.test.ts` holds, and `updateTag` would render.
+  if (endsOwnSession) return answer;
+
+  if (drops) for (const tag of tags) updateTag(tag);
   // Here, where no action can forget it (`docs/frontend/spec.md :: I233`). Never on a refusal, left to its
   // action where a landed write stands behind it: a refresh can remount an editor keyed on its row,
   // dropping the refused entries.

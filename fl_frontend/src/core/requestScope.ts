@@ -38,6 +38,9 @@ interface RequestScope {
   // Set when a call that may write is dispatched, answered or not: the admin spine judges by it what its
   // answer leaves standing, where an action declaring it would repeat what each call already says.
   writeSent: boolean;
+  // Set before a write that may end the session the request carries: the spine then renders no page again
+  // (`docs/frontend/spec.md :: I831`).
+  endsOwnSession: boolean;
   // The cache tags this request's writes feed, declared before each write so a lost answer still drops them.
   writeTags: Set<string>;
   // `oncePerRequest`'s reads, by the function each wraps. Held by reference, so the scope
@@ -63,6 +66,7 @@ export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "sp
     deadlineAt: performance.now() + REQUEST_DEADLINE_MS,
     outcomeUnknown: false,
     writeSent: false,
+    endsOwnSession: false,
     writeTags: new Set(),
     memo: new Map(),
   };
@@ -99,6 +103,7 @@ export function runBehindTheResponse(traceId: string, work: () => Promise<void>)
     deadlineAt: performance.now() + AFTER_RESPONSE_DEADLINE_MS,
     outcomeUnknown: false,
     writeSent: false,
+    endsOwnSession: false,
     writeTags: new Set(),
     memo: new Map(),
   };
@@ -171,6 +176,7 @@ export async function runAnsweringOwnCut<T>(fn: () => Promise<T>): Promise<T> {
     return await storage.run(own, fn);
   } finally {
     if (own.writeSent) store.writeSent = true;
+    if (own.endsOwnSession) store.endsOwnSession = true;
   }
 }
 
@@ -191,6 +197,20 @@ export function recordWriteSent(): void {
 /** Whether this request has dispatched a call that may write. `false` outside a scope. */
 export function requestWriteSent(): boolean {
   return storage.getStore()?.writeSent === true;
+}
+
+/**
+ * Called before a write that may end the session the request carries, answered or not: one never answered may
+ * have ended it. A no-op outside a scope.
+ */
+export function recordOwnSessionEnding(): void {
+  const store = storage.getStore();
+  if (store !== undefined) store.endsOwnSession = true;
+}
+
+/** Whether this request sent a write that may have ended its own session. `false` outside a scope. */
+export function requestEndsOwnSession(): boolean {
+  return storage.getStore()?.endsOwnSession === true;
 }
 
 /** Adds cache tags a write of this request feeds, for the spine to drop. A no-op outside a scope. */
