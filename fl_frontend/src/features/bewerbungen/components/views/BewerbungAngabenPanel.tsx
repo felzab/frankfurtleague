@@ -86,7 +86,7 @@ export function BewerbungAngabenPanel({
 }: {
   bewerbung: FLBewerbung;
   teamName: string | null;
-  /** `null` for an application submitted before the workflow, whose seats reached no per-seat state. */
+  /** Each seat's state, as `bestaetigungsStand` reads it. */
   staende: readonly SitzBestaetigung[];
 }) {
   const { schule, kontakte, trikot, kader, wunschgegner, entscheidung } = bewerbung;
@@ -200,9 +200,9 @@ export function BewerbungAngabenPanel({
                         </a>
                       )}
                     </Angabe>
-                    {/* The stored block's own name where no per-seat state exists: it says who entered
-                        these details and when, which on an application from before the workflow is
-                        nobody's answer — and a Zusage turns on that answer. */}
+                    {/* The stored block's own name where no state is handed for the seat: it says who
+                        entered these details and when, which is nobody's answer — and a Zusage turns on
+                        that answer. */}
                     <Angabe label={stand === null ? "Kenntnisnahme" : "Bestätigung"}>
                       {/* A step not taken stands where the confirmation's day would, so it takes the empty
                           grade; a confirmation or a Widerspruch is the fact itself. */}
