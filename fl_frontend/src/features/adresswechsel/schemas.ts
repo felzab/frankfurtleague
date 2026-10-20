@@ -195,7 +195,6 @@ export const FLAdresswechselVerwaltungGenehmigungSchema = z.object({
   verwaltung: VerwaltungSchema,
   bis: z.string(),
   genehmigt_am: z.string().nullable(),
-  genehmigt_von: z.string().nullable(),
 });
 export type FLAdresswechselVerwaltungGenehmigung = z.infer<typeof FLAdresswechselVerwaltungGenehmigungSchema>;
 

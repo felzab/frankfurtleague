@@ -120,7 +120,7 @@ describe("what the tool shows of the change waiting at an address", () => {
       wartet_auf: "genehmigung",
       gueltig_bis: null,
       bestaetigt_am: "2026-10-20T11:30:00Z",
-      genehmigung: { verwaltung: "administration", bis: "2026-10-27T11:30:00Z", genehmigt_am: null, genehmigt_von: null },
+      genehmigung: { verwaltung: "administration", bis: "2026-10-27T11:30:00Z", genehmigt_am: null },
     });
     const { unmount } = render(tree);
 
@@ -134,22 +134,17 @@ describe("what the tool shows of the change waiting at an address", () => {
     unmount();
   });
 
-  it("names who approved and when, once approved", () => {
+  it("names when the approval was given, once given", () => {
     const shown = words({
       ...OFFEN,
       wartet_auf: "wartezeit",
       gueltig_bis: null,
       bestaetigt_am: "2026-10-20T11:30:00Z",
       wirksam_ab: "2026-10-27T11:30:00Z",
-      genehmigung: {
-        verwaltung: "owner",
-        bis: "2026-10-27T11:30:00Z",
-        genehmigt_am: "2026-10-21T09:00:00Z",
-        genehmigt_von: "anna@liga.example",
-      },
+      genehmigung: { verwaltung: "owner", bis: "2026-10-27T11:30:00Z", genehmigt_am: "2026-10-21T09:00:00Z" },
     });
 
-    assert.match(shown, /Erteilt am 21\.10\.2026 um 11:00 Uhr von anna@liga\.example/);
+    assert.match(shown, /Erteilt am 21\.10\.2026 um 11:00 Uhr/);
   });
 
   it("wears the delivery register's own chip where the link's message was refused", () => {

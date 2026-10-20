@@ -157,7 +157,7 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAdressw
                   </Link>
                 </>
               ) : (
-                `Erteilt am ${zeitpunktText(genehmigung.genehmigt_am)}${genehmigung.genehmigt_von === null ? "" : ` von ${genehmigung.genehmigt_von}`}`
+                `Erteilt am ${zeitpunktText(genehmigung.genehmigt_am)}`
               )}
             </Angabe>
           )}
