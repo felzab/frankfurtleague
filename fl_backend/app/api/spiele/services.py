@@ -718,6 +718,8 @@ class BookedReferee:
     #: (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
     name: str | None
     inactive_since: str | None
+    #: Whether the referee's own confirmation stands on the record; no write takes one back.
+    bestaetigt: bool
 
 
 @dataclass(frozen=True)
@@ -1005,6 +1007,10 @@ FIXTURE_DOUBLE_BOOKED = "REQ-CLASH-001"
 # retire while only played or called-off fixtures hold it, so refusing an unrelated edit of one would be false.
 BOOKING_UNKNOWN_RESOURCE = "REQ-BOOKING-001"
 
+# Judged on the same references: a referee booked before confirming would be mailed an Einteilung for a panel that
+# address cannot open. A code of its own, the way out being the person's confirmation rather than a reactivation.
+BOOKING_UNCONFIRMED_REFEREE = "REQ-BOOKING-002"
+
 # A match plus its overrun, the changeover and the travel: the league plays several matches at one
 # ground, so this spaces them rather than banning the pairing.
 CLASH_BUFFER_MINUTES = 4 * 60
@@ -1133,6 +1139,17 @@ def find_booking_refusal(
                     f"{way_back}"
                 ),
             )
+
+    # After both arms above, so the ghost, retired and never confirmed, meets the retirement.
+    if new.schiedsrichter_id is not None and resolved.schiedsrichter is not None and not resolved.schiedsrichter.bestaetigt:
+        return WriteRefusal(
+            error_code=BOOKING_UNCONFIRMED_REFEREE,
+            status=HTTPStatus.CONFLICT,
+            message=(
+                f"Schiedsrichter {new.schiedsrichter_id} has not confirmed their own entry yet, and takes no new fixture, nor one put back "
+                "among those still to be played; pick another or wait for the confirmation"
+            ),
+        )
 
     return None
 

@@ -113,6 +113,7 @@ _SPIELBESTAETIGUNG_GRUENDE = [
     "spiel_entschieden",
     "abgesagt",
     "schiedsrichter_gewechselt",
+    "schiedsrichter_abgelehnt",
     "verworfen",
     "spiel_vergangen",
 ]

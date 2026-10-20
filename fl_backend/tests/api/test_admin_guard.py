@@ -252,6 +252,8 @@ PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
         ("/api/v0/registrierungen/selbst/{registrierung_id}/einwilligung", "patch"),
         ("/api/v0/identitaet/selbst/erasure", "post"),
         ("/api/v0/identitaet/selbst/erasure/ansicht", "get"),
+        ("/api/v0/spielbestaetigungen/selbst", "get"),
+        ("/api/v0/spielbestaetigungen/{spielbestaetigung_id}/antwort", "post"),
     }
 )
 

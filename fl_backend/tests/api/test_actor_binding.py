@@ -424,6 +424,7 @@ PERSON_WRITES: list[tuple[str, str]] = [
     ("/api/v0/bewerbungen/{bewerbung_id:objectid}/person/einwilligung", "PATCH"),
     ("/api/v0/registrierungen/selbst/{registrierung_id:objectid}/einwilligung", "PATCH"),
     ("/api/v0/identitaet/selbst/erasure", "POST"),
+    ("/api/v0/spielbestaetigungen/{spielbestaetigung_id:objectid}/antwort", "POST"),
 ]
 
 # Split by the methods `SAFE_METHODS` names as recording nothing, since a read binding no actor

@@ -47,6 +47,7 @@ from app.api.schiedsrichter.person_router import router as schiedsrichter_person
 from app.api.schiedsrichter.router import router as schiedsrichter_router
 from app.api.schiedsrichter.sweep_router import router as schiedsrichter_sweep_router
 from app.api.sperrliste.admin_router import router as sperrliste_admin_router
+from app.api.spielbestaetigungen.person_router import router as spielbestaetigungen_person_router
 from app.api.spielbestaetigungen.router import router as spielbestaetigungen_router
 from app.api.spielbestaetigungen.sweep_router import router as spielbestaetigungen_sweep_router
 from app.api.spiele.admin_router import router as spiele_admin_router
@@ -182,6 +183,7 @@ PERSON_ROUTERS = (
     schiedsrichter_person_router,
     konto_router,
     identitaet_person_router,
+    spielbestaetigungen_person_router,
 )
 
 # Spelled as `fl_frontend/src/core/api.ts :: FetchOptions` spells its `authType`, the value being

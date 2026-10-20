@@ -12,6 +12,7 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnsichtAnsetzung,
     FLSpielbestaetigungAntwortArt,
     FLSpielbestaetigungGrund,
+    FLSpielbestaetigungSchiedsrichterZustand,
     FLSpielbestaetigungSeite,
     FLSpielbestaetigungTermin,
     FLSpielbestaetigungZustand,
@@ -206,6 +207,11 @@ def _grund_now(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage,
 
 
 def _past_frist(*, spielbestaetigung_raw: Mapping[str, Any], today: str) -> bool:
+    # Never a referee's row: the Einteilung names no deadline, so a referee answers until the day goes by, which
+    # `grund_to_close` judges.
+    if spielbestaetigung_raw["partei"]["art"] == "schiedsrichter":
+        return False
+
     # A link answers on its deadline's own day.
     return today > str(spielbestaetigung_raw["frist"])
 
@@ -282,6 +288,16 @@ def first_press_refusal() -> WriteRefusal:
     )
 
 
+def ansetzung_verlassen_refusal() -> WriteRefusal:
+    """`REQ-ANSETZUNG-004`, built here alone: by the spent-link judgement and by a referee's decline whose fixture write matched nothing."""
+
+    return WriteRefusal(
+        error_code=ANSETZUNG_GEAENDERT,
+        status=HTTPStatus.GONE,
+        message="the fixture's date, time, ground, sides or referee changed since this row asked about it; the new Ansetzung is asked afresh",
+    )
+
+
 def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage, today: str) -> WriteRefusal | None:
     """Why this row takes no answer now, or `None`: answered, closed unanswered, what the close would shut it for, then the deadline.
 
@@ -301,11 +317,7 @@ def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: A
     grund = _grund_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage, today=today)
 
     if grund in GRUENDE_UNGUELTIG:
-        return WriteRefusal(
-            error_code=ANSETZUNG_GEAENDERT,
-            status=HTTPStatus.GONE,
-            message="the fixture's date, time, ground or sides changed since this link was sent; the new Ansetzung is asked afresh",
-        )
+        return ansetzung_verlassen_refusal()
 
     # A day gone by unplayed is a deadline gone by too, the deadline lying before the day: late rather than decided.
     if grund is not None and grund != "spiel_vergangen":
@@ -315,7 +327,14 @@ def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: A
             message="this fixture has been decided, called off or lost a club since this link was sent",
         )
 
-    if grund is not None or _past_frist(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
+    if grund is not None:
+        return WriteRefusal(
+            error_code=ANSETZUNG_FRIST_VORBEI,
+            status=HTTPStatus.GONE,
+            message="this fixture's day has passed, and the date is the administrator's now",
+        )
+
+    if _past_frist(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
         return WriteRefusal(
             error_code=ANSETZUNG_FRIST_VORBEI,
             status=HTTPStatus.GONE,
@@ -478,6 +497,67 @@ def compose_antwort_update(
             }
         }
     }
+
+
+# --- A REFEREE'S OWN ROWS: the panel's read and the referee's answer, signed in rather than by a link.
+
+ANSETZUNG_FREMDE_ZEILE = "REQ-ANSETZUNG-015"
+
+# The close a referee's own decline writes in its transaction: outside `GRUENDE_UNGUELTIG`, so the row reads as
+# their decline, and outside `GRUENDE_ANSWERED_FOR_THE_STAND`, so a re-booking is asked afresh.
+GRUND_EIGENE_ABSAGE: Final = "schiedsrichter_abgelehnt"
+
+
+def find_fremde_zeile_refusal(*, spielbestaetigung_raw: Mapping[str, Any] | None, schiedsrichter_ids: Iterable[Any]) -> WriteRefusal | None:
+    """`REQ-ANSETZUNG-015`: ONE answer for an id naming no row and a row naming somebody else, so no id is confirmed to exist."""
+
+    partei = (spielbestaetigung_raw or {}).get("partei") or {}
+    if partei.get("art") == "schiedsrichter" and partei.get("schiedsrichter_id") in set(schiedsrichter_ids):
+        return None
+
+    return WriteRefusal(
+        error_code=ANSETZUNG_FREMDE_ZEILE,
+        status=HTTPStatus.FORBIDDEN,
+        message="this confirmation names none of the referee records the signed-in address holds",
+    )
+
+
+def compose_schiedsrichter_antwort_update(*, antwort: FLSpielbestaetigungAntwortArt, begruendung: str | None, today: str) -> dict[str, Any]:
+    """A decline closes its own row in the write emptying the referee's slot: left open, it would hold a re-booking of them unasked."""
+
+    gesetzt: dict[str, Any] = {
+        # No holder digest: that is a seat's, and a referee answers as the person their record names.
+        "antwort": {"art": antwort, "am": today, "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": begruendung}
+    }
+    if antwort == "abgelehnt":
+        gesetzt.update(compose_closing_update(grund=GRUND_EIGENE_ABSAGE, today=today)["$set"])
+
+    return {"$set": gesetzt}
+
+
+def build_eigene_zeilen_filter(*, saison_ids: Sequence[str], schiedsrichter_ids: Sequence[Any]) -> dict[str, Any]:
+    """These referees' rows in these seasons, open, answered or closed; the season leads, so the read walks `(saison_id, spiel_id)`."""
+
+    return {"saison_id": {"$in": list(saison_ids)}, **build_referee_rows_filter(schiedsrichter_ids)}
+
+
+def schiedsrichter_zustand_of(
+    *, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage, today: str
+) -> FLSpielbestaetigungSchiedsrichterZustand:
+    """What the panel shows of a referee's own row: the link's state, which no ban and no proposal reaches here."""
+
+    zustand = zustand_of(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage, today=today, gesperrt=False, vorschlag_offen=None)
+    assert zustand != "gesperrt" and zustand != "vorschlag"
+
+    return zustand
+
+
+def eigene_begruendung_of(spielbestaetigung_raw: Mapping[str, Any]) -> str | None:
+    """The reason on the referee's own decline alone: an administrator's entry on their row is the league's record, not theirs to read."""
+
+    antwort = spielbestaetigung_raw.get("antwort") or {}
+
+    return antwort.get("begruendung") if (antwort.get("von") or {}).get("art") == "schiedsrichter" else None
 
 
 # --- The pass: what its mint and its reminder write.

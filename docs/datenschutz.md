@@ -652,8 +652,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`saison_teams.austritt.grund`), a registration's decision reason
   (`registrierungen.entscheidung.grund`) and a club's description (`teams.description`) are typed
   about others and keyed on no address, so no step reaches them: only a name could find them, and a
-  name search would take a namesake's text with it. A club's reason for declining a fixture's date
-  (`spielbestaetigungen.antwort.begruendung`) may name anyone, no name in it being checked; it goes
+  name search would take a namesake's text with it. A club's reason for declining a fixture's date, and
+  a referee's for declining a fixture they were booked on (`spielbestaetigungen.antwort.begruendung`), may name anyone, no name in it being checked; it goes
   with its own writer's erasure (above), so a person it names, a squad pupil most likely, stays in it
   past their own erasure until it is deleted with the season's contact data
   ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)); the reason box's hint asks for
@@ -906,8 +906,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   its day, the answering role and a proposed date stay, naming nobody, and the rows have no clock of
   their own, a season's fixtures being kept as the league's record. A person's erasure or
   Widerspruch takes their part sooner ([section 5](#5-erasure-reaches-everyone-who-asks)). A
-  referee's rows hold the referee's id, no seat and no reason, and stand while the referee's row
-  does, their erasure removing them (`docs/backend/spec.md :: I761`). The published notice tabulates it
+  referee's rows hold the referee's id, no seat, and the reason of a decline the referee gave, and
+  stand while the referee's row does, their erasure removing them (`docs/backend/spec.md :: I761`). The published notice tabulates it
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19.
 - **Timers in the frontend process are what turn those clocks from an intention into a mechanism**
   (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, calling

@@ -384,7 +384,7 @@
             "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "409": {
-            "$ref": "#/components/responses/409.REQ-BOOKING-001.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003"
+            "$ref": "#/components/responses/409.REQ-BOOKING-001.REQ-BOOKING-002.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3281,7 +3281,7 @@
             "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "409": {
-            "$ref": "#/components/responses/409.REQ-BOOKING-001.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003"
+            "$ref": "#/components/responses/409.REQ-BOOKING-001.REQ-BOOKING-002.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -8956,7 +8956,7 @@
     "/api/v0/spielbestaetigungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's fixture confirmation pass",
-        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_vergangen`, so nobody is asked about a past date. A\nteam row closed for a move whose first request went out is answered in `neue_ansetzungen`, a referee's in\n`schiedsrichter_neue_ansetzungen`.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `verworfen`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed.\nEach seat holding an address gets one link, a person holding two seats one link naming both, and the raw tokens are\nanswered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so a request that never went\nout shows as never asked. An open row's occupied seat holding no link -- its holder replaced,\nnewly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows are answered in\n`einteilungen`, with the referee's address and no token. A fixture holding rows about an Ansetzung it has left is asked\non the pass whose close shuts them, so the notice that their links are void goes out first.\n\nThe reminder mints a fresh link per seat on each team row whose deadline lies a reminder's count of days away\n(`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), appended beside the\nlinks already mailed so every one of them answers until the deadline, and stamps the day BEFORE answering: a failed send\ncosts one reminder, never a daily repeat. It passes over each seat whose last mail the provider refused, and reminds no\nrow this pass inserted nor one whose request was stamped today; where this pass's mint gave one of a row's seats a fresh\nlink, that request is the seat's message of the day and the row's other seats are reminded beside it.\n\nA row whose first request was never stamped as sent, inserted on an earlier pass, is asked again on every pass until a\nstamp lands or its deadline passes: a team row in `anfragen`, with a fresh link per seat appended the same way and each\nrefused seat passed over; a referee row in `einteilungen`, unless the provider refused the last mail recorded to the\nreferee's address. A row with nobody left to ask is not asked and stays unstamped, so it shows as never asked.\n\nA seat whose address the ban list holds is minted nothing and has nothing written, so it stays due and a later pass mints\nit once the ban is lifted; each pass logs how many seats it withheld, never which.\n\nEach step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has\ncommitted something owed a message, a later failure -- the stamp of the pass's day on this season included -- is logged\nand the call answers what committed. A row whose write or answer fails is passed over alone, logged by id and counted in\n`fehlgeschlagen`.\n\nA season that is not `active` is passed by whole -- nothing closed, minted, reminded or stamped, every list empty -- so a\nmistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.",
+        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_vergangen`, so nobody is asked about a past date. A\nteam row closed for a move whose first request went out is answered in `neue_ansetzungen`, a referee's in\n`schiedsrichter_neue_ansetzungen`. A referee row closed because the fixture books another referee or none, whose\nEinteilung went out and whose day is today or later, is answered in `schiedsrichter_gewechselt` -- ahead of a move it\nshares a close with, and never for the referee's own decline, which closed its row as it was given.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `verworfen`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed.\nEach seat holding an address gets one link, a person holding two seats one link naming both, and the raw tokens are\nanswered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so a request that never went\nout shows as never asked. An open row's occupied seat holding no link -- its holder replaced,\nnewly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows are answered in\n`einteilungen`, with the referee's address and no token. A fixture holding rows about an Ansetzung it has left is asked\non the pass whose close shuts them, so the notice that their links are void goes out first.\n\nThe reminder mints a fresh link per seat on each team row whose deadline lies a reminder's count of days away\n(`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), appended beside the\nlinks already mailed so every one of them answers until the deadline, and stamps the day BEFORE answering: a failed send\ncosts one reminder, never a daily repeat. It passes over each seat whose last mail the provider refused, and reminds no\nrow this pass inserted nor one whose request was stamped today; where this pass's mint gave one of a row's seats a fresh\nlink, that request is the seat's message of the day and the row's other seats are reminded beside it.\n\nA row whose first request was never stamped as sent, inserted on an earlier pass, is asked again on every pass until a\nstamp lands or its deadline passes: a team row in `anfragen`, with a fresh link per seat appended the same way and each\nrefused seat passed over; a referee row in `einteilungen`, unless the provider refused the last mail recorded to the\nreferee's address. A row with nobody left to ask is not asked and stays unstamped, so it shows as never asked.\n\nA seat whose address the ban list holds is minted nothing and has nothing written, so it stays due and a later pass mints\nit once the ban is lifted; each pass logs how many seats it withheld, never which.\n\nEach step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has\ncommitted something owed a message, a later failure -- the stamp of the pass's day on this season included -- is logged\nand the call answers what committed. A row whose write or answer fails is passed over alone, logged by id and counted in\n`fehlgeschlagen`.\n\nA season that is not `active` is passed by whole -- nothing closed, minted, reminded or stamped, every list empty -- so a\nmistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.",
         "operationId": "sweep_spielbestaetigungen_api_v0_spielbestaetigungen_sweep__saison_id__post",
         "security": [
           {
@@ -10154,6 +10154,117 @@
             "HTTPBearer": []
           }
         ],
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/spielbestaetigungen/selbst": {
+      "get": {
+        "summary": "A signed-in referee's own fixture assignments",
+        "description": "Answer every confirmation row in an `active` season naming one of the signed-in address's live, confirmed referee records.\n\nOpen, answered and closed rows alike, each with the fixture as it stands -- or, where the fixture moved since, the\nAnsetzung the row asked about -- its state, and the referee's own decline reason. No deadline is served: a referee\nanswers until the fixture's day. Ordered with the rows still open first, then by the Ansetzung's day. Nobody's\naddress or seat is served, and no reason an administrator entered on the row.\n\nRefuses an address holding no live, confirmed referee record (`REQ-FUNKTION-001`).",
+        "operationId": "get_eigene_spielbestaetigungen_api_v0_spielbestaetigungen_selbst_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungenSelbstResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/antwort": {
+      "post": {
+        "summary": "Accept or decline one of the signed-in referee's own fixture assignments",
+        "description": "Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.\n\nThe first answer binds, as a club's does. A decline also takes the referee off the fixture, writing its referee\nnull and nothing else of it -- no other fixture is resolved again and no club is told -- and closes the row, so\nbooking the same referee again asks them afresh. The reason is stored as typed, for the administrator, and goes at\nthe season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture\ncarries.\n\nRefuses, in this order: an address holding no live, confirmed referee record (`REQ-FUNKTION-001`); an id naming no\nrow, or a row naming none of those records (`REQ-ANSETZUNG-015`, one answer for both); a row already answered\n(`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club\n(`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the row, or which books another referee\nor none (`REQ-ANSETZUNG-004`); and a fixture whose day has gone by (`REQ-ANSETZUNG-003`). An acceptance is judged\nagain outside the transaction just before answering, so a move or a reassignment landing mid-answer refuses it\nrather than letting it stand.\n\n**The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name\non the public fixture, and a decline takes it off.",
+        "operationId": "post_schiedsrichter_antwort_api_v0_spielbestaetigungen__spielbestaetigung_id__antwort_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spielbestaetigung_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spielbestaetigung Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielbestaetigungSchiedsrichterAntwortPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielbestaetigungSchiedsrichterAntwortResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-ANSETZUNG-015.REQ-AUTH-008.REQ-FUNKTION-001"
+          },
+          "410": {
+            "$ref": "#/components/responses/410.REQ-ANSETZUNG-002.REQ-ANSETZUNG-003.REQ-ANSETZUNG-004.REQ-ANSETZUNG-005.REQ-ANSETZUNG-009"
+          },
+          "429": {
+            "$ref": "#/components/responses/429.REQ-DROSSELUNG-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
         "x-fl-tier": "admin"
       }
     },
@@ -24409,6 +24520,128 @@
         "title": "FLSpielbestaetigungAntwortResponse",
         "description": "What the answer recorded: its way, its role, and the answering club's own proposal, which no view of the link serves.\n\nSo a page shows that proposal from this response, never from a re-read. No receipt is mailed off it."
       },
+      "FLSpielbestaetigungSchiedsrichterAntwortPayload": {
+        "properties": {
+          "antwort": {
+            "type": "string",
+            "enum": [
+              "zugesagt",
+              "abgelehnt"
+            ],
+            "title": "Antwort"
+          },
+          "begruendung": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "minLength": 1,
+                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Begruendung"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "antwort",
+          "begruendung"
+        ],
+        "title": "FLSpielbestaetigungSchiedsrichterAntwortPayload",
+        "description": "A referee's answer about one row naming them: a decline gives a reason, which the administrator reads."
+      },
+      "FLSpielbestaetigungSchiedsrichterAntwortResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spielbestaetigung_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spielbestaetigung Id"
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "zugesagt",
+              "abgelehnt"
+            ],
+            "title": "Zustand"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielbestaetigung_id",
+          "zustand"
+        ],
+        "title": "FLSpielbestaetigungSchiedsrichterAntwortResponse"
+      },
+      "FLSpielbestaetigungSelbst": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id"
+          },
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "schiedsrichter_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Schiedsrichter Id"
+          },
+          "ansetzung": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungAnsichtAnsetzung"
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "gueltig",
+              "zugesagt",
+              "abgelehnt",
+              "abgelaufen",
+              "ungueltig"
+            ],
+            "title": "Zustand"
+          },
+          "begruendung": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Begruendung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "spiel_id",
+          "schiedsrichter_id",
+          "ansetzung",
+          "zustand",
+          "begruendung"
+        ],
+        "title": "FLSpielbestaetigungSelbst",
+        "description": "One of the signed-in referee's rows, as their panel lists it."
+      },
       "FLSpielbestaetigungSweepAnfrage": {
         "properties": {
           "spielbestaetigung_id": {
@@ -24691,6 +24924,13 @@
             "type": "array",
             "title": "Schiedsrichter Neue Ansetzungen"
           },
+          "schiedsrichter_gewechselt": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigungSweepSchiedsrichterGewechselt"
+            },
+            "type": "array",
+            "title": "Schiedsrichter Gewechselt"
+          },
           "geschlossen": {
             "type": "integer",
             "title": "Geschlossen"
@@ -24708,6 +24948,7 @@
           "einteilungen",
           "neue_ansetzungen",
           "schiedsrichter_neue_ansetzungen",
+          "schiedsrichter_gewechselt",
           "geschlossen",
           "fehlgeschlagen"
         ],
@@ -24752,6 +24993,46 @@
         ],
         "title": "FLSpielbestaetigungSweepSaisonsResponse",
         "description": "The `active` seasons a pass visits, and the day a pass last ran over any of them."
+      },
+      "FLSpielbestaetigungSweepSchiedsrichterGewechselt": {
+        "properties": {
+          "spielbestaetigung_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spielbestaetigung Id"
+          },
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "team1_name": {
+            "type": "string",
+            "title": "Team1 Name"
+          },
+          "team2_name": {
+            "type": "string",
+            "title": "Team2 Name"
+          },
+          "alt": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungTermin"
+          },
+          "address": {
+            "type": "string",
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielbestaetigung_id",
+          "spiel_id",
+          "team1_name",
+          "team2_name",
+          "alt",
+          "address"
+        ],
+        "title": "FLSpielbestaetigungSweepSchiedsrichterGewechselt",
+        "description": "A referee row closed because its referee was taken off the fixture after their Einteilung went out: the slot they were told of."
       },
       "FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung": {
         "properties": {
@@ -24888,6 +25169,31 @@
           "uhrzeit"
         ],
         "title": "FLSpielbestaetigungVorschlagPayload"
+      },
+      "FLSpielbestaetigungenSelbstResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spielbestaetigungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielbestaetigungSelbst"
+            },
+            "type": "array",
+            "title": "Spielbestaetigungen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielbestaetigungen"
+        ],
+        "title": "FLSpielbestaetigungenSelbstResponse"
       },
       "FLSpieleActionRequiredResponse": {
         "properties": {
@@ -27795,6 +28101,31 @@
           }
         }
       },
+      "403.REQ-ANSETZUNG-015.REQ-AUTH-008.REQ-FUNKTION-001": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-ANSETZUNG-015",
+                        "REQ-AUTH-008",
+                        "REQ-FUNKTION-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "403.REQ-AUTH-006": {
         "description": "Forbidden",
         "content": {
@@ -28892,7 +29223,7 @@
           }
         }
       },
-      "409.REQ-BOOKING-001.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003": {
+      "409.REQ-BOOKING-001.REQ-BOOKING-002.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -28906,6 +29237,7 @@
                     "error_code": {
                       "enum": [
                         "REQ-BOOKING-001",
+                        "REQ-BOOKING-002",
                         "REQ-CLASH-001",
                         "REQ-DATE-001",
                         "REQ-ELIGIBILITY-001",
