@@ -37,7 +37,7 @@ export const FLSitzBestaetigtSchema = z.object({
   rollen: z.array(FLKontaktRolleSchema).nonempty(),
   // The label whose words the account page shows: the backend names it, so the page never decides it
   // from the record's shape.
-  text_version: z.string().nullable(),
+  text_version: z.string(),
   bestaetigt_am: CustomDateStringSchema.nullable(),
   // The floor that confirmation page named, served so the two tiers cannot name different ages.
   mindestalter: z.number().int(),
@@ -98,7 +98,7 @@ export const FLKontoRegistrierungEinwilligungSchema = z.object({
   team_name: z.string().nullable(),
   saison_id: z.string(),
   // For `FLKontoSpielerEinwilligungSchema`'s reason.
-  bestaetigt_text_version: z.string().nullable(),
+  bestaetigt_text_version: z.string(),
   umfang: FLEinwilligungSchema.shape.umfang.nullable(),
   medien: z.boolean().nullable(),
   nachweis_stand: FLEinwilligungStandSchema,
@@ -125,7 +125,7 @@ export const FLKontoSpielerEinwilligungSchema = FLSpielerSelbstSchema.extend({
   einwilligung: FLEinwilligungSchema,
   // The label whose words the page shows beside the control: the backend names which stored label the
   // person confirmed, so the page never decides it from the record's shape.
-  bestaetigt_text_version: z.string().nullable(),
+  bestaetigt_text_version: z.string(),
   // What the consent press sends back as its precondition, so a press from a page another tab has since
   // moved is refused rather than undoing that tab's choice.
   nachweis_stand: FLEinwilligungStandSchema,
@@ -145,7 +145,7 @@ export type FLKontoSpielerEinwilligung = z.infer<typeof FLKontoSpielerEinwilligu
 export const FLKontoSchiedsrichterEinwilligungSchema = FLSchiedsrichterSelbstSchema.extend({
   inactive_since: CustomDateStringSchema.nullable(),
   einwilligung: FLEinwilligungSchema,
-  bestaetigt_text_version: z.string().nullable(),
+  bestaetigt_text_version: z.string(),
   nachweis_stand: FLEinwilligungStandSchema,
   erteilbar: z.boolean(),
   medien_angeboten: z.boolean(),

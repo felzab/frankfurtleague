@@ -314,7 +314,6 @@ function KontaktpersonFields({
   label: string;
   /** Null where the seat holds nobody, which is a saveable state rather than a half-finished one. */
   person: KontaktpersonDraft | null;
-  /** The row stores a person on this seat, so a record naming no one who seated them predates the field. */
   /** The seat's link where one went out, read out above its re-send as the referee editor reads out its own. */
   link: FLSaisonTeamBestaetigungAnsicht | null;
   /** The change pending at the stored seat's address, which this page shows and never moves. */

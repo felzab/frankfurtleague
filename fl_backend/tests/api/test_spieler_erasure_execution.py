@@ -81,7 +81,7 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
 
 
 def person_row(vorname: str) -> dict[str, Any]:
-    """A pupil carrying the consent record stored before the registration flow existed, and an address the erasure is keyed on.
+    """A pupil as their admission writes them, with an address the erasure is keyed on.
 
     Seeded rather than written through a route: the one route writing a person is the admission, which needs a registration.
     """

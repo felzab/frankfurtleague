@@ -497,7 +497,7 @@ _BEWERBUNG_TRIKOT = _object(
     required=("vorhandener_satz", "wunschfarbe"),
     properties={
         "vorhandener_satz": {"bsonType": "string"},
-        "wunschfarbe": {"bsonType": _STRING_OR_NULL, "enum": [*_TRIKOT_FARBEN, None]},
+        "wunschfarbe": {"bsonType": "string", "enum": _TRIKOT_FARBEN},
     },
 )
 

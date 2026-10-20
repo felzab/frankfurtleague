@@ -1040,42 +1040,6 @@ class TestTheDatabaseHoldsAClubWithNoWebsite:
         assert on_a_league(mongo_replica_set_url, body) == "rejected"
 
 
-class TestTheDatabaseStillHoldsAnApplicationWithNoColour:
-    """`wunschfarbe` narrowed on the PAYLOAD alone, so the stored shape did not move.
-
-    A validator or read model narrowed with it would refuse a row the triage has to show.
-    """
-
-    def test_a_stored_null_colour_is_accepted_and_reads_back_through_the_model(self, mongo_replica_set_url: str):
-        """Read back through `FLBewerbung`, not with a raw `find_one`: parsing is where a narrowed model would fail."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            # The colour an administrator has not assigned. The payload admits no null here, so
-            # only a stored row reaches the read models carrying one.
-            document = _stored_application(trikot={"vorhandener_satz": "16 rote Trikots", "wunschfarbe": None})
-            created = await database[Collection.BEWERBUNGEN].insert_one(document)
-            stored = await database[Collection.BEWERBUNGEN].find_one({"_id": created.inserted_id})
-
-            assert stored is not None
-            return FLBewerbung(**stored).trikot.wunschfarbe
-
-        assert on_a_league(mongo_replica_set_url, body) is None
-
-    def test_the_key_is_still_required_even_when_null(self, mongo_replica_set_url: str):
-        """Nullable, not optional: `required` names the key on the stored shape."""
-
-        async def body(database: AsyncDatabase) -> str:
-            document = _stored_application(trikot={"vorhandener_satz": "16 rote Trikots"})
-            try:
-                await database[Collection.BEWERBUNGEN].insert_one(document)
-            except OperationFailure as failure:
-                assert failure.code == DOCUMENT_VALIDATION_FAILED, f"expected a validation failure, got {failure.code}"
-                return "rejected"
-            return "accepted"
-
-        assert on_a_league(mongo_replica_set_url, body) == "rejected"
-
-
 class TestAKuerzelARetiredClubStillHolds:
     """The write path's lookup spans retired clubs, because `uniq_shorthand` does.
 

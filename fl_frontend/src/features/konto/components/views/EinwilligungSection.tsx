@@ -34,9 +34,8 @@ import type { Fuellung } from "../forms/EinwilligungForm/kontoWorte";
 /** The values every confirmation page names alike: the league's address and the erasure control's own name. */
 const KONSTANTEN: Fuellung = FESTE_WERTE;
 
-/** The words a record's person confirmed, or `null` where the record names no label the registry holds. */
-async function bestaetigt(textVersion: string | null, fuellung: Fuellung) {
-  if (textVersion === null) return null;
+/** The words a record's person confirmed, or `null` where the registry holds no label of that name. */
+async function bestaetigt(textVersion: string, fuellung: Fuellung) {
   const fassung = await getEinwilligungFassung(textVersion);
 
   return fassung === null ? null : bestaetigteWorte(fassung, fuellung);

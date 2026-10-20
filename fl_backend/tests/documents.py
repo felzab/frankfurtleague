@@ -237,6 +237,8 @@ def spieler_document(spieler_id: Any, vorname: str, nachname: str | None, **fiel
         "_id": spieler_id,
         "vorname": vorname,
         "nachname": nachname,
+        # One per id, folded as the admission stores it, so two seeded persons never meet on `uniq_spieler_email`.
+        "email": f"{spieler_id}@schule.example".lower(),
         "geburtsdatum": "2009-05-04",
         "einwilligung": copy.deepcopy(dict(EINWILLIGUNG)),
         "inactive_since": None,

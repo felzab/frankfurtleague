@@ -130,7 +130,7 @@ export const FLSpielerWithMembershipsSchema = z.object({
   einwilligung: FLEinwilligungSchema,
   // The sign-in address, folded. No save carries it: it moves through its own link alone, so a field
   // bound to this key in the save's draft would offer a write the API refuses.
-  email: z.string().nullable(),
+  email: z.string(),
   // The change pending at that address, whichever record's page started it, for the address tool's link.
   adresswechsel_id: CustomObjectIdStringSchema.nullable(),
   memberships: z.array(FLSpielerMembershipSchema),

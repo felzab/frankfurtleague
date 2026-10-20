@@ -9,7 +9,8 @@ waiting time moves everything the replaced address holds in one write. The pass'
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Mapping
+from collections.abc import Awaitable, Iterator, Mapping
+from contextlib import contextmanager
 from datetime import UTC, timedelta
 from typing import Any, cast
 
@@ -130,8 +131,19 @@ def on_a_person(url: str, body: Any, **seeded: Any) -> Any:
     return _on_a_person(url, DATABASE_NAME, body, **seeded)
 
 
-def journal_lines(caplog: pytest.LogCaptureFixture) -> list[Any]:
-    return [parse_line(record.getMessage()) for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
+@contextmanager
+def journal_of(caplog: pytest.LogCaptureFixture) -> Iterator[list[Any]]:
+    """The journal lines its block alone writes, filled as it closes.
+
+    `caplog` keeps the whole case's records, and once an earlier module's app build set the journal logger to INFO, the
+    lines written before the block are among them.
+    """
+    lines: list[Any] = []
+    with caplog.at_level(logging.INFO):
+        first = len(caplog.records)
+        yield lines
+        written = caplog.records[first:]
+    lines.extend(parse_line(record.getMessage()) for record in written if record.getMessage().startswith(JOURNAL_TOKEN))
 
 
 class TestTheAccountPagesRead:
@@ -287,7 +299,7 @@ class TestThePersonsStart:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await administrator_starts(database, client, grund=GRUND, email=FOREIGN_EMAIL)
-            with caplog.at_level(logging.INFO):
+            with journal_of(caplog) as journal:
                 second = await start(database, client)
 
             return (
@@ -296,14 +308,15 @@ class TestThePersonsStart:
                 await change(database, first.id),
                 await view(database, client, first.token),
                 await where_held(database, FOREIGN_EMAIL, folded=True),
+                journal,
             )
 
-        first, second, replaced, seen, held = on_a_person(mongo_replica_set_url, body)
+        first, second, replaced, seen, held, journal = on_a_person(mongo_replica_set_url, body)
 
         assert (replaced["beendet"]["art"], replaced["adresse"], replaced["email"], replaced["grund"]) == ("ersetzt", None, None, None)
         assert (seen.ansicht.zustand, seen.ansicht.art) == ("beendet", "ersetzt")
         assert held == {FOREIGN_EMAIL: []}
-        assert [(line.art, line.record_id) for line in journal_lines(caplog)] == [("adresswechsel_verworfen", first.id)]
+        assert [(line.art, line.record_id) for line in journal] == [("adresswechsel_verworfen", first.id)]
         assert second.id != first.id
 
 
@@ -378,12 +391,12 @@ class TestTheConfirmation:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await everything(database)
             minted = await start(database, client)
-            with caplog.at_level(logging.INFO):
+            with journal_of(caplog) as journal:
                 answered = await answer(database, client, minted.token)
 
-            return before, minted, answered, await everything(database), await change(database, minted.id)
+            return before, minted, answered, await everything(database), await change(database, minted.id), journal
 
-        before, minted, answered, after, record = on_a_person(mongo_replica_set_url, body)
+        before, minted, answered, after, record, journal = on_a_person(mongo_replica_set_url, body)
 
         assert answered.mitteilung is not None
         assert answered.mitteilung.model_dump() == {"bisherige_email": EMAIL, "email": NEW_EMAIL, "vorname": "Lenore", "weg": "konto"}
@@ -402,7 +415,7 @@ class TestTheConfirmation:
         # The tombstone holds no address and answers how the change ended.
         assert (record["adresse"], record["email"], record["beendet"]["art"]) == (None, None, "wirksam")
         assert record["token_hash"] == hash_token(minted.token)
-        [line] = [line for line in journal_lines(caplog) if line.art == "adresswechsel_wirksam"]
+        [line] = [line for line in journal if line.art == "adresswechsel_wirksam"]
         assert (line.record_id, line.zuvor) == (minted.id, loeschung_journal_hash(EMAIL, schluessel=KEY))
 
     def test_a_change_started_with_a_reason_is_confirmed_and_waits_for_the_pass(self, mongo_replica_set_url: str):
@@ -430,32 +443,32 @@ class TestTheConfirmation:
             await database[Collection.SPIELER].delete_one({"_id": SPIELER_OID})
             for collection in (Collection.SCHIEDSRICHTER, Collection.SAISON_TEAMS, Collection.BEWERBUNGEN, Collection.REGISTRIERUNGEN):
                 await database[collection].delete_many({})
-            with caplog.at_level(logging.INFO):
+            with journal_of(caplog) as journal:
                 code = await refused_code(answer(database, client, minted.token))
 
-            return code, await change(database, minted.id)
+            return code, await change(database, minted.id), journal
 
-        code, record = on_a_person(mongo_replica_set_url, body)
+        code, record, journal = on_a_person(mongo_replica_set_url, body)
 
         assert (code, record["beendet"]["art"], record["email"]) == (ADRESSWECHSEL_BEENDET, "verworfen", None)
-        assert [line.art for line in journal_lines(caplog)] == ["adresswechsel_verworfen"]
+        assert [line.art for line in journal] == ["adresswechsel_verworfen"]
 
     def test_the_decline_ends_it_and_leaves_its_address_nowhere(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)
             await stop_here(database, client)
             minted = await start(database, client)
-            with caplog.at_level(logging.INFO):
+            with journal_of(caplog) as journal:
                 answered = await answer(database, client, minted.token, "abgelehnt", germany_now=AFTER_THE_DEADLINE)
 
-            return answered, await change(database, minted.id), await where_held(database, NEW_EMAIL, folded=True)
+            return answered, await change(database, minted.id), await where_held(database, NEW_EMAIL, folded=True), journal
 
-        answered, record, held = on_a_person(mongo_replica_set_url, body)
+        answered, record, held, journal = on_a_person(mongo_replica_set_url, body)
 
         assert (answered.antwort, answered.mitteilung) == ("abgelehnt", None)
         assert record["beendet"]["art"] == "abgelehnt"
         assert held == {NEW_EMAIL: []}
-        assert [line.art for line in journal_lines(caplog)] == ["adresswechsel_abgelehnt"]
+        assert [line.art for line in journal] == ["adresswechsel_abgelehnt"]
 
 
 class TestTheConfirmationsRefusals:
@@ -515,20 +528,25 @@ class TestTheStop:
     def test_it_ends_the_change_and_leaves_its_address_nowhere(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, by: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)
-            with caplog.at_level(logging.INFO):
+            with journal_of(caplog) as journal:
                 if by == "link":
                     await stop_by_link(database, client, minted.stopp_token)
                 else:
                     await stop_here(database, client)
 
-            return await change(database, minted.id), await where_held(database, NEW_EMAIL, folded=True), await read(database, client)
+            return (
+                await change(database, minted.id),
+                await where_held(database, NEW_EMAIL, folded=True),
+                await read(database, client),
+                journal,
+            )
 
-        record, held, seen = on_a_person(mongo_replica_set_url, body)
+        record, held, seen, journal = on_a_person(mongo_replica_set_url, body)
 
         assert record["beendet"]["art"] == "gestoppt"
         assert held == {NEW_EMAIL: []}
         assert seen.offen is None
-        assert [line.art for line in journal_lines(caplog)] == ["adresswechsel_gestoppt"]
+        assert [line.art for line in journal] == ["adresswechsel_gestoppt"]
 
     def test_with_nothing_pending_the_account_page_answers_not_found(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -714,15 +732,15 @@ class TestTheTool:
             first = await administrator_starts(database, client, grund=GRUND)
             later = await start(database, client)
             stale = await refused_code(discard(database, client, first.id))
-            with caplog.at_level(logging.INFO):
+            with journal_of(caplog) as journal:
                 await discard(database, client, later.id)
-            return stale, await change(database, later.id), await where_held(database, NEW_EMAIL, folded=True)
+            return stale, later.id, await change(database, later.id), await where_held(database, NEW_EMAIL, folded=True), journal
 
-        stale, record, held = on_a_person(mongo_replica_set_url, body)
+        stale, later, record, held, journal = on_a_person(mongo_replica_set_url, body)
 
         assert (stale, record["beendet"]["art"]) == (ADRESSWECHSEL_BEENDET, "verworfen")
         assert held == {NEW_EMAIL: []}
-        assert [line.art for line in journal_lines(caplog)] == ["adresswechsel_verworfen"]
+        assert [(line.art, line.record_id) for line in journal] == [("adresswechsel_verworfen", later)]
 
 
 class TestTheApproval:
@@ -1186,14 +1204,14 @@ class TestTheWaitingTime:
             started = await administrator_starts(database, client, grund=GRUND)
             await answer(database, client, started.token)
             await ban_through_the_route(database, client, email=EMAIL, grund="Falschangaben", von="admin@frankfurtleague.de", today=TODAY)
-            with caplog.at_level(logging.INFO):
+            with journal_of(caplog) as journal:
                 swept = await sweep(database, client, germany_now=AFTER_THE_WAIT)
-            return started.id, swept
+            return started.id, swept, journal
 
-        started, swept = on_a_person(mongo_replica_set_url, body)
+        started, swept, journal = on_a_person(mongo_replica_set_url, body)
 
         assert [entry.email for entry in swept.verworfen] == [NEW_EMAIL]
-        assert [(line.art, line.record_id, line.person_hash) for line in journal_lines(caplog)] == [
+        assert [(line.art, line.record_id, line.person_hash) for line in journal] == [
             ("adresswechsel_verworfen", started, loeschung_journal_hash(NEW_EMAIL, schluessel=KEY))
         ]
 

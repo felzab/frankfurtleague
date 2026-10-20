@@ -280,13 +280,7 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
               ]}
             />
           ) : (
-            // What this page asked and nothing the person's record holds: a date only where one was typed here.
-            <>
-              {stand.gespeichert.geburtsdatum !== null && (
-                <GespeicherteAngaben zeilen={[{ label: "Geburtsdatum", wert: formatSpielDatum(stand.gespeichert.geburtsdatum) }]} />
-              )}
-              <p className={ABSATZ_CLASSES}>Deine gespeicherten Angaben gelten weiter. Du siehst sie in Deinem Konto.</p>
-            </>
+            <p className={ABSATZ_CLASSES}>Deine gespeicherten Angaben gelten weiter. Du siehst sie in Deinem Konto.</p>
           )}
           <p className={ABSATZ_CLASSES}>
             Dein Team entscheidet jetzt über die Aufnahme in den Kader. Du musst nichts weiter tun und bekommst Bescheid.

@@ -799,9 +799,9 @@ class TestWhatTheSubmissionPayloadRefuses:
     def test_the_read_model_takes_a_stored_value_over_the_ceiling(self):
         """The bound is the WRITE side's alone: refusing on read would 500 the triage list over one row (`docs/backend/spec.md :: I36`)."""
 
-        stored = {"vorhandener_satz": "T" * (BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH * 2), "wunschfarbe": None}
+        stored = {"vorhandener_satz": "T" * (BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH * 2), "wunschfarbe": "blau"}
 
-        assert FLBewerbungTrikot.model_validate(stored).wunschfarbe is None
+        assert len(FLBewerbungTrikot.model_validate(stored).vorhandener_satz) == BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH * 2
 
     def test_a_padded_kuerzel_is_trimmed_to_fit_rather_than_refused(self):
         """The strip runs before the width is counted, as it does on every payload string carrying a floor."""
@@ -1164,11 +1164,7 @@ class TestASchoolWithNoWebsite:
 
 
 class TestTheColourTheSchoolWants:
-    """Required on the PUBLIC payload and nullable on the stored shape.
-
-    An applicant names the colour they want; the administrator assigning the real one at acceptance
-    may leave it open.
-    """
+    """Required on the payload and on the stored shape alike: the applicant names the colour they want."""
 
     @pytest.mark.parametrize(
         "trikot",
@@ -1197,11 +1193,6 @@ class TestTheColourTheSchoolWants:
 
         with pytest.raises(ValidationError):
             FLPostBewerbungPayload.model_validate(submission(trikot={"vorhandener_satz": "", "wunschfarbe": "zorbanaxgruen"}))
-
-    def test_a_stored_application_naming_no_colour_still_reads(self):
-        """The direction that ships silently: the triage list parses every stored application through this model."""
-
-        assert FLBewerbungTrikot.model_validate({"vorhandener_satz": "", "wunschfarbe": None}).wunschfarbe is None
 
 
 def stored_application(**overrides: Any) -> dict[str, Any]:
