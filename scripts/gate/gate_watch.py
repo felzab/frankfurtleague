@@ -11,6 +11,7 @@ as a signal to a POSIX group would, once anything that started the gate is gone.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import ctypes
 import os
 import signal
@@ -167,24 +168,40 @@ def _job_pids(job: int) -> list[int]:
         capacity = max(2 * capacity, assigned + 16)
 
 
-def wind_down(job: int, kill: Path, pools: set[int]) -> int:
+def _ended(process: int) -> bool:
+    return kernel32.WaitForSingleObject(process, 0) == WAIT_OBJECT_0
+
+
+def _pools_named(registry: Path) -> set[int]:
+    """Each pool the registry names, and none once the gate's own trap has removed it."""
+    try:
+        return {int(line) for line in registry.read_bytes().split() if line.isdigit()}
+    except FileNotFoundError:
+        return set()
+
+
+def wind_down(job: int, kill: Path, registry: Path) -> int:
     """Stop the job as SIGTERM stops a POSIX group; answer how many signalled shells outlived `GRACE_S`.
 
     MSYS processes take SIGTERM and natives end; a pool outlives its units as on POSIX, or its shell
     reclaims the directory they still write.
     """
+    pools = _pools_named(registry)
     parents = _windows_parents()
     members: dict[int, tuple[int, bool]] = {}
     try:
         for pid in _job_pids(job):
             handle = kernel32.OpenProcess(MEMBER_ACCESS, False, pid)
-            inside = wintypes.BOOL()
-            # Gone since the listing, or its pid taken by a process the job does not hold.
-            if not handle or not kernel32.IsProcessInJob(handle, job, ctypes.byref(inside)) or not inside:
-                if handle:
-                    kernel32.CloseHandle(handle)
+            if not handle:
                 continue
-            members[pid] = (handle, (image_of(handle).parent / MSYS_RUNTIME).is_file())
+            inside = wintypes.BOOL()
+            # Ended since the listing, unreadable, or its pid taken by a process outside the job: the
+            # job's own end takes it either way, and a crash here would end nothing.
+            with contextlib.suppress(OSError):
+                if kernel32.IsProcessInJob(handle, job, ctypes.byref(inside)) and inside and not _ended(handle):
+                    members[pid] = (handle, (image_of(handle).parent / MSYS_RUNTIME).is_file())
+                    continue
+            kernel32.CloseHandle(handle)
         # Up to the forked copy of bash running it and no further, the shell above that being the one
         # whose trap is owed: a launcher between, as a virtualenv's `python.exe` is, ended first would
         # be the pool's ending.
@@ -212,7 +229,7 @@ def wind_down(job: int, kill: Path, pools: set[int]) -> int:
         deadline = time.monotonic() + GRACE_S
         while running and time.monotonic() < deadline:
             time.sleep(GRACE_POLL_S)
-            running = [handle for handle in running if kernel32.WaitForSingleObject(handle, 0) != WAIT_OBJECT_0]
+            running = [handle for handle in running if not _ended(handle)]
         return len(running)
     finally:
         for handle, _ in members.values():
@@ -349,16 +366,18 @@ def main() -> int:
         sys.stdout.buffer.write(f"{ARMED}\t{registry}\n".encode())
         sys.stdout.flush()
 
-        # Ended either way, the gate leaves nothing behind.
         ended = first_to_end(gate, interrupted, *launchers)
-        if ended != gate:
-            # An interrupt's closing statement is the gate's own (`scripts/lib/_lib.sh :: on_interrupt`).
-            if ended != interrupted:
-                print(stopped(launchers[ended], before_running=False), file=sys.stderr, flush=True)
-            outlived = wind_down(job, kill, {int(pid) for pid in registry.read_bytes().split()})
-            if outlived:
-                print(outlasted(outlived), file=sys.stderr, flush=True)
-        _checked(kernel32.TerminateJobObject(job, EXIT_INTERRUPTED), "TerminateJobObject")
+        # Ended either way, the gate leaves nothing behind, however the wind-down fails.
+        try:
+            if ended != gate:
+                # An interrupt's closing statement is the gate's own (`scripts/lib/_lib.sh :: on_interrupt`).
+                if ended != interrupted:
+                    print(stopped(launchers[ended], before_running=False), file=sys.stderr, flush=True)
+                outlived = wind_down(job, kill, registry)
+                if outlived:
+                    print(outlasted(outlived), file=sys.stderr, flush=True)
+        finally:
+            _checked(kernel32.TerminateJobObject(job, EXIT_INTERRUPTED), "TerminateJobObject")
     finally:
         registry.unlink(missing_ok=True)
         # Held to here: a routine collected while registered is a call into freed memory.

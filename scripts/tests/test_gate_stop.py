@@ -337,11 +337,82 @@ else:
 REFUSED: Final = 2
 
 
-def test_the_watcher_tells_an_ended_launcher_from_one_it_cannot_see_or_one_a_reused_pid_names() -> None:
-    """Read as ended, a launcher the account cannot open stopped the gate before it ran, naming a launcher that never ended."""
+def _drive_watcher(snippet: str) -> None:
+    """One case against the watcher's own functions on Windows, and its refusal to load anywhere else."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     if WINDOWS:
-        done = subprocess.run((sys.executable, "-c", WATCHED, str(WATCH.parent)), capture_output=True, text=True, check=False)
+        done = subprocess.run((sys.executable, "-c", snippet, str(WATCH.parent), BASH), capture_output=True, text=True, check=False)
         assert done.returncode == 0, done.stdout + done.stderr
     else:
         done = subprocess.run((sys.executable, str(WATCH), "--gate", "1"), capture_output=True, text=True, check=False)
         assert done.returncode == REFUSED and "a POSIX gate is stopped by a signal" in done.stderr, done.stdout + done.stderr
+
+
+def test_the_watcher_tells_an_ended_launcher_from_one_it_cannot_see_or_one_a_reused_pid_names() -> None:
+    """Read as ended, a launcher the account cannot open stopped the gate before it ran, naming a launcher that never ended."""
+    _drive_watcher(WATCHED)
+
+
+# `scripts/gate/gate_watch.py :: wind_down` over a listing one of whose members has ended since, as a
+# member does between the listing and its reads, and a registry the gate's own trap has removed.
+ENDED_MEMBER: Final = """import subprocess, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import gate_watch as watch
+kernel32 = watch.kernel32
+job = kernel32.CreateJobObjectW(None, None)
+def joined():
+    process = subprocess.Popen((sys.executable, "-c", "import time; time.sleep(60)"), stdin=subprocess.DEVNULL)
+    handle = kernel32.OpenProcess(watch.GATE_ACCESS, False, process.pid)
+    assert kernel32.AssignProcessToJobObject(job, handle)
+    kernel32.CloseHandle(handle)
+    return process
+ended, running = joined(), joined()
+listed = watch._job_pids(job)
+# Its Popen keeps its handle, as a parent waiting on it does, so its pid still opens.
+ended.kill()
+ended.wait()
+watch._job_pids = lambda _: listed
+try:
+    outlived = watch.wind_down(job, Path(sys.argv[2]).parent / "kill.exe", Path(tempfile.mkdtemp()) / "removed")
+    assert outlived == 0, outlived
+    assert running.wait(timeout=30) == watch.EXIT_INTERRUPTED, "the member still running was never ended"
+finally:
+    running.kill()
+"""
+
+
+def test_a_member_ending_while_the_stop_reads_the_job_never_loses_the_stop() -> None:
+    """Read as a crash, the watcher ended nothing, and a gate interrupted in its start-up ran on to a green verdict."""
+    _drive_watcher(ENDED_MEMBER)
+
+
+# `scripts/gate/gate_watch.py :: main` whose wind-down fails: the gate a sleeper of MSYS's own, as
+# the watcher reads `kill.exe` beside it, and the interrupt the first thing to end.
+FAILED_WIND_DOWN: Final = """import subprocess, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import gate_watch as watch
+gate = subprocess.Popen((str(Path(sys.argv[2]).parent / "sleep.exe"), "60"), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+watch.first_to_end = lambda *processes: processes[1]
+def failing(job, kill, registry):
+    raise OSError("a wind-down that failed")
+watch.wind_down = failing
+sys.argv = ["gate_watch", "--gate", str(gate.pid)]
+try:
+    watch.main()
+except OSError:
+    pass
+else:
+    raise SystemExit("the wind-down's failure was never raised")
+try:
+    gate.wait(timeout=30)
+except subprocess.TimeoutExpired:
+    gate.kill()
+    raise SystemExit("a wind-down that failed left the job running") from None
+"""
+
+
+def test_a_wind_down_that_fails_still_ends_the_job() -> None:
+    """The graceful phase is a courtesy; the job's end is the stop, and skipped it leaves the gate running."""
+    _drive_watcher(FAILED_WIND_DOWN)
