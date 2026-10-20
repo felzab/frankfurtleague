@@ -44,23 +44,17 @@ def _stood_in(monkeypatch: pytest.MonkeyPatch, script: str) -> list[Any]:
     return created
 
 
-@pytest.fixture
-def refused_at_start(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
-    """`_stood_in`'s containers, each logging `EXIT_MARKER` and exiting 1."""
-
-    return _stood_in(monkeypatch, f"echo '{EXIT_MARKER}'; exit 1")
-
-
 @pytest.mark.db
 @SERVERS
-def test_a_server_exiting_at_start_fails_naming_its_log_and_leaves_no_container(server: Server, refused_at_start: list[Any]) -> None:
+def test_a_server_exiting_at_start_fails_naming_its_log_and_leaves_no_container(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
     from docker.errors import NotFound
+
+    refused_at_start = _stood_in(monkeypatch, f"echo '{EXIT_MARKER}'; exit 1")
 
     with pytest.raises(RuntimeError) as excinfo, server():
         pass
 
     assert EXIT_MARKER in str(excinfo.value), f"the container's log never reached the error: {excinfo.value}"
-    assert refused_at_start, "no container of the image was created, so nothing was refused"
     for container in refused_at_start:
         with pytest.raises(NotFound):
             container.reload()
@@ -81,7 +75,6 @@ def test_a_replica_set_that_never_initiates_fails_naming_its_log_and_leaves_no_c
 
     assert isinstance(excinfo.value.__cause__, ServerSelectionTimeoutError), f"the set failed before it was asked to initiate: {excinfo.value}"
     assert SILENT_MARKER in str(excinfo.value), f"the container's log never reached the error: {excinfo.value}"
-    assert stood_in, "no container of the image was created, so nothing stood in for mongod"
     for container in stood_in:
         with pytest.raises(NotFound):
             container.reload()

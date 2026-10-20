@@ -303,8 +303,8 @@ TMPFS_DATA_OPTIONS = "size=1g"
 # is ENOSPC, then `WT_PANIC`, then a dead container.
 REPLICA_SET_OPLOG_MB = 128
 
-# In both `_standalone_mongod`'s and `_replica_set_mongod`'s url: a streaming monitor's close leaves
-# no TIME_WAIT on Windows, so its port is reused at once, and under load WSL's mirrored loopback
+# In the urls `_standalone_mongod` and `_elected` build: a streaming monitor's close leaves no
+# TIME_WAIT on Windows, so its port is reused at once, and under load WSL's mirrored loopback
 # relay stalls a connect on it past the request deadline.
 POLLING_MONITORS = "serverMonitoringMode=poll"
 
@@ -445,8 +445,8 @@ def _log_tail(container: DockerContainer) -> str | None:
 def _started(container: DockerContainer, ready: Callable[[], str]) -> Iterator[str]:
     """`with container:`, but a start failing before `ready` returns carries the tail of the container's log.
 
-    testcontainers raises without it, then removes the container and its log. In the message, never a
-    note: `pytest_configure_node` hands the workers `str(error)`.
+    Neither phase's own error carries it, and stopping the container discards it. In the message,
+    never a note: `pytest_configure_node` hands the workers `str(error)`.
     """
 
     try:
