@@ -442,8 +442,8 @@ def _log_tail(container: DockerContainer) -> str | None:
 
 
 @contextmanager
-def _started(container: DockerContainer) -> Iterator[None]:
-    """`with container:`, but a failed start's message carries the tail of the container's log.
+def _started(container: DockerContainer, ready: Callable[[], str]) -> Iterator[str]:
+    """`with container:`, but a start failing before `ready` returns carries the tail of the container's log.
 
     testcontainers raises without it, then removes the container and its log. In the message, never a
     note: `pytest_configure_node` hands the workers `str(error)`.
@@ -451,6 +451,7 @@ def _started(container: DockerContainer) -> Iterator[None]:
 
     try:
         container.start()
+        url = ready()
     except Exception as error:
         try:
             log = _log_tail(container)
@@ -466,7 +467,7 @@ def _started(container: DockerContainer) -> Iterator[None]:
         raise
 
     try:
-        yield
+        yield url
     finally:
         container.stop()
 
@@ -480,8 +481,31 @@ def _standalone_mongod() -> Iterator[str]:
     from testcontainers.community.mongodb import MongoDbContainer
 
     container = MongoDbContainer(MONGO_IMAGE).with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS)
-    with _started(container):
-        yield f"{container.get_connection_url()}/?{POLLING_MONITORS}"
+    with _started(container, lambda: f"{container.get_connection_url()}/?{POLLING_MONITORS}") as url:
+        yield url
+
+
+def _elected(container: DockerContainer) -> str:
+    # `directConnection=true`: the set advertises its container-internal address, which topology discovery would follow and find nothing.
+    url = f"mongodb://{container.get_container_host_ip()}:{container.get_exposed_port(27017)}/?directConnection=true&{POLLING_MONITORS}"
+
+    client = MongoClient(url)
+    try:
+        client.admin.command("replSetInitiate", {"_id": "rs0", "members": [{"_id": 0, "host": "127.0.0.1:27017"}]})
+
+        # Initiation returns before the node elects itself, and the first write then fails with `NotWritablePrimary`.
+        deadline = time.monotonic() + REPLICA_SET_ELECTION_TIMEOUT_S
+        while not client.admin.command("hello").get("isWritablePrimary"):
+            if time.monotonic() > deadline:
+                # Never `pytest.fail`: `Failed` is a `BaseException`, which `pytest_configure_node`'s
+                # `except Exception` misses.
+                raise TimeoutError(f"the single-node replica set did not become primary within {REPLICA_SET_ELECTION_TIMEOUT_S}s")
+            time.sleep(0.25)
+        _KILLS_AT_START[url] = expired_transaction_kills(client.admin.command("serverStatus"))
+    finally:
+        client.close()
+
+    return url
 
 
 @contextmanager
@@ -504,26 +528,7 @@ def _replica_set_mongod() -> Iterator[str]:
         .waiting_for(LogMessageWaitStrategy(re.compile(r"waiting for connections", re.IGNORECASE)))
     )
 
-    with _started(container):
-        # `directConnection=true`: the set advertises its container-internal address, which topology discovery would follow and find nothing.
-        url = f"mongodb://{container.get_container_host_ip()}:{container.get_exposed_port(27017)}/?directConnection=true&{POLLING_MONITORS}"
-
-        client = MongoClient(url)
-        try:
-            client.admin.command("replSetInitiate", {"_id": "rs0", "members": [{"_id": 0, "host": "127.0.0.1:27017"}]})
-
-            # Initiation returns before the node elects itself, and the first write then fails with `NotWritablePrimary`.
-            deadline = time.monotonic() + REPLICA_SET_ELECTION_TIMEOUT_S
-            while not client.admin.command("hello").get("isWritablePrimary"):
-                if time.monotonic() > deadline:
-                    # Never `pytest.fail`: `Failed` is a `BaseException`, which `pytest_configure_node`'s
-                    # `except Exception` misses.
-                    raise TimeoutError(f"the single-node replica set did not become primary within {REPLICA_SET_ELECTION_TIMEOUT_S}s")
-                time.sleep(0.25)
-            _KILLS_AT_START[url] = expired_transaction_kills(client.admin.command("serverStatus"))
-        finally:
-            client.close()
-
+    with _started(container, lambda: _elected(container)) as url:
         _REPLICA_SET_CONTAINERS[url] = container
         try:
             yield url
