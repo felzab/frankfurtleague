@@ -3,7 +3,8 @@
 `scripts/gate/gate_pool.py` is the only channel a unit's status travels, so a loss, a rename or a
 reordering here is a gate that closes green over a check that failed. The wiring that ends a run
 early is held here too, because none of it runs on the machine this suite runs on. Every case
-drives the module as a subprocess, for `scripts/tests/conftest.py :: withdraw`'s reason.
+running the module runs it in a process of its own, for `scripts/tests/conftest.py :: withdraw`'s
+reason; the cases reading the gate's own text run nothing.
 """
 
 from __future__ import annotations
