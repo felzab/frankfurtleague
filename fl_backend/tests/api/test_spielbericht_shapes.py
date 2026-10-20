@@ -22,6 +22,7 @@ from app.api.spielberichte.services import (
     BerichtLage,
     bericht_namen,
     bericht_zustand_of,
+    compose_ansicht,
     compose_bericht_update,
     compose_neuer_bericht,
     find_abgesagt_refusal,
@@ -343,6 +344,14 @@ class TestAReportAboutOtherClubsReadsItsOwnState:
 
     def test_a_fixture_called_off_reads_abgesagt_first(self):
         assert bericht_zustand_of(gespeichert(seiten={**SEITEN, "team1": ObjectId()}), spiel(sonderereignis="ausgefallen")) == "abgesagt"
+
+    def test_both_forms_are_served_the_sides_that_moved(self):
+        """The referee's read carries no `zustand`, so this is what its form marks a moved side's entries by."""
+
+        dokument = {"bericht": bericht_document(seiten={**SEITEN, "team2": ObjectId()})}
+
+        assert compose_ansicht(lage(), kader_offen=True, genannt=[], dokument=dokument)["seiten_geaendert"] == ["team2"]
+        assert compose_ansicht(lage(), kader_offen=True, genannt=[], dokument=None)["seiten_geaendert"] == []
 
 
 def level(team1: int, team2: int, elfmeterschiessen: dict[str, int] | None) -> FLSpielberichtBericht:

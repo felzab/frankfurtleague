@@ -44,6 +44,11 @@ export function personOptionen(kontext: SpielberichtKontext, seite: FLSpielberic
 export const ohneKader = (kontext: SpielberichtKontext, seite: FLSpielberichtSeite | null): boolean =>
   seite !== null && kontext.kader[seite].length === 0;
 
+/** Marks an entry whose stored person played for a club that has left the fixture, until another is picked. */
+export function GeleertHinweis() {
+  return <p className="muted-hint">Die eingetragene Person spielt nicht für dieses Team. Wähle die Person neu.</p>;
+}
+
 /** The minute box, its refusals arriving by `name` through the form's `validationErrors`. */
 export function MinuteField({
   name,

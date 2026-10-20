@@ -46,6 +46,7 @@ export const spielberichtReadFixture = (overrides: Record<string, unknown> = {})
   },
   genannt: [],
   bericht: berichtFixture(),
+  seiten_geaendert: [],
   zustand: "vorgeschlagen",
   ...overrides,
 });

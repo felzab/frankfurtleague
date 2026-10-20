@@ -173,4 +173,50 @@ describe("the referee's report form", () => {
 
     assert.ok(screen.getByText(/Für dieses Team ist kein Kader hinterlegt\. Jedes Tor trägst Du dann als „unbekannt“ ein\./));
   });
+
+  /* A knockout correction re-fielded team 2 since the report: the backend reads it `teams_geaendert` until a write stamps
+     the clubs playing now, so a save that changes nothing else must still go out. */
+  describe("on a report about a club that has left the fixture", () => {
+    const umbesetzt = (lesen: ReturnType<typeof spielberichtReadFixture>) => {
+      const gelesen = FLSpielberichtSchiedsrichterResponseSchema.parse({ ...lesen, seiten_geaendert: ["team2"] });
+      return underNext(
+        h(SpielberichtForm, {
+          leser: "schiedsrichter",
+          spielId: BERICHT_SPIEL_ID,
+          kontext: kontextOf(gelesen),
+          stored: gelesen.bericht,
+          header: { title: "Goethe-Gymnasium gegen Lessing-Gymnasium" },
+          zurueckHref: "/bereich/schiedsrichter",
+        }),
+        { router: nextRouter() },
+      );
+    };
+
+    it("says so and sends the report unchanged, written for the clubs playing now", async () => {
+      const user = userEvent.setup();
+      const ohneKarte = spielberichtReadFixture();
+      render(umbesetzt({ ...ohneKarte, bericht: { ...ohneKarte.bericht, karten: [] } }));
+      assert.ok(screen.getByText("Im Spiel stehen inzwischen andere Teams"));
+      calls.length = 0;
+
+      await user.click(screen.getByRole("button", { name: "Speichern" }));
+      await act(answered);
+
+      assert.equal(calls.length, 1, "the unchanged report was not sent, so its clubs stay unstamped");
+    });
+
+    it("takes the departed club's pupil out of its entry and marks it", async () => {
+      const user = userEvent.setup();
+      const gelesen = spielberichtReadFixture();
+      // Team 2's squad is the new club's: the stored card names a pupil of the club that left.
+      render(umbesetzt({ ...gelesen, kader: { ...gelesen.kader, team2: [] } }));
+      assert.ok(screen.getByText("Die eingetragene Person spielt nicht für dieses Team. Wähle die Person neu."));
+      calls.length = 0;
+
+      await user.click(screen.getByRole("button", { name: "Speichern" }));
+      await act(answered);
+
+      assert.deepEqual(calls, [], "a card naming the departed club's pupil was sent, which the backend refuses");
+    });
+  });
 });

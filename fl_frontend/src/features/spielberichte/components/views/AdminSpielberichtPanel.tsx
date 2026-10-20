@@ -96,8 +96,15 @@ function BerichtInhalt({
   const { bericht, zustand, spiel } = lesen;
   // Both writes refuse a called-off fixture (`REQ-BERICHT-004`), and its result is no proposal's to set.
   const istAbgesagt = zustand === "abgesagt";
+  // A proposal by side about clubs that left: its score beside this fixture's clubs would read as theirs, as the card's
+  // chip withholds it (`fl_frontend/src/features/spielberichte/utils.ts :: berichtChip`).
+  const zeigtVorschlag = !istAbgesagt && zustand !== "teams_geaendert";
 
-  const team = (seite: FLSpielberichtSeite) => (seite === "team1" ? spiel.team1?.name : spiel.team2?.name) ?? "";
+  // A side fielding another club since is named by its place, never by the club now on it, which the entry is not about.
+  const team = (seite: FLSpielberichtSeite) =>
+    lesen.seiten_geaendert.includes(seite)
+      ? `früheres ${seite === "team1" ? "Team 1" : "Team 2"}`
+      : ((seite === "team1" ? spiel.team1?.name : spiel.team2?.name) ?? "");
   const person = (spielerId: string | null): string => {
     if (spielerId === null) return TORSCHUETZE_UNBEKANNT_LABEL;
     const genannt = [...lesen.kader.team1, ...lesen.kader.team2, ...lesen.genannt].find((spieler) => spieler.spieler_id === spielerId);
@@ -133,41 +140,39 @@ function BerichtInhalt({
             <p className="muted-hint">Das Spiel ist ausgefallen oder annulliert. Der Bericht lässt sich weder übernehmen noch bearbeiten.</p>
           )}
 
-          <div className="flex w-full flex-col gap-y-2">
-            <p className="fluid-sm font-semibold text-foreground">{`Vorschlag: ${vorschlagText(bericht.ergebnis_vorschlag)}`}</p>
-            {!istAbgesagt && (
-              <>
-                <div className="flex flex-row flex-wrap items-center gap-3">
-                  <Hint
-                    mode="refusal"
-                    reason={uebernahmeGesperrt}
-                    label="Vorschlag übernehmen">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      isDisabled={uebernahmeGesperrt !== null}
-                      onPress={() => onUebernehmen(bericht)}
-                      className={`${formButton({ intent: "nav", size: "xs" })} shrink-0`}>
-                      Vorschlag übernehmen
-                    </Button>
-                  </Hint>
-                  {eingesetzt === "aktuell" && <span className={labelBadge("info")}>Eingesetzt</span>}
-                </div>
-                {/* A refresh can bring a newer report under a mounted editor: the badge would vouch for a proposal the
-                    draft does not hold, and the save would stamp nothing. */}
-                {eingesetzt === "veraltet" && (
-                  <p className="muted-hint">
-                    Der Spielbericht wurde geändert, seit Du seinen Vorschlag eingesetzt hast. Übernimm den Vorschlag erneut.
-                  </p>
-                )}
+          {zeigtVorschlag && (
+            <div className="flex w-full flex-col gap-y-2">
+              <p className="fluid-sm font-semibold text-foreground">{`Vorschlag: ${vorschlagText(bericht.ergebnis_vorschlag)}`}</p>
+              <div className="flex flex-row flex-wrap items-center gap-3">
                 <Hint
-                  mode="reveal"
-                  label="Hinweis zum Vorschlag"
-                  body={{ lead: "Setzt Tore, Elfmeterschießen und Ereignis aus dem Spielbericht ein. Gespeichert wird erst mit „Speichern“." }}
-                />
-              </>
-            )}
-          </div>
+                  mode="refusal"
+                  reason={uebernahmeGesperrt}
+                  label="Vorschlag übernehmen">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    isDisabled={uebernahmeGesperrt !== null}
+                    onPress={() => onUebernehmen(bericht)}
+                    className={`${formButton({ intent: "nav", size: "xs" })} shrink-0`}>
+                    Vorschlag übernehmen
+                  </Button>
+                </Hint>
+                {eingesetzt === "aktuell" && <span className={labelBadge("info")}>Eingesetzt</span>}
+              </div>
+              {/* A refresh can bring a newer report under a mounted editor: the badge would vouch for a proposal the
+                    draft does not hold, and the save would stamp nothing. */}
+              {eingesetzt === "veraltet" && (
+                <p className="muted-hint">
+                  Der Spielbericht wurde geändert, seit Du seinen Vorschlag eingesetzt hast. Übernimm den Vorschlag erneut.
+                </p>
+              )}
+              <Hint
+                mode="reveal"
+                label="Hinweis zum Vorschlag"
+                body={{ lead: "Setzt Tore, Elfmeterschießen und Ereignis aus dem Spielbericht ein. Gespeichert wird erst mit „Speichern“." }}
+              />
+            </div>
+          )}
 
           {bericht.torschuetzen.length > 0 && (
             <ul

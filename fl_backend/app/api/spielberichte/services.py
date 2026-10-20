@@ -394,6 +394,7 @@ def compose_ansicht(
     """
 
     spiel = lage.spiel
+    bericht = None if dokument is None else dokument.get("bericht")
 
     def team(seite: FLSpielberichtSeite) -> dict[str, Any] | None:
         side = spiel.get(seite)
@@ -412,7 +413,9 @@ def compose_ansicht(
         },
         "kader": {seite: live_kader(lage, seite) if kader_offen else [] for seite in SEITEN},
         "genannt": genannt,
-        "bericht": None if dokument is None else dokument.get("bericht"),
+        "bericht": bericht,
+        # Served rather than re-derived by the forms, which mark these sides' entries and offer none of their old pupils.
+        "seiten_geaendert": [] if bericht is None else sorted(seiten_geaendert(bericht["seiten"], spiel)),
     }
 
 

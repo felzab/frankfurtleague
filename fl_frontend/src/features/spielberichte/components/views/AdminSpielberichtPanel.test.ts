@@ -59,6 +59,16 @@ describe("the report panel on the match editor", () => {
     assert.ok(screen.getByText("Abgesagt"));
   });
 
+  /* Written about a club that has left team 2's slot: its score and its entries beside the clubs playing now would
+     credit them with what the departed club did. */
+  it("names neither the score nor the club now on a moved side of a report about clubs that left", () => {
+    panel({ stand: stand({ zustand: "teams_geaendert", seiten_geaendert: ["team2"] }) });
+
+    assert.equal(screen.queryAllByText(/^Vorschlag:/).length, 0, "the score proposed for the departed club is shown");
+    assert.equal(screen.queryAllByText("Lessing-Gymnasium").length, 0, "the card is listed under the club now on its side");
+    assert.ok(screen.getByText("früheres Team 2"));
+  });
+
   /* Closed, the correction page writes nothing, and its sentence would be the closed state's. */
   it("offers no correction while the switch reads off", () => {
     panel({ stand: stand({}, false) });

@@ -245,12 +245,16 @@ export const FLSpielberichtKaderSchema = z.object({
   team2: z.array(FLSpielberichtSpielerSchema),
 });
 
-/** `genannt` names the pupils the stored block holds outside both live squads, so an older entry keeps its name. */
+/**
+ * `genannt` names the pupils the stored block holds outside both live squads, so an older entry keeps its name;
+ * `seiten_geaendert` the sides fielding another club than the report's last write found there.
+ */
 export const FLSpielberichtSchiedsrichterResponseSchema = BaseAPIResponseSchema.extend({
   spiel: FLSpielberichtSpielSchema,
   kader: FLSpielberichtKaderSchema,
   genannt: z.array(FLSpielberichtSpielerSchema),
   bericht: FLSpielberichtBerichtSchema.nullable(),
+  seiten_geaendert: z.array(FLSpielberichtSeiteSchema),
 });
 export type FLSpielberichtSchiedsrichterResponse = z.infer<typeof FLSpielberichtSchiedsrichterResponseSchema>;
 

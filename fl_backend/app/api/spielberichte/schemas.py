@@ -269,10 +269,12 @@ class _SpielberichtAnsicht(BaseAPIResponse):
     # knockout slot has since replaced -- so an entry stored before keeps its name.
     genannt: list[FLSpielberichtSpieler]
     bericht: FLSpielberichtBericht | None
+    # The sides fielding another club than the report's last write found there, which reads `teams_geaendert`.
+    seiten_geaendert: list[FLSpielberichtSeite]
 
 
 class FLSpielberichtSchiedsrichterResponse(_SpielberichtAnsicht):
-    """The booked referee's form: the remarks and the card reasons included, no derived state."""
+    """The booked referee's form: the remarks and the card reasons included, and no `zustand`."""
 
 
 class FLSpielberichtAdminResponse(_SpielberichtAnsicht):

@@ -25803,6 +25803,17 @@
               }
             ]
           },
+          "seiten_geaendert": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "team1",
+                "team2"
+              ]
+            },
+            "type": "array",
+            "title": "Seiten Geaendert"
+          },
           "zustand": {
             "anyOf": [
               {
@@ -25828,6 +25839,7 @@
           "kader",
           "genannt",
           "bericht",
+          "seiten_geaendert",
           "zustand"
         ],
         "title": "FLSpielberichtAdminResponse",
@@ -26280,6 +26292,17 @@
                 "type": "null"
               }
             ]
+          },
+          "seiten_geaendert": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "team1",
+                "team2"
+              ]
+            },
+            "type": "array",
+            "title": "Seiten Geaendert"
           }
         },
         "type": "object",
@@ -26287,10 +26310,11 @@
           "spiel",
           "kader",
           "genannt",
-          "bericht"
+          "bericht",
+          "seiten_geaendert"
         ],
         "title": "FLSpielberichtSchiedsrichterResponse",
-        "description": "The booked referee's form: the remarks and the card reasons included, no derived state."
+        "description": "The booked referee's form: the remarks and the card reasons included, and no `zustand`."
       },
       "FLSpielberichtSeiten": {
         "properties": {
