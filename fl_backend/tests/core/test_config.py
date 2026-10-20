@@ -183,7 +183,9 @@ class TestCorsAllowedOrigins:
         [cors] = [middleware for middleware in app.user_middleware if middleware.cls is CORSMiddleware]
         served = {method for route in api_routes(app) for method in route.methods or () if method not in {"HEAD", "OPTIONS"}}
 
-        assert set(cors.kwargs["allow_methods"]) == served
+        allowed = cors.kwargs["allow_methods"]
+
+        assert isinstance(allowed, list) and set(allowed) == served
 
 
 class TestDatabaseBaseName:
