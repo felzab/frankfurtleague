@@ -114,6 +114,22 @@ def test_a_name_under_both_dependency_lists_is_optional(tmp_path: Path) -> None:
             "tailwindStylesheet ./shared.css",
             id="a-tailwind-stylesheet-outside-src",
         ),
+        # The plugin's deprecated spellings of that option, each read where `tailwindStylesheet` is absent.
+        pytest.param(
+            SHEET_TEXT,
+            {"plugins": ["plug"], "tailwindEntryPoint": "./shared.css"},
+            "tailwindEntryPoint ./shared.css",
+            id="an-entry-point-outside-src",
+        ),
+        pytest.param(
+            SHEET_TEXT, {"plugins": ["plug"], "tailwindConfig": "./shared.css"}, "tailwindConfig ./shared.css", id="a-css-config-outside-src"
+        ),
+        pytest.param(
+            SHEET_TEXT,
+            {"plugins": ["plug"], "tailwindConfig": "./tailwind.config.js"},
+            "tailwindConfig ./tailwind.config.js is a script",
+            id="a-script-config",
+        ),
     ],
 )
 def test_a_file_the_key_does_not_carry_stops_the_step(tmp_path: Path, sheet: str, config: dict[str, Any], says: str) -> None:

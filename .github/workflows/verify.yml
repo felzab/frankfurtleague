@@ -186,9 +186,13 @@ jobs:
           // src -- is refused rather than left unkeyed.
           const src = path.resolve("src");
           const keyed = (file) => file.startsWith(src + path.sep) && file.endsWith(".css");
-          if (config.tailwindStylesheet && !keyed(path.resolve("..", config.tailwindStylesheet))) {
-            throw new Error(`tailwindStylesheet ${config.tailwindStylesheet} is no stylesheet under fl_frontend/src, which the cache key carries`);
+          // `prettier-plugin-tailwindcss` 0.8.1's `getTailwindConfig`, mirrored 2026-10-20 and moving without us: a
+          // deprecated option names the stylesheet where `tailwindStylesheet` does not, and a script `tailwindConfig` loads where none does.
+          const option = ["tailwindStylesheet", "tailwindEntryPoint", "tailwindConfig"].find((name) => config[name] && (name !== "tailwindConfig" || config[name].endsWith(".css")));
+          if (option && !keyed(path.resolve("..", config[option]))) {
+            throw new Error(`${option} ${config[option]} is no stylesheet under fl_frontend/src, which the cache key carries`);
           }
+          if (!option && config.tailwindConfig) throw new Error(`tailwindConfig ${config.tailwindConfig} is a script the cache key does not carry`);
           for (const sheet of readdirSync("src", { recursive: true }).filter((name) => name.endsWith(".css"))) {
             // Quoted ids alone: Tailwind loads nothing for an `@import url(...)`.
             for (const [, id] of readFileSync(path.join("src", sheet), "utf8").matchAll(/@(?:import|plugin|config|reference)\s+["']([^"']+)["']/g)) {
