@@ -294,6 +294,7 @@ const EINSATZ = {
   ansetzung: { team1_name: "Ernst-Reuter-Schule", team2_name: "Goethe-Gymnasium", datum: "2026-11-20", uhrzeit: "14:30:00", spielort: null },
   zustand: "gueltig",
   begruendung: null,
+  eingetragen: false,
 };
 
 /** The referee's page, its two reads answering the referee's own data and the fixtures named. */

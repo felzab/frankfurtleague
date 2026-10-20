@@ -11,6 +11,7 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
+import { EINSAETZE_TITEL } from "@/core/seitenNamen";
 import { absagenSpielbestaetigungAction, zusagenSpielbestaetigungAction } from "@/features/spielbestaetigungen/personActions";
 import { SchiedsrichterAbsageSchema } from "@/features/spielbestaetigungen/schemas";
 import {
@@ -23,6 +24,10 @@ import { SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH } from "@/features/spiele/cons
 import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
+import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
+import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES, FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -31,6 +36,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
@@ -38,9 +44,6 @@ import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/uti
 import { formatSpielDatum, formatUhrzeit } from "@/shared/utils/format";
 
 import type { FLSpielbestaetigungSchiedsrichterZustand, FLSpielbestaetigungSelbst } from "@/features/spielbestaetigungen/schemas";
-
-/** The section's heading, which the Einteilung's button „Zu Deinen Einsätzen“ leads to. */
-const EINSAETZE_TITEL = "Deine Einsätze";
 
 export const EINSAETZE_LEER = "Du bist zurzeit für kein Spiel eingeteilt.";
 
@@ -55,6 +58,9 @@ const ERLEDIGT: Record<Exclude<FLSpielbestaetigungSchiedsrichterZustand, "guelti
   abgelaufen: { text: "Keine Antwort mehr möglich", ton: null },
   ungueltig: { text: "Nicht mehr gültig: Termin oder Einteilung haben sich geändert", ton: null },
 };
+
+/** A Zusage the league entered, which puts the referee on the schedule as their own would: never read as theirs. */
+const EINGETRAGEN = { text: "Zusage von der Verwaltung eingetragen", ton: "success" } as const;
 
 /**
  * The Einteilung's mail leads here. Its own empty state stands beside the referee's data, and its heading stays when
@@ -77,7 +83,9 @@ export function SchiedsrichterEinsaetzeSection({ einsaetze }: { einsaetze: reado
             body={{
               lead: "Die Spiele, für die Dich die Verwaltung der Liga als Schiedsrichterin oder Schiedsrichter eingeteilt hat. Sag zu jedem Spiel zu oder ab.",
               points: [
-                { text: "Hat die Verwaltung Dich zu einem Spiel gefragt, steht es erst mit Dir im Spielplan, wenn Du zugesagt hast." },
+                {
+                  text: "Hat die Verwaltung Dich zu einem Spiel gefragt, steht es erst mit Dir im Spielplan, wenn Du zugesagt hast oder die Verwaltung Deine Zusage eingetragen hat.",
+                },
                 { text: "Sagst Du ab, teilt die Verwaltung jemand anderen ein." },
               ],
             }}
@@ -139,19 +147,18 @@ function EinsatzKarte({ einsatz }: { einsatz: FLSpielbestaetigungSelbst }) {
 
 function Erledigt({ einsatz }: { einsatz: FLSpielbestaetigungSelbst }) {
   if (einsatz.zustand === "gueltig") return null;
-  const { text, ton } = ERLEDIGT[einsatz.zustand];
+  const { text, ton } = einsatz.zustand === "zugesagt" && einsatz.eingetragen ? EINGETRAGEN : ERLEDIGT[einsatz.zustand];
 
   return ton === null ? <Leer>{text}</Leer> : <span className={`${labelBadge(ton)} w-fit`}>{text}</span>;
 }
 
 /**
- * The two answers to one open row: a Zusage in one press, a decline behind the disclosure, which takes no answer
- * without its reason. Each is one write, after which the row reads its answer.
+ * The two answers to one open row: a Zusage armed by its first press and sent by its second, the first answer binding,
+ * and a decline behind the disclosure, which takes no answer without its reason. Each is one write.
  */
 function Antwort({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string; wofuer: string }) {
-  const [isPending, startSending] = useTransition();
-  // Both presses wait on the one write, but only the one pressed reads as sending, as the link pages' second press does.
-  const [gedrueckt, setGedrueckt] = useState<"zusage" | "absage">("zusage");
+  const zusage = useTwoPressConfirm();
+  const [isSendingAbsage, startSendingAbsage] = useTransition();
   const [begruendung, setBegruendung] = useState("");
 
   // The payload the action parses, judging the draft too: a second schema here would refuse at rules the action does not.
@@ -165,8 +172,7 @@ function Antwort({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string;
 
   const sendeZusage = () => {
     const landing = focusAfterWrite();
-    setGedrueckt("zusage");
-    startSending(async () => {
+    zusage.press(async () => {
       // A rejected action may still have written, and uncaught here it takes the page down with it.
       const res = await zusagenSpielbestaetigungAction(spielbestaetigungId).catch(unansweredAction);
 
@@ -186,8 +192,7 @@ function Antwort({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string;
   const sendeAbsage = () => {
     guardSubmit({ absage: absage }, () => {
       const landing = focusAfterWrite();
-      setGedrueckt("absage");
-      startSending(async () => {
+      startSendingAbsage(async () => {
         const res = await absagenSpielbestaetigungAction(spielbestaetigungId, absage).catch(unansweredAction);
 
         startTransition(() => {
@@ -209,67 +214,83 @@ function Antwort({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string;
       data-required-marks="on"
       className="flex w-full flex-col gap-4"
       onSubmit={sendeAbsage}>
-      <div
-        className="flex w-full flex-col items-stretch sm:flex-row sm:justify-end"
-        {...focusSlot(ZUSAGEN)}>
-        <Button
-          type="button"
-          isPending={isPending}
-          onPress={sendeZusage}
-          aria-label={benannt(isPending && gedrueckt === "zusage" ? "Sendet..." : "Zusagen", wofuer)}
-          className={formButton({ intent: "submit", stacks: true })}>
-          <CircleCheck
-            className="size-4.5"
-            aria-hidden="true"
-          />
-          {isPending && gedrueckt === "zusage" ? "Sendet..." : "Zusagen"}
-        </Button>
-      </div>
-
-      <Disclosure>
-        <Disclosure.Heading level={3}>
-          <Disclosure.Trigger
-            aria-label={benannt("Absagen", wofuer)}
-            className="flex w-fit items-center gap-x-2 fluid-sm font-bold text-foreground"
-            {...focusSlot(ABSAGEN)}>
-            Absagen
-            <Disclosure.Indicator className="shrink-0 text-foreground-muted">
-              <ChevronsDownWide
+      <ConfirmActionRow confirm={zusage}>
+        <FocusSlot name={ZUSAGEN}>
+          <ConfirmPressButton
+            confirm={zusage}
+            // Held, never relabelled, while the decline is sending: both wait on the one write in flight.
+            held={isSendingAbsage}
+            reason={null}
+            resting="Zusagen"
+            restingName={benannt("Zusagen", wofuer)}
+            armed="Ja, zusagen"
+            running="Sagt zu..."
+            icon={
+              <CircleCheck
+                className="size-4.5"
                 aria-hidden="true"
-                className="size-5"
               />
-            </Disclosure.Indicator>
-          </Disclosure.Trigger>
-        </Disclosure.Heading>
-        <Disclosure.Content>
-          <Disclosure.Body className="flex flex-col gap-y-4 pt-3">
-            {/* One line, as the endpoint stores it: a line break is refused rather than kept. */}
-            <TextField
-              name="begruendung"
-              value={begruendung}
-              onChange={setBegruendung}
-              onBlur={() => validatePaths("absage", absage, ["begruendung"])}
-              maxLength={SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH}>
-              <Label className={FIELD_LABEL_CLASSES}>Begründung</Label>
-              <Input className={FIELD_INPUT_CLASSES} />
-              <FieldError className={FIELD_ERROR_CLASSES} />
-              <Hint
-                mode="field"
-                text="Nur die Verwaltung der Liga liest sie. Nenne darin keine Namen."
-              />
-            </TextField>
+            }
+            onPress={sendeZusage}
+          />
+        </FocusSlot>
+      </ConfirmActionRow>
 
-            <div className="flex w-full flex-col items-stretch sm:flex-row sm:justify-end">
-              <Button
-                type="submit"
-                isPending={isPending}
-                className={formButton({ intent: "submit", stacks: true })}>
-                {isPending && gedrueckt === "absage" ? "Sendet..." : "Absage senden"}
-              </Button>
-            </div>
-          </Disclosure.Body>
-        </Disclosure.Content>
-      </Disclosure>
+      {zusage.isConfirming && (
+        <ConfirmReveal>
+          <p className="fluid-sm text-pretty text-foreground">Du sagst für dieses Spiel zu. Das lässt sich hier nicht rückgängig machen.</p>
+        </ConfirmReveal>
+      )}
+
+      <div
+        // Hidden while the Zusage is armed, as a registration's second answer is: one row arms one answer at a time.
+        hidden={zusage.isConfirming}
+        // Around the whole disclosure: the decline is sent from its submit, which a slot on the trigger alone misses.
+        {...focusSlot(ABSAGEN)}>
+        <Disclosure>
+          <Disclosure.Heading level={3}>
+            <Disclosure.Trigger
+              aria-label={benannt("Absagen", wofuer)}
+              className="flex w-fit items-center gap-x-2 fluid-sm font-bold text-foreground">
+              Absagen
+              <Disclosure.Indicator className="shrink-0 text-foreground-muted">
+                <ChevronsDownWide
+                  aria-hidden="true"
+                  className="size-5"
+                />
+              </Disclosure.Indicator>
+            </Disclosure.Trigger>
+          </Disclosure.Heading>
+          <Disclosure.Content>
+            <Disclosure.Body className="flex flex-col gap-y-4 pt-3">
+              {/* One line, as the endpoint stores it: a line break is refused rather than kept. */}
+              <TextField
+                name="begruendung"
+                value={begruendung}
+                onChange={setBegruendung}
+                onBlur={() => validatePaths("absage", absage, ["begruendung"])}
+                maxLength={SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH}>
+                <Label className={FIELD_LABEL_CLASSES}>Begründung</Label>
+                <Input className={FIELD_INPUT_CLASSES} />
+                <FieldError className={FIELD_ERROR_CLASSES} />
+                <Hint
+                  mode="field"
+                  text="Nur die Verwaltung der Liga liest sie. Nenne darin keine Namen."
+                />
+              </TextField>
+
+              <div className="flex w-full flex-col items-stretch sm:flex-row sm:justify-end">
+                <Button
+                  type="submit"
+                  isPending={isSendingAbsage || zusage.isPending}
+                  className={formButton({ intent: "submit", stacks: true })}>
+                  {isSendingAbsage ? "Sendet..." : "Absage senden"}
+                </Button>
+              </div>
+            </Disclosure.Body>
+          </Disclosure.Content>
+        </Disclosure>
+      </div>
     </Form>
   );
 }

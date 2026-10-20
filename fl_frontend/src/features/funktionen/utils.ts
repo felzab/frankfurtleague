@@ -1,5 +1,5 @@
 import { joinUnd } from "@/core/joinUnd";
-import { VERWALTUNG_TITEL } from "@/core/seitenNamen";
+import { EINSAETZE_TITEL, VERWALTUNG_TITEL } from "@/core/seitenNamen";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
 import { teamHref } from "./teamSeats";
@@ -57,7 +57,7 @@ export function zeilenOf(ziel: FunktionZiel): { titel: string; detail: string } 
     case "spieler":
       return { titel: "Spieler", detail: "Dein Kadereintrag" };
     case "schiedsrichter":
-      return { titel: "Schiedsrichter", detail: "Deine Einsätze" };
+      return { titel: "Schiedsrichter", detail: EINSAETZE_TITEL };
     case "administration":
       return { titel: VERWALTUNG_TITEL, detail: "Die Verwaltung der Liga" };
   }

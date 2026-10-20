@@ -625,9 +625,9 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>
             Bei Schiedsrichterinnen und Schiedsrichtern wird der Name als ein Feld erfasst. Hast Du der Veröffentlichung zugestimmt, steht an
             einem Spiel davon der erste Namensteil und vom nächsten nur der Anfangsbuchstabe, sonst steht dort „{SCHIEDSRICHTER_ANONYM_LABEL}“.
-            Hat die Verwaltung Dich zu einem Spiel gefragt, steht es erst mit Dir im Spielplan, wenn Du zugesagt hast. Bei einem Namenszusatz
-            wie „van“ ist das dessen Buchstabe und nicht der des Nachnamens, und ist nur ein einzelner Name eingetragen, steht dieser ganz da.
-            Die Kontaktdaten und die Schule bleiben in der Verwaltung der Liga.
+            Hat die Verwaltung Dich zu einem Spiel gefragt, steht es erst mit Dir im Spielplan, wenn Du zugesagt hast oder die Verwaltung Deine
+            Zusage eingetragen hat. Bei einem Namenszusatz wie „van“ ist das dessen Buchstabe und nicht der des Nachnamens, und ist nur ein
+            einzelner Name eingetragen, steht dieser ganz da. Die Kontaktdaten und die Schule bleiben in der Verwaltung der Liga.
           </p>
           <p className={ABSATZ_CLASSES}>
             Bei Schiedsrichterinnen und Schiedsrichtern trägt die Verwaltung Name und Kontaktdaten ein, dazu die Schule, wenn es eine gibt, so

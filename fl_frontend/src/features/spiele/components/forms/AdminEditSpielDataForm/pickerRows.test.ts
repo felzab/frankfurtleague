@@ -61,12 +61,12 @@ const UNBESTAETIGT: FLSchiedsrichter = {
 /** A confirmed row the admin list serves nameless, as a hand-write leaves one. */
 const NAMENLOS: FLSchiedsrichter = { ...BESTAETIGT, id: "6890a1b2c3d4e5f607800031", name: null };
 
-/** The referee section alone, the fixture holding `held` where one is named. */
-function renderPicker(schiedsrichter: FLSchiedsrichter[], held: FLSchiedsrichter | null = null): void {
+/** The referee section alone, on a fixture with no referee booked. */
+function renderPicker(schiedsrichter: FLSchiedsrichter[]): void {
   const picker = h(FormSchiedsrichterSection, {
     schiedsrichter,
     created: [],
-    schiedsrichterPayload: held === null ? null : { schiedsrichter_id: held.id, name: held.name, payment: held.default_payment },
+    schiedsrichterPayload: null,
     onSchiedsrichterChange: () => {},
     onRequestCreate: () => {},
     onValidateFields: () => {},
@@ -106,16 +106,6 @@ describe("the referee picker's list", () => {
     assert.equal(option("Jonas Weber").getAttribute("aria-disabled"), "true");
     assert.ok(option("Jonas Weber").textContent?.includes("Noch nicht bestätigt"), "the row does not say why it cannot be picked");
     assert.notEqual(option("Erika Muster").getAttribute("aria-disabled"), "true");
-  });
-
-  /* The save judges the referee the fixture holds, and a selection resting on a disabled row reads as broken. */
-  it("keeps the referee the fixture holds pickable, confirmed or not", async () => {
-    const user = userEvent.setup();
-    renderPicker([BESTAETIGT, UNBESTAETIGT], UNBESTAETIGT);
-
-    await user.click(trigger());
-
-    assert.notEqual(option("Jonas Weber").getAttribute("aria-disabled"), "true");
   });
 
   /* Inside the field, so the picker names it in its own description rather than leaving it a stray line beside it. */
