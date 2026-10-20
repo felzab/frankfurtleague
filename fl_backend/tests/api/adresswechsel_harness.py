@@ -274,7 +274,7 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
             supplied[name] = client
         elif name == "config":
             supplied[name] = build_test_config()
-        elif name == "germany_now":
+        elif name in ("germany_now", "now"):
             supplied[name] = NOW
         elif name == "operator":
             supplied[name] = ADMIN

@@ -33,7 +33,7 @@ from app.shared.schemas.custom import parse_object_id
 JOURNAL_TOKEN: Final = "loeschung-journal"
 
 # An erasure, which an administrator runs again on its page, and what an act changed that the replay writes again: three
-# choices, an address change stopped or discarded, and a change taking effect.
+# choices, an address change stopped or discarded, a change taking effect, and a grant's request refused.
 JournalArt = Literal[
     "loeschung",
     "widerruf",
@@ -42,6 +42,7 @@ JournalArt = Literal[
     "adresswechsel_gestoppt",
     "adresswechsel_verworfen",
     "adresswechsel_wirksam",
+    "antrag_abgelehnt",
 ]
 
 # The collections each act is made on: a line naming any other is unreadable rather than replayed there.
@@ -58,6 +59,8 @@ DATENSAETZE: Final[Mapping[JournalArt, frozenset[Collection]]] = {
     "adresswechsel_verworfen": frozenset({Collection.ADRESSWECHSEL}),
     # The replay moves everything the restored address on file holds, as the effect did.
     "adresswechsel_wirksam": frozenset({Collection.ADRESSWECHSEL}),
+    # Restored, a refused request would stand to be approved: the approval its refusal answered.
+    "antrag_abgelehnt": frozenset({Collection.BERECHTIGUNGEN_ANTRAEGE}),
 }
 
 _HASH: Final = re.compile(r"[0-9a-f]{64}")

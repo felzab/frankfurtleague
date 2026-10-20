@@ -6478,7 +6478,7 @@
     "/api/v0/berechtigungen": {
       "get": {
         "summary": "List who may enter the administration",
-        "description": "List every live grant of access to the administration, by address: its tier, who granted it and when.\n\nUncapped, as few people hold one. A row whose address no request can match -- empty, unfolded or refused by the address rule --\nadmits nobody and is left out, counted in `uebersprungen`. An address on the ban list is answered as `null` beside `gesperrt`,\nnever in plain, and so is a barred `erteilt_von`, beside `erteilt_von_gesperrt`; it is otherwise an administrator's address\nfor a grant made here and whatever the database edit wrote for one made there.\n\n`adresswechsel` names the change of a grant's address waiting on an administrator's approval, its new address whole,\nand why this administrator may not approve it, where they may not: their own, one they started, or an owner's without\nan owner's power (`POST /adresswechsel/{adresswechsel_id}/genehmigung`).",
+        "description": "List every live grant of access to the administration, by address: its tier, who granted it and when.\n\nUncapped, as few people hold one. A row whose address no request can match -- empty, unfolded or refused by the address rule --\nadmits nobody and is left out, counted in `uebersprungen`. An address on the ban list is answered as `null` beside `gesperrt`,\nnever in plain, and so is a barred `erteilt_von`, beside `erteilt_von_gesperrt`; it is otherwise an administrator's address\nfor a grant made here and whatever the database edit wrote for one made there.\n\n`adresswechsel` names the change of a grant's address waiting on an administrator's approval, its new address whole,\nand why this administrator may not approve it, where they may not: their own, one they started, or an owner's without\nan owner's power (`POST /adresswechsel/{adresswechsel_id}/genehmigung`).\n\n`antraege` lists every grant and promotion waiting on a second administrator's approval and not yet lapsed, oldest first:\nthe address, the tier asked, who asked and when, until when it waits, whether its requester still holds that tier since\nbefore it (`steht`), and why this administrator may not approve it, where they may not. A barred address is withheld as on a\ngrant's row.",
         "operationId": "get_berechtigungen_api_v0_berechtigungen_get",
         "responses": {
           "200": {
@@ -6516,7 +6516,7 @@
       },
       "post": {
         "summary": "Grant access to the administration",
-        "description": "Grant an address access to the administration, as `administration`. No request grants `owner`; any administrator may grant.\n\nThe address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live\ngrant already holds the address (`REQ-BERECHTIGUNG-001`) -- a dead row of another spelling blocks nothing -- and where the ban list\nholds it (`REQ-BERECHTIGUNG-003`). The grant takes effect on the next request, for a session signed in after it alone -- an older one is\nrefused `REQ-AUTH-007` on every admin-tier route -- and its announcement is queued in the same transaction for\n`POST /berechtigungen/abgleich` to hand out. Like a revoke and a tier change, it takes a passkey sign-in or confirmation no older than\n`ENROLMENT_WINDOW_MINUTES` when the actor token was minted, refused `REQ-AUTH-009` otherwise.",
+        "description": "Grant an address access to the administration, as `administration`, or ask another administrator to. No request grants `owner`.\n\n**Four eyes**: where another administrator could approve it -- a live, unbarred grant in effect now, neither this administrator\nnor the address -- the grant is not made: a request is, answered with `beantragt` set and its id, and the grant takes effect\nonly on that approval (`POST /berechtigungen/antraege/{antrag_id}/genehmigung`). A lone administrator grants alone.\n\nThe address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live\ngrant already holds the address (`REQ-BERECHTIGUNG-001`) -- a dead row of another spelling blocks nothing -- where the ban list\nholds it (`REQ-BERECHTIGUNG-003`), and where a request about it waits already (`REQ-BERECHTIGUNG-008`). The grant takes effect on\nthe next request, for a session signed in after it alone -- an older one is refused `REQ-AUTH-007` on every admin-tier route -- and\nits announcement is queued in the same transaction for `POST /berechtigungen/abgleich` to hand out. Like a revoke and a tier\nchange, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES` when the actor token was minted, refused\n`REQ-AUTH-009` otherwise.",
         "operationId": "post_berechtigung_api_v0_berechtigungen_post",
         "requestBody": {
           "content": {
@@ -6540,7 +6540,7 @@
             }
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERECHTIGUNG-001.REQ-BERECHTIGUNG-003"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERECHTIGUNG-001.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-008"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -6631,7 +6631,7 @@
       },
       "patch": {
         "summary": "Change a grant between administrator and owner",
-        "description": "Make an administrator an owner, or an owner an administrator; an owner steps down by naming their own grant.\n\nOnly an `owner` changes a tier (`REQ-BERECHTIGUNG-005`), judged on the actor's own grant inside the transaction, and before\nanything about the target is answered; an owner's sign-in older than the moment they became one is refused the same. A promotion\nholds for a sign-in after it alone: the promoted administrator's older sessions keep administering and take no owner's step until\nthey sign in again. A demotion takes the tier from every session at once. 404 where no live grant has the id. A promotion of an\naddress on the ban list is refused (`REQ-BERECHTIGUNG-003`), and so is a demotion leaving no live, unbarred owner\n(`REQ-BERECHTIGUNG-007`). Naming the tier the grant holds changes nothing and answers 200. The change reaches the next request; its\nannouncement is queued in the same\ntransaction, after any change to the row made in the database and not yet announced, and a grant found that way is stamped\n`gefunden_am` as `POST /berechtigungen/abgleich` stamps one. A sign-in or confirmation older than\n`ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as the grant's is.",
+        "description": "Make an administrator an owner, or an owner an administrator; an owner steps down by naming their own grant.\n\nOnly an `owner` changes a tier (`REQ-BERECHTIGUNG-005`), judged on the actor's own grant inside the transaction, and before\nanything about the target is answered; an owner's sign-in older than the moment they became one is refused the same.\n\n**Four eyes on a promotion**: where another owner could approve it -- a live, unbarred `owner` grant in effect now, neither this\nowner nor the promoted address -- the tier is not moved: a request is, answered with `beantragt` set, and the promotion takes\neffect only on that approval (`POST /berechtigungen/antraege/{antrag_id}/genehmigung`). A lone owner promotes alone. A demotion\nand a step-down take effect at once.\n\nA promotion holds for a sign-in after it alone: the promoted administrator's older sessions keep administering and take no owner's\nstep until they sign in again. A demotion takes the tier from every session at once. 404 where no live grant has the id. A\npromotion of an address on the ban list is refused (`REQ-BERECHTIGUNG-003`), one whose request waits already\n(`REQ-BERECHTIGUNG-008`), and a demotion leaving no live, unbarred owner (`REQ-BERECHTIGUNG-007`). Naming the tier the grant holds\nchanges nothing and answers 200. The change reaches the next request; its announcement is queued in the same transaction, after\nany change to the row made in the database and not yet announced, and a grant found that way is stamped `gefunden_am` as\n`POST /berechtigungen/abgleich` stamps one. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused\n`REQ-AUTH-009`, as the grant's is.",
         "operationId": "patch_berechtigung_api_v0_berechtigungen__berechtigung_id__patch",
         "security": [
           {
@@ -6666,7 +6666,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLBerechtigungWriteResponse"
+                  "$ref": "#/components/schemas/FLBerechtigungStufeResponse"
                 }
               }
             }
@@ -6675,7 +6675,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-007"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-007.REQ-BERECHTIGUNG-008"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -6691,6 +6691,125 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-BERECHTIGUNG-005"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/berechtigungen/antraege/{antrag_id}/genehmigung": {
+      "post": {
+        "summary": "Approve a grant or a promotion another administrator asked for",
+        "description": "Approve a request, the second pair of eyes a grant or a promotion waits on.\n\nThe grant is made, or the tier moved, and the request removed, in one transaction, the change announced to every\nadministrator as one made directly is, under this administrator's name.\n\nRefused to the address the request is about and to the administrator who made it (`REQ-BERECHTIGUNG-009`), to anyone but an\nowner, signed in since becoming one, for a promotion (`-010`), to an administrator whose grant, or owner's tier, took effect after\nthe request (`-011`), and where the requester does not hold that tier since before it, revoked, demoted or barred since\n(`-012`); and, as the direct act would be, where the address holds a grant by now (`-001`) or is on the ban list (`-003`). 404 for\nan id naming no request, a request decided, withdrawn or lapsed among them, and for a promotion whose grant has gone. A promotion\nwhose grant is an owner's already removes the request and changes nothing. A sign-in or confirmation older than\n`ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.",
+        "operationId": "post_antrag_genehmigung_api_v0_berechtigungen_antraege__antrag_id__genehmigung_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "antrag_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Antrag Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBerechtigungAntragGenehmigtResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERECHTIGUNG-001.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-012"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-BERECHTIGUNG-009.REQ-BERECHTIGUNG-010.REQ-BERECHTIGUNG-011"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/berechtigungen/antraege/{antrag_id}": {
+      "delete": {
+        "summary": "Refuse a grant or a promotion another administrator asked for, or withdraw one's own",
+        "description": "Refuse a request, or withdraw one's own: it is removed, and nothing it asked for happens. HARD, no soft form.\n\nDecided by whoever may approve it, refused with the approval's own codes otherwise (`REQ-BERECHTIGUNG-009`, `-010`, `-011`), and\nwithdrawn by the administrator who made it, whatever their tier now. 404 for an id naming no request, a request decided, withdrawn or\nlapsed among them. A restore from a snapshot taken before it brings the request back only until the replay of its journal line.",
+        "operationId": "delete_antrag_api_v0_berechtigungen_antraege__antrag_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "antrag_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Antrag Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBerechtigungAntragAbgelehntResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-BERECHTIGUNG-009.REQ-BERECHTIGUNG-010.REQ-BERECHTIGUNG-011"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -13437,6 +13556,160 @@
         ],
         "title": "FLBerechtigungAngekuendigtResponse"
       },
+      "FLBerechtigungAntragAbgelehntResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "antrag_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Antrag Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "antrag_id"
+        ],
+        "title": "FLBerechtigungAntragAbgelehntResponse",
+        "description": "The request a refusal or a withdrawal removed: a removal is hard, so the id is all there is to answer with."
+      },
+      "FLBerechtigungAntragGenehmigtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "berechtigung_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Berechtigung Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "berechtigung_id"
+        ],
+        "title": "FLBerechtigungAntragGenehmigtResponse",
+        "description": "The grant an approval wrote or promoted."
+      },
+      "FLBerechtigungAntragZeile": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id"
+          },
+          "adresse": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adresse"
+          },
+          "gesperrt": {
+            "type": "boolean",
+            "title": "Gesperrt"
+          },
+          "berechtigung_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{24}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Berechtigung Id"
+          },
+          "verwaltung": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "administration"
+            ],
+            "title": "Verwaltung"
+          },
+          "gestartet_von": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gestartet Von"
+          },
+          "gestartet_von_gesperrt": {
+            "type": "boolean",
+            "title": "Gestartet Von Gesperrt"
+          },
+          "angefragt_am": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Angefragt Am"
+          },
+          "bis": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Bis"
+          },
+          "steht": {
+            "type": "boolean",
+            "title": "Steht"
+          },
+          "verwehrt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "eigene",
+                  "gestartet",
+                  "inhaber",
+                  "juenger"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verwehrt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "adresse",
+          "gesperrt",
+          "berechtigung_id",
+          "verwaltung",
+          "gestartet_von",
+          "gestartet_von_gesperrt",
+          "angefragt_am",
+          "bis",
+          "steht",
+          "verwehrt"
+        ],
+        "title": "FLBerechtigungAntragZeile",
+        "description": "One request as the list serves it, while it may still be decided."
+      },
       "FLBerechtigungStand": {
         "properties": {
           "adresse": {
@@ -13466,6 +13739,35 @@
         ],
         "title": "FLBerechtigungStand",
         "description": "One grant's address and tier at one moment."
+      },
+      "FLBerechtigungStufeResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "berechtigung_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Berechtigung Id"
+          },
+          "beantragt": {
+            "type": "boolean",
+            "title": "Beantragt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "berechtigung_id",
+          "beantragt"
+        ],
+        "title": "FLBerechtigungStufeResponse",
+        "description": "The grant a tier change named, and whether its promotion waits on another owner's approval rather than taking effect."
       },
       "FLBerechtigungWriteResponse": {
         "properties": {
@@ -13588,12 +13890,20 @@
             "type": "integer",
             "minimum": 0.0,
             "title": "Uebersprungen"
+          },
+          "antraege": {
+            "items": {
+              "$ref": "#/components/schemas/FLBerechtigungAntragZeile"
+            },
+            "type": "array",
+            "title": "Antraege"
           }
         },
         "type": "object",
         "required": [
           "berechtigungen",
-          "uebersprungen"
+          "uebersprungen",
+          "antraege"
         ],
         "title": "FLBerechtigungenListResponse",
         "description": "Every live grant, uncapped: a list the floor of two is judged over is never served in part."
@@ -20821,11 +21131,16 @@
             "type": "string",
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Created Id"
+          },
+          "beantragt": {
+            "type": "boolean",
+            "title": "Beantragt"
           }
         },
         "type": "object",
         "required": [
-          "created_id"
+          "created_id",
+          "beantragt"
         ],
         "title": "FLPostBerechtigungResponse"
       },
@@ -31418,6 +31733,32 @@
           }
         }
       },
+      "403.REQ-AUTH-006.REQ-BERECHTIGUNG-009.REQ-BERECHTIGUNG-010.REQ-BERECHTIGUNG-011": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-AUTH-006",
+                        "REQ-BERECHTIGUNG-009",
+                        "REQ-BERECHTIGUNG-010",
+                        "REQ-BERECHTIGUNG-011"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "403.REQ-AUTH-006.REQ-PURGE-003.REQ-PURGE-005": {
         "description": "Forbidden",
         "content": {
@@ -32051,7 +32392,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-BERECHTIGUNG-001.REQ-BERECHTIGUNG-003": {
+      "409.DB-COMMON-002.REQ-BERECHTIGUNG-001.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-008": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -32066,7 +32407,8 @@
                       "enum": [
                         "DB-COMMON-002",
                         "REQ-BERECHTIGUNG-001",
-                        "REQ-BERECHTIGUNG-003"
+                        "REQ-BERECHTIGUNG-003",
+                        "REQ-BERECHTIGUNG-008"
                       ]
                     }
                   }
@@ -32076,7 +32418,33 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-007": {
+      "409.DB-COMMON-002.REQ-BERECHTIGUNG-001.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-012": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-BERECHTIGUNG-001",
+                        "REQ-BERECHTIGUNG-003",
+                        "REQ-BERECHTIGUNG-012"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.DB-COMMON-002.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-007.REQ-BERECHTIGUNG-008": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -32091,7 +32459,8 @@
                       "enum": [
                         "DB-COMMON-002",
                         "REQ-BERECHTIGUNG-003",
-                        "REQ-BERECHTIGUNG-007"
+                        "REQ-BERECHTIGUNG-007",
+                        "REQ-BERECHTIGUNG-008"
                       ]
                     }
                   }

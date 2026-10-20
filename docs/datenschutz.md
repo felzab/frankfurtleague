@@ -508,6 +508,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
   those grants stand and the ban list does not hold it (`docs/backend/spec.md :: I452`), until their
   erasure replaces it, as on every ban, invite and decision they made, with a marker naming nobody,
   in the log's images of them too (`:: I660`, `:: I670`).
+- **A grant or a promotion asked while another administrator could approve it waits as a request,
+  in plain.** `berechtigungen_antraege` holds the address it is for and the asking administrator's,
+  served to every administrator, until a second administrator approves or refuses it, its requester
+  withdraws it, or a week after it was asked (`fl_backend/app/shared/schemas/bounds.py ::
+ADRESSWECHSEL_GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I843`).
+  A decided request's image stays in the log for its twelve months, as every administrator's write
+  does; an erasure of either address removes the request whole and takes the address out of those
+  images (`:: I846`). The published notice states the week (`DatenschutzView.tsx :: FRISTEN`).
+  Ruled 2026-10-20.
 - **The administrator's own email stays on every log row they wrote until their own erasure.** The
   log exists to say who did what, so no redaction of a document's images reaches it
   (`docs/backend/spec.md :: I42`, `:: I48`); their erasure puts a fixed marker naming nobody in its

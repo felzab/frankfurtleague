@@ -16,6 +16,7 @@ from app.api.adresswechsel.crud import (
     end_the_address_changes_in_session,
 )
 from app.api.aktionen.crud import reattribute_administrator_in_session, redact_address_in_images
+from app.api.berechtigungen.antraege import erase_antraege_in_session
 from app.api.berechtigungen.crud import read_berechtigungen
 from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
 from app.api.identitaet.lookup import RecordCollections
@@ -552,6 +553,8 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ErasureStep(
         reaches=frozenset({Collection.ADRESSWECHSEL, Collection.AKTIONEN}), personengruppe="spieler", run=end_an_emptied_change_in_session
     ),
+    # No kind's alone: a request is about an address, whatever it holds, or made by an administrator.
+    ErasureStep(reaches=frozenset({Collection.BERECHTIGUNGEN_ANTRAEGE}), personengruppe=None, run=erase_antraege_in_session),
     # No kind's alone: it changes records the person made as an administrator and as a seat holder, so
     # the pupil scope must never run it.
     ErasureStep(
@@ -613,6 +616,7 @@ async def erase_everything(
     adressanker_collection: AsyncCollection,
     adresswechsel_collection: AsyncCollection,
     adresswechsel_postausgang_collection: AsyncCollection,
+    berechtigungen_antraege_collection: AsyncCollection,
     sperrliste: BanList,
     # Whom the grant notice names as ending the person's grant: the person on their own request, the
     # administrator on theirs.
@@ -757,6 +761,11 @@ async def erase_everything(
             now=now,
             stamp=stamp,
             session=session,
+        )
+
+    if _runs(erase_antraege_in_session, scope):
+        await erase_antraege_in_session(
+            berechtigungen_antraege_collection=berechtigungen_antraege_collection, identifier=identifier, session=session
         )
 
     berechtigungen = 0
@@ -984,6 +993,7 @@ async def erase_if_still_due(
     adressanker_collection: AsyncCollection,
     adresswechsel_collection: AsyncCollection,
     adresswechsel_postausgang_collection: AsyncCollection,
+    berechtigungen_antraege_collection: AsyncCollection,
     sperrliste: BanList,
     schluessel: SecretStr,
     stamp: str,
@@ -1053,6 +1063,7 @@ async def erase_if_still_due(
         adressanker_collection=adressanker_collection,
         adresswechsel_collection=adresswechsel_collection,
         adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+        berechtigungen_antraege_collection=berechtigungen_antraege_collection,
         sperrliste=sperrliste,
         # Read by the grants step alone, which this scope never runs.
         geaendert_von=SYSTEM_ACTOR_EMAIL,

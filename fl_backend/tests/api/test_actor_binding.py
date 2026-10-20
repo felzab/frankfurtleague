@@ -721,6 +721,8 @@ GRANT_WRITES = [
     pytest.param("patch", f"/api/v0/berechtigungen/{GRANT_ID}", id="a tier change"),
     # It hands a grant over to the confirmed address, as a grant does.
     pytest.param("post", f"/api/v0/adresswechsel/{GRANT_ID}/genehmigung", id="an approval of a grant's move"),
+    # It makes the grant, or the promotion, the request asked for.
+    pytest.param("post", f"/api/v0/berechtigungen/antraege/{GRANT_ID}/genehmigung", id="an approval of a grant or a promotion"),
 ]
 ENROLMENT_WINDOW_S = ENROLMENT_WINDOW_MINUTES * 60
 
@@ -756,6 +758,7 @@ STEP_UP_WRITES = [
     pytest.param("post", "/api/v0/adresswechsel", id="an address change asked"),
     pytest.param("post", "/api/v0/adresswechsel/{adresswechsel_id}/einladen", id="an address change's fresh link"),
     pytest.param("delete", "/api/v0/adresswechsel/{adresswechsel_id}", id="an address change discarded"),
+    pytest.param("delete", "/api/v0/berechtigungen/antraege/{antrag_id}", id="a request for a grant refused or withdrawn"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons", id="a club's entry into a season"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen", id="a contact seat's fresh link"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/replace", id="a club's replacement"),

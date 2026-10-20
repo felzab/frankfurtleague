@@ -54,7 +54,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "21. Oktober 2026", digest: "3940fc99e481f44d8fe662c498c37428ab6c59ea483378a04a8cd698f4e03c29" } as const;
+const FASSUNG = { stand: "21. Oktober 2026", digest: "df381ee1381f36dd2ea570c35ef95cd78a6c3196b18284a579f660f1d822244d" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -679,6 +679,16 @@ describe("the privacy notice states the registration, referee-link and ban clock
       ANGABEN.get("Zugang zur Verwaltung: E-Mail-Adresse, Stufe, Datum und die Person aus der Verwaltung, die ihn erteilt hat"),
       "Bis der Zugang entzogen wird; eine Benachrichtigung über eine Änderung nur, bis sie versandt ist",
     );
+  });
+
+  // The request waits as long as an address change's approval does, so the week is read off that one constant.
+  it("keeps a request for access until it is decided or withdrawn, a week at most", () => {
+    const frist = ANGABEN.get(
+      "Antrag auf einen Zugang zur Verwaltung oder darauf, Inhaberin oder Inhaber zu werden: E-Mail-Adresse, Stufe, Zeitpunkt und die Person aus der Verwaltung, die ihn gestellt hat",
+    );
+
+    assert.equal(ADRESSWECHSEL_GENEHMIGUNG_TAGE, 7);
+    assert.ok(frist?.includes("längstens eine Woche; danach löschen wir ihn."), frist);
   });
 
   // Held here because this file owns the count words: the create form's hint and the ban list's

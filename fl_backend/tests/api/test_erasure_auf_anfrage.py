@@ -11,6 +11,7 @@ import functools
 import logging
 import time
 from collections.abc import Awaitable, Callable, Iterator, Mapping
+from datetime import UTC, datetime
 from typing import Any, cast
 
 import pymongo
@@ -22,6 +23,7 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.berechtigungen.antraege import compose_antrag
 from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
 from app.api.identitaet.schemas import FLErasure, FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
 from app.api.identitaet.services import (
@@ -494,15 +496,23 @@ class TestAGrantHoldersAddress:
         racing: list[PupilsReadMeetingARival] = []
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            # Asked on the real clock, as the TTL monitor would remove a request asked at `NOW` under the case: the rival approves it.
+            await database[Collection.BERECHTIGUNGEN_ANTRAEGE].delete_many({"adresse": IDENTIFIER})
+            antrag = await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(
+                compose_antrag(
+                    adresse=IDENTIFIER, verwaltung="administration", berechtigung_id=None, gestartet_von=OWNER, now=datetime.now(UTC)
+                )
+            )
             held = await where_held(database, *THEIR_VALUES)
             served = _app()
             async with app_client(mongo_replica_set_url, app=served, now=NOW) as http:
 
                 async def grant() -> None:
-                    answered = await http.post(
-                        f"/api/v{API_VERSION}/berechtigungen", json={"email": IDENTIFIER}, headers=SignedActor(OWNER, ADMIN_KEY)
+                    approved = await http.post(
+                        f"/api/v{API_VERSION}/berechtigungen/antraege/{antrag.inserted_id}/genehmigung",
+                        headers=SignedActor(ANOTHER_ADMINISTRATOR, ADMIN_KEY),
                     )
-                    granted.append(answered.status_code)
+                    granted.append(approved.status_code)
 
                 async def pupils() -> AsyncCollection:
                     # The app's own client: the request's session belongs to it.
@@ -521,7 +531,7 @@ class TestAGrantHoldersAddress:
 
         response, held, left, row = on_a_league(mongo_replica_set_url, body)
 
-        assert (response.status_code, response.json().get("error_code"), granted) == (403, VERWALTUNG_ADRESSE, [201])
+        assert (response.status_code, response.json().get("error_code"), granted) == (403, VERWALTUNG_ADRESSE, [200])
         assert row is not None and row["verwaltung"] == "administration"
         # The rows the grant wrote aside, every value stands where it stood.
         assert {value: [name for name in found if name not in THE_GRANTS_OWN_ROWS] for value, found in left.items()} == held
@@ -1005,6 +1015,8 @@ class TestTheSignOut:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
+            # The seed's request asked for them before this grant, which would refuse the promotion beside it.
+            await database[Collection.BERECHTIGUNGEN_ANTRAEGE].delete_many({"adresse": IDENTIFIER})
             served = _app()
             async with app_client(mongo_replica_set_url, app=served, now=NOW) as http:
 

@@ -225,6 +225,12 @@ const FRISTEN = [
     frist: "Bis der Zugang entzogen wird; eine Benachrichtigung über eine Änderung nur, bis sie versandt ist",
   },
   {
+    daten:
+      "Antrag auf einen Zugang zur Verwaltung oder darauf, Inhaberin oder Inhaber zu werden: E-Mail-Adresse, Stufe, Zeitpunkt und die Person aus der Verwaltung, die ihn gestellt hat",
+    // The approval window of the address change, which a request shares (`fl_backend/app/api/berechtigungen/antraege.py :: compose_antrag`).
+    frist: `Bis eine zweite Person aus der Verwaltung ihn genehmigt oder ablehnt oder die Person, die ihn gestellt hat, ihn zurückzieht, längstens ${ADRESSWECHSEL_GENEHMIGUNG_DAUER}; danach löschen wir ihn. Ist er entschieden, bleibt er wie jede Änderung der Verwaltung zwölf Monate im Änderungsprotokoll`,
+  },
+  {
     daten: "Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey",
     // Each figure read off the constant the sign-in enforces, never typed: a copy typed here is a
     // promise nothing keeps.

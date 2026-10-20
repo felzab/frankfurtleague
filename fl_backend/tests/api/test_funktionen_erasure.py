@@ -27,6 +27,7 @@ from pymongo.errors import OperationFailure
 
 from app.api.adresswechsel.crud import end_an_emptied_change_in_session
 from app.api.adresswechsel.services import compose_postausgang
+from app.api.berechtigungen.antraege import compose_antrag
 from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung, compose_widerruf_update
 from app.api.identitaet.crud import ERASURE_STEPS, JEDE_PERSONENGRUPPE, erase_everything
@@ -477,6 +478,17 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         [{"_id": count_id, "n": 3, "ablauf": FAR_OFF} for count_id in (*COUNT_IDS, OTHER_COUNT_ID)]
     )
     await records_they_made_holding_no_grant(database)
+    # A grant asked for their address and one they asked for another's, neither decided: a request outlives neither person.
+    await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_many(
+        [
+            compose_antrag(
+                adresse=IDENTIFIER, verwaltung="administration", berechtigung_id=None, gestartet_von="quillhilde@example.com", now=FAR_OFF
+            ),
+            compose_antrag(
+                adresse="neu.kollegin@example.com", verwaltung="administration", berechtigung_id=None, gestartet_von=IDENTIFIER, now=FAR_OFF
+            ),
+        ]
+    )
     await database[Collection.SPIELER].insert_one(
         spieler_document(MOVING_PUPIL_OID, "Gwendolyn", "Gwendolyn-Muster", email="gwendolyn@example.com", einwilligung=einwilligung)
     )

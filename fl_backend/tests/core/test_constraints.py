@@ -25,6 +25,8 @@ from app.api.berechtigungen.schemas import (
     FLBerechtigung,
     FLBerechtigungAenderungArt,
     FLBerechtigungAngekuendigt,
+    FLBerechtigungAntrag,
+    FLBerechtigungAntragGenehmigung,
     FLBerechtigungPostausgangZeile,
     FLBerechtigungStand,
     FLBerechtigungUrheber,
@@ -341,6 +343,8 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), FLBerechtigungPostausgangZeile, frozenset()),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("jetzt",), FLBerechtigungStand, frozenset()),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("vorher",), FLBerechtigungStand, frozenset()),
+    (Collection.BERECHTIGUNGEN_ANTRAEGE, (), FLBerechtigungAntrag, frozenset()),
+    (Collection.BERECHTIGUNGEN_ANTRAEGE, ("genehmigung",), FLBerechtigungAntragGenehmigung, frozenset()),
     # A consent record's evidence at every home, both vocabularies sharing its shape: one sub-schema
     # in Python is still a path per home to the drift walk.
     *((collection, (*block, "nachweis"), FLEinwilligungNachweise, frozenset()) for collection, block in RECORD_HOMES),
@@ -502,6 +506,7 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), "vorenthalten", get_args(FLBerechtigungVorenthalten), True),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("jetzt",), "verwaltung", get_args(FLVerwaltung), False),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("vorher",), "verwaltung", get_args(FLVerwaltung), False),
+    (Collection.BERECHTIGUNGEN_ANTRAEGE, ("genehmigung",), "verwaltung", get_args(FLVerwaltung), False),
     # Nullable for the reason a squad row's two are: a registration is filled in over time, and the
     # pupil may answer neither.
     (Collection.REGISTRIERUNGEN, (), "position", get_args(FLSpielerPosition), True),
