@@ -24,19 +24,25 @@ from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import RecordCollections
 from app.api.identitaet.services import eigene_sitze, folds_to, ist_eigener_schiedsrichter, namen_aus
 from app.api.kontakte.services import rows_possibly_naming
-from app.api.registrierungen.services import build_eigene_registrierung_filter, registrierung_ist_bestaetigt
+from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_ist_bestaetigt
 from app.api.schiedsrichter.crud import discard_adresswechsel_in_session
 from app.api.schiedsrichter.services import adresswechsel_image_edits, build_selbst_referee_filter, vorname_of
-from app.api.spielbestaetigungen.services import seat_void_of
+from app.api.spielbestaetigungen.services import (
+    build_contact_reason_images_filter,
+    build_contact_reasons_filter,
+    contact_reason_image_edits,
+    halter_of,
+    seat_void_of,
+)
 from app.api.spieler.crud import discard_spieler_adresswechsel_in_session
 from app.api.spieler.services import build_selbst_pupil_filter, spieler_adresswechsel_image_edits
 from app.api.teams.crud import void_moved_seats
 from app.core.adressanker import anchor_the_addresses
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, patch_one_in_db
+from app.core.crud import aggregate_many_from_db, patch_many_in_db, patch_one_in_db
 from app.core.journal import Journal, JournalLine
 from app.core.recording import build_redaction_filter, log_stamp
-from app.core.security import loeschung_journal_hash
+from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.shared.adresswechsel import ADRESSWECHSEL_FELD, neue_adresse_of
 from app.shared.folding import sign_in_identifier
 
@@ -92,7 +98,8 @@ class Bestand:
     schiedsrichter: Sequence[Mapping[str, Any]]
     sitze: Sequence[tuple[Mapping[str, Any], tuple[str, ...]]]
     bewerbungssitze: Sequence[tuple[Mapping[str, Any], tuple[str, ...]]]
-    # Every open registration, its pupil's confirmation or not: left here, an admission would make a second person.
+    # Every registration, its pupil's confirmation or not: an open one left here, an admission would make a second person,
+    # and a declined one an erasure of the new address would miss until its month is out.
     registrierungen: Sequence[Mapping[str, Any]]
 
     @property
@@ -166,7 +173,7 @@ async def read_the_bestand(identifier: str, *, records: RecordCollections, sessi
     )
     registrierungen = await aggregate_many_from_db(
         collection=records.registrierungen_collection,
-        pipeline=[{"$match": build_eigene_registrierung_filter(identifier)}, {"$project": dict(_REGISTRIERUNG_FIELDS)}, {"$sort": {"_id": 1}}],
+        pipeline=[{"$match": build_erasure_registrierung_filter(identifier)}, {"$project": dict(_REGISTRIERUNG_FIELDS)}, {"$sort": {"_id": 1}}],
         session=session,
     )
 
@@ -277,8 +284,11 @@ async def start_the_change_in_session(
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
-    # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
-    await anchor_the_addresses([str(block["email"])], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session)
+    # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`), and the one
+    # on file: two starts on disjoint rows of it would otherwise both commit, leaving it two changes (`:: I792`).
+    await anchor_the_addresses(
+        [str(block["email"]), bestand.identifier], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session
+    )
 
     # After the write, for the decline's reason: it reaches the pre-image this start just filed, which still holds the
     # address it replaced. Typing the pending one again drops nothing.
@@ -314,8 +324,10 @@ async def move_the_address_in_session(
     bewerbungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
     spielbestaetigungen_collection: AsyncCollection,
+    aktionen_collection: AsyncCollection,
     adressanker_collection: AsyncCollection,
     schluessel: SecretStr,
+    stamp: str,
     session: AsyncClientSession,
 ) -> Mitteilung:
     """Move every record of `bestand` to `neue` in the caller's transaction, ending the change (`docs/backend/spec.md :: I793`).
@@ -377,10 +389,68 @@ async def move_the_address_in_session(
             return_document=ReturnDocument.BEFORE,
         )
 
-    # The effect writes the address onto rows the start never wrote (`docs/backend/spec.md :: I719`).
-    await anchor_the_addresses([neue], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session)
+    await _rekey_the_person(
+        bestand.identifier,
+        neue,
+        spielbestaetigungen_collection=spielbestaetigungen_collection,
+        aktionen_collection=aktionen_collection,
+        schluessel=schluessel,
+        stamp=stamp,
+        session=session,
+    )
+
+    # The effect writes the address onto rows the start never wrote (`docs/backend/spec.md :: I719`), and moves every
+    # record of the one replaced: a record committed there meanwhile, which this read never saw, would stay behind.
+    await anchor_the_addresses(
+        [neue, bestand.identifier], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session
+    )
 
     return Mitteilung(bisherige_email=traeger.adresse, vorname=traeger.vorname)
+
+
+async def _rekey_the_person(
+    alt: str,
+    neue: str,
+    *,
+    spielbestaetigungen_collection: AsyncCollection,
+    aktionen_collection: AsyncCollection,
+    schluessel: SecretStr,
+    stamp: str,
+    session: AsyncClientSession,
+) -> None:
+    """The digests naming the person by the replaced address, re-keyed rather than recorded, so an erasure of the new one reaches them.
+
+    Keeping the earlier digests on a record instead would leave every erasure step to read them (`docs/backend/spec.md :: I801`).
+    """
+
+    await patch_many_in_db(
+        collection=aktionen_collection,
+        db_filter={"actor.pseudonym": akteur_pseudonym(alt, schluessel=schluessel)},
+        update={"$set": {"actor.pseudonym": akteur_pseudonym(neue, schluessel=schluessel)}},
+        session=session,
+    )
+
+    vorher, nachher = halter_of(alt, schluessel=schluessel), halter_of(neue, schluessel=schluessel)
+    answered = await aggregate_many_from_db(
+        collection=spielbestaetigungen_collection,
+        pipeline=[{"$match": build_contact_reasons_filter([vorher])}, {"$project": {"saison_id": 1}}],
+        session=session,
+    )
+    if answered:
+        await patch_many_in_db(
+            collection=spielbestaetigungen_collection,
+            # Ids and their seasons alone, never the digest: the log keeps a fan-out's filter as text (`docs/backend/spec.md :: I48`).
+            db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in answered})}, "_id": {"$in": [row["_id"] for row in answered]}},
+            update={"$set": {"antwort.von.halter": nachher}},
+            session=session,
+        )
+    await redact_images_in_session(
+        aktionen_collection=aktionen_collection,
+        db_filter=build_contact_reason_images_filter([vorher]),
+        judge=lambda image: {"antwort.von.halter": nachher} if contact_reason_image_edits(image, [vorher]) else {},
+        stamp=stamp,
+        session=session,
+    )
 
 
 def _seat_move(row: Mapping[str, Any], slots: Sequence[str], neue: str) -> dict[str, Any]:
@@ -406,8 +476,8 @@ def _registrierung_move(row: Mapping[str, Any], neue: str) -> dict[str, Any]:
 
     update["$unset"] = {"bestaetigung.zustellung": ""}
     if not registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung")):
-        # A hash no token was kept for: the reminder mints the next one to the moved address.
-        update["$set"] |= {"bestaetigung.token_hash": mint_token()[1], "bestaetigung.token_hash_zuvor": None}
+        # A hash no token was kept for, and the reminder owed again: it alone mints the next link, to the moved address.
+        update["$set"] |= {"bestaetigung.token_hash": mint_token()[1], "bestaetigung.token_hash_zuvor": None, "bestaetigung.erinnert_am": None}
 
     return update
 

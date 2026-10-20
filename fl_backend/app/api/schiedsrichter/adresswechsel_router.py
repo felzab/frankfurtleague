@@ -266,8 +266,10 @@ async def post_adresswechsel(
             bewerbungen_collection=bewerbungen_collection,
             registrierungen_collection=registrierungen_collection,
             spielbestaetigungen_collection=spielbestaetigungen_collection,
+            aktionen_collection=aktionen_collection,
             adressanker_collection=adressanker_collection,
             schluessel=config.sperrliste_schluessel,
+            stamp=stamp,
             session=session,
         )
         journal.note(wirksam_line(neue=neue, traeger=traeger, now=germany_now, schluessel=config.sperrliste_schluessel))

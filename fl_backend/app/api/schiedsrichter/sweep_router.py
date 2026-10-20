@@ -213,8 +213,10 @@ async def _make_the_due_change_take_effect(
             bewerbungen_collection=bewerbungen_collection,
             registrierungen_collection=registrierungen_collection,
             spielbestaetigungen_collection=spielbestaetigungen_collection,
+            aktionen_collection=aktionen_collection,
             adressanker_collection=adressanker_collection,
             schluessel=schluessel,
+            stamp=stamp,
             session=session,
         )
         journal.note(wirksam_line(neue=neue, traeger=traeger, now=now, schluessel=schluessel))

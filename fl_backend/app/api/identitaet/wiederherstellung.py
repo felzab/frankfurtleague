@@ -410,7 +410,7 @@ def _records_of(database: AsyncDatabase) -> RecordCollections:
 
 
 async def _plan_adresswechsel_wirksam(
-    line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None
+    line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None, now: datetime
 ) -> Plan:
     """A change that took effect: moved again, by the effect's own body, where the restored carrier still holds it pending.
 
@@ -448,8 +448,10 @@ async def _plan_adresswechsel_wirksam(
             bewerbungen_collection=database[Collection.BEWERBUNGEN],
             registrierungen_collection=database[Collection.REGISTRIERUNGEN],
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+            aktionen_collection=database[Collection.AKTIONEN],
             adressanker_collection=database[Collection.ADRESSANKER],
             schluessel=schluessel,
+            stamp=log_stamp(now),
             session=session,
         )
 
@@ -525,7 +527,7 @@ async def plan_replay(
         case "adresswechsel_abgelehnt" | "adresswechsel_gestoppt" | "adresswechsel_verworfen":
             return await _plan_adresswechsel(line, database, schluessel=schluessel, session=session, now=now, window=window)
         case "adresswechsel_wirksam":
-            return await _plan_adresswechsel_wirksam(line, database, schluessel=schluessel, session=session)
+            return await _plan_adresswechsel_wirksam(line, database, schluessel=schluessel, session=session, now=now)
         case "loeschung":
             return await _plan_pseudonym(line, database, session=session, now=now)
 
