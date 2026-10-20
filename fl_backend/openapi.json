@@ -313,7 +313,7 @@
       },
       "patch": {
         "summary": "Update a Spiel",
-        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten, and every name it carries is\ncomposed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,\nand every fixture this call changed arrives in `prior_paarungen` as it stood before it — this one\nleading the list, and carrying the fields beyond its Paarung that this payload replaced.",
+        "description": "Update one Spiel and resolve the season's bracket.\n\nThe payload is written wholesale: an omitted field is overwritten, and every name it carries is\ncomposed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,\nand every fixture this call changed arrives in `prior_paarungen` as it stood before it — this one\nleading the list, and carrying the fields beyond its Paarung that this payload replaced.\n\nWith `uebernimmt_bericht`, the save also stamps the fixture's Spielbericht adopted at that version, in the same\ntransaction. A report corrected since that version is left unstamped, and the save lands all the same: nothing is\nrefused for it. A `dry_run` stamps nothing.",
         "operationId": "patch_spiel_data_api_v0_spiele__spiel_id__patch",
         "security": [
           {
@@ -330,6 +330,25 @@
               "pattern": "^[0-9a-fA-F]{24}$",
               "title": "Spiel Id"
             }
+          },
+          {
+            "name": "uebernimmt_bericht",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted",
+              "title": "Uebernimmt Bericht"
+            },
+            "description": "The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"
           },
           {
             "name": "dry_run",
@@ -3773,7 +3792,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte": {
       "patch": {
         "summary": "Rewrite a team's season contacts, and nothing else on the row",
-        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrule's refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A clearing,\nwhich nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `eingetragen_von` and\n`bestaetigt_am` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed\non is stored as the league's entry, unconfirmed.\n\n**Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the\ncaller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person\nkeeps their link, and a seat emptied or handed on loses the one it held and its links on the team's open match\nconfirmations, so the person who left it holds nothing live. A save newly seating an address the ban list holds is\nrefused `REQ-KONTAKT-003`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the\nlink is how its person learns of the entry, and it takes their Widerspruch alone. A save minting a link, emptying\nor handing on a seat, or voiding a link its person could still answer, is refused `REQ-AUTH-009` as the clearing\nis; a save doing none of these is not.\n\n**Each mailbox the save takes off the row is answered in `abgaenge`** for the caller to tell, with the seats it\nheld: a mailbox the save still seats on any seat of the row is not one, whatever name it now stands under.\n\n**A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled\nor handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a\nperson's own write grants one. Such a seat's label must be the application form's running one\n(`REQ-EINWILLIGUNG-001`). A kept seat may name its stored label back, whichever page it is a version of, or the\nrunning one, and its record is carried either way.",
+        "description": "Rewrite the three people this team is reached through for one season. Null clears the block.\n\nIts own endpoint so the contacts editor and the club editor cannot clobber one row. The one\nrule's refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served\nbeside the block, and a row whose block answers to another token is refused rather than\noverwritten, an erasure between the caller's read and this write being what moves it. A clearing,\nwhich nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `eingetragen_von` and\n`bestaetigt_am` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed\non is stored as the league's entry, unconfirmed.\n\n**Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the\ncaller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person\nkeeps their link, and a seat emptied or handed on loses the one it held and its links on the team's open match\nconfirmations, so the person who left it holds nothing live. A save newly seating an address the ban list holds is\nrefused `REQ-KONTAKT-003`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the\nlink is how its person learns of the entry, and it takes their Widerspruch alone. A save minting a link, emptying\nor handing on a seat, or voiding a link its person could still answer, is refused `REQ-AUTH-009` as the clearing\nis; a save doing none of these is not.\n\n**Each mailbox the save takes off a seat is answered in `abgaenge`** for the caller to tell, with every seat it\nlost, a mailbox still holding another seat of the row included. A mailbox the save mints a link is not one: that\nlink's mail names the seats it holds now.\n\n**A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled\nor handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a\nperson's own write grants one. Such a seat's label must be the application form's running one\n(`REQ-EINWILLIGUNG-001`). A kept seat may name its stored label back, whichever page it is a version of, or the\nrunning one, and its record is carried either way.",
         "operationId": "patch_saison_team_kontakte_api_v0_teams__team_id__saisons__saison_id__kontakte_patch",
         "security": [
           {
@@ -6357,7 +6376,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email": {
       "post": {
         "summary": "Correct one contact person's email address and re-send their link",
-        "description": "Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.\n\nThe only repair there is for a link the mail provider will not carry: everything else the school typed stays the\nrecord the decision is taken against. Where one person holds two seats both are corrected, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day\ndeletion because its notice could not arrive is a deletion candidate again once the corrected link is answered\nfor or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this\nwrite would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm\n— the mirrored seat included (`REQ-BEWERBUNG-011`) — and on an address another contact person on this\napplication already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming\nno seat is a 404.",
+        "description": "Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.\n\n**The mailbox the link leaves is answered in `abgang_email`** for the caller to tell, as the contacts editor's save\nanswers one it takes off a seat; null where the corrected address is the same mailbox on the sign-in fold.\n\nThe only repair there is for a link the mail provider will not carry: everything else the school typed stays the\nrecord the decision is taken against. Where one person holds two seats both are corrected, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day\ndeletion because its notice could not arrive is a deletion candidate again once the corrected link is answered\nfor or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this\nwrite would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm\n— the mirrored seat included (`REQ-BEWERBUNG-011`) — and on an address another contact person on this\napplication already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming\nno seat is a 404.",
         "operationId": "korrigiere_kontakt_email_api_v0_bewerbungen__bewerbung_id__kontakte__seat__email_post",
         "security": [
           {
@@ -13465,6 +13484,17 @@
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Bestaetigungsfrist"
+          },
+          "abgang_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abgang Email"
           }
         },
         "type": "object",
@@ -13472,7 +13502,8 @@
           "email",
           "rollen",
           "token",
-          "bestaetigungsfrist"
+          "bestaetigungsfrist",
+          "abgang_email"
         ],
         "title": "FLBewerbungKontaktEmailResponse",
         "description": "The corrected address as stored, the fresh link it is to be mailed at, and every seat both reached."
@@ -17247,7 +17278,7 @@
           "schule"
         ],
         "title": "FLKontaktAbgang",
-        "description": "One mailbox a write took off a season row, for the admin action's notice; the route handler reads it and the browser never does."
+        "description": "One mailbox a write took off a seat of a season row, for the admin's notice; the server action reads it and the browser never does."
       },
       "FLKontaktEinladenResponse": {
         "properties": {

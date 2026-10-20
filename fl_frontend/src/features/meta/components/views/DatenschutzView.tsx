@@ -408,10 +408,12 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>
             Resend meldet uns aber zurück, was mit der Zustellung selbst geschehen ist: ob eine Nachricht angenommen, zugestellt oder verzögert
             wurde, ob sie unzustellbar war, ob Resend sie zurückgehalten hat und ob sie als Spam gemeldet wurde. Diesen Zustellstand speichern
-            wir bei dem Eintrag, um den es in der Nachricht geht. So sieht die Verwaltung, wen sie nicht erreicht. Rechtsgrundlage ist Art. 6
-            Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, zu erkennen, wen unsere Nachrichten nicht erreichen. Der Zustellstand wird
-            zusammen mit diesem Eintrag gelöscht; beim Registrierungslink eines Teams, dessen Eintrag bestehen bleibt (Abschnitt 13), bleibt er
-            bestehen.
+            wir bei dem Eintrag, um den es in der Nachricht geht. So sieht die Verwaltung, wen sie nicht erreicht. Gehört eine Nachricht zu
+            keinem Eintrag, den wir aufbewahren, etwa ein Anmeldecode oder der Hinweis, dass Du nicht mehr als Kontaktperson eingetragen bist,
+            schreiben wir jeden Zustellstand außer „zugestellt“ ohne Deine Adresse in das Betriebsprotokoll der Anwendung. Rechtsgrundlage ist
+            Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, zu erkennen, wen unsere Nachrichten nicht erreichen. Der Zustellstand
+            wird zusammen mit diesem Eintrag gelöscht; beim Registrierungslink eines Teams, dessen Eintrag bestehen bleibt (Abschnitt 13),
+            bleibt er bestehen. Im Betriebsprotokoll bleibt er so lange wie das Protokoll selbst (Abschnitt 13).
           </p>
         </LegalSection>
 

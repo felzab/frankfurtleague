@@ -1391,6 +1391,20 @@ class TestCorrectingOneContactAddress:
 
         assert on_a_league(mongo_replica_set_url, body) == CORRECTED_EMAIL
 
+    def test_the_mailbox_the_link_leaves_is_answered_and_the_same_mailbox_retyped_is_not(self, mongo_replica_set_url: str):
+        """The old link may have arrived and opens until this write, so its reader is told that it now opens nothing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_a_bounced_application(database, client)
+            old = (await stored_bewerbung(database, CORRECTION_BEWERBUNG))["kontakte"]["ansprechperson"]["email"]
+            moved = await correct(database, client, "ansprechperson")
+
+            return old, moved, await correct(database, client, "ansprechperson", email=CORRECTED_EMAIL.capitalize())
+
+        old, moved, retyped = on_a_league(mongo_replica_set_url, body)
+
+        assert (moved.abgang_email, retyped.abgang_email) == (old, None)
+
     def test_the_refusal_recorded_against_the_old_address_goes_with_the_entry(self, mongo_replica_set_url: str):
         """Left standing it would hold the application back from the deadline for ever, on a mailbox this seat has stopped naming."""
 
