@@ -44,6 +44,7 @@ from app.api.spiele.services import (
     find_double_bookings,
     find_eligibility_refusal,
     find_fixture_date_refusal,
+    find_referee_stand_refusal,
     find_result_removal_refusal,
     find_retired_bookings,
     find_slot_claims,
@@ -186,6 +187,7 @@ def _resubmit(season_docs: list[dict[str, Any]], nr: int) -> FLPatchSpielDataPay
             "ort": _submitted(stored["ort"], keeping=("spielort_id", "mietpreis")),
             "schiedsrichter": _submitted(stored["schiedsrichter"], keeping=("schiedsrichter_id", "payment")),
             "notiz": stored.get("notiz"),
+            "schiedsrichter_stand": None if stored["schiedsrichter"] is None else stored["schiedsrichter"]["schiedsrichter_id"],
         }
     )
 
@@ -861,6 +863,7 @@ FIXTURE_PATCH_REFUSALS = (
     find_clash_refusal,
     find_eligibility_refusal,
     find_fixture_date_refusal,
+    find_referee_stand_refusal,
     find_result_removal_refusal,
     find_state_refusal,
     find_wiring_refusal,
@@ -930,6 +933,7 @@ def _abandoned(*, tore: tuple[int | None, int | None]) -> FLPatchSpielDataPayloa
             "ort": None,
             "schiedsrichter": None,
             "notiz": None,
+            "schiedsrichter_stand": None,
         }
     )
 

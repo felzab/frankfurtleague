@@ -1983,6 +1983,19 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_occupant_refusal.py::TestAnUnconfirmedRefereeIsNeverBooked",
     ),
     Rule(
+        code="REQ-BOOKING-003",
+        status=HTTPStatus.CONFLICT,
+        operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen",
+        aggregate="Saison-Spielplan",
+        summary=(
+            "a save keeping the referee its editor was served must find the fixture still booking them, so a referee's own "
+            "decline is never undone by an editor opened before it; a restore is judged against the fixture's own referee, "
+            "and so never meets it"
+        ),
+        implemented_by="app.api.spiele.services.find_referee_stand_refusal",
+        tested_by="tests/api/test_spielbestaetigung_execution.py::TestASaveFromAnEditorOpenedBeforeTheDecline",
+    ),
+    Rule(
         code="REQ-CLASH-001",
         status=HTTPStatus.CONFLICT,
         operation="PATCH /spiele/{spiel_id} · PATCH /spiele/paarungen · POST /spielbestaetigungen",

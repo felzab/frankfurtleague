@@ -384,7 +384,7 @@
             "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "409": {
-            "$ref": "#/components/responses/409.REQ-BOOKING-001.REQ-BOOKING-002.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003"
+            "$ref": "#/components/responses/409.REQ-BOOKING-001.REQ-BOOKING-002.REQ-BOOKING-003.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3281,7 +3281,7 @@
             "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "409": {
-            "$ref": "#/components/responses/409.REQ-BOOKING-001.REQ-BOOKING-002.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003"
+            "$ref": "#/components/responses/409.REQ-BOOKING-001.REQ-BOOKING-002.REQ-BOOKING-003.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -18665,6 +18665,18 @@
               }
             ],
             "title": "Notiz"
+          },
+          "schiedsrichter_stand": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{24}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schiedsrichter Stand"
           }
         },
         "additionalProperties": false,
@@ -18680,7 +18692,8 @@
           "uhrzeit",
           "ort",
           "schiedsrichter",
-          "notiz"
+          "notiz",
+          "schiedsrichter_stand"
         ],
         "title": "FLPatchSpielDataPayload"
       },
@@ -31161,7 +31174,7 @@
           }
         }
       },
-      "409.REQ-BOOKING-001.REQ-BOOKING-002.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003": {
+      "409.REQ-BOOKING-001.REQ-BOOKING-002.REQ-BOOKING-003.REQ-CLASH-001.REQ-DATE-001.REQ-ELIGIBILITY-001.REQ-ELIGIBILITY-002.REQ-RESULT-001.REQ-SPIELTAG-001.REQ-SPIELTAG-002.REQ-WIRING-001.REQ-WIRING-002.REQ-WIRING-003": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -31176,6 +31189,7 @@
                       "enum": [
                         "REQ-BOOKING-001",
                         "REQ-BOOKING-002",
+                        "REQ-BOOKING-003",
                         "REQ-CLASH-001",
                         "REQ-DATE-001",
                         "REQ-ELIGIBILITY-001",

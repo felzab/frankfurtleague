@@ -384,6 +384,7 @@ def proposal_payload(stored: FLSpiel, vorschlag: FLSpielbestaetigungTermin) -> F
         ),
         # No judge reads the note, and a hand-written one past the payload's bound would refuse a proposal for a field it never names.
         notiz=None,
+        schiedsrichter_stand=None if stored.schiedsrichter is None else stored.schiedsrichter.schiedsrichter_id,
     )
 
 

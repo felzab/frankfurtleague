@@ -1119,6 +1119,10 @@ BOOKING_UNKNOWN_RESOURCE = "REQ-BOOKING-001"
 # address cannot open. A code of its own, the way out being the person's confirmation rather than a reactivation.
 BOOKING_UNCONFIRMED_REFEREE = "REQ-BOOKING-002"
 
+# A referee's own decline empties the slot outside this route, under an editor still showing them: a wholesale save
+# keeping them would book them again unasked, and the next pass mail them for the fixture they just declined.
+BOOKING_REFEREE_MOVED = "REQ-BOOKING-003"
+
 # A match plus its overrun, the changeover and the travel: the league plays several matches at one
 # ground, so this spaces them rather than banning the pairing.
 CLASH_BUFFER_MINUTES = 4 * 60
@@ -1201,6 +1205,23 @@ def find_new_bookings(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: 
     return BookedReferences(
         spielort_id=chosen.spielort_id if reopened or chosen.spielort_id != held.spielort_id else None,
         schiedsrichter_id=chosen.schiedsrichter_id if reopened or chosen.schiedsrichter_id != held.schiedsrichter_id else None,
+    )
+
+
+def find_referee_stand_refusal(stored: FLSpiel, payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
+    """`REQ-BOOKING-003`: the payload keeps the referee its editor was served, and the fixture books another or none since.
+
+    Never a payload naming another referee or none, a decision about the slot as it stands.
+    """
+
+    held = _chosen_references(stored).schiedsrichter_id
+    if held == payload.schiedsrichter_stand or _chosen_references(payload).schiedsrichter_id != payload.schiedsrichter_stand:
+        return None
+
+    return WriteRefusal(
+        error_code=BOOKING_REFEREE_MOVED,
+        status=HTTPStatus.CONFLICT,
+        message="the fixture's referee changed since this save was composed; re-read the fixture and send the change again",
     )
 
 

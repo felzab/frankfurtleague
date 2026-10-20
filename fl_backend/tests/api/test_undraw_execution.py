@@ -716,6 +716,7 @@ def seeding_payload(stored: dict[str, Any], team_id: ObjectId) -> FLPatchSpielDa
             "ort": None,
             "schiedsrichter": None,
             "notiz": None,
+            "schiedsrichter_stand": None,
         }
     )
 
