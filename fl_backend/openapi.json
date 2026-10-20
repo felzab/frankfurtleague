@@ -7574,7 +7574,7 @@
     "/api/v0/schiedsrichter/bestaetigung": {
       "post": {
         "summary": "Confirm one Schiedsrichter's entry and consent",
-        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were\nshown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,\nwhich the fixture list does not read yet, serving the name each fixture stores.\n\nRefuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed\n(`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), any label but the referee\npage's running one (`REQ-EINWILLIGUNG-001`), a link mailed to an address the ban list holds now, whenever the link\nwas minted (`REQ-SCHIEDSRICHTER-009`), an age outside what this consent asks (`REQ-SCHIEDSRICHTER-005`), and a media\nconsent from a referee below `medien_mindestalter` (`REQ-SCHIEDSRICHTER-008`) -- the label and the last two judged\nbefore anything is written, so a reloaded page or a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer**, ahead of the fixture read joining this\nrecord. Nothing here can: a withheld name would go on being served for as long as that entry lives.",
+        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were\nshown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,\nwhich the fixture list does not read yet, serving the name each fixture stores.\n\nRefuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed\n(`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), any label but the referee\npage's running one (`REQ-EINWILLIGUNG-001`), a link mailed to an address the ban list holds now, whenever the link\nwas minted (`REQ-SCHIEDSRICHTER-009`), an age outside what this consent asks (`REQ-SCHIEDSRICHTER-005`), and a media\nconsent from a referee below `medien_mindestalter` (`REQ-SCHIEDSRICHTER-008`) -- the label and the last two judged\nbefore anything is written, so a reloaded page or a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:\na withheld name would go on being served for as long as that entry lives.",
         "operationId": "post_bestaetigung_api_v0_schiedsrichter_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -9963,7 +9963,7 @@
     "/api/v0/schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": {
       "patch": {
         "summary": "Change a signed-in referee's own publication and media consent",
-        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`nachweis.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\nfixture list does not read the scope yet: it serves the name each fixture stores, so a withdrawal here changes no\nfixture page until its read joins this row. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to\n`kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address (`REQ-FUNKTION-001`); a\n`nachweis_stand` other than the record's own, either choice having moved since the page was served\n(`REQ-EINWILLIGUNG-003`); a grant on a retired record (`REQ-EINWILLIGUNG-004`); a `text_version` naming no version of\nthe account page's referee control, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`);\n`medien` moving to `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing\n(`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), which\ncounts grants alone, so a withdrawal is never refused for it. Each refusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, ahead of the fixture read joining this\nrow; nothing here can.",
+        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`nachweis.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\npublic fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that\nlist's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to\n`kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address (`REQ-FUNKTION-001`); a\n`nachweis_stand` other than the record's own, either choice having moved since the page was served\n(`REQ-EINWILLIGUNG-003`); a grant on a retired record (`REQ-EINWILLIGUNG-004`); a `text_version` naming no version of\nthe account page's referee control, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`);\n`medien` moving to `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing\n(`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), which\ncounts grants alone, so a withdrawal is never refused for it. Each refusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.",
         "operationId": "patch_einwilligung_api_v0_schiedsrichter_selbst__schiedsrichter_id__einwilligung_patch",
         "security": [
           {
@@ -24161,6 +24161,11 @@
               }
             ],
             "title": "Name"
+          },
+          "name_is_public": {
+            "type": "boolean",
+            "title": "Name Is Public",
+            "default": false
           }
         },
         "type": "object",
@@ -24169,7 +24174,7 @@
           "name"
         ],
         "title": "FLSpielSchiedsrichterFieldPublic",
-        "description": "The referee as a BASE-TIER read serves it: a forename and a surname initial (`READ-REFEREE-001`).\n\n`payment` is withheld for `mietpreis`' reason."
+        "description": "The referee as a BASE-TIER read serves it: on their consent, a forename and a surname initial (`READ-REFEREE-001`, `-004`).\n\n`payment` is withheld for `mietpreis`' reason."
       },
       "FLSpielTeamFieldJoined": {
         "properties": {

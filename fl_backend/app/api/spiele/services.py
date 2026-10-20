@@ -44,6 +44,7 @@ from app.api.spiele.schemas import (
     is_unplayed,
     records_an_absence,
 )
+from app.api.spieler.services import NAME_IS_PUBLIC
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding, offered_gruppen
 from app.core.collections import Collection
@@ -174,6 +175,10 @@ def _confirmations_lookup() -> Mapping[str, Any]:
                         "_id": 0,
                         "partei.art": 1,
                         "partei.team_id": 1,
+                        # The referee's id tells their rows from a replaced referee's the next pass has not
+                        # closed; the close alone tells a row the referee gate counts from one a verdict reads.
+                        "partei.schiedsrichter_id": 1,
+                        "geschlossen": 1,
                         "antwort.art": 1,
                         _AKTUELL: {"$and": [{"$eq": [f"$ansetzung.{key}", f"$${key}"]} for key in ANSETZUNG_QUELLEN]},
                     }
@@ -210,6 +215,87 @@ def _ansetzung_bestaetigt() -> Mapping[str, Any]:
                 ]
             },
         }
+    }
+
+
+SCHIEDSRICHTER_AS_NAME = "schiedsrichter_rows"
+
+# The served verdicts' keys on the referee block, which `FLSpielSchiedsrichterFieldPublic` and
+# `FLSpielJoined` read and no stored shape declares.
+NAME_IS_PUBLIC_KEY = "name_is_public"
+EINSATZ_BESTAETIGT = "einsatz_bestaetigt"
+
+
+def _referee_lookup() -> Mapping[str, Any]:
+    """The booked referee's consent verdict ALONE: no name, no address, nothing the admin tier does not serve already."""
+
+    return {
+        "$lookup": {
+            "from": Collection.SCHIEDSRICHTER,
+            # `$ifNull` for the side lookup's reason: an empty slot matches no row rather than one by accident.
+            "let": {"schiedsrichter_id": {"$ifNull": ["$schiedsrichter.schiedsrichter_id", None]}},
+            "pipeline": [
+                {"$match": {"$expr": {"$eq": ["$_id", "$$schiedsrichter_id"]}}},
+                # The pupils' predicate itself, never a third spelling of it (`fl_backend/tests/api/test_name_is_public_mirror.py`).
+                {"$project": {"_id": 0, NAME_IS_PUBLIC_KEY: NAME_IS_PUBLIC}},
+            ],
+            "as": SCHIEDSRICHTER_AS_NAME,
+        }
+    }
+
+
+def _einsatz_bestaetigt() -> Mapping[str, Any]:
+    """Three-valued as `_ansetzung_bestaetigt`: `None` where the booked referee holds no unclosed row, never asked or every row closed.
+
+    A row about an Ansetzung the fixture has left counts as asked and not agreed, as a club's does.
+    """
+
+    own_rows = {
+        "$filter": {
+            "input": f"${SPIELBESTAETIGUNGEN_AS_NAME}",
+            "cond": {
+                "$and": [
+                    {"$eq": ["$$this.partei.art", "schiedsrichter"]},
+                    {"$eq": ["$$this.partei.schiedsrichter_id", "$schiedsrichter.schiedsrichter_id"]},
+                    {"$eq": [{"$ifNull": ["$$this.geschlossen", None]}, None]},
+                ]
+            },
+        }
+    }
+    agreed = {"$and": [f"$$this.{_AKTUELL}", {"$eq": ["$$this.antwort.art", "zugesagt"]}]}
+
+    return {
+        "$let": {
+            "vars": {"own_rows": own_rows},
+            "in": {
+                "$cond": [
+                    {"$eq": [{"$size": "$$own_rows"}, 0]},
+                    None,
+                    {"$allElementsTrue": [{"$map": {"input": "$$own_rows", "in": agreed}}]},
+                ]
+            },
+        }
+    }
+
+
+def _joined_referee() -> Mapping[str, Any]:
+    """The block with both verdicts folded in, conditional as `_joined_side` is, so an empty slot stays null."""
+
+    return {
+        "$cond": [
+            {"$eq": ["$schiedsrichter", None]},
+            None,
+            {
+                "$mergeObjects": [
+                    "$schiedsrichter",
+                    {
+                        # A join answering nothing withholds: it costs a page a name, never a person theirs.
+                        NAME_IS_PUBLIC_KEY: {"$ifNull": [{"$first": f"${SCHIEDSRICHTER_AS_NAME}.{NAME_IS_PUBLIC_KEY}"}, False]},
+                        EINSATZ_BESTAETIGT: _einsatz_bestaetigt(),
+                    },
+                ]
+            },
+        ]
     }
 
 
@@ -266,11 +352,22 @@ def build_spiele_pipeline(
 
     pipeline.append(_confirmations_lookup())
 
-    pipeline.append({"$set": {"team1": _joined_side("team1"), "team2": _joined_side("team2"), ANSETZUNG_BESTAETIGT: _ansetzung_bestaetigt()}})
+    pipeline.append(_referee_lookup())
+
+    pipeline.append(
+        {
+            "$set": {
+                "team1": _joined_side("team1"),
+                "team2": _joined_side("team2"),
+                ANSETZUNG_BESTAETIGT: _ansetzung_bestaetigt(),
+                "schiedsrichter": _joined_referee(),
+            }
+        }
+    )
 
     # Dropped here rather than at validation: `extra="ignore"` discards these scratch rows in
     # silence, after the driver has carried one array per fixture across every list read.
-    pipeline.append({"$unset": [SAISON_TEAMS_AS_NAME, SPIELBESTAETIGUNGEN_AS_NAME]})
+    pipeline.append({"$unset": [SAISON_TEAMS_AS_NAME, SPIELBESTAETIGUNGEN_AS_NAME, SCHIEDSRICHTER_AS_NAME]})
 
     return pipeline
 

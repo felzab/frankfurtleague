@@ -128,8 +128,8 @@ async def post_bestaetigung(
     consent from a referee below `medien_mindestalter` (`REQ-SCHIEDSRICHTER-008`) -- the label and the last two judged
     before anything is written, so a reloaded page or a mistyped year spends nothing.
 
-    **The caller drops the cached fixture list after a successful answer**, ahead of the fixture read joining this
-    record. Nothing here can: a withheld name would go on being served for as long as that entry lives.
+    **The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:
+    a withheld name would go on being served for as long as that entry lives.
     """
 
     token_hash = hash_token(antwort_data.token)

@@ -14,11 +14,12 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.spiele.services import build_spiele_pipeline
 from app.api.spieler.schemas import FLSpielerFilterParams
 from app.api.spieler.services import build_spieler_pipeline, name_is_public
 from app.core.crud import aggregate_many_from_db
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
-from tests.documents import saison_spieler_document, spieler_document
+from tests.documents import saison_spieler_document, schiedsrichter_document, spiel_document, spieler_document
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -175,9 +176,39 @@ class TestTheSquadPipelineAnswersTheSameTable:
         assert (served["nummer"], served["position"]) == ("7", "Angriff")
 
 
+@pytest.mark.db
+class TestTheRefereeJoinAnswersTheSameTable:
+    """`build_spiele_pipeline`'s referee join imports the expression, and Mongo evaluates it over a referee's record."""
+
+    def _verdicts(self, url: str) -> dict[ObjectId, Any]:
+        async def body(database: AsyncDatabase) -> Any:
+            fixtures = await aggregate_many_from_db(collection=database.spiele, pipeline=build_spiele_pipeline(db_filter={"saison_id": SAISON}))
+
+            return {fixture["schiedsrichter"]["schiedsrichter_id"]: fixture["schiedsrichter"]["name_is_public"] for fixture in fixtures}
+
+        return on_the_seed_loop(body(shared_client(url)[DATABASE_NAME]))
+
+    def test_every_row_of_the_table_is_booked_on_a_fixture(self, seeded_url: str):
+        """First: a join reaching no referee answers withheld everywhere, which every unpublished row below would pass."""
+
+        assert set(self._verdicts(seeded_url)) == {_referee_oid_for(case) for case in NAME_IS_PUBLIC}
+
+    @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
+    def test_the_join_answers_the_table(self, seeded_url: str, case: ConsentCase):
+        assert self._verdicts(seeded_url)[_referee_oid_for(case)] is case.published
+
+
+def _referee_oid_for(case: ConsentCase) -> ObjectId:
+    return _oid(NAME_IS_PUBLIC.index(case) + 40)
+
+
+def _fixture_oid_for(case: ConsentCase) -> ObjectId:
+    return _oid(NAME_IS_PUBLIC.index(case) + 70)
+
+
 @pytest.fixture(scope="module")
 def seeded_url(mongo_url: str) -> Iterator[str]:
-    """One person per row of the table, each holding a name and a live squad row in one team's season."""
+    """One person per row of the table, each holding a name and a live squad row in one team's season; one referee per row, booked."""
 
     async def _seed() -> None:
         # UNCONSTRAINED: the `spieler` validator holds `umfang` to its enum, requires it, and
@@ -189,6 +220,27 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
             await database.saison_spieler.insert_many(
                 [
                     saison_spieler_document(_oid_for(case), SAISON, TEAM_OID, nummer="7", position="Angriff", stufe="Q3")
+                    for case in NAME_IS_PUBLIC
+                ]
+            )
+            await database.schiedsrichter.insert_many(
+                [
+                    schiedsrichter_document(
+                        _referee_oid_for(case), email="pfiff@example.com", name="Ada Kern", default_payment=20, einwilligung=case.einwilligung
+                    )
+                    for case in NAME_IS_PUBLIC
+                ]
+            )
+            # No confirmation row on any fixture, so the acceptance gate serves every block and the consent verdict alone is read.
+            await database.spiele.insert_many(
+                [
+                    spiel_document(
+                        spiel_id=_fixture_oid_for(case),
+                        saison_id=SAISON,
+                        spiel_nr=NAME_IS_PUBLIC.index(case) + 1,
+                        spieltag_id=_oid(99),
+                        schiedsrichter={"schiedsrichter_id": _referee_oid_for(case), "name": "Ada Kern", "payment": 20},
+                    )
                     for case in NAME_IS_PUBLIC
                 ]
             )
