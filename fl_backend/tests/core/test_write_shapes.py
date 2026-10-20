@@ -320,6 +320,7 @@ class TestWhatARemovalFilterMayName:
             str(Collection.EINLADUNGEN),
             str(Collection.REGISTRIERUNGEN),
             str(Collection.SPIELBESTAETIGUNGEN),
+            str(Collection.SPIELBERICHTE),
         }
 
     def test_every_removal_is_keyed_on_a_field_compared_to_a_value(self):

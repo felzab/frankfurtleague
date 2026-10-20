@@ -23,6 +23,7 @@ from app.core.db import (
     get_saisons_collection,
     get_schiedsrichter_collection,
     get_sperrliste_collection,
+    get_spielberichte_collection,
     get_spielbestaetigungen_collection,
     get_spiele_collection,
     get_spieler_collection,
@@ -72,6 +73,8 @@ BerechtigungenPostausgangCollection = Annotated[AsyncCollection, Depends(get_ber
 AdressankerCollection = Annotated[AsyncCollection, Depends(get_adressanker_collection)]
 
 SpielbestaetigungenCollection = Annotated[AsyncCollection, Depends(get_spielbestaetigungen_collection)]
+
+SpielberichteCollection = Annotated[AsyncCollection, Depends(get_spielberichte_collection)]
 
 
 # Injected rather than read at the call site, which is what keeps "today" substitutable in tests.

@@ -342,6 +342,18 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "collection alone, `uniq_spielbestaetigung_offen`: one open row per party per stand."
         ),
     ),
+    Aggregate(
+        name="Spielbericht",
+        root=Collection.SPIELBERICHTE,
+        members=(),
+        boundary=(
+            "One fixture's report: what the referee recorded of the match. Held true against nothing: it states what the "
+            "referee proposed, which stays true however the fixture is corrected afterwards -- so it is in no boundary with "
+            "`spiele`. The report writes no fixture and no fixture write reaches the report; the administrator carries a "
+            "proposal into the fixture by their own save, and the state the report reads in is derived on every read from "
+            "both. What is held is a rule over this collection alone, `uniq_spielbericht_spiel_id`: one report per fixture."
+        ),
+    ),
 )
 
 
