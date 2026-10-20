@@ -299,8 +299,8 @@ type Zustellung = { versand: LinkVersand; message: string };
 const nichtVerschickt = (message: string): Zustellung => ({ versand: "fehlgeschlagen", message: message });
 
 /**
- * The token is minted and the deadline moved by the time this runs, so each ANSWER reports a write
- * that stands, and it never throws: a refused send is a message to try again rather than a write that did not happen.
+ * The token is minted and the deadline moved by the time this runs, so it never throws and each ANSWER reports a
+ * write that stands: a refused send is a message to try again.
  */
 async function sendeBestaetigungErneut({
   operation,

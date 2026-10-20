@@ -572,8 +572,8 @@ def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any
 def find_ohne_geburtsdatum_refusal(*, seite: FLRegistrierungSeite, gespeichert: Any) -> WriteRefusal | None:
     """`REQ-REGISTRIERUNG-019`: the returning pupil's page takes the stored birthdate, and the person holds none.
 
-    Only a hand edit leaves a confirmed person undated, which `app/core/constraints.py :: NAMELESS_PERSON_RULE`
-    reports; the page has no field to ask one in, so the league corrects the person and the link answers again.
+    Only a hand edit leaves one (`app/core/constraints.py :: NAMELESS_PERSON_RULE`), and the page has no date
+    field, so the league is the repair.
     """
 
     if seite != SEITE_WIEDERKEHREND or gespeichert is not None:
@@ -975,7 +975,7 @@ def traegt_wahlen(einwilligung: Any) -> bool:
 
 
 def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: Any, adresse: str) -> Mapping[str, Any]:
-    """What an admission writes onto a matched person: the registration's name and address, and any birthdate and consent its page asked.
+    """What an admission writes onto a matched person: the registration's name, address, and what its page asked.
 
     RENEWED as the new pupil's page promised, each choice only where set later; `gespeichert` is read
     in the admission's transaction.
@@ -989,8 +989,8 @@ def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: 
 
     if not traegt_wahlen(registrierung_raw["einwilligung"]):
         # Not one key of the block, its label and day included: they name the last confirmation that
-        # asked its choices (`docs/backend/spec.md :: I611`). Nor the date, a copy of the person's own,
-        # which written back would undo an administrator's correction made since.
+        # asked its choices (`docs/backend/spec.md :: I611`). Nor the date, the person's own copy,
+        # which would undo a correction made since.
         fields.pop("geburtsdatum")
 
         return {"$set": fields}
