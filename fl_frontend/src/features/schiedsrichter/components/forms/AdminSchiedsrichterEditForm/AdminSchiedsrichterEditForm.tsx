@@ -65,17 +65,7 @@ const OHNE_GESPEICHERTE_ADRESSE = buildRefusal({
   repair: "Öffne den Eintrag erneut, wenn die neue Adresse falsch ist",
 });
 
-/**
- * One save bar over one endpoint, unlike the squad editor's two: a referee is a single document with
- * no junction row, so the patch carries the whole draft and a partial failure is not a state this
- * form can reach.
- */
-export function AdminSchiedsrichterEditForm({
-  schiedsrichter,
-  istFassungBekannt,
-  isRetired,
-  pageHeader,
-}: {
+type AdminSchiedsrichterEditFormProps = {
   /** `name` is nullable because a hand-write can leave a row without one; the erasure's rows never reach here. */
   schiedsrichter: {
     id: string;
@@ -97,6 +87,48 @@ export function AdminSchiedsrichterEditForm({
   /** A fact about the row rather than a field this form commits, so it arrives beside the values. */
   isRetired: boolean;
   pageHeader: EditPageHeaderContent;
+};
+
+/**
+ * Holds what outlives a save, as the pupil editor's holder does: the start box's typing, which no save
+ * writes, and the save's exit waiting over it. The editor below is keyed by the stored record its drafts mirror.
+ */
+export function AdminSchiedsrichterEditForm(props: AdminSchiedsrichterEditFormProps) {
+  const [adresseEntwurf, setAdresseEntwurf] = useState<string | null>(null);
+  const [isSaveExitAsked, setSaveExitAsked] = useState(false);
+
+  return (
+    <SchiedsrichterEditForm
+      key={JSON.stringify(props.schiedsrichter)}
+      {...props}
+      adresseEntwurf={adresseEntwurf}
+      onAdresseEntwurfChange={setAdresseEntwurf}
+      isSaveExitAsked={isSaveExitAsked}
+      onSaveExitAskedChange={setSaveExitAsked}
+    />
+  );
+}
+
+/**
+ * One save bar over one endpoint, unlike the squad editor's two: a referee is a single document with
+ * no junction row, so the patch carries the whole draft and a partial failure is not a state this
+ * form can reach.
+ */
+function SchiedsrichterEditForm({
+  schiedsrichter,
+  istFassungBekannt,
+  isRetired,
+  pageHeader,
+  adresseEntwurf,
+  onAdresseEntwurfChange,
+  isSaveExitAsked,
+  onSaveExitAskedChange,
+}: AdminSchiedsrichterEditFormProps & {
+  /** The start box's typing, `null` while it is closed: a confirmed referee's address moves by its own start alone. */
+  adresseEntwurf: string | null;
+  onAdresseEntwurfChange: (next: string | null) => void;
+  isSaveExitAsked: boolean;
+  onSaveExitAskedChange: (asked: boolean) => void;
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
@@ -109,8 +141,6 @@ export function AdminSchiedsrichterEditForm({
   const [schule, setSchule] = useState(schiedsrichter.schule);
   const [kontakt, setKontakt] = useState<FLKontakt>(schiedsrichter.kontakt);
   const [defaultPayment, setDefaultPayment] = useState<number | null>(schiedsrichter.default_payment);
-  // The start box's typing, `null` while it is closed: a confirmed referee's address moves by its own start alone.
-  const [adresseEntwurf, setAdresseEntwurf] = useState<string | null>(null);
   const bestaetigt = schiedsrichter.einwilligung?.bestaetigt_am != null && schiedsrichter.kontakt.email !== null;
 
   // Over the STORED address: null, or the placeholder a row without one is given, is somewhere no
@@ -193,10 +223,17 @@ export function AdminSchiedsrichterEditForm({
   const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
     fallbackHref: saisonHref("/bereich/admin/schiedsrichter"),
     isDirty,
-    resetDraftToStored,
+    // The box too: it is left, like the draft, on a tree the router keeps.
+    resetDraftToStored: () => {
+      resetDraftToStored();
+      onAdresseEntwurfChange(null);
+    },
   });
 
-  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDraftDirty);
+  const isDiscardOpen = isConfirmingDiscard || isSaveExitAsked;
+
+  // The draft alone: typing in the start box leaves the save nothing to write.
+  useSaveShortcut(formRef, !isPending && !isDiscardOpen && confirmingBanners === null && isDraftDirty);
 
   const requestSave = () => {
     // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block
@@ -258,8 +295,10 @@ export function AdminSchiedsrichterEditForm({
           // After the undo payload is built: leaving with typed values still in state lets a save-then-undo
           // reopen on values the referee does not hold.
           resetDraftToStored();
-          // Staying over a typed new address, which the start box beside the draft still holds.
-          if (!adresseGetippt) leavePage();
+          // Asked rather than left over a typed new address, and held above this editor's key: the refresh this
+          // save ends on remounts the editor, which would close a dialog of its own.
+          if (adresseGetippt) onSaveExitAskedChange(true);
+          else leavePage();
         });
       }),
     );
@@ -305,7 +344,7 @@ export function AdminSchiedsrichterEditForm({
                       email: schiedsrichter.kontakt.email,
                       isDirty: isDraftDirty,
                       entwurf: adresseEntwurf,
-                      onEntwurfChange: setAdresseEntwurf,
+                      onEntwurfChange: onAdresseEntwurfChange,
                     }
                   : null
               }
@@ -355,10 +394,16 @@ export function AdminSchiedsrichterEditForm({
 
       {!hasLeftViaDiscard && (
         <ConfirmDiscardModal
-          isOpen={isConfirmingDiscard}
-          onClose={closeDiscard}
-          onDiscard={discardAndLeave}
-          changeCount={status.changed.length}
+          isOpen={isDiscardOpen}
+          onClose={() => {
+            closeDiscard();
+            onSaveExitAskedChange(false);
+          }}
+          onDiscard={() => {
+            onSaveExitAskedChange(false);
+            discardAndLeave();
+          }}
+          changeCount={(isDraftDirty ? status.changed.length : 0) + (adresseGetippt ? 1 : 0)}
         />
       )}
 

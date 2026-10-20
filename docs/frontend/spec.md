@@ -193,16 +193,17 @@ editor's save, and a panel's own typed box on such a page, the decline's reason,
 strip's correction and reseat, and a redraw's shape among them. A record moved under the unwritten
 entry, by half of a two-part save or by another writer, re-keys the subtree and drops it.
 `fl_frontend/src/features/admin/editorWiring.test.ts :: "an editor's write whose action rejected"`
-holds every editor to it. **A redraw's moved shape and a pupil's typed new address are their editor's
-unsaved typing, though its save never sends either**: the leave prompt and the discard dialog ask
+holds every editor to it. **A redraw's moved shape and a pupil's or a confirmed referee's typed new address are their
+editor's unsaved typing, though its save never sends any of them**: the leave prompt and the discard dialog ask
 over it, a save standing beside one ends on that dialog rather than leaving, and
-`fl_frontend/src/features/saisons/components/views/AdminSaisonEditView.tsx` and
+`fl_frontend/src/features/saisons/components/views/AdminSaisonEditView.tsx`,
 `fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx :: AdminSpielerEditForm`
+and `fl_frontend/src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm.tsx :: AdminSchiedsrichterEditForm`
 hold it above the key the save re-keys the editor by, so only the stored shape or address moving
 drops it. The draw and the address's own press refuse over the draft without it, each sending what
-it holds; `fl_frontend/src/features/admin/editorWiring.test.ts :: "a season page holding a redraw's moved shape"`
-and `:: "a pupil page holding a typed new address"` hold each page to it. A press writing no typed
-entry reads the page again, a reload after its rejection dropping no more than its success would.
+it holds; `fl_frontend/src/features/admin/editorWiring.test.ts :: "a season page holding a redraw's moved shape"`,
+`:: "a pupil page holding a typed new address"` and `:: "a referee page holding a typed new address"` hold each page
+to it. A press writing no typed entry reads the page again, a reload after its rejection dropping no more than its success would.
 **On a page keyed by its record, such a press refuses while another of the page's panels holds
 unsaved typing**, since its landing re-keys the page and drops that typing unasked. Beside a
 page-owned editor these are the header's reactivation and retirement, a club's season entry and group swap, a
