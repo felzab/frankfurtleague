@@ -17910,14 +17910,7 @@
             "title": "Saison Id"
           },
           "bestaetigt_text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Bestaetigt Text Version"
           },
           "umfang": {
@@ -18110,14 +18103,7 @@
             "$ref": "#/components/schemas/FLEinwilligung"
           },
           "bestaetigt_text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Bestaetigt Text Version"
           },
           "nachweis_stand": {
@@ -18297,14 +18283,7 @@
             "$ref": "#/components/schemas/FLEinwilligung"
           },
           "bestaetigt_text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Bestaetigt Text Version"
           },
           "nachweis_stand": {
@@ -24211,14 +24190,7 @@
             "title": "Rollen"
           },
           "text_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Text Version"
           },
           "bestaetigt_am": {

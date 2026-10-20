@@ -233,7 +233,7 @@ def compose_spieler_konto(row: Mapping[str, Any], *, erteilbar: bool, today: str
         **compose_spieler_selbst(row),
         "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
-        "bestaetigt_text_version": row["einwilligung"].get("text_version"),
+        "bestaetigt_text_version": row["einwilligung"]["text_version"],
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "erteilbar": erteilbar,
         "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
@@ -268,7 +268,7 @@ def compose_schiedsrichter_konto(row: Mapping[str, Any], *, erteilbar: bool, tod
         **compose_schiedsrichter_selbst(row),
         "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
-        "bestaetigt_text_version": row["einwilligung"].get("text_version"),
+        "bestaetigt_text_version": row["einwilligung"]["text_version"],
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "erteilbar": erteilbar,
         "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
@@ -377,7 +377,7 @@ def bestaetigungsgruppen(kontakte: Mapping[str, Any], rollen: Sequence[str]) -> 
     gruppen: dict[tuple[Any, Any], list[str]] = {}
     for slot in rollen:
         block = kontakte[slot]["einwilligung"]
-        gruppen.setdefault((block.get("text_version"), block.get("bestaetigt_am")), []).append(slot)
+        gruppen.setdefault((block["text_version"], block.get("bestaetigt_am")), []).append(slot)
 
     return list(gruppen.values())
 
@@ -389,7 +389,7 @@ def _bestaetigt(kontakte: Mapping[str, Any], gruppe: Sequence[str], *, team: str
 
     return {
         "rollen": list(gruppe),
-        "text_version": block.get("text_version"),
+        "text_version": block["text_version"],
         "bestaetigt_am": block.get("bestaetigt_am"),
         "mindestalter": mindestalter_for(gruppe),
         "kontext": {"vorname": kontakte[gruppe[0]].get("vorname"), "team": team, "schule": schule, "saison": saison},
@@ -542,7 +542,7 @@ def compose_registrierungen_selbst(
                 "team_id": row["team_id"],
                 "team_name": None if team is None else team.get("name"),
                 "saison_id": row["saison_id"],
-                "bestaetigt_text_version": block.get("text_version"),
+                "bestaetigt_text_version": block["text_version"],
                 "umfang": block.get("umfang"),
                 "medien": ist_erteilt("medien", block.get("medien")) if traegt_wahlen(block) else None,
                 "mindestalter": REGISTRIERUNG_MIN_ALTER_JAHRE,

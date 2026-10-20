@@ -35,7 +35,7 @@ class FLKontoSpielerEinwilligung(FLSpielerSelbst):
     einwilligung: FLEinwilligung
     # The block's `text_version` under the name the page reads it by: the words shown read-only beside the
     # control are the ones confirmed, never an account-page press's.
-    bestaetigt_text_version: str | None
+    bestaetigt_text_version: str
     # What the consent PATCH echoes back, computed by the function its precondition compares with.
     nachweis_stand: FLEinwilligungStand
     # Served rather than derived on the page, which would judge a grant with a second copy of the rule.
@@ -52,7 +52,7 @@ class FLKontoSchiedsrichterEinwilligung(FLSchiedsrichterSelbst):
 
     inactive_since: CustomOptionalDateString
     einwilligung: FLEinwilligung
-    bestaetigt_text_version: str | None
+    bestaetigt_text_version: str
     nachweis_stand: FLEinwilligungStand
     erteilbar: bool
     medien_angeboten: bool
@@ -65,7 +65,7 @@ class FLSitzBestaetigt(BaseModel):
     """One confirmation a person gave on a row: the seats it answered, its words and the floor its page named."""
 
     rollen: list[FLKontaktRolle] = Field(min_length=1)
-    text_version: str | None
+    text_version: str
     bestaetigt_am: CustomOptionalDateString
     # The age floor that page named over these roles, which the page fills `{minAlter}` from.
     mindestalter: int
@@ -126,7 +126,7 @@ class FLKontoRegistrierungEinwilligung(BaseModel):
     # The club's own name, today; null where its document is gone.
     team_name: str | None
     saison_id: str
-    bestaetigt_text_version: str | None
+    bestaetigt_text_version: str
     # Both null on a returning pupil's registration, which asked none: the page shows its stored data
     # and offers no consent control, the person's own record holding their choices.
     umfang: FLEinwilligungUmfang | None
