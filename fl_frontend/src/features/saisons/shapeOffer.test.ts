@@ -84,7 +84,7 @@ describe("the group count offer", () => {
     }
   });
 
-  /* A season stored before these rules holds a count no shape satisfies. Drop it and the trigger
+  /* A season written by hand can hold a count no shape satisfies. Drop it and the trigger
      shows a number the list does not carry; offer it and the picker promises a season that cannot
      be saved. */
   it("keeps a stored group count the universe does not carry", () => {

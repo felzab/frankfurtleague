@@ -120,13 +120,13 @@ const refusalNamed = (html: string, name: string): string | null =>
 /** What a reader hears, the JSX line breaks collapsed. */
 const read = (html: string): string => spokenText(html, " ").replace(/\s+/g, " ");
 
-const OHNE_ADRESSE = {
+const SPIELER_LENA = {
   id: SPIELER_ID,
   vorname: "Lena",
   nachname: "Meier",
   inactive_since: null,
   geburtsdatum: "2009-05-04",
-  email: null,
+  email: "lena.meier@example.com",
   adresswechsel_id: null,
 };
 
@@ -144,7 +144,7 @@ function renderEditor({
     underSaison(
       h(AdminSpielerEditForm, {
         istFassungBekannt: true,
-        spieler: OHNE_ADRESSE,
+        spieler: SPIELER_LENA,
         einwilligung: bestaetigteEinwilligung(),
         saison: {
           saisonId: SAISON_ID,
@@ -719,7 +719,7 @@ describe("the late-entry marker, which the backend derives", () => {
       underSaison(
         h(AdminSpielerEditForm, {
           istFassungBekannt: true,
-          spieler: OHNE_ADRESSE,
+          spieler: SPIELER_LENA,
           einwilligung: bestaetigteEinwilligung(),
           saison: { saisonId: SAISON_ID, saisonStatus: "active", erlaubteStufen: ["Q1"], nachnominierungLaeuft, membership: null },
           teams: [STORED_TEAM],

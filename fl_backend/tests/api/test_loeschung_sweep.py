@@ -95,8 +95,8 @@ def address_of(position: int) -> str:
     return f"schuelerin.{position}@beispielschule.de"
 
 
-def pupil(spieler_id: ObjectId, email: str | None, *, nachname: str = "Muster", **fields: Any) -> dict[str, Any]:
-    return spieler_document(spieler_id, "Quintessa", nachname, **({} if email is None else {"email": email}), **fields)
+def pupil(spieler_id: ObjectId, email: str, *, nachname: str = "Muster", **fields: Any) -> dict[str, Any]:
+    return spieler_document(spieler_id, "Quintessa", nachname, email=email, **fields)
 
 
 def squad_row(spieler_id: ObjectId, saison_id: str, **fields: Any) -> dict[str, Any]:
@@ -255,7 +255,6 @@ RETIRED_IN_THE_SEASON_JUST_ENDED = numbered(4)
 IN_THE_RUNNING_SEASON = numbered(5)
 IN_THE_PLANNED_SEASON = numbered(6)
 PENDING_TYPED_OTHERWISE = numbered(7)
-ADDRESSLESS = numbered(8)
 
 PENDING_FOLDED = "thessaly.okonkwo@beispielschule.de"
 PENDING_TYPED = "Thessaly.Okonkwo@beispielschule.de"
@@ -268,13 +267,12 @@ LABELS = {
     IN_THE_RUNNING_SEASON: "a row in the running season",
     IN_THE_PLANNED_SEASON: "a row in the planned season",
     PENDING_TYPED_OTHERWISE: "a pending registration typed with capitals",
-    ADDRESSLESS: "no address",
 }
 
 
 async def a_league_of_every_kind(database: AsyncDatabase) -> None:
     await database[Collection.SPIELER].insert_many(
-        [pupil(spieler_id, None if spieler_id == ADDRESSLESS else address_of(position)) for position, spieler_id in enumerate(LABELS, start=1)]
+        [pupil(spieler_id, address_of(position)) for position, spieler_id in enumerate(LABELS, start=1)]
     )
     await database[Collection.SPIELER].update_one({"_id": PENDING_TYPED_OTHERWISE}, {"$set": {"email": PENDING_FOLDED}})
     await database[Collection.SAISON_SPIELER].insert_many(

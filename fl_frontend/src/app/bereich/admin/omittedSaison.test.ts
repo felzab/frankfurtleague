@@ -118,7 +118,7 @@ const spieler = (saisons: FLSaison[]) => ({
   inactive_since: null,
   geburtsdatum: "2009-05-04",
   einwilligung: bestaetigteEinwilligung(),
-  email: null,
+  email: "ada@example.com",
   adresswechsel_id: null,
   memberships: saisons.map((entry) => ({
     saison_id: entry.id,

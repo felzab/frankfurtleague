@@ -72,7 +72,7 @@ const FULL: AdminBewerbungRow = {
     stellvertretung: STELLVERTRETUNG,
     trainer_ist_zugleich: null,
   },
-  trikot: { vorhandener_satz: "", wunschfarbe: null },
+  trikot: { vorhandener_satz: "", wunschfarbe: "rot" },
   kader: { voraussichtliche_groesse: 14, gute_spieler: 3 },
   stufengroesse: 96,
   wunschgegner: null,

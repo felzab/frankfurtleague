@@ -262,20 +262,16 @@ export function BewerbungAngabenPanel({
         <dl className={ANGABEN_GRID_CLASSES}>
           <Angabe label="Vorhandene Trikotsätze">{trikot.vorhandener_satz === "" ? <Leer /> : trikot.vorhandener_satz}</Angabe>
           <Angabe label="Wunschfarbe">
-            {trikot.wunschfarbe === null ? (
-              <Leer />
-            ) : (
-              <span className="flex flex-row items-center gap-x-2">
-                {/* A ring rather than a filled disc, so Weiß reads as a colour instead of as a gap.
-                    The fill is the palette's hex, which no theme token tracks. */}
-                <span
-                  aria-hidden="true"
-                  style={{ backgroundColor: trikotFarbeHex(trikot.wunschfarbe) }}
-                  className="size-4 shrink-0 rounded-full border border-border shadow-sm"
-                />
-                {trikotFarbeLabel(trikot.wunschfarbe)}
-              </span>
-            )}
+            <span className="flex flex-row items-center gap-x-2">
+              {/* A ring rather than a filled disc, so Weiß reads as a colour instead of as a gap.
+                  The fill is the palette's hex, which no theme token tracks. */}
+              <span
+                aria-hidden="true"
+                style={{ backgroundColor: trikotFarbeHex(trikot.wunschfarbe) }}
+                className="size-4 shrink-0 rounded-full border border-border shadow-sm"
+              />
+              {trikotFarbeLabel(trikot.wunschfarbe)}
+            </span>
           </Angabe>
           <Angabe label="Voraussichtliche Kadergröße">{String(kader.voraussichtliche_groesse)}</Angabe>
           <Angabe label="Davon im Verein aktiv (mind. Verbandsliga)">
