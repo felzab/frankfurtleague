@@ -716,6 +716,40 @@ def _pooled_units(text: str) -> dict[str, set[str]]:
     return pooled
 
 
+def _silent() -> float:
+    """The longest a unit's last write precedes its notice, at the gate's own bounds.
+
+    The first poll after the write marks it, and the notice comes at the first poll `STALL_S` past that.
+    """
+    stall, poll = float(declared(POOL, "STALL_S")), float(declared(POOL, "STALL_POLL_S"))
+    return poll + math.ceil(stall / poll) * poll
+
+
+# The watcher on a clock each poll advances by its own wait, a write just before the first poll, at the
+# gate's own bounds: what it names and when, with no machine's scheduling in the figure.
+TICKING: Final[tuple[str, ...]] = (
+    "clock = [0.0]",
+    "gate_pool.time.monotonic = lambda: clock[0]",
+    "class Ticking:",
+    "    def wait(self, timeout):",
+    "        clock[0] += timeout",
+    "        return clock[0] > 2 * BOUND",
+    "named = []",
+    "running = pool()",
+    "running.live['quiet'] = None",
+    "(Path(DIRECTORY) / 'quiet.out').write_bytes(b'last words')",
+    "gate_pool.watch_stalls(running, Ticking(), lambda notice: named.append(clock[0]), None)",
+    "assert named, 'a unit silent for twice the bound was never named'",
+    "assert named[0] <= BOUND, f'named {named[0]:g} s after its last write, past the {BOUND:g} s the timeout case counts'",
+)
+
+
+def test_a_silent_unit_is_named_no_later_than_the_timeout_case_counts(tmp_path: Path) -> None:
+    """The timeout case below models the watcher's timing rather than running it, so a watcher naming a unit later passes it."""
+    result = _drive((f"BOUND = {_silent()!r}", *TICKING), tmp_path)
+    assert result.returncode == 0, result.stderr
+
+
 def test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout() -> None:
     """A job its timeout ends names no unit, so a stall starting as late as the job's budget is named inside it.
 
@@ -723,9 +757,7 @@ def test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout() -> None:
     """
     text = VERIFY.read_text(encoding="utf-8")
     faulthandler = _faulthandler_s(text)
-    stall, poll = float(declared(POOL, "STALL_S")), float(declared(POOL, "STALL_POLL_S"))
-    # The first poll after a unit's last write marks it, and the notice comes at the first poll `STALL_S` past that.
-    silent = poll + math.ceil(stall / poll) * poll
+    silent = _silent()
     pooled = _pooled_units(text)
     started = set().union(*pooled.values())
     dumping = {name.removeprefix("do_") for name in BODY_RE.findall(text) if DUMPS in lift_function(VERIFY, name)}
