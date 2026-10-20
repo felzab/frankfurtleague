@@ -1,6 +1,6 @@
 import asyncio
 import functools
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -514,6 +514,14 @@ ADDRESS_READS = frozenset(str(name) for name in (Collection.SAISON_TEAMS, Collec
 GATE_READS = frozenset(str(name) for name in (Collection.BEWERBUNGEN, Collection.REGISTRIERUNGEN))
 
 
+def _selects_by_address(collection: str, command: Mapping[str, Any]) -> bool:
+    """A read of a record collection whose selection names an address, never a join by ids the same handlers send."""
+
+    selection = command.get("filter") or next((stage["$match"] for stage in command.get("pipeline", []) if "$match" in stage), {})
+
+    return collection in ADDRESS_READS | GATE_READS and "email" in str(selection)
+
+
 @pytest.mark.db
 class TestEveryAddressReadWalksAnIndex:
     """Every signed-in page asks the lookup and every sign-in attempt the gate, so neither may scan a collection.
@@ -532,9 +540,7 @@ class TestEveryAddressReadWalksAnIndex:
                     berechtigungen_collection=watched[Collection.BERECHTIGUNGEN],
                 )
 
-            _, plans = await plans_of_sent_reads(
-                mongo_replica_set_url, database, ask_both, lambda collection, _command: collection in ADDRESS_READS | GATE_READS
-            )
+            _, plans = await plans_of_sent_reads(mongo_replica_set_url, database, ask_both, _selects_by_address)
 
             return plans
 
@@ -542,7 +548,10 @@ class TestEveryAddressReadWalksAnIndex:
 
         # The premise: a read the handlers never sent would pass the next line vacuously.
         assert {collection for collection, _ in plans} == ADDRESS_READS | GATE_READS, plans
-        assert all("IXSCAN" in plan and "COLLSCAN" not in plan for _, plan in plans), plans
+        assert [(collection, plan) for collection, plan in plans if "IXSCAN" not in plan or "COLLSCAN" in plan] == []
+        # The lookup's, on an address key: the referee read's id term alone would walk the `_id` index end to end. The
+        # gate's status term may take the planner to the status index instead, which a sign-in attempt can afford.
+        assert [(collection, plan) for collection, plan in plans if collection in ADDRESS_READS and "email" not in plan] == []
 
 
 @pytest.mark.db
