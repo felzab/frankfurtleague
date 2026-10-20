@@ -137,7 +137,7 @@ const berichtPayload = <TTor extends z.ZodType<string | null>, TKarte extends z.
 
       if (isNoShow(sonderereignis)) {
         if (team1_tore !== null || team2_tore !== null || elfmeterschiessen !== null) {
-          issue("Bei einem Nichtantreten trägst Du keine Tore ein: das Ergebnis setzt die Liga.", ["ergebnis_vorschlag", "sonderereignis"]);
+          issue("Bei einem Nichtantreten trägst Du keine Tore ein: Das Ergebnis setzt die Liga.", ["ergebnis_vorschlag", "sonderereignis"]);
         }
         if (bericht.torschuetzen.length > 0) issue("Bei einem Nichtantreten gibt es keine Torschützen.", ["torschuetzen"]);
         return;

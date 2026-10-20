@@ -173,7 +173,7 @@ class FLSpielberichtBerichtPayload(BaseModel):
 
         if vorschlag.sonderereignis in SONDEREREIGNIS_NO_SHOW:
             if vorschlag.team1_tore is not None or vorschlag.team2_tore is not None or vorschlag.elfmeterschiessen is not None:
-                raise ValueError("Bei einem Nichtantreten trägst Du keine Tore ein: das Ergebnis setzt die Liga.")
+                raise ValueError("Bei einem Nichtantreten trägst Du keine Tore ein: Das Ergebnis setzt die Liga.")
             if self.torschuetzen:
                 raise ValueError("Bei einem Nichtantreten gibt es keine Torschützen.")
             return self

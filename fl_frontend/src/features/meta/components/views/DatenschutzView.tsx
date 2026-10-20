@@ -605,6 +605,14 @@ export function DatenschutzView() {
             dabei nichts.
           </p>
           <p className={ABSATZ_CLASSES}>
+            Nach dem Spiel trägt die Schiedsrichterin oder der Schiedsrichter einen Spielbericht ein: das Ergebnis, zu jedem Tor die Minute und
+            die Person, die getroffen hat, und zu jeder Karte die Person, die Minute, die Farbe und bei Gelb und Gelb-Rot einen Grund aus einer
+            festen Liste. Dazu kommen Bemerkungen zum Spiel als freier Text. Einen Namen der Spielerinnen und Spieler beider Kader, der
+            Kontaktpersonen beider Teams oder der Schiedsrichterin oder des Schiedsrichters nehmen die Bemerkungen nicht an. Den Spielbericht
+            sehen nur die Schiedsrichterin oder der Schiedsrichter des Spiels und die Administratorinnen und Administratoren der Liga;
+            veröffentlicht wird er nicht. Wie lange wir ihn aufbewahren, steht in Abschnitt 13.
+          </p>
+          <p className={ABSATZ_CLASSES}>
             Eine E-Mail-Adresse gehört bei uns zu einer Person. Registriert sich jemand mit einer Adresse, unter der schon eine Person
             eingetragen ist, und weichen Name oder Geburtsdatum von diesem Eintrag ab, fragen wir das Team, ob es dieselbe Person ist, und
             nennen ihm dafür den eingetragenen Namen, nie das Geburtsdatum. Ist sie es nicht, lehnt das Team die Registrierung ab, und wir

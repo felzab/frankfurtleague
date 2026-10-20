@@ -118,7 +118,7 @@ const NEU_EINTRAGEN = "Lade die Seite neu und trage Deine Änderung dort erneut 
 const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
   schiedsrichter: {
     // Ahead of the spine's own reading, whose sentence names a team: the referee's record is what went.
-    "REQ-FUNKTION-001": "Du bist nicht mehr als Schiedsrichter eingetragen. Lade die Seite neu.",
+    "REQ-FUNKTION-001": "Du bist nicht mehr als Schiedsrichterin oder Schiedsrichter eingetragen. Lade die Seite neu.",
     "REQ-BERICHT-001": buildRefusal({ reason: "Dieses Spiel hat noch kein Datum oder noch nicht stattgefunden", repair: LADE_DIE_SEITE_NEU }),
     "REQ-BERICHT-002": buildRefusal({ reason: "Dieses Spiel leitest Du nicht mehr", repair: LADE_DIE_SEITE_NEU }),
     "REQ-BERICHT-003": buildRefusal({
@@ -133,7 +133,9 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
     "DB-COMMON-002": buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: LADE_DIE_SEITE_NEU }),
   },
   admin: {
-    "REQ-BERICHT-001": buildRefusal({ reason: "Das Spiel hat noch kein Datum oder liegt in der Zukunft", repair: "Trag zuerst das Datum ein" }),
+    // A reload, no date to enter: the correction page states an undated or future fixture before any press, so this
+    // arrives only where the fixture moved under the page, and an entered date may be the future one.
+    "REQ-BERICHT-001": buildRefusal({ reason: "Das Spiel hat noch kein Datum oder findet erst noch statt", repair: LADE_DIE_SEITE_NEU }),
     "REQ-BERICHT-003": buildRefusal({
       reason: "Eine gewählte Person steht nicht im Kader ihres Teams",
       repair: "Lade die Seite neu und wähle neu",

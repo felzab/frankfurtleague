@@ -64,7 +64,11 @@ export function SpielberichtForm({
   const nextKey = useRef(Math.max(gespeichert.torschuetzen.length, gespeichert.karten.length));
 
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
-    useDraftFieldErrors({ schemas: { spielbericht: spielberichtFormSchema() } });
+    // The success's own words negated, per reader: the referee sends a report, the administrator saves a correction.
+    useDraftFieldErrors({
+      schemas: { spielbericht: spielberichtFormSchema() },
+      failureTitle: leser === "admin" ? "Spielbericht nicht gespeichert" : "Spielbericht nicht gesendet",
+    });
 
   const status = deriveSpielberichtDraftStatus({ kontext, stored: gespeichert, draft, fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
@@ -155,6 +159,7 @@ export function SpielberichtForm({
               }
               fieldErrors={fieldErrors}
               onValidateFields={validateFields}
+              istNichtantreten={draft.sonderereignis === "nichtantreten_team1" || draft.sonderereignis === "nichtantreten_team2"}
             />
 
             <FormKartenSection

@@ -160,8 +160,11 @@ export type SpielberichtFieldPath =
 /** What the change list says of a value still to enter, in words: a lone dash would do a word's job. */
 const OFFEN = "offen";
 
-/** A whole list is one row: an entry has no path of its own that survives the one before it being removed. */
-const listText = (eintraege: readonly string[]): string | null => (eintraege.length === 0 ? null : eintraege.join("; "));
+/**
+ * A whole list is one row: an entry has no path of its own that survives the one before it being removed. Parted by a
+ * middle dot, never a semicolon (`docs/frontend/spec.md` §1.12): an entry holds commas.
+ */
+const listText = (eintraege: readonly string[]): string | null => (eintraege.length === 0 ? null : eintraege.join(" · "));
 
 const minuteText = (minute: string): string => (minute === "" ? OFFEN : `${minute}.`);
 
