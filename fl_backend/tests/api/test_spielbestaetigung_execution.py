@@ -69,6 +69,8 @@ from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
 from tests.worker import worker_database
 
+from .test_bewerbung_einwilligung_execution import leaf_paths
+
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_spielbestaetigung_test")
@@ -435,15 +437,6 @@ class _ListedInto:
         documents = await self._cursor.to_list(length=length)
         self._loaded.extend(documents)
         return documents
-
-
-def leaf_paths(document: Any, prefix: str = "") -> set[str]:
-    """Every dotted path this document holds a value at, an empty block counting as one."""
-
-    if not isinstance(document, Mapping) or not document:
-        return {prefix} if prefix else set()
-
-    return {path for key, value in document.items() for path in leaf_paths(value, f"{prefix}.{key}" if prefix else key)}
 
 
 # What each read resolves, spelled out here rather than read off the projections under test. The seat's bare block
