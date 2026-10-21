@@ -102,7 +102,8 @@ function SpielKarte({ spiel, gesendet }: { spiel: FLSpielberichtPersonFruehererE
           {`${datum}, ${spiel.uhrzeit === null ? nichtHinterlegt("Anpfiff") : `${formatUhrzeit(spiel.uhrzeit)} Uhr`}`}
         </span>
       </div>
-      {gesendet !== null && <span className={labelBadge(gesendet ? "success" : "warning")}>{gesendet ? "Gesendet" : "Offen"}</span>}
+      {/* „Gespeichert“, the save's own word: the report may be the league's, which the referee never sent. */}
+      {gesendet !== null && <span className={labelBadge(gesendet ? "success" : "warning")}>{gesendet ? "Gespeichert" : "Offen"}</span>}
       <Link
         href={`${SCHIEDSRICHTER_HREF}/spielbericht/${spiel.spiel_id}`}
         prefetch={false}

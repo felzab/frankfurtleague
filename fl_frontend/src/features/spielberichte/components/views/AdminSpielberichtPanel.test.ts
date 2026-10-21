@@ -96,6 +96,14 @@ describe("the report panel on the match editor", () => {
     assert.equal(screen.queryAllByText(/nur für die Verwaltung/).length, 0);
   });
 
+  /* The first write may be the league's own, which nobody sent: the day reads in the save's word, as the referee's badge. */
+  it("dates the report's first save in the save's own word", () => {
+    panel({ stand: stand() });
+
+    assert.ok(screen.getByText(/^Erstmals gespeichert am /));
+    assert.equal(screen.queryAllByText(/Eingereicht/).length, 0);
+  });
+
   /* A pupil off both squads arrives in `genannt`, by name or, erased, by none: the entry holds a bare id either way. */
   it("names each entry's pupil off the pupils the report names outside the squads, an erased one as „anonym“", () => {
     const { kader } = spielberichtReadFixture();
