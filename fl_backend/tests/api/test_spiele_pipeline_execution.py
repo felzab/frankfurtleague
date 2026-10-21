@@ -365,21 +365,14 @@ async def einsatz(database: AsyncDatabase) -> bool | None:
     return (await joined(database))["schiedsrichter"][EINSATZ_BESTAETIGT]
 
 
-class TestTheRefereeIsServedOnceAskedAndAgreed:
-    """`docs/backend/spec.md :: I781`: three-valued, so a fixture nobody asked the referee about serves them as before."""
+def withheld(document: Mapping[str, Any]) -> bool:
+    """The verdict and the base model both: a case reading one alone passes with the other gate reverted."""
 
-    def test_a_referee_never_asked_is_served_by_name(self, mongo_url: str):
-        """The two-valued gate's failure: every referee of every fixture the pass has not reached would vanish."""
+    return document["schiedsrichter"][EINSATZ_BESTAETIGT] is False and FLSpielJoined.model_validate(document).schiedsrichter is None
 
-        document = on_a_refereed_fixture(mongo_url, [], joined)
 
-        # The projection's pin: the join brings the verdict alone onto the block, never a field of the referee's record.
-        assert set(document["schiedsrichter"]) == {"schiedsrichter_id", "name", "payment", NAME_IS_PUBLIC_KEY, EINSATZ_BESTAETIGT}
-        assert document["schiedsrichter"][EINSATZ_BESTAETIGT] is None
-        assert FLSpielJoined.model_validate(document).schiedsrichter == FLSpielSchiedsrichterFieldPublic.model_validate(
-            {"schiedsrichter_id": REFEREE_ID, "name": REFEREE_NAME, "name_is_public": True}
-        )
-        assert SCHIEDSRICHTER_AS_NAME not in document
+class TestTheRefereeIsServedOnceAgreed:
+    """`docs/backend/spec.md :: I781`: two-valued, so a booking the pass has not reached, or asked and not agreed, names nobody."""
 
     @pytest.mark.parametrize("von", [{"art": "schiedsrichter"}, {"art": "admin"}], ids=["their own", "the league's"])
     def test_an_agreement_to_the_ansetzung_as_it_stands_serves_them(self, mongo_url: str, von: dict[str, Any]):
@@ -388,8 +381,43 @@ class TestTheRefereeIsServedOnceAskedAndAgreed:
 
         document = on_a_refereed_fixture(mongo_url, rows, joined, fixture=fixture)
 
+        # The projection's pin: the join brings the verdict alone onto the block, never a field of the referee's record.
+        assert set(document["schiedsrichter"]) == {"schiedsrichter_id", "name", "payment", NAME_IS_PUBLIC_KEY, EINSATZ_BESTAETIGT}
         assert document["schiedsrichter"][EINSATZ_BESTAETIGT] is True
-        assert FLSpielJoined.model_validate(document).schiedsrichter is not None
+        assert FLSpielJoined.model_validate(document).schiedsrichter == FLSpielSchiedsrichterFieldPublic.model_validate(
+            {"schiedsrichter_id": REFEREE_ID, "name": REFEREE_NAME, "name_is_public": True}
+        )
+        assert SCHIEDSRICHTER_AS_NAME not in document
+
+    def test_a_verdict_neither_true_nor_false_publishes_nobody(self, mongo_url: str):
+        """The base model's own gate, so a join answering a third value again cannot publish the referee it never judged."""
+
+        fixture = a_refereed_fixture()
+        document = on_a_refereed_fixture(mongo_url, [a_referee_row(fixture, antwort=zugesagt())], joined, fixture=fixture)
+        document["schiedsrichter"][EINSATZ_BESTAETIGT] = None
+
+        assert FLSpielJoined.model_validate(document).schiedsrichter is None
+
+    def test_a_fixture_too_far_out_to_have_been_asked_withholds_them(self, mongo_url: str):
+        """No row at all: read as never asked and served, every booking the pass has not reached would publish its referee."""
+
+        fixture = {**a_refereed_fixture(), "datum": "2026-12-12"}
+
+        assert withheld(on_a_refereed_fixture(mongo_url, [], joined, fixture=fixture))
+
+    def test_a_referee_booked_after_the_last_pass_withholds_them(self, mongo_url: str):
+        """The referee replaced before them holds the only row, closed for the change; the booked one holds none yet."""
+
+        fixture = a_refereed_fixture()
+        rows = [a_referee_row(fixture, partei=REPLACED_REFEREE, geschlossen={"am": "2026-04-21", "grund": "schiedsrichter_gewechselt"})]
+
+        assert withheld(on_a_refereed_fixture(mongo_url, rows, joined, fixture=fixture))
+
+    def test_a_request_closed_unanswered_withholds_them(self, mongo_url: str):
+        fixture = a_refereed_fixture()
+        rows = [a_referee_row(fixture, geschlossen={"am": "2026-05-03", "grund": "spiel_vergangen"})]
+
+        assert withheld(on_a_refereed_fixture(mongo_url, rows, joined, fixture=fixture))
 
     def test_a_referee_asked_and_silent_is_withheld_whole_from_the_base_tier_alone(self, mongo_url: str):
         """The admin editor shows the assignment from the moment it is made, the validator being the base model's own."""
@@ -420,7 +448,7 @@ class TestTheRefereeIsServedOnceAskedAndAgreed:
         fixture = a_refereed_fixture()
         rows = [a_referee_row(fixture, partei=REPLACED_REFEREE)]
 
-        assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=fixture) is None
+        assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=fixture) is False
 
     def test_a_clubs_closed_row_never_counts_for_the_referee(self, mongo_url: str):
         """The join carries a club's discard for the clubs' verdict, and the gate's party term keeps it out of the referee's."""
@@ -428,7 +456,7 @@ class TestTheRefereeIsServedOnceAskedAndAgreed:
         fixture = a_refereed_fixture()
         rows = [a_row(fixture, VERDICT_HOME, antwort=zugesagt(), geschlossen={"am": "2026-04-21", "grund": "verworfen"})]
 
-        assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=fixture) is None
+        assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=fixture) is False
 
     @pytest.mark.parametrize("moved", [False, True], ids=["about the slot as it stands", "about a slot the fixture left since"])
     def test_their_own_decline_as_their_latest_answer_withholds_them(self, mongo_url: str, moved: bool):
@@ -450,9 +478,9 @@ class TestTheRefereeIsServedOnceAskedAndAgreed:
 
     @pytest.mark.parametrize(
         ("geschlossen", "served"),
-        [pytest.param(None, True, id="open"), pytest.param(CLOSED_BY_A_MOVE, None, id="closed by a move since")],
+        [pytest.param(None, True, id="open"), pytest.param(CLOSED_BY_A_MOVE, False, id="closed by a move since")],
     )
-    def test_an_answer_after_their_decline_is_read_as_any_other(self, mongo_url: str, geschlossen: Any, served: bool | None):
+    def test_an_answer_after_their_decline_is_read_as_any_other(self, mongo_url: str, geschlossen: Any, served: bool):
         """Ordered by the pass-minted id: an answer read regardless of order would leave the old decline withholding them."""
 
         fixture = a_refereed_fixture()
@@ -460,8 +488,10 @@ class TestTheRefereeIsServedOnceAskedAndAgreed:
             a_referee_row(fixture, _id=EARLIER_ROW, antwort=DECLINED, geschlossen=CLOSED_BY_THE_DECLINE),
             a_referee_row(fixture, _id=LATER_ROW, antwort={**zugesagt(), "von": {"art": "schiedsrichter"}}, geschlossen=geschlossen),
         ]
+        # The move the closing names, so the agreement is about a slot the fixture left.
+        stored = fixture if geschlossen is None else {**fixture, "uhrzeit": "19:30:00"}
 
-        assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=fixture) is served
+        assert on_a_refereed_fixture(mongo_url, rows, einsatz, fixture=stored) is served
 
     def test_an_empty_slot_stays_null(self, mongo_url: str):
         """`$mergeObjects` onto a null slot builds an object: a booked referee with no id, which no reader can render."""
@@ -487,7 +517,10 @@ class TestTheRefereesNameFollowsTheirConsent:
         assert admin is not None and (admin.schiedsrichter_id, admin.name) == (REFEREE_ID, REFEREE_NAME)
 
     def test_a_published_name_is_served_reduced(self, mongo_url: str):
-        served = FLSpielJoined.model_validate(on_a_refereed_fixture(mongo_url, [], joined)).schiedsrichter
+        fixture = a_refereed_fixture()
+        rows = [a_referee_row(fixture, antwort=zugesagt())]
+
+        served = FLSpielJoined.model_validate(on_a_refereed_fixture(mongo_url, rows, joined, fixture=fixture)).schiedsrichter
 
         assert served is not None and served.name == PUBLIC_REFEREE_NAME
 
@@ -495,8 +528,10 @@ class TestTheRefereesNameFollowsTheirConsent:
         """The ghost's case and a join that stopped matching alike: nothing found never publishes."""
 
         fixture = a_refereed_fixture(schiedsrichter_id=GHOST_SCHIEDSRICHTER_ID)
+        # Agreed, so the consent gate is the one withholding the name.
+        rows = [a_referee_row(fixture, partei={"art": "schiedsrichter", "schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}, antwort=zugesagt())]
 
-        document = on_a_refereed_fixture(mongo_url, [], joined, fixture=fixture)
+        document = on_a_refereed_fixture(mongo_url, rows, joined, fixture=fixture)
 
         assert document["schiedsrichter"][NAME_IS_PUBLIC_KEY] is False
         served = FLSpielJoined.model_validate(document).schiedsrichter

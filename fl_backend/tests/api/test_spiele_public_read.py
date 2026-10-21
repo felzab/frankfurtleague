@@ -34,7 +34,13 @@ from app.main import create_app
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database_sync
-from tests.documents import eigene_einwilligung_document, saison_team_document, schiedsrichter_document, spiel_document
+from tests.documents import (
+    eigene_einwilligung_document,
+    saison_team_document,
+    schiedsrichter_document,
+    spiel_document,
+    spielbestaetigung_document,
+)
 
 from .conftest import unwritten
 
@@ -114,8 +120,8 @@ def joined_document() -> dict[str, Any]:
         "team1": {**document["team1"], "austritt": None, AUSTRITT_TYPE_KEY: None},
         "team2": {**document["team2"], "austritt": dict(AUSTRITT), AUSTRITT_TYPE_KEY: AUSTRITT["type"]},
         "ansetzung_bestaetigt": None,
-        # A referee publishing their name and never asked about this fixture: both gates pass, so the reduction is what is left.
-        "schiedsrichter": {**document["schiedsrichter"], "name_is_public": True, "einsatz_bestaetigt": None},
+        # A referee publishing their name and agreeing to this fixture: both gates pass, so the reduction is what is left.
+        "schiedsrichter": {**document["schiedsrichter"], "name_is_public": True, "einsatz_bestaetigt": True},
     }
 
 
@@ -214,6 +220,15 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
                 name=SCHIEDSRICHTER_NAME,
                 default_payment=PAYMENT,
                 einwilligung=eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-01"),
+            )
+        )
+        # Agreeing to the fixture as it stands, without which the base tier withholds the referee whole.
+        database[Collection.SPIELBESTAETIGUNGEN].insert_one(
+            spielbestaetigung_document(
+                stored_document(),
+                partei={"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER_ID},
+                kontakte=None,
+                antwort={"art": "zugesagt", "am": "2026-03-02", "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": None},
             )
         )
         database[Collection.SAISON_TEAMS].insert_one(junction_row())

@@ -249,7 +249,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   them a one-time link, which lasts fourteen days and can be re-sent; the person enters their own date
   of birth on that page and nobody answers for them. The public fixture read joins that record at
   every read and copies it nowhere: the name is served only where the record publishes it, and a
-  referee asked about a fixture only once they agreed (`docs/backend/spec.md :: READ-REFEREE-004`,
+  referee on a fixture only once they agreed to it (`docs/backend/spec.md :: READ-REFEREE-004`,
   `:: READ-REFEREE-005`, [section 4](#4-what-is-published-and-on-what-basis)).
 - **A referee's email address is required on every write, because an administrator enters the
   referee and the link is how that person learns of it** (Art. 14 (3)); the telephone number stays
@@ -347,8 +347,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   off every fixture page at the fixture list's next read. The gate is the pupils' own predicate,
   read off the referee's record when the fixture is read
   (`fl_backend/app/shared/einwilligung.py :: NAME_IS_PUBLIC`, `docs/backend/spec.md :: READ-REFEREE-004`);
-  a referee asked about a fixture is shown on it only once they agreed, the league's own entry of an
-  agreement counting (`:: READ-REFEREE-005`). Ruled 2026-10-20. No fixture page carries the
+  a referee is shown on a fixture only once they agreed to it, the league's own entry of an
+  agreement counting, so a booking nobody has asked them about yet shows no referee
+  (`:: READ-REFEREE-005`). Ruled 2026-10-20. No fixture page carries the
   referee's record id, which would link every fixture of a referee whose name is withheld
   (`:: READ-REFEREE-006`).
 - **The booked referee reads both clubs' squads, every name and shirt number, for their own
