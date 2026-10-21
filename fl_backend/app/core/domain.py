@@ -1488,7 +1488,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "genehmigung",
         Editability.CONTROL_ONLY,
         "written by a start where the address holds a grant, its approver stamped by "
-        "`POST /adresswechsel/{adresswechsel_id}/genehmigung` alone; nulled by every ending. No payload carries it",
+        "`POST /adresswechsel/{adresswechsel_id}/genehmigung` alone, taken off by an effect finding the approval no longer "
+        "stands, and its starter and approver re-keyed by an effect or an erasure of theirs; nulled by every ending. No payload "
+        "carries it",
         "app.api.adresswechsel.services.compose_genehmigung",
     ),
     FieldPolicy(

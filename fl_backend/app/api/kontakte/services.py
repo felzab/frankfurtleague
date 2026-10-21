@@ -13,8 +13,8 @@ from app.shared.folding import person_name_key, sign_in_identifier, trimmed_patt
 def same_address(identifier: str) -> Mapping[str, Any]:
     """A case-blind pre-filter, the sign-in fold deciding.
 
-    For the grants' erasure alone: a grant pasted through the Playground keeps its typed spelling, which
-    no write folds, and must still go; every other record stores the fold.
+    For a grant's rows and images alone, which an erasure and an address change's effect read: a grant pasted through the
+    Playground keeps its typed spelling; every other record stores the fold.
     """
 
     # Folded here whatever a caller hands on: built off an unfolded spelling, a padded or a blank one above all, the

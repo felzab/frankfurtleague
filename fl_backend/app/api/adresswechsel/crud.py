@@ -6,7 +6,8 @@ functions, so no two of them part on what a change moves or what its end leaves 
 
 Invariants:
 - The effect moves everything the address holds in its caller's transaction, a grant included, and nothing else.
-- Every end takes the record's addresses and reason out of it; every end but the effect's takes them out of its log images.
+- Every end takes the record's addresses and reason out of it; its log images lose what no record holds after it: the
+  new address and the reason on every end but the effect, the replaced address on the effect.
 """
 
 from collections.abc import Callable, Mapping, Sequence
@@ -587,7 +588,8 @@ async def move_the_address_in_session(
     neue, stamp = str(record["email"]), log_stamp(now)
 
     if bestand.spieler is not None:
-        # Folded, never as typed: the sign-in seam joins on this field by equality (`docs/backend/spec.md :: I265`).
+        # Folded as every start stores it, and again here: the sign-in seam joins on this field by equality
+        # (`docs/backend/spec.md :: I265`).
         await patch_one_in_db(
             collection=spieler_collection,
             db_filter={"_id": bestand.spieler["_id"]},

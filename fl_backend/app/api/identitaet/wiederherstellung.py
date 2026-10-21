@@ -445,8 +445,8 @@ async def _plan_adresswechsel_wirksam(
 
     record = await database[Collection.ADRESSWECHSEL].find_one({"_id": line.record_id}, session=session)
     if record is None:
-        # Started after the snapshot, the window's own line being its effect: the records stand at the replaced address
-        # while the sign-in store, never restored, keeps the account at the new one, so somebody must tell the person.
+        # Started after the snapshot, the window's own line being its effect: the restore put the records and the sign-in
+        # store, one cluster, back at the replaced address, so somebody must tell the person to start it again.
         return Plan("left for review", detail="started after the snapshot: its person starts the change again")
 
     beendet = record.get("beendet")
