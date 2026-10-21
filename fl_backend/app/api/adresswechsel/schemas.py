@@ -144,6 +144,29 @@ class FLAdresswechselZugestelltResponse(BaseAPIResponse):
     ignoriert: int = Field(ge=0)
 
 
+class FLAdresswechselAdressePayload(BaseModel):
+    """Exactly one key: the new mailbox's link token, or the change an approval names."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: CustomAdresswechselToken | None = None
+    adresswechsel_id: CustomObjectId | None = None
+
+    @model_validator(mode="after")
+    def exactly_one_key(self) -> Self:
+        if (self.token is None) == (self.adresswechsel_id is None):
+            raise ValueError("name either the link's token or the change, and not both")
+
+        return self
+
+
+class FLAdresswechselAdresseResponse(BaseAPIResponse):
+    """A live change's new address and nothing else, server to server alone (`READ-ADRESSWECHSEL-002`)."""
+
+    # Folded as the sign-in store keys an account; null where the key names no live change.
+    email: str | None
+
+
 class FLAdresswechselGenehmigungStand(BaseModel):
     """The approval a change of the person's own grant waits on, as their account page reads it: never who gave it."""
 

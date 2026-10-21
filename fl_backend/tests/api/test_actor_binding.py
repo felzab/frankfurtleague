@@ -412,6 +412,8 @@ SYSTEM_WRITES = [
     # The address change's owed notices, claimed and stamped by the frontend's pass as the grants' are.
     ("/api/v0/adresswechsel/sweep/postausgang", "POST"),
     ("/api/v0/adresswechsel/sweep/postausgang/zugestellt", "POST"),
+    # A read, listed for the reason the identity reads are: the frontend's server asks a live change's new address.
+    ("/api/v0/adresswechsel/sweep/adresse", "POST"),
 ]
 
 # The writes a signed-in person makes on the admin key, binding one of `PERSON_ACTOR_BINDERS` in
