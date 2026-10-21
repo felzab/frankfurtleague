@@ -54,6 +54,7 @@ BEWERBUNG_TOKEN_PAST_DEADLINE = "REQ-BEWERBUNG-017"
 BEWERBUNG_ADRESSE_GESPERRT = "REQ-BEWERBUNG-018"
 BEWERBUNG_KONTAKT_GESPERRT = "REQ-BEWERBUNG-019"
 BEWERBUNG_EINWILLIGUNG_GESPERRT = "REQ-BEWERBUNG-020"
+BEWERBUNG_SITZ_ANDERS_BESETZT = "REQ-BEWERBUNG-021"
 
 # `bewerbung: null` and no key are both the closed window, never an error (`FLSaison.bewerbung`
 # defaults).
@@ -1206,6 +1207,28 @@ def find_kontakt_email_refusal(*, kontakte: Any, seats: Sequence[str], email: st
         )
 
     return None
+
+
+def find_sitz_inhaber_refusal(*, kontakte: Any, seat: str, bisherige_email: str) -> WriteRefusal | None:
+    """Why this correction, composed against the seat holding `bisherige_email`, may not land on the seat as it stands, or `None`.
+
+    A Widerspruch and a reseat between the page's read and the press leave the seat with someone else, and the
+    correction would give them the address typed for the person who left.
+    """
+
+    slots = kontakte if isinstance(kontakte, Mapping) else {}
+    slot = slots.get(seat)
+    # On the sign-in fold, as `find_kontakt_email_refusal` compares one mailbox to another.
+    held = sign_in_identifier(str(slot.get("email") or "")) if isinstance(slot, Mapping) else None
+
+    if held == sign_in_identifier(bisherige_email):
+        return None
+
+    return WriteRefusal(
+        error_code=BEWERBUNG_SITZ_ANDERS_BESETZT,
+        status=HTTPStatus.CONFLICT,
+        message="the seat no longer holds the address this correction was composed against; re-read the application and correct it again",
+    )
 
 
 def compose_kontakt_email_update(

@@ -334,7 +334,7 @@ const DECISIONS = [
 
 /** Each repair's payload, as its control sends it for the Ansprechperson's seat. */
 const ERNEUT = { id: BEWERBUNG_ID, rolle: "ansprechperson" } as const;
-const KORREKTUR = { id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@example.de" } as const;
+const KORREKTUR = { id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@example.de", bisherige_email: PERSON.email } as const;
 const SITZ = {
   id: BEWERBUNG_ID,
   rolle: "ansprechperson",
@@ -444,7 +444,12 @@ describe("the application's writes", () => {
       { endpoint: `${bewerbung}/ablehnen`, method: "POST", body: { grund: "Die Liga ist voll." } },
       { endpoint: `${bewerbung}/einwilligung/ansprechperson/erneut`, method: "POST", body: undefined },
       report(3),
-      { endpoint: `${bewerbung}/kontakte/ansprechperson/email`, method: "POST", body: { email: KORREKTUR.email } },
+      // The address the page showed rides beside the corrected one: the backend judges the seat's holder by it.
+      {
+        endpoint: `${bewerbung}/kontakte/ansprechperson/email`,
+        method: "POST",
+        body: { email: KORREKTUR.email, bisherige_email: PERSON.email },
+      },
       report(4),
       { endpoint: `${bewerbung}/kontakte/ansprechperson`, method: "POST", body: person },
       report(5),
@@ -1089,7 +1094,7 @@ describe("the corrected contact address", () => {
     await assertEachAnswered({
       operation: KORREKTUR_OPERATION,
       refuseWith: answerWith,
-      act: () => kontaktEmailKorrigierenAction({ id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@example.de" }),
+      act: () => kontaktEmailKorrigierenAction(KORREKTUR),
       mapped: mapKontaktEmailRefusal,
     });
   });
