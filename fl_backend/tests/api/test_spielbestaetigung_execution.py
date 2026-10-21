@@ -57,7 +57,7 @@ from app.api.spiele.services import BOOKING_REFEREE_MOVED, ELIGIBILITY_DISQUALIF
 from app.api.teams.admin_router import replace_saison_team
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLReplaceSaisonTeamPayload
 from app.core.collections import Collection
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
@@ -1787,6 +1787,72 @@ class TestTheRefereesOwnRows:
         eintraege = on_a_refereed_fixture(mongo_replica_set_url, body, rows=[confirmation(ROW1, TEAM1), earlier, referee_row(), utes])
 
         assert [(eintrag.id, eintrag.zustand, eintrag.ansetzung.datum) for eintrag in eintraege] == [(REFEREE_ROW, "gueltig", DATUM)]
+
+    def test_a_moved_row_still_its_fixtures_newest_names_the_slot_it_asked_about(self, mongo_replica_set_url: str):
+        """Moved past the answer window, so no fresh request exists: the card shows what the referee was asked, not the new slot."""
+
+        other_ground = ObjectId("6890a1b2c3d4e5f607d50032")
+        asked = referee_row()["ansetzung"]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELORTE].insert_one(
+                {
+                    "_id": other_ground,
+                    "name": "Halle West",
+                    "address": dict(documents.ADDRESS),
+                    "maps_link": "Halle West, Frankfurt",
+                    "default_mietpreis": 40,
+                    "inactive_since": None,
+                }
+            )
+            await database[Collection.SPIELE].update_one(
+                {"_id": SPIEL},
+                {
+                    "$set": {
+                        "datum": "2027-07-01",
+                        "uhrzeit": "19:30:00",
+                        "ort": {"spielort_id": other_ground, "name": "Halle West", "maps_link": "Halle West, Frankfurt", "mietpreis": 40},
+                    }
+                },
+            )
+            return (await eigene(database, client)).spielbestaetigungen
+
+        (eintrag,) = on_a_refereed_fixture(mongo_replica_set_url, body)
+
+        assert (eintrag.zustand, eintrag.ansetzung.datum, eintrag.ansetzung.uhrzeit) == ("ungueltig", asked["datum"], asked["uhrzeit"])
+        assert eintrag.ansetzung.spielort is not None
+        assert eintrag.ansetzung.spielort.name == "Halle Ost"
+
+    def test_a_fixture_moved_past_one_reads_worth_of_rows_is_still_one_card(self, mongo_replica_set_url: str):
+        """Its history rows outrun one read, its fixtures do not: the cap counts the cards the panel shows."""
+
+        moved = {**referee_row()["ansetzung"], "datum": EARLIER_DAY, "stand": "alt"}
+        history = [
+            referee_row(
+                ObjectId(f"6890a1b2c3d4e5f6070{number:05x}"), ansetzung=moved, geschlossen={"am": TODAY, "grund": "ansetzung_geaendert"}
+            )
+            for number in range(LIST_LIMIT_MAX)
+        ]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            return (await eigene(database, client)).spielbestaetigungen
+
+        eintraege = on_a_refereed_fixture(mongo_replica_set_url, body, rows=[*history, referee_row()])
+
+        assert [(eintrag.id, eintrag.zustand) for eintrag in eintraege] == [(REFEREE_ROW, "gueltig")]
+
+    def test_the_read_walks_the_referees_index(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _client: AsyncMongoClient) -> Any:
+            return await plans_of_sent_reads(
+                mongo_replica_set_url,
+                database,
+                eigene,
+                lambda collection, command: collection == Collection.SPIELBESTAETIGUNGEN and "pipeline" in command,
+            )
+
+        _, [(_, plan)] = on_a_refereed_fixture(mongo_replica_set_url, body)
+
+        assert plan == "IXSCAN { partei.schiedsrichter_id: 1, saison_id: 1 }", plan
 
     def test_the_days_to_come_first_open_ahead_then_the_days_gone_by_latest_first(self, mongo_replica_set_url: str):
         """By day alone a past fixture would lead an upcoming one, and a season's twelfth past card the next Saturday's."""

@@ -18,6 +18,8 @@ const ereignisse: Ereignis[] = [];
 const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
 
 let sweepSwitch: string | undefined = "on";
+/** Whether the notices' stamp fails, as a backend restarting under it fails it. */
+let mitgeteiltScheitert = false;
 let appEnv = "production";
 
 const LISTE = "/spielbestaetigungen/sweep";
@@ -45,7 +47,7 @@ const leererPass = (saisonId: string) => ({
   schiedsrichter_spiel_abgesagt: [],
   geschlossen: 0,
   fehlgeschlagen: 0,
-  mitteilungen_aufgegeben: 0,
+  mitteilungen_aufgegeben: [],
 });
 
 /** One notice's slot and clubs, each kind carrying them alike. */
@@ -106,6 +108,7 @@ doubleApiClient(async (call: ApiCall, schema) => {
   }
   const mitgeteilt = /^\/spielbestaetigungen\/sweep\/(\d+)\/mitgeteilt$/.exec(call.endpoint);
   if (mitgeteilt !== null) {
+    if (mitgeteiltScheitert) throw new Error("the notices' stamp went unanswered");
     const ids = (body as { spielbestaetigung_ids: string[] }).spielbestaetigung_ids;
     return schema.parse({ acknowledged: 1, saison_id: mitgeteilt[1], mitgeteilt: ids.length });
   }
@@ -182,6 +185,7 @@ beforeEach(() => {
   lines.length = 0;
   ausgang.clear();
   sweepSwitch = "on";
+  mitgeteiltScheitert = false;
   appEnv = "production";
   listeAnswer = () => ({ acknowledged: 1, saison_ids: ["2627"], spiel_sweep_gelaufen_am: null });
   passAnswer = (saisonId) => leererPass(saisonId);
@@ -602,6 +606,31 @@ describe("what one pass mails", () => {
     assert.deepEqual(mitgeteilt(), [id(7), id(10)]);
   });
 
+  /* The pass call stamped the reminder before answering, so a pass ending at the notices' stamp would cost the season
+     its reminders for good and its requests for an hour. */
+  it("mails the reminders and requests and stamps the requests where the notices' stamp failed, filing that failure", async () => {
+    mitgeteiltScheitert = true;
+    passAnswer = (saisonId) => ({
+      ...leererPass(saisonId),
+      schiedsrichter_gewechselt: [{ ...hinweis(4), address: "schiri@schule.de" }],
+      erinnerungen: [anfrage(2, "erinnert@schule.de")],
+      anfragen: [anfrage(3, "neu@schule.de")],
+    });
+
+    await runSpielSweep();
+
+    assert.deepEqual(
+      gesendet().map(({ to }) => to),
+      ["schiri@schule.de", "erinnert@schule.de", "neu@schule.de"],
+    );
+    assert.deepEqual(gestempelt(), [id(3)]);
+    assert.deepEqual(passLines()[0], {
+      level: "error",
+      event: "spielbestaetigung.sweep_failed",
+      fields: { error_code: "FE-SWEEP-004", name: "Error", saison_id: "2627" },
+    });
+  });
+
   /* Never in parallel: a fan-out would put every season's mail on the transport at once. */
   it("visits the seasons one at a time, in the order listed", async () => {
     listeAnswer = () => ({ acknowledged: 1, saison_ids: ["2627", "2728"], spiel_sweep_gelaufen_am: null });
@@ -652,19 +681,30 @@ describe("the pass's lines", () => {
     ]);
   });
 
-  /* A notice given up is a party nobody told, which only this count shows an operator (`docs/ops/runbooks.md` §9). */
-  it("warns where the pass gave a notice up", async () => {
-    passAnswer = (saisonId) => ({ ...leererPass(saisonId), mitteilungen_aufgegeben: 2 });
+  /* A notice given up is a party nobody told: its line names the fixture an operator opens to tell them by hand
+     (`docs/ops/runbooks.md` §9), and its stamp keeps the next pass from answering it again. */
+  it("warns of each notice given up by its fixture and party, never a person, and stamps it", async () => {
+    const aufgegeben = [
+      { spielbestaetigung_id: id(11), spiel_id: id(500), partei: "team" as const },
+      { spielbestaetigung_id: id(12), spiel_id: id(501), partei: "schiedsrichter" as const },
+    ];
+    passAnswer = (saisonId) => ({ ...leererPass(saisonId), mitteilungen_aufgegeben: aufgegeben });
 
     await runSpielSweep();
 
     assert.deepEqual(passLines(), [
+      ...aufgegeben.map((notice) => ({
+        level: "warn",
+        event: "spielbestaetigung.mitteilung_aufgegeben",
+        fields: { error_code: "FE-SWEEP-004", saison_id: "2627", ...notice },
+      })),
       {
         level: "warn",
         event: "spielbestaetigung.sweep_pass",
-        fields: { error_code: "FE-SWEEP-004", geschlossen: 0, angefragt: 0, erinnert: 0, mitgeteilt: 0, aufgegeben: 2, fehlgeschlagen: 0 },
+        fields: { error_code: "FE-SWEEP-004", geschlossen: 0, angefragt: 0, erinnert: 0, mitgeteilt: 2, aufgegeben: 2, fehlgeschlagen: 0 },
       },
     ]);
+    assert.deepEqual(mitgeteilt(), [id(11), id(12)]);
   });
 
   it("files a season it could not sweep under its own code, and goes on to the next", async () => {
