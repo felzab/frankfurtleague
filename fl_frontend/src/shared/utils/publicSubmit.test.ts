@@ -13,7 +13,7 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import ts from "typescript";
 
-import { JA_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
+import { JA_ANGEFRAGT } from "@/core/adresswechselAntworten.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -362,7 +362,7 @@ const FORMS: Record<string, PublicForm> = {
       h(AdresswechselLinkView, {
         start: { zustand: "gueltig", gueltigBis: "2026-10-05T10:00:00Z", weg: "konto", token: "kein-echtes-token" },
       }),
-    submit: (user) => user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE })),
+    submit: (user) => user.click(screen.getByRole("button", { name: JA_ANGEFRAGT })),
   },
   // The sixth digit sends the check by itself.
   "the sign-in code step": {

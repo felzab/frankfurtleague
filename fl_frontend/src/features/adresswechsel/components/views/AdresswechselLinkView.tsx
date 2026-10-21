@@ -8,7 +8,7 @@ import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import { Button } from "@heroui/react/button";
 
 import { ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_DAUER, adresswechselZeitpunkt } from "@/core/adresswechsel";
-import { ADRESSWECHSEL_STOPPEN, JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten";
+import { ADRESSWECHSEL_STOPPEN, JA_ANGEFRAGT, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten";
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { KONTO_HREF } from "@/core/kontoHref";
 import { startOf } from "@/features/adresswechsel/link";
@@ -228,7 +228,7 @@ function AntwortPanel({ gueltigBis, weg, antwort }: { gueltigBis: string; weg: F
             className="size-4.5"
             aria-hidden="true"
           />
-          {JA_MEINE_ADRESSE}
+          {JA_ANGEFRAGT}
         </Button>
         <AblehnenButton antwort={antwort} />
       </div>
