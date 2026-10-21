@@ -36,23 +36,28 @@ for (const file of TREE) {
   mkdirSync(path.join(SCRATCH, path.dirname(file)), { recursive: true });
   writeFileSync(path.join(SCRATCH, file), CASE);
 }
-// Prints each file the runner ran, read off the test the runner names by the file's path.
+// Prints the file of each case the runner completed: every fixture file holds one.
 const LISTER = path.join(SCRATCH, "lister.reporter.mjs");
 writeFileSync(
   LISTER,
   'import path from "node:path";\nexport default async function* (source) {\n  for await (const { type, data } of source) {\n' +
-    '    if (type === "test:complete" && data.file !== undefined && path.resolve(data.name) === path.resolve(data.file)) {\n' +
+    '    if (type === "test:complete" && data.file !== undefined) {\n' +
     '      yield `${path.relative(process.cwd(), data.file).split(path.sep).join("/")}\\n`;\n    }\n  }\n}\n',
 );
+
+// Without `NODE_TEST_CONTEXT`, under which a child runner reports to this one rather than to its reporter.
+const CHILD_ENV = { ...process.env };
+Reflect.deleteProperty(CHILD_ENV, "NODE_TEST_CONTEXT");
 
 /** The files `node --test` itself runs for these patterns in the scratch tree. */
 function runnerFiles(patterns) {
   const done = spawnSync(process.execPath, ["--test", `--test-reporter=${pathToFileURL(LISTER).href}`, ...patterns], {
     cwd: SCRATCH,
+    env: CHILD_ENV,
     encoding: "utf8",
   });
   assert.equal(done.status, 0, done.stderr);
-  return done.stdout.split("\n").filter(Boolean).sort();
+  return [...new Set(done.stdout.split("\n").filter(Boolean))].sort();
 }
 
 describe("the files a sharded tier is planned over", () => {
@@ -82,7 +87,7 @@ describe("the files a sharded tier is planned over", () => {
 describe("a planned path handed back to the runner", () => {
   it("selects exactly its own file, however a glob would read it", () => {
     // Through the command line the gate pipes the plan into, the plan's lines ending as a Windows python writes them.
-    const done = spawnSync(process.execPath, [SHARD_FILES, "--literal"], { input: MISREAD.join("\r\n") + "\r\n", encoding: "utf8" });
+    const done = literal(SCRATCH, MISREAD.join("\r\n") + "\r\n");
     assert.equal(done.status, 0, done.stderr);
     const globs = done.stdout.split("\n").filter(Boolean);
 
@@ -91,4 +96,25 @@ describe("a planned path handed back to the runner", () => {
       MISREAD.map((file) => [file]),
     );
   });
+
+  it("is refused where the only pattern for it selects another file too", () => {
+    // A brace has no literal spelling, so its pattern reads it as any one character.
+    // A tree of its own, so the two tiers' cases above never read these files.
+    const tree = mkdtempSync(path.join(tmpdir(), "fl-shard-ambiguous-"));
+    after(() => rmSync(tree, { recursive: true, force: true }));
+    for (const file of ["a{b}/page.test.mjs", "a(b)/page.test.mjs"]) {
+      mkdirSync(path.join(tree, path.dirname(file)), { recursive: true });
+      writeFileSync(path.join(tree, file), CASE);
+    }
+
+    const done = literal(tree, "a{b}/page.test.mjs\n");
+
+    assert.deepEqual({ status: done.status, stdout: done.stdout }, { status: 2, stdout: "" });
+    assert.match(done.stderr, /selects exactly a\{b\}\/page\.test\.mjs/);
+  });
 });
+
+/** The `--literal` command line as the gate runs it, from the tier's directory with the plan on stdin. */
+function literal(cwd, input) {
+  return spawnSync(process.execPath, [SHARD_FILES, "--literal"], { cwd, input, encoding: "utf8" });
+}
