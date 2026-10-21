@@ -339,6 +339,36 @@ describe("one pass over the claimed changes", () => {
     assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
+  /* A request's end goes to its requester alone, whom the claim names in `an`, under the request's own subject, and
+     names nobody who acted (`docs/backend/spec.md :: I867`). */
+  it("mails a request's end to its requester alone, naming the address asked about, and stamps it", async () => {
+    claim = claimOf([aenderung({ art: "antrag_abgelehnt", geaendert_von: "anna@schule.de", an: ["anna@schule.de"] })]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(
+      mail.sent.map(({ to, subject }) => [to, subject]),
+      [["anna@schule.de", "Antrag auf Zugang zur Verwaltung der Frankfurt League"]],
+    );
+    assert.ok(mail.sent[0]?.text.includes("Dein Antrag auf Zugang zur Verwaltung für neu@schule.de wurde abgelehnt."));
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+  });
+
+  it("words an address change's end of a promotion, a withheld address by its state", async () => {
+    claim = claimOf([
+      aenderung({ art: "antrag_beendet", jetzt: { adresse: null, verwaltung: "owner" }, gesperrt: true, an: ["anna@schule.de"] }),
+    ]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.ok(
+      mail.sent[0]?.text.includes(
+        "Dein Antrag, eine gesperrte Adresse zur Inhaberin oder zum Inhaber der Verwaltung zu ernennen, endete, weil sich die Adresse geändert hat.",
+      ),
+      String(mail.sent[0]?.text),
+    );
+  });
+
   /* Decided, lapsed or approved by nobody since: the claim answers it to nobody, and it is stamped unmailed. */
   it("stamps a request nobody can approve any more, mailing nobody", async () => {
     claim = claimOf([aenderung({ art: "beantragt", an: [] })]);

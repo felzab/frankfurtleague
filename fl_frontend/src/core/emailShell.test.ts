@@ -52,7 +52,7 @@ const {
   buildBewerbungZusageEmail,
 } = await import("./bewerbungEmail.ts");
 const { buildCodeEmail } = await import("./authEmail.ts");
-const { buildBerechtigungEmail } = await import("./berechtigungEmail.ts");
+const { buildAntragEndeEmail, buildBerechtigungEmail } = await import("./berechtigungEmail.ts");
 const { buildEinladungEmail } = await import("./einladungEmail.ts");
 const { buildKontaktAbgangEmail, buildKontaktBestaetigungEmail } = await import("./kontaktEmail.ts");
 const { buildLoeschungEmail } = await import("./loeschungEmail.ts");
@@ -336,6 +336,7 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       datumText: "20.11.2026",
       uhrzeitText: "14:30",
     }),
+  buildAntragEndeEmail: (origin) => buildAntragEndeEmail({ art: "antrag_abgelehnt", adresse: "neu@schule.de", inhaber: false }, origin),
   buildBerechtigungEmail: (origin) =>
     buildBerechtigungEmail(
       { art: "erteilt", adresse: "neu@schule.de", inhaber: false },

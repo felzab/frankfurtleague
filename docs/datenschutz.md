@@ -500,12 +500,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   whoever granted it.** `berechtigungen` holds the grant and `berechtigungen_angekuendigt` what the
   other administrators were told of it, and every administrator is served both addresses. The outbox
   `berechtigungen_postausgang` holds a changed or requested grant's address, and the acting
-  administrator's, until a pass has mailed it, and no barred or erased address at all: a ban withholds it in every row
+  administrator's, or a refused or ended request's address and its requester's, until a pass has mailed it, and no barred or erased address at all: a ban withholds it in every row
   still queued (`docs/backend/spec.md :: I462`), and so does an erasure (`:: I659`). Each change is
   mailed to every holder and to the address it names, carrying that address and the administrator who
   made it; a barred address it names by its state alone, and an erased person's not at all
   (`docs/frontend/spec.md :: I455`). A request goes only to whoever could approve it
-  (`docs/backend/spec.md :: I856`). A revoke removes the grant and its announced row
+  (`docs/backend/spec.md :: I856`). Its refusal, or its end by a change of the address it is for, goes
+  to its requester alone while they still administer, naming the address and tier they asked for and
+  nobody who refused it; a withdrawal tells nobody (`docs/backend/spec.md :: I867`). A revoke removes the grant and its announced row
   at once (`docs/backend/spec.md :: I451`); the log keeps the removed grant's image, the address in
   it, for its twelve months, as it keeps every administrator's write, until that person's erasure
   takes the address out of it (`docs/backend/spec.md :: I670`), and no image of an announced or
@@ -986,7 +988,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   Einteilung; a party mailed about it is told when the fixture moves, a referee when the fixture no
   longer books them, every party mailed when it is called off, a no-show entered before its day
   included, and a club whose proposed date the league discarded that the date stands
-  (`docs/backend/spec.md :: I780`, `:: I836`, `:: I867`). A notice still owed is held on its closed
+  (`docs/backend/spec.md :: I780`, `:: I836`, `:: I868`). A notice still owed is held on its closed
   row as a count of attempts and never as an address (`:: I835`), so it needs no erasure step of its
   own: the address is read as each pass sends, and a referee's erasure removes their rows. The
   taken-off and called-off notices ruled 2026-10-20, the discard's 2026-10-21.
