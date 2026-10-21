@@ -27,7 +27,7 @@ import { RequiredSchemas } from "@/shared/components/ui/RequiredMarks";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { TextField } from "@/shared/components/ui/TextField";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR } from "@/shared/utils/actionError";
+import { LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 import { meldeAdresswechselVersand } from "@/shared/utils/linkVersandToast";
@@ -37,6 +37,13 @@ import { toFieldErrors } from "@/shared/utils/validation";
 import type { Key } from "@heroui/react/rac";
 
 export const LINK_AN_NEUE_ADRESSE = "Link an neue Adresse senden";
+
+/**
+ * The reload first (`docs/frontend/spec.md` §1.12), then the address shown again, which a reload empties: a second start
+ * replaces one that landed, so entering it again is safe either way.
+ */
+const START_OHNE_ANTWORT =
+  "Prüfe die Verbindung, lade die Seite neu und zeige die bisherige Adresse erneut an. Steht dort keine Änderung, trage die neue Adresse erneut ein.";
 
 /** The two ways an administrator starts a change: the address on file asked first, or a recorded reason and a waiting time. */
 type Weg = "fragen" | "unerreichbar";
@@ -142,7 +149,7 @@ export function AdresswechselBeantragen({
       router,
       pending: setSendet,
       write: () => beantrageAdresswechselAction({ adresse: adresse, email: entwurf.email, grund: gesendeterGrund(entwurf) }),
-      repair: LINK_ERNEUT_OHNE_ANTWORT,
+      repair: START_OHNE_ANTWORT,
     });
     if (res === null) return;
 
@@ -242,7 +249,7 @@ export function AdresswechselBeantragen({
             <Label className={FIELD_LABEL_CLASSES}>Grund</Label>
             <Input
               autoComplete="off"
-              placeholder="z.B. Postfach von der Schule gelöscht, bestätigt durch die Ansprechperson des Teams am 21.10.2026"
+              placeholder="z.B. Postfach von der Schule gelöscht, bestätigt durch die Ansprechperson des Teams"
               className={FIELD_INPUT_CLASSES}
             />
             <FieldError className={FIELD_ERROR_CLASSES}>{grundGezeigt}</FieldError>

@@ -1,12 +1,14 @@
 "use server";
 
 import { afterTheResponse } from "@/core/afterResponse";
+import { accountStandsAt } from "@/core/auth";
 import { runBerechtigungenAbgleich } from "@/features/berechtigungen/abgleich";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { EinsehbarVerwehrtSchema } from "./einsehbar";
+import { kontoAnNeuerAdresse } from "./konto";
 import {
   beantrageAdresswechsel,
   einladeAdresswechsel,
@@ -16,7 +18,15 @@ import {
 } from "./mutations";
 import { describeAdresswechselMail, mailAdresswechsel } from "./notifications";
 import { runAdresswechselPostausgang } from "./postausgang";
-import { mapGenehmigungRefusal, mapVerwaltungAnsichtRefusal, mapVerwaltungLinkRefusal, mapVerwaltungStartRefusal } from "./refusals";
+import {
+  KONTO_BELEGT_ERNEUT,
+  KONTO_BELEGT_START,
+  kontoBelegtGenehmigung,
+  mapGenehmigungRefusal,
+  mapVerwaltungAnsichtRefusal,
+  mapVerwaltungLinkRefusal,
+  mapVerwaltungStartRefusal,
+} from "./refusals";
 import {
   FLAdresswechselEinladenPayloadSchema,
   FLAdresswechselGenehmigungPayloadSchema,
@@ -63,7 +73,7 @@ export async function readAdresswechselAnsichtAction(
 }
 
 /**
- * An administrator's start of a change for a person who cannot sign in: without a reason the address on
+ * An administrator's start of a change for a person who says they cannot sign in: without a reason the address on
  * file approves it first, with one a waiting time follows the confirmation. Either way it gets a stop link.
  */
 export async function beantrageAdresswechselAction(rawPayload: FLAdresswechselVerwaltungPayload): Promise<AdresswechselGesendet> {
@@ -71,6 +81,9 @@ export async function beantrageAdresswechselAction(rawPayload: FLAdresswechselVe
     const validated = FLAdresswechselVerwaltungPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+
+    // Before the mint, which writes: the backend cannot see the sign-in store this refusal reads.
+    if (await accountStandsAt(validated.data.email)) return refusalResult(KONTO_BELEGT_START);
 
     let mint;
     try {
@@ -110,6 +123,9 @@ export async function einladeAdresswechselAction(rawPayload: FLAdresswechselEinl
     const validated = FLAdresswechselEinladenPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+
+    // Before the re-mint, which kills the earlier link: a fresh one would be refused at its press.
+    if (await kontoAnNeuerAdresse({ adresswechsel_id: validated.data.id })) return { success: false, error: KONTO_BELEGT_ERNEUT };
 
     let mint;
     try {
@@ -180,6 +196,12 @@ export async function genehmigeAdresswechselAction(
 
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     if (!verwehrt.success) return { success: false, error: VALIDATION_FAILED };
+
+    // By the change's id, the approver perhaps being refused the tool's read of it; the effect would leave the account
+    // at the new address standing beside the person's records.
+    if (await kontoAnNeuerAdresse({ adresswechsel_id: validated.data.id })) {
+      return { success: false, error: kontoBelegtGenehmigung(verwehrt.data) };
+    }
 
     let antwort;
     try {

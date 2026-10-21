@@ -123,6 +123,39 @@ describe("the account page's address control", () => {
     assert.deepEqual(raised, [], "a refusal the page answers by asking raised a toast as well");
   });
 
+  /* A start or an approval whose answer never came may have mailed its link: the title names the link, and the body
+     sends the person to the reloaded page, which shows the change wherever it stood. */
+  it("says a start or an approval nobody can tell landed may have sent its link, and marks no field", async () => {
+    answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
+    const unklar = [
+      "Unklar, ob der Link verschickt wurde",
+      "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.",
+      "unknown",
+    ];
+
+    await starte(1);
+    await act(answered);
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map(({ variant, title, description, options }) => [variant, title, description, options?.outcome]),
+        [["danger", ...unklar]],
+      ),
+    );
+    assert.equal(screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ }).getAttribute("aria-invalid"), null);
+    cleanup();
+    raised.length = 0;
+
+    render(panel(offen({ email: "m•••@g•••.de", weg: "freigabe", wartet_auf: "freigabe" }), 1));
+    await userEvent.setup().click(screen.getByRole("button", { name: AENDERUNG_FREIGEBEN }));
+    await act(answered);
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map(({ variant, title, description, options }) => [variant, title, description, options?.outcome]),
+        [["danger", ...unklar]],
+      ),
+    );
+  });
+
   /* The page renders the address the backend composed and masks nothing itself: whole where the person typed it, so a
      typo is caught before a stranger confirms it, and masked where the league typed it, for an approver to recognise. */
   it("shows the pending address exactly as the read served it, whole or masked", () => {

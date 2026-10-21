@@ -64,6 +64,8 @@ const ANSICHT = {
   bewerbungen: [],
   registrierungen: [],
   adresswechsel: [],
+  eigener_adresswechsel: null,
+  antraege: [],
   verwaltung: null,
   gesperrt: false,
 };

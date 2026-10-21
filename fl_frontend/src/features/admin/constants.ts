@@ -190,7 +190,8 @@ export const ADRESSWECHSEL_EINTRAG = {
   label: "Adressänderung auf Anfrage",
   iconName: "At",
   hint: {
-    lead: "Die E-Mail-Adresse einer Person ändern, die sich nicht mehr anmelden kann.",
+    // „sagt“: the first way asks the address on file, which only approves where someone still signs in there.
+    lead: "Die E-Mail-Adresse einer Person ändern, die sagt, dass sie sich nicht mehr anmelden kann.",
     points: [
       { term: "Wer sich anmelden kann", detail: "ändert die eigene Adresse selbst auf der Kontoseite." },
       // Keyed by the address a person writes from, as the erasure's page is: nothing here is browsed.

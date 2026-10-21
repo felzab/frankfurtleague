@@ -547,6 +547,15 @@ describe("an address change carrying the account, against a real database (`docs
       ].sort(),
     );
     assert.equal((await sessionRows()).length, 4, "a session was ended by a carry that moved nothing");
+    // Each account keeps exactly its own: a passkey handed to the holder's account would let one person sign in to the other's.
+    assert.deepEqual(
+      (await passkeyRows()).map(({ userId, credentialID }) => [String(userId), String(credentialID)]).sort(),
+      [
+        [person, "kept-alt@schule.example"],
+        [holder, "kept-neu@schule.example"],
+      ].sort(),
+      "a carry that moved nothing moved a passkey",
+    );
     // A stamp written apart from the refused move would end every session of a person whose address never changed.
     assert.deepEqual(
       (

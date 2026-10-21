@@ -1,4 +1,8 @@
-export const JA_MEINE_ADRESSE = "Ja, das ist meine Adresse";
+/**
+ * The new mailbox's confirmation, asking about the change and never about the mailbox: the holder of an address the league
+ * already writes to owns it truthfully, and would hand a stranger's records over by agreeing to that.
+ */
+export const JA_ANGEFRAGT = "Ja, ich habe diese Änderung angefragt";
 
 /**
  * Named by the new mailbox's link mail and offered by the link page: one spelling, here where `core`'s mail modules

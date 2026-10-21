@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 import ts from "typescript";
 
-import { ADRESSWECHSEL_STOPPEN, JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
+import { ADRESSWECHSEL_STOPPEN, JA_ANGEFRAGT, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
 import {
   ABOUT_TITEL,
   ADMINISTRATOREN_TITEL,
@@ -233,7 +233,7 @@ const REGISTER: readonly Benannt[] = [
     zeigen: ["features/funktionen/components/forms/AdminLoeschungForm/FormAbmeldenSection.tsx"],
     steuerung: true,
   },
-  { wort: JA_MEINE_ADRESSE, konstante: "JA_MEINE_ADRESSE", heim: ANTWORTEN, zeigen: ADRESSWECHSEL_SEITEN, steuerung: true },
+  { wort: JA_ANGEFRAGT, konstante: "JA_ANGEFRAGT", heim: ANTWORTEN, zeigen: ADRESSWECHSEL_SEITEN, steuerung: true },
   { wort: NICHT_MEINE_ADRESSE, konstante: "NICHT_MEINE_ADRESSE", heim: ANTWORTEN, zeigen: ADRESSWECHSEL_SEITEN, steuerung: true },
   // Named by the notice to the address on file, so offered under that word on the stop link's page and the account page.
   {

@@ -1,6 +1,7 @@
 import { apiClient } from "@/core/api";
 
 import {
+  FLAdresswechselAdresseResponseSchema,
   FLAdresswechselAnsichtResponseSchema,
   FLAdresswechselAntwortResponseSchema,
   FLAdresswechselGenehmigungResponseSchema,
@@ -14,6 +15,8 @@ import {
 } from "./schemas";
 
 import type {
+  FLAdresswechselAdressePayload,
+  FLAdresswechselAdresseResponse,
   FLAdresswechselAnsichtPayload,
   FLAdresswechselAnsichtResponse,
   FLAdresswechselAntwortPayload,
@@ -92,6 +95,19 @@ export async function postAdresswechselPostausgang(): Promise<FLAdresswechselPos
 export async function postAdresswechselZugestellt(payload: FLAdresswechselZugestelltPayload): Promise<FLAdresswechselZugestelltResponse> {
   return apiClient<FLAdresswechselZugestelltResponse>("/adresswechsel/sweep/postausgang/zugestellt", FLAdresswechselZugestelltResponseSchema, {
     method: "POST",
+    authType: "system",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * The new address of the live change a link's token or a change's id names, on the system tier alone: the link's own read
+ * serves no address, and this one reaches this server and never a page (`docs/backend/spec.md :: READ-ADRESSWECHSEL-002`).
+ */
+export async function postAdresswechselAdresse(payload: FLAdresswechselAdressePayload): Promise<FLAdresswechselAdresseResponse> {
+  return apiClient<FLAdresswechselAdresseResponse>("/adresswechsel/sweep/adresse", FLAdresswechselAdresseResponseSchema, {
+    method: "POST",
+    readOnly: true,
     authType: "system",
     body: JSON.stringify(payload),
   });

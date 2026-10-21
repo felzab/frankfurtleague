@@ -160,6 +160,18 @@ const EINTRAEGE_DA = "Unter der neuen Adresse stehen schon Einträge bei der Lig
 /** No page here joins two addresses' entries, so the administrator is told it is a task by hand rather than sent to one. */
 const NUR_VON_HAND = "Die Einträge beider Adressen lassen sich nur von Hand zusammenführen, nicht über diese Seite.";
 
+/**
+ * A sign-in account at the new address, which this server reads and the backend cannot (`kontoAnNeuerAdresse`). It may
+ * be one the hourly account sweep removes, holding nothing, so a later try is named before the work by hand.
+ */
+const KONTO_DA = "Mit der neuen Adresse meldet sich schon jemand an.";
+
+/** The tool's start onto an address an account signs in at, on its box as `-018`'s is. */
+export const KONTO_BELEGT_START = { error: `${KONTO_DA} Versuche es später erneut. ${NUR_VON_HAND}`, fieldErrors: { email: KONTO_DA } };
+
+/** The re-send's, the panel holding no box: its way out is the later try or the discard. */
+export const KONTO_BELEGT_ERNEUT = `${KONTO_DA} Versuche es später erneut, oder verwirf die Änderung. ${NUR_VON_HAND}`;
+
 /** The tool's start, or `null`: a refusal of either value stands on its box, which is the way out. */
 export function mapVerwaltungStartRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   // Published for the start, though no path of it answers 404 now: a lost race there is a retried write conflict.
@@ -246,6 +258,10 @@ const ohneGenehmigung = (grund: string, verwehrt: EinsehbarVerwehrt | null): str
     reason: `${grund}, deshalb ist nichts genehmigt. Die Änderung bleibt offen, bis sie verworfen wird oder abläuft`,
     ...verwerfen(verwehrt),
   });
+
+/** The approval of a change whose new address an account signs in at, worded as the backend's `-018` at the effect is. */
+export const kontoBelegtGenehmigung = (verwehrt: EinsehbarVerwehrt | null): string =>
+  ohneGenehmigung("Mit der neuen Adresse meldet sich inzwischen jemand an", verwehrt);
 
 /**
  * Who approves an owner's change, closing every sentence that names who approves one: another administrator approves
