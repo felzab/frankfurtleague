@@ -267,7 +267,7 @@ async def _genehmiger(
 @router.post(
     "",
     response_model=FLAdresswechselVerwaltungMintResponse,
-    summary="Start an address change for a person who cannot sign in",
+    summary="Start an address change for a person who says they cannot sign in",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
@@ -290,7 +290,7 @@ async def post_adresswechsel_verwaltung(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAdresswechselVerwaltungMintResponse:
     """
-    Start a change of the typed address for a person who cannot sign in, answering its raw links once, for the caller to mail.
+    Start a change of the typed address for a person who says they cannot sign in, answering its raw links once, for the caller to mail.
 
     **Nothing moves here.** Without a `grund` the change asks the address on file first: the caller mails it the request
     with its stop link, and nothing goes to the new mailbox until that address approves on its account page. With a
