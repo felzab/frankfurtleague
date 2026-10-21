@@ -214,7 +214,7 @@ describe("a start the backend refuses or nobody can tell landed", () => {
   });
 
   /* A send saves nothing, so its title names the link and sending again is safe. */
-  it("titles a press nobody can tell landed by the link, names sending again, and reads the page again", async () => {
+  it("titles a press nobody can tell landed by the link, names showing the address again, and reads the page again", async () => {
     answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
     const { router, seen } = recordingRouter();
     const { unmount } = box({ entwurf: { ...LEERER_ENTWURF, email: NEU }, router });
@@ -228,7 +228,7 @@ describe("a start the backend refuses or nobody can tell landed", () => {
         [
           [
             "Unklar, ob der Link verschickt wurde",
-            "Prüfe die Verbindung, lade die Seite neu und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
+            "Prüfe die Verbindung, lade die Seite neu und zeige die bisherige Adresse erneut an. Steht dort keine Änderung, trage die neue Adresse erneut ein.",
             "unknown",
           ],
         ],
