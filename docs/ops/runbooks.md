@@ -187,6 +187,12 @@ the machine is outside the repository. What it does tell you:
     with code 121, so every pass fails and no change of access is mailed again, where the row is
     still queued as that build boots;
   - that build's boot attaches its own validators again (§2), which refuse any write over either row.
+- **Never deploy by tag a build from before the reset (§12) once the reset has run; roll forward
+  instead.** Such a build's returning pupil's page stamps a consent label the current registry does
+  not hold (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`), so a record it confirms cites words
+  nobody can produce, and no check compares a stored label with the registry. The automatic rollback
+  of the first deploy after the reset restores the build before it all the same, by image id: then
+  publish a fixed build at once rather than leaving that one serving.
 - **After serving a build older than the season-row confirmation links, re-send the link of every
   contact seat that build re-staffed, once the current build is back.** That build's contacts editor
   leaves a row's links standing when it hands a seat to another person, and the confirmation finds a
@@ -1658,6 +1664,10 @@ Two things a restore is contemplated for: a hand-run migration that succeeded ag
 moment the restored snapshot was taken, and once the restore has completed, that moment too: the
 replay below reads the journal between the two, and an act after the second is the restored site's
 own, which stands as its person made it.
+
+**Never restore a snapshot taken before the reset (§12).** It brings back every pupil and referee
+row the reset removed and the log it emptied, holding addresses nobody asked to keep, and records
+citing consent labels the registry does not hold, which §2's `--check` never reads.
 
 **Before restoring, switch `LOESCHUNG_SWEEP` off (§9), and switch it on again only once every step
 below is done:** until then nothing may call `POST /identitaet/loeschung/lauf`. The run deletes each
