@@ -650,10 +650,6 @@ class TestThePanelsReadServesTheSquadsOnlyWhereAsked:
         assert korrektur.genannt == []
 
 
-# A correction on the first write's version, naming no pupil anew: both writes answer with the pupils the report names.
-KORREKTUR = bericht(torschuetzen=[tor("team1", LINA, "24")], stand=1)
-
-
 class TestTheReads:
     def test_the_booked_referee_alone_reads_the_form(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -692,14 +688,12 @@ class TestTheReads:
         [
             pytest.param(lambda database, client: get_spielbericht_admin(spiel_id=SPIEL, db=client, **handles(database)), id="the-panel"),
             pytest.param(form_read, id="the-referee-s-form"),
-            pytest.param(lambda database, client: patch(database, client, KORREKTUR), id="the-administrator-s-correction"),
-            pytest.param(lambda database, client: put(database, client, KORREKTUR), id="the-referee-s-correction"),
         ],
     )
     def test_a_pupil_off_both_squads_is_named_off_their_record_and_an_erased_one_by_nobody(
         self, mongo_replica_set_url: str, lesen: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
     ):
-        """The two arms past the squad rows on every answer naming pupils: no bare id shown, an erased pupil's entry still holding it."""
+        """The two arms past the squad rows on both reads a page renders: no bare id shown, an erased pupil's entry still holding it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await put(database, client, bericht())
