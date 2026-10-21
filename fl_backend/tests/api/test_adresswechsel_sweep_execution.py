@@ -52,9 +52,11 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_adresswechsel_sweep_test")
 
 # Minted at noon on these days, the link lapsed at noon today, half an hour before `NOW`, and lapses tomorrow.
-MINTED_TO_LAPSE_YESTERDAY = "2026-04-15"
-MINTED_TO_LAPSE_TODAY = "2026-04-16"
-NOW = datetime(2026, 4, 16, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+MINTED_TO_LAPSE_YESTERDAY = "2126-04-15"
+MINTED_TO_LAPSE_TODAY = "2126-04-16"
+# A century ahead of the real clock: the TTL monitor deletes an expired tombstone or day's count at its next pass,
+# under a case reading it back. Every seeded day moves with it.
+NOW = datetime(2126, 4, 16, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # Confirmed this long ago, a change waiting is due by `NOW` or still waits.
 CONFIRMED_TO_BE_DUE = NOW - timedelta(days=ADRESSWECHSEL_WARTEZEIT_TAGE, minutes=1)
 CONFIRMED_TO_WAIT = NOW - timedelta(days=ADRESSWECHSEL_WARTEZEIT_TAGE) + timedelta(minutes=1)
@@ -111,7 +113,7 @@ def a_referee(position: int) -> dict[str, Any]:
         email=on_file(position),
         name=f"Schiedsrichter {position}",
         default_payment=20,
-        einwilligung=documents.eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-01"),
+        einwilligung=documents.eigene_einwilligung_document(text_version="v1", bestaetigt_am="2126-03-01"),
     )
 
 
@@ -203,7 +205,7 @@ def refusing_its_redaction(collection: Collection, row: Mapping[str, Any]) -> di
     """A log image missing the `trace_id` its validator requires, so the redaction's update is refused: any row a write is refused on."""
 
     return {
-        "at": "2026-04-01T00:00:00+00:00",
+        "at": "2126-04-01T00:00:00+00:00",
         "at_date": datetime.now(UTC),
         "actor": {"kind": "system", "email": "SYSTEM"},
         "request": None,
@@ -257,7 +259,7 @@ class TestADueChangeTakesEffect:
         assert answer.wirksam == 1
         assert notices == [
             # The lost-mailbox way greets nobody.
-            {"art": "wirksam", "bisherige_email": on_file(1), "email": pending(1), "vorname": None, "weg": "wartezeit"}
+            {"art": "wirksam", "bisherige_email": on_file(1), "email": pending(1), "vorname": None, "weg": "wartezeit", "adresse_belegt": False}
         ]
         assert addresses == [pending(1)]
 
@@ -269,7 +271,7 @@ class TestADueChangeTakesEffect:
             await a_due_person(database, 1)
             address = on_file(1) if barred == "on_file" else pending(1)
             await ban_through_the_route(
-                database, client, email=address, grund="Falschangaben", von="admin@frankfurtleague.de", today="2026-04-16"
+                database, client, email=address, grund="Falschangaben", von="admin@frankfurtleague.de", today="2126-04-16"
             )
 
             answer = await sweep(database, client)
@@ -278,7 +280,9 @@ class TestADueChangeTakesEffect:
         answer, ended, notices = on_a_league(mongo_replica_set_url, body)
 
         assert (answer.verworfen, answer.wirksam) == (1, 0)
-        assert notices == [{"art": "verworfen", "bisherige_email": None, "email": pending(1), "vorname": None, "weg": None}]
+        assert notices == [
+            {"art": "verworfen", "bisherige_email": None, "email": pending(1), "vorname": None, "weg": None, "adresse_belegt": None}
+        ]
         assert (ended["beendet"]["art"], ended["email"]) == ("verworfen", None)
 
     def test_a_change_finding_nothing_to_move_is_refused_alike(self, mongo_replica_set_url: str):
@@ -530,8 +534,8 @@ class TestTheDeadlineStopsTheCall:
                 vorname="Quintessa",
                 nachname="Muster 2",
                 token=f"registration-{number}",
-                eingereicht_am="2026-04-14",
-                frist="2026-04-21",
+                eingereicht_am="2126-04-14",
+                frist="2126-04-21",
             )
             for number in range(3)
         ]
@@ -643,6 +647,7 @@ async def queue(database: AsyncDatabase, *positions: int) -> list[ObjectId]:
             bisherige_email=on_file(position),
             vorname=None,
             weg="wartezeit",
+            adresse_belegt=False,
         )
         ids.append((await database[Collection.ADRESSWECHSEL_POSTAUSGANG].insert_one(row)).inserted_id)
 

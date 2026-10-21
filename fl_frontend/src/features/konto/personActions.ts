@@ -4,11 +4,13 @@ import { refresh } from "next/cache";
 import { headers } from "next/headers";
 
 import { adresswechselZeitpunkt } from "@/core/adresswechsel";
+import { afterTheResponse } from "@/core/afterResponse";
 import { deleteOwnAccount, getKontoSession } from "@/core/auth";
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { recordWriteSent } from "@/core/requestScope";
-import { mailAdresswechsel, mailGenehmigungWartet } from "@/features/adresswechsel/notifications";
+import { mailAdresswechsel } from "@/features/adresswechsel/notifications";
 import { mapKontoAdresswechselRefusal, mapKontoFreigabeRefusal, mapKontoStoppRefusal } from "@/features/adresswechsel/refusals";
+import { runBerechtigungenAbgleich } from "@/features/berechtigungen/abgleich";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { invalidatesOnWrite, refusalResult, stepUpRequired } from "@/shared/utils/adminMutation";
 import { enrolmentUntil } from "@/shared/utils/kontoMutation";
@@ -154,10 +156,10 @@ export async function starteAdresswechselAction(rawPayload: { email: string }): 
       throw error;
     }
 
-    const [{ link }] = await Promise.all([
-      mailAdresswechsel({ operation: "starteAdresswechselAction", mint: { ...mint, weg: "konto" }, anlass: "empfang" }),
-      mailGenehmigungWartet({ operation: "starteAdresswechselAction", genehmiger: mint.genehmiger }),
-    ]);
+    const { link } = await mailAdresswechsel({ operation: "starteAdresswechselAction", mint: { ...mint, weg: "konto" }, anlass: "empfang" });
+    // The approvers are told through the grants' outbox the start queued (`docs/backend/spec.md :: I862`), drained behind
+    // the answer: mailing them here too would tell each twice.
+    if (mint.genehmiger.length > 0) afterTheResponse(runBerechtigungenAbgleich);
 
     // `link` is never null here: the person's start mints both tokens.
     const gesendet = gesendetSatz(link ?? "fehlgeschlagen", mint.gueltig_bis, "start");

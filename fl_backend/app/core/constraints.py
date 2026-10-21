@@ -533,7 +533,7 @@ _REGISTRIERUNG_STATUS = ["eingereicht", "abgelehnt"]
 # Closed here as well as on the model: a grant is typed in by hand in the Playground, and the
 # validator is the one check that paste meets.
 _VERWALTUNG = ["owner", "administration"]
-_BERECHTIGUNG_AENDERUNGEN = ["erteilt", "entzogen", "geaendert", "beantragt"]
+_BERECHTIGUNG_AENDERUNGEN = ["erteilt", "entzogen", "geaendert", "beantragt", "adresswechsel"]
 _BERECHTIGUNG_URHEBER = ["anwendung", "datenbank"]
 _BERECHTIGUNG_VORENTHALTEN = ["gesperrt", "geloescht"]
 
@@ -1463,6 +1463,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "email",
                 "vorname",
                 "weg",
+                "adresse_belegt",
                 "erfasst_am",
                 "beansprucht_bis",
                 "beanspruchung",
@@ -1476,6 +1477,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "email": {"bsonType": "string"},
                 "vorname": {"bsonType": _STRING_OR_NULL},
                 "weg": {"bsonType": _STRING_OR_NULL, "enum": [*_ADRESSWECHSEL_WEGE, None]},
+                # An effect's alone: whether its new address held records of its own, which carries no account there.
+                "adresse_belegt": {"bsonType": ["bool", "null"]},
                 "erfasst_am": {"bsonType": "date"},
                 # Required as keys and null until a pass claims the row, for `berechtigungen_postausgang`'s reason.
                 "beansprucht_bis": {"bsonType": ["date", "null"]},

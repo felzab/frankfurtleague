@@ -9,8 +9,11 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.adresswechsel.crud import (
     Bestand,
+    adresse_belegt,
     end_the_change_in_session,
     ending_line,
+    queue_the_approval_notice_in_session,
+    queue_the_refusal_notice_in_session,
     read_the_bestand,
     refusal_of,
     start_the_change_in_session,
@@ -55,7 +58,7 @@ from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.schemas import FLAdresswechselWeg
 from app.api.berechtigungen.services import genehmiger_of, genehmigung_verwehrt, holds_an_owners_power, lebendige
 from app.api.bewerbungen.services import mint_token
-from app.api.identitaet.lookup import RecordCollections, SubjektLookup
+from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.services import JEDE_VERWALTUNG, find_eigene_adresse_refusal, find_verwaltung_adresse_refusal, holds_a_name
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.spieler.crud import another_pupil_holds
@@ -176,14 +179,6 @@ def _bestand(bestand: Bestand) -> FLAdresswechselVerwaltungBestand:
     )
 
 
-async def _belegt(email: str, *, records: RecordCollections, berechtigungen_collection: AsyncCollection, session: AsyncClientSession) -> bool:
-    """Whether the new address holds records of its own, read in the start's transaction, so its answer never fails after a commit."""
-
-    bestand = await read_the_bestand(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
-
-    return not bestand.leer
-
-
 @router.post(
     "/ansicht",
     response_model=FLAdresswechselVerwaltungAnsichtResponse,
@@ -282,6 +277,7 @@ async def post_adresswechsel_verwaltung(
     spieler_collection: SpielerCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     sperrliste: SperrlisteLookup,
     adressanker_collection: AdressankerCollection,
     aktionen_collection: AktionenCollection,
@@ -298,7 +294,8 @@ async def post_adresswechsel_verwaltung(
     `grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the
     address on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new
     mailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never
-    this one's, and `genehmiger` names whom the caller tells. The address's live change ends replaced.
+    this one's: `genehmiger` names who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).
+    The address's live change ends replaced.
     `adresse_belegt` says whether the new address holds records of its own, which the effect would join to these.
 
     Refused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power
@@ -328,7 +325,7 @@ async def post_adresswechsel_verwaltung(
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
             session=session,
         )
-        refuse(find_unveraendert_refusal(adresse=identifier, email=email, folded=sign_in_identifier(email)))
+        refuse(find_unveraendert_refusal(adresse=identifier, folded=sign_in_identifier(email)))
         refuse(
             find_gesperrt_refusal(
                 gesperrt=await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
@@ -372,6 +369,14 @@ async def post_adresswechsel_verwaltung(
             journal=journal,
             session=session,
         )
+        if record["genehmigung"] is not None:
+            await queue_the_approval_notice_in_session(
+                adresswechsel_id=adresswechsel_id,
+                gestartet_von=akteur,
+                berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                now=germany_now,
+                session=session,
+            )
 
         return FLAdresswechselVerwaltungMintResponse(
             id=adresswechsel_id,
@@ -382,7 +387,7 @@ async def post_adresswechsel_verwaltung(
             email=email,
             bisherige_email=identifier,
             vorname=None if weg == "wartezeit" else bestand.vorname,
-            adresse_belegt=await _belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session),
+            adresse_belegt=await adresse_belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session),
             genehmiger=genehmiger,
         )
 
@@ -481,7 +486,7 @@ async def einladen_adresswechsel(
             email=email,
             bisherige_email=identifier,
             vorname=None if updated["weg"] == "wartezeit" else bestand.vorname,
-            adresse_belegt=await _belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session),
+            adresse_belegt=await adresse_belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session),
             genehmiger=[],
         )
 
@@ -610,7 +615,8 @@ async def post_adresswechsel_genehmigung(
     (`-003`), to the changed address and to the administrator who started it (`-013`), to anyone but an owner, signed in
     since becoming one, where the grant is an owner's (`-014`), and where the change ended (`-002`); and, where it would
     take effect, as the confirmation is (`-004`, `-005`, `-006`, `-015`, `-016`). A change whose address has come to hold
-    nothing to move ends discarded, answering `-002`. 404 for an id naming no change. A sign-in or confirmation older than
+    nothing to move ends discarded, its new address told it did not take effect, answering `-010`. 404 for an id naming no
+    change. A sign-in or confirmation older than
     `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.
     """
 
@@ -672,6 +678,10 @@ async def post_adresswechsel_genehmigung(
         )
         refuse(refusal_of(urteil.ursache))
         if urteil.leer:
+            # Its new mailbox confirmed and was told the change waits on this approval.
+            await queue_the_refusal_notice_in_session(
+                approved, adresswechsel_postausgang_collection=adresswechsel_postausgang_collection, now=germany_now, session=session
+            )
             return None
 
         return FLAdresswechselGenehmigungResponse(id=adresswechsel_id, wirksam=wirksam)
@@ -680,8 +690,8 @@ async def post_adresswechsel_genehmigung(
         async with transaction_session(db) as session:
             approved = await session.with_transaction(approve_the_change)
 
-    # After the commit, the discard standing: the change found nothing to move.
-    refuse(find_beendet_refusal(offen=approved is not None))
+    # After the commit, the discard standing: this approval found nothing left to move and ended the change.
+    refuse(find_nichts_refusal(leer=approved is None))
     assert approved is not None
 
     return approved

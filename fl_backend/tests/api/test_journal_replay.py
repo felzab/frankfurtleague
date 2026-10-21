@@ -70,16 +70,18 @@ DATABASE_NAME = worker_database("fl_journal_replay_test")
 CONFIG = config_for(DATABASE_NAME)
 KEY = CONFIG.sperrliste_schluessel
 
-NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
-TODAY = "2026-10-03"
+# A century ahead of the real clock: the TTL monitor deletes an expired tombstone, request or day's count at its next
+# pass, under a case reading it back. Every seeded day moves with it.
+NOW = datetime(2126, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
+TODAY = "2126-10-03"
 # `NOW` as the evidence spells it, written out so a replay stamping its own clock cannot agree with it.
-AM = "2026-10-03T10:00:00+00:00"
+AM = "2126-10-03T10:00:00+00:00"
 # The replay runs a day later: whatever it stamps from its own clock differs from what the press stamped.
-REPLAY_NOW = datetime(2026, 10, 4, 9, 0, tzinfo=UTC)
+REPLAY_NOW = datetime(2126, 10, 4, 9, 0, tzinfo=UTC)
 # The snapshot taken the morning of the presses, the restore ended the next morning: a link sent on the presses' day is the snapshot's.
-WINDOW = Window(since=datetime(2026, 10, 3, 9, 0, tzinfo=UTC), until=datetime(2026, 10, 4, 8, 0, tzinfo=UTC))
+WINDOW = Window(since=datetime(2126, 10, 3, 9, 0, tzinfo=UTC), until=datetime(2126, 10, 4, 8, 0, tzinfo=UTC))
 # A second after the press, as its day file holds it.
-JOURNALLED = datetime(2026, 10, 3, 10, 0, 1, tzinfo=UTC)
+JOURNALLED = datetime(2126, 10, 3, 10, 0, 1, tzinfo=UTC)
 SAISON_ID = "2026"
 ADULT = "1990-05-09"
 
@@ -117,13 +119,13 @@ PUPIL_ADDRESS_LINK = "the-pupils-address-link"
 def _own(**fields: Any) -> dict[str, Any]:
     """A person's own record's consent, both choices granted."""
 
-    return eigene_einwilligung_document(text_version=CONFIRMED_LABEL, bestaetigt_am="2026-09-02", medien=True, **fields)
+    return eigene_einwilligung_document(text_version=CONFIRMED_LABEL, bestaetigt_am="2126-09-02", medien=True, **fields)
 
 
 def _seat(email: str, *, confirmed: bool = True) -> dict[str, Any]:
     seat = kontaktperson_document(
         "Ortrud" if confirmed else "Ida",
-        bestaetigt_am="2026-09-03" if confirmed else None,
+        bestaetigt_am="2126-09-03" if confirmed else None,
         geburtsdatum=ADULT if confirmed else None,
         einwilligung={"umfang": "kontaktdaten_whatsapp", "medien": True, "text_version": SEAT_LABEL} if confirmed else {},
     )
@@ -166,8 +168,8 @@ async def _seed(database: AsyncDatabase) -> None:
                 SAISON_ID,
                 "eingereicht",
                 kontakte=kontakte_document(trainer=_seat(PERSON)),
-                eingereicht_am="2026-09-01",
-                bestaetigungsfrist="2026-10-15",
+                eingereicht_am="2126-09-01",
+                bestaetigungsfrist="2126-10-15",
                 team_id=TEAM_OID,
             ),
             bewerbung_document(
@@ -175,11 +177,11 @@ async def _seed(database: AsyncDatabase) -> None:
                 SAISON_ID,
                 "eingereicht",
                 kontakte=kontakte_document(trainer=_seat(DECLINER, confirmed=False)),
-                eingereicht_am="2026-10-01",
-                bestaetigungsfrist="2026-10-15",
+                eingereicht_am="2126-10-01",
+                bestaetigungsfrist="2126-10-15",
                 team_id=TEAM_OID,
                 link_prefix=APPLICATION_LINK,
-                verschickt_am="2026-10-01",
+                verschickt_am="2126-10-01",
             ),
         ]
     )
@@ -226,16 +228,16 @@ async def _seed(database: AsyncDatabase) -> None:
             vorname="Jonas",
             nachname="Jungspund",
             token=str(REGISTRATION_OID),
-            eingereicht_am="2026-09-20",
-            frist="2026-09-27",
+            eingereicht_am="2126-09-20",
+            frist="2126-09-27",
             position="Mittelfeld",
             nummer="17",
             stufe="Q1",
             bestaetigt=registrierung_bestaetigt(
                 "bestaetigung_spieler",
                 geburtsdatum=ADULT,
-                today="2026-09-21",
-                am="2026-09-21T08:00:00+00:00",
+                today="2126-09-21",
+                am="2126-09-21T08:00:00+00:00",
                 umfang="kader_oeffentlich",
                 medien=True,
             ),
@@ -571,25 +573,25 @@ class TestTheListing:
             art="widerruf",
             collection=Collection.SCHIEDSRICHTER,
             record_id=REFEREE_OID,
-            am="2026-10-03T12:30:00+00:00",
+            am="2126-10-03T12:30:00+00:00",
             text_version=LAUFENDE_FASSUNGEN["konto_schiedsrichter"],
             wahlen={"medien": False},
         )
         day = _day_file(
             # Before the snapshot: the snapshot holds its write, so it is not listed.
-            ("2026-10-03T09:00:00+00:00", erased.text()),
-            ("2026-10-03T11:00:00+00:00", erased.text()),
-            ("2026-10-03T11:30:00+00:00", withdrawal.text()),
-            ("2026-10-03T11:40:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} vergessen"),
+            ("2126-10-03T09:00:00+00:00", erased.text()),
+            ("2126-10-03T11:00:00+00:00", erased.text()),
+            ("2126-10-03T11:30:00+00:00", withdrawal.text()),
+            ("2126-10-03T11:40:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} vergessen"),
             # An id bson's own reader would raise `InvalidId` on: counted as unreadable, never a traceback.
-            ("2026-10-03T11:50:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} adresswechsel_abgelehnt adresswechsel/{'z' * 24} am={AM}"),
+            ("2126-10-03T11:50:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} adresswechsel_abgelehnt adresswechsel/{'z' * 24} am={AM}"),
             # After the restore's end: the restored site's own act, which stands as its person made it.
-            ("2026-10-03T12:30:01+00:00", on_the_restored_site.text()),
+            ("2126-10-03T12:30:01+00:00", on_the_restored_site.text()),
         )
 
         async def steps(_http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             listed, applied, settled = io.StringIO(), io.StringIO(), io.StringIO()
-            since, until = datetime(2026, 10, 3, 10, 0, tzinfo=UTC), datetime(2026, 10, 3, 12, 0, tzinfo=UTC)
+            since, until = datetime(2126, 10, 3, 10, 0, tzinfo=UTC), datetime(2126, 10, 3, 12, 0, tzinfo=UTC)
             common = {"since": since, "until": until, "client": client, "database": database, "schluessel": KEY, "now": REPLAY_NOW}
             codes = [
                 await run_replay(day, apply=False, out=listed, **common),
@@ -602,7 +604,7 @@ class TestTheListing:
 
         # Left while an erasure is to run, a line unreadable or a choice to replay; nothing left once the replay ran.
         assert codes == [1, 1, 0]
-        assert "Journal lines written after 2026-10-03T10:00:00+00:00 and no later than 2026-10-03T12:00:00+00:00: 2." in listed
+        assert "Journal lines written after 2126-10-03T10:00:00+00:00 and no later than 2126-10-03T12:00:00+00:00: 2." in listed
         assert "widerruf schiedsrichter/" not in listed + applied
         assert "held in spieler: 1 field(s), " in listed and "held in schiedsrichter: 1 field(s), " in listed
         assert "    to replay" in listed and "    replayed" in applied and "    already done" in settled
@@ -616,11 +618,11 @@ class TestTheListing:
 
 ERASURE = f"{V}/identitaet/selbst/erasure"
 # An hour after the presses: the person's own later act.
-AN_HOUR_LATER = datetime(2026, 10, 3, 13, 0, tzinfo=ZoneInfo("Europe/Berlin"))
+AN_HOUR_LATER = datetime(2126, 10, 3, 13, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 PSEUDONYM = akteur_pseudonym(PERSON, schluessel=KEY)
 
 # The snapshot and the restore's end on the presses' own day: a link sent that day may fall before the one or after the other.
-ONE_DAY = Window(since=datetime(2026, 10, 3, 9, 0, tzinfo=UTC), until=datetime(2026, 10, 3, 11, 0, tzinfo=UTC))
+ONE_DAY = Window(since=datetime(2126, 10, 3, 9, 0, tzinfo=UTC), until=datetime(2126, 10, 3, 11, 0, tzinfo=UTC))
 
 # What the restored site sends again on a day after the restore: a new link for the declined seat, a new change to the declined address.
 SENT_AGAIN: dict[str, Callable[[str], dict[str, Any]]] = {
@@ -665,7 +667,7 @@ class TestALaterActStands:
     @pytest.mark.parametrize(
         ("sent", "window", "expected"),
         [
-            pytest.param("2026-10-04", WINDOW, "already done", id="sent after the snapshot's day"),
+            pytest.param("2126-10-04", WINDOW, "already done", id="sent after the snapshot's day"),
             pytest.param(TODAY, ONE_DAY, "left for review", id="sent on the day of both"),
         ],
     )
@@ -716,7 +718,7 @@ class TestAnErasureSettlesItsPersonsChoices:
                 erased = await http.post(ERASURE, headers=_person(PERSON))
             assert (withdrawn.status_code, erased.status_code) == (200, 200), erased.text
             withdrawal, erasure = journalled(caplog)
-            day = _day_file(("2026-10-03T10:00:01+00:00", withdrawal), ("2026-10-03T10:00:02+00:00", erasure))
+            day = _day_file(("2126-10-03T10:00:01+00:00", withdrawal), ("2126-10-03T10:00:02+00:00", erasure))
             return await _listed(day, client, database, apply=False), await _listed(day[:1], client, database, apply=False)
 
         (both_code, both), (alone_code, alone) = served(mongo_replica_set_url, steps)
@@ -737,7 +739,7 @@ class TestAnErasureSettlesItsPersonsChoices:
             assert (withdrawn.status_code, erased.status_code) == (200, 200), erased.text
             withdrawal, erasure = journalled(caplog)
             return await _listed(
-                _day_file(("2026-10-03T10:00:01+00:00", erasure), ("2026-10-03T10:00:02+00:00", withdrawal)), client, database, apply=False
+                _day_file(("2126-10-03T10:00:01+00:00", erasure), ("2126-10-03T10:00:02+00:00", withdrawal)), client, database, apply=False
             )
 
         code, listed = served(mongo_replica_set_url, steps)
@@ -766,7 +768,7 @@ class TestAnErasedPersonsPseudonym:
             # The restore: the attribution the erasure marked, and the count it erased.
             await database[Collection.AKTIONEN].update_many({"_id": {"$in": rows}}, {"$set": {"actor.pseudonym": PSEUDONYM}})
             await database[Collection.DROSSELUNG].insert_many(counts)
-            day = _day_file(("2026-10-03T10:00:01+00:00", withdrawal), ("2026-10-03T11:00:01+00:00", erasure))
+            day = _day_file(("2126-10-03T10:00:01+00:00", withdrawal), ("2126-10-03T11:00:01+00:00", erasure))
             runs = [await _listed(day, client, database, apply=apply) for apply in (False, True, True)]
 
             left = (
@@ -789,7 +791,7 @@ class TestAnErasedPersonsPseudonym:
         assert "    to replay" in listed and "    replayed" in applied and "    already done" in again
         # One row, the system's, naming the erasure's line: the second run found nothing and wrote nothing.
         assert [(row["actor"], row["request"]) for row in acts] == [
-            ({"kind": "system", "email": "SYSTEM"}, {"method": REPLAY_METHOD, "path": "loeschung journalled=2026-10-03T11:00:01+00:00"})
+            ({"kind": "system", "email": "SYSTEM"}, {"method": REPLAY_METHOD, "path": "loeschung journalled=2126-10-03T11:00:01+00:00"})
         ]
         for output in (listed, applied, again):
             assert "@" not in output
@@ -819,7 +821,7 @@ class TestAValidatorOlderThanThisBuild:
             text_version=LAUFENDE_FASSUNGEN["konto_spieler"],
             wahlen={"medien": False},
         )
-        day = _day_file(("2026-10-03T10:00:01+00:00", withdrawal.text()))
+        day = _day_file(("2126-10-03T10:00:01+00:00", withdrawal.text()))
         declared = decode(encode(COLLECTION_VALIDATORS[Collection.AKTIONEN]))
         older = _without(declared, "pseudonyme")
 
@@ -845,13 +847,13 @@ def _their_answered_confirmation() -> dict[str, Any]:
     team_id = ObjectId("6890a1b2c3d4e5f6078600f1")
     sides = {f"team{n}": {"team_id": ObjectId(f"6890a1b2c3d4e5f6078600f{n}")} for n in (1, 2)}
     spiel = spiel_document(
-        spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=1, spieltag_id=None, datum="2026-10-20", uhrzeit="18:00:00", **sides
+        spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=1, spieltag_id=None, datum="2126-10-20", uhrzeit="18:00:00", **sides
     )
     antwort = {
         "art": "abgelehnt",
         "am": TODAY,
         "von": {"art": "kontakt", "rolle": "trainer", "halter": halter_of(PERSON, schluessel=KEY)},
-        "vorschlag": {"datum": "2026-10-21", "uhrzeit": "18:00:00"},
+        "vorschlag": {"datum": "2126-10-21", "uhrzeit": "18:00:00"},
         "begruendung": "Wir sind auf Klassenfahrt",
     }
 
@@ -876,7 +878,7 @@ class TestAnErasedPersonsReasons:
 
             # The restore: the row as the snapshot held it.
             await confirmations.replace_one({"_id": snapshot["_id"]}, snapshot)
-            day = _day_file(("2026-10-03T11:00:01+00:00", erasure))
+            day = _day_file(("2126-10-03T11:00:01+00:00", erasure))
             runs = [await _listed(day, client, database, apply=apply) for apply in (False, True, True)]
 
             return removed, runs, (await confirmations.find_one({"_id": snapshot["_id"]}) or {})["antwort"]
@@ -899,10 +901,10 @@ class TestAnErasureAfterAChangeTookEffect:
     @pytest.mark.parametrize(
         ("erased", "code", "listed_line", "absent"),
         [
-            pytest.param("2026-10-03T10:00:02+00:00", 1, "held in spieler: 1 field(s), ", "nothing to replay", id="erased after the effect"),
+            pytest.param("2126-10-03T10:00:02+00:00", 1, "held in spieler: 1 field(s), ", "nothing to replay", id="erased after the effect"),
             # The change itself started after the snapshot: its person is asked to start it again, never left untold.
             pytest.param(
-                "2026-10-03T10:00:00+00:00",
+                "2126-10-03T10:00:00+00:00",
                 1,
                 "started after the snapshot: its person starts the change again",
                 "held in spieler",
@@ -929,7 +931,7 @@ class TestAnErasureAfterAChangeTookEffect:
             # The restore: the pupil as the snapshot held it, before the change was started.
             await database[Collection.SPIELER].replace_one({"_id": MOVING_PUPIL_OID}, snapshot, upsert=True)
             await database[Collection.ADRESSWECHSEL].delete_one({"_id": PUPIL_CHANGE_OID})
-            day = _day_file(("2026-10-03T10:00:01+00:00", effect), (erased, erasure))
+            day = _day_file(("2126-10-03T10:00:01+00:00", effect), (erased, erasure))
             return await _listed(day, client, database, apply=False)
 
         exited, listed = served(mongo_replica_set_url, steps)
@@ -952,8 +954,8 @@ class TestADiscardedChange:
             "_id": PUPIL_CHANGE_OID,
             "gueltig_bis": None,
             "grund": "Postfach gelöscht, telefonisch bestätigt",
-            "bestaetigt_am": datetime(2026, 10, 3, 9, 30, tzinfo=UTC),
-            "wirksam_ab": datetime(2026, 10, 10, 9, 30, tzinfo=UTC),
+            "bestaetigt_am": datetime(2126, 10, 3, 9, 30, tzinfo=UTC),
+            "wirksam_ab": datetime(2126, 10, 10, 9, 30, tzinfo=UTC),
         }
 
         async def steps(_http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:

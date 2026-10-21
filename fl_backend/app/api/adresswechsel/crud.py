@@ -6,7 +6,8 @@ functions, so no two of them part on what a change moves or what its end leaves 
 
 Invariants:
 - The effect moves everything the address holds in its caller's transaction, a grant included, and nothing else.
-- Every end takes the record's addresses and reason out of it; every end but the effect's takes them out of its log images.
+- Every end takes the record's addresses and reason out of it; its log images lose what no record holds after it: the
+  new address and the reason on every end but the effect, the replaced address on the effect.
 """
 
 from collections.abc import Callable, Mapping, Sequence
@@ -35,16 +36,20 @@ from app.api.adresswechsel.services import (
     find_nicht_gedeckt_refusal,
     find_vergeben_refusal,
 )
-from app.api.aktionen.crud import carry_the_replaced_address_in_images, reattribute_administrator_in_session, redact_images_in_session
-from app.api.aktionen.services import IMAGE_ADDRESSES
+from app.api.aktionen.crud import (
+    carry_the_replaced_address_in_images,
+    reattribute_administrator_in_session,
+    redact_images_in_session,
+)
 from app.api.berechtigungen.antraege import abgelehnt_line, end_the_antraege_about_in_session
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
 from app.api.berechtigungen.erasure import carry_authorship_in_session
+from app.api.berechtigungen.services import compose_postausgang as compose_berechtigung_postausgang
 from app.api.berechtigungen.services import genehmigung_steht, lebendige_adresse
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import RecordCollections
 from app.api.identitaet.services import eigene_sitze, ist_eigener_schiedsrichter, namen_aus
-from app.api.kontakte.services import rows_seating
+from app.api.kontakte.services import find_matching_slots, rows_seating
 from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_ist_bestaetigt
 from app.api.schiedsrichter.services import build_selbst_referee_filter, vorname_of
 from app.api.sperrliste.lookup import BanList, Saison, adressen_gesperrt
@@ -189,6 +194,19 @@ async def read_the_bestand(
     )
 
 
+async def adresse_belegt(
+    email: str, *, records: RecordCollections, berechtigungen_collection: AsyncCollection, session: AsyncClientSession | None
+) -> bool:
+    """Whether a new address holds records of its own, which an effect joins to the ones it moves.
+
+    The start warns of it; an effect, reading it before its move, carries no sign-in account onto them.
+    """
+
+    bestand = await read_the_bestand(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
+
+    return not bestand.leer
+
+
 def _redacting(fields: tuple[str, ...]) -> Callable[[Mapping[str, Any]], dict[str, None]]:
     def redacted(image: Mapping[str, Any]) -> dict[str, None]:
         return {field: None for field in fields if image.get(field) is not None}
@@ -327,6 +345,51 @@ class Urteil:
     # The approval given does not stand: its approver lost the grant, the tier or their standing since, so the change
     # waits on another (`app/api/berechtigungen/services.py :: genehmigung_steht`).
     widerrufen: bool = False
+
+
+async def queue_the_approval_notice_in_session(
+    *,
+    adresswechsel_id: ObjectId,
+    gestartet_von: str,
+    berechtigungen_postausgang_collection: AsyncCollection,
+    now: datetime,
+    session: AsyncClientSession,
+) -> None:
+    """Queue, in the caller's transaction, the grants' outbox notice that the change's grant move waits on an approval.
+
+    Recipients are read at the claim (`app/api/berechtigungen/sweep_router.py :: post_berechtigungen_abgleich`).
+    """
+
+    await post_one_to_db(
+        collection=berechtigungen_postausgang_collection,
+        document=compose_berechtigung_postausgang(
+            berechtigung_id=adresswechsel_id,
+            art="adresswechsel",
+            jetzt=None,
+            vorher=None,
+            geaendert_von=gestartet_von,
+            now=now,
+            gesperrt=(),
+        ),
+        session=session,
+    )
+
+
+async def queue_the_refusal_notice_in_session(
+    record: Mapping[str, Any], *, adresswechsel_postausgang_collection: AsyncCollection, now: datetime, session: AsyncClientSession
+) -> None:
+    """A confirmed change's notice that it did not take effect, queued in its end's transaction.
+
+    Off the record as it stood before the end: never why, nor the address on file (`docs/backend/spec.md :: I827`, `:: I846`).
+    """
+
+    await post_one_to_db(
+        collection=adresswechsel_postausgang_collection,
+        document=compose_postausgang(
+            art="verworfen", email=str(record["email"]), bisherige_email=None, vorname=None, weg=None, adresse_belegt=None, now=now
+        ),
+        session=session,
+    )
 
 
 async def judge_the_effect_in_session(
@@ -474,6 +537,14 @@ async def take_effect_in_session(
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
+        # The approvers are asked again: nobody else knows the approval they saw given has fallen.
+        await queue_the_approval_notice_in_session(
+            adresswechsel_id=record["_id"],
+            gestartet_von=str(record["genehmigung"]["gestartet_von"]),
+            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            now=now,
+            session=session,
+        )
     if urteil.ursache is not None or urteil.wartet:
         return urteil, False
     if not jetzt and not urteil.leer:
@@ -499,6 +570,10 @@ async def take_effect_in_session(
     beendet = await move_the_address_in_session(
         record=record,
         bestand=bestand,
+        # Before the move, after which the new address holds the moved records too.
+        adresse_belegt=await adresse_belegt(
+            str(record["email"]), records=records, berechtigungen_collection=berechtigungen_collection, session=session
+        ),
         sperrliste=sperrliste,
         adresswechsel_collection=adresswechsel_collection,
         spieler_collection=spieler_collection,
@@ -533,6 +608,8 @@ async def move_the_address_in_session(
     *,
     record: Mapping[str, Any],
     bestand: Bestand,
+    # `adresse_belegt` of the new address, judged before this move.
+    adresse_belegt: bool,
     sperrliste: BanList,
     adresswechsel_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
@@ -563,7 +640,8 @@ async def move_the_address_in_session(
     neue, stamp = str(record["email"]), log_stamp(now)
 
     if bestand.spieler is not None:
-        # Folded, never as typed: the sign-in seam joins on this field by equality (`docs/backend/spec.md :: I265`).
+        # Folded as every start stores it, and again here: the sign-in seam joins on this field by equality
+        # (`docs/backend/spec.md :: I265`).
         await patch_one_in_db(
             collection=spieler_collection,
             db_filter={"_id": bestand.spieler["_id"]},
@@ -679,8 +757,15 @@ async def move_the_address_in_session(
     )
     await _reattribute_the_changes(adresswechsel_collection, alt, neu, session=session)
     await reattribute_administrator_in_session(aktionen_collection=aktionen_collection, identifier=alt, value=neu, session=session)
+    # A seat left before the change is in no document an erasure at the new address reads, so its images follow the
+    # person; one standing at the replaced address as nobody's proven own keeps it.
     await carry_the_replaced_address_in_images(
-        aktionen_collection=aktionen_collection, alt=alt, neue=neu, collections=tuple(IMAGE_ADDRESSES), stamp=stamp, session=session
+        aktionen_collection=aktionen_collection,
+        alt=alt,
+        neue=neu,
+        staying=await _seats_staying_at(alt, collections=(saison_teams_collection, bewerbungen_collection), session=session),
+        stamp=stamp,
+        session=session,
     )
     # The day's counts follow the pseudonym, or every effect hands the person a fresh day (`docs/backend/spec.md :: I797`).
     await carry_counts_in_session(
@@ -713,6 +798,9 @@ async def move_the_address_in_session(
             # Greeting nobody on the lost-mailbox way: that mailbox may have passed to a stranger.
             vorname=None if record["weg"] == "wartezeit" else bestand.vorname,
             weg=record["weg"],
+            # The sign-in account is carried nowhere the new address held records of its own: their holder never signed
+            # in there, and a passkey enrolled at the replaced address would sign in to them.
+            adresse_belegt=adresse_belegt,
             now=now,
         ),
         session=session,
@@ -726,6 +814,19 @@ async def move_the_address_in_session(
 
     # The requests for a grant it ended, each journalled by the caller as a refusal (`docs/backend/spec.md :: I857`).
     return beendet
+
+
+async def _seats_staying_at(identifier: str, *, collections: Sequence[AsyncCollection], session: AsyncClientSession) -> set[tuple[Any, str]]:
+    """Each document and slot seating this folded address, read after the effect moved the person's own seats."""
+
+    staying: set[tuple[Any, str]] = set()
+    for collection in collections:
+        rows = await aggregate_many_from_db(
+            collection=collection, pipeline=[{"$match": rows_seating(identifier)}, {"$project": {"kontakte": 1}}], session=session
+        )
+        staying |= {(row["_id"], slot) for row in rows for slot in find_matching_slots(row, identifier)}
+
+    return staying
 
 
 async def _move_the_grant(

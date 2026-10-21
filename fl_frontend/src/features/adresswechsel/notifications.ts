@@ -3,7 +3,6 @@ import "server-only";
 import { ADRESSWECHSEL_WARTEZEIT_DAUER, adresswechselZeitpunkt } from "@/core/adresswechsel";
 import {
   buildAdresswechselEmail,
-  buildAdresswechselGenehmigungEmail,
   buildAdresswechselHinweisEmail,
   buildAdresswechselNichtWirksamEmail,
   buildAdresswechselWirksamEmail,
@@ -78,15 +77,6 @@ export async function mailAdresswechsel({
 }
 
 /**
- * Tells each other holder of the administration that a grant holder's change waits for an approval, best effort:
- * the change lapses unapproved, and the administrators page lists it whether or not the mail arrived.
- */
-export async function mailGenehmigungWartet({ operation, genehmiger }: { operation: string; genehmiger: readonly string[] }): Promise<void> {
-  const mail = buildAdresswechselGenehmigungEmail({ origin: frontend_config.AUTH_URL });
-  for (const adresse of genehmiger) await sendeHinweis(adresse, mail, "adresswechsel.genehmigung_hinweis_failed", operation);
-}
-
-/**
  * What an effect owes after its commit: the replaced address's account moved, then its completion notice. Never throws;
  * answers whether both are done with, so the outbox keeps a failed one, and a move run again finds no account left.
  */
@@ -95,14 +85,18 @@ export async function adresswechselWirksam({
   mitteilung,
 }: {
   operation: string;
-  mitteilung: Pick<FLAdresswechselPostausgangZeile, "bisherige_email" | "email" | "vorname" | "weg">;
+  mitteilung: Pick<FLAdresswechselPostausgangZeile, "bisherige_email" | "email" | "vorname" | "weg" | "adresse_belegt">;
 }): Promise<boolean> {
   const { bisherige_email: bisherige } = mitteilung;
   if (bisherige === null) return true;
 
   // A change made because the address on file is lost carries nothing from it: its holder may be a stranger who signed
   // in there during the waiting time, and their sessions and passkeys must not follow the person.
-  if (mitteilung.weg !== "wartezeit") {
+  const traegt = mitteilung.weg !== "wartezeit";
+  if (traegt && mitteilung.adresse_belegt === true) {
+    // Never onto another person's records: a passkey enrolled at the replaced address would sign in to them.
+    logger.warn("adresswechsel.konto_nicht_umgezogen", { error_code: "FE-AUTH-013", grund: "adresse_belegt", operation });
+  } else if (traegt) {
     try {
       const umzug = await carryAccount(bisherige, mitteilung.email);
       if (umzug === "belegt") logger.warn("adresswechsel.konto_nicht_umgezogen", { error_code: "FE-AUTH-013", grund: "belegt", operation });

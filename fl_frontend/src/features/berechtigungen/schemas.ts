@@ -167,8 +167,9 @@ export const FLBerechtigungAenderungSchema = z.object({
   // The outbox row's own id, which is what the stamp names; never the grant's.
   id: CustomObjectIdStringSchema,
   berechtigung_id: CustomObjectIdStringSchema,
-  // `beantragt` is a grant or a promotion asked for, which no grant has yet: it is told to `an` alone.
-  art: z.enum(["erteilt", "entzogen", "geaendert", "beantragt"]),
+  // `beantragt` is a grant or a promotion asked for, which no grant has yet, and `adresswechsel` an address change whose
+  // grant move waits on an approval: each is told to `an` alone.
+  art: z.enum(["erteilt", "entzogen", "geaendert", "beantragt", "adresswechsel"]),
   // Where the change came from, read here and never off a null actor, which a barred administrator also is.
   urheber: z.enum(["anwendung", "datenbank"]),
   jetzt: FLBerechtigungStandSchema.nullable(),

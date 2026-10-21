@@ -157,7 +157,14 @@ def compose_genehmigt_update(*, akteur: str, now: datetime) -> dict[str, Any]:
 
 
 def compose_postausgang(
-    *, art: Literal["wirksam", "verworfen"], email: str, now: datetime, bisherige_email: str | None, vorname: str | None, weg: str | None
+    *,
+    art: Literal["wirksam", "verworfen"],
+    email: str,
+    now: datetime,
+    bisherige_email: str | None,
+    vorname: str | None,
+    weg: str | None,
+    adresse_belegt: bool | None,
 ) -> dict[str, Any]:
     """One notice an end owes, queued in the end's own transaction: its answer alone carried it, and a lost answer lost it.
 
@@ -170,11 +177,22 @@ def compose_postausgang(
         "email": email,
         "vorname": vorname,
         "weg": weg,
+        "adresse_belegt": adresse_belegt,
         "erfasst_am": now.astimezone(UTC),
         "beansprucht_bis": None,
         "beanspruchung": None,
         "versuche": 0,
     }
+
+
+def build_owed_carry_filter(adressen: list[str]) -> dict[str, Any]:
+    """The owed effects' notices whose drain still carries a sign-in account off one of these folded addresses.
+
+    The frontend's `fl_frontend/src/features/adresswechsel/notifications.ts :: adresswechselWirksam` carries on these
+    terms; no index serves them, the outbox holding only notices not yet delivered.
+    """
+
+    return {"art": "wirksam", "bisherige_email": {"$in": adressen}, "weg": {"$ne": "wartezeit"}, "adresse_belegt": False}
 
 
 def compose_genehmigung_widerrufen_update() -> dict[str, Any]:
@@ -488,19 +506,20 @@ def find_vergeben_refusal(*, vergeben: bool) -> WriteRefusal | None:
     )
 
 
-def find_unveraendert_refusal(*, adresse: str, email: str, folded: str) -> WriteRefusal | None:
+def find_unveraendert_refusal(*, adresse: str, folded: str) -> WriteRefusal | None:
     """`REQ-ADRESSWECHSEL-007`: the typed address signs in as the one on file, so it would ask a mailbox already proved.
 
-    `folded` is `email`'s sign-in identifier, which the caller folds; `adresse` is one already.
+    `folded` is the typed address's sign-in identifier, which the caller folds; `adresse` is one already.
     """
 
     if folded != adresse:
         return None
 
+    # Naming neither address: the message reaches the refusal's log line (`docs/logging/spec.md :: L9`).
     return WriteRefusal(
         error_code=ADRESSWECHSEL_UNVERAENDERT,
         status=HTTPStatus.CONFLICT,
-        message=f"{email} is the email address on file already",
+        message="the typed email address is the one on file already",
     )
 
 

@@ -40,7 +40,8 @@ export function ansichtOf({ ansicht }: Pick<FLAdresswechselAnsichtResponse, "ans
         ? { zustand: "ungueltig" }
         : { zustand: "gueltig", gueltigBis: ansicht.gueltig_bis, weg: ansicht.weg };
     case "bestaetigt":
-      return { zustand: "bestaetigt", wirksamAb: ansicht.wirksam_ab, genehmigungOffen: ansicht.genehmigung_offen, weg: ansicht.weg };
+      // Null only outside `bestaetigt`, by the read's contract.
+      return { zustand: "bestaetigt", wirksamAb: ansicht.wirksam_ab, genehmigungOffen: ansicht.genehmigung_offen === true, weg: ansicht.weg };
     case "gesperrt":
       return { zustand: "gesperrt" };
     default:

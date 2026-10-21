@@ -10,7 +10,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
-from app.api.adresswechsel.crud import end_the_change_in_session, ending_line, take_effect_in_session
+from app.api.adresswechsel.crud import end_the_change_in_session, ending_line, queue_the_refusal_notice_in_session, take_effect_in_session
 from app.api.adresswechsel.schemas import (
     FLAdresswechselPostausgangArt,
     FLAdresswechselPostausgangResponse,
@@ -25,7 +25,6 @@ from app.api.adresswechsel.services import (
     build_due_terms,
     build_lapsed_terms,
     build_parked_terms,
-    compose_postausgang,
     ist_abgelaufen,
 )
 from app.api.berechtigungen.services import BEANSPRUCHUNG_DAUER, VERSUCHE_HOECHSTENS
@@ -33,7 +32,7 @@ from app.api.identitaet.lookup import RecordCollections, SubjektLookup
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, sperrliste_saison
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db
+from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     AdressankerCollection,
     AdresswechselCollection,
@@ -109,6 +108,7 @@ async def _end_the_lapsed_change(
     row: Mapping[str, Any],
     *,
     adresswechsel_collection: AsyncCollection,
+    adresswechsel_postausgang_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     db: AsyncMongoClient,
     now: datetime,
@@ -120,7 +120,7 @@ async def _end_the_lapsed_change(
     """
 
     async def end_the_lapsed_change(session: AsyncClientSession) -> None:
-        await end_the_change_in_session(
+        stored = await end_the_change_in_session(
             adresswechsel_collection=adresswechsel_collection,
             aktionen_collection=aktionen_collection,
             db_filter={"_id": row["_id"], **build_lapsed_terms(now)},
@@ -129,6 +129,12 @@ async def _end_the_lapsed_change(
             stamp=stamp,
             session=session,
         )
+        # A confirmed change lapsing on its owed approval: its new mailbox was told it waits on the administration, so it is
+        # told it did not take effect, as a refused due change's is (`docs/backend/spec.md :: I827`).
+        if stored.get("bestaetigt_am") is not None:
+            await queue_the_refusal_notice_in_session(
+                stored, adresswechsel_postausgang_collection=adresswechsel_postausgang_collection, now=now, session=session
+            )
 
     async with transaction_session(db) as session:
         await session.with_transaction(end_the_lapsed_change)
@@ -226,12 +232,8 @@ async def _make_the_due_change_take_effect(
                 ending_line(art="adresswechsel_verworfen", neue=str(record["email"]), record_id=record["_id"], am=stamp, schluessel=schluessel)
             )
 
-        # Read in this transaction before the end nulled it, and queued in it: never why, never the address on file, greeting
-        # nobody (`docs/backend/spec.md :: I827`, `:: I846`).
-        await post_one_to_db(
-            collection=adresswechsel_postausgang_collection,
-            document=compose_postausgang(art="verworfen", email=str(record["email"]), bisherige_email=None, vorname=None, weg=None, now=now),
-            session=session,
+        await queue_the_refusal_notice_in_session(
+            record, adresswechsel_postausgang_collection=adresswechsel_postausgang_collection, now=now, session=session
         )
         return "verworfen"
 
@@ -347,6 +349,7 @@ async def sweep_adresswechsel(
                 await _end_the_lapsed_change(
                     row,
                     adresswechsel_collection=adresswechsel_collection,
+                    adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
                     aktionen_collection=aktionen_collection,
                     db=db,
                     now=germany_now,

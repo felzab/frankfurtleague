@@ -7361,7 +7361,7 @@
     "/api/v0/adresswechsel": {
       "post": {
         "summary": "Start an address change for a person who cannot sign in",
-        "description": "Start a change of the typed address for a person who cannot sign in, answering its raw links once, for the caller to mail.\n\n**Nothing moves here.** Without a `grund` the change asks the address on file first: the caller mails it the request\nwith its stop link, and nothing goes to the new mailbox until that address approves on its account page. With a\n`grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the\naddress on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new\nmailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never\nthis one's, and `genehmiger` names whom the caller tells. The address's live change ends replaced.\n`adresse_belegt` says whether the new address holds records of its own, which the effect would join to these.\n\nRefused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power\n(`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds\n(`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the\nchange moves a pupil (`-006`), a grant nobody could approve (`-011`), and a reason naming a person of the records the\nchange would move (`-008`).",
+        "description": "Start a change of the typed address for a person who cannot sign in, answering its raw links once, for the caller to mail.\n\n**Nothing moves here.** Without a `grund` the change asks the address on file first: the caller mails it the request\nwith its stop link, and nothing goes to the new mailbox until that address approves on its account page. With a\n`grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the\naddress on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new\nmailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never\nthis one's: `genehmiger` names who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).\nThe address's live change ends replaced.\n`adresse_belegt` says whether the new address holds records of its own, which the effect would join to these.\n\nRefused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power\n(`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds\n(`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the\nchange moves a pupil (`-006`), a grant nobody could approve (`-011`), and a reason naming a person of the records the\nchange would move (`-008`).",
         "operationId": "post_adresswechsel_verwaltung_api_v0_adresswechsel_post",
         "requestBody": {
           "content": {
@@ -7545,7 +7545,7 @@
     "/api/v0/adresswechsel/{adresswechsel_id}/genehmigung": {
       "post": {
         "summary": "Approve the move of an administrator's access with their address change",
-        "description": "Approve the move of an administrator's grant with the change of their address, the second pair of eyes the change waits on.\n\nWhere the new mailbox has confirmed and no waiting time remains, the change takes effect in this transaction: the grant\nis revoked at the replaced address and granted at the new one under this administrator's name, announced to every\nadministrator as a grant and a revoke are, and everything else the address holds moves, its completion notice queued\nin this transaction. Otherwise the approval is recorded and the change takes effect at its confirmation\nor at the end of its waiting time. **An approval refused writes nothing**: the change stands unapproved.\n\nRefused where the change asks no approval or was given it (`REQ-ADRESSWECHSEL-012`), where its seven days have passed\n(`-003`), to the changed address and to the administrator who started it (`-013`), to anyone but an owner, signed in\nsince becoming one, where the grant is an owner's (`-014`), and where the change ended (`-002`); and, where it would\ntake effect, as the confirmation is (`-004`, `-005`, `-006`, `-015`, `-016`). A change whose address has come to hold\nnothing to move ends discarded, answering `-002`. 404 for an id naming no change. A sign-in or confirmation older than\n`ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.",
+        "description": "Approve the move of an administrator's grant with the change of their address, the second pair of eyes the change waits on.\n\nWhere the new mailbox has confirmed and no waiting time remains, the change takes effect in this transaction: the grant\nis revoked at the replaced address and granted at the new one under this administrator's name, announced to every\nadministrator as a grant and a revoke are, and everything else the address holds moves, its completion notice queued\nin this transaction. Otherwise the approval is recorded and the change takes effect at its confirmation\nor at the end of its waiting time. **An approval refused writes nothing**: the change stands unapproved.\n\nRefused where the change asks no approval or was given it (`REQ-ADRESSWECHSEL-012`), where its seven days have passed\n(`-003`), to the changed address and to the administrator who started it (`-013`), to anyone but an owner, signed in\nsince becoming one, where the grant is an owner's (`-014`), and where the change ended (`-002`); and, where it would\ntake effect, as the confirmation is (`-004`, `-005`, `-006`, `-015`, `-016`). A change whose address has come to hold\nnothing to move ends discarded, its new address told it did not take effect, answering `-010`. 404 for an id naming no\nchange. A sign-in or confirmation older than\n`ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.",
         "operationId": "post_adresswechsel_genehmigung_api_v0_adresswechsel__adresswechsel_id__genehmigung_post",
         "security": [
           {
@@ -7579,7 +7579,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-005.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-012.REQ-ADRESSWECHSEL-015.REQ-ADRESSWECHSEL-016"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-005.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-010.REQ-ADRESSWECHSEL-012.REQ-ADRESSWECHSEL-015.REQ-ADRESSWECHSEL-016"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -9163,7 +9163,7 @@
     "/api/v0/identitaet/referenzen": {
       "post": {
         "summary": "Say which of these sign-in addresses no record references",
-        "description": "Answer which of the addresses asked about no league record references, so the sign-in account each names may be deleted.\n\nStores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the addresses travel in the body.\n\nAn address is referenced, and so never answered, while any of these holds:\n\n- a contact seat on any season row holds it, a `past` season's and a withdrawn team's included, confirmed or not;\n- a contact seat on a pending application holds it, confirmed or not;\n- a pupil or referee record holds it, confirmed or not and live or retired; the placeholder every erased referee's fixtures\n  name and the one every erased pupil's entries name hold nothing;\n- a pending registration holds it that its pupil confirmed;\n- a grant in `berechtigungen` holds it, as stored, before the comparison has seen it too.\n\nA ban holds nothing: a barred address is answered as any other once none of these holds it. A pending address change holds\nnothing either: its address admits no sign-in until it is confirmed, and the address it replaces stays on the record until\nthen.\n\nThat is wider than what `POST /identitaet/anmeldung` admits a sign-in on, so no account answered here is one the sign-in\nwould admit again: an unconfirmed seat on a `past` season and an unconfirmed retired record keep an account the gate admits\nno sign-in for, until the block is cleared or the row removed.\n\nThe whole batch is refused, `REQ-REFERENZEN-001`, while no live grant in `berechtigungen` is an `owner`'s. A league always\nholds one, so such a database is empty or another one, and answering from it would call every address unreferenced.\n\nEach address is compared as `POST /identitaet/subjekt` compares one, on the sign-in fold, and answered in the spelling it was\nasked in, once however often it was asked. An address today's address rule refuses is judged as any other and never\nrefused, since one refused address would refuse the whole batch. A batch past its published ceiling is refused whole.",
+        "description": "Answer which of the addresses asked about no league record references, so the sign-in account each names may be deleted.\n\nStores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the addresses travel in the body.\n\nAn address is referenced, and so never answered, while any of these holds:\n\n- a contact seat on any season row holds it, a `past` season's and a withdrawn team's included, confirmed or not;\n- a contact seat on a pending application holds it, confirmed or not;\n- a pupil or referee record holds it, confirmed or not and live or retired; the placeholder every erased referee's fixtures\n  name and the one every erased pupil's entries name hold nothing;\n- a pending registration holds it that its pupil confirmed;\n- a grant in `berechtigungen` holds it, as stored, before the comparison has seen it too;\n- an address change that took effect replaced it, and the notice owing its sign-in account's carry to the new address is\n  not yet delivered.\n\nA ban holds nothing: a barred address is answered as any other once none of these holds it. A pending address change holds\nnothing either: its new address admits no sign-in until the change takes effect, and the address it replaces stays on the\nrecords until then.\n\nThat is wider than what `POST /identitaet/anmeldung` admits a sign-in on, so no account answered here is one the sign-in\nwould admit again: an unconfirmed seat on a `past` season and an unconfirmed retired record keep an account the gate admits\nno sign-in for, until the block is cleared or the row removed.\n\nThe whole batch is refused, `REQ-REFERENZEN-001`, while no live grant in `berechtigungen` is an `owner`'s. A league always\nholds one, so such a database is empty or another one, and answering from it would call every address unreferenced.\n\nEach address is compared as `POST /identitaet/subjekt` compares one, on the sign-in fold, and answered in the spelling it was\nasked in, once however often it was asked. An address today's address rule refuses is judged as any other and never\nrefused, since one refused address would refuse the whole batch. A batch past its published ceiling is refused whole.",
         "operationId": "get_referenzen_api_v0_identitaet_referenzen_post",
         "requestBody": {
           "content": {
@@ -9217,7 +9217,7 @@
     "/api/v0/berechtigungen/abgleich": {
       "post": {
         "summary": "Claim the grant changes still to be announced",
-        "description": "Queue every change made to the grants in the database directly, then claim the unannounced changes and answer who to tell.\n\nEvery grant and revoke made through the application queued its own notice when it was made, naming the administrator who made\nit. What was changed in the database directly is found here, by comparing the grants with the record of what is already\naccounted for, and queued naming nobody: `geaendert_von` and `geaendert_am` null. A database change undone again before any\ncall to this endpoint is found by nothing. A row whose address no request can match counts as no grant, and `uebersprungen`\ncounts those rows. A grant found here -- a new row, or an address changed in place -- is stamped `gefunden_am` with this call's\ntime, which `POST /identitaet/subjekt` then answers as `berechtigt_seit`: a session signed in before it administers nothing. Every\nrow a call reads for the first time, one no request can match included, is stamped `gesehen_am`, and a row carrying it beside no\nrecord of its own was changed in the database since a call read it: it is no grant until a call finds it.\n\nThe call then claims, oldest first and a page at a time, every queued change no claim holds or whose claim has lapsed, for ten\nminutes from now. A second call inside that time is answered none of them. The caller mails each change and then hands the ids it\nmailed, with `beanspruchung`, to `POST /berechtigungen/abgleich/angekuendigt`. Where a lease lapses before that, the next call\nclaims those changes again. `beanspruchung` and `beansprucht_bis` are null exactly where nothing was claimed.\n\n`urheber` says who made each change: `anwendung` for an administrator through the application, `datenbank` for an edit\nfound here. No barred address is answered in plain: wherever one would stand -- `jetzt`, `vorher`, `geaendert_von`,\n`empfaenger` -- it is `null` or left out; a barred grant address carries `gesperrt`, a barred `geaendert_von`\n`geaendert_von_gesperrt`. A grant address whose holder was erased is `null` beside `geloescht`, and an erased\n`geaendert_von` reads `ERASED`, naming nobody. An address changed in place is two changes, its removal and the new\naddress's grant.\n`empfaenger` is every live, unbarred grant holder now; a removed address is read off its change.\n\nA `beantragt` row is a grant or a promotion asked for, which no grant has yet. It goes to its own `an` rather than to\n`empfaenger`: whoever could approve the request now, as `POST /berechtigungen/antraege/{antrag_id}/genehmigung` judges\nthem, and nobody where the request is decided, withdrawn, lapsed or erased, or its requester does not hold, since before\nit, the tier it asks for. `an` is null on every other row.",
+        "description": "Queue every change made to the grants in the database directly, then claim the unannounced changes and answer who to tell.\n\nEvery grant and revoke made through the application queued its own notice when it was made, naming the administrator who made\nit. What was changed in the database directly is found here, by comparing the grants with the record of what is already\naccounted for, and queued naming nobody: `geaendert_von` and `geaendert_am` null. A database change undone again before any\ncall to this endpoint is found by nothing. A row whose address no request can match counts as no grant, and `uebersprungen`\ncounts those rows. A grant found here -- a new row, or an address changed in place -- is stamped `gefunden_am` with this call's\ntime, which `POST /identitaet/subjekt` then answers as `berechtigt_seit`: a session signed in before it administers nothing. Every\nrow a call reads for the first time, one no request can match included, is stamped `gesehen_am`, and a row carrying it beside no\nrecord of its own was changed in the database since a call read it: it is no grant until a call finds it.\n\nThe call then claims, oldest first and a page at a time, every queued change no claim holds or whose claim has lapsed, for ten\nminutes from now. A second call inside that time is answered none of them. The caller mails each change and then hands the ids it\nmailed, with `beanspruchung`, to `POST /berechtigungen/abgleich/angekuendigt`. Where a lease lapses before that, the next call\nclaims those changes again. `beanspruchung` and `beansprucht_bis` are null exactly where nothing was claimed.\n\n`urheber` says who made each change: `anwendung` for an administrator through the application, `datenbank` for an edit\nfound here. No barred address is answered in plain: wherever one would stand -- `jetzt`, `vorher`, `geaendert_von`,\n`empfaenger` -- it is `null` or left out; a barred grant address carries `gesperrt`, a barred `geaendert_von`\n`geaendert_von_gesperrt`. A grant address whose holder was erased is `null` beside `geloescht`, and an erased\n`geaendert_von` reads `ERASED`, naming nobody. An address changed in place is two changes, its removal and the new\naddress's grant.\n`empfaenger` is every live, unbarred grant holder now; a removed address is read off its change.\n\nA `beantragt` row is a grant or a promotion asked for, which no grant has yet. It goes to its own `an` rather than to\n`empfaenger`: whoever could approve the request now, as `POST /berechtigungen/antraege/{antrag_id}/genehmigung` judges\nthem, and nobody where the request is decided, withdrawn, lapsed or erased, or its requester does not hold, since before\nit, the tier it asks for. An `adresswechsel` row is an address change moving a grant, keyed by the change, that waits on\nan approval: it goes to its own `an` too, whoever could approve it now as `POST /adresswechsel/{adresswechsel_id}/genehmigung`\njudges them, and nobody where the change is approved, ended or past its week, or its address now holds no grant.\n`an` is null on every other row.",
         "operationId": "post_berechtigungen_abgleich_api_v0_berechtigungen_abgleich_post",
         "responses": {
           "200": {
@@ -10760,7 +10760,7 @@
       },
       "post": {
         "summary": "Start a change of the signed-in person's address",
-        "description": "Start a change of the address the person signs in on, answering both raw links once, for the frontend's server to mail.\n\nThe new mailbox is mailed its link, and the address on file a notice with a stop link; **everything the address holds\nas its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. Where it holds a\ngrant, the change also waits on another administrator's approval, an owner's for an owner's grant, and\n`genehmiger` names whom the frontend's server tells. The address's live change ends replaced, an administrator's too:\na sign-in at the address on file proves the mailbox is not lost. **Nothing about the new address is judged here** --\nthe ban list, another pupil, a grant it holds -- so this start answers alike whatever the new address holds.\n\nRefused `REQ-AUTH-009` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the\naddress holds a grant;\n`REQ-ADRESSWECHSEL-010` where the address holds nothing a change moves; `-007` where the typed address is the one\nsigned in; `-011` where nobody could approve the grant's move, the last owner making another first; and\n`REQ-DROSSELUNG-001` past the day's count of starts and approvals.",
+        "description": "Start a change of the address the person signs in on, answering both raw links once, for the frontend's server to mail.\n\nThe new mailbox is mailed its link, and the address on file a notice with a stop link; **everything the address holds\nas its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. Where it holds a\ngrant, the change also waits on another administrator's approval, an owner's for an owner's grant, `genehmiger`\nnames who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`). The address's live\nchange ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.\n**Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start\nanswers alike whatever the new address holds.\n\nRefused `REQ-AUTH-009` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the\naddress holds a grant;\n`REQ-ADRESSWECHSEL-010` where the address holds nothing a change moves; `-007` where the typed address is the one\nsigned in; `-011` where nobody could approve the grant's move, the last owner making another first; and\n`REQ-DROSSELUNG-001` past the day's count of starts and approvals.",
         "operationId": "post_adresswechsel_api_v0_konto_adresswechsel_post",
         "requestBody": {
           "content": {
@@ -11696,7 +11696,14 @@
             "title": "Weg"
           },
           "genehmigung_offen": {
-            "type": "boolean",
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Genehmigung Offen"
           }
         },
@@ -12039,6 +12046,17 @@
             ],
             "title": "Weg"
           },
+          "adresse_belegt": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adresse Belegt"
+          },
           "aufgegeben": {
             "type": "boolean",
             "title": "Aufgegeben"
@@ -12052,6 +12070,7 @@
           "email",
           "vorname",
           "weg",
+          "adresse_belegt",
           "aufgegeben"
         ],
         "title": "FLAdresswechselPostausgangZeile",
@@ -13544,7 +13563,8 @@
               "erteilt",
               "entzogen",
               "geaendert",
-              "beantragt"
+              "beantragt",
+              "adresswechsel"
             ],
             "title": "Art"
           },
@@ -32611,7 +32631,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-005.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-012.REQ-ADRESSWECHSEL-015.REQ-ADRESSWECHSEL-016": {
+      "409.DB-COMMON-002.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-005.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-010.REQ-ADRESSWECHSEL-012.REQ-ADRESSWECHSEL-015.REQ-ADRESSWECHSEL-016": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -32628,6 +32648,7 @@
                         "REQ-ADRESSWECHSEL-002",
                         "REQ-ADRESSWECHSEL-005",
                         "REQ-ADRESSWECHSEL-006",
+                        "REQ-ADRESSWECHSEL-010",
                         "REQ-ADRESSWECHSEL-012",
                         "REQ-ADRESSWECHSEL-015",
                         "REQ-ADRESSWECHSEL-016"

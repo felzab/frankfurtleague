@@ -7,7 +7,14 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.adresswechsel.crud import end_the_change_in_session, ending_line, live_grant_of, read_the_bestand, start_the_change_in_session
+from app.api.adresswechsel.crud import (
+    end_the_change_in_session,
+    ending_line,
+    live_grant_of,
+    queue_the_approval_notice_in_session,
+    read_the_bestand,
+    start_the_change_in_session,
+)
 from app.api.adresswechsel.schemas import FLAdresswechselGenehmigungStand
 from app.api.adresswechsel.services import (
     LIVE_TERMS,
@@ -65,6 +72,7 @@ from app.core.dependencies import (
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
+    BerechtigungenPostausgangCollection,
     BewerbungenCollection,
     DBClient,
     RegistrierungenCollection,
@@ -284,6 +292,7 @@ async def post_adresswechsel(
     adresswechsel_collection: AdresswechselCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
     adressanker_collection: AdressankerCollection,
@@ -297,10 +306,11 @@ async def post_adresswechsel(
 
     The new mailbox is mailed its link, and the address on file a notice with a stop link; **everything the address holds
     as its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. Where it holds a
-    grant, the change also waits on another administrator's approval, an owner's for an owner's grant, and
-    `genehmiger` names whom the frontend's server tells. The address's live change ends replaced, an administrator's too:
-    a sign-in at the address on file proves the mailbox is not lost. **Nothing about the new address is judged here** --
-    the ban list, another pupil, a grant it holds -- so this start answers alike whatever the new address holds.
+    grant, the change also waits on another administrator's approval, an owner's for an owner's grant, `genehmiger`
+    names who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`). The address's live
+    change ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.
+    **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
+    answers alike whatever the new address holds.
 
     Refused `REQ-AUTH-009` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
     address holds a grant;
@@ -318,7 +328,7 @@ async def post_adresswechsel(
     async def start_the_change(session: AsyncClientSession) -> FLKontoAdresswechselMintResponse:
         bestand = await read_the_bestand(identifier, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
         refuse(find_nichts_refusal(leer=bestand.leer))
-        refuse(find_unveraendert_refusal(adresse=identifier, email=email, folded=sign_in_identifier(email)))
+        refuse(find_unveraendert_refusal(adresse=identifier, folded=sign_in_identifier(email)))
 
         genehmiger: list[str] = []
         genehmigung = None
@@ -355,6 +365,14 @@ async def post_adresswechsel(
             journal=journal,
             session=session,
         )
+        if genehmigung is not None:
+            await queue_the_approval_notice_in_session(
+                adresswechsel_id=adresswechsel_id,
+                gestartet_von=identifier,
+                berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                now=germany_now,
+                session=session,
+            )
 
         return FLKontoAdresswechselMintResponse(
             id=adresswechsel_id,
@@ -411,7 +429,6 @@ async def post_adresswechsel_freigabe(
                 {"_id": adresswechsel_id, "beendet": {"$type": "object"}}, {"_id": 1}, session=session
             )
             refuse(find_beendet_refusal(offen=ended is None))
-            # The judgement names no address: the exception's filter reaches the log line.
             raise DocumentNotFoundException(filter={"_id": adresswechsel_id, **build_awaiting_approval_terms()}, error_code=DOCUMENT_NOT_FOUND)
         refuse(find_abgelaufen_refusal(abgelaufen=ist_abgelaufen(record, now=germany_now)))
         # As the start: the press lets a link go that hands over any grant the address holds at the effect.
@@ -464,7 +481,6 @@ async def delete_adresswechsel(
     async def stop_the_change(session: AsyncClientSession) -> FLKontoAdresswechselResponse:
         live = await adresswechsel_collection.find_one(build_address_filter(identifier), {"_id": 1}, session=session)
         if live is None:
-            # The judgement names no address: the exception's filter reaches the log line.
             raise DocumentNotFoundException(filter=dict(LIVE_TERMS), error_code=DOCUMENT_NOT_FOUND)
 
         stored = await end_the_change_in_session(

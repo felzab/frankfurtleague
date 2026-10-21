@@ -93,11 +93,13 @@ CONFIG = config_for(DATABASE_NAME)
 
 PATH = f"/api/v{API_VERSION}/identitaet/selbst/erasure"
 
+# A century ahead of the real clock: the TTL monitor deletes an expired tombstone, request or day's count at its next
+# pass, under a case reading it back. Every seeded day moves with it.
 SAISON_ID = "2026"
-TODAY = "2026-04-01"
-YESTERDAY = "2026-03-31"
+TODAY = "2126-04-01"
+YESTERDAY = "2126-03-31"
 # Injected through `get_germany_now`, and in summer, so the conversion to the log's stamp moves the clock.
-NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 # The person as a request or a pasted grant may spell them, and the fold every record the league writes stores.
 TYPED = "Zorbanax.Quillfeather@Example.org"
@@ -202,7 +204,7 @@ PAYMENT = 25
 COUNT_IDS = (
     f"kontakt:{PSEUDONYM}:{TODAY}",
     f"spieler:{PSEUDONYM}:{YESTERDAY}",
-    f"schiedsrichter:{PSEUDONYM}:2026-03-02",
+    f"schiedsrichter:{PSEUDONYM}:2126-03-02",
     f"adresswechsel:{PSEUDONYM}:{TODAY}",
 )
 OTHER_COUNT_ID = f"kontakt:{OTHER_PSEUDONYM}:{TODAY}"
@@ -228,7 +230,7 @@ def _built_before_any_case() -> None:
 
 
 def their_seat() -> dict[str, Any]:
-    return kontaktperson_document(VORNAME, bestaetigt_am="2026-03-21", nachname=NACHNAME, email=IDENTIFIER, telefon=TELEFON)
+    return kontaktperson_document(VORNAME, bestaetigt_am="2126-03-21", nachname=NACHNAME, email=IDENTIFIER, telefon=TELEFON)
 
 
 def referee(schiedsrichter_id: ObjectId, *, email: str, name: str, **fields: Any) -> dict[str, Any]:
@@ -237,7 +239,7 @@ def referee(schiedsrichter_id: ObjectId, *, email: str, name: str, **fields: Any
         email=email,
         name=name,
         default_payment=PAYMENT,
-        einwilligung=eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-01"),
+        einwilligung=eigene_einwilligung_document(text_version="v1", bestaetigt_am="2126-03-01"),
         **fields,
     )
 
@@ -251,8 +253,8 @@ def a_registration(registrierung_id: ObjectId, email: str, **fields: Any) -> dic
         vorname=VORNAME,
         nachname=NACHNAME,
         token=f"token-{registrierung_id}",
-        eingereicht_am="2026-03-25",
-        frist="2026-04-08",
+        eingereicht_am="2126-03-25",
+        frist="2126-04-08",
         **fields,
     )
 
@@ -324,13 +326,13 @@ def a_confirmation(row_id: ObjectId, partei: dict[str, Any], *, spiel_id: Object
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=SPIELTAG_OID,
-        datum="2026-03-15",
+        datum="2126-03-15",
         uhrzeit="14:00:00",
         team1={"team_id": HOME_TEAM_OID},
         team2={"team_id": OTHER_TEAM_OID},
     )
 
-    return spielbestaetigung_document(spiel, partei=partei, _id=row_id, frist="2026-03-08", angefragt_am="2026-03-01", kontakte=None)
+    return spielbestaetigung_document(spiel, partei=partei, _id=row_id, frist="2126-03-08", angefragt_am="2126-03-01", kontakte=None)
 
 
 def a_referee(schiedsrichter_id: ObjectId) -> dict[str, Any]:
@@ -338,7 +340,7 @@ def a_referee(schiedsrichter_id: ObjectId) -> dict[str, Any]:
 
 
 def declined(begruendung: str) -> dict[str, Any]:
-    return {"art": "abgelehnt", "am": "2026-03-03", "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": begruendung}
+    return {"art": "abgelehnt", "am": "2126-03-03", "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": begruendung}
 
 
 async def their_confirmations(database: AsyncDatabase) -> None:
@@ -367,9 +369,9 @@ async def their_confirmations(database: AsyncDatabase) -> None:
         database,
         Collection.SPIELBESTAETIGUNGEN,
         THEIR_CONFIRMATION_OID,
-        {"$set": {"geschlossen": {"am": "2026-03-04", "grund": "schiedsrichter_gewechselt"}}},
+        {"$set": {"geschlossen": {"am": "2126-03-04", "grund": "schiedsrichter_gewechselt"}}},
     )
-    await edited(database, Collection.SPIELBESTAETIGUNGEN, OTHER_CONFIRMATION_OID, {"$set": {"erinnert_am": ["2026-03-05"]}})
+    await edited(database, Collection.SPIELBESTAETIGUNGEN, OTHER_CONFIRMATION_OID, {"$set": {"erinnert_am": ["2126-03-05"]}})
     async with database.client.start_session() as session:
         await delete_many_from_db(collection=confirmations, db_filter={"saison_id": UNDRAWN_SAISON_ID}, session=session)
 
@@ -387,8 +389,8 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             "HS",
             kontakte=kontakte_document(
                 ansprechperson=their_seat(),
-                stellvertretung=kontaktperson_document("Quillhilde", bestaetigt_am="2026-03-21"),
-                trainer=kontaktperson_document("Bramblewick", bestaetigt_am="2026-03-21"),
+                stellvertretung=kontaktperson_document("Quillhilde", bestaetigt_am="2126-03-21"),
+                trainer=kontaktperson_document("Bramblewick", bestaetigt_am="2126-03-21"),
             ),
         )
     )
@@ -402,8 +404,8 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
                 ansprechperson=kontaktperson_document("Quillhilde"),
                 stellvertretung=kontaktperson_document("Bramblewick"),
             ),
-            eingereicht_am="2026-03-10",
-            bestaetigungsfrist="2026-04-10",
+            eingereicht_am="2126-03-10",
+            bestaetigungsfrist="2126-04-10",
             schule=neue_schule_document("Neue", "NE"),
             idempotenz_fingerabdruck=THEIR_DIGEST,
         )
@@ -414,12 +416,12 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             SAISON_ID,
             "eingereicht",
             kontakte=kontakte_document(ansprechperson=their_seat()),
-            eingereicht_am="2026-02-10",
+            eingereicht_am="2126-02-10",
             schule=neue_schule_document("Alte", "AL"),
             idempotenz_fingerabdruck=THEIR_BLOCKLESS_DIGEST,
         )
     )
-    einwilligung = eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-02")
+    einwilligung = eigene_einwilligung_document(text_version="v1", bestaetigt_am="2126-03-02")
     # A pupil's address as it stood before its correction, which the person's own pupil row holds after it: the
     # correction's image alone keeps it, a row the person's steps never reach.
     await database[Collection.SPIELER].insert_one(
@@ -458,7 +460,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
                 saison_id=SAISON_ID,
                 spiel_nr=spiel_nr,
                 spieltag_id=SPIELTAG_OID,
-                datum="2026-03-15",
+                datum="2126-03-15",
                 uhrzeit="14:00:00",
                 schiedsrichter={"schiedsrichter_id": referee_id, "name": name, "payment": PAYMENT},
                 ergebnis="2:1",
@@ -474,7 +476,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             a_registration(
                 DECLINED_OID,
                 IDENTIFIER,
-                **compose_ablehnung_update(von="quillhilde@example.com", grund=None, today="2026-03-28")["$set"],
+                **compose_ablehnung_update(von="quillhilde@example.com", grund=None, today="2126-03-28")["$set"],
             ),
         ]
     )
@@ -505,8 +507,8 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     )
     await pending_changes(
         database,
-        (OTHER_REFEREE_CHANGE_OID, "kraus.bernd@example.com", IDENTIFIER, "their-new-address", "2026-03-28"),
-        (MOVING_PUPIL_CHANGE_OID, "gwendolyn@example.com", IDENTIFIER, "her-new-address", "2026-03-29"),
+        (OTHER_REFEREE_CHANGE_OID, "kraus.bernd@example.com", IDENTIFIER, "their-new-address", "2126-03-28"),
+        (MOVING_PUPIL_CHANGE_OID, "gwendolyn@example.com", IDENTIFIER, "her-new-address", "2126-03-29"),
     )
     # A notice still owed to them from an earlier change of theirs, which the pass has not delivered yet.
     # A fixed id: the log keeps the erasure's filter by id, which two runs of this seed must spell alike.
@@ -514,7 +516,13 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         {
             "_id": OWED_NOTICE_OID,
             **compose_postausgang(
-                art="wirksam", bisherige_email="vorher.zorbanax@example.org", email=IDENTIFIER, vorname="Zorbanax", weg="konto", now=NOW
+                art="wirksam",
+                bisherige_email="vorher.zorbanax@example.org",
+                email=IDENTIFIER,
+                vorname="Zorbanax",
+                weg="konto",
+                adresse_belegt=False,
+                now=NOW,
             ),
         }
     )
@@ -529,9 +537,9 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         await edited(database, Collection.REGISTRIERUNGEN, registrierung_id, {"$set": {"nummer": "11"}})
     # Images of rows the person's steps never reach, each holding the address: two pending changes.
     for change_id in (OTHER_REFEREE_CHANGE_OID, MOVING_PUPIL_CHANGE_OID):
-        await edited(database, Collection.ADRESSWECHSEL, change_id, {"$set": {"verschickt_am": "2026-03-30"}})
+        await edited(database, Collection.ADRESSWECHSEL, change_id, {"$set": {"verschickt_am": "2126-03-30"}})
     # And of the records they made, each image keeping them as its author: the address pass's alone to reach.
-    await edited(database, Collection.BERECHTIGUNGEN, GRANTED_BY_THEM_OID, {"$set": {"erteilt_am": datetime(2026, 1, 2, tzinfo=UTC)}})
+    await edited(database, Collection.BERECHTIGUNGEN, GRANTED_BY_THEM_OID, {"$set": {"erteilt_am": datetime(2126, 1, 2, tzinfo=UTC)}})
     await edited(database, Collection.SPERRLISTE, BANNED_BY_THEM_OID, {"$set": {"grund": "Doppelte Anmeldung"}})
     await edited(database, Collection.EINLADUNGEN, INVITED_BY_THEM_OID, compose_widerruf_update(today=TODAY))
     await edited(database, Collection.BEWERBUNGEN, DECIDED_BY_THEM_OID, {"$set": {"wunschgegner": "Gast-Schule"}})
@@ -578,8 +586,8 @@ async def a_mailbox_sharing_their_local_part(database: AsyncDatabase) -> None:
             vorname="Quendolin",
             nachname="Anderswo",
             token="token-anderswo",
-            eingereicht_am="2026-03-25",
-            frist="2026-04-08",
+            eingereicht_am="2126-03-25",
+            frist="2126-04-08",
         )
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
@@ -594,13 +602,13 @@ async def a_mailbox_sharing_their_local_part(database: AsyncDatabase) -> None:
             "Ulla",
             "Ulla-Muster",
             email="ulla@example.com",
-            einwilligung=eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-02"),
+            einwilligung=eigene_einwilligung_document(text_version="v1", bestaetigt_am="2126-03-02"),
         )
     )
     await pending_changes(
         database,
-        (REFEREE_MOVING_ELSEWHERE_CHANGE_OID, "umzug.dritter@example.com", ELSEWHERE, "to-anderswo", "2026-03-28"),
-        (PUPIL_MOVING_ELSEWHERE_CHANGE_OID, "ulla@example.com", ELSEWHERE, "ulla-to-anderswo", "2026-03-29"),
+        (REFEREE_MOVING_ELSEWHERE_CHANGE_OID, "umzug.dritter@example.com", ELSEWHERE, "to-anderswo", "2126-03-28"),
+        (PUPIL_MOVING_ELSEWHERE_CHANGE_OID, "ulla@example.com", ELSEWHERE, "ulla-to-anderswo", "2126-03-29"),
     )
     await a_grant(database, ELSEWHERE_GRANT_OID, ELSEWHERE, "administration")
     await database[Collection.SAISON_TEAMS].insert_one(
@@ -611,7 +619,7 @@ async def a_mailbox_sharing_their_local_part(database: AsyncDatabase) -> None:
             "GS",
             _id=ELSEWHERE_SEAT_ROW_OID,
             kontakte=kontakte_document(
-                ansprechperson=kontaktperson_document("Quendolin", bestaetigt_am="2026-03-21", nachname="Anderswo", email=ELSEWHERE)
+                ansprechperson=kontaktperson_document("Quendolin", bestaetigt_am="2126-03-21", nachname="Anderswo", email=ELSEWHERE)
             ),
         )
     )
@@ -659,7 +667,7 @@ ELSEWHERE_HOLDS = {
 }
 
 
-GRANTED = datetime(2026, 1, 1, tzinfo=UTC)
+GRANTED = datetime(2126, 1, 1, tzinfo=UTC)
 
 
 async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
@@ -703,9 +711,9 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
             SAISON_ID,
             "abgelehnt",
             kontakte=kontakte_document(),
-            eingereicht_am="2026-03-01",
+            eingereicht_am="2126-03-01",
             schule=neue_schule_document("Abgelehnt", "AB"),
-            entscheidung={"getroffen_am": "2026-03-10", "von": IDENTIFIER, "grund": "Keine Halle"},
+            entscheidung={"getroffen_am": "2126-03-10", "von": IDENTIFIER, "grund": "Keine Halle"},
         )
     )
     declined = registrierung_document(
@@ -716,11 +724,11 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
         vorname="Rita",
         nachname="Registriert",
         token="token-rita",
-        eingereicht_am="2026-03-20",
-        frist="2026-03-27",
+        eingereicht_am="2126-03-20",
+        frist="2126-03-27",
     )
     await database[Collection.REGISTRIERUNGEN].insert_one(
-        {**declined, **compose_ablehnung_update(von=IDENTIFIER, grund=None, today="2026-03-22")["$set"]}
+        {**declined, **compose_ablehnung_update(von=IDENTIFIER, grund=None, today="2126-03-22")["$set"]}
     )
 
 
@@ -1395,7 +1403,7 @@ class TestEachStepWritesWhatItDeclares:
         """The person is a referee and a seat holder beside the pupil, so their change still has those to move."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await pending_changes(database, (THEIR_CHANGE_OID, IDENTIFIER, "neu.adresse@anderswo.org", "their-own-change", "2026-03-30"))
+            await pending_changes(database, (THEIR_CHANGE_OID, IDENTIFIER, "neu.adresse@anderswo.org", "their-own-change", "2126-03-30"))
             await erased_in_scope(database, client, frozenset({"spieler"}))
 
             return await the_one(database, Collection.ADRESSWECHSEL, {"_id": THEIR_CHANGE_OID})
@@ -1427,7 +1435,7 @@ async def an_admittable_registration(database: AsyncDatabase) -> None:
             HOME_TEAM_OID,
             "Heim-Schule",
             "HS",
-            kontakte=kontakte_document(ansprechperson=kontaktperson_document("Anna", bestaetigt_am="2026-03-21")),
+            kontakte=kontakte_document(ansprechperson=kontaktperson_document("Anna", bestaetigt_am="2126-03-21")),
         )
     )
     await database[Collection.REGISTRIERUNGEN].insert_one(
@@ -1440,7 +1448,7 @@ async def an_admittable_registration(database: AsyncDatabase) -> None:
                 "medien": False,
                 "text_version": "2026-09",
                 "today": YESTERDAY,
-                "am": "2026-03-31T08:00:00+00:00",
+                "am": "2126-03-31T08:00:00+00:00",
             },
         )
     )
@@ -1516,7 +1524,7 @@ class TestAPersonHoldingNoFunktion:
                         SAISON_ID,
                         "eingereicht",
                         kontakte=kontakte_document(trainer=their_seat(), ansprechperson=kontaktperson_document("Quillhilde")),
-                        eingereicht_am="2026-03-10",
+                        eingereicht_am="2126-03-10",
                         schule=neue_schule_document("Neue", "NE"),
                     )
                 )
@@ -1562,7 +1570,7 @@ class TestThePreview:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             asked_first = documents.adresswechsel_document(
-                adresse="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2026-03-30", weg="freigabe"
+                adresse="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2126-03-30", weg="freigabe"
             )
             await database[Collection.ADRESSWECHSEL].insert_one(asked_first)
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:

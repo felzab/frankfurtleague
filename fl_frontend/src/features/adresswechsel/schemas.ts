@@ -76,7 +76,8 @@ export const FLAdresswechselAnsichtNeuSchema = z.object({
   gueltig_bis: z.string().nullable(),
   wirksam_ab: z.string().nullable(),
   weg: FLAdresswechselWegSchema,
-  genehmigung_offen: z.boolean(),
+  // Null exactly where not `bestaetigt`: before the press it would tell a mistyped link's holder the account is an administrator's.
+  genehmigung_offen: z.boolean().nullable(),
 });
 export type FLAdresswechselAnsichtNeu = z.infer<typeof FLAdresswechselAnsichtNeuSchema>;
 
@@ -158,6 +159,8 @@ export const FLAdresswechselPostausgangZeileSchema = z.object({
   vorname: z.string().nullable(),
   // Whether the address on file's holder asked for or approved the change, which decides whether its account moves.
   weg: FLAdresswechselWegSchema.nullable(),
+  // Whether the new address held records of its own at the effect: its holder never signed in there, so no account moves onto them.
+  adresse_belegt: z.boolean().nullable(),
   aufgegeben: z.boolean(),
 });
 export type FLAdresswechselPostausgangZeile = z.infer<typeof FLAdresswechselPostausgangZeileSchema>;
@@ -282,7 +285,7 @@ export const FLAdresswechselVerwaltungMintResponseSchema = BaseAPIResponseSchema
   vorname: z.string().nullable(),
   // The administrator's warning that the new address already holds records of its own, which merge.
   adresse_belegt: z.boolean(),
-  // Who is told an approval waits, empty where no grant moves (`fl_frontend/src/features/adresswechsel/notifications.ts :: mailGenehmigungWartet`).
+  // Who could approve the grant's move, whom the grants' outbox tells (`docs/backend/spec.md :: I862`); empty where no grant moves.
   genehmiger: z.array(z.string()),
 });
 export type FLAdresswechselVerwaltungMintResponse = z.infer<typeof FLAdresswechselVerwaltungMintResponseSchema>;

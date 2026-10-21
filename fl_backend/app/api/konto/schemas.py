@@ -181,7 +181,7 @@ class FLKontoAdresswechselMintResponse(BaseAPIResponse):
     email: str
     bisherige_email: str
     vorname: str
-    # Whom the frontend's server tells an approval waits; empty where no grant moves.
+    # Who could approve the grant's move, which the grants' outbox tells them; empty where no grant moves.
     genehmiger: list[str]
 
 

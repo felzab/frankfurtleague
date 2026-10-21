@@ -95,6 +95,7 @@ class FLAdresswechselPostausgang(BaseModel):
     email: str
     vorname: str | None
     weg: FLAdresswechselWeg | None
+    adresse_belegt: bool | None
     erfasst_am: datetime
     beansprucht_bis: datetime | None
     beanspruchung: str | None
@@ -118,6 +119,9 @@ class FLAdresswechselPostausgangZeile(BaseModel):
     vorname: str | None
     # A change that waited carries no sign-in account: whatever its old mailbox's holder enrolled meanwhile would follow.
     weg: FLAdresswechselWeg | None
+    # Whether the new address held records of its own at the effect, null on a refusal's notice: true carries no sign-in
+    # account, which would sign whoever enrolled its passkeys in to that holder's records.
+    adresse_belegt: bool | None
     # Past the last hand-out: the caller mails nothing, logs it by its id, and stamps it.
     aufgegeben: bool
 
@@ -171,7 +175,8 @@ class FLAdresswechselAnsichtNeu(BaseModel):
     gueltig_bis: FLUtcInstant | None
     wirksam_ab: FLUtcInstant | None
     weg: FLAdresswechselWeg
-    genehmigung_offen: bool
+    # Null exactly where not `bestaetigt`: whether the confirmed change waits on another administrator's approval.
+    genehmigung_offen: bool | None
 
 
 class FLAdresswechselAnsichtBisherig(BaseModel):
@@ -325,7 +330,7 @@ class FLAdresswechselVerwaltungMintResponse(BaseAPIResponse):
     vorname: str | None
     # Whether the new address holds records of its own, which the effect would join to these, read in the start's transaction.
     adresse_belegt: bool
-    # Whom the frontend's server tells an approval waits; empty where no grant moves.
+    # Who could approve the grant's move, which the grants' outbox tells them; empty where no grant moves.
     genehmiger: list[str]
 
 

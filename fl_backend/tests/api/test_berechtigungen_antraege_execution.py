@@ -389,6 +389,7 @@ async def claimed(database: AsyncDatabase, client: AsyncMongoClient, *, now: dat
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
             berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+            adresswechsel_collection=database[Collection.ADRESSWECHSEL],
             sperrliste=ban_list(database),
             db=client,
             now=now,

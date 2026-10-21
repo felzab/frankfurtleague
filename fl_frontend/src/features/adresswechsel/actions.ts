@@ -13,7 +13,7 @@ import {
   postAdresswechselVerwaltungAnsicht,
   verwirfAdresswechsel,
 } from "./mutations";
-import { describeAdresswechselMail, mailAdresswechsel, mailGenehmigungWartet } from "./notifications";
+import { describeAdresswechselMail, mailAdresswechsel } from "./notifications";
 import { runAdresswechselPostausgang } from "./postausgang";
 import { mapGenehmigungRefusal, mapVerwaltungAnsichtRefusal, mapVerwaltungLinkRefusal, mapVerwaltungStartRefusal } from "./refusals";
 import {
@@ -87,10 +87,10 @@ export async function beantrageAdresswechselAction(rawPayload: FLAdresswechselVe
       return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht gesendet", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
-    const [versand] = await Promise.all([
-      mailAdresswechsel({ operation: "beantrageAdresswechselAction", mint: mint, anlass: "empfang" }),
-      mailGenehmigungWartet({ operation: "beantrageAdresswechselAction", genehmiger: mint.genehmiger }),
-    ]);
+    const versand = await mailAdresswechsel({ operation: "beantrageAdresswechselAction", mint: mint, anlass: "empfang" });
+    // The approvers are told through the grants' outbox the start queued (`docs/backend/spec.md :: I862`), drained behind
+    // the answer as an approval is: mailing them here too would tell each twice.
+    if (mint.genehmiger.length > 0) afterTheResponse(runBerechtigungenAbgleich);
 
     return {
       success: true,

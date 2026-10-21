@@ -164,14 +164,18 @@ async def get_adresswechsel_ansicht(
         gesperrt = urteil.ursache == "neue_gesperrt"
         nicht_bestaetigbar = urteil.ursache in _NICHT_BESTAETIGBAR
 
+    zustand = neu_zustand(record, now=germany_now, gesperrt=gesperrt, nicht_bestaetigbar=nicht_bestaetigbar)
+
     return FLAdresswechselAnsichtResponse(
         ansicht=FLAdresswechselAnsichtNeu(
             seite="neu",
-            zustand=neu_zustand(record, now=germany_now, gesperrt=gesperrt, nicht_bestaetigbar=nicht_bestaetigbar),
+            zustand=zustand,
             gueltig_bis=gueltig_bis,
             wirksam_ab=wirksam_ab,
             weg=record["weg"],
-            genehmigung_offen=genehmigung_offen(record),
+            # Only once confirmed, where the page says what the change waits on: before, it would tell whoever holds a
+            # mistyped link that the account holds access to the administration.
+            genehmigung_offen=genehmigung_offen(record) if zustand == "bestaetigt" else None,
         )
     )
 

@@ -271,8 +271,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   on file is mailed a link that stops the change at its start and a notice once it took effect, and
   neither names the new address; until a change takes effect the new address reaches nothing of the
   person's (`docs/backend/spec.md :: I560`). The sign-in account moves with a change its person started or the address on file
-  approved, every session of it ended; after one started on a recorded reason, the person signs in
-  anew at the new address. A referee who has not yet confirmed holds no record an address could
+  approved, every session of it ended, unless the new address already held records of its own
+  (`docs/backend/spec.md :: I860`), whose holder's records it would otherwise open; after one
+  started on a recorded reason, or onto such an address, the person signs in anew at the new address. A referee who has not yet confirmed holds no record an address could
   reach, so theirs is still replaced by the save and the fresh consent link goes to it.
 - **A contact person an administrator enters on a team's season row is mailed a link of their own,
   because that link is how they learn of the entry** (Art. 14 (3)(a)), on the referee's reasoning
@@ -853,7 +854,8 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   change the pass refuses at its due time — either address barred meanwhile, the address on file
   holding nothing left to move, the new address another pupil's or another grant's, or a grant the
   approval does not cover
-  (`fl_backend/app/api/adresswechsel/crud.py :: judge_the_effect_in_session`) — ends there, and the new address is mailed a short notice
+  (`fl_backend/app/api/adresswechsel/crud.py :: judge_the_effect_in_session`) — ends there, as do one whose grant's approval
+  lapses unapproved and one an approval finds with nothing left to move, and the new address is mailed a short notice
   naming nobody, saying the change did not take effect and the league can help; the address on file
   is mailed nothing. The published notice states the ending and the thirty days
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06, its timing re-ruled 2026-10-15 and
@@ -892,7 +894,9 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
 - **A sign-in account and its passkeys are kept until no league record or grant holds their
   address, and then deleted within the hour, with no message.** A record holds it as a contact seat
   of any season or of a pending application, as a pupil or referee row, confirmed or not and live or
-  retired, or as a pending registration its pupil confirmed (`docs/backend/spec.md :: I698`). What
+  retired, or as a pending registration its pupil confirmed (`docs/backend/spec.md :: I698`); an
+  address an address change replaced is held until the notice carrying its account to the new
+  address is delivered, so the sweep never deletes the account the person is moving. What
   else still names the address holds nothing: the log's images, an administrator's authorship, an
   unconfirmed or decided registration, a decided application and a pending address change. The
   account sweep deletes the account with its sessions, passkeys and codes

@@ -83,7 +83,16 @@ const WIRKSAM = { acknowledged: 1, antwort: "bestaetigt", wirksam: true, wirksam
  * is the drain's one effect here (the move is held in `features/adresswechsel/notifications.test.ts`).
  */
 const OWED_ID = "68c1f0a2b3c4d5e6f7a8b9e1";
-const OWED = { id: OWED_ID, art: "wirksam", bisherige_email: BISHER, email: NEU, vorname: null, weg: "wartezeit", aufgegeben: false };
+const OWED = {
+  id: OWED_ID,
+  art: "wirksam",
+  bisherige_email: BISHER,
+  email: NEU,
+  vorname: null,
+  weg: "wartezeit",
+  adresse_belegt: false,
+  aufgegeben: false,
+};
 
 const stamped = () => calls.filter(({ endpoint }) => endpoint === STAMP).map(({ body: sent }) => JSON.parse(String(sent)) as unknown);
 

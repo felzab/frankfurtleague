@@ -52,8 +52,10 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.records import record_collections
 
 SAISON_ID = "2026"
-TODAY = "2026-04-01"
-NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+# A century ahead of the real clock: the TTL monitor deletes an expired tombstone or day's count at its next pass,
+# under a case reading it back. Every seeded day moves with it.
+TODAY = "2126-04-01"
+NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # Past a step's 24 hours, past a grant's week of approval, and past a confirmed change's waiting time.
 AFTER_THE_DEADLINE = NOW + timedelta(hours=25)
 AFTER_THE_WEEK = NOW + timedelta(days=7, hours=1)
@@ -87,11 +89,11 @@ CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607850062")
 UNCONFIRMED_REG_LINK = "the-unconfirmed-registrations-link"
 REFEREE_LABEL = LAUFENDE_FASSUNGEN["bestaetigung_schiedsrichter"]
 
-A_BOUNCE: Mapping[str, Any] = {"nachricht_id": "m-1", "stand": "unzustellbar", "grund": "NoEmail", "am": "2026-03-21T10:00:00.000000+00:00"}
+A_BOUNCE: Mapping[str, Any] = {"nachricht_id": "m-1", "stand": "unzustellbar", "grund": "NoEmail", "am": "2126-03-21T10:00:00.000000+00:00"}
 
 
 def _seat(email: str, *, confirmed: bool) -> dict[str, Any]:
-    seat = documents.kontaktperson_document("Lenore", bestaetigt_am="2026-03-21" if confirmed else None)
+    seat = documents.kontaktperson_document("Lenore", bestaetigt_am="2126-03-21" if confirmed else None)
     return {**seat, "nachname": "Quastenbach", "email": email}
 
 
@@ -104,13 +106,13 @@ def registration(registrierung_id: ObjectId, team_id: ObjectId, *, confirmed: bo
         vorname="Lenore",
         nachname="Quastenbach",
         token=token,
-        eingereicht_am="2026-03-30",
-        frist="2026-04-06",
+        eingereicht_am="2126-03-30",
+        frist="2126-04-06",
         bestaetigt=documents.registrierung_bestaetigt(
             "bestaetigung_spieler",
             geburtsdatum="2009-05-04",
-            today="2026-03-31",
-            am="2026-03-31T08:00:00+00:00",
+            today="2126-03-31",
+            am="2126-03-31T08:00:00+00:00",
             umfang="intern",
             medien=False,
         )
@@ -139,12 +141,12 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 email=EMAIL,
                 name="Lenore Quastenbach",
                 default_payment=20,
-                einwilligung=documents.eigene_einwilligung_document(text_version=REFEREE_LABEL, bestaetigt_am="2026-03-02"),
+                einwilligung=documents.eigene_einwilligung_document(text_version=REFEREE_LABEL, bestaetigt_am="2126-03-02"),
                 bestaetigung={
                     "token_hash": "c" * 64,
-                    "verschickt_am": "2026-03-01",
+                    "verschickt_am": "2126-03-01",
                     "erinnert_am": None,
-                    "frist": "2026-03-15",
+                    "frist": "2126-03-15",
                     "zustellung": dict(A_BOUNCE),
                 },
             ),
@@ -168,8 +170,8 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 "trainer": None,
                 "ansprechperson": {
                     "token_hash": "a" * 64,
-                    "verschickt_am": "2026-03-20",
-                    "frist": "2026-04-03",
+                    "verschickt_am": "2126-03-20",
+                    "frist": "2126-04-03",
                     "abgelehnt_am": None,
                     "zustellung": dict(A_BOUNCE),
                 },
@@ -182,7 +184,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
         saison_id=SAISON_ID,
         spiel_nr=1,
         spieltag_id=None,
-        datum="2026-04-18",
+        datum="2126-04-18",
         uhrzeit="14:00:00",
         team1={"team_id": TEAM_OID},
         team2={"team_id": SECOND_TEAM_OID},
@@ -192,7 +194,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
             spiel,
             partei={"art": "team", "team_id": TEAM_OID},
             _id=CONFIRMATION_OID,
-            angefragt_am="2026-03-30",
+            angefragt_am="2126-03-30",
             kontakte={seat: {"token_hashes": ["b" * 64], "zustellung": None} for seat in ("trainer", "ansprechperson", "stellvertretung")},
         )
     )
@@ -203,8 +205,8 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 SAISON_ID,
                 "eingereicht",
                 kontakte=documents.kontakte_document(trainer=_seat(EMAIL, confirmed=True)),
-                eingereicht_am="2026-03-10",
-                bestaetigungsfrist="2026-04-15",
+                eingereicht_am="2126-03-10",
+                bestaetigungsfrist="2126-04-15",
                 team_id=SECOND_TEAM_OID,
             ),
             documents.bewerbung_document(
@@ -212,7 +214,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 SAISON_ID,
                 "angenommen",
                 kontakte=documents.kontakte_document(ansprechperson=_seat(EMAIL, confirmed=True)),
-                eingereicht_am="2026-02-10",
+                eingereicht_am="2126-02-10",
                 team_id=TEAM_OID,
             ),
         ]
@@ -367,7 +369,7 @@ async def change(database: AsyncDatabase, adresswechsel_id: ObjectId) -> Mapping
 async def owed(database: AsyncDatabase) -> list[dict[str, Any]]:
     """The notices the ends queued for the frontend's pass, in the order a claim hands them out."""
 
-    fields = ("art", "bisherige_email", "email", "vorname", "weg")
+    fields = ("art", "bisherige_email", "email", "vorname", "weg", "adresse_belegt")
     return [
         {field: row[field] for field in fields}
         async for row in database[Collection.ADRESSWECHSEL_POSTAUSGANG].find({}, sort=[("erfasst_am", 1), ("_id", 1)])

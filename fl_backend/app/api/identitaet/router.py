@@ -17,7 +17,7 @@ from app.api.identitaet.schemas import (
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
 from app.core.concurrency import gather_cancelling
 from app.core.config import API_VERSION
-from app.core.dependencies import BerechtigungenCollection
+from app.core.dependencies import AdresswechselPostausgangCollection, BerechtigungenCollection
 from app.core.exception_handlers import stores_nothing
 from app.core.security import bind_system_actor, verify_access_system
 from app.shared.folding import sign_in_identifier
@@ -190,6 +190,7 @@ async def get_referenzen(
     referenzen_data: Annotated[FLReferenzenPayload, Body()],
     records: SubjektLookup,
     berechtigungen_collection: BerechtigungenCollection,
+    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
 ) -> FLReferenzenResponse:
     """
     Answer which of the addresses asked about no league record references, so the sign-in account each names may be deleted.
@@ -203,11 +204,13 @@ async def get_referenzen(
     - a pupil or referee record holds it, confirmed or not and live or retired; the placeholder every erased referee's fixtures
       name and the one every erased pupil's entries name hold nothing;
     - a pending registration holds it that its pupil confirmed;
-    - a grant in `berechtigungen` holds it, as stored, before the comparison has seen it too.
+    - a grant in `berechtigungen` holds it, as stored, before the comparison has seen it too;
+    - an address change that took effect replaced it, and the notice owing its sign-in account's carry to the new address is
+      not yet delivered.
 
     A ban holds nothing: a barred address is answered as any other once none of these holds it. A pending address change holds
-    nothing either: its address admits no sign-in until it is confirmed, and the address it replaces stays on the record until
-    then.
+    nothing either: its new address admits no sign-in until the change takes effect, and the address it replaces stays on the
+    records until then.
 
     That is wider than what `POST /identitaet/anmeldung` admits a sign-in on, so no account answered here is one the sign-in
     would admit again: an unconfirmed seat on a `past` season and an unconfirmed retired record keep an account the gate admits
@@ -222,5 +225,10 @@ async def get_referenzen(
     """
 
     return FLReferenzenResponse(
-        unreferenziert=await unreferenced_of(referenzen_data.identifiers, records, berechtigungen_collection=berechtigungen_collection)
+        unreferenziert=await unreferenced_of(
+            referenzen_data.identifiers,
+            records,
+            berechtigungen_collection=berechtigungen_collection,
+            adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+        )
     )

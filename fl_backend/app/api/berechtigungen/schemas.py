@@ -34,9 +34,9 @@ FLAdresswechselWeg = Literal["konto", "freigabe", "wartezeit"]
 # a database edit. An address changed in place is a removal and a grant, never `geaendert`.
 FLBerechtigungAenderungArt = Literal["erteilt", "entzogen", "geaendert"]
 
-# What an outbox row tells: a change to a grant, or a grant or a promotion asked for and waiting on another
-# administrator's approval, which no grant has yet and so is no change of one.
-FLBerechtigungPostausgangArt = Literal[FLBerechtigungAenderungArt, Literal["beantragt"]]
+# What an outbox row tells: a change to a grant; or, no change of one yet, a grant or promotion asked for (`beantragt`)
+# or an address change moving a grant (`adresswechsel`, keyed by the change), each waiting on an approval.
+FLBerechtigungPostausgangArt = Literal[FLBerechtigungAenderungArt, Literal["beantragt", "adresswechsel"]]
 
 # Who made a queued change: an administrator through the application, or an edit in the database.
 # Stated, since a null actor also stands for one whose address is withheld (`docs/backend/spec.md :: I452`).

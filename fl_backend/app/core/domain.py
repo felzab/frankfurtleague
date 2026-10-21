@@ -1488,7 +1488,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "genehmigung",
         Editability.CONTROL_ONLY,
         "written by a start where the address holds a grant, its approver stamped by "
-        "`POST /adresswechsel/{adresswechsel_id}/genehmigung` alone; nulled by every ending. No payload carries it",
+        "`POST /adresswechsel/{adresswechsel_id}/genehmigung` alone, taken off by an effect finding the approval no longer "
+        "stands, and its starter and approver re-keyed by an effect or an erasure of theirs; nulled by every ending. No payload "
+        "carries it",
         "app.api.adresswechsel.services.compose_genehmigung",
     ),
     FieldPolicy(
@@ -3301,9 +3303,9 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-ADRESSWECHSEL-010",
         status=HTTPStatus.CONFLICT,
-        operation="POST /konto/adresswechsel · POST /adresswechsel",
+        operation="POST /konto/adresswechsel · POST /adresswechsel · POST /adresswechsel/{adresswechsel_id}/genehmigung",
         aggregate="Adresswechsel",
-        summary="a change starts only for an address holding something it moves",
+        summary="a change starts only for an address holding something it moves; an approval finding nothing left ends it",
         implemented_by="app.api.adresswechsel.services.find_nichts_refusal",
         tested_by="tests/api/test_adresswechsel_execution.py::TestThePersonsStart",
     ),

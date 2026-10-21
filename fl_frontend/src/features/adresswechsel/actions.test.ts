@@ -226,16 +226,19 @@ describe("an administrator's start of a change", () => {
     assert.match(message(res), /Unter der neuen Adresse stehen schon Einträge bei der Liga\./);
   });
 
-  /* A grant holder's change waits on another administrator, who is told one waits and never whose or to where. */
-  it("tells each approver an approval waits, naming no address, with the way to the administrators page", async () => {
+  /* A grant holder's change waits on another administrator, told once, by the grants' outbox the start queued. */
+  it("mails no approver itself and drains the grants' outbox behind the answer", async () => {
     antwort[START] = () => ({ ...wartezeit, genehmiger: [GENEHMIGER] });
 
     await beantrageAdresswechselAction({ adresse: BISHER, email: GETIPPT, grund: GRUND });
 
-    const told = mail.sent.find(({ to }) => to === GENEHMIGER);
-    assert.ok(told !== undefined, "the approver was told nothing");
-    assert.ok(!/schule\.example|neu\.example/i.test(`${told.text}${told.html}`), "the approver's mail names an address of the change");
-    assert.ok(told.text.includes(`${AUTH_URL}/bereich/admin/administratoren`), "the approver's mail leads elsewhere");
+    assert.ok(!mailedTo().includes(GENEHMIGER), "the action mailed an approver whom the outbox mails too");
+    assert.equal(deferred.length, 1, "the start scheduled other work behind the answer than the outbox's drain");
+    for (const task of deferred) await task();
+    assert.ok(
+      requestsOf(client.calls).some(({ endpoint }) => endpoint === "/berechtigungen/abgleich"),
+      "the outbox holding the approvers' notice was not drained",
+    );
   });
 
   /* A withheld or barred link was filed rather than lost (`docs/frontend/spec.md :: I228`, `:: I542`). */
@@ -345,7 +348,18 @@ describe("another administrator's approval", () => {
      answer beside the grant's announcement, so a lost answer loses neither. */
   it("finishes a change it made take effect behind the answer: the outbox's notice, stamped once sent, and the announcement", async () => {
     antwort[APPROVAL] = () => ({ acknowledged: 1, id: ADRESSWECHSEL_ID, wirksam: true });
-    owed = [{ id: OWED_ID, art: "wirksam", bisherige_email: BISHER, email: NEU, vorname: null, weg: "wartezeit", aufgegeben: false }];
+    owed = [
+      {
+        id: OWED_ID,
+        art: "wirksam",
+        bisherige_email: BISHER,
+        email: NEU,
+        vorname: null,
+        weg: "wartezeit",
+        adresse_belegt: false,
+        aufgegeben: false,
+      },
+    ];
 
     const res = await genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID });
 

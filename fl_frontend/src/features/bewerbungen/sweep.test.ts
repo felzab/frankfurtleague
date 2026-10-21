@@ -67,6 +67,7 @@ type Owed = {
   email: string;
   vorname: string | null;
   weg: "wartezeit" | null;
+  adresse_belegt: boolean | null;
   aufgegeben: boolean;
 };
 
@@ -1291,6 +1292,7 @@ describe("the half after the season loop", () => {
     email: neu,
     vorname: null,
     weg: "wartezeit",
+    adresse_belegt: false,
     aufgegeben: false,
   });
   const verworfenFuer = (id: string, email: string): Owed => ({
@@ -1300,6 +1302,7 @@ describe("the half after the season loop", () => {
     email: email,
     vorname: null,
     weg: null,
+    adresse_belegt: null,
     aufgegeben: false,
   });
 

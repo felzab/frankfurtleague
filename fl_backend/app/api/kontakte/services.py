@@ -13,8 +13,8 @@ from app.shared.folding import person_name_key, sign_in_identifier, trimmed_patt
 def same_address(identifier: str) -> Mapping[str, Any]:
     """A case-blind pre-filter, the sign-in fold deciding.
 
-    For the grants' erasure alone: a grant pasted through the Playground keeps its typed spelling, which
-    no write folds, and must still go; every other record stores the fold.
+    For a grant's rows and images alone, which an erasure and an address change's effect read: a grant pasted through the
+    Playground keeps its typed spelling; every other record stores the fold.
     """
 
     # Folded here whatever a caller hands on: built off an unfolded spelling, a padded or a blank one above all, the
@@ -62,6 +62,10 @@ def build_accepted_application_pipeline(*, saison_id: str, team_id: Any) -> list
     ]
 
 
+# The collections whose log images seat a contact person.
+SEAT_IMAGE_COLLECTIONS: tuple[Collection, ...] = (Collection.SAISON_TEAMS, Collection.BEWERBUNGEN)
+
+
 def build_seat_images_filter(identifier: str) -> Mapping[str, Any]:
     """Log rows whose images seat this person; `seat_image_edits` decides which slot.
 
@@ -72,7 +76,7 @@ def build_seat_images_filter(identifier: str) -> Mapping[str, Any]:
     return {
         # `collection` first, the one half of this an index serves: `aktionen_target` is a prefix
         # match here, and nothing indexes inside `before`.
-        "collection": {"$in": [str(Collection.SAISON_TEAMS), str(Collection.BEWERBUNGEN)]},
+        "collection": {"$in": [str(collection) for collection in SEAT_IMAGE_COLLECTIONS]},
         "$or": [{f"before.kontakte.{slot}.email": sign_in_identifier(identifier)} for slot in KONTAKT_ROLLEN],
     }
 
@@ -93,6 +97,15 @@ def find_matching_slots(row: Mapping[str, Any], identifier: str) -> tuple[str, .
     named = zip(KONTAKT_ROLLEN, emails, strict=True)
 
     return tuple(slot for slot, email in named if isinstance(email, str) and sign_in_identifier(email) == identifier)
+
+
+def seat_address_carry_edits(image: Mapping[str, Any], *, alt: str, neue: str, staying: Set[tuple[Any, str]]) -> dict[str, str]:
+    """Each seat of one log image at the replaced address carried to the new one, but one `staying` names.
+
+    A seat still standing there is nobody's proven own, and that address's erasure reaches its images.
+    """
+
+    return {f"kontakte.{slot}.email": neue for slot in find_matching_slots(image, alt) if (image.get("_id"), slot) not in staying}
 
 
 def _emptied_seats(image: Mapping[str, Any], slots: Set[str], *, links: bool) -> dict[str, None]:
