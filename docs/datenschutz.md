@@ -271,8 +271,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   on file is mailed a link that stops the change at its start and a notice once it took effect, and
   neither names the new address; until a change takes effect the new address reaches nothing of the
   person's (`docs/backend/spec.md :: I560`). The sign-in account moves with a change its person started or the address on file
-  approved, every session of it ended; after one started on a recorded reason, the person signs in
-  anew at the new address. A referee who has not yet confirmed holds no record an address could
+  approved, every session of it ended, unless the new address holds an account of its own: the
+  person then signs in to that one, and the old account, its sessions untouched, waits for the
+  account sweep. After a change started on a recorded reason, the person signs in anew at the new
+  address. A referee who has not yet confirmed holds no record an address could
   reach, so theirs is still replaced by the save and the fresh consent link goes to it.
 - **A contact person an administrator enters on a team's season row is mailed a link of their own,
   because that link is how they learn of the entry** (Art. 14 (3)(a)), on the referee's reasoning
