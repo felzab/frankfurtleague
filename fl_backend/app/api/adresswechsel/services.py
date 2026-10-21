@@ -166,7 +166,6 @@ def compose_postausgang(
     bisherige_email: str | None,
     vorname: str | None,
     weg: str | None,
-    adresse_belegt: bool | None,
 ) -> dict[str, Any]:
     """One notice an end owes, queued in the end's own transaction: its answer alone carried it, and a lost answer lost it.
 
@@ -179,7 +178,6 @@ def compose_postausgang(
         "email": email,
         "vorname": vorname,
         "weg": weg,
-        "adresse_belegt": adresse_belegt,
         "erfasst_am": now.astimezone(UTC),
         "beansprucht_bis": None,
         "beanspruchung": None,
@@ -194,7 +192,7 @@ def build_owed_carry_filter(adressen: list[str]) -> dict[str, Any]:
     terms; no index serves them, the outbox holding only notices not yet delivered.
     """
 
-    return {"art": "wirksam", "bisherige_email": {"$in": adressen}, "weg": {"$ne": "wartezeit"}, "adresse_belegt": False}
+    return {"art": "wirksam", "bisherige_email": {"$in": adressen}, "weg": {"$ne": "wartezeit"}}
 
 
 def compose_genehmigung_widerrufen_update() -> dict[str, Any]:
@@ -450,6 +448,7 @@ ADRESSWECHSEL_NICHT_GEDECKT = "REQ-ADRESSWECHSEL-015"
 ADRESSWECHSEL_NEUE_BERECHTIGT = "REQ-ADRESSWECHSEL-016"
 # 403 as `-013`: about who asks; an administrator holding their grant since before the start lifts it.
 ADRESSWECHSEL_GENEHMIGUNG_JUENGER = "REQ-ADRESSWECHSEL-017"
+ADRESSWECHSEL_BELEGT = "REQ-ADRESSWECHSEL-018"
 
 
 def find_unbekannt_refusal(*, found: bool) -> WriteRefusal | None:
@@ -660,6 +659,22 @@ def find_nicht_gedeckt_refusal(*, gedeckt: bool) -> WriteRefusal | None:
         error_code=ADRESSWECHSEL_NICHT_GEDECKT,
         status=HTTPStatus.CONFLICT,
         message="the address came to hold access to the administration this change was not approved for; start it again",
+    )
+
+
+def find_belegt_refusal(*, belegt: bool) -> WriteRefusal | None:
+    """`REQ-ADRESSWECHSEL-018`: the new address holds entries of its own, and moving these onto it would join two people's.
+
+    Never judged at the person's own start, which would tell its holder which addresses hold entries.
+    """
+
+    if not belegt:
+        return None
+
+    return WriteRefusal(
+        error_code=ADRESSWECHSEL_BELEGT,
+        status=HTTPStatus.CONFLICT,
+        message="the new email address holds entries of its own, so this change cannot move these onto it",
     )
 
 

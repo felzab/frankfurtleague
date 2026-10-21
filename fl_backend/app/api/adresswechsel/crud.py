@@ -30,6 +30,7 @@ from app.api.adresswechsel.services import (
     compose_postausgang,
     deckt,
     find_abgelaufen_refusal,
+    find_belegt_refusal,
     find_bestaetigung_gesperrt_refusal,
     find_ersetzte_gesperrt_refusal,
     find_neue_berechtigt_refusal,
@@ -198,9 +199,9 @@ async def read_the_bestand(
 async def adresse_belegt(
     email: str, *, records: RecordCollections, berechtigungen_collection: AsyncCollection, session: AsyncClientSession | None
 ) -> bool:
-    """Whether a new address holds records of its own, which an effect joins to the ones it moves.
+    """Whether a new address holds entries of its own, which refuses the change (`REQ-ADRESSWECHSEL-018`).
 
-    The start warns of it; an effect, reading it before its move, carries no sign-in account onto them.
+    An effect onto them would join two people's records, and the sign-in account carried there would sign in to theirs.
     """
 
     bestand = await read_the_bestand(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
@@ -330,7 +331,7 @@ async def start_the_change_in_session(
 
 
 # Why the effect is refused, in the order the link's view ranks its states.
-FLAdresswechselUrsache = Literal["neue_gesperrt", "abgelaufen", "ersetzte_gesperrt", "vergeben", "nicht_gedeckt", "neue_berechtigt"]
+FLAdresswechselUrsache = Literal["neue_gesperrt", "abgelaufen", "ersetzte_gesperrt", "vergeben", "nicht_gedeckt", "neue_berechtigt", "belegt"]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -386,9 +387,7 @@ async def queue_the_refusal_notice_in_session(
 
     await post_one_to_db(
         collection=adresswechsel_postausgang_collection,
-        document=compose_postausgang(
-            art="verworfen", email=str(record["email"]), bisherige_email=None, vorname=None, weg=None, adresse_belegt=None, now=now
-        ),
+        document=compose_postausgang(art="verworfen", email=str(record["email"]), bisherige_email=None, vorname=None, weg=None, now=now),
         session=session,
     )
 
@@ -397,6 +396,7 @@ async def judge_the_effect_in_session(
     *,
     record: Mapping[str, Any],
     bestand: Bestand,
+    records: RecordCollections,
     spieler_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
@@ -431,14 +431,20 @@ async def judge_the_effect_in_session(
         return Urteil(ursache="vergeben", leer=False, wartet=False)
 
     grant = bestand.berechtigung
+    genehmigung = record.get("genehmigung")
+    if grant is not None:
+        if not deckt(genehmigung, grant.get("verwaltung")):
+            return Urteil(ursache="nicht_gedeckt", leer=False, wartet=False)
+        if await live_grant_of(sign_in_identifier(neue), berechtigungen_collection=berechtigungen_collection, session=session) is not None:
+            return Urteil(ursache="neue_berechtigt", leer=False, wartet=False)
+
+    # After the causes naming one kind of entry, so a press names the specific one; judged in the effect's own read, so
+    # nothing reaches the new address between this judgement and the move.
+    if await adresse_belegt(neue, records=records, berechtigungen_collection=berechtigungen_collection, session=session):
+        return Urteil(ursache="belegt", leer=False, wartet=False)
+
     if grant is None:
         return Urteil(ursache=None, leer=False, wartet=False)
-
-    genehmigung = record.get("genehmigung")
-    if not deckt(genehmigung, grant.get("verwaltung")):
-        return Urteil(ursache="nicht_gedeckt", leer=False, wartet=False)
-    if await live_grant_of(sign_in_identifier(neue), berechtigungen_collection=berechtigungen_collection, session=session) is not None:
-        return Urteil(ursache="neue_berechtigt", leer=False, wartet=False)
 
     assert isinstance(genehmigung, Mapping)
     if genehmigung.get("genehmigt_am") is None:
@@ -476,6 +482,8 @@ def refusal_of(ursache: FLAdresswechselUrsache | None) -> WriteRefusal | None:
             return find_nicht_gedeckt_refusal(gedeckt=False)
         case "neue_berechtigt":
             return find_neue_berechtigt_refusal(berechtigt=True)
+        case "belegt":
+            return find_belegt_refusal(belegt=True)
 
 
 async def take_effect_in_session(
@@ -521,6 +529,7 @@ async def take_effect_in_session(
     urteil = await judge_the_effect_in_session(
         record=record,
         bestand=bestand,
+        records=records,
         spieler_collection=spieler_collection,
         berechtigungen_collection=berechtigungen_collection,
         berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
@@ -571,10 +580,6 @@ async def take_effect_in_session(
     beendet = await move_the_address_in_session(
         record=record,
         bestand=bestand,
-        # Before the move, after which the new address holds the moved records too.
-        adresse_belegt=await adresse_belegt(
-            str(record["email"]), records=records, berechtigungen_collection=berechtigungen_collection, session=session
-        ),
         sperrliste=sperrliste,
         adresswechsel_collection=adresswechsel_collection,
         spieler_collection=spieler_collection,
@@ -609,8 +614,6 @@ async def move_the_address_in_session(
     *,
     record: Mapping[str, Any],
     bestand: Bestand,
-    # `adresse_belegt` of the new address, judged before this move.
-    adresse_belegt: bool,
     sperrliste: BanList,
     adresswechsel_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
@@ -807,9 +810,6 @@ async def move_the_address_in_session(
             # Greeting nobody on the lost-mailbox way: that mailbox may have passed to a stranger.
             vorname=None if record["weg"] == "wartezeit" else bestand.vorname,
             weg=record["weg"],
-            # The sign-in account is carried nowhere the new address held records of its own: their holder never signed
-            # in there, and a passkey enrolled at the replaced address would sign in to them.
-            adresse_belegt=adresse_belegt,
             now=now,
         ),
         session=session,

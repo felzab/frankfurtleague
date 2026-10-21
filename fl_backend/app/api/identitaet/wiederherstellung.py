@@ -485,14 +485,16 @@ async def _plan_adresswechsel_wirksam(
         )
     ):
         return Plan("left for review", detail="its approval is not in the restored database: an administrator approves it again")
+    # As the effect refuses it: replayed onto entries of its own, it would join two people's records.
+    if await adresse_belegt(
+        str(record["email"]), records=records, berechtigungen_collection=database[Collection.BERECHTIGUNGEN], session=session
+    ):
+        return Plan("left for review", detail="the new address holds entries of its own in the restored database")
 
     async def rewrite_the_effect(session: AsyncClientSession) -> Any:
         await move_the_address_in_session(
             record=record,
             bestand=bestand,
-            adresse_belegt=await adresse_belegt(
-                str(record["email"]), records=records, berechtigungen_collection=database[Collection.BERECHTIGUNGEN], session=session
-            ),
             sperrliste=sperrliste,
             adresswechsel_collection=database[Collection.ADRESSWECHSEL],
             spieler_collection=database[Collection.SPIELER],

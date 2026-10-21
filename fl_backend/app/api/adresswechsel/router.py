@@ -88,7 +88,7 @@ _FIELDS: Mapping[str, int] = {
 }
 
 # Causes the press refuses for the replaced address's sake, which the view reads alike as unconfirmable.
-_NICHT_BESTAETIGBAR = frozenset({"ersetzte_gesperrt", "vergeben", "nicht_gedeckt", "neue_berechtigt"})
+_NICHT_BESTAETIGBAR = frozenset({"ersetzte_gesperrt", "vergeben", "nicht_gedeckt", "neue_berechtigt", "belegt"})
 
 
 @router.post(
@@ -154,6 +154,7 @@ async def get_adresswechsel_ansicht(
         urteil = await judge_the_effect_in_session(
             record=record,
             bestand=bestand,
+            records=records,
             spieler_collection=spieler_collection,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
@@ -231,7 +232,8 @@ async def post_adresswechsel_antwort(
     an address the ban list holds now (`-004`), one past its deadline (`-003`), one whose change would replace an address
     the ban list holds now (`-005`), so a barred person cannot move their records off the address the ban keys on, one
     moving a pupil onto an address another pupil signs in on (`-006`), one whose address came to hold a grant its approval
-    does not cover (`-015`), and one moving a grant onto an address holding one (`-016`). **A decline is refused none of
+    does not cover (`-015`), one moving a grant onto an address holding one (`-016`), and one whose new address holds
+    entries of its own (`-018`): moving these onto it would join two people's records. **A decline is refused none of
     these**: it removes an address nobody proved, out of every log image of the change too.
 
     A change whose address has come to hold nothing to move ends discarded, and the press answers `-002`. The codes past
