@@ -184,7 +184,6 @@ function BerichtInhalt({
           <BerichtEintraege
             lesen={lesen}
             bericht={bericht}
-            bemerkungenTitel="Bemerkungen (nur für die Verwaltung)"
           />
         </>
       )}

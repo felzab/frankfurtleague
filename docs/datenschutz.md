@@ -708,6 +708,9 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   request below is (`fl_backend/app/api/spielberichte/services.py :: find_name_in_bemerkungen_refusal`);
   a name written otherwise, or a person outside the fixture, stays in them until the end of the season
   after the match, when the remarks go ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)).
+  The league's administrators and the referee booked on the fixture when they open it read them, so a
+  referee booked after the report reads what an earlier referee or an administrator wrote
+  (`fl_backend/app/api/spielberichte/services.py :: find_nicht_geleitet_refusal`).
   The writer describes a pupil by shirt number instead, as the remarks box asks, and with the team and
   the fixture the number identifies them: such a remark is that pupil's data, which an access request
   answers ([`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it))
