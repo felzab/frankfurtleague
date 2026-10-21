@@ -634,6 +634,8 @@ def test_a_hash_inside_a_quoted_nginx_value_is_text_and_the_comment_after_it_is_
         "    return 429 '<style>",
         "body { color: " + HEX + "; }",
         HEX + " { margin: 0; }",
+        # Past INC-9's bound, which a comment run read off the raw lines would measure.
+        HEX + " " + " ".join(["swatch"] * 45) + " {}",
         "</style>';",
         '    add_header X-Swatch "' + HEX + '";',
         "}",
