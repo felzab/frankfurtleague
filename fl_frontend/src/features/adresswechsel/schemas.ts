@@ -252,7 +252,7 @@ export const FLAdresswechselVerwaltungAnsichtResponseSchema = BaseAPIResponseSch
 export type FLAdresswechselVerwaltungAnsichtResponse = z.infer<typeof FLAdresswechselVerwaltungAnsichtResponseSchema>;
 
 /**
- * Mirrors `FLAdresswechselVerwaltungPayload`: an administrator's start for a person who cannot sign in.
+ * Mirrors `FLAdresswechselVerwaltungPayload`: an administrator's start for a person who says they cannot sign in.
  * `grund` null asks the address on file to approve first; a reason starts the waiting time.
  */
 export const FLAdresswechselVerwaltungPayloadSchema = z.object({

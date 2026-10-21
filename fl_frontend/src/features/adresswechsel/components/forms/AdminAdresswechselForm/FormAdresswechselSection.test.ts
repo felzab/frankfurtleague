@@ -24,6 +24,7 @@ doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { ANZEIGEN, FormAdresswechselSection, NEUE_ADRESSE_EINTRAGEN } = await import("./FormAdresswechselSection.tsx");
+const { ADRESSWECHSEL_EINTRAG } = await import("@/features/admin/constants.ts");
 
 const ADRESSE = "lena@schule.example";
 
@@ -67,12 +68,14 @@ describe("what the address tool reads", () => {
     unmount();
   });
 
-  /* A person who can still sign in changes the address on their account page: the tool's box invites nobody else. */
-  it("asks for the address of a person who can no longer sign in with it", () => {
+  /* A person who can still sign in changes the address on their account page: the tool's box invites nobody else. Said as
+     their word, the tool's first way asking the address on file, which approves only where someone still signs in there. */
+  it("asks for the address of a person who says they can no longer sign in with it, as its menu entry does", () => {
     tool();
 
-    assert.match(shown(), /mit der sie sich nicht mehr anmelden kann\./);
+    assert.match(shown(), /mit der sie sich nach eigener Angabe nicht mehr anmelden kann\./);
     assert.doesNotMatch(shown(), /nutzen will/);
+    assert.equal(ADRESSWECHSEL_EINTRAG.hint.lead, "Die E-Mail-Adresse einer Person ändern, die sagt, dass sie sich nicht mehr anmelden kann.");
   });
 
   it("refuses a malformed address on its box, reading nothing", async () => {
