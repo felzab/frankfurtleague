@@ -66,12 +66,11 @@ const { requestOutcomeUnknown, runWithRequestScope } = await import("@/core/requ
 const BISHER = "lena@schule.example";
 const NEU = "lena@neu.example";
 
-const mitteilung = (weg: "konto" | "freigabe" | "wartezeit", adresseBelegt = false) => ({
+const mitteilung = (weg: "konto" | "freigabe" | "wartezeit") => ({
   bisherige_email: BISHER,
   email: NEU,
   vorname: "Lena",
   weg: weg,
-  adresse_belegt: adresseBelegt,
 });
 
 const kontoAn = (email: string) => store.user.find((row) => row.email === email);
@@ -117,29 +116,6 @@ describe("a change taking effect, as its caller's server finishes it", () => {
     assert.ok(
       store.session.some(({ id }) => id === row.id),
       "the replaced address's own session was ended",
-    );
-    assert.deepEqual(
-      mail.sent.map(({ to }) => to),
-      [BISHER],
-    );
-  });
-
-  /* The takeover this closes: carried onto an address holding another person's records, the passkey would sign in to them. */
-  it("carries nothing where the new address held records of its own, its passkey staying at the replaced address", async () => {
-    await sessionByCode(auth, store, BISHER);
-    const konto = kontoAn(BISHER);
-    store.passkey.push({ id: "passkey-1", userId: konto?.id, credentialID: "cred-1" });
-
-    await adresswechselWirksam({ operation: "test", mitteilung: mitteilung("konto", true) });
-
-    assert.equal(kontoAn(NEU), undefined, "an account was carried onto another person's records");
-    assert.equal(kontoAn(BISHER)?.id, konto?.id);
-    assert.equal(store.passkey[0]?.userId, konto?.id);
-    assert.deepEqual(
-      logged
-        .filter(({ event }) => event === "adresswechsel.konto_nicht_umgezogen")
-        .map(({ level, meta }) => [level, meta?.error_code, meta?.grund]),
-      [["warn", "FE-AUTH-013", "adresse_belegt"]],
     );
     assert.deepEqual(
       mail.sent.map(({ to }) => to),

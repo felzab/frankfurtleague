@@ -58,7 +58,7 @@ function landed({ endpoint, method }: ApiCall): Promise<unknown> {
       schiedsrichter: stored,
       bestaetigung_abgelaufen: false,
       adresswechsel_id: null,
-      adresswechsel_einsehbar: false,
+      adresswechsel_einsehbar_verwehrt: null,
     });
   if (method === "PATCH") return Promise.resolve({ acknowledged: 1, updated_document: stored, fanned_out_to_spiele: 0, bestaetigung: null });
   if (endpoint.endsWith("/reactivate")) return Promise.resolve({ acknowledged: 1, updated_document: stored, bestaetigung: null });

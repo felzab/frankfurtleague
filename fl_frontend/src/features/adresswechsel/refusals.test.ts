@@ -22,19 +22,43 @@ describe("an approval refused for who presses it", () => {
 
   /* The closed press on the grant's row and the refused press say one reason alike, whichever the page showed first. */
   it("says the refusal in the closed press's own words", () => {
-    assert.equal(mapGenehmigungRefusal(refusedOn(APPROVAL, "REQ-ADRESSWECHSEL-014")), GENEHMIGUNG_VERWEHRT.inhaber);
-    assert.equal(mapGenehmigungRefusal(refusedOn(APPROVAL, "REQ-ADRESSWECHSEL-017")), GENEHMIGUNG_VERWEHRT.juenger);
+    assert.equal(mapGenehmigungRefusal(refusedOn(APPROVAL, "REQ-ADRESSWECHSEL-014"), null), GENEHMIGUNG_VERWEHRT.inhaber);
+    assert.equal(mapGenehmigungRefusal(refusedOn(APPROVAL, "REQ-ADRESSWECHSEL-017"), null), GENEHMIGUNG_VERWEHRT.juenger);
   });
 
   /* An owner promoted after signing in holds no owner's power yet: told only that an owner approves, they read it as false. */
   it("names the sign-in again to an owner refused for want of an owner's power", () => {
-    assert.match(mapGenehmigungRefusal(refusedOn(APPROVAL, "REQ-ADRESSWECHSEL-014")) ?? "", /melde Dich neu an\./);
+    assert.match(mapGenehmigungRefusal(refusedOn(APPROVAL, "REQ-ADRESSWECHSEL-014"), null) ?? "", /melde Dich neu an\./);
   });
 
   /* The codes name no tier, so each sentence naming an approver names both: an owner's change is another owner's. */
   for (const code of ["REQ-ADRESSWECHSEL-013", "REQ-ADRESSWECHSEL-017"] as const) {
     it(`names an owner's approver as well on ${code}`, () => {
-      assert.match(mapGenehmigungRefusal(refusedOn(APPROVAL, code)) ?? "", /Inhaberin oder (ein anderer )?Inhaber/);
+      assert.match(mapGenehmigungRefusal(refusedOn(APPROVAL, code), null) ?? "", /Inhaberin oder (ein anderer )?Inhaber/);
+    });
+  }
+});
+
+describe("where an approval its effect refused sends the approver", () => {
+  const APPROVAL = "POST /adresswechsel/{adresswechsel_id}/genehmigung";
+  // Each of the effect's own refusals leaves the change standing unapproved, for somebody to discard.
+  const OFFEN_GELASSEN = [
+    "REQ-ADRESSWECHSEL-004",
+    "REQ-ADRESSWECHSEL-005",
+    "REQ-ADRESSWECHSEL-006",
+    "REQ-ADRESSWECHSEL-015",
+    "REQ-ADRESSWECHSEL-016",
+  ];
+
+  /* The address tool is the only discard: a reader it opens the change for is sent there, a non-owner to an owner. */
+  for (const [verwehrt, repair] of [
+    [null, /\. Verwirf sie unter „Adressänderung auf Anfrage“\.$/],
+    ["verwaltung", /\. Frag eine Inhaberin oder einen Inhaber der Verwaltung, sie unter „Adressänderung auf Anfrage“ zu verwerfen\.$/],
+  ] as const) {
+    it(`sends a reader the tool refuses ${String(verwehrt)} to the discard they can reach`, () => {
+      for (const code of OFFEN_GELASSEN) {
+        assert.match(mapGenehmigungRefusal(refusedOn(APPROVAL, code), verwehrt) ?? "", repair, code);
+      }
     });
   }
 });
@@ -97,7 +121,7 @@ describe("what the tool says where nobody could approve, and what an approval sa
 
   /* `-003` covers a lapsed link as well as the approval's week, so the sentence names neither deadline. */
   it("says the change lapsed, never which deadline, where the approval meets -003", () => {
-    const answered = mapGenehmigungRefusal(refusedOn("POST /adresswechsel/{adresswechsel_id}/genehmigung", "REQ-ADRESSWECHSEL-003"));
+    const answered = mapGenehmigungRefusal(refusedOn("POST /adresswechsel/{adresswechsel_id}/genehmigung", "REQ-ADRESSWECHSEL-003"), null);
 
     assert.ok(answered?.startsWith("Diese Änderung ist abgelaufen"), answered ?? "no sentence");
   });

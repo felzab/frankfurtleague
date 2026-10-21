@@ -57,7 +57,7 @@ beforeEach(() => {
 describe("what the start sends for the way picked", () => {
   /* The way is the reason's presence: a reason sent with „fragen“ would skip the address on file's approval. */
   it("sends no reason on the way asking the address on file, whatever the reason box held before", async () => {
-    answerWith(() => Promise.resolve({ success: true, message: "Gesendet.", versand: null, hinweis: "gesendet", adresseBelegt: false }));
+    answerWith(() => Promise.resolve({ success: true, message: "Gesendet.", versand: null, hinweis: "gesendet" }));
     const user = userEvent.setup();
     const { unmount } = box({ entwurf: { email: NEU, weg: "unerreichbar", grund: "Postfach gelöscht" } });
     const before = calls.length;
@@ -71,7 +71,7 @@ describe("what the start sends for the way picked", () => {
   });
 
   it("sends the reason typed on the way that records one", async () => {
-    answerWith(() => Promise.resolve({ success: true, message: "Gesendet.", versand: "gesendet", hinweis: "gesendet", adresseBelegt: false }));
+    answerWith(() => Promise.resolve({ success: true, message: "Gesendet.", versand: "gesendet", hinweis: "gesendet" }));
     const user = userEvent.setup();
     const { unmount } = box({ entwurf: { ...LEERER_ENTWURF, email: NEU } });
     const before = calls.length;
@@ -86,7 +86,7 @@ describe("what the start sends for the way picked", () => {
   });
 
   it("presses from the new address's box on Enter, as the button does", async () => {
-    answerWith(() => Promise.resolve({ success: true, message: "Gesendet.", versand: null, hinweis: "gesendet", adresseBelegt: false }));
+    answerWith(() => Promise.resolve({ success: true, message: "Gesendet.", versand: null, hinweis: "gesendet" }));
     const { unmount } = box();
     const before = calls.length;
 
@@ -164,9 +164,14 @@ describe("what the start's toast says of its messages", () => {
     [null, "gesendet", "success", "Anfrage gesendet"],
     [null, "fehlgeschlagen", "warning", "Anfrage nicht verschickt"],
     [null, "ungewiss", "warning", "Unklar, ob die Anfrage verschickt wurde"],
+    // Held back by the provider or by the ban list: the request never left, and the change waits all the same.
+    [null, "zurueckgehalten", "warning", "Anfrage zurückgehalten"],
+    [null, "gesperrt", "warning", "Anfrage zurückgehalten"],
+    // No delivery answered at all reads as one that failed, as the toast's body words it.
+    [null, null, "warning", "Anfrage nicht verschickt"],
   ] as const) {
-    it(`titles a start whose link is ${String(versand)} and notice ${hinweis} „${title}“, and has the tool read again`, async () => {
-      answerWith(() => Promise.resolve({ success: true, message: "Der Link zur neuen Adresse.", versand, hinweis, adresseBelegt: false }));
+    it(`titles a start whose link is ${String(versand)} and notice ${String(hinweis)} „${title}“, and has the tool read again`, async () => {
+      answerWith(() => Promise.resolve({ success: true, message: "Der Link zur neuen Adresse.", versand, hinweis }));
       const { unmount, geschrieben } = box({ entwurf: { ...LEERER_ENTWURF, email: NEU } });
 
       await userEvent.setup().click(screen.getByRole("button", { name: LINK_AN_NEUE_ADRESSE }));
@@ -182,31 +187,6 @@ describe("what the start's toast says of its messages", () => {
       unmount();
     });
   }
-
-  /* A pretext's target holding records is the one sign an administrator gets of it, so a start that went out cleanly still warns. */
-  it("warns where the new address already holds records, though every message went out", async () => {
-    answerWith(() =>
-      Promise.resolve({
-        success: true,
-        message: "Unter der neuen Adresse stehen schon Einträge.",
-        versand: "gesendet",
-        hinweis: "gesendet",
-        adresseBelegt: true,
-      }),
-    );
-    const { unmount } = box({ entwurf: { ...LEERER_ENTWURF, email: NEU } });
-
-    await userEvent.setup().click(screen.getByRole("button", { name: LINK_AN_NEUE_ADRESSE }));
-    await act(answered);
-
-    await waitFor(() =>
-      assert.deepEqual(
-        toasts.map((raised) => [raised.variant, raised.title, raised.description]),
-        [["warning", "Link gesendet", "Unter der neuen Adresse stehen schon Einträge."]],
-      ),
-    );
-    unmount();
-  });
 });
 
 describe("a start the backend refuses or nobody can tell landed", () => {

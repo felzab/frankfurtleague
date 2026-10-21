@@ -118,6 +118,7 @@ async function AdminSpielerEditContent({
         geburtsdatum: spieler.geburtsdatum,
         email: spieler.email,
         adresswechsel_id: spieler.adresswechsel_id,
+        adresswechsel_einsehbar_verwehrt: spieler.adresswechsel_einsehbar_verwehrt,
       }}
       // Off the record this page already holds: no read of its own, the memberships tier being the
       // only one that serves the field.

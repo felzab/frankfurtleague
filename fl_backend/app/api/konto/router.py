@@ -311,8 +311,8 @@ async def post_adresswechsel(
 
     The new mailbox is mailed its link, and the address on file a notice with a stop link; **everything the address holds
     as its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. Where it holds a
-    grant, the change also waits on another administrator's approval, an owner's for an owner's grant, `genehmiger`
-    names who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`). The address's live
+    grant, the change also waits on another administrator's approval, an owner's for an owner's grant,
+    `genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`). The address's live
     change ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.
     **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
     answers alike whatever the new address holds.
@@ -387,7 +387,7 @@ async def post_adresswechsel(
             email=email,
             bisherige_email=identifier,
             vorname=bestand.vorname,
-            genehmiger=genehmiger,
+            genehmiger_anzahl=len(genehmiger),
         )
 
     async with journal:

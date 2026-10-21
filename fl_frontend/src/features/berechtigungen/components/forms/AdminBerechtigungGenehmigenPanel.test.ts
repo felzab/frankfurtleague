@@ -19,6 +19,8 @@ import type { TestContext } from "node:test";
 const { answerWith, answered, calls } = doubleActions({
   modules: ["/src/features/adresswechsel/actions.ts"],
   answer: () => new Promise<never>(() => undefined),
+  // Every argument: the approval sends the row's served reason beside its payload.
+  payloadOf: (args) => args,
 });
 
 /* The real module hands its raising to HeroUI's queue rather than back to the case that caused it. */
@@ -46,7 +48,7 @@ const EIGENE = {
   bestaetigt: false,
   bis: "2026-10-27T11:30:00Z",
   verwehrt: null,
-  einsehbar: true,
+  einsehbar_verwehrt: null,
 };
 
 function shown(adresswechsel: typeof EIGENE | Record<string, unknown>): string {
@@ -71,7 +73,8 @@ async function genehmige(t: TestContext): Promise<void> {
       underNext(
         h(AdminBerechtigungGenehmigenPanel, {
           adresse: "vorstand@schule.de",
-          adresswechsel: EIGENE,
+          // A grant holder's change the tool refuses a non-owner: the refusal's discard is worded for them.
+          adresswechsel: { ...EIGENE, einsehbar_verwehrt: "verwaltung" as const },
         }),
       ),
     ),
@@ -98,7 +101,7 @@ describe("the approval on a grant's row", () => {
 
     assert.deepEqual(
       calls.map((call) => [call.action, call.payload]),
-      [["genehmigeAdresswechselAction", { id: ADRESSWECHSEL_ID }]],
+      [["genehmigeAdresswechselAction", [{ id: ADRESSWECHSEL_ID }, "verwaltung"]]],
     );
     await waitFor(() =>
       assert.deepEqual(

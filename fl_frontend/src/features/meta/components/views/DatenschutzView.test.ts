@@ -54,7 +54,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "21. Oktober 2026", digest: "5d751fb1ec051cc002024e4abb3d83b23f494575e1f6d0400aa45c7378758463" } as const;
+const FASSUNG = { stand: "21. Oktober 2026", digest: "0d87fd0ca7bbcacac8761c7c8625ffc82224d73f1220d739ca23b8792c90dda9" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -325,8 +325,8 @@ describe("the privacy notice's retention table", () => {
     assert.ok(
       ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.includes(
         "Gilt eine neue E-Mail-Adresse, die Du selbst eingetragen oder unter der bisherigen freigegeben hast, tragen wir sie in Dein " +
-          "Konto ein, und jede Sitzung endet; hat die Verwaltung sie ohne die bisherige Adresse eingetragen oder stand unter der neuen " +
-          "schon etwas bei uns, bleibt das Konto bei der bisherigen, und Du meldest Dich unter der neuen neu an.",
+          "Konto ein, und jede Sitzung endet; hat die Verwaltung sie ohne die bisherige Adresse eingetragen, bleibt das Konto bei der " +
+          "bisherigen, und Du meldest Dich unter der neuen neu an.",
       ),
     );
   });

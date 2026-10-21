@@ -12,6 +12,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { TextField } from "@/shared/components/ui/TextField";
 
+import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
 import type { SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 import type { FLKontakt } from "@/shared/schemas";
 
@@ -19,7 +20,7 @@ import type { FLKontakt } from "@/shared/schemas";
  * A confirmed referee's address, which the save refuses to move (`REQ-SCHIEDSRICHTER-011`): shown, with the
  * change pending at it, and changed nowhere on this page, as the pupil editor shows its own.
  */
-export type BestaetigteAdresse = { email: string; adresswechselId: string | null };
+export type BestaetigteAdresse = { email: string; adresswechselId: string | null; adresswechselVerwehrt: EinsehbarVerwehrt | null };
 
 /**
  * Each field submits `null` when emptied. `FLKontaktSchema` accepts a blank string too, so this is
@@ -103,7 +104,10 @@ export function FormKontaktSection({
             <dl className={FIELD_PAIR_CLASSES}>
               <Angabe label="Hinterlegte Adresse">{bestaetigt.email}</Angabe>
             </dl>
-            <AdresswechselHinweis adresswechselId={bestaetigt.adresswechselId} />
+            <AdresswechselHinweis
+              adresswechselId={bestaetigt.adresswechselId}
+              verwehrt={bestaetigt.adresswechselVerwehrt}
+            />
             <div className={FIELD_PAIR_CLASSES}>{telefon}</div>
           </>
         )}

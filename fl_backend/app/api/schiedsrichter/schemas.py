@@ -2,6 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
+from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
 from app.api.spieler.schemas import FLEinwilligung, SelbstEinwilligungPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
@@ -223,8 +224,8 @@ class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     bestaetigung_abgelaufen: bool
     # The live change of the referee's address, which the address tool shows; null where none stands.
     adresswechsel_id: CustomObjectId | None
-    # Whether the address tool opens that change for this administrator; false where none stands.
-    adresswechsel_einsehbar: bool
+    # Why the address tool refuses that change this administrator; null where it opens it or none stands.
+    adresswechsel_einsehbar_verwehrt: FLAdresswechselEinsehbarVerwehrt | None
 
 
 class FLSchiedsrichterSelbst(BaseModel):

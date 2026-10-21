@@ -412,7 +412,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 bisherige_email="alt@example.invalid",
                 vorname=None,
                 weg="wartezeit",
-                adresse_belegt=False,
             ),
             "beansprucht_bis": datetime(2026, 3, 16, 0, 10, tzinfo=UTC),
             "beanspruchung": "a-claim",

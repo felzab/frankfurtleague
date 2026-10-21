@@ -120,7 +120,7 @@ const spieler = (saisons: FLSaison[]) => ({
   einwilligung: bestaetigteEinwilligung(),
   email: "ada@example.com",
   adresswechsel_id: null,
-  adresswechsel_einsehbar: false,
+  adresswechsel_einsehbar_verwehrt: null,
   memberships: saisons.map((entry) => ({
     saison_id: entry.id,
     team_id: OBJECT_ID,

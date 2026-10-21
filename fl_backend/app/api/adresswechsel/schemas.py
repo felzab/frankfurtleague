@@ -95,7 +95,6 @@ class FLAdresswechselPostausgang(BaseModel):
     email: str
     vorname: str | None
     weg: FLAdresswechselWeg | None
-    adresse_belegt: bool | None
     erfasst_am: datetime
     beansprucht_bis: datetime | None
     beanspruchung: str | None
@@ -119,9 +118,6 @@ class FLAdresswechselPostausgangZeile(BaseModel):
     vorname: str | None
     # A change that waited carries no sign-in account: whatever its old mailbox's holder enrolled meanwhile would follow.
     weg: FLAdresswechselWeg | None
-    # Whether the new address held records of its own at the effect, null on a refusal's notice: true carries no sign-in
-    # account, which would sign whoever enrolled its passkeys in to that holder's records.
-    adresse_belegt: bool | None
     # Past the last hand-out: the caller mails nothing, logs it by its id, and stamps it.
     aufgegeben: bool
 
@@ -171,7 +167,7 @@ class FLAdresswechselAnsichtNeu(BaseModel):
 
     seite: Literal["neu"]
     zustand: FLAdresswechselNeuZustand
-    # Null exactly where `bestaetigt`: a confirmed change waits on no deadline of this link's.
+    # Null exactly where the change is confirmed: it waits on no deadline of this link's.
     gueltig_bis: FLUtcInstant | None
     wirksam_ab: FLUtcInstant | None
     weg: FLAdresswechselWeg
@@ -328,10 +324,9 @@ class FLAdresswechselVerwaltungMintResponse(BaseAPIResponse):
     bisherige_email: str
     # Null on the lost-mailbox way: the address on file may have passed to a stranger, so its notice greets nobody.
     vorname: str | None
-    # Whether the new address holds records of its own, which the effect would join to these, read in the start's transaction.
-    adresse_belegt: bool
-    # Who could approve the grant's move, which the grants' outbox tells them; empty where no grant moves.
-    genehmiger: list[str]
+    # How many could approve the grant's move, 0 where none moves; never who: the grants' outbox reads them at its claim
+    # (`docs/backend/spec.md :: I862`), and the caller only branches on a wait.
+    genehmiger_anzahl: int = Field(ge=0)
 
 
 class FLAdresswechselIdResponse(BaseAPIResponse):

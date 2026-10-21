@@ -70,7 +70,7 @@ const withRow = (email: string | null, name?: string | null) => () => ({
   schiedsrichter: stored(email, name),
   bestaetigung_abgelaufen: false,
   adresswechsel_id: null,
-  adresswechsel_einsehbar: false,
+  adresswechsel_einsehbar_verwehrt: null,
 });
 
 /** A link minted for `email`, as each minting write answers it. */

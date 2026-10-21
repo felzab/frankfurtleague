@@ -221,8 +221,8 @@ export const FLKontoAdresswechselMintResponseSchema = BaseAPIResponseSchema.exte
   email: z.string().nonempty(),
   bisherige_email: z.string().nonempty(),
   vorname: z.string(),
-  // Who is told an approval waits, empty where the address holds no grant.
-  genehmiger: z.array(z.string()),
+  // How many are told an approval waits, 0 where the address holds no grant.
+  genehmiger_anzahl: z.int().nonnegative(),
 });
 export type FLKontoAdresswechselMintResponse = z.infer<typeof FLKontoAdresswechselMintResponseSchema>;
 

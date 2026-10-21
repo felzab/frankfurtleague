@@ -49,6 +49,7 @@ import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
 
 import { FormKontaktEinladen } from "./FormKontaktEinladen";
 
+import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
 import type { KontakteFieldPath } from "@/features/kontakte/kontakteDraftStatus";
 import type { MedienFragen } from "@/features/spieler/nachweis";
 import type { KontaktRolle } from "@/features/teams/constants";
@@ -267,22 +268,25 @@ export function FormKontakteSection({
   );
 }
 
+/** A seat's pending change, the stored address it is at, and why the address tool refuses this reader the change. */
+type SitzAdresswechsel = { id: string; adresse: string | null; verwehrt: EinsehbarVerwehrt | null };
+
+/** A seat's pending change with the stored address it is at, which the line under the seat names. */
+function sitzAdresswechsel(
+  ids: FLSaisonTeamAdresswechsel | null,
+  stored: FLSaisonTeamKontakte | null,
+  rolle: KontaktRolle,
+): SitzAdresswechsel | null {
+  const id = ids?.[rolle] ?? null;
+  return id === null || ids === null ? null : { id: id, adresse: stored?.[rolle]?.email ?? null, verwehrt: ids.einsehbar_verwehrt[rolle] };
+}
+
 /**
  * What each seat is for, on the seat's own heading.
  *
  * Three different sentences because the three answer different questions. What they SHARE — that none
  * of this is published — is true of the whole slice and is stated on the sidemenu's own hint.
  */
-/** A seat's pending change with the stored address it is at, which the line under the seat names. */
-function sitzAdresswechsel(
-  ids: FLSaisonTeamAdresswechsel | null,
-  stored: FLSaisonTeamKontakte | null,
-  rolle: KontaktRolle,
-): { id: string; adresse: string | null } | null {
-  const id = ids?.[rolle] ?? null;
-  return id === null ? null : { id: id, adresse: stored?.[rolle]?.email ?? null };
-}
-
 const SEAT_HINT: Record<KontaktRolle, ReactNode> = {
   trainer: (
     <Hint
@@ -334,7 +338,7 @@ function KontaktpersonFields({
   /** The seat's link where one went out, read out above its re-send as the referee editor reads out its own. */
   link: FLSaisonTeamBestaetigungAnsicht | null;
   /** The change pending at the stored seat's address, which this page shows and never moves, and that address. */
-  adresswechsel: { id: string; adresse: string | null } | null;
+  adresswechsel: SitzAdresswechsel | null;
   /** A blank seat can be stamped with the running label, which the page could not read where this is false. */
   kannLeerOeffnen: boolean;
   medienFragen: MedienFragen;
@@ -414,6 +418,7 @@ function KontaktpersonFields({
           <AdresswechselOffen
             adresswechselId={adresswechsel.id}
             adresse={adresswechsel.adresse}
+            verwehrt={adresswechsel.verwehrt}
           />
         )}
 
