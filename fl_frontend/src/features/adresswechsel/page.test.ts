@@ -21,7 +21,7 @@ const ANSICHT = {
 };
 
 /** What the tool's read answers, or the refusal it throws, until a case names another. */
-let ansicht: () => object = () => ANSICHT;
+let ansicht: () => Record<string, unknown> = () => ANSICHT;
 
 answerReadsWith((endpoint, schema, params) => {
   if (endpoint === "/adresswechsel/ansicht") return answer(schema, endpoint, ansicht());
