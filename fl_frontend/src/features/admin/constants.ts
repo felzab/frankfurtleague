@@ -16,7 +16,7 @@ import PersonXmark from "@gravity-ui/icons/PersonXmark";
 import Sliders from "@gravity-ui/icons/Sliders";
 import Tray from "@gravity-ui/icons/Tray";
 
-import { VERWALTUNG_TITEL } from "@/core/seitenNamen";
+import { ADMINISTRATOREN_TITEL, VERWALTUNG_TITEL } from "@/core/seitenNamen";
 
 import type { SidemenuHint, SidemenuStructure, SidemenuStructureSubOption } from "@/shared/types/types";
 import type React from "react";
@@ -306,7 +306,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
       SPERRLISTE_EINTRAG,
       {
         id: "administratoren",
-        label: "Administratoren",
+        label: ADMINISTRATOREN_TITEL,
         iconName: "Key",
         hint: {
           lead: "Wer die Verwaltung der Liga betreten darf.",

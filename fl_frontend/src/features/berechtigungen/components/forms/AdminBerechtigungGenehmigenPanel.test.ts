@@ -9,6 +9,7 @@ import { act, createElement as h } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
@@ -144,6 +145,12 @@ describe("what the approver reads of the change", () => {
     const text = shown({ weg: "wartezeit", email: null, email_gesperrt: true, gestartet_von_gesperrt: true });
 
     assert.match(text, /Neue Adresse für diesen Zugang: Gesperrte Adresse\./);
-    assert.match(text, /Begonnen von Gesperrte Adresse, ohne die bisherige Adresse\./);
+    assert.match(text, /Begonnen von einer gesperrten Adresse, ohne die bisherige Adresse\./);
+  });
+
+  it("names a starter erased since in the dative, as the grant notice does", () => {
+    const text = shown({ weg: "freigabe", gestartet_von: ERASED_ACTOR_MARKER });
+
+    assert.match(text, /Begonnen von einer nicht genannten Adresse, mit Freigabe durch die bisherige Adresse\./);
   });
 });

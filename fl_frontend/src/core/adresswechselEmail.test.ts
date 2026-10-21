@@ -156,7 +156,15 @@ describe("the approvers' notice of a change waiting for them", () => {
       // The league's own contact line excepted, which every message closes on.
       assert.doesNotMatch(words.replaceAll(KONTAKT_EMAIL, ""), /@[a-z]/, "the notice names an address");
       assert.doesNotMatch(words, /adresswechsel=|token=/, "the notice carries an id or a credential");
-      assert.match(words, /stimme nur zu, wenn Du sicher bist, dass die Person sie selbst angefragt hat/);
+      assert.match(words, /genehmige sie nur, wenn Du sicher bist, dass die Person sie selbst angefragt hat/);
+    }
+  });
+
+  /* Sent for the lost-mailbox way too, whose new address an administrator typed: the person gave none there. */
+  it("says a new address is on file without saying who gave it", () => {
+    for (const words of beide(mail)) {
+      assert.match(words, /für eine Person mit Zugang zur Verwaltung ist eine neue E-Mail-Adresse eingetragen\./);
+      assert.doesNotMatch(words, /angegeben/);
     }
   });
 });

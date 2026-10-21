@@ -15,6 +15,7 @@ import {
   textFooter,
 } from "./emailShell";
 import { ERASED_ACTOR_MARKER } from "./erasedActor";
+import { OFFENE_ANTRAEGE } from "./seitenNamen";
 
 export type BerechtigungEmail = { subject: string; html: string; text: string };
 
@@ -42,14 +43,12 @@ const ANTRAG: Readonly<Record<"zugang" | "ernennung", { ueberschrift: string; be
   zugang: {
     ueberschrift: "Antrag auf Zugang zur Verwaltung",
     betreff: `Antrag auf Zugang zur Verwaltung der ${BRAND_NAME}`,
-    aufgabe:
-      "Genehmige oder lehne den Antrag in der Verwaltung unter „Offene Anträge“ ab. Genehmige ihn nur, wenn Du sicher bist, dass die Person diesen Zugang bekommen soll.",
+    aufgabe: `Genehmige oder lehne den Antrag in der Verwaltung unter „${OFFENE_ANTRAEGE}“ ab. Genehmige ihn nur, wenn Du sicher bist, dass die Person diesen Zugang bekommen soll.`,
   },
   ernennung: {
     ueberschrift: "Antrag auf Ernennung zur Inhaberin oder zum Inhaber",
     betreff: `Antrag auf Ernennung in der Verwaltung der ${BRAND_NAME}`,
-    aufgabe:
-      "Genehmige oder lehne den Antrag in der Verwaltung unter „Offene Anträge“ ab. Genehmige ihn nur, wenn Du sicher bist, dass die Person Inhaberin oder Inhaber werden soll.",
+    aufgabe: `Genehmige oder lehne den Antrag in der Verwaltung unter „${OFFENE_ANTRAEGE}“ ab. Genehmige ihn nur, wenn Du sicher bist, dass die Person Inhaberin oder Inhaber werden soll.`,
   },
 };
 

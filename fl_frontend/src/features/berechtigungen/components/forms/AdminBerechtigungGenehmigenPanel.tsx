@@ -7,7 +7,7 @@ import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import { adresswechselZeitpunkt } from "@/core/adresswechsel";
 import { genehmigeAdresswechselAction } from "@/features/adresswechsel/actions";
 import { GENEHMIGUNG_VERWEHRT } from "@/features/adresswechsel/refusals";
-import { vonOderGesperrt } from "@/features/berechtigungen/constants";
+import { nachVonOderGesperrt, vonOderGesperrt } from "@/features/berechtigungen/constants";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
@@ -32,7 +32,7 @@ function begonnen(adresswechsel: FLBerechtigungAdresswechsel): string {
   const von =
     adresswechsel.gestartet_von === null && !adresswechsel.gestartet_von_gesperrt
       ? "Aus der Verwaltung begonnen"
-      : `Begonnen von ${vonOderGesperrt(adresswechsel.gestartet_von, adresswechsel.gestartet_von_gesperrt)}`;
+      : `Begonnen von ${nachVonOderGesperrt(adresswechsel.gestartet_von, adresswechsel.gestartet_von_gesperrt)}`;
   const weg = adresswechsel.weg === "freigabe" ? "mit Freigabe durch die bisherige Adresse" : "ohne die bisherige Adresse";
 
   return `${von}, ${weg}.${adresswechsel.grund === null ? "" : ` Grund: ${adresswechsel.grund}`}`;

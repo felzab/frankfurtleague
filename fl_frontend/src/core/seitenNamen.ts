@@ -13,6 +13,12 @@ export const EINSAETZE_TITEL = "Deine Einsätze";
 /** The administration's own name, which `/bereich/admin` carries rather than the section it redirects to. */
 export const VERWALTUNG_TITEL = "Verwaltung";
 
+/** The grants' page in the administration, which the mail asking an approver to approve an address change names. */
+export const ADMINISTRATOREN_TITEL = "Administratoren";
+
+/** The heading over the grants and promotions waiting on a second administrator, which a request's mail and a refused second request point to. */
+export const OFFENE_ANTRAEGE = "Offene Anträge";
+
 export const ABOUT_TITEL = "About";
 
 /** The organisers' page, which the privacy notice and the about page's answer name as well. */
