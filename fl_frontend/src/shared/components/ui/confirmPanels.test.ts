@@ -176,6 +176,7 @@ const M = {
   registrierungen: "features/registrierungen/components/collections/RegistrierungenList.tsx",
   einsaetze: "features/spielbestaetigungen/components/views/SchiedsrichterEinsaetzeSection.tsx",
   spielbestaetigungLink: "features/spielbestaetigungen/components/views/SpielbestaetigungFormPanel.tsx",
+  adresswechselWartet: "features/adresswechsel/components/forms/AdresswechselWartet.tsx",
 };
 
 const C = {
@@ -208,6 +209,7 @@ const C = {
   registrierungen: await component(M.registrierungen, "RegistrierungenList"),
   einsaetze: await component(M.einsaetze, "SchiedsrichterEinsaetzeSection"),
   spielbestaetigungLink: await component(M.spielbestaetigungLink, "SpielbestaetigungFormPanel"),
+  adresswechselWartet: await component(M.adresswechselWartet, "AdresswechselWartet"),
 };
 
 const einladungPanel = () =>
@@ -716,6 +718,32 @@ const PANELS: Record<string, Arming[]> = {
   [M.einsaetze]: [{ render: einsaetzeSection, resting: "Zusagen: SG Alpha gegen SG Beta am 20.11.2026" }],
   [M.spielbestaetigungLink]: [
     { render: () => el(C.spielbestaetigungLink, { token: "kein-echtes-token", onAbschluss: () => undefined }), resting: "Zusagen" },
+  ],
+  [M.adresswechselWartet]: [
+    {
+      render: () =>
+        underNext(
+          el(C.adresswechselWartet, {
+            offen: {
+              id: "68c1f0a2b3c4d5e6f7a8b9e0",
+              email: "lena@neu.example",
+              weg: "wartezeit",
+              grund: "Postfach von der Schule gelöscht",
+              wartet_auf: "neue_adresse",
+              verschickt_am: "2026-10-01",
+              gueltig_bis: "2099-12-31T11:30:00Z",
+              freigegeben_am: null,
+              bestaetigt_am: null,
+              wirksam_ab: null,
+              zustellung: null,
+              abgelaufen: false,
+              genehmigung: null,
+            },
+            onGeschrieben: () => undefined,
+          }),
+        ),
+      resting: "Änderung verwerfen",
+    },
   ],
 };
 

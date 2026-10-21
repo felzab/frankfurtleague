@@ -14,6 +14,7 @@ import type {
   FLKontaktpersonPayload,
   FLSaisonTeamKontaktePayload,
   FLTeamMembership,
+  FLTeamWithMemberships,
   FLTrainerZugleich,
 } from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
@@ -134,6 +135,26 @@ export function renamedConfirmedSeatLabels(stored: SaisonTeamKontakteDraft | nul
   }).map(({ label }) => label);
 }
 
+/**
+ * The confirmed seats whose draft keeps the person's name and changes the address alone: a person who only changed
+ * mailbox keeps their seat and its confirmation through the address change, which this save would cost them.
+ */
+export function addressOnlyConfirmedSeatLabels(
+  stored: SaisonTeamKontakteDraft | null,
+  draft: SaisonTeamKontakteDraft | null,
+): readonly string[] {
+  return KONTAKT_ROLLEN.filter(({ value }) => {
+    const held = stored?.[value] ?? null;
+    const sent = draft?.[value] ?? null;
+    if (held === null || sent === null || held.einwilligung.bestaetigt_am === null) return false;
+
+    const [heldAddress, ...heldName] = seatIdentity(held);
+    const [sentAddress, ...sentName] = seatIdentity(sent);
+
+    return heldAddress !== sentAddress && heldName.every((wert, index) => wert === sentName[index]);
+  }).map(({ label }) => label);
+}
+
 /** The club's own page, where the season membership these seats hang off is entered. */
 export function teamPageHref(teamId: string, saisonId: string): string {
   // The season rides along: the seats are season-scoped, and a link without it lands the admin on
@@ -179,6 +200,21 @@ export function resolveTeamSaisonMembership(
             kontakte_stand: membership.kontakte_stand,
           },
   };
+}
+
+/**
+ * The contacts editor's key, holding neither the club's other rows nor a seat's link state or pending address change:
+ * those move with no edit here, and remounting on them drops the typed draft (`docs/frontend/spec.md` §1.10).
+ */
+export function kontakteEditorKey(
+  { id, name, shorthand, inactive_since }: FLTeamWithMemberships,
+  { membership, ...saison }: TeamSaisonMembership,
+): string {
+  const team = { id, name, shorthand, inactive_since };
+  if (membership === null) return JSON.stringify({ team, saison, membership });
+  const { bestaetigungen: _bestaetigungen, adresswechsel: _adresswechsel, ...gesaet } = membership;
+
+  return JSON.stringify({ team, saison, membership: gesaet });
 }
 
 /** One seat as the write side spells it: the provenance is the server's own (`docs/backend/spec.md :: I142`). */

@@ -9,12 +9,29 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 const ZUR_AENDERUNG = "Zur Änderung";
 
 /** The one line every editor shows under an address a change is pending at, one change for every record it holds. */
-export function AdresswechselOffen({ adresswechselId }: { adresswechselId: string }) {
+export function AdresswechselOffen({
+  adresswechselId,
+  adresse,
+}: {
+  adresswechselId: string;
+  /**
+   * The stored address the change is at, named where the box above it takes input: „diese Adresse“ would then point at
+   * whatever is typed. `null` under a box that only reads the address out.
+   */
+  adresse: string | null;
+}) {
   const saisonHref = useSaisonHref();
 
   return (
     <p className="fluid-sm text-pretty text-foreground">
-      Für diese Adresse läuft eine Änderung.{" "}
+      {adresse === null ? (
+        "Für diese Adresse"
+      ) : (
+        <>
+          Für <span className="break-all">{adresse}</span>
+        </>
+      )}{" "}
+      läuft eine Änderung.{" "}
       <Link
         href={saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechselId}`)}
         prefetch={false}
@@ -34,7 +51,12 @@ export function AdresswechselHinweis({ adresswechselId }: { adresswechselId: str
 
   return (
     <div className="flex flex-col gap-1">
-      {adresswechselId !== null && <AdresswechselOffen adresswechselId={adresswechselId} />}
+      {adresswechselId !== null && (
+        <AdresswechselOffen
+          adresswechselId={adresswechselId}
+          adresse={null}
+        />
+      )}
       <p className="muted-hint text-pretty">
         Mit dieser Adresse meldet sich die Person an. Eine neue trägt sie selbst in ihrem Konto ein. Kann sie sich nicht mehr anmelden, ändert
         die Verwaltung sie unter{" "}

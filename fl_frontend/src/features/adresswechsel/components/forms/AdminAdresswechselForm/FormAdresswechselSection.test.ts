@@ -67,6 +67,14 @@ describe("what the address tool reads", () => {
     unmount();
   });
 
+  /* A person who can still sign in changes the address on their account page: the tool's box invites nobody else. */
+  it("asks for the address of a person who can no longer sign in with it", () => {
+    tool();
+
+    assert.match(shown(), /mit der sie sich nicht mehr anmelden kann\./);
+    assert.doesNotMatch(shown(), /nutzen will/);
+  });
+
   it("refuses a malformed address on its box, reading nothing", async () => {
     const user = userEvent.setup();
     const { unmount } = tool();

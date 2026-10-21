@@ -6,7 +6,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
@@ -52,7 +52,7 @@ const offen = (teil: Partial<NonNullable<FLKontoAdresswechselResponse["offen"]>>
 });
 
 /** The page's figures as the server read them: confirmed `vor` minutes ago, so inside the enrolment window or past it. */
-const bestaetigung = (vor: number | null, verwaltung = false) => {
+const bestaetigung = (vor: number | null, verwaltung: "owner" | "administration" | null = null) => {
   const jetzt = Date.now();
   return {
     freshUntil: vor === null ? null : jetzt - vor * MINUTE_MS + 2 * 60 * MINUTE_MS,
@@ -65,7 +65,7 @@ const bestaetigung = (vor: number | null, verwaltung = false) => {
   };
 };
 
-const panel = (adresswechsel: FLKontoAdresswechselResponse, vor: number | null, verwaltung = false) =>
+const panel = (adresswechsel: FLKontoAdresswechselResponse, vor: number | null, verwaltung: "owner" | "administration" | null = null) =>
   underNext(h(AdresswechselPanel, { adresswechsel: adresswechsel, bestaetigung: bestaetigung(vor, verwaltung) }));
 
 beforeEach(() => {
@@ -74,9 +74,9 @@ beforeEach(() => {
   answerWith(() => Promise.resolve({ success: true, message: "Bestätige die neue Adresse.", versand: "gesendet" }));
 });
 
-async function starte(vor: number | null): Promise<void> {
+async function starte(vor: number | null, verwaltung: "owner" | "administration" | null = null): Promise<void> {
   const user = userEvent.setup();
-  render(panel(OHNE, vor));
+  render(panel(OHNE, vor, verwaltung));
   await user.click(screen.getByRole("button", { name: E_MAIL_ADRESSE_AENDERN }));
   await user.type(screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ }), "lena@neu.example");
   await user.click(screen.getByRole("button", { name: "Link an neue Adresse senden" }));
@@ -99,6 +99,17 @@ describe("the account page's address control", () => {
 
     await waitFor(() => assert.ok(screen.getByRole("dialog", { name: IDENTITY_CONFIRMATION_TITLE })));
     assert.deepEqual(calls, []);
+  });
+
+  /* The administrator's guard admits a grant's address by passkey alone, so a code would confirm a session it refuses. */
+  it("offers a grant's address the passkey alone, and any other the code beside it", async () => {
+    await starte(30, "administration");
+    await waitFor(() => assert.ok(screen.getByRole("dialog", { name: IDENTITY_CONFIRMATION_TITLE })));
+    assert.equal(screen.queryAllByRole("button", { name: "Code per E-Mail senden" }).length, 0, "a grant's address is offered a code");
+    cleanup();
+
+    await starte(30);
+    await waitFor(() => assert.ok(screen.getByRole("button", { name: "Code per E-Mail senden" })));
   });
 
   it("asks for the confirmation where the server refused the start for want of one", async () => {
@@ -159,12 +170,26 @@ describe("the account page's address control", () => {
     );
     assert.match(
       document.body.textContent,
-      /ist bestätigt\. Weil diese Adresse Zugang zur Verwaltung hat, muss außerdem eine andere Person aus der Verwaltung zustimmen, bis 27\. Oktober 2026 um 12:30\. Bis dahin meldest Du Dich weiter mit dieser Adresse an, mit vollem Zugang\./,
+      /ist bestätigt\. Weil Deine bisherige Adresse Zugang zur Verwaltung hat, muss außerdem eine andere Person aus der Verwaltung zustimmen, bis 27\. Oktober 2026 um 12:30\. Bis zur Zustimmung meldest Du Dich weiter mit Deiner bisherigen Adresse an, mit vollem Zugang\./,
     );
     unmount();
 
     render(panel(offen({ genehmigung: { verwaltung: "owner", genehmigt: false, bis: "2026-10-27T11:30:00Z" } }), null));
     assert.match(document.body.textContent, /muss außerdem eine andere Inhaberin oder ein anderer Inhaber der Verwaltung zustimmen/);
+  });
+
+  /* „Bis dahin gilt diese.“ read as the new address, and after the link's deadline: the old address holds until the confirmation. */
+  it("names the address that holds until the confirmation, never the link's deadline as its end", () => {
+    const { unmount } = render(panel(offen({}), null));
+    assert.match(
+      document.body.textContent,
+      /wartet auf ihre Bestätigung, längstens bis 21\. Oktober 2026 um 13:30\. Bis zur Bestätigung gilt Deine bisherige Adresse\./,
+    );
+    unmount();
+
+    render(panel(offen({ wartet_auf: "wartezeit", gueltig_bis: null, wirksam_ab: "2026-10-28T11:30:00Z" }), null));
+    assert.match(document.body.textContent, /gilt ab 28\. Oktober 2026 um 12:30\. Bis dahin gilt Deine bisherige Adresse\./);
+    assert.doesNotMatch(document.body.textContent, /gilt diese/);
   });
 
   it("says nothing of an approval already given", () => {
@@ -173,15 +198,20 @@ describe("the account page's address control", () => {
     assert.doesNotMatch(document.body.textContent, /zustimmen/);
   });
 
-  it("tells a grant holder before the start that another administrator must agree", () => {
-    const { unmount } = render(panel(OHNE, null, true));
+  /* An owner told that any administrator may approve asks one, whose press is closed: the tier names the approver. */
+  it("tells a grant holder before the start who must agree, by the tier the grant holds", () => {
+    const { unmount } = render(panel(OHNE, null, "administration"));
     assert.match(
       document.body.textContent,
       /Weil diese Adresse Zugang zur Verwaltung hat, muss außerdem eine andere Person aus der Verwaltung zustimmen/,
     );
     unmount();
 
-    render(panel(OHNE, null, false));
+    const owner = render(panel(OHNE, null, "owner"));
+    assert.match(document.body.textContent, /muss außerdem eine andere Inhaberin oder ein anderer Inhaber der Verwaltung zustimmen/);
+    owner.unmount();
+
+    render(panel(OHNE, null, null));
     assert.doesNotMatch(document.body.textContent, /Zugang zur Verwaltung/);
   });
 

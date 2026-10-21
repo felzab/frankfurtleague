@@ -15,6 +15,7 @@ import { ADRESSWECHSEL_STOPPEN } from "@/core/adresswechselAntworten";
 import { LINK_AN_NEUE_ADRESSE } from "@/features/adresswechsel/components/forms/AdresswechselBeantragen";
 import { gibAdresswechselFreiAction, starteAdresswechselAction, stoppeAdresswechselAction } from "@/features/konto/personActions";
 import { FLKontoAdresswechselPayloadSchema } from "@/features/konto/schemas";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { IDENTITY_CONFIRMATION_TITLE, IdentityConfirmation } from "@/shared/components/ui/IdentityConfirmation";
@@ -25,13 +26,16 @@ import { TextField } from "@/shared/components/ui/TextField";
 import { useConfirmationWindows } from "@/shared/hooks/useConfirmationWindows";
 import { LINK_UNKLAR, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 import { meldeLinkVersand } from "@/shared/utils/linkVersandToast";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { pruefeInhaberAction } from "../../../actions";
+import { genehmigerText } from "../../../genehmiger";
 import { CodeConfirmation } from "../../ui/CodeConfirmation";
 
-import type { FLAdresswechselGenehmigungStand, FLKontoAdresswechselOffen, FLKontoAdresswechselResponse } from "@/features/konto/schemas";
+import type { FLVerwaltung } from "@/features/berechtigungen/schemas";
+import type { FLKontoAdresswechselOffen, FLKontoAdresswechselResponse } from "@/features/konto/schemas";
 import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
 import type { ActionFailure } from "@/shared/types/types";
 import type { VersandTitel } from "@/shared/utils/linkVersandToast";
@@ -54,6 +58,12 @@ const KONTO_LINK_TITEL: VersandTitel = {
 /** What the confirmation waits for: a start with its address, or the approval of the change the page showed. */
 type Wartend = { art: "start"; email: string } | { art: "freigabe"; id: string };
 
+/**
+ * The one place every control of this panel stands in, so a landed write's focus goes to whatever control the
+ * refresh puts there (`docs/frontend/spec.md :: I536`): the start's to the stop, the stop's to the start.
+ */
+const ADRESSWECHSEL_PLACE = "adresswechsel";
+
 /** The spine's refusal for want of a recent sign-in, which the page answers by asking rather than by a toast. */
 const wantsStepUp = (result: { success: boolean }): result is ActionFailure & { stepUp: true } =>
   !result.success && Reflect.get(result, "stepUp") === true;
@@ -61,17 +71,11 @@ const wantsStepUp = (result: { success: boolean }): result is ActionFailure & { 
 /** What the panel asks a confirmation with, read on the server off the session the page was drawn for. */
 export type AdresswechselBestaetigung = ConfirmedUntil & {
   readonly hasPasskey: boolean;
-  /** An administrator's address, whose confirmation is a passkey's alone (`docs/frontend/spec.md :: I422`). */
-  readonly verwaltung: boolean;
+  /** The tier the address's grant holds, which names who must approve; a grant's confirmation is a passkey's alone. */
+  readonly verwaltung: FLVerwaltung | null;
   readonly inhaberId: string;
   readonly inhaberAdresse: string;
 };
-
-/** Who else must agree where the address holds a grant: an owner's change is another owner's to approve. */
-const genehmigerText = (genehmigung: FLAdresswechselGenehmigungStand): string =>
-  genehmigung.verwaltung === "owner"
-    ? "eine andere Inhaberin oder ein anderer Inhaber der Verwaltung"
-    : "eine andere Person aus der Verwaltung";
 
 /**
  * The pending change's sentence, by the step it waits on. The address is the backend's string, whole where this
@@ -84,7 +88,7 @@ function offenSatz(offen: FLKontoAdresswechselOffen): string {
   const zugang =
     genehmigung === null || genehmigung.genehmigt
       ? ""
-      : ` Weil diese Adresse Zugang zur Verwaltung hat, muss außerdem ${genehmigerText(genehmigung)} zustimmen, bis ${adresswechselZeitpunkt(genehmigung.bis)}. Bis dahin meldest Du Dich weiter mit dieser Adresse an, mit vollem Zugang.`;
+      : ` Weil Deine bisherige Adresse Zugang zur Verwaltung hat, muss außerdem ${genehmigerText(genehmigung.verwaltung)} zustimmen, bis ${adresswechselZeitpunkt(genehmigung.bis)}. Bis zur Zustimmung meldest Du Dich weiter mit Deiner bisherigen Adresse an, mit vollem Zugang.`;
 
   if (offen.wartet_auf === "freigabe") {
     return `Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen: ${email}. Sie gilt erst, wenn Du sie hier freigibst und sie danach über ihren Link bestätigt wird. Gib sie nur frei, wenn Du das selbst bei uns angefragt hast.${bis === null ? "" : ` Freigeben kannst Du bis ${bis}.`}${zugang}`;
@@ -94,12 +98,13 @@ function offenSatz(offen: FLKontoAdresswechselOffen): string {
   }
   if (offen.wartet_auf === "wartezeit") {
     const ab = offen.wirksam_ab === null ? "" : ` und gilt ab ${adresswechselZeitpunkt(offen.wirksam_ab)}`;
-    return `Die neue E-Mail-Adresse ${email} ist bestätigt${ab}. Bis dahin gilt diese. Stimmt das nicht, stoppe die Änderung.${zugang}`;
+    return `Die neue E-Mail-Adresse ${email} ist bestätigt${ab}. Bis dahin gilt Deine bisherige Adresse. Stimmt das nicht, stoppe die Änderung.${zugang}`;
   }
   if (offen.weg === "wartezeit") {
     return `Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen, ${email}, weil Deine bisherige nicht mehr erreichbar sein soll. Bestätigt sie ihren Link, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} danach. Stimmt das nicht, stoppe die Änderung.${zugang}`;
   }
-  return `Die neue E-Mail-Adresse ${email} wartet auf ihre Bestätigung${bis === null ? "" : `, bis ${bis}`}. Bis dahin gilt diese.${zugang}`;
+  // The link's deadline ends the change, never the old address's validity: that holds until the confirmation.
+  return `Die neue E-Mail-Adresse ${email} wartet auf ihre Bestätigung${bis === null ? "" : `, längstens bis ${bis}`}. Bis zur Bestätigung gilt Deine bisherige Adresse.${zugang}`;
 }
 
 /**
@@ -121,6 +126,8 @@ export function AdresswechselPanel({
   const [laeuft, setLaeuft] = useState<"start" | "freigabe" | "stopp" | null>(null);
   const [wartend, setWartend] = useState<Wartend | null>(null);
   const feldRef = useRef<HTMLInputElement>(null);
+  // Read at the press, before any confirmation dialog takes the focus, and kept until the write it waits for lands.
+  const landungRef = useRef<ReturnType<typeof focusAfterWrite> | null>(null);
   const { offen } = adresswechsel;
 
   const istInhaber = async (): Promise<boolean> => {
@@ -128,7 +135,8 @@ export function AdresswechselPanel({
     return answer.success && answer.gleich;
   };
 
-  const sende = async (was: Wartend): Promise<void> => {
+  const sende = async (was: Wartend, landung: ReturnType<typeof focusAfterWrite>): Promise<void> => {
+    landungRef.current = landung;
     setLaeuft(was.art);
     // A rejected action may still have mailed, and uncaught here it takes the page down with it.
     const res = await (
@@ -154,6 +162,7 @@ export function AdresswechselPanel({
       return;
     }
 
+    landung.landed();
     if (was.art === "start") setEntwurf(null);
     meldeLinkVersand(
       res.versand,
@@ -164,11 +173,13 @@ export function AdresswechselPanel({
 
   /** Runs `was` now inside the window, and after the confirmation otherwise. */
   const mitBestaetigung = (was: Wartend): void => {
+    const landung = focusAfterWrite();
     if (windows.isStale(Date.now(), "enrolment")) {
+      landungRef.current = landung;
       setWartend(was);
       return;
     }
-    void sende(was);
+    void sende(was, landung);
   };
 
   const bestaetigt = (): void => {
@@ -177,7 +188,7 @@ export function AdresswechselPanel({
     windows.confirmed();
     // The confirmation minted a new session and ended this page's: what the page drew off the old one is read again.
     router.refresh();
-    if (was !== null) void sende(was);
+    if (was !== null) void sende(was, landungRef.current ?? focusAfterWrite());
   };
 
   const starte = (): void => {
@@ -192,12 +203,18 @@ export function AdresswechselPanel({
   };
 
   const stoppe = async (): Promise<void> => {
+    const landung = focusAfterWrite();
     setLaeuft("stopp");
     const res = await stoppeAdresswechselAction().catch(unansweredAction);
     setLaeuft(null);
 
-    if (res.success) appToast.success("Änderung gestoppt", { description: res.message });
-    else appToast.failure("Änderung nicht gestoppt", res);
+    if (!res.success) {
+      appToast.failure("Änderung nicht gestoppt", res);
+      return;
+    }
+
+    landung.landed();
+    appToast.success("Änderung gestoppt", { description: res.message });
   };
 
   const gezeigt = fehler !== null && fehler.zu === entwurf ? fehler.satz : null;
@@ -213,25 +230,27 @@ export function AdresswechselPanel({
             bestätigst, den wir an sie schicken. Bis dahin bleibt diese in Kraft.
           </p>
           {/* Said before the start: the grant moves with the address only once another administrator agrees. */}
-          {bestaetigung.verwaltung && (
+          {bestaetigung.verwaltung !== null && (
             <p className="muted-hint text-pretty">
-              Weil diese Adresse Zugang zur Verwaltung hat, muss außerdem eine andere Person aus der Verwaltung zustimmen. Bis dahin meldest Du
-              Dich weiter mit dieser Adresse an.
+              Weil diese Adresse Zugang zur Verwaltung hat, muss außerdem {genehmigerText(bestaetigung.verwaltung)} zustimmen. Bis dahin meldest
+              Du Dich weiter mit dieser Adresse an.
             </p>
           )}
 
           {entwurf === null ? (
             <div className="flex w-full flex-wrap items-start gap-2">
-              <Button
-                type="button"
-                onPress={() => setEntwurf("")}
-                className={`${formButton({ intent: "nav", size: "xs" })} gap-x-2`}>
-                <Pencil
-                  className="size-3.5"
-                  aria-hidden="true"
-                />
-                <span>{E_MAIL_ADRESSE_AENDERN}</span>
-              </Button>
+              <FocusSlot name={ADRESSWECHSEL_PLACE}>
+                <Button
+                  type="button"
+                  onPress={() => setEntwurf("")}
+                  className={`${formButton({ intent: "nav", size: "xs" })} gap-x-2`}>
+                  <Pencil
+                    className="size-3.5"
+                    aria-hidden="true"
+                  />
+                  <span>{E_MAIL_ADRESSE_AENDERN}</span>
+                </Button>
+              </FocusSlot>
             </div>
           ) : (
             <div className={`${PANEL_REVEAL_CLASSES} flex w-full flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm`}>
@@ -260,15 +279,17 @@ export function AdresswechselPanel({
               </RequiredSchemas>
               <p className="muted-hint text-pretty">{STEP_UP_HINT}</p>
               <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
-                <Button
-                  type="button"
-                  variant="primary"
-                  isPending={laeuft === "start"}
-                  isDisabled={entwurf.trim() === ""}
-                  onPress={starte}
-                  className={formButton({ intent: "submit", stacks: true })}>
-                  {laeuft === "start" ? "Sendet..." : LINK_AN_NEUE_ADRESSE}
-                </Button>
+                <FocusSlot name={ADRESSWECHSEL_PLACE}>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    isPending={laeuft === "start"}
+                    isDisabled={entwurf.trim() === ""}
+                    onPress={starte}
+                    className={formButton({ intent: "submit", stacks: true })}>
+                    {laeuft === "start" ? "Sendet..." : LINK_AN_NEUE_ADRESSE}
+                  </Button>
+                </FocusSlot>
                 <Button
                   type="button"
                   variant="secondary"
@@ -286,24 +307,28 @@ export function AdresswechselPanel({
           <p className="fluid-sm text-pretty text-foreground">{offenSatz(offen)}</p>
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
             {offen.wartet_auf === "freigabe" && (
+              <FocusSlot name={ADRESSWECHSEL_PLACE}>
+                <Button
+                  type="button"
+                  variant="primary"
+                  isPending={laeuft === "freigabe"}
+                  isDisabled={laeuft !== null}
+                  onPress={() => mitBestaetigung({ art: "freigabe", id: offen.id })}
+                  className={formButton({ intent: "submit", stacks: true })}>
+                  {AENDERUNG_FREIGEBEN}
+                </Button>
+              </FocusSlot>
+            )}
+            <FocusSlot name={ADRESSWECHSEL_PLACE}>
               <Button
                 type="button"
-                variant="primary"
-                isPending={laeuft === "freigabe"}
+                isPending={laeuft === "stopp"}
                 isDisabled={laeuft !== null}
-                onPress={() => mitBestaetigung({ art: "freigabe", id: offen.id })}
-                className={formButton({ intent: "submit", stacks: true })}>
-                {AENDERUNG_FREIGEBEN}
+                onPress={() => void stoppe()}
+                className={formButton({ intent: "destructive", stacks: true })}>
+                {stoppName}
               </Button>
-            )}
-            <Button
-              type="button"
-              isPending={laeuft === "stopp"}
-              isDisabled={laeuft !== null}
-              onPress={() => void stoppe()}
-              className={formButton({ intent: "destructive", stacks: true })}>
-              {stoppName}
-            </Button>
+            </FocusSlot>
           </div>
           {offen.wartet_auf === "freigabe" && <p className="muted-hint text-pretty">{STEP_UP_HINT}</p>}
         </>
@@ -318,8 +343,9 @@ export function AdresswechselPanel({
           hinweis={STEP_UP_HINT}
           hasPasskey={bestaetigung.hasPasskey}
           codeHalf={
-            // A code goes to the address on file, which is the holder the change asks (`docs/frontend/spec.md :: I422`).
-            bestaetigung.verwaltung ? null : (
+            // A grant's address confirms by passkey alone (`docs/backend/spec.md :: I790`); any other's code goes to the
+            // address on file, the holder the change asks.
+            bestaetigung.verwaltung !== null ? null : (
               <CodeConfirmation
                 address={bestaetigung.inhaberAdresse}
                 istInhaber={istInhaber}

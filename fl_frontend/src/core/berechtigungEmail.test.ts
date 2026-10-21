@@ -130,8 +130,24 @@ describe("the notice a change to who administers sends", () => {
     assert.ok(ernennung.text.includes("Für kasse@schule.de ist beantragt, Inhaberin oder Inhaber der Verwaltung zu werden."));
   });
 
-  /* The application grants no `owner`, so one is a change in the database, and the one a holder most
-     needs told as such. */
+  /* A promotion's subject already has access, so a subject asking for access tells its approvers something false. */
+  it("heads, titles and closes a promotion's request as a promotion, never as a request for access", () => {
+    const ernennung = buildBerechtigungEmail(
+      { art: "beantragt", adresse: "kasse@schule.de", inhaber: true },
+      { von: "vorstand@schule.de", am: AM },
+      ORIGIN,
+    );
+
+    assert.equal(ernennung.subject, "Antrag auf Ernennung in der Verwaltung der Frankfurt League");
+    for (const part of [ernennung.text, ernennung.html]) {
+      assert.ok(part.includes("Antrag auf Ernennung zur Inhaberin oder zum Inhaber"), "the part is headed as a request for access");
+      assert.ok(part.includes("dass die Person Inhaberin oder Inhaber werden soll."), "the part closes on access it already has");
+      assert.ok(!part.includes("Zugang zur Verwaltung beantragt") && !part.includes("diesen Zugang"), "the part asks for access");
+    }
+  });
+
+  /* An `owner` grant is the one a holder most needs told as such, whether an owner's address change moved it
+     or the database wrote it. */
   it("names an `owner` grant as the owner's, barred or not", () => {
     const benannt = buildBerechtigungEmail({ art: "erteilt", adresse: "neu@schule.de", inhaber: true }, null, ORIGIN);
     const gesperrt = buildBerechtigungEmail({ art: "erteilt", adresse: { vorenthalten: "gesperrt" }, inhaber: true }, null, ORIGIN);

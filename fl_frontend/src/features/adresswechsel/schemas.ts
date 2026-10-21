@@ -3,6 +3,7 @@ import z from "zod";
 import { ADRESSWECHSEL_WEGE } from "@/core/adresswechsel";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { ANKUENDIGUNGEN_MAX } from "@/features/berechtigungen/constants";
+import { FLVerwaltungSchema } from "@/features/berechtigungen/schemas";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { ERASURE_ANLASS_MAX_LENGTH } from "@/features/funktionen/constants";
 import { ADRESSE_IM_GRUND_REGEX } from "@/features/sperrliste/schemas";
@@ -29,9 +30,6 @@ export type FLAdresswechselBisherigZustand = z.infer<typeof FLAdresswechselBishe
 /** Mirrors `FLAdresswechselEndeArt`: how an ended change ended, which its tombstone keeps after the address is gone. */
 export const FLAdresswechselEndeArtSchema = z.enum(["wirksam", "abgelehnt", "gestoppt", "abgelaufen", "ersetzt", "verworfen"]);
 export type FLAdresswechselEndeArt = z.infer<typeof FLAdresswechselEndeArtSchema>;
-
-/** The two tiers a grant holds, spelled as `fl_frontend/src/features/berechtigungen/schemas.ts :: FLVerwaltungSchema` spells them. */
-const VerwaltungSchema = z.enum(["owner", "administration"]);
 
 /**
  * Mirrors `CustomAdresswechselGrund`, the erasure occasion's bounds: copied into the start's log row and
@@ -210,13 +208,13 @@ export const FLAdresswechselVerwaltungBestandSchema = z.object({
   sitze: z.int().nonnegative(),
   bewerbungssitze: z.int().nonnegative(),
   registrierungen: z.int().nonnegative(),
-  berechtigung: VerwaltungSchema.nullable(),
+  berechtigung: FLVerwaltungSchema.nullable(),
 });
 export type FLAdresswechselVerwaltungBestand = z.infer<typeof FLAdresswechselVerwaltungBestandSchema>;
 
 /** Mirrors `FLAdresswechselVerwaltungGenehmigung`: the approval a grant holder's change waits for, read-only here. */
 export const FLAdresswechselVerwaltungGenehmigungSchema = z.object({
-  verwaltung: VerwaltungSchema,
+  verwaltung: FLVerwaltungSchema,
   bis: z.string(),
   genehmigt_am: z.string().nullable(),
 });

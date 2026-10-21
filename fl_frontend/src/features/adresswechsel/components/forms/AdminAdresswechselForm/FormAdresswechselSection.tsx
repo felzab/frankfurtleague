@@ -161,7 +161,7 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
             <FieldError className={FIELD_ERROR_CLASSES}>{fehler}</FieldError>
             <Hint
               mode="field"
-              text="Die Adresse, unter der die Person bei uns steht und die sie nicht mehr erreicht oder nicht mehr nutzen will."
+              text="Die Adresse, unter der die Person bei uns steht und mit der sie sich nicht mehr anmelden kann."
             />
           </TextField>
           <Button

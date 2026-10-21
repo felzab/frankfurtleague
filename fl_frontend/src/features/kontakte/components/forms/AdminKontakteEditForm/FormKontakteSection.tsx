@@ -232,7 +232,7 @@ export function FormKontakteSection({
             label={label}
             person={basis[rolle]}
             link={bestaetigungen?.[rolle] ?? null}
-            adresswechselId={adresswechsel?.[rolle] ?? null}
+            adresswechsel={sitzAdresswechsel(adresswechsel, stored, rolle)}
             kannLeerOeffnen={laufendesLabel !== null}
             medienFragen={medienFragen}
             isMirrored={isMirrored(rolle)}
@@ -273,6 +273,16 @@ export function FormKontakteSection({
  * Three different sentences because the three answer different questions. What they SHARE — that none
  * of this is published — is true of the whole slice and is stated on the sidemenu's own hint.
  */
+/** A seat's pending change with the stored address it is at, which the line under the seat names. */
+function sitzAdresswechsel(
+  ids: FLSaisonTeamAdresswechsel | null,
+  stored: FLSaisonTeamKontakte | null,
+  rolle: KontaktRolle,
+): { id: string; adresse: string | null } | null {
+  const id = ids?.[rolle] ?? null;
+  return id === null ? null : { id: id, adresse: stored?.[rolle]?.email ?? null };
+}
+
 const SEAT_HINT: Record<KontaktRolle, ReactNode> = {
   trainer: (
     <Hint
@@ -307,7 +317,7 @@ function KontaktpersonFields({
   label,
   person,
   link,
-  adresswechselId,
+  adresswechsel,
   kannLeerOeffnen,
   medienFragen,
   isMirrored,
@@ -323,8 +333,8 @@ function KontaktpersonFields({
   person: KontaktpersonDraft | null;
   /** The seat's link where one went out, read out above its re-send as the referee editor reads out its own. */
   link: FLSaisonTeamBestaetigungAnsicht | null;
-  /** The change pending at the stored seat's address, which this page shows and never moves. */
-  adresswechselId: string | null;
+  /** The change pending at the stored seat's address, which this page shows and never moves, and that address. */
+  adresswechsel: { id: string; adresse: string | null } | null;
   /** A blank seat can be stamped with the running label, which the page could not read where this is false. */
   kannLeerOeffnen: boolean;
   medienFragen: MedienFragen;
@@ -399,7 +409,13 @@ function KontaktpersonFields({
           </dl>
         )}
 
-        {adresswechselId !== null && <AdresswechselOffen adresswechselId={adresswechselId} />}
+        {/* Named rather than „diese Adresse“: the box above takes input, and the change is the stored address's. */}
+        {adresswechsel !== null && (
+          <AdresswechselOffen
+            adresswechselId={adresswechsel.id}
+            adresse={adresswechsel.adresse}
+          />
+        )}
 
         {einladen}
       </div>
