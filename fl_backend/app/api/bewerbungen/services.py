@@ -763,6 +763,9 @@ SAISON_EINWILLIGUNG_FIELDS: Mapping[str, int] = {
     "name": 1,
     # A team that left the season holds no seat a consent could be given for.
     "austritt": 1,
+    # Suppressed as the application's view suppresses it: an inclusion answers `_id` unasked, and only
+    # the answer's read below keys a patch on it.
+    "_id": 0,
 }
 
 # The answer's read writes on the row, so it keys the patch on `_id`, and reads each seat's choices
@@ -1682,7 +1685,7 @@ def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
     """The season's assigned colours, in the palette's own order.
 
     The RETURN filters through the palette rather than sorting `held` by it: a row assigned nothing
-    yields a null, and one predating the enum a value the model cannot serve.
+    yields a null, which the palette never holds.
     """
 
     # `set(stored)` is the shorthand this refuses: an unhashable BSON value would raise there, where

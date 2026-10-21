@@ -23,6 +23,7 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtePersonResponse,
     FLSpielberichtPayload,
     FLSpielberichtPersonEintrag,
+    FLSpielberichtPersonFruehererEintrag,
     FLSpielberichtSchiedsrichterResponse,
     FLSpielberichtVonSchiedsrichter,
 )
@@ -87,9 +88,9 @@ async def get_spielberichte_person(
     none stands. A fixture called off or struck out is left out, having no report; `spiele` is empty while no season is
     `active`.
 
-    `fruehere` holds every dated fixture of an ended season booked to those records now on which a report stands,
-    newest first: its page shows the report read-only. Refused `REQ-FUNKTION-001` where the address holds no
-    confirmed, live referee record.
+    `fruehere` holds every fixture of an ended season booked to those records now on which a report stands, newest
+    first, one whose date was cleared after its report last with a null `datum`: its page shows the report read-only.
+    Refused `REQ-FUNKTION-001` where the address holds no confirmed, live referee record.
     """
 
     # A snapshot, so the fixtures served are those of the records judged; never a transaction, which a read writing
@@ -123,7 +124,9 @@ async def get_spielberichte_person(
             if not beendete
             else await pull_many_from_db(
                 collection=spiele_collection,
-                db_filter={"saison_id": {"$in": beendete}, **gebucht, "datum": {"$ne": None}},
+                # Undated too: a date cleared after the report leaves the report standing, and an ended season is never dated
+                # again. A descending sort puts null last.
+                db_filter={"saison_id": {"$in": beendete}, **gebucht},
                 sort_by=SPIELE_NEUESTE_ZUERST,
                 projection=PERSON_EINTRAG_FIELDS,
                 session=session,
@@ -139,20 +142,20 @@ async def get_spielberichte_person(
 
     eingereicht = {bericht["spiel_id"]: bericht["bericht"]["eingereicht_am"] for bericht in berichte}
 
-    def eintrag(spiel: Mapping[str, Any]) -> FLSpielberichtPersonEintrag:
-        return FLSpielberichtPersonEintrag(
-            spiel_id=spiel["_id"],
-            datum=spiel["datum"],
-            uhrzeit=spiel.get("uhrzeit"),
-            team1_name=(spiel.get("team1") or {}).get("name"),
-            team2_name=(spiel.get("team2") or {}).get("name"),
-            eingereicht_am=eingereicht.get(spiel["_id"]),
-        )
+    def eintrag(spiel: Mapping[str, Any]) -> dict[str, Any]:
+        return {
+            "spiel_id": spiel["_id"],
+            "datum": spiel.get("datum"),
+            "uhrzeit": spiel.get("uhrzeit"),
+            "team1_name": (spiel.get("team1") or {}).get("name"),
+            "team2_name": (spiel.get("team2") or {}).get("name"),
+            "eingereicht_am": eingereicht.get(spiel["_id"]),
+        }
 
     return FLSpielberichtePersonResponse(
-        spiele=[eintrag(spiel) for spiel in laufende],
+        spiele=[FLSpielberichtPersonEintrag.model_validate(eintrag(spiel)) for spiel in laufende],
         # An ended season's fixture holding no report has nothing for its read-only page to show.
-        fruehere=[eintrag(spiel) for spiel in fruehere if spiel["_id"] in eingereicht],
+        fruehere=[FLSpielberichtPersonFruehererEintrag.model_validate(eintrag(spiel)) for spiel in fruehere if spiel["_id"] in eingereicht],
     )
 
 

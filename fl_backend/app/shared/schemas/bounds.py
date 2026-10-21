@@ -169,7 +169,7 @@ SPIEL_ERINNERUNG_TAGE_ZWEITE: Final = 1
 # decline's reason is nor copied onto a year of log rows as an erasure's occasion is.
 SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH: Final = 500
 
-# A referee's remarks on one match, bounded on the payload alone: every correction and adoption files the
+# A report's remarks on one match, whoever writes them, bounded on the payload alone: every correction and adoption files the
 # report whole on a log row, which this keeps far under BSON's document ceiling.
 SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH: Final = 2000
 # The most scorers, and the most cards, one report lists, for the remarks' reason.

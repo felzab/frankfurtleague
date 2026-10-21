@@ -9786,7 +9786,7 @@
     "/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}": {
       "patch": {
         "summary": "Update a squad entry as its team's seat holder",
-        "description": "Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.\n\nThe team and the Nachnominierung flag stay the stored row's. 404 where this team holds no live\nrow for the player in this season: another team's pupil and an ausgetragen row answer alike, and\nnothing is written. Refused `REQ-FUNKTION-001` without a seat, `REQ-SQUAD-005` for a `stufe` the\nseason's `erlaubte_stufen` does not offer unless the row already holds it, and `REQ-SQUAD-004`\nfor a `rolle` another live row of the squad holds. A shared `nummer` is permitted.",
+        "description": "Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.\n\nThe team and the Nachnominierung flag stay the stored row's. 404 where this team holds no live\nrow for the player in this season: another team's pupil and an ausgetragen row answer alike, and\nnothing is written. Refused `REQ-DROSSELUNG-001` past the person's ceiling for the German day, ahead of the 404 and\nevery rule, `REQ-FUNKTION-001` without a seat, `REQ-SQUAD-005` for a `stufe` the\nseason's `erlaubte_stufen` does not offer unless the row already holds it, and `REQ-SQUAD-004`\nfor a `rolle` another live row of the squad holds. A shared `nummer` is permitted.",
         "operationId": "patch_kader_zeile_api_v0_spieler_kader__team_id___saison_id___spieler_id__patch",
         "security": [
           {
@@ -9877,7 +9877,7 @@
       },
       "delete": {
         "summary": "Take a Spieler out of the squad as its team's seat holder (austragen)",
-        "description": "Take a player out of this team's squad for the season, as any contact seat of the team may. SOFT: the row stays.\n\nStamps the row's `inactive_since`; the person stays in the league, and only an administrator\nbrings the row back. 404 where this team holds no live row for the player in this season,\nanother team's pupil and an ausgetragen row alike. Refused `REQ-FUNKTION-001` without a seat.",
+        "description": "Take a player out of this team's squad for the season, as any contact seat of the team may. SOFT: the row stays.\n\nStamps the row's `inactive_since`; the person stays in the league, and only an administrator\nbrings the row back. 404 where this team holds no live row for the player in this season,\nanother team's pupil and an ausgetragen row alike. Refused `REQ-DROSSELUNG-001` past the person's ceiling for the\nGerman day, ahead of the 404, and `REQ-FUNKTION-001` without a seat.",
         "operationId": "delete_kader_zeile_api_v0_spieler_kader__team_id___saison_id___spieler_id__delete",
         "security": [
           {
@@ -10047,7 +10047,7 @@
     "/api/v0/registrierungen/{registrierung_id}/aufnehmen": {
       "post": {
         "summary": "Admit a registration into the team's squad",
-        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name and, where the new pupil's page\nasked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page\nleaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's\nname or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such\nperson, `spieler_id` is null for a new one. A retired person comes back. A pending address change of theirs\nstands, asked over the address this admission proves again.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived\ntoday; this person's retired row of this season is rewritten rather than a second one written, whichever team\nit was on. The registration is deleted and its values redacted from the log in the same transaction, so a second\npress meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.\n\nRefuses, in this order: no pending registration with this id (404), no seat on its team's season\n(`REQ-FUNKTION-001`), a registration the pupil has not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban\nlist holds (`REQ-REGISTRIERUNG-009`, worded to the team as neutrally as to the pupil), a Stufe the season no\nlonger offers (`REQ-REGISTRIERUNG-003`), a registration confirmed on the returning pupil's page whose address holds\nno stored person (`REQ-REGISTRIERUNG-018`: it carries no choice, so it admits nobody, and the pupil registers\nagain), a `spieler_id` that is not the person this registration may be admitted\ninto (`REQ-REGISTRIERUNG-014`), a person already playing in a squad this season (`REQ-REGISTRIERUNG-015`) and a\nfull squad (`REQ-SQUAD-003`). Nothing is written on any of them.",
+        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name and, where the new pupil's page\nasked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page\nleaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's\nname or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such\nperson, `spieler_id` is null for a new one. A retired person comes back. A pending address change of theirs\nstands, asked over the address this admission proves again.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived\ntoday; this person's retired row of this season is rewritten rather than a second one written, whichever team\nit was on. The registration is deleted and its values redacted from the log in the same transaction, so a second\npress meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.\n\nRefuses, in this order: a press past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), no pending\nregistration with this id (404), no seat on its team's season (`REQ-FUNKTION-001`), a registration the pupil has\nnot confirmed (`REQ-REGISTRIERUNG-013`), an address the ban list holds (`REQ-REGISTRIERUNG-009`, worded to the team\nas neutrally as to the pupil), a Stufe the season does not offer (`REQ-REGISTRIERUNG-003`), a registration\nconfirmed on the returning pupil's page whose address holds no stored person (`REQ-REGISTRIERUNG-018`: it carries\nno choice, so it admits nobody, and the pupil registers again), a `spieler_id` that is not the person this\nregistration may be admitted into (`REQ-REGISTRIERUNG-014`), a person already playing in a squad this season\n(`REQ-REGISTRIERUNG-015`) and a full squad (`REQ-SQUAD-003`). Nothing is written on any of them.",
         "operationId": "aufnehmen_api_v0_registrierungen__registrierung_id__aufnehmen_post",
         "security": [
           {
@@ -10121,7 +10121,7 @@
     "/api/v0/registrierungen/{registrierung_id}/ablehnen": {
       "post": {
         "summary": "Decline a registration",
-        "description": "Decline one pending registration, confirmed or not: its state and the decision are written, and nothing else.\n\nThe decision records the declining seat holder's address and a reason from a closed set, never free text:\n`andere_person` where the team answered that the registration is not the person its address belongs to. The\nrow stays until the retention sweep erases it a month later. The answer carries the address the pupil's link\nwent to, for the decline mail and nothing else, and whether that address was ever confirmed.\n\nRefuses no pending registration with this id (404) and no seat on its team's season (`REQ-FUNKTION-001`).",
+        "description": "Decline one pending registration, confirmed or not: its state and the decision are written, and nothing else.\n\nThe decision records the declining seat holder's address and a reason from a closed set, never free text:\n`andere_person` where the team answered that the registration is not the person its address belongs to. The\nrow stays until the retention sweep erases it a month later. The answer carries the address the pupil's link\nwent to, for the decline mail and nothing else, and whether that address was ever confirmed.\n\nRefuses, in this order, a press past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), no pending\nregistration with this id (404) and no seat on its team's season (`REQ-FUNKTION-001`).",
         "operationId": "ablehnen_api_v0_registrierungen__registrierung_id__ablehnen_post",
         "security": [
           {
@@ -11125,7 +11125,7 @@
     "/api/v0/spielberichte/person": {
       "get": {
         "summary": "The fixtures a signed-in referee reports on",
-        "description": "The `active` season's fixtures booked to the signed-in referee whose day has come, newest first.\n\nBooked to any confirmed, live referee record of the address, each with when its report was first sent, null where\nnone stands. A fixture called off or struck out is left out, having no report; `spiele` is empty while no season is\n`active`.\n\n`fruehere` holds every dated fixture of an ended season booked to those records now on which a report stands,\nnewest first: its page shows the report read-only. Refused `REQ-FUNKTION-001` where the address holds no\nconfirmed, live referee record.",
+        "description": "The `active` season's fixtures booked to the signed-in referee whose day has come, newest first.\n\nBooked to any confirmed, live referee record of the address, each with when its report was first sent, null where\nnone stands. A fixture called off or struck out is left out, having no report; `spiele` is empty while no season is\n`active`.\n\n`fruehere` holds every fixture of an ended season booked to those records now on which a report stands, newest\nfirst, one whose date was cleared after its report last with a null `datum`: its page shows the report read-only.\nRefused `REQ-FUNKTION-001` where the address holds no confirmed, live referee record.",
         "operationId": "get_spielberichte_person_api_v0_spielberichte_person_get",
         "responses": {
           "200": {
@@ -27280,6 +27280,84 @@
         "title": "FLSpielberichtPersonEintrag",
         "description": "One played fixture booked to the signed-in referee, and when its report, whoever wrote it, was first sent."
       },
+      "FLSpielberichtPersonFruehererEintrag": {
+        "properties": {
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "datum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datum"
+          },
+          "uhrzeit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uhrzeit"
+          },
+          "team1_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team1 Name"
+          },
+          "team2_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team2 Name"
+          },
+          "eingereicht_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eingereicht Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_id",
+          "datum",
+          "uhrzeit",
+          "team1_name",
+          "team2_name",
+          "eingereicht_am"
+        ],
+        "title": "FLSpielberichtPersonFruehererEintrag",
+        "description": "One reported fixture of an ended season, its date null where it was cleared after the report: the report still stands."
+      },
       "FLSpielberichtSchiedsrichterResponse": {
         "properties": {
           "acknowledged": {
@@ -27751,7 +27829,7 @@
           },
           "fruehere": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielberichtPersonEintrag"
+              "$ref": "#/components/schemas/FLSpielberichtPersonFruehererEintrag"
             },
             "type": "array",
             "title": "Fruehere"

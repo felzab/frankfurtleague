@@ -766,16 +766,16 @@ class TestTheReads:
         assert ohne_saison.spiele == []
 
     def test_the_referee_s_list_holds_the_reports_of_ended_seasons_apart(self, mongo_replica_set_url: str):
-        """Of an ended season, only a fixture booked to them now and holding a report: its page shows that report read-only.
+        """Of an ended season, only a fixture booked to them now holding a report its page shows read-only, an undated one last.
 
-        The season before's report stands; its unreported fixture, the other referee's and the running season's do not
-        reach `fruehere`.
+        The season before's unreported fixture, the other referee's and the running season's stay out.
         """
 
-        unberichtet, anderer = ObjectId(), ObjectId()
+        unberichtet, anderer, undatiert = ObjectId(), ObjectId(), ObjectId()
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_the_season_before(database)
+            ohne_datum = fixture(spiel_id=undatiert, spiel_nr=23, saison_id=VORSAISON_ID, datum=None, uhrzeit=None)
             await database[Collection.SPIELE].insert_many(
                 [
                     fixture(spiel_id=unberichtet, spiel_nr=21, saison_id=VORSAISON_ID, datum="2026-05-07"),
@@ -785,10 +785,14 @@ class TestTheReads:
                         saison_id=VORSAISON_ID,
                         schiedsrichter={"schiedsrichter_id": ANDERER, "name": "Ella Engel", "payment": 20},
                     ),
+                    ohne_datum,
                 ]
             )
-            await database[Collection.SPIELBERICHTE].insert_one(
-                documents.spielbericht_document(fixture(spiel_id=anderer, saison_id=VORSAISON_ID))
+            await database[Collection.SPIELBERICHTE].insert_many(
+                [
+                    documents.spielbericht_document(fixture(spiel_id=anderer, saison_id=VORSAISON_ID)),
+                    documents.spielbericht_document(ohne_datum),
+                ]
             )
             await put(database, client, bericht())
 
@@ -805,7 +809,10 @@ class TestTheReads:
         listed = on_the_league(mongo_replica_set_url, body)
 
         assert [spiel.spiel_id for spiel in listed.spiele] == [SPIEL]
-        assert [(spiel.spiel_id, spiel.eingereicht_am is not None) for spiel in listed.fruehere] == [(VORJAHRESSPIEL, True)]
+        assert [(spiel.spiel_id, spiel.datum, spiel.eingereicht_am is not None) for spiel in listed.fruehere] == [
+            (VORJAHRESSPIEL, "2026-05-14", True),
+            (undatiert, None, True),
+        ]
 
 
 async def save_the_result(database: AsyncDatabase, team1: int, team2: int) -> None:

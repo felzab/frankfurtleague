@@ -544,9 +544,9 @@ _BERECHTIGUNG_STAND = _object(
     properties={"adresse": {"bsonType": _STRING_OR_NULL}, "verwaltung": {"bsonType": "string", "enum": _VERWALTUNG}},
 )
 
-# The key a public submission is replayed by, and the digest of the payload it first carried
-# (`docs/backend/spec.md :: I346`), kept on the squad row an admission writes. Out of `required`
-# everywhere: every row stored before the key carries none.
+# A public submission's replay key and the digest of the payload it first carried
+# (`docs/backend/spec.md :: I346`), kept on the squad row an admission writes. Never required: a
+# keyless submission and an administrator's squad row carry none.
 _IDEMPOTENZ_PROPERTIES: Mapping[str, Any] = {
     "idempotenz_schluessel": {"bsonType": "string"},
     "idempotenz_fingerabdruck": {"bsonType": "string"},
@@ -1565,7 +1565,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         partial_filter={"widerrufen_am": {"$type": "null"}},
     ),
     # `$type` for the reason above: a missing key indexes as null, so without the filter the second
-    # row stored before the key would collide with the first.
+    # keyless submission would collide with the first.
     UniqueIndex(
         Collection.BEWERBUNGEN,
         "uniq_bewerbung_idempotenz_schluessel",

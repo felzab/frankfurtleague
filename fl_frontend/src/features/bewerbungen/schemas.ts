@@ -122,8 +122,8 @@ export const FLBewerbungBestaetigungSchema = z.object({
   verschickt_am: CustomDateStringSchema,
   erinnert_am: CustomDateStringSchema.nullable(),
   abgelehnt_am: CustomDateStringSchema.nullable(),
-  // Null on a seat no message has been accepted for, which is every seat stored before this block
-  // shipped: an absent state is "nothing is known", never "delivered".
+  // Null on a seat no message has been accepted for, every fresh entry among them: an absent state
+  // is "nothing is known", never "delivered".
   zustellung: FLBewerbungZustellungSchema.nullable(),
 });
 export type FLBewerbungBestaetigung = z.infer<typeof FLBewerbungBestaetigungSchema>;
