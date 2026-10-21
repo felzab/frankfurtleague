@@ -2298,6 +2298,53 @@ class TestANoticeOutlivesALostAnswer:
         assert (elsewhere.mitgeteilt, here.mitgeteilt, again.mitgeteilt) == (0, 1, 0)
 
 
+class TestANoticeWhoseClosingWasUndoneIsDropped:
+    """`docs/backend/spec.md :: I839`: each first pass's notices went unstamped, so the second pass holds them still."""
+
+    def test_a_call_off_whose_fixture_was_reinstated(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await asked_and_called_off(database, client)
+            unstamped = await sweep(database, client)
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"sonderereignis": None}})
+            return unstamped, await sweep(database, client), await rows(database, **{"geschlossen.grund": "abgesagt"})
+
+        unstamped, after, called_off = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        # The premise: the call-off was owed, and the reinstated fixture is asked afresh.
+        assert (len(unstamped.spiel_abgesagt), len(unstamped.schiedsrichter_spiel_abgesagt)) == (2, 1)
+        assert (len(after.anfragen), len(after.einteilungen)) == (2, 1)
+        assert (after.spiel_abgesagt, after.schiedsrichter_spiel_abgesagt, after.mitteilungen_aufgegeben) == ([], [], 0)
+        assert [row["geschlossen"]["mitteilung"] for row in called_off] == [None, None, None]
+
+    def test_a_taken_off_referee_booked_again(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await told_and_taken_off(database, client)
+            unstamped = await sweep(database, client)
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"schiedsrichter": booked(SCHIEDSRICHTER)}})
+            return unstamped, await sweep(database, client)
+
+        unstamped, after = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        assert [notice.address for notice in unstamped.schiedsrichter_gewechselt] == [REFEREE_EMAIL]
+        assert [einteilung.address for einteilung in after.einteilungen] == [REFEREE_EMAIL]
+        assert (after.schiedsrichter_gewechselt, after.mitteilungen_aufgegeben) == ([], 0)
+
+    def test_a_fixture_moved_back_to_the_slot_its_parties_were_asked_about(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            await angefragt(database, client, [row["_id"] for row in await rows(database)])
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
+            unstamped = await sweep(database, client)
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"uhrzeit": "18:00:00"}})
+            return unstamped, await sweep(database, client)
+
+        unstamped, after = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        assert (len(unstamped.neue_ansetzungen), len(unstamped.schiedsrichter_neue_ansetzungen)) == (2, 1)
+        assert {(anfrage.ansetzung.datum, anfrage.ansetzung.uhrzeit) for anfrage in after.anfragen} == {(NEXT_WEEK, "18:00:00")}
+        assert (after.neue_ansetzungen, after.schiedsrichter_neue_ansetzungen, after.mitteilungen_aufgegeben) == ([], [], 0)
+
+
 class TestAnAddressMovedBesideTheNoticeIsTheOneTold:
     """The notice step writes each referee whose address it read, so an address change crossing it conflicts and it reads again."""
 

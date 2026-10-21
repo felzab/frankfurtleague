@@ -1013,6 +1013,23 @@ def notice_owed(*, row: Mapping[str, Any], grund: FLSpielbestaetigungGrund, toda
     return grund in ("schiedsrichter_gewechselt", "abgesagt") and not _day_passed(ansetzung=row["ansetzung"], today=today)
 
 
+def notice_holds(*, row: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
+    """Whether the closing a held notice announces still holds of the fixture as it stands (`docs/backend/spec.md :: I839`).
+
+    A fixture reinstated, a referee booked onto it again, or a fixture back at the row's slot is asked afresh by the mint,
+    and the notice would tell its party the opposite beside the fresh request.
+    """
+
+    grund = row["geschlossen"]["grund"]
+    if grund == "abgesagt":
+        return entscheidung_of(spiel=spiel, austritte=[], tag=None) == "abgesagt"
+
+    if grund == "schiedsrichter_gewechselt":
+        return _referee_id(spiel) != row["partei"].get("schiedsrichter_id")
+
+    return ansetzung_stand_of(spiel) != row["ansetzung"]["stand"]
+
+
 def build_mitteilung_filter(*, saison_id: str) -> dict[str, Any]:
     """The season's closed rows still owing a notice; every other row holds no mark, or a null one."""
 

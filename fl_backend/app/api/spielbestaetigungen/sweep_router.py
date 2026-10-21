@@ -54,6 +54,7 @@ from app.api.spielbestaetigungen.services import (
     kontakt_adresse,
     link_groups,
     mitteilung_spent,
+    notice_holds,
     notice_owed,
     partei_key,
     parteien_of,
@@ -368,7 +369,8 @@ async def sweep_spielbestaetigungen(
     and `schiedsrichter_spiel_abgesagt`. A notice is answered on every pass until the caller stamps it through
     `/mitgeteilt`; one answered as often as `app/api/spielbestaetigungen/services.py :: MITTEILUNG_VERSUCHE_HOECHSTENS`
     allows, or about a day gone by, is given up and counted in `mitteilungen_aufgegeben`, and one with nobody left to
-    tell is dropped unanswered.
+    tell, or whose closing the fixture has since undone -- reinstated, its referee booked again, back at the row's
+    slot -- is dropped unanswered, the mint asking its party afresh.
 
     The mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and
     ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for
@@ -508,22 +510,30 @@ async def sweep_spielbestaetigungen(
         # fixtures, clubs and referees would cost a season's `getMore`s the close's share pays for (`CLOSES_PER_PASS`).
         share = rows if batch.share is None else rows[: batch.share]
         spent = {row["_id"] for row in share if mitteilung_spent(row=row, today=today)}
-        live = [row for row in share if row["_id"] not in spent]
-        spiele = await _spiele(spiele_collection=spiele_collection, saison_id=saison_id, ids=[row["spiel_id"] for row in live], session=session)
+        spiele = await _spiele(
+            spiele_collection=spiele_collection, saison_id=saison_id, ids=[row["spiel_id"] for row in share], session=session
+        )
         junctions = await _junctions(
             saison_teams_collection=saison_teams_collection,
             saison_id=saison_id,
-            team_ids=[row["ansetzung"][side] for row in live for side in ("team1_id", "team2_id")],
+            team_ids=[row["ansetzung"][side] for row in share for side in ("team1_id", "team2_id")],
             session=session,
         )
         adressen = await _referee_addresses(
             schiedsrichter_collection=schiedsrichter_collection,
-            ids=[row["partei"]["schiedsrichter_id"] for row in live if row["partei"]["art"] == "schiedsrichter"],
+            ids=[row["partei"]["schiedsrichter_id"] for row in share if row["partei"]["art"] == "schiedsrichter"],
             session=session,
         )
+        # The rows whose closing the fixture has undone since: dropped, never given up, there being nothing to tell.
+        undone: set[Any] = set()
 
         def notice_of(row: Mapping[str, Any]) -> _Notice | None:
-            """The notice this row holds, or `None` where it is spent or nobody is left to tell."""
+            """The notice this row holds, or `None` where its closing was undone, it is spent, or nobody is left to tell."""
+
+            # Ahead of the spend: a given-up notice warns the administrator to tell its party by hand.
+            if not notice_holds(row=row, spiel=spiele[row["spiel_id"]]):
+                undone.add(row["_id"])
+                return None
 
             if row["_id"] in spent:
                 return None
@@ -598,7 +608,10 @@ async def sweep_spielbestaetigungen(
                 session=session,
             )
 
-        return _Told(notices=[notice for _, notice in taken if notice is not None], aufgegeben=sum(row_id in spent for row_id in dropped))
+        return _Told(
+            notices=[notice for _, notice in taken if notice is not None],
+            aufgegeben=sum(row_id in spent and row_id not in undone for row_id in dropped),
+        )
 
     async def mint(session: AsyncClientSession, batch: Batch) -> _Minted:
         """Plan the window's fixtures, then write a share of rows, whole fixtures, soonest first. Read in-session, so a retry re-judges.
