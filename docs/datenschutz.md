@@ -355,8 +355,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   fixture's report, as part of officiating**, whatever a pupil answered about publication: nothing
   of it is published. The form serves the squads only from the match day and only while the fixture
   takes a report (`fl_backend/app/api/spielberichte/services.py :: nimmt_einen_bericht`) and its
-  season runs; after the season the referee reads their report alone, its persons named and no
-  squad served, and writes it no more (`docs/backend/spec.md :: I832`). The published notice says so.
+  season runs; after the season the referee booked now reads the fixture's report alone, its persons
+  named and no squad served, and writes it no more (`docs/backend/spec.md :: I832`), whoever wrote it.
+  The published notice says so.
   Ruled 2026-10-20, the season's bound the same day.
 - **A photograph, a video or an interview needs a consent of its own, and only a person of eighteen
   or over may give it, for the Datenschutzexperte.** The consent is separate from the name and
@@ -696,7 +697,12 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   club's three seats, the booked referee and either squad's pupils of the season hold, matched as the
   request below is (`fl_backend/app/api/spielberichte/services.py :: find_name_in_bemerkungen_refusal`);
   a name written otherwise, or a person outside the fixture, stays in them until the end of the season
-  after the match, when the remarks go ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)). The request an
+  after the match, when the remarks go ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)).
+  The writer describes a pupil by shirt number instead, as the remarks box asks, and with the team and
+  the fixture the number identifies them: such a remark is that pupil's data, which an access request
+  answers ([`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it))
+  and their erasure does not reach, so it too stands
+  until the remarks go. The request an
   administrator's erasure answers
   (`aktionen.anlass`) stands on every log row that erasure files, for the log's twelve months
   (`docs/backend/spec.md :: I683`, `:: I119`). It is refused where it holds an address
@@ -976,7 +982,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   2026-10-20.
 - **A match report keeps its scorers, its cards and its proposed result as the league's record, and
   loses on that same clearing what characterises the pupils' conduct**: from the pass that clears the
-  contact blocks, every pass strips the season's `spielberichte` of the referee's remarks and every
+  contact blocks, every pass strips the season's `spielberichte` of the remarks and every
   card's reason, on the reports and in the log's images, in a transaction of its own after the
   confirmations' strip (`fl_backend/app/api/bewerbungen/sweep_router.py :: strip_the_reports`,
   `docs/backend/spec.md :: I803`). The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`).
