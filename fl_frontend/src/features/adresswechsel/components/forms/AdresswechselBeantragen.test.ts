@@ -136,6 +136,16 @@ describe("what the start box says before its press", () => {
     unmount();
   });
 
+  /* A date in the example ages into one the reader takes for a deadline or copies as the day they checked. */
+  it("shows a reason's example naming no date", () => {
+    const { unmount } = box({ entwurf: { email: NEU, weg: "unerreichbar", grund: "" } });
+
+    const beispiel = screen.getByRole("textbox", { name: "Grund" }).getAttribute("placeholder") ?? "";
+    assert.match(beispiel, /^z\.B\. Postfach von der Schule gelöscht/);
+    assert.doesNotMatch(beispiel, /\d{1,2}\.\d{1,2}\.\d{2,4}/);
+    unmount();
+  });
+
   it("says the start ends the change already standing, and only where one stands", () => {
     const ENDET = /Eine neue Änderung beendet die oben gezeigte/;
 

@@ -242,7 +242,7 @@ export function AdresswechselBeantragen({
             <Label className={FIELD_LABEL_CLASSES}>Grund</Label>
             <Input
               autoComplete="off"
-              placeholder="z.B. Postfach von der Schule gelöscht, bestätigt durch die Ansprechperson des Teams am 21.10.2026"
+              placeholder="z.B. Postfach von der Schule gelöscht, bestätigt durch die Ansprechperson des Teams"
               className={FIELD_INPUT_CLASSES}
             />
             <FieldError className={FIELD_ERROR_CLASSES}>{grundGezeigt}</FieldError>
