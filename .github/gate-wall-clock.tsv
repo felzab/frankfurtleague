@@ -76,15 +76,15 @@
 # The Dockerfile change most worth catching is the one that empties that cache, and the median
 # report is the only guard a row like this has, so it has none while the row carries no reference.
 #
-# `backend`, `db`, `docs`, `ops`, `scripts` and the `frontend-units` shards are cut from the 24
-# attempts of pull-request run 37627541547, the merge commit their stamps name, the tree that run
-# tests being the one main carries after the merge. `scripts` counts 23: one attempt's job failed
-# fetching the pinned shellcheck, so its population is too short to cut into two windows of twelve
-# and the row carries `-` for reference and floor, held by its budget alone. `db` and the shards
-# install the frontend from a store and a verdict keyed on the lockfile, so their re-runs never met
-# the cold install main's first push after a lockfile change pays; each row is re-stamped only from
-# twenty-four first attempts of pushes to main, the count its reference and floor need, and until
-# then none of its figures rises.
+# `backend`, `docs`, `ops`, `scripts`, the `frontend-units` shards and the one `db` job the `db`
+# shards were split from are cut from the 24 attempts of pull-request run 37627541547, the merge
+# commit their stamps name, the tree that run tests being the one main carries after the merge.
+# `scripts` counts 23: one attempt's job failed fetching the pinned shellcheck, so its population is
+# too short to cut into two windows of twelve and the row carries `-` for reference and floor, held
+# by its budget alone. The `db` and `frontend-units` shards install the frontend from a store and a
+# verdict keyed on the lockfile, so their re-runs never met the cold install main's first push after
+# a lockfile change pays; each row is re-stamped only from twenty-four first attempts of pushes to
+# main, the count its reference and floor need, and until then none of its figures rises.
 #
 # `format`, `frontend` and `images` are cut from the main push runs their stamps count. Their caches
 # are keyed on the tree, so only a first attempt of a push times them, and a population under
@@ -227,6 +227,14 @@
 # their stamp counts: a shard's files move as files are added and as their cost table is re-cut
 # (`scripts/gate/shard_plan.py`), so which shard is heaviest moves with them.
 # `scripts/checks/check_gate_budget.py :: check_matrix_budgets` refuses the four apart.
+#
+# `db` is a matrix job of two shards on the same terms, split from one job whose row carried the
+# stamp both instances' rows carry. An instance runs part of that job's tests over the same setup,
+# so every span the stamp counts bounds an instance from above, and each row inherits the budget
+# and stamp as they stood, with `-` for the reference and floor a half's median would not sit near,
+# until twenty-four first attempts of pushes to main re-cut it.
+# `scripts/checks/check_gate_budget.py :: split_from` reads such a row as the parent's population
+# rather than a new stamp, and `:: above_parent` refuses a figure above the parent's.
 #
 # `scripts` gained two cases: `scripts/tests/test_check_gate_budget.py` holds the `verify` job's
 # `needs` to every other job in the workflow, and drives that reader over a job left out of it. They
@@ -1195,7 +1203,8 @@
 #
 # job	seconds	floor	budget	measured
 backend	78	21	105	24@2026-10-07/37627541547
-db	113	7	160	24@2026-10-07/37627541547
+db (1)	-	-	160	24@2026-10-07/37627541547
+db (2)	-	-	160	24@2026-10-07/37627541547
 docs	42	8	60	24@2026-10-07/37627541547
 format	-	-	90	17@2026-10-20
 frontend	-	-	220	16@2026-10-19
@@ -1206,4 +1215,4 @@ frontend-units (4)	96	14	205	24@2026-10-07/37627541547
 images	-	-	-	17@2026-10-20
 ops	18	23	45	24@2026-10-07/37627541547
 scripts	-	-	90	23@2026-10-07/37627541547
-total	774	4	-	-
+total	661	4	-	-

@@ -266,7 +266,17 @@ jobs:
   # wall-clock time.
 
   # The marker belongs to the suite, not to this pipeline.
+
+  # Split by file across two shards, each file's measured cost placing it (`scripts/gate/shard_plan.py`):
+  # run in one job, the two tiers took the job past its budget.
   db:
+    # Spelled out for `frontend-units`' reason: the budget check finds each instance's row by this name.
+    name: db (${{ matrix.shard }})
+    strategy:
+      # For `frontend-units`' reasons: a red shard cancels none of the others, and `shard` is the one axis.
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912); 22.04's 6.8 it accepts.
     # Back to ubuntu-latest once the image pins move to 8.3.14, which carries SERVER-131779's fix.
     runs-on: ubuntu-22.04
@@ -351,7 +361,10 @@ jobs:
           fi
           echo "docker pull exited ${rc} after ${seconds} s; this step waited $(( $(date +%s) - waited )) s for it."
           exit "$rc"
-      - name: Run the db scope
+      - name: Run shard ${{ matrix.shard }} of ${{ strategy.job-total }} of the db tiers
+        # The count is the matrix's own size, for `frontend-units`' reason.
+        env:
+          VERIFY_DB_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
         run: ./scripts/gate/verify.sh --db
 
   frontend:

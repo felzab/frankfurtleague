@@ -1097,7 +1097,7 @@ every job's version; the reason is at that workflow's `verify` job.
 | `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`; given `VERIFY_TEST_SHARD=<i>/<n>`, one of `n` shards of them, taken only where this scope runs alone                                                                | pnpm install                                                                                                                                   |
 | `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, then tsc, eslint, knip and the dependency audit as one pool, then `next build` alone                                                                                                         | pnpm install                                                                                                                                   |
 | `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; nginx accepts `prod.conf`; the edge logs no credential and sends each security header once                                                                      | Docker, and the backend virtualenv — zizmor's home, and an interpreter at the checkers' floor                                                  |
-| `--db`             | `pytest -m db -n auto --dist loadfile` against the xdist controller's two real `mongod`s (`docs/backend/spec.md` §1.6) and `pnpm run test:db` (`docs/frontend/spec.md` §1.9), concurrent when alone                                                       | venv + pnpm install + Docker                                                                                                                   |
+| `--db`             | `pytest -m db -n auto --dist loadfile` against the xdist controller's two real `mongod`s (`docs/backend/spec.md` §1.6) and `pnpm run test:db` (`docs/frontend/spec.md` §1.9), concurrent when alone; given `VERIFY_DB_SHARD=<i>/<n>`, one of `n` shards of both, taken only where this scope runs alone | venv + pnpm install + Docker                                                                                                                   |
 | `--images`         | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                                                    | Docker                                                                                                                                         |
 
 **Each of the images scope's three probes answers three ways, and the third is a refusal**: an
@@ -1308,7 +1308,7 @@ and may take none, `RULES` being where it is stated.
 ([`docs/backend/spec.md`](../backend/spec.md) §1.6); `pyright` is separate from `ruff` because ruff
 checks no types. **Both test tiers run**: the `db`-marked tests need a real `mongod`, so they are
 their own scope behind `require_docker` — which is what lets `--quick` skip them — and in CI the
-concurrent `db` job, which pulls the tier's `mongod` image in an advisory step of its own
+concurrent `db` shards, each pulling the tier's `mongod` image in an advisory step of its own
 before pytest, so the download is attributed in the log rather than hidden inside the test span.
 **The image scope** exists because code that compiles can still fail to build inside the image, or
 be omitted from the standalone output entirely.

@@ -1,4 +1,4 @@
-"""SCRIPTS · the frontend unit tests' shards: the CI matrix counts its shards, and the gate refuses a shard it cannot place.
+"""SCRIPTS · the unit and db tiers' shards: each CI matrix counts its shards, and the gate refuses a shard it cannot place.
 
 A shard runs the files its plan hands it and no others, so a count typed by hand beside the
 matrix can name shards no instance runs, their files in none while every instance is green. The
@@ -22,8 +22,8 @@ from test_check_gate_budget import AXIS_RE, MATRIX_RE, job_bodies
 from test_gate_prerequisites import PAST_THE_GUARD
 
 WORKFLOW: Final = REPO_ROOT / ".github" / "workflows" / "verify.yml"
-SHARD_JOB: Final = "frontend-units"
-SHARD_RE: Final = re.compile(r"^\s*VERIFY_TEST_SHARD:\s*(.+?)\s*$", re.MULTILINE)
+# Each sharded job against the variable that hands `verify.sh` its shard.
+SHARD_JOBS: Final = {"frontend-units": "VERIFY_TEST_SHARD", "db": "VERIFY_DB_SHARD"}
 # The index is the instance's own, and the count is the matrix's size rather than a second copy of it.
 DERIVED_SPEC: Final = "${{ matrix.shard }}/${{ strategy.job-total }}"
 
@@ -38,16 +38,18 @@ def test_every_shard_is_counted_by_the_matrix() -> None:
     Each keeps the instances' names, so the rows still match them.
     """
     workflow = WORKFLOW.read_text(encoding="utf-8")
-    body = job_bodies(workflow).get(SHARD_JOB)
-    assert body is not None, f"no `{SHARD_JOB}` job, so nothing is known to run the unit tests at all"
-    matrix = MATRIX_RE.search(body)
-    lines = [] if matrix is None else matrix[1].splitlines()
-    axes = [axis[1] for line in lines if (axis := AXIS_RE.match(line)) is not None]
-    assert axes == ["shard"] and len(lines) == 1, f"the matrix holds {lines!r}, where the `shard` list alone names one instance per shard"
-    specs = SHARD_RE.findall(body)
-    assert specs == [DERIVED_SPEC], (
-        f"the job hands `VERIFY_TEST_SHARD` {specs}, where the one spelling counting every instance is `{DERIVED_SPEC}`"
-    )
+    bodies = job_bodies(workflow)
+    for job, variable in SHARD_JOBS.items():
+        body = bodies.get(job)
+        assert body is not None, f"no `{job}` job, so nothing is known to run its tier at all"
+        matrix = MATRIX_RE.search(body)
+        lines = [] if matrix is None else matrix[1].splitlines()
+        axes = [axis[1] for line in lines if (axis := AXIS_RE.match(line)) is not None]
+        assert axes == ["shard"] and len(lines) == 1, f"`{job}`'s matrix holds {lines!r}, where the `shard` list alone names each instance"
+        specs = re.findall(rf"^\s*{variable}:\s*(.+?)\s*$", body, re.MULTILINE)
+        assert specs == [DERIVED_SPEC], (
+            f"`{job}` hands `{variable}` {specs}, where the one spelling counting every instance is `{DERIVED_SPEC}`"
+        )
 
 
 MANIFEST: Final = REPO_ROOT / "fl_frontend" / "package.json"
@@ -89,12 +91,12 @@ def _gate() -> Path:
     return root / "scripts" / "gate" / "verify.sh"
 
 
-def _refused(shard: str, *flags: str) -> str:
+def _refused(shard: str, *flags: str, variable: str = "VERIFY_TEST_SHARD") -> str:
     """The run's output, once it has refused with exit 2 and reached no scope."""
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
-    done = run_shell(BASH, _gate(), *flags, env={**base_env(), "VERIFY_TEST_SHARD": shard})
+    done = run_shell(BASH, _gate(), *flags, env={**base_env(), variable: shard})
     output = done.stdout + done.stderr
-    assert done.returncode == 2, f"VERIFY_TEST_SHARD={shard} {' '.join(flags)} exited {done.returncode}:\n{output}"
+    assert done.returncode == 2, f"{variable}={shard} {' '.join(flags)} exited {done.returncode}:\n{output}"
     assert "Refused after" in output, output
     assert PAST_THE_GUARD not in output, output
     return output
@@ -126,3 +128,22 @@ def test_a_shard_beside_another_scope_is_refused() -> None:
         if REFUSED + "VERIFY_TEST_SHARD is set, and a shard is taken only by --frontend-units run alone" not in _refused("1/4", *flags)
     ]
     assert not missed, "refused without saying a shard runs alone: " + ", ".join(missed)
+
+
+# Beside a second scope, and with no scope named, which runs every scope.
+DB_BESIDE: Final[tuple[tuple[str, ...], ...]] = (("--db", "--backend"), ())
+
+
+def test_a_db_shard_naming_no_shard_or_beside_another_scope_is_refused() -> None:
+    """The db tiers' shard is placed by the unit tests' rule, and refused by it."""
+    missed = [
+        shard
+        for shard in MALFORMED
+        if REFUSED + f"VERIFY_DB_SHARD is '{shard}', which names no shard" not in _refused(shard, "--db", variable="VERIFY_DB_SHARD")
+    ] + [
+        " ".join(flags) or "no scope named"
+        for flags in DB_BESIDE
+        if REFUSED + "VERIFY_DB_SHARD is set, and a shard is taken only by --db run alone"
+        not in _refused("1/2", *flags, variable="VERIFY_DB_SHARD")
+    ]
+    assert not missed, "refused without saying why: " + ", ".join(missed)
