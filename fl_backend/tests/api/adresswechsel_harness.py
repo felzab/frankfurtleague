@@ -291,8 +291,8 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
     return handler(**supplied)
 
 
-def read(database: AsyncDatabase, client: AsyncMongoClient, identifier: str = EMAIL) -> Awaitable[Any]:
-    return call(get_adresswechsel, database, client, identifier=identifier)
+def read(database: AsyncDatabase, client: AsyncMongoClient, identifier: str = EMAIL, **given: Any) -> Awaitable[Any]:
+    return call(get_adresswechsel, database, client, identifier=identifier, **given)
 
 
 def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = NEW_EMAIL, **given: Any) -> Awaitable[Any]:

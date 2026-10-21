@@ -8255,7 +8255,7 @@
     "/api/v0/adresswechsel/bestaetigung/ansicht": {
       "post": {
         "summary": "What one address link opens",
-        "description": "Answer what this token opens: the new mailbox's link, the stop link the address on file was mailed, or how either's change ended.\n\n**Nothing else about the change**: never a name, either address or the id. A POST that reads, so the token travels in\na body and never in a second URL. Refuses only a token no change holds (`REQ-ADRESSWECHSEL-001`); an ended change's\nlinks answer `beendet` and how it ended for as long as its record is kept.\n\nThe new mailbox's side is served in a state: `bestaetigt` once pressed; else `gesperrt` wherever the ban list holds the\naddress the link was mailed to, then `abgelaufen`, then `nicht_bestaetigbar` wherever the press would be refused for\nthe address on file's sake, each a state the confirmation is refused in. Those read alike here, though the press\nanswers each by its own code; what keeps the link's holder from telling them apart is the edge, where\n`nginx/shared/site.conf` routes no public call to this service. The stop side answers the step the change waits on and\nuntil when, and never whether it could be confirmed: the stop is refused nothing.",
+        "description": "Answer what this token opens: the new mailbox's link, the stop link the address on file was mailed, or how either's change ended.\n\n**Nothing else about the change**: never a name, either address or the id. A POST that reads, so the token travels in\na body and never in a second URL. Refuses only a token no change holds (`REQ-ADRESSWECHSEL-001`); an ended change's\nlinks answer `beendet` and how it ended for as long as its record is kept.\n\nThe new mailbox's side is served in a state: once pressed, `bestaetigt`, or `abgelaufen` where its approval week\nlapsed unapproved; else `gesperrt` wherever the ban list holds the\naddress the link was mailed to, then `abgelaufen`, then `nicht_bestaetigbar` wherever the press would be refused for\nthe address on file's sake, each a state the confirmation is refused in. Those read alike here, though the press\nanswers each by its own code; what keeps the link's holder from telling them apart is the edge, where\n`nginx/shared/site.conf` routes no public call to this service. The stop side answers the step the change waits on and\nuntil when, and never whether it could be confirmed: the stop is refused nothing.",
         "operationId": "get_adresswechsel_ansicht_api_v0_adresswechsel_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -10722,7 +10722,7 @@
     "/api/v0/konto/adresswechsel": {
       "get": {
         "summary": "Whether a signed-in person may change their address",
-        "description": "Answer whether the signed-in address holds anything its own change moves, and the change pending on it.\n\nPERSON TIER. `moeglich` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a\nregistration or a grant. **The pending address is served masked where an administrator started the change**, whole\nonly where the person typed it here: a change an administrator started may be a pretext whose target the holder of\nthe address on file must not learn. `genehmigung` is the approval a change moving the person's grant waits on.",
+        "description": "Answer whether the signed-in address holds anything its own change moves, and the change pending on it.\n\nPERSON TIER. `moeglich` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a\nregistration or a grant. **The pending address is served masked where an administrator started the change**, whole\nonly where the person typed it here: a change an administrator started may be a pretext whose target the holder of\nthe address on file must not learn. `genehmigung` is the approval a change moving the person's grant waits on;\n`abgelaufen` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.",
         "operationId": "get_adresswechsel_api_v0_konto_adresswechsel_get",
         "responses": {
           "200": {
@@ -19194,6 +19194,10 @@
                 "type": "null"
               }
             ]
+          },
+          "abgelaufen": {
+            "type": "boolean",
+            "title": "Abgelaufen"
           }
         },
         "type": "object",
@@ -19204,7 +19208,8 @@
           "wartet_auf",
           "gueltig_bis",
           "wirksam_ab",
-          "genehmigung"
+          "genehmigung",
+          "abgelaufen"
         ],
         "title": "FLKontoAdresswechselOffen",
         "description": "The address's live change as its own account page reads it."

@@ -761,6 +761,7 @@ const KONTO_OFFEN = {
   gueltig_bis: "2099-10-21T11:30:00Z",
   wirksam_ab: null,
   genehmigung: null,
+  abgelaufen: false,
 };
 const KONTO_FREIGABE = { ...KONTO_OFFEN, weg: "freigabe" as const, wartet_auf: "freigabe" as const, email: "l•••@n•••.example" };
 

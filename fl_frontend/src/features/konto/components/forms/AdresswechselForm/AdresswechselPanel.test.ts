@@ -47,6 +47,7 @@ const offen = (teil: Partial<NonNullable<FLKontoAdresswechselResponse["offen"]>>
     gueltig_bis: "2026-10-21T11:30:00Z",
     wirksam_ab: null,
     genehmigung: null,
+    abgelaufen: false,
     ...teil,
   },
 });

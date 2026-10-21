@@ -184,6 +184,22 @@ class TestTheAccountPagesRead:
         assert seen.offen is not None and seen.offen.email == "l•••@n•••.org"
         assert (NEW_EMAIL in served, "lenore.q" in served, "neupost" in served) == (False, False, False)
 
+    @pytest.mark.parametrize("step", ["link", "genehmigung"])
+    def test_a_lapsed_step_reads_lapsed_until_the_pass_ends_the_change(self, mongo_replica_set_url: str, step: str):
+        """Its press is refused `-003`, so a page reading it unmarked offers that press until the pass."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            if step == "genehmigung":
+                await granted(database)
+            minted = await start(database, client)
+            if step == "genehmigung":
+                await answer(database, client, minted.token)
+            later = AFTER_THE_DEADLINE if step == "link" else AFTER_THE_WEEK
+            seen = [(await read(database, client, germany_now=at)).offen for at in (NOW, later)]
+            return [offen is not None and offen.abgelaufen for offen in seen]
+
+        assert on_a_person(mongo_replica_set_url, body) == [False, True]
+
 
 class TestThePersonsStart:
     def test_it_writes_one_record_keyed_by_the_address_with_both_links(self, mongo_replica_set_url: str):
@@ -371,6 +387,19 @@ class TestTheLinks:
 
         assert (before.zustand, before.genehmigung_offen) == ("gueltig", None)
         assert (after.zustand, after.genehmigung_offen) == ("bestaetigt", True)
+
+    def test_a_confirmed_link_whose_approval_week_lapsed_reads_lapsed(self, mongo_replica_set_url: str):
+        """The pass ends it unapproved, so the page must not still promise it takes effect once approved."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            minted = await start(database, client)
+            await answer(database, client, minted.token)
+            return (await view(database, client, minted.token, germany_now=AFTER_THE_WEEK)).ansicht
+
+        seen = on_a_person(mongo_replica_set_url, body)
+
+        assert (seen.zustand, seen.genehmigung_offen) == ("abgelaufen", None)
 
     @pytest.mark.parametrize(
         ("cause", "refused"),
@@ -1181,6 +1210,18 @@ class TestTheApproval:
             return {row.adresse: row.adresswechsel for row in listed.berechtigungen}[EMAIL]
 
         assert on_a_person(mongo_replica_set_url, body) is None
+
+    def test_a_change_whose_link_lapsed_unconfirmed_is_offered_to_nobody(self, mongo_replica_set_url: str):
+        """Refused `-003` as a lapsed week is, so the reload that refusal asks for must not offer it again."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            minted = await start(database, client)
+            refused = await refused_code(approve(database, client, minted.id, operator=SECOND_ADMIN, germany_now=AFTER_THE_DEADLINE))
+            listed = await call(get_berechtigungen, database, client, operator=SECOND_ADMIN, now=AFTER_THE_DEADLINE)
+            return refused, {row.adresse: row.adresswechsel for row in listed.berechtigungen}[EMAIL]
+
+        assert on_a_person(mongo_replica_set_url, body) == (ADRESSWECHSEL_ABGELAUFEN, None)
 
     def test_an_owner_s_grant_is_approved_by_no_administrator(self, mongo_replica_set_url: str):
         assert self.refused_approval(mongo_replica_set_url, approver=ADMIN, verwaltung="owner") == (ADRESSWECHSEL_GENEHMIGUNG_INHABER, None)

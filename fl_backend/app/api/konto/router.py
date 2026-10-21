@@ -214,7 +214,7 @@ async def get_einwilligungen(
 # is: the change crosses every Funktion the address holds.
 
 
-def _offen(record: Mapping[str, Any]) -> FLKontoAdresswechselOffen:
+def _offen(record: Mapping[str, Any], *, now: datetime) -> FLKontoAdresswechselOffen:
     genehmigung = record.get("genehmigung")
     gestand = None
     if isinstance(genehmigung, Mapping):
@@ -233,6 +233,7 @@ def _offen(record: Mapping[str, Any]) -> FLKontoAdresswechselOffen:
         gueltig_bis=als_utc(record.get("gueltig_bis")),
         wirksam_ab=als_utc(record.get("wirksam_ab")),
         genehmigung=gestand,
+        abgelaufen=ist_abgelaufen(record, now=now),
     )
 
 
@@ -242,12 +243,13 @@ async def _adresswechsel_answer(
     records: RecordCollections,
     adresswechsel_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
+    now: datetime,
     session: AsyncClientSession | None,
 ) -> FLKontoAdresswechselResponse:
     bestand = await read_the_bestand(identifier, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
     record = await adresswechsel_collection.find_one(build_address_filter(identifier), session=session)
 
-    return FLKontoAdresswechselResponse(moeglich=not bestand.leer, offen=None if record is None else _offen(record))
+    return FLKontoAdresswechselResponse(moeglich=not bestand.leer, offen=None if record is None else _offen(record, now=now))
 
 
 @router.get("/adresswechsel", response_model=FLKontoAdresswechselResponse, summary="Whether a signed-in person may change their address")
@@ -257,6 +259,7 @@ async def get_adresswechsel(
     adresswechsel_collection: AdresswechselCollection,
     berechtigungen_collection: BerechtigungenCollection,
     db: DBClient,
+    germany_now: datetime = Depends(get_germany_now),
 ) -> FLKontoAdresswechselResponse:
     """
     Answer whether the signed-in address holds anything its own change moves, and the change pending on it.
@@ -264,7 +267,8 @@ async def get_adresswechsel(
     PERSON TIER. `moeglich` where the address holds a pupil row, a confirmed referee row, a confirmed contact seat, a
     registration or a grant. **The pending address is served masked where an administrator started the change**, whole
     only where the person typed it here: a change an administrator started may be a pretext whose target the holder of
-    the address on file must not learn. `genehmigung` is the approval a change moving the person's grant waits on.
+    the address on file must not learn. `genehmigung` is the approval a change moving the person's grant waits on;
+    `abgelaufen` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
     """
 
     # A snapshot, so the records and the change are answered as of one moment.
@@ -274,6 +278,7 @@ async def get_adresswechsel(
             records=records,
             adresswechsel_collection=adresswechsel_collection,
             berechtigungen_collection=berechtigungen_collection,
+            now=germany_now,
             session=session,
         )
 
@@ -507,6 +512,7 @@ async def delete_adresswechsel(
             records=records,
             adresswechsel_collection=adresswechsel_collection,
             berechtigungen_collection=berechtigungen_collection,
+            now=germany_now,
             session=session,
         )
 

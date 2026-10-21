@@ -241,15 +241,16 @@ def build_addresses_filter(adressen: list[str]) -> dict[str, Any]:
 
 
 def build_awaiting_genehmigung_filter(adressen: list[str], *, now: datetime) -> dict[str, Any]:
-    """The live changes of these folded addresses whose grant's approval is owed, inside its week: what the administrators page offers.
+    """The live changes of these folded addresses awaiting their grant's approval, no step lapsed: what the administrators page offers.
 
-    Past the week the approval is refused and the pass ends the change, which `build_parked_terms` then leaves unparked.
+    A lapsed one is refused `-003`, so the reload that refusal asks for must not offer it.
     """
 
     return {
         **build_addresses_filter(adressen),
         "genehmigung.genehmigt_am": {"$type": "null"},
-        "genehmigung.bis": {"$type": "date", "$gt": now},
+        # `ist_abgelaufen`'s judgement, negated: one lapse rule for the press, the pass and this list.
+        "$nor": build_lapsed_terms(now)["$or"],
     }
 
 
@@ -373,11 +374,12 @@ def bisherig_zustand(record: Mapping[str, Any]) -> FLAdresswechselBisherigZustan
 def neu_zustand(record: Mapping[str, Any], *, now: datetime, gesperrt: bool, nicht_bestaetigbar: bool) -> FLAdresswechselNeuZustand:
     """What the new mailbox's link shows, in the order the confirmation judges, so a refused press names what a reload shows.
 
-    The unconfirmable causes read alike here; the press's own codes part them, merged only at the edge.
+    The unconfirmable causes read alike here; the press's own codes part them, merged only at the edge. A confirmed
+    change whose approval week lapsed reads `abgelaufen`, never `bestaetigt`: the pass ends it unapproved.
     """
 
     if record.get("bestaetigt_am") is not None:
-        return "bestaetigt"
+        return "abgelaufen" if ist_abgelaufen(record, now=now) else "bestaetigt"
 
     if gesperrt:
         return "gesperrt"
