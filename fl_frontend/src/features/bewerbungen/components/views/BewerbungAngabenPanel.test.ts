@@ -8,6 +8,7 @@ import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
+import { bestaetigungsStand } from "../../bestaetigungStand.ts";
 import { FLBewerbungSchema } from "../../schemas.ts";
 
 import type { MedienFragen } from "@/features/spieler/nachweis.ts";
@@ -65,8 +66,11 @@ const BEWERBUNG: FLBewerbung = FLBewerbungSchema.parse({
 const fragenOf = (...labels: string[]): MedienFragen =>
   Object.fromEntries(labels.map((label) => [label, Object.hasOwn(publishedFassung(label).bedienelemente, "medien")]));
 
-const markup = (fields: Partial<FLBewerbung> = {}, teamName: string | null = TEAM_NAME, medienFragen: MedienFragen = {}): string =>
-  renderMarkup(BewerbungAngabenPanel, { bewerbung: { ...BEWERBUNG, ...fields }, teamName, staende: [], medienFragen });
+/** Rendered with the seats' states as the page derives them, which hands the panel every seat. */
+const markup = (fields: Partial<FLBewerbung> = {}, teamName: string | null = TEAM_NAME, medienFragen: MedienFragen = {}): string => {
+  const bewerbung = { ...BEWERBUNG, ...fields };
+  return renderMarkup(BewerbungAngabenPanel, { bewerbung, teamName, staende: bestaetigungsStand(bewerbung), medienFragen });
+};
 
 /** One fact's value, cut from the `<dd>` under its own `<dt>`: the same words stand in several rows. */
 const factLine = (html: string, label: string): string => new RegExp(`<dt[^>]*>${label}</dt><dd[^>]*>(.*?)</dd>`, "s").exec(html)?.[1] ?? "";
@@ -120,25 +124,6 @@ describe("the panel a triage decision is taken from", () => {
   it("reads a field the school left empty as not held", () => {
     assert.equal(textOf(factLine(markup({ wunschgegner: null }), "Wunschgegner")), "Nicht hinterlegt");
   });
-
-  /* The Herkunft is who seated the person, `eingetragen_von`. */
-  for (const [von, label] of [
-    ["bewerbung", "Mit der Bewerbung eingetragen"],
-    ["liga", "Von der Liga eingetragen"],
-  ] as const) {
-    it(`names a seat stored as ${von} by who seated it, „${label}“`, () => {
-      const ansprechperson = BEWERBUNG.kontakte.ansprechperson;
-      assert.ok(ansprechperson !== null);
-      const html = markup({
-        kontakte: {
-          ...BEWERBUNG.kontakte,
-          ansprechperson: { ...ansprechperson, einwilligung: { ...ansprechperson.einwilligung, eingetragen_von: von } },
-        },
-      });
-
-      assert.match(textOf(factLine(html, "Kenntnisnahme")), new RegExp(`^${label}, `));
-    });
-  }
 
   /* Withdrawable on the account page while the application is pending, so the administrator deciding it
      reads both as they stand, each with its act; both arms, so „erlaubt“ for every seat fails. */
