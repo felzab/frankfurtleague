@@ -17,6 +17,7 @@ import { SchiedsrichterAbsageSchema } from "@/features/spielbestaetigungen/schem
 import {
   ABSAGE_GESPEICHERT,
   ABSAGE_NICHT_GESPEICHERT,
+  terminText,
   ZUSAGE_GESPEICHERT,
   ZUSAGE_NICHT_GESPEICHERT,
 } from "@/features/spielbestaetigungen/utils";
@@ -47,7 +48,7 @@ import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
-import { formatSpielDatum, formatUhrzeit } from "@/shared/utils/format";
+import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSpielbestaetigungSchiedsrichterZustand, FLSpielbestaetigungSelbst } from "@/features/spielbestaetigungen/schemas";
 
@@ -159,7 +160,7 @@ function EinsatzKarte({ einsatz }: { einsatz: FLSpielbestaetigungSelbst }) {
       </div>
 
       <dl className={FIELD_PAIR_CLASSES}>
-        <Angabe label="Termin">{`${datum}, ${formatUhrzeit(ansetzung.uhrzeit)} Uhr`}</Angabe>
+        <Angabe label="Termin">{terminText(ansetzung)}</Angabe>
         <Angabe label="Ort">{ansetzung.spielort?.name ?? <Leer />}</Angabe>
         {einsatz.zustand === "abgelehnt" && <Angabe label="Begründung">{einsatz.begruendung ?? <Leer />}</Angabe>}
       </dl>
