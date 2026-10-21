@@ -122,14 +122,8 @@ class TestTheAddressIsRequired:
             payload.model_validate(body(kontakt(email=email)))
 
     @pytest.mark.parametrize(("payload", "body"), BODIES)
-    def test_the_placeholder_under_the_reserved_domain_is_refused(self, kontakt, payload: type[BaseModel], body: Body):
-        """What makes the admin enter the real address: a row carrying the placeholder saves only once it is replaced."""
-        with pytest.raises(ValidationError):
-            payload.model_validate(body(kontakt(email="adresse-fehlt@frankfurtleague.invalid")))
-
-    @pytest.mark.parametrize(("payload", "body"), BODIES)
     def test_the_same_body_with_an_address_is_accepted(self, kontakt, payload: type[BaseModel], body: Body):
-        """The control: a body refused for something besides the address would pass both cases above."""
+        """The control: a body refused for something besides the address would pass the case above."""
         payload.model_validate(body(kontakt()))
 
 

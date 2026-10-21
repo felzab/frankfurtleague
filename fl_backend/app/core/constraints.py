@@ -1136,6 +1136,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             required=(
                 "_id",
                 "at",
+                "at_date",
                 "actor",
                 "trace_id",
                 "request",
@@ -1146,18 +1147,15 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "before",
                 "modified_count",
                 "redacted_at",
+                "anlass",
             ),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "at": {"bsonType": "string"},
-                # Out of `required`: the rows the log already holds carry none, and strict
-                # validation refuses an erasure's `$set` over an invalid row. `record_write` stamps
-                # every row it builds, so those are the only ones outside the retention.
+                # Required: the retention index expires a row by this key alone, so a row without it
+                # is kept for ever.
                 "at_date": {"bsonType": "date"},
                 "actor": _AKTOR,
-                # Required where `at_date` above is not: the rows the log already holds carry this
-                # value under an older name, so a hand-run rename supplies it rather than the field
-                # staying optional (`docs/ops/runbooks.md` §2 has that order and what it costs).
                 "trace_id": {"bsonType": "string"},
                 "request": _AKTION_REQUEST,
                 "collection": {"bsonType": "string", "enum": [*_LOGGED_COLLECTIONS, *_LOGGED_ACTS]},
@@ -1173,8 +1171,6 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "before": {"bsonType": ["object", "array", "null"]},
                 "modified_count": {"bsonType": _INT_OR_NULL},
                 "redacted_at": {"bsonType": _STRING_OR_NULL},
-                # Out of `required` for `at_date`'s reason: the rows the log already holds carry none,
-                # and a backfill would be a one-off migration.
                 "anlass": {"bsonType": _STRING_OR_NULL},
             },
         )

@@ -1,5 +1,6 @@
+import dataclasses
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -9,6 +10,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
+from app.api.einwilligung import services as einwilligung_services
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.schiedsrichter.admin_router import (
@@ -47,7 +49,7 @@ from app.api.zustellung.schemas import FLZustellungAngenommenPayload
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
@@ -81,8 +83,8 @@ DEFAULT_PAYMENT = 20
 EMAIL = "collina@example.com"
 CORRECTED_EMAIL = "collina.pierluigi@example.com"
 BANNED_EMAIL = "gesperrt@example.com"
-# Under RFC 6761's reserved `.invalid`, which no mail system delivers to.
-PLACEHOLDER_EMAIL = "adresse-fehlt@frankfurtleague.invalid"
+# Under RFC 6761's reserved `.invalid`, which no payload stores and no mail system delivers to.
+UNFOLDABLE_EMAIL = "jemand@schule.invalid"
 TELEFON = "+49 69 1234567"
 
 AN_ADULTS_BIRTHDATE = "1984-05-09"
@@ -574,10 +576,7 @@ class TestTheReSend:
         assert BESTAETIGUNG_FELD not in row
 
     def test_a_stored_address_no_payload_would_take_is_refused_as_none(self, mongo_replica_set_url: str):
-        """The placeholder a row without an address is given.
-
-        The ban-list hash cannot key it, so unjudged it answers 500 rather than a refusal the panel words.
-        """
+        """The ban-list hash cannot key it, so unjudged it answers 500 rather than a refusal the panel words."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(WriteRefusalException) as refused:
@@ -585,7 +584,7 @@ class TestTheReSend:
 
             return refused.value, await stored(database)
 
-        refused, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=PLACEHOLDER_EMAIL)])
+        refused, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=UNFOLDABLE_EMAIL)])
 
         assert refused.error_code == SCHIEDSRICHTER_KEINE_ADRESSE
         assert BESTAETIGUNG_FELD not in row
@@ -663,13 +662,13 @@ class TestTheReactivation:
         assert row[BESTAETIGUNG_FELD]["token_hash"] == hash_token(response.bestaetigung.token)
         assert filed == 1
 
-    def test_a_row_holding_the_placeholder_comes_back_unasked(self, mongo_replica_set_url: str):
-        """Entering the real address is the save that mints; a link minted here would go to nobody."""
+    def test_a_row_holding_no_usable_address_comes_back_unasked(self, mongo_replica_set_url: str):
+        """Entering a real address is the save that mints; a link minted here would go to nobody."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await reactivate(database, client), await stored(database)
 
-        response, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=PLACEHOLDER_EMAIL, **RETIRED)])
+        response, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=UNFOLDABLE_EMAIL, **RETIRED)])
 
         assert row["inactive_since"] is None
         assert response.bestaetigung is None
@@ -824,18 +823,29 @@ class TestTheConfirmation:
 
 # A record a hand edit stamped `""`: every key the validator requires, which admits a string there.
 EMPTY_STAMPED: Mapping[str, Any] = {
-    **documents.eigene_einwilligung_document(text_version="2026-09-schiedsrichterseite", bestaetigt_am="2026-03-01", umfang="intern"),
+    **documents.eigene_einwilligung_document(text_version="2026-10-schiedsrichterseite-4", bestaetigt_am="2026-03-01", umfang="intern"),
     "bestaetigt_am": "",
 }
+
+
+# An older version of the referee page, built for the case: the registry holds only the version a stored
+# record can cite, and an older one is what a page loaded before a deploy names.
+EARLIER_LABEL = "2026-01-schiedsrichterseite"
 
 
 class TestTheLabelAPressNames:
     """`REQ-EINWILLIGUNG-001`: a referee's press names the referee page's running label and nothing else."""
 
+    @pytest.fixture(autouse=True)
+    def _an_earlier_version_of_the_page(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        running = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_schiedsrichter"]]
+        earlier = dataclasses.replace(running, gilt_ab=date(2026, 1, 1))
+        monkeypatch.setattr(einwilligung_services, "FASSUNGEN", {**FASSUNGEN, EARLIER_LABEL: earlier})
+
     @pytest.mark.parametrize(
         "genannt",
         [
-            pytest.param("2026-09-schiedsrichterseite-2", id="a superseded label of the referee page"),
+            pytest.param(EARLIER_LABEL, id="a superseded label of the referee page"),
             pytest.param(LAUFENDE_FASSUNGEN["bestaetigung_spieler"], id="the pupil page's running label"),
             pytest.param("2026-04-schiedsrichterseite", id="a label the registry never held"),
         ],

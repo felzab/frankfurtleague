@@ -54,7 +54,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "21. Oktober 2026", digest: "2bc019a14d3e18e1d4f48faed62ed96ce3ab2904f4d1d8e0f5c79992f2ae1ca6" } as const;
+const FASSUNG = { stand: "21. Oktober 2026", digest: "7e4004c2c4a41d71cc39997534aacf70aa643a6e5009522f39bf79f6ec63e0e4" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -328,10 +328,9 @@ describe("the privacy notice's retention table", () => {
 
   it("gives a rejected application, the action log and the backups their clocks in words", () => {
     assert.equal(ANGABEN.get("Abgelehnte Bewerbung samt den Daten der drei Kontaktpersonen"), "Ein Monat nach der Entscheidung");
-    assert.ok(
-      ANGABEN.get("Änderungsprotokoll: Änderungen der Verwaltung und Änderungen angemeldeter Personen")?.startsWith(
-        "Zwölf Monate ab dem Eintrag;",
-      ),
+    assert.equal(
+      ANGABEN.get("Änderungsprotokoll: Änderungen der Verwaltung und Änderungen angemeldeter Personen"),
+      "Zwölf Monate ab dem Eintrag",
     );
     assert.equal(ANGABEN.get("Sicherungskopien der Datenbank"), "Etwa acht Tage");
   });
@@ -911,13 +910,13 @@ describe("the privacy notice's publication and retention rows keep their ruled b
 
   /* The season-after rule, which activating a season runs: a cell keeping a pupil while taking part alone would
      promise a deletion nothing triggers (`fl_frontend/src/features/saisons/actions.ts :: activateSaisonAction`). */
-  it("keeps a pupil until the season after their last squad season ends, and once resets every pupil", () => {
+  it("keeps a pupil until the season after their last squad season ends", () => {
     assert.equal(
       ANGABEN.get("Daten von Spielerinnen, Spielern und Schiedsrichtern"),
       "Bei Spielerinnen und Spielern: bis zum Ende der Saison nach ihrer letzten Saison im Kader. Mit dem Beginn der Saison danach " +
         "löschen wir ihre Daten, außer sie stehen wieder in einem Kader oder haben eine offene Registrierung. Auf Wunsch löschen wir " +
-        "früher. Am Ende dieser Saison löschen wir einmalig die Daten aller Spielerinnen und Spieler. Bei Schiedsrichterinnen und " +
-        "Schiedsrichtern: bis die Verwaltung den Eintrag endgültig löscht, von sich aus oder weil Du es verlangst",
+        "früher. Bei Schiedsrichterinnen und Schiedsrichtern: bis die Verwaltung den Eintrag endgültig löscht, von sich aus oder weil " +
+        "Du es verlangst",
     );
   });
 

@@ -78,13 +78,11 @@ describe("a referee's own page", () => {
     }
   });
 
-  /* A row with no address of its own holds a placeholder, which is no address the person could use. */
-  it("names an absent address, school and telephone as not recorded, never the placeholder", () => {
-    renderView([{ ...SCHIEDSRICHTERIN, schule: null, kontakt: { telefon: null, email: "ohne-adresse@example.invalid" } }]);
+  it("names an absent address, school and telephone as not recorded", () => {
+    renderView([{ ...SCHIEDSRICHTERIN, schule: null, kontakt: { telefon: null, email: null } }]);
 
     assert.equal(screen.getAllByText("Nicht hinterlegt").length, 3);
     for (const leer of screen.getAllByText("Nicht hinterlegt")) assertLeer(leer, "Nicht hinterlegt");
-    assert.equal(screen.queryAllByText(/\.invalid/).length, 0, "the page shows the placeholder address");
   });
 
   /* One address may hold several referee rows; each is its own panel. */

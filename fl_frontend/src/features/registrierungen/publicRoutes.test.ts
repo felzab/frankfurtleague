@@ -682,7 +682,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
      reaches the error boundary, which logs it, never the panel asking for a reload. */
   it("lets a running label the page cannot place reach the error boundary", async () => {
     await assert.rejects(
-      handedFassung({ laufend: "2026-09-spielerseite-2" }),
+      handedFassung({ laufend: "2026-09-bestaetigungsseite-5" }),
       { name: "ZodError" },
       "the page absorbed words it holds no keys for",
     );

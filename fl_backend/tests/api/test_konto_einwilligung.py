@@ -93,7 +93,7 @@ BYSTANDER_OID = ObjectId("6890a1b2c3d4e5f607850019")
 ELSEWHERE = IDENTIFIER.replace("@schule.de", "@anderswo.de")
 ELSEWHERE_OID = ObjectId("6890a1b2c3d4e5f60785001a")
 
-CONFIRMATION_LABEL = "2026-09-schiedsrichterseite-3"
+CONFIRMATION_LABEL = "2026-10-schiedsrichterseite-4"
 
 # A fixture the referee leads, embedding their name: the copy a withdrawal would be fanned out onto.
 SPIEL = spiel_document(
@@ -612,9 +612,9 @@ class TestTheAccountPagesRead:
             SCHIEDSRICHTER_MIN_AGE_YEARS,
         )
         assert {entry["medien_mindestalter"] for entry in [body["spieler"], *body["schiedsrichter"], *body["sitze"]]} == {MEDIEN_MIN_AGE_YEARS}
-        # A pupil with no squad row names nothing but themselves; the referee's one name is cut to its first part.
-        assert body["spieler"]["kontext"] == {"vorname": "Ortrud", "team": None, "schule": None, "saison": None}
-        assert body["schiedsrichter"][0]["kontext"] == {"vorname": "Ortrud"}
+        # A pupil with no squad row names nothing; a referee's words fill no slot from the record.
+        assert body["spieler"]["kontext"] == {"team": None, "schule": None, "saison": None}
+        assert "kontext" not in body["schiedsrichter"][0]
 
     def test_an_address_holding_nothing_is_answered_empty_rather_than_refused(self, mongo_replica_set_url: str):
         """The account page renders for every signed-in person."""

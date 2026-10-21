@@ -42,6 +42,7 @@ from app.core.actor_token import PASSKEY_FACTOR
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from app.core.security import StepUpCheck, get_person_confirmation_check
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import ADRESSWECHSEL_WARTEZEIT_TAGE
 from tests import documents
 from tests.actor_tokens import verified_actor
@@ -84,7 +85,7 @@ SPIEL_OID = ObjectId("6890a1b2c3d4e5f607850061")
 CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607850062")
 
 UNCONFIRMED_REG_LINK = "the-unconfirmed-registrations-link"
-REFEREE_LABEL = "2026-09-schiedsrichterseite-3"
+REFEREE_LABEL = LAUFENDE_FASSUNGEN["bestaetigung_schiedsrichter"]
 
 A_BOUNCE: Mapping[str, Any] = {"nachricht_id": "m-1", "stand": "unzustellbar", "grund": "NoEmail", "am": "2026-03-21T10:00:00.000000+00:00"}
 

@@ -10,7 +10,7 @@ from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.registrierungen.schemas import FLRegistrierungStatus
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.sperrliste.schemas import ADDRESS_IN_FREE_TEXT
-from app.shared.folding import sign_in_identifier, trimmed
+from app.shared.folding import trimmed
 from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENZEN_ADRESSEN_MAX
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.kontakt import CustomEmail
@@ -238,39 +238,19 @@ class FLReferenzenResponse(BaseAPIResponse):
 
 # --- The ADMINISTRATOR's erasure on a mailed request, and its reveal.
 
-# German, as every refusal a payload's own validator raises is worded. It reaches `REQ-VAL-001`'s log
-# line, never the page, whose box words its own; `fl_backend/tests/shared/erasure_refusals.json` holds
-# the two predicates to one verdict.
-ADRESSE_UNTER_INVALID = "Diese Adresse ist ein Platzhalter und gehört niemandem."
-
-
-def refuse_the_reserved_domain(value: str) -> str:
-    """No mailbox sits under RFC 6761's reserved `invalid`, and every referee row stored without an address shares one placeholder there.
-
-    Looked up, it would reach all of them at once, so it is refused on its fold, before any read.
-    """
-
-    domain = sign_in_identifier(value).rpartition("@")[2]
-    if domain == "invalid" or domain.endswith(".invalid"):
-        raise ValueError(ADRESSE_UNTER_INVALID)
-
-    return value
-
 
 def _trimmed_as_the_page_trims(value: Any) -> Any:
     return trimmed(value) if isinstance(value, str) else value
 
 
-# A lookup asking no more than any payload stores, an `@` within the stored ceiling, and refusing the
-# reserved domain (`docs/backend/spec.md :: I329`): a record stored under an older rule stays
-# erasable.
+# A lookup asking no more than any payload stores, an `@` within the stored ceiling
+# (`docs/backend/spec.md :: I329`): a record stored under an older rule stays erasable.
 ErasureAdresse = Annotated[
     str,
     StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH, pattern="@"),
     # Never `strip_whitespace`, whose set adds U+0085, which the page keeps: one spelling's records would be erased and
     # another spelling's sign-in account left (`fl_backend/tests/shared/test_email_address.py`).
     BeforeValidator(_trimmed_as_the_page_trims),
-    AfterValidator(refuse_the_reserved_domain),
 ]
 
 # German, as the ban's `grund` words its own, and like it read on the log line alone: the box words

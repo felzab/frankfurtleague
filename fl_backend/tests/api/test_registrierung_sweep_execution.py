@@ -3,7 +3,7 @@ import functools
 import logging
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -62,7 +62,7 @@ TEAM_NAME = "Adler"
 
 
 def einwilligung(*, bestaetigt_am: str = MAILED_ON_THE_MARK) -> dict[str, Any]:
-    stored = eigene_einwilligung_document(text_version="2026-09-spielerseite", bestaetigt_am=MAILED_ON_THE_MARK)
+    stored = eigene_einwilligung_document(text_version="2026-10-spielerseite-5", bestaetigt_am=MAILED_ON_THE_MARK)
 
     return {**stored, "bestaetigt_am": bestaetigt_am}
 
@@ -485,6 +485,7 @@ def refusing_its_redaction(row: Mapping[str, Any]) -> dict[str, Any]:
 
     return {
         "at": "2026-01-01T00:00:00+00:00",
+        "at_date": datetime.now(UTC),
         "actor": {"kind": "system", "email": "SYSTEM"},
         "request": None,
         "collection": str(Collection.REGISTRIERUNGEN),
@@ -494,6 +495,7 @@ def refusing_its_redaction(row: Mapping[str, Any]) -> dict[str, Any]:
         "before": dict(row),
         "modified_count": None,
         "redacted_at": None,
+        "anlass": None,
     }
 
 

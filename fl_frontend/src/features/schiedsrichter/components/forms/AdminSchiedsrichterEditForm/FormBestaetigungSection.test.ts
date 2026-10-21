@@ -42,13 +42,13 @@ const BLOCK: FLSchiedsrichterBestaetigung = {
 };
 
 /** Each choice as the referee's own confirmation evidences it. */
-const BESTAETIGUNG = { am: "2026-09-22T09:00:00Z", text_version: "2026-09-schiedsrichterseite", erteilt_zuvor: null };
+const BESTAETIGUNG = { am: "2026-09-22T09:00:00Z", text_version: "2026-10-schiedsrichterseite-4", erteilt_zuvor: null };
 
 const BESTAETIGT: FLEinwilligung = {
   umfang: "kader_oeffentlich",
   datum: "2026-09-22",
   bestaetigt_am: "2026-09-22",
-  text_version: "2026-09-schiedsrichterseite",
+  text_version: "2026-10-schiedsrichterseite-4",
   medien: false,
   nachweis: { umfang: BESTAETIGUNG, medien: BESTAETIGUNG },
 };
@@ -130,7 +130,7 @@ describe("what the editor shows about a referee's own confirmation", () => {
           umfang: {
             am: "2026-10-04T08:00:00Z",
             text_version: "2026-10-konto-schiedsrichter",
-            erteilt_zuvor: { am: "2026-09-22T09:00:00Z", text_version: "2026-09-schiedsrichterseite" },
+            erteilt_zuvor: { am: "2026-09-22T09:00:00Z", text_version: "2026-10-schiedsrichterseite-4" },
           },
           medien: BESTAETIGUNG,
         },
@@ -143,7 +143,7 @@ describe("what the editor shows about a referee's own confirmation", () => {
     );
     assert.ok(text.includes("zuvor erteilt am 22.09.2026, 11:00 Uhr"), "the withdrawal hides the grant it ended");
     assert.ok(
-      text.includes("seit 22.09.2026, 11:00 Uhr, Fassung 2026-09-schiedsrichterseite"),
+      text.includes("seit 22.09.2026, 11:00 Uhr, Fassung 2026-10-schiedsrichterseite-4"),
       "a choice never moved does not stand on its confirmation's act",
     );
   });
@@ -176,7 +176,7 @@ describe("what the editor shows about a referee's own confirmation", () => {
 
     assert.match(shown, /Name im Spielplan/, "the publication answer is not shown");
     assert.match(shown, /Nicht zugesagt/, "the media answer is not shown");
-    assert.match(shown, /2026-09-schiedsrichterseite/, "the stamped wording is not named");
+    assert.match(shown, /2026-10-schiedsrichterseite-4/, "the stamped wording is not named");
     assert.match(shown, /01\.01\.1990/, "the birthdate the same press wrote is not shown");
   });
 

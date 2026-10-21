@@ -78,7 +78,7 @@ ROW_NAME_B = "Lessing"
 
 # The confirmation page's label the stored records cite: a version of ANOTHER page than the account
 # page's pupil control.
-CONFIRMATION_LABEL = "2026-09-spielerseite-3"
+CONFIRMATION_LABEL = "2026-10-spielerseite-5"
 
 ADULT_BIRTHDATE = "2000-05-09"
 
@@ -99,7 +99,7 @@ NOW_UTC = "2026-10-03T10:00:00+00:00"
 # at the confirmation. Two acts, so a press is seen to restamp the choice it moves and no other.
 EARLIER_EVIDENCE = {
     "umfang": {"am": "2026-09-20T17:30:00+00:00", "text_version": "2026-10-konto-spieler"},
-    "medien": {"am": "2026-09-02T08:00:00+00:00", "text_version": "2026-09-spielerseite-3"},
+    "medien": {"am": "2026-09-02T08:00:00+00:00", "text_version": "2026-10-spielerseite-5"},
 }
 # Seventeen on `NOW`, eighteen a day later: the floor is judged on the day, not the year.
 SEVENTEEN_BIRTHDATE = "2008-10-04"
@@ -541,9 +541,9 @@ class TestTheWordsContext:
     def test_the_newest_seasons_squad_row_names_the_team_school_and_season(self, mongo_replica_set_url: str):
         kontext = served(mongo_replica_set_url, _read(IDENTIFIER, path=KONTO_PATH)).json()["spieler"]["kontext"]
 
-        assert kontext == {"vorname": "Ortrud", "team": CLUB_NAME_A_NOW, "schule": f"{CLUB_NAME_A_NOW}-Schule", "saison": ACTIVE_SAISON}
+        assert kontext == {"team": CLUB_NAME_A_NOW, "schule": f"{CLUB_NAME_A_NOW}-Schule", "saison": ACTIVE_SAISON}
 
-    def test_a_record_with_no_squad_row_names_its_person_alone(self, mongo_replica_set_url: str):
+    def test_a_record_with_no_squad_row_names_nothing(self, mongo_replica_set_url: str):
         kontext = served(mongo_replica_set_url, _read(YOUNG, path=KONTO_PATH)).json()["spieler"]["kontext"]
 
-        assert kontext == {"vorname": "Jonas", "team": None, "schule": None, "saison": None}
+        assert kontext == {"team": None, "schule": None, "saison": None}

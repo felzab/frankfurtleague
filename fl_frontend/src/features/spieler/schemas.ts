@@ -327,7 +327,6 @@ export type FLSpielerSelbstKaderZeile = z.infer<typeof FLSpielerSelbstKaderZeile
  * points to it today. Null where the pupil holds no squad row to name a team by.
  */
 export const FLSpielerKontextSchema = z.object({
-  vorname: z.string(),
   team: z.string().nullable(),
   schule: z.string().nullable(),
   saison: z.string().nullable(),

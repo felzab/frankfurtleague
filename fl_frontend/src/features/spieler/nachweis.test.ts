@@ -20,14 +20,14 @@ describe("the act a consent choice is read back with", () => {
       {
         am: "2026-10-04T08:00:00Z",
         text_version: "2026-10-konto-spieler",
-        erteilt_zuvor: { am: "2026-09-01T10:00:00Z", text_version: "2026-09-spielerseite" },
+        erteilt_zuvor: { am: "2026-09-01T10:00:00Z", text_version: "2026-10-spielerseite-5" },
       },
       { am: "2026-03-14", textVersion: "1" },
     );
 
     assert.equal(
       satz,
-      "seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-spieler (zuvor erteilt am 01.09.2026, 12:00 Uhr, Fassung 2026-09-spielerseite)",
+      "seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-spieler (zuvor erteilt am 01.09.2026, 12:00 Uhr, Fassung 2026-10-spielerseite-5)",
     );
   });
 

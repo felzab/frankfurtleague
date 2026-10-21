@@ -129,7 +129,6 @@ export async function EinwilligungSection() {
         angaben: <SchiedsrichterAngaben eintrag={eintrag} />,
         bestaetigt: await bestaetigt(eintrag.bestaetigt_text_version, {
           ...KONSTANTEN,
-          ...eintrag.kontext,
           minAlter: String(eintrag.mindestalter),
           medienMinAlter: String(eintrag.medien_mindestalter),
         }),

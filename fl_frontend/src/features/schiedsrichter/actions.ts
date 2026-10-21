@@ -241,8 +241,8 @@ export async function einladeSchiedsrichterAction(
       return { success: false, error: EINTRAG_WEG };
     }
 
-    // No address, or the placeholder a row without one is given, rather than making the round trip to
-    // be told so. Whether a link may go to a real one is the API's to judge.
+    // No address, rather than making the round trip to be told so. Whether a link may go to the one
+    // stored is the API's to judge.
     if (!hatAdresse(gelesen.schiedsrichter.kontakt.email)) {
       return { success: false, error: KEINE_ADRESSE };
     }

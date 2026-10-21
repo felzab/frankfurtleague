@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -60,6 +61,8 @@ def log_row(
     return {
         "_id": ObjectId(f"6890a1b2c3d4e5f607{index:06d}"),
         "at": at,
+        # The real clock, never `at`: the retention index removes a row a year past this stamp.
+        "at_date": datetime.now(UTC),
         "actor": ACTOR_JE_KIND[kind],
         # Distinct per row unless a caller shares one, so a narrowing on a trace selects what it seeded.
         "trace_id": trace_id or f"{index:032x}",
@@ -71,6 +74,7 @@ def log_row(
         "before": {"name": "Lessing"},
         "modified_count": None,
         "redacted_at": None,
+        "anlass": None,
     }
 
 

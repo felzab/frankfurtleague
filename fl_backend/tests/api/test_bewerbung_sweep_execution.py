@@ -3,7 +3,7 @@ import functools
 import logging
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, cast
 from zoneinfo import ZoneInfo
 
@@ -1240,6 +1240,7 @@ def refusing_its_redaction(collection: Collection, row: Mapping[str, Any]) -> di
 
     return {
         "at": "2026-01-01T00:00:00+00:00",
+        "at_date": datetime.now(UTC),
         "actor": {"kind": "system", "email": "SYSTEM"},
         "request": None,
         "collection": str(collection),
@@ -1249,6 +1250,7 @@ def refusing_its_redaction(collection: Collection, row: Mapping[str, Any]) -> di
         "before": dict(row),
         "modified_count": None,
         "redacted_at": None,
+        "anlass": None,
     }
 
 

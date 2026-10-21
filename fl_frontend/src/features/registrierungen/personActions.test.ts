@@ -190,7 +190,7 @@ const WIDERRUFEN = {
     umfang: "kader_oeffentlich",
     datum: "2026-09-20",
     bestaetigt_am: "2026-09-20",
-    text_version: "2026-10-spielerseite-4",
+    text_version: "2026-10-spielerseite-5",
     medien: false,
     nachweis: { umfang: null, medien: { am: "2026-10-06T09:00:00+00:00", text_version: "2026-10-konto-spieler", erteilt_zuvor: null } },
   },
