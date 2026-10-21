@@ -262,10 +262,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   registrations and a grant of access alike: moved at once, it would hand those records to whoever
   holds a mistyped or a hijacked address. Ruled 2026-10-04, the process re-ruled 2026-10-20. The
   person starts a change on their account page after confirming themselves by a passkey or a code to
-  the address on file; an administrator starts one at the person's request, either asking the address
-  on file to approve it on its account page first, for a person who can still sign in there, or, with
-  a recorded reason, for one whose mailbox there is lost, holding its effect a week past its
-  confirmation. A change moving a grant of access also waits on another
+  the address on file; an administrator starts one only for a person who says they cannot sign in,
+  asking the address on file to approve it on its account page first, so a mailbox that still works
+  decides, or, with a recorded reason, for one whose mailbox there is lost, holding its effect a week
+  past its confirmation. A change moving a grant of access also waits on another
   administrator's approval, an owner's for an owner's grant, and lapses unapproved a week after its
   start (`fl_backend/app/shared/schemas/bounds.py :: GENEHMIGUNG_TAGE`). The address
   on file is mailed a link that stops the change at its start and a notice once it took effect, and
