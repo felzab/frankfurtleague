@@ -31,6 +31,7 @@ import {
   mapRetireRefusal,
 } from "./refusals.ts";
 
+import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar.ts";
 import type { ReactNode } from "react";
 
 /* Every write hangs until a case answers it: a real action needs a session and a backend. */
@@ -51,6 +52,7 @@ const { mapSchiedsrichterAnsichtRefusal, mapSchiedsrichterBestaetigungRefusal } 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { AdminSchiedsrichterEditView } = await import("./components/views/AdminSchiedsrichterEditView.tsx");
 const { default: AdminSchiedsrichterEditPage } = await import("@/app/bereich/admin/schiedsrichter/[schiedsrichter_id]/page.tsx");
+const { EINSEHBAR_VERWEHRT } = await import("@/features/adresswechsel/einsehbar.ts");
 
 const CREATE_OPERATION = "POST /schiedsrichter";
 const SAVE_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
@@ -198,6 +200,7 @@ const RECORD = {
   einwilligung: null,
   bestaetigung: null,
   adresswechsel_id: null,
+  adresswechsel_einsehbar_verwehrt: null,
   abgelaufen: { bestaetigung: false },
 };
 
@@ -206,7 +209,11 @@ let stored: Record<string, unknown> = { ...RECORD, inactive_since: null };
 /** The registry's read failing, where a case asks it to: with a failure, or with words off their schema. */
 let registerFehlt: boolean | "vertragsbruch" = false;
 /** The read's judgement of each link's deadline, served beside the record. */
-let lapse: { bestaetigung_abgelaufen: boolean; adresswechsel_id: string | null } = { bestaetigung_abgelaufen: false, adresswechsel_id: null };
+let lapse: { bestaetigung_abgelaufen: boolean; adresswechsel_id: string | null; adresswechsel_einsehbar_verwehrt?: EinsehbarVerwehrt | null } =
+  {
+    bestaetigung_abgelaufen: false,
+    adresswechsel_id: null,
+  };
 answerReadsWith((endpoint, schema, params) => {
   if (registerFehlt === true && endpoint.startsWith("/einwilligung/fassungen/")) throw new Error("backend unreachable");
   if (registerFehlt === "vertragsbruch" && endpoint.startsWith("/einwilligung/fassungen/")) return { acknowledged: 1 };
@@ -455,4 +462,20 @@ describe("which link the editor's page marks as lapsed", () => {
     assert.match(shown, /Für diese Adresse läuft eine Änderung\. Zur Änderung/);
     assert.doesNotMatch(shown, /Link an neue Adresse senden|Änderung verwerfen/, "the editor still starts or ends a change itself");
   });
+
+  /* A referee who is an administrator too: the tool refuses its reader their own address, and a grant holder's without
+     an owner's power, so the line links into no refusal and says where the change opens. */
+  for (const verwehrt of ["eigene", "verwaltung"] as const) {
+    it(`links no change the tool refuses this reader as ${verwehrt}, saying where it opens`, async () => {
+      const served = {
+        bestaetigung_abgelaufen: false,
+        adresswechsel_id: "68c1f0a2b3c4d5e6f7a8b9e0",
+        adresswechsel_einsehbar_verwehrt: verwehrt,
+      };
+      const shown = await shownIn({ einwilligung: BESTAETIGT }, served, "Kontakt");
+
+      assert.ok(shown.includes(`Für diese Adresse läuft eine Änderung. ${EINSEHBAR_VERWEHRT[verwehrt]}`), shown);
+      assert.doesNotMatch(shown, /Zur Änderung/);
+    });
+  }
 });

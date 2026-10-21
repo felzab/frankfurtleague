@@ -538,8 +538,8 @@ def compose_bericht_update(
     }
 
 
-# --- The SEASON'S END: the remarks and every card's reason, on the reports and in their log images; the scorers, the
-# cards and the proposed result stand as the league's record of the match.
+# --- The STRIP once the season after the match ends: the remarks and every card's reason, on the reports and in
+# their log images; the scorers, the cards and the proposed result stand as the league's record of the match.
 
 
 def build_season_report_texts_filter(saison_id: str) -> Mapping[str, Any]:
@@ -587,8 +587,8 @@ def build_referee_reports_filter(schiedsrichter_ids: Sequence[Any]) -> Mapping[s
 def build_referee_report_images_filter(schiedsrichter_ids: Sequence[Any]) -> Mapping[str, Any]:
     """Every `spielberichte` log row whose image names one of these referees as the report's sender.
 
-    Selected inside the image, as `app/api/schiedsrichter/services.py :: build_booked_image_filter` selects: an undraw's
-    `delete_many` row holds images of reports long gone, which no id standing now reaches.
+    Inside the image, as `app/api/schiedsrichter/services.py :: build_booked_image_filter` selects: the repoint leaves
+    no report naming them, while every older image, its own row's too, does.
     """
 
     return {"collection": str(Collection.SPIELBERICHTE), "before.bericht.eingereicht_von.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}

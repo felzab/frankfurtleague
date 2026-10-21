@@ -105,6 +105,14 @@ async def pull_bericht_lage(
     return BerichtLage(spiel=spiel, kader=kader, vereine=vereine, saison_status=None if saison is None else saison.get("status"))
 
 
+async def pull_beendete_saison_ids(*, saisons_collection: AsyncCollection, session: AsyncClientSession | None) -> list[str]:
+    """Every ended season, by the status `app/api/spielberichte/services.py :: ist_abgeschlossen` reads, under `session`."""
+
+    saisons = await pull_many_from_db(collection=saisons_collection, db_filter={"status": "past"}, projection=["_id"], session=session)
+
+    return [str(saison["_id"]) for saison in saisons]
+
+
 async def pull_genannt(
     *,
     spieler_collection: AsyncCollection,
@@ -248,10 +256,10 @@ async def strip_the_seasons_reports(
     aktionen_collection: AsyncCollection,
     saison_id: str,
     stamp: str,
-    # REQUIRED: the season's end judged in the same snapshot, so an activation since the caller's read keeps them.
+    # REQUIRED: the following season's end judged in the same snapshot, so an activation since the caller's read keeps them.
     session: AsyncClientSession,
 ) -> int:
-    """At the season's end, every report's remarks and card reasons, on the reports and in their log images."""
+    """Once the season after `saison_id` has ended, every report's remarks and card reasons, on the reports and in their log images."""
 
     await patch_many_in_db(
         collection=spielberichte_collection,

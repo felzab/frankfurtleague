@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { joinUnd } from "@/core/joinUnd";
 import { HANDLUNGSBEDARF_EINTRAG } from "@/features/admin/constants";
+import { EINSEHBAR_VERWEHRT } from "@/features/adresswechsel/einsehbar";
 import { rollenLangform } from "@/features/bewerbungen/constants";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { textLink } from "@/shared/components/ui/textLink";
@@ -18,6 +19,8 @@ type Zeile = { readonly text: string; readonly href?: string };
 const ZEILE_CLASSES = "fluid-xxs leading-normal font-medium text-foreground";
 
 const nameOf = (vorname: string, nachname: string | null): string => (nachname === null ? vorname : `${vorname} ${nachname}`);
+
+const ADRESSWECHSEL_ZEILE = "Eine laufende Adressänderung auf diese Adresse";
 
 /**
  * One line per record, by kind in the order the person's own reveal lists them, each naming whom it holds in words
@@ -51,11 +54,13 @@ function zeilenOf(
           ? `Registrierung für die Saison ${saison_id}: ${nameOf(vorname, nachname)}`
           : `Registrierung bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
     })),
-    // A pending change names no person of its own, so its line opens the change in the address tool.
-    ...adresswechsel.map(({ adresswechsel_id }) => ({
-      text: "Eine laufende Adressänderung auf diese Adresse",
-      href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechsel_id}`),
-    })),
+    // A pending change names no person of its own, so its line opens the change in the address tool, or says why the
+    // tool would refuse this reader and where it opens instead.
+    ...adresswechsel.map(({ adresswechsel_id, einsehbar_verwehrt }) =>
+      einsehbar_verwehrt === null
+        ? { text: ADRESSWECHSEL_ZEILE, href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechsel_id}`) }
+        : { text: `${ADRESSWECHSEL_ZEILE}. ${EINSEHBAR_VERWEHRT[einsehbar_verwehrt]}` },
+    ),
     ...(verwaltung === null
       ? []
       : [{ text: verwaltung === "owner" ? "Zugang zur Verwaltung als Inhaberin oder Inhaber" : "Zugang zur Verwaltung" }]),

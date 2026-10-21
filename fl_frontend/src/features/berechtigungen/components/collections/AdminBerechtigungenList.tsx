@@ -68,6 +68,7 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
   filteredBerechtigungen,
   emptiness,
   inhaberAdresse,
+  ueberschriftId,
 }: {
   filteredBerechtigungen: FLBerechtigungZeile[];
   emptiness: CrudEmptiness;
@@ -76,13 +77,16 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
    * owner revokes or changes a tier, and their own row is the one they step down from.
    */
   inhaberAdresse: string | null;
+  /** The heading standing over the list while the requests' section does, which then names it; `null` where none does. */
+  ueberschriftId: string | null;
 }) {
   if (filteredBerechtigungen.length === 0) return <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />;
 
   return (
-    /* Named here because no heading stands over it, and „Liste“ rather than „Tabelle“: these are cards. */
+    /* Named here where no heading stands over it, and „Liste“ rather than „Tabelle“: these are cards. */
     <ul
-      aria-label="Liste aller Zugänge"
+      aria-labelledby={ueberschriftId ?? undefined}
+      aria-label={ueberschriftId === null ? "Liste aller Zugänge" : undefined}
       {...focusSection("zugaenge")}
       className="flex w-full flex-col gap-3">
       {filteredBerechtigungen.map((berechtigung) => (

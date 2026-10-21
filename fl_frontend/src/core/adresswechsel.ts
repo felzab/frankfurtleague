@@ -38,6 +38,12 @@ export const GENEHMIGUNG_DAUER = ({ 7: "eine Woche" } as const)[GENEHMIGUNG_TAGE
 export const ADRESSWECHSEL_WEGE = ["konto", "freigabe", "wartezeit"] as const;
 export type AdresswechselWeg = (typeof ADRESSWECHSEL_WEGE)[number];
 
+/**
+ * Why the address tool refuses its reader a change, as every read linking one into it serves it: the reader's own
+ * address (`REQ-PURGE-003`), or a grant holder's without an owner's power (`REQ-PURGE-005`).
+ */
+export const ADRESSWECHSEL_EINSEHBAR_VERWEHRT = ["eigene", "verwaltung"] as const;
+
 // The zone named rather than taken from the server's clock: the image runs UTC, and a deadline a
 // reader checks against their own evening is stated in the zone they live in.
 const ZEITPUNKT = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", dateStyle: "long", timeStyle: "short" });

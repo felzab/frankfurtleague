@@ -2312,7 +2312,8 @@ class TestTheSeasonsEndStripsItsReports:
             "this season, no remarks": a_report(SAISON_ID, bemerkungen=None, rot_grund=None),
             "next season": a_report(NEXT_SAISON_ID),
         }
-        # Removed by an undraw, so their images sit in one log row's list: the shape a path naming no index cannot reach.
+        # Removed in one write, so their images sit in one log row's list, as a referee erasure's repoint of several reports
+        # leaves them: the shape a path naming no index cannot reach.
         undrawn = [a_report(SAISON_ID), a_report(SAISON_ID, bemerkungen=None)]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

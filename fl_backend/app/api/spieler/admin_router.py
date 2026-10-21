@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.adresswechsel.crud import einsehbare_adressen
+from app.api.adresswechsel.crud import verwehrte_adressen
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.spieler.crud import (
     pull_a_person_to_enter,
@@ -104,13 +104,13 @@ async def get_spieler_memberships(
     without one a player with no live row has `nummer` and `position` null.
 
     `adresswechsel_id` names the live change of the pupil's address, which the address tool shows, and
-    `adresswechsel_einsehbar` whether the tool opens it for this administrator.
+    `adresswechsel_einsehbar_verwehrt` why the tool refuses it this administrator, null where it opens it.
     """
 
     spieler_raw = await aggregate_many_from_db(
         collection=spieler_collection, pipeline=build_spieler_memberships_pipeline(), collation=GERMAN_COLLATION
     )
-    einsehbar = await einsehbare_adressen(
+    verwehrt = await verwehrte_adressen(
         (str(spieler["email"]) for spieler in spieler_raw if spieler.get("adresswechsel_id") is not None),
         akteur=sign_in_identifier(operator),
         auth_time=auth_time,
@@ -121,7 +121,7 @@ async def get_spieler_memberships(
 
     return FLSpielerMembershipsResponse(
         spieler=[
-            FLSpielerWithMemberships.model_validate({**spieler, "adresswechsel_einsehbar": spieler.get("email") in einsehbar})
+            FLSpielerWithMemberships.model_validate({**spieler, "adresswechsel_einsehbar_verwehrt": verwehrt.get(str(spieler.get("email")))})
             for spieler in spieler_raw
         ]
     )

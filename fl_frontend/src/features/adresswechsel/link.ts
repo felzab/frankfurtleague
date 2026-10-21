@@ -17,10 +17,12 @@ export type AdresswechselAnsicht =
   | { zustand: "bestaetigt"; wirksamAb: string | null; genehmigungOffen: boolean; weg: FLAdresswechselWeg }
   | { zustand: FLAdresswechselBisherigZustand; gueltigBis: string | null; wirksamAb: string | null; weg: FLAdresswechselWeg }
   | { zustand: NurAblehnbar; weg: FLAdresswechselWeg }
+  // Pressed, so the backend refuses the decline too: told apart from `abgelaufen`, whose link was never pressed.
+  | { zustand: "genehmigung_abgelaufen"; weg: FLAdresswechselWeg }
   | { zustand: "beendet"; seite: "neu" | "bisherig"; art: FLAdresswechselEndeArt }
   | { zustand: Exclude<AdresswechselLinkZustand, NurAblehnbar> };
 
-type OhnePresse = { zustand: "beendet" | "bestaetigt" | "gesperrt" | "ungueltig" };
+type OhnePresse = { zustand: "beendet" | "bestaetigt" | "genehmigung_abgelaufen" | "gesperrt" | "ungueltig" };
 
 /** What the page opens on. The token rides only with a link a press can still spend. */
 export type AdresswechselStart =
@@ -55,6 +57,7 @@ export function startOf(gelesen: AdresswechselAnsicht, token: string): Adresswec
     // A pressed link answers a second press with the change's end, so it holds no press either.
     case "beendet":
     case "bestaetigt":
+    case "genehmigung_abgelaufen":
     case "gesperrt":
     case "ungueltig":
       return gelesen;

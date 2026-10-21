@@ -1,5 +1,6 @@
 "use client";
 
+import { EINSEHBAR_VERWEHRT } from "@/features/adresswechsel/einsehbar";
 import { rollenLangform } from "@/features/bewerbungen/constants";
 import { SPERRE_ANSICHT_COPY, SPERRE_ANSICHT_VERWEISE, spieleNeuBesetzen } from "@/features/sperrliste/constants";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -100,13 +101,21 @@ const EINTRAEGE: Eintraege = {
             : [{ label: SPERRE_ANSICHT_VERWEISE.registrierungen, href: saisonHref("/bereich/admin/registrierungen") }],
       };
     }),
+  // A change the tool refuses this reader carries no link there, its line saying where it opens instead.
   adresswechsel: (adresswechsel, saisonHref) =>
-    adresswechsel.map(({ adresswechsel_id }) => ({
-      text: "Eine laufende Adressänderung auf diese Adresse",
-      verweise: [
-        { label: SPERRE_ANSICHT_VERWEISE.adresswechsel, href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechsel_id}`) },
-      ],
-    })),
+    adresswechsel.map(({ adresswechsel_id, einsehbar_verwehrt }) =>
+      einsehbar_verwehrt === null
+        ? {
+            text: "Eine laufende Adressänderung auf diese Adresse",
+            verweise: [
+              {
+                label: SPERRE_ANSICHT_VERWEISE.adresswechsel,
+                href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechsel_id}`),
+              },
+            ],
+          }
+        : { text: `Eine laufende Adressänderung auf diese Adresse. ${EINSEHBAR_VERWEHRT[einsehbar_verwehrt]}`, verweise: [] },
+    ),
 };
 
 // A declaration and never a generic arrow: `scripts/checks/docs_gate/copy_rules.py :: copy_spans` reads `= <Art` as

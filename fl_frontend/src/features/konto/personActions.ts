@@ -161,7 +161,7 @@ export async function starteAdresswechselAction(rawPayload: { email: string }): 
     const { link } = await mailAdresswechsel({ operation: "starteAdresswechselAction", mint: { ...mint, weg: "konto" }, anlass: "empfang" });
     // The approvers are told through the grants' outbox the start queued (`docs/backend/spec.md :: I862`), drained behind
     // the answer: mailing them here too would tell each twice.
-    if (mint.genehmiger.length > 0) afterTheResponse(runBerechtigungenAbgleich);
+    if (mint.genehmiger_anzahl > 0) afterTheResponse(runBerechtigungenAbgleich);
 
     const { verwaltung } = subject.subjekt;
     // `link` is never null here: the person's start mints both tokens.
@@ -170,7 +170,7 @@ export async function starteAdresswechselAction(rawPayload: { email: string }): 
       success: true,
       versand: gesendet.versand,
       // The tier off the grant the spine's subject read found, which the backend chose the approvers by.
-      message: mint.genehmiger.length === 0 || verwaltung === null ? gesendet.message : `${gesendet.message} ${genehmigungSatz(verwaltung)}`,
+      message: mint.genehmiger_anzahl === 0 || verwaltung === null ? gesendet.message : `${gesendet.message} ${genehmigungSatz(verwaltung)}`,
     };
   });
 }

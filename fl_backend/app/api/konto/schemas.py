@@ -183,8 +183,9 @@ class FLKontoAdresswechselMintResponse(BaseAPIResponse):
     email: str
     bisherige_email: str
     vorname: str
-    # Who could approve the grant's move, which the grants' outbox tells them; empty where no grant moves.
-    genehmiger: list[str]
+    # How many could approve the grant's move, 0 where none moves; never who: the grants' outbox reads them at its claim
+    # (`docs/backend/spec.md :: I862`), and the caller only branches on a wait.
+    genehmiger_anzahl: int = Field(ge=0)
 
 
 class FLKontoAdresswechselFreigabePayload(BaseModel):

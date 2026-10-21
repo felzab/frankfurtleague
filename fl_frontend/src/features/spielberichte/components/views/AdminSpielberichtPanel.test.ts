@@ -22,13 +22,13 @@ const stand = (fields: Record<string, unknown> = {}, korrigierbar = true): Spiel
   korrigierbar,
 });
 
-const panel = (props: { stand: SpielberichtStand | null; hatEntwurf?: boolean }) =>
+const panel = (props: { stand: SpielberichtStand | null; hatEntwurf?: boolean; uebernahmeGesperrt?: string }) =>
   render(
     underNext(
       h(AdminSpielberichtPanel, {
         stand: props.stand,
         onUebernehmen: () => undefined,
-        uebernahmeGesperrt: null,
+        uebernahmeGesperrt: props.uebernahmeGesperrt ?? null,
         eingesetzt: null,
         hatEntwurf: props.hatEntwurf ?? false,
         today: "2026-10-17",
@@ -116,6 +116,17 @@ describe("the report panel on the match editor", () => {
 
     assert.equal(korrekturLinks(), 0);
     assert.ok(screen.getAllByText(/Speichere oder verwirf zuerst Deine Änderungen am Spiel/).length > 0);
+  });
+
+  /* The closed press is `inert`, so its overlay is what a screen reader names: without the qualifier it reads as the
+     confirmations' press of the same words on this editor. */
+  it("names a blocked adoption press as the report's", () => {
+    panel({ stand: stand(), uebernahmeGesperrt: "Die Teams im Formular sind nicht die des Spielberichts." });
+
+    assert.ok(
+      screen.getAllByLabelText("Vorschlag übernehmen: Spielbericht").some((element) => element.getAttribute("aria-disabled") === "true"),
+      "the blocked press's overlay drops the report from its name",
+    );
   });
 
   it("links to the correction on a clean editor while the switch reads on", () => {

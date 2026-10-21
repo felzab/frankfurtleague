@@ -1,5 +1,6 @@
 import z from "zod";
 
+import { ADRESSWECHSEL_EINSEHBAR_VERWEHRT } from "@/core/adresswechsel";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
@@ -132,8 +133,8 @@ export const FLSpielerWithMembershipsSchema = z.object({
   email: z.string(),
   // The change pending at that address, one for every record the address holds, for the address tool's link.
   adresswechsel_id: CustomObjectIdStringSchema.nullable(),
-  // Whether the address tool opens that change for this administrator; false where none stands.
-  adresswechsel_einsehbar: z.boolean(),
+  // Why the address tool refuses that change this administrator; null where it opens it or none stands.
+  adresswechsel_einsehbar_verwehrt: z.enum(ADRESSWECHSEL_EINSEHBAR_VERWEHRT).nullable(),
   memberships: z.array(FLSpielerMembershipSchema),
 });
 export type FLSpielerWithMemberships = z.infer<typeof FLSpielerWithMembershipsSchema>;

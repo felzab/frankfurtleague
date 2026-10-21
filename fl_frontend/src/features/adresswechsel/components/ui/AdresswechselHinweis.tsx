@@ -3,8 +3,11 @@
 import Link from "next/link";
 
 import { ADRESSWECHSEL_EINTRAG } from "@/features/admin/constants";
+import { EINSEHBAR_VERWEHRT } from "@/features/adresswechsel/einsehbar";
 import { textLink } from "@/shared/components/ui/textLink";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
+
+import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
 
 const ZUR_AENDERUNG = "Zur Änderung";
 
@@ -12,6 +15,7 @@ const ZUR_AENDERUNG = "Zur Änderung";
 export function AdresswechselOffen({
   adresswechselId,
   adresse,
+  verwehrt,
 }: {
   adresswechselId: string;
   /**
@@ -19,6 +23,8 @@ export function AdresswechselOffen({
    * whatever is typed. `null` under a box that only reads the address out.
    */
   adresse: string | null;
+  /** Why the tool refuses this reader the change, as the read serves it: a link would land on that refusal. */
+  verwehrt: EinsehbarVerwehrt | null;
 }) {
   const saisonHref = useSaisonHref();
 
@@ -32,12 +38,16 @@ export function AdresswechselOffen({
         </>
       )}{" "}
       läuft eine Änderung.{" "}
-      <Link
-        href={saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechselId}`)}
-        prefetch={false}
-        className={textLink()}>
-        {ZUR_AENDERUNG}
-      </Link>
+      {verwehrt === null ? (
+        <Link
+          href={saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechselId}`)}
+          prefetch={false}
+          className={textLink()}>
+          {ZUR_AENDERUNG}
+        </Link>
+      ) : (
+        EINSEHBAR_VERWEHRT[verwehrt]
+      )}
     </p>
   );
 }
@@ -46,7 +56,7 @@ export function AdresswechselOffen({
  * Under a sign-in address on the pupil and referee editors, the same words on each: they read the address and its
  * pending change and change neither. One tool for every editor, so a change is seen from each.
  */
-export function AdresswechselHinweis({ adresswechselId }: { adresswechselId: string | null }) {
+export function AdresswechselHinweis({ adresswechselId, verwehrt }: { adresswechselId: string | null; verwehrt: EinsehbarVerwehrt | null }) {
   const saisonHref = useSaisonHref();
 
   return (
@@ -55,6 +65,7 @@ export function AdresswechselHinweis({ adresswechselId }: { adresswechselId: str
         <AdresswechselOffen
           adresswechselId={adresswechselId}
           adresse={null}
+          verwehrt={verwehrt}
         />
       )}
       <p className="muted-hint text-pretty">

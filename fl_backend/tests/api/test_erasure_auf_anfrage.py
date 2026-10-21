@@ -325,8 +325,8 @@ EXPECTED_ANSICHT = {
     "registrierungen": [registration(PENDING_OID, "eingereicht"), registration(DECLINED_OID, "abgelehnt")],
     # Another referee's and another pupil's change to the address: each change goes and its person's row stands.
     "adresswechsel": [
-        {"adresswechsel_id": str(OTHER_REFEREE_CHANGE_OID), "einsehbar": True},
-        {"adresswechsel_id": str(MOVING_PUPIL_CHANGE_OID), "einsehbar": True},
+        {"adresswechsel_id": str(OTHER_REFEREE_CHANGE_OID), "einsehbar_verwehrt": None},
+        {"adresswechsel_id": str(MOVING_PUPIL_CHANGE_OID), "einsehbar_verwehrt": None},
     ],
     "verwaltung": "administration",
     "gesperrt": False,

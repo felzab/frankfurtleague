@@ -152,6 +152,7 @@ const SCHIEDSRICHTER = {
   einwilligung: null,
   bestaetigung: null,
   adresswechsel_id: null,
+  adresswechsel_einsehbar_verwehrt: null,
   abgelaufen: { bestaetigung: false },
 };
 
@@ -163,6 +164,7 @@ const SPIELER = {
   geburtsdatum: "2009-05-04",
   email: "lena.meier@schule.example",
   adresswechsel_id: null,
+  adresswechsel_einsehbar_verwehrt: null,
 };
 
 const SPIELER_MEMBERSHIP = {

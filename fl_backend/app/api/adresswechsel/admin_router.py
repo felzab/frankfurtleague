@@ -41,6 +41,7 @@ from app.api.adresswechsel.services import (
     compose_record,
     find_abgelaufen_refusal,
     find_beendet_refusal,
+    find_belegt_refusal,
     find_genehmigung_verwehrt_refusal,
     find_gesperrt_refusal,
     find_kein_genehmiger_refusal,
@@ -294,15 +295,14 @@ async def post_adresswechsel_verwaltung(
     `grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the
     address on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new
     mailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never
-    this one's: `genehmiger` names who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).
+    this one's: `genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).
     The address's live change ends replaced.
-    `adresse_belegt` says whether the new address holds records of its own, which the effect would join to these.
 
     Refused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power
     (`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds
     (`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the
-    change moves a pupil (`-006`), a grant nobody could approve (`-011`), and a reason naming a person of the records the
-    change would move (`-008`).
+    change moves a pupil (`-006`), a new address holding entries of its own (`-018`), a grant nobody could approve
+    (`-011`), and a reason naming a person of the records the change would move (`-008`).
     """
 
     identifier, email, grund = sign_in_identifier(str(adresswechsel_data.adresse)), str(adresswechsel_data.email), adresswechsel_data.grund
@@ -338,6 +338,12 @@ async def post_adresswechsel_verwaltung(
             spieler_collection=spieler_collection, identifier=sign_in_identifier(email), spieler_id=bestand.spieler["_id"], session=session
         )
         refuse(find_vergeben_refusal(vergeben=vergeben))
+        # Judged here too, its reader trusted: a change its confirmation would refuse goes nowhere.
+        refuse(
+            find_belegt_refusal(
+                belegt=await adresse_belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
+            )
+        )
         genehmiger = (
             []
             if bestand.berechtigung is None
@@ -387,8 +393,7 @@ async def post_adresswechsel_verwaltung(
             email=email,
             bisherige_email=identifier,
             vorname=None if weg == "wartezeit" else bestand.vorname,
-            adresse_belegt=await adresse_belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session),
-            genehmiger=genehmiger,
+            genehmiger_anzahl=len(genehmiger),
         )
 
     # ONE transaction over the judgement and the write: a record written outside it would stand with a live link an
@@ -427,9 +432,10 @@ async def einladen_adresswechsel(
     on the change the id names alone, so a page showing a change since replaced re-sends nothing.
 
     Refused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), where the ban list holds the pending address
-    (`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), where a grant's approval week has
-    passed (`-003`), and where the change ended (`-002`). 404 for an id naming no change, and unless the change waits on
-    the new mailbox: one awaiting the address on file's approval, or confirmed, has no link to re-send.
+    (`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), where it has come to hold entries
+    of its own (`-018`), where a grant's approval week has passed (`-003`), and where the change ended (`-002`). 404 for
+    an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on file's approval,
+    or confirmed, has no link to re-send.
     """
 
     akteur = sign_in_identifier(operator)
@@ -461,6 +467,11 @@ async def einladen_adresswechsel(
             spieler_collection=spieler_collection, identifier=sign_in_identifier(email), spieler_id=bestand.spieler["_id"], session=session
         )
         refuse(find_vergeben_refusal(vergeben=vergeben))
+        refuse(
+            find_belegt_refusal(
+                belegt=await adresse_belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
+            )
+        )
         # A grant's approval week that lapsed ends the change at the next pass: a fresh link would be refused on its press.
         genehmigung = record.get("genehmigung")
         bis = als_utc(genehmigung.get("bis")) if isinstance(genehmigung, Mapping) and genehmigung.get("genehmigt_am") is None else None
@@ -486,8 +497,7 @@ async def einladen_adresswechsel(
             email=email,
             bisherige_email=identifier,
             vorname=None if updated["weg"] == "wartezeit" else bestand.vorname,
-            adresse_belegt=await adresse_belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session),
-            genehmiger=[],
+            genehmiger_anzahl=0,
         )
 
     async with transaction_session(db) as session:
@@ -614,7 +624,7 @@ async def post_adresswechsel_genehmigung(
     Refused where the change asks no approval or was given it (`REQ-ADRESSWECHSEL-012`), where its seven days have passed
     (`-003`), to the changed address and to the administrator who started it (`-013`), to anyone but an owner, signed in
     since becoming one, where the grant is an owner's (`-014`), and where the change ended (`-002`); and, where it would
-    take effect, as the confirmation is (`-004`, `-005`, `-006`, `-015`, `-016`). A change whose address has come to hold
+    take effect, as the confirmation is (`-004`, `-005`, `-006`, `-015`, `-016`, `-018`). A change whose address has come to hold
     nothing to move ends discarded, its new address told it did not take effect, answering `-010`. 404 for an id naming no
     change. A sign-in or confirmation older than
     `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.

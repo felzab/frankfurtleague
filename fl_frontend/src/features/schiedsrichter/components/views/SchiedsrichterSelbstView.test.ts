@@ -111,7 +111,10 @@ describe("a referee's own page", () => {
   /* Each played fixture leads to its own report, and the press names the fixture it opens. */
   it("links each fixture's report under its pairing, open or sent", () => {
     renderView([SCHIEDSRICHTERIN], {
-      spielberichte: [GELEITET, { ...GELEITET, spiel_id: "6890a1b2c3d4e5f607390102", eingereicht_am: "2026-10-17T18:00:00Z" }],
+      spielberichte: {
+        spiele: [GELEITET, { ...GELEITET, spiel_id: "6890a1b2c3d4e5f607390102", eingereicht_am: "2026-10-17T18:00:00Z" }],
+        fruehere: [],
+      },
     });
 
     const eintragen = screen.getByRole("link", { name: "Spielbericht eintragen: Goethe-Gymnasium gegen Lessing-Gymnasium am 17.10.2026" });

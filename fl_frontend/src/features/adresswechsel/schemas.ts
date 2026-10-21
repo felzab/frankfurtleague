@@ -70,9 +70,10 @@ export type FLAdresswechselAnsichtPayload = z.infer<typeof FLAdresswechselAnsich
  */
 export const FLAdresswechselAnsichtNeuSchema = z.object({
   seite: z.literal("neu"),
-  // `bestaetigt` is a pressed link whose change still stands, waiting on its time or an approval.
-  zustand: z.enum(["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar", "bestaetigt"]),
-  // Null exactly on `bestaetigt`, a pressed link running to no deadline.
+  // `bestaetigt` is a pressed link whose change still stands, waiting on its time or an approval;
+  // `genehmigung_abgelaufen` one whose approval's week ran out, which the hourly pass ends unapproved.
+  zustand: z.enum(["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar", "bestaetigt", "genehmigung_abgelaufen"]),
+  // Null exactly on a pressed link, which runs to no deadline of its own.
   gueltig_bis: z.string().nullable(),
   wirksam_ab: z.string().nullable(),
   weg: FLAdresswechselWegSchema,
@@ -159,8 +160,6 @@ export const FLAdresswechselPostausgangZeileSchema = z.object({
   vorname: z.string().nullable(),
   // Whether the address on file's holder asked for or approved the change, which decides whether its account moves.
   weg: FLAdresswechselWegSchema.nullable(),
-  // Whether the new address held records of its own at the effect: its holder never signed in there, so no account moves onto them.
-  adresse_belegt: z.boolean().nullable(),
   aufgegeben: z.boolean(),
 });
 export type FLAdresswechselPostausgangZeile = z.infer<typeof FLAdresswechselPostausgangZeileSchema>;
@@ -283,10 +282,8 @@ export const FLAdresswechselVerwaltungMintResponseSchema = BaseAPIResponseSchema
   bisherige_email: z.string().nonempty(),
   // What the notice greets with, read in the mint's own transaction; null on the lost-mailbox way, greeting nobody.
   vorname: z.string().nullable(),
-  // The administrator's warning that the new address already holds records of its own, which merge.
-  adresse_belegt: z.boolean(),
-  // Who could approve the grant's move, whom the grants' outbox tells (`docs/backend/spec.md :: I862`); empty where no grant moves.
-  genehmiger: z.array(z.string()),
+  // How many could approve the grant's move, whom the grants' outbox tells (`docs/backend/spec.md :: I862`); 0 where none moves.
+  genehmiger_anzahl: z.int().nonnegative(),
 });
 export type FLAdresswechselVerwaltungMintResponse = z.infer<typeof FLAdresswechselVerwaltungMintResponseSchema>;
 
