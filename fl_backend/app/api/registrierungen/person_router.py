@@ -201,13 +201,13 @@ async def aufnehmen(
     press meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.
 
     Refuses, in this order: a press past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), no pending
-    registration with this id (404), no seat on its team's season (`REQ-FUNKTION-001`), a registration the pupil has not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban
-    list holds (`REQ-REGISTRIERUNG-009`, worded to the team as neutrally as to the pupil), a Stufe the season no
-    longer offers (`REQ-REGISTRIERUNG-003`), a registration confirmed on the returning pupil's page whose address holds
-    no stored person (`REQ-REGISTRIERUNG-018`: it carries no choice, so it admits nobody, and the pupil registers
-    again), a `spieler_id` that is not the person this registration may be admitted
-    into (`REQ-REGISTRIERUNG-014`), a person already playing in a squad this season (`REQ-REGISTRIERUNG-015`) and a
-    full squad (`REQ-SQUAD-003`). Nothing is written on any of them.
+    registration with this id (404), no seat on its team's season (`REQ-FUNKTION-001`), a registration the pupil has
+    not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban list holds (`REQ-REGISTRIERUNG-009`, worded to the team
+    as neutrally as to the pupil), a Stufe the season does not offer (`REQ-REGISTRIERUNG-003`), a registration
+    confirmed on the returning pupil's page whose address holds no stored person (`REQ-REGISTRIERUNG-018`: it carries
+    no choice, so it admits nobody, and the pupil registers again), a `spieler_id` that is not the person this
+    registration may be admitted into (`REQ-REGISTRIERUNG-014`), a person already playing in a squad this season
+    (`REQ-REGISTRIERUNG-015`) and a full squad (`REQ-SQUAD-003`). Nothing is written on any of them.
     """
 
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
