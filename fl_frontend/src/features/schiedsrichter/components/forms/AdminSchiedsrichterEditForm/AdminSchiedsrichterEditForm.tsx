@@ -88,7 +88,7 @@ type AdminSchiedsrichterEditFormProps = {
 
 /**
  * One save bar over one endpoint, unlike the squad editor's two: a referee is one document with no junction
- * row, so no partial failure is reachable. Its drafts start from the props, the page's key remounting it after a save.
+ * row, so no partial failure is reachable. Its drafts start from the props, the view's key remounting it after a save.
  */
 export function AdminSchiedsrichterEditForm({ schiedsrichter, istFassungBekannt, isRetired, pageHeader }: AdminSchiedsrichterEditFormProps) {
   const router = useRouter();
