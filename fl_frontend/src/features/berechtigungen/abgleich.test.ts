@@ -299,7 +299,7 @@ describe("one pass over the claimed changes", () => {
   });
 
   /* A request goes to whoever could approve it: neither every holder, its requester among them, nor the address it is
-     for, which holds no grant (`docs/backend/spec.md :: I853`). */
+     for, which holds no grant (`docs/backend/spec.md :: I856`). */
   it("mails a request to its own recipients alone, and stamps it", async () => {
     claim = claimOf([aenderung({ art: "beantragt", an: ["inhaber@schule.de"] })]);
 

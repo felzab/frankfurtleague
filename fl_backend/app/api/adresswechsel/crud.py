@@ -381,7 +381,7 @@ async def judge_the_effect_in_session(
         return Urteil(ursache=None, leer=False, wartet=True)
 
     # Judged again here rather than kept from the press: a revoke, a demotion, a ban or an erasure of the approver since
-    # leaves no approval standing (`docs/backend/spec.md :: I841`).
+    # leaves no approval standing (`docs/backend/spec.md :: I844`).
     von = genehmigung.get("genehmigt_von")
     steht = genehmigung_steht(
         betroffen=alte,
@@ -661,7 +661,7 @@ async def move_the_address_in_session(
     )
 
     # After every write above, so it reaches the images they filed: a record the effect leaves naming the replaced address
-    # by address alone would outlive the person's erasure at the new one (`docs/backend/spec.md :: I842`).
+    # by address alone would outlive the person's erasure at the new one (`docs/backend/spec.md :: I845`).
     alt, neu = bestand.identifier, sign_in_identifier(neue)
     # Who made a record is the person, whatever their address or grant, a revoked grant's records and a seat holder's
     # decisions included: the starter of a change stays excluded from approving it.
@@ -702,7 +702,7 @@ async def move_the_address_in_session(
             update={"$set": {"email": neu}},
             session=session,
         )
-    # In this transaction, so a commit whose answer was lost still owes its notice (`docs/backend/spec.md :: I843`). Both
+    # In this transaction, so a commit whose answer was lost still owes its notice (`docs/backend/spec.md :: I846`). Both
     # addresses folded, as every stored address is, so an erasure's equality finds the row.
     await post_one_to_db(
         collection=adresswechsel_postausgang_collection,
@@ -724,7 +724,7 @@ async def move_the_address_in_session(
         [neue, bestand.identifier], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session
     )
 
-    # The requests for a grant it ended, each journalled by the caller as a refusal (`docs/backend/spec.md :: I854`).
+    # The requests for a grant it ended, each journalled by the caller as a refusal (`docs/backend/spec.md :: I857`).
     return beendet
 
 

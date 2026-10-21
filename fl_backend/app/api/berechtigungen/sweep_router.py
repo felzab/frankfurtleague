@@ -203,7 +203,7 @@ async def post_berechtigungen_abgleich(
             sperrliste, claimed_addresses - stored, massgebliche_saison_id=massgebliche_saison_id, session=session
         )
 
-        # Read at the claim rather than stored with the row, so a request decided since asks nobody (`docs/backend/spec.md :: I853`).
+        # Read at the claim rather than stored with the row, so a request decided since asks nobody (`docs/backend/spec.md :: I856`).
         offene = (
             {
                 antrag["_id"]: antrag

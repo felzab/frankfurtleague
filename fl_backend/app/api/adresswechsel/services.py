@@ -268,7 +268,7 @@ def build_lapsed_terms(now: datetime) -> dict[str, Any]:
 def build_due_terms(now: datetime) -> dict[str, Any]:
     """A confirmed change with no waiting time left at `now`, an owed approval judged at the effect rather than here.
 
-    A grant ended since the confirmation, by any route, leaves nothing to approve (`docs/backend/spec.md :: I844`).
+    A grant ended since the confirmation, by any route, leaves nothing to approve (`docs/backend/spec.md :: I847`).
     """
 
     return {

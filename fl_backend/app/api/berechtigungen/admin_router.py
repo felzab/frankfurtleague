@@ -372,7 +372,7 @@ async def _queue_the_request(
 ) -> None:
     """Keyed by the request's id and read for its recipients when a pass claims it, so one decided by then asks nobody.
 
-    `docs/backend/spec.md :: I853`.
+    `docs/backend/spec.md :: I856`.
     """
 
     await post_one_to_db(
@@ -403,7 +403,7 @@ async def _genehmiger_exist(
 ) -> bool:
     """Whether anybody but `ausgenommen` could approve an act on a grant of `verwaltung` asked now.
 
-    Judged on the grants the caller anchored, so a grant or a revoke beside it conflicts (`docs/backend/spec.md :: I845`).
+    Judged on the grants the caller anchored, so a grant or a revoke beside it conflicts (`docs/backend/spec.md :: I848`).
     """
 
     announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)

@@ -13524,7 +13524,7 @@
           "verwehrt"
         ],
         "title": "FLBerechtigungAdresswechsel",
-        "description": "The change of a grant's address waiting on an administrator's approval, which the list's reader may press.\n\nWho started it, how and why is what a pretext hides (`docs/backend/spec.md :: I855`, `:: I856`)."
+        "description": "The change of a grant's address waiting on an administrator's approval, which the list's reader may press.\n\nWho started it, how and why is what a pretext hides (`docs/backend/spec.md :: I858`, `:: I859`)."
       },
       "FLBerechtigungAenderung": {
         "properties": {

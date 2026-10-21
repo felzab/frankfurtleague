@@ -74,7 +74,7 @@ class FLBerechtigung(BaseModel):
 class FLBerechtigungAdresswechsel(BaseModel):
     """The change of a grant's address waiting on an administrator's approval, which the list's reader may press.
 
-    Who started it, how and why is what a pretext hides (`docs/backend/spec.md :: I855`, `:: I856`).
+    Who started it, how and why is what a pretext hides (`docs/backend/spec.md :: I858`, `:: I859`).
     """
 
     id: CustomObjectId

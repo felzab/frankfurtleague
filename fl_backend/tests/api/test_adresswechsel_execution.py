@@ -1022,7 +1022,7 @@ class TestTheContactsEditorsRead:
 
 
 class TestAGrantEndedBeforeTheApproval:
-    """The approval a confirmation left owed is owed only while the address holds the grant it would move (I844)."""
+    """The approval a confirmation left owed is owed only while the address holds the grant it would move (I847)."""
 
     def test_the_pass_makes_the_change_take_effect_once_the_grant_is_gone(self, mongo_replica_set_url: str):
         """Revoked after the confirmation: nobody is offered the approval, and the change took effect regardless."""
