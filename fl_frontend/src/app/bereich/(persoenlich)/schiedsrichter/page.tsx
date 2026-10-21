@@ -38,7 +38,7 @@ export default async function PersoenlichSchiedsrichterPage() {
       frontend_config.SPIELBERICHT_EINGABE === "on"
         ? runWithIncomingTrace(() =>
             getSchiedsrichterSpielberichte().then(
-              (gelesen): SchiedsrichterSpielberichte => gelesen.spiele,
+              (gelesen): SchiedsrichterSpielberichte => ({ spiele: gelesen.spiele, fruehere: gelesen.fruehere }),
               (error: unknown): SchiedsrichterSpielberichte => nullUnlessContractBreak(error) ?? "unlesbar",
             ),
           )

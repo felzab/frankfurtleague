@@ -29,7 +29,10 @@ describe("the referee panel's reports", () => {
     render(
       underNext(
         h(SchiedsrichterSpielberichteSection, {
-          spiele: [eintrag("68c1f0a2b3c4d5e6f7a8b9e2", "2026-10-17"), eintrag("68c1f0a2b3c4d5e6f7a8b9e3", "2026-11-14")],
+          spiele: {
+            spiele: [eintrag("68c1f0a2b3c4d5e6f7a8b9e2", "2026-10-17"), eintrag("68c1f0a2b3c4d5e6f7a8b9e3", "2026-11-14")],
+            fruehere: [],
+          },
         }),
       ),
     );
@@ -40,5 +43,21 @@ describe("the referee panel's reports", () => {
       namen.every((name) => name.startsWith("Spielbericht eintragen") && / am \d{2}\.\d{2}\.\d{4}$/.test(name)),
       namen.join(" | "),
     );
+  });
+
+  /* After its season a report is only read, and nothing else leads to that view: the ended seasons' reports are listed
+     apart, each opening its fixture's page, which shows the report read-only. */
+  it("lists an ended season's report apart, to be read, beside a running season with nothing due", () => {
+    const frueher = { ...eintrag("68c1f0a2b3c4d5e6f7a8b9e4", "2025-05-14"), eingereicht_am: "2025-05-14T18:00:00Z" };
+    render(underNext(h(SchiedsrichterSpielberichteSection, { spiele: { spiele: [], fruehere: [frueher] } })));
+
+    assert.ok(screen.getByText("Gerade steht kein Spiel für einen Spielbericht an."));
+    const liste = screen.getByRole("list", { name: "Spielberichte früherer Saisons" });
+    assert.equal(liste.previousElementSibling?.textContent, "Frühere Saisons");
+    assert.equal(
+      screen.getByRole("link", { name: "Spielbericht ansehen: Goethe-Gymnasium gegen Lessing-Gymnasium am 14.05.2025" }).getAttribute("href"),
+      "/bereich/schiedsrichter/spielbericht/68c1f0a2b3c4d5e6f7a8b9e4",
+    );
+    assert.equal(screen.queryAllByText(/^(Gesendet|Offen)$/).length, 0, "an ended season's report wears the running season's badge");
   });
 });

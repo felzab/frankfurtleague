@@ -316,8 +316,10 @@ export const FLSpielberichtPersonEintragSchema = z.object({
 });
 export type FLSpielberichtPersonEintrag = z.infer<typeof FLSpielberichtPersonEintragSchema>;
 
+/** `fruehere`: fixtures of ended seasons holding a report, which the referee reads and writes no more. */
 export const FLSpielberichtePersonResponseSchema = BaseAPIResponseSchema.extend({
   spiele: z.array(FLSpielberichtPersonEintragSchema),
+  fruehere: z.array(FLSpielberichtPersonEintragSchema),
 });
 export type FLSpielberichtePersonResponse = z.infer<typeof FLSpielberichtePersonResponseSchema>;
 
