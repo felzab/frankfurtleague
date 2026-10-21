@@ -372,6 +372,54 @@ class TestTheLinks:
         assert (before.zustand, before.genehmigung_offen) == ("gueltig", None)
         assert (after.zustand, after.genehmigung_offen) == ("bestaetigt", True)
 
+    @pytest.mark.parametrize(
+        ("cause", "refused"),
+        [
+            ("vergeben", ADRESSWECHSEL_VERGEBEN),
+            ("nicht_gedeckt", ADRESSWECHSEL_NICHT_GEDECKT),
+            ("neue_berechtigt", ADRESSWECHSEL_NEUE_BERECHTIGT),
+        ],
+    )
+    def test_a_link_its_press_would_refuse_for_the_address_on_file_s_sake_offers_no_confirmation(
+        self, mongo_replica_set_url: str, cause: str, refused: str
+    ):
+        """The page reads its view before offering the press: a view reading `gueltig` here offers what the press refuses."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            if cause == "neue_berechtigt":
+                await granted(database)
+            minted = await start(database, client)
+            if cause == "vergeben":
+                await database[Collection.SPIELER].update_one({"_id": OTHER_OID}, {"$set": {"email": NEW_EMAIL}})
+            elif cause == "nicht_gedeckt":
+                await granted(database)
+            else:
+                await granted(database, NEW_EMAIL)
+            return (await view(database, client, minted.token)).ansicht.zustand, await refused_code(answer(database, client, minted.token))
+
+        assert on_a_person(mongo_replica_set_url, body) == ("nicht_bestaetigbar", refused)
+
+    @pytest.mark.parametrize(
+        ("step", "wartet_auf", "bisherig"), [("freigabe", "freigabe", "freigabe_offen"), ("genehmigung", "genehmigung", "genehmigung")]
+    )
+    def test_the_step_a_change_waits_on_reads_on_the_account_page_and_the_stop_link(
+        self, mongo_replica_set_url: str, step: str, wartet_auf: str, bisherig: str
+    ):
+        """The account page offers the address on file's approval on `freigabe` alone, and the stop link names each step."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            if step == "freigabe":
+                minted = await administrator_starts(database, client, grund=None)
+            else:
+                await granted(database)
+                minted = await start(database, client)
+                await answer(database, client, minted.token)
+            offen = (await read(database, client)).offen
+            assert offen is not None
+            return offen.wartet_auf, (await view(database, client, minted.stopp_token)).ansicht.zustand
+
+        assert on_a_person(mongo_replica_set_url, body) == (wartet_auf, bisherig)
+
     def test_a_token_no_change_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return [
@@ -439,6 +487,8 @@ class TestTheConfirmation:
         seats = after["season row"]
         assert (seats["kontakte"]["ansprechperson"]["email"], seats["kontakte"]["stellvertretung"]["email"]) == (NEW_EMAIL, EMAIL)
         assert after["confirmation"]["kontakte"]["ansprechperson"] is None
+        # The unconfirmed seat at the same address stays, and so does the link its match confirmation sent it.
+        assert after["confirmation"]["kontakte"]["stellvertretung"] == before["confirmation"]["kontakte"]["stellvertretung"]
         assert after["pending application"]["kontakte"]["trainer"]["email"] == NEW_EMAIL
         assert after["accepted application"]["kontakte"]["ansprechperson"]["email"] == NEW_EMAIL
         assert (after["confirmed registration"]["email"], after["unconfirmed registration"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
