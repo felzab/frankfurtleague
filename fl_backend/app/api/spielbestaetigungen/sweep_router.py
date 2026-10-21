@@ -85,10 +85,11 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# The three row shares together fit `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 36 ms round trip, beside the
-# worst call's other commands and `getMore`s, the notice step's among them
+# A closed row costs three commands, its pre-image logged for a restore, which a fan-out's count-only log row
+# (`docs/backend/spec.md :: I40`) would lose; at that cost a 23rd close takes the worst call past
+# `app/core/middlewares.py :: REQUEST_DEADLINE_S`
 # (`tests/api/test_spielbestaetigung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`).
-CLOSES_PER_PASS: Final = 21
+CLOSES_PER_PASS: Final = 22
 
 # Counted in rows written, a fixture taken whole. With `REMINDERS_PER_PASS` at most `ANFRAGEN_LISTED_PER_PASS`, a
 # reminder of a request never stamped going out as one: so one `/angefragt` call stamps every row a call answers.
@@ -503,8 +504,11 @@ async def sweep_spielbestaetigungen(
                 session=session,
             )
         )
-        spent = {row["_id"] for row in rows if mitteilung_spent(row=row, today=today)}
-        live = [row for row in rows if row["_id"] not in spent]
+        # The share cut before the reads it needs, every held row being one it answers or drops: read for the page, the
+        # fixtures, clubs and referees would cost a season's `getMore`s the close's share pays for (`CLOSES_PER_PASS`).
+        share = rows if batch.share is None else rows[: batch.share]
+        spent = {row["_id"] for row in share if mitteilung_spent(row=row, today=today)}
+        live = [row for row in share if row["_id"] not in spent]
         spiele = await _spiele(spiele_collection=spiele_collection, saison_id=saison_id, ids=[row["spiel_id"] for row in live], session=session)
         junctions = await _junctions(
             saison_teams_collection=saison_teams_collection,
@@ -551,7 +555,7 @@ async def sweep_spielbestaetigungen(
                 return None
             return TEAM_NOTICES[grund](spielbestaetigung_id=row["_id"], spiel_id=row["spiel_id"], alt=alt, empfaenger=empfaenger, **namen)
 
-        taken = batch.judged(rows, notice_of)[: batch.share]
+        taken = batch.judged(share, notice_of)
         batch.took([row for row, _ in taken])
         refuse_a_stalled_page(read=len(rows), moved=len(taken) + len(batch.refused), page=SWEEP_PAGE, clock="notice", saison_id=saison_id)
 

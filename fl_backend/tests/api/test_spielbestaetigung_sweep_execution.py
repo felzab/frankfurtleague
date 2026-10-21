@@ -1627,7 +1627,7 @@ class TestEverySeasonSizedReadSendsOneGetMore:
             )
             await database[Collection.SPIELBESTAETIGUNGEN].insert_many(mailed)
             # Notices held from earlier passes, past the first batch, each fixture, club and referee their own: the
-            # notice step's every read takes a `getMore`.
+            # notice step's page takes a `getMore`, and the fixtures, clubs and referees it reads for its share none.
             await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
                 [a_held_notice(spiel, partei=partei) for spiel in spiele for partei in parteien_of(spiel)]
             )

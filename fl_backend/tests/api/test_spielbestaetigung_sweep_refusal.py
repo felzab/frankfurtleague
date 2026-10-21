@@ -232,7 +232,7 @@ ANGEFRAGT_OTHER_COMMANDS = 3
 # A `getMore` apiece for the reads taking a season's rows rather than a share's, once those outrun the driver's first
 # batch, pinned on the wire by
 # `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py :: TestEverySeasonSizedReadSendsOneGetMore`.
-SWEEP_GET_MORES = 17
+SWEEP_GET_MORES = 14
 
 
 # Each call's per-command cost, the widest of fifteen whole passes at a full share timed locally, 2026-10-20.
