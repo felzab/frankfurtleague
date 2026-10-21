@@ -6,6 +6,7 @@ import {
   configDouble,
   GATE_BACKEND_CONFIG,
   insertOrderedAdapter,
+  madeByPasskey,
   memoryStore,
   ORIGIN,
   registerAuthDoubles,
@@ -51,6 +52,8 @@ const FREIGABE = "/api/v0/konto/adresswechsel/freigabe";
 
 /** Who is told an approval waits: none for an address holding no grant. */
 let genehmiger: string[] = [];
+/** The grant the signed-in address holds, as the subject read serves it: none, unless a case names its tier. */
+let grant: { verwaltung: "owner" | "administration"; berechtigt_seit: string; inhaber_seit: string | null } | null = null;
 let startAnswer: () => Response;
 let freigabeAnswer: () => Response;
 const writes: { method: string; path: string; body: unknown; actor: boolean }[] = [];
@@ -91,7 +94,9 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
 
   const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
   return Promise.resolve(
-    Response.json(answerAt(path, { acknowledged: 1, ...NO_RECORDS, spieler: [{ spieler_id: CARRIER }], konto: email !== undefined })),
+    Response.json(
+      answerAt(path, { acknowledged: 1, ...NO_RECORDS, spieler: [{ spieler_id: CARRIER }], konto: email !== undefined, ...(grant ?? {}) }),
+    ),
   );
 }) as typeof globalThis.fetch;
 
@@ -100,6 +105,11 @@ const { starteAdresswechselAction, gibAdresswechselFreiAction, stoppeAdresswechs
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 const { adresswechselLink } = await import("@/core/adresswechselEmail.ts");
 const { auth } = await import("@/core/auth.ts");
+
+/** A grant holder signed in just now, by the passkey the administrator's guard asks of them. */
+async function verwaltendAngemeldet(): Promise<void> {
+  madeByPasskey(store, await angemeldet());
+}
 
 /** A person signed in by a code just now, the request arriving as them. */
 async function angemeldet(): Promise<SessionRow> {
@@ -115,6 +125,7 @@ beforeEach(() => {
   mail.sent.length = 0;
   mail.answerWith(() => "accepted");
   genehmiger = [];
+  grant = null;
   deferred.length = 0;
   abgleiche = 0;
   startAnswer = () => Response.json(mint());
@@ -164,7 +175,8 @@ describe("the person's own start of an address change", () => {
      start queued, and the person that the old address signs in meanwhile. */
   it("leaves the approvers to the grants' outbox, drained behind the answer, and tells the person the old address signs in meanwhile", async () => {
     genehmiger = ["anna@verwaltung.example", "ben@verwaltung.example"];
-    await angemeldet();
+    grant = { verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z", inhaber_seit: null };
+    await verwaltendAngemeldet();
 
     const answer = await starteAdresswechselAction({ email: NEU });
 
@@ -179,6 +191,20 @@ describe("the person's own start of an address change", () => {
     assert.match(
       answer.success ? (answer.message ?? "") : "",
       /muss außerdem eine andere Person aus der Verwaltung zustimmen\. Bis dahin meldest Du Dich weiter mit dieser Adresse an\./,
+    );
+  });
+
+  /* An owner told that any administrator may approve asks one, whose press is closed: the tier names the approver. */
+  it("names another owner as the approver where the moved grant is an owner's", async () => {
+    genehmiger = ["anna@verwaltung.example"];
+    grant = { verwaltung: "owner", berechtigt_seit: "2026-01-01T00:00:00Z", inhaber_seit: "2026-01-01T00:00:00Z" };
+    await verwaltendAngemeldet();
+
+    const answer = await starteAdresswechselAction({ email: NEU });
+
+    assert.match(
+      answer.success ? (answer.message ?? "") : "",
+      /muss außerdem eine andere Inhaberin oder ein anderer Inhaber der Verwaltung zustimmen\./,
     );
   });
 
