@@ -1384,12 +1384,15 @@ the outbox's drain, its notice queued in the same transaction.
 **A `SRV-VAL-001` warning naming pupils left out of the deletion is a stored address no request
 matches** — empty, not in the form sign-in folds it to, or refused by the address rule, which only
 a hand edit of the record leaves ([`../backend/spec.md`](../backend/spec.md#2-invariants) I718).
-The run passes those pupils over on every pass until their address is stored in that form. **An
-address the rule refuses is replaced through the pupil editor's change**, to the person's own, which
-stores it folded once its mailbox confirms. **A spelling that differs from its fold only in case,
-surrounding spaces or the domain's form is refused there as the address already held**
-(`REQ-SPIELER-007`), so it is rewritten to its fold by hand, as a MongoDB Playground paste kept in
-the operator's checklist (§2). An empty one is a pupil holding no address, whom no route reaches
+The run passes those pupils over on every pass until their address is stored in that form. **No
+route repairs one**: the address tool and the account page find a pupil by the folded address alone
+(`fl_backend/app/api/spieler/services.py :: build_selbst_pupil_filter`), so a change started for it
+finds nothing to move (`REQ-ADRESSWECHSEL-010`), and the tool takes no address the rule refuses.
+Rewrite it by hand as a MongoDB Playground paste kept in the operator's checklist (§2): a spelling
+that differs from its fold only in case, surrounding spaces or the domain's form to that fold, and
+an address the rule refuses to the folded address the person is established to hold, as
+[section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it) establishes a lost
+mailbox's. An empty one is a pupil holding no address, whom no route reaches
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)).
 
 **Null means no pass of that kind has ever run against this database**, which on production is one
