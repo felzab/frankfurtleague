@@ -76,6 +76,13 @@ const OHNE_ADRESSE: Readonly<Record<Vorenthalten["vorenthalten"], string>> = {
   geloescht: "Eine nicht genannte Adresse",
 };
 
+/** A withheld address inside a sentence rather than opening it, read off the same words. */
+function ohneAdresseImSatz(vorenthalten: Vorenthalten["vorenthalten"]): string {
+  const wort = OHNE_ADRESSE[vorenthalten];
+
+  return `${wort.charAt(0).toLowerCase()}${wort.slice(1)}`;
+}
+
 /** The `owner` tier as a person of either gender holds it, never the masculine word for both. */
 const INHABER = "Inhaberin oder Inhaber";
 
@@ -131,6 +138,57 @@ function urheberSatz(urheber: Urheber, wer: (adresse: string) => string, verb = 
 
   const von = urheberName(urheber.von, wer);
   return urheber.am === null ? `${verb} von ${von}.` : `${verb} von ${von} am ${wer(zeitText(urheber.am))}.`;
+}
+
+/** How a request ended, told to its requester alone (`docs/backend/spec.md :: I867`). */
+export type AntragEnde = {
+  readonly art: "antrag_abgelehnt" | "antrag_beendet";
+  // The address the request was for, or why it is withheld.
+  readonly adresse: string | Vorenthalten;
+  // Whether it asked for an owner's promotion rather than access.
+  readonly inhaber: boolean;
+};
+
+/** The request as its requester asked it, the address marked up by `wer`. */
+function antragSatz(ende: AntragEnde, wer: (adresse: string) => string): string {
+  const { adresse } = ende;
+  const fuer = typeof adresse === "string" ? wer(adresse) : ohneAdresseImSatz(adresse.vorenthalten);
+  const antrag = ende.inhaber
+    ? `Dein Antrag, ${fuer} zur Inhaberin oder zum Inhaber der Verwaltung zu ernennen,`
+    : `Dein Antrag auf Zugang zur Verwaltung für ${fuer}`;
+
+  return ende.art === "antrag_abgelehnt" ? `${antrag} wurde abgelehnt.` : `${antrag} endete, weil sich die Adresse geändert hat.`;
+}
+
+/**
+ * A request's end, mailed to the administrator who asked for it under the request's own subject. It names the address they
+ * asked about, which they typed, and nobody who acted: never who refused it.
+ */
+export function buildAntragEndeEmail(endeRoh: AntragEnde, rawOrigin: string): BerechtigungEmail {
+  const origin = mailOrigin(rawOrigin);
+  const ziel = `${origin}${ZIEL_PFAD}`;
+  const { adresse } = endeRoh;
+  const ende: AntragEnde = { ...endeRoh, adresse: typeof adresse === "string" ? einzeilig(adresse) : adresse };
+  const antrag = ANTRAG[ende.inhaber ? "ernennung" : "zugang"];
+
+  const html = renderKarte({
+    titel: `${BRAND_NAME}: ${antrag.ueberschrift}`,
+    ueberschrift: escapeHtml(antrag.ueberschrift),
+    bloecke: [
+      paragraph(
+        antragSatz(ende, (value) => strong(escapeHtml(value))),
+        "0",
+      ),
+    ],
+    aktionen: [{ href: ziel, label: ZIEL_LABEL, ton: "primary" }],
+    fuss: ANTWORT_SATZ_HTML,
+    origin: origin,
+  });
+
+  const oben = [`${BRAND_NAME}: ${antrag.ueberschrift}`, "", antragSatz(ende, (value) => value), "", `${ZIEL_LABEL}: ${ziel}`];
+  const text = [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(origin, [ANTWORT_SATZ_TEXT])].join("\n");
+
+  return { subject: antrag.betreff, html: html, text: text };
 }
 
 /**

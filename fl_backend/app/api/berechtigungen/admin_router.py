@@ -17,6 +17,7 @@ from app.api.berechtigungen.antraege import (
     find_antrag_verfallen_refusal,
     find_genehmigung_verwehrt_refusal,
     pull_the_antrag,
+    queue_the_ending_in_session,
     read_the_antraege,
     remove_the_antrag_in_session,
 )
@@ -809,6 +810,7 @@ async def delete_antrag(
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
@@ -821,6 +823,9 @@ async def delete_antrag(
     Decided by whoever may approve it, refused with the approval's own codes otherwise (`REQ-BERECHTIGUNG-009`, `-010`, `-011`), and
     withdrawn by the administrator who made it, whatever their tier now. 404 for an id naming no request, a request decided, withdrawn or
     lapsed among them. A restore from a snapshot taken before it brings the request back only until the replay of its journal line.
+
+    A refusal queues, in the same transaction, a notice to the request's requester naming the address and tier it asked for and
+    nobody who refused it, for `POST /berechtigungen/abgleich` to hand out; a withdrawal tells nobody.
     """
 
     akteur = sign_in_identifier(operator)
@@ -842,7 +847,8 @@ async def delete_antrag(
             announced=records,
         )
         # Its requester withdraws it: who made a request may always take it back.
-        refuse(find_genehmigung_verwehrt_refusal(verwehrt=None if verwehrt == "gestartet" else verwehrt))
+        zurueckgezogen = verwehrt == "gestartet"
+        refuse(find_genehmigung_verwehrt_refusal(verwehrt=None if zurueckgezogen else verwehrt))
 
         await remove_the_antrag_in_session(
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
@@ -850,6 +856,16 @@ async def delete_antrag(
             antrag_id=antrag_id,
             session=session,
         )
+        # A decider's refusal is news to its requester; their own withdrawal is not (`docs/backend/spec.md :: I867`).
+        if not zurueckgezogen:
+            await queue_the_ending_in_session(
+                [antrag],
+                art="antrag_abgelehnt",
+                sperrliste=sperrliste,
+                berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                now=now,
+                session=session,
+            )
         journal.note(abgelehnt_line(antrag=antrag, am=log_stamp(now), schluessel=config.sperrliste_schluessel))
 
     async with journal:

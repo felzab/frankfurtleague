@@ -492,6 +492,7 @@ THE_ACTORS_JUDGE = "the actor's judge, a read"
 THE_PERSONS_VERDICT = "a person's own sign-in verdict, a read"
 STARTS_A_CHANGE = "anchors the new address through `app/api/adresswechsel/crud.py :: start_the_change_in_session`"
 MOVES_THE_ADDRESS = "anchors the new address through `app/api/adresswechsel/crud.py :: move_the_address_in_session`, a wait storing none"
+ENDS_A_REQUEST = "copies the two addresses of a request it deletes, which an erasure of either deletes too, so the two conflict"
 
 # A write asking the ban list of an address is how one storing a NEW address shows itself, a ban refusing exactly that,
 # so each such scope anchors or says why the address it writes was already the record's.
@@ -515,9 +516,13 @@ ASKING_AND_ANCHORING_NOTHING: dict[str, str] = {
     "app/api/berechtigungen/admin_router.py :: _genehmiger_exist": "asks which approver is barred, storing none",
     "app/api/berechtigungen/admin_router.py :: judge_and_change": THE_STORED_GRANTS,
     "app/api/berechtigungen/admin_router.py :: judge_and_revoke": THE_STORED_GRANTS,
+    "app/api/berechtigungen/admin_router.py :: refuse_the_antrag": ENDS_A_REQUEST,
+    "app/api/berechtigungen/antraege.py :: end_the_antraege_about_in_session": ENDS_A_REQUEST,
+    "app/api/berechtigungen/antraege.py :: queue_the_ending_in_session": ENDS_A_REQUEST,
     "app/api/berechtigungen/crud.py :: live_unbarred_grant_in": THE_ACTORS_JUDGE,
     "app/api/berechtigungen/crud.py :: live_unbarred_grant_since": THE_ACTORS_JUDGE,
     "app/api/berechtigungen/erasure.py :: erase_grants_and_authorship_in_session": THE_ERASURE,
+    "app/api/berechtigungen/sweep_router.py :: _an": "names a claimed row's recipients, storing none",
     "app/api/berechtigungen/sweep_router.py :: queue_and_claim": THE_STORED_GRANTS,
     "app/api/bewerbungen/admin_router.py :: mint_unless_gesperrt": STORED_ADDRESS,
     "app/api/bewerbungen/admin_router.py :: refuse_a_barred_address": STORED_ADDRESS,

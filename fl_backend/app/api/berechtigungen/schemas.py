@@ -38,9 +38,13 @@ FLAdresswechselEinsehbarVerwehrt = Literal["eigene", "verwaltung"]
 # a database edit. An address changed in place is a removal and a grant, never `geaendert`.
 FLBerechtigungAenderungArt = Literal["erteilt", "entzogen", "geaendert"]
 
+# What else an outbox row tells: a request's end, for its requester: refused by an administrator, or ended by its
+# address's change (`docs/backend/spec.md :: I867`).
+FLBerechtigungAntragEndeArt = Literal["antrag_abgelehnt", "antrag_beendet"]
+
 # What an outbox row tells: a change to a grant; or, no change of one yet, a grant or promotion asked for (`beantragt`)
 # or an address change moving a grant (`adresswechsel`, keyed by the change), each waiting on an approval.
-FLBerechtigungPostausgangArt = Literal[FLBerechtigungAenderungArt, Literal["beantragt", "adresswechsel"]]
+FLBerechtigungPostausgangArt = Literal[FLBerechtigungAenderungArt, Literal["beantragt", "adresswechsel"], FLBerechtigungAntragEndeArt]
 
 # Who made a queued change: an administrator through the application, or an edit in the database.
 # Stated, since a null actor also stands for one whose address is withheld (`docs/backend/spec.md :: I452`).
@@ -250,6 +254,7 @@ class FLBerechtigungPostausgangZeile(BaseModel):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # The request's own id on a `beantragt` row, which has no grant yet: the claim finds by it whether the request still waits.
+    # A request's end is keyed by it too.
     berechtigung_id: CustomObjectId
     art: FLBerechtigungPostausgangArt
     urheber: FLBerechtigungUrheber
@@ -257,6 +262,7 @@ class FLBerechtigungPostausgangZeile(BaseModel):
     vorher: FLBerechtigungStand | None
     # The administrator whose write made the change, null for one found in the database and for one
     # whose address a ban has withheld, `urheber` telling the two apart; the marker for one erased since.
+    # On a request's end, its requester.
     geaendert_von: str | None
     # Null where the change was found in the database, nobody knowing when that edit was made.
     geaendert_am: datetime | None
@@ -290,7 +296,7 @@ class FLBerechtigungAenderung(BaseModel):
     # Set where this claim is past the row's last hand-out: the pass mails nothing and stamps it.
     aufgegeben: bool
     # A request's recipients, in `empfaenger`'s place: whoever could approve it now, none once it is decided, lapsed
-    # or approved by nobody. Null on every change to a grant.
+    # or approved by nobody; its end's, the requester while they administer. Null on every change to a grant.
     an: list[str] | None
 
 
