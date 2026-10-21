@@ -37,7 +37,8 @@ export type ZustellAnlass =
   | "ablehnung"
   | "anfrage"
   | "neue_ansetzung"
-  | "spiel_abgesagt";
+  | "spiel_abgesagt"
+  | "vorschlag_verworfen";
 
 /** One message and every seat it answers for. A mirrored pair is one message naming two seats. */
 export type ZustellSendung = {

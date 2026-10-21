@@ -45,6 +45,7 @@ const leererPass = (saisonId: string) => ({
   schiedsrichter_gewechselt: [],
   spiel_abgesagt: [],
   schiedsrichter_spiel_abgesagt: [],
+  vorschlag_verworfen: [],
   geschlossen: 0,
   fehlgeschlagen: 0,
   mitteilungen_aufgegeben: [],
@@ -572,6 +573,29 @@ describe("what one pass mails", () => {
       ereignisse.map((ereignis) => (ereignis.art === "api" ? ereignis.endpoint : ereignis.art === "mail" ? ereignis.mail.to : "drop")),
       [LISTE, PASS("2627"), "team@schule.de", "schiri@schule.de", MITGETEILT("2627"), "drop"],
     );
+  });
+
+  /* Its decline said the league decides; this is the word that it has, which nothing else sends. */
+  it("tells a club whose proposal was discarded that the date stands, keyed and stamped", async () => {
+    passAnswer = (saisonId) => ({
+      ...leererPass(saisonId),
+      vorschlag_verworfen: [{ ...hinweis(7), empfaenger: [{ address: "team@schule.de", rollen: ["trainer", "stellvertretung"] }] }],
+    });
+
+    await runSpielSweep();
+
+    assert.deepEqual(
+      gesendet().map(({ to, subject, tags }) => [to, subject, tags]),
+      [
+        [
+          "team@schule.de",
+          "Termin bleibt: Ernst-Reuter-Schule gegen Goethe-Gymnasium am 13.11.2026",
+          { ziel: "spielbestaetigung", ziel_id: id(7), anlass: "vorschlag_verworfen", rollen: "trainer-stellvertretung" },
+        ],
+      ],
+    );
+    assert.ok(gesendet()[0]?.idempotencyKey !== undefined, "the notice went unkeyed");
+    assert.deepEqual(mitgeteilt(), [id(7)]);
   });
 
   /* Unstamped, the backend answers the notice again on the next pass; stamped though it never went, nobody would hear. */

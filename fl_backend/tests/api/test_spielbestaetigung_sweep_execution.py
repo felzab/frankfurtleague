@@ -13,6 +13,7 @@ from pymongo.errors import ExecutionTimeout, OperationFailure
 
 from app.api.bewerbungen.services import SWEEP_PAGE, days_after, hash_token
 from app.api.schiedsrichter.services import compose_bestaetigung
+from app.api.spielbestaetigungen.admin_router import verwerfen_spielbestaetigung
 from app.api.spielbestaetigungen.person_router import post_schiedsrichter_antwort
 from app.api.spielbestaetigungen.router import post_spielbestaetigung
 from app.api.spielbestaetigungen.schemas import (
@@ -548,6 +549,63 @@ async def alphas_discard_beside_betas_agreement(database: AsyncDatabase, client:
     await database[Collection.SPIELBESTAETIGUNGEN].update_one({"partei.team_id": BETA}, answered("zugesagt"))
 
     return row_of(await rows(database), team_id=ALPHA)["_id"]
+
+
+async def alphas_proposal_discarded(database: AsyncDatabase, client: AsyncMongoClient) -> ObjectId:
+    """Every row asked and mailed, Alpha declining with a proposal and the administrator discarding it; Alpha's row id."""
+
+    await sweep(database, client)
+    await angefragt(database, client, [row["_id"] for row in await rows(database)])
+    await database[Collection.SPIELBESTAETIGUNGEN].update_one({"partei.team_id": ALPHA}, answered("abgelehnt"))
+    discarded = row_of(await rows(database), team_id=ALPHA)["_id"]
+    await verwerfen_spielbestaetigung(
+        spielbestaetigung_id=discarded,
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        spiele_collection=database[Collection.SPIELE],
+        db=client,
+        today=TODAY,
+    )
+
+    return discarded
+
+
+class TestADiscardTellsTheClubTheDateStands:
+    """The club was told the league decides; nothing else would tell it the league has, and it might not turn up."""
+
+    def test_the_pass_tells_the_declining_clubs_mailboxes_until_stamped(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            discarded = await alphas_proposal_discarded(database, client)
+            told = await sweep(database, client)
+            again = await sweep(database, client)
+            await mitgeteilt(database, client, [notice.spielbestaetigung_id for notice in again.vorschlag_verworfen])
+
+            return discarded, told, again, await sweep(database, client)
+
+        discarded, told, again, stamped = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        for answer in (told, again):
+            assert [(notice.spielbestaetigung_id, notice.alt.datum) for notice in answer.vorschlag_verworfen] == [(discarded, NEXT_WEEK)]
+            assert sorted(empfaenger.address for notice in answer.vorschlag_verworfen for empfaenger in notice.empfaenger) == sorted(
+                address(ALPHA, seat) for seat in KONTAKT_ROLLEN
+            )
+            assert (answer.neue_ansetzungen, answer.spiel_abgesagt, answer.anfragen) == ([], [], [])
+        assert stamped.vorschlag_verworfen == []
+
+    def test_a_move_since_drops_the_notice_and_asks_the_club_afresh(self, mongo_replica_set_url: str):
+        """The date it would say stands has moved: the request about the new one is the club's message."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            discarded = await alphas_proposal_discarded(database, client)
+            await move(database, client, SPIEL, uhrzeit="19:00:00")
+            answer = await sweep(database, client)
+
+            return answer, await database[Collection.SPIELBESTAETIGUNGEN].find_one({"_id": discarded})
+
+        answer, row = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        assert (answer.vorschlag_verworfen, answer.mitteilungen_aufgegeben) == ([], [])
+        assert (row["geschlossen"]["grund"], row["geschlossen"]["mitteilung"]) == ("verworfen", None)
+        assert sorted(anfrage.seite for anfrage in answer.anfragen) == ["team1", "team2"]
 
 
 class TestADiscardedDeclineIsNotAskedAgain:

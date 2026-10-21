@@ -23,6 +23,7 @@ from app.api.spielbestaetigungen.services import (
     eintragen_refusal,
     find_eintragen_refusal,
     find_verwerfen_refusal,
+    verwerfen_owes_a_notice,
     verwerfen_refusal,
 )
 from app.core.config import API_VERSION
@@ -150,7 +151,8 @@ async def verwerfen_spielbestaetigung(
     IRREVERSIBLE: the decline stays as the club gave it, and the row is closed `verworfen`, which is that club's one
     answer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture
     counts it as the club's agreement, the league having kept the date, until a pass closes it again as it closes an
-    agreement beside it. Refused for any other row -- open, agreed, declined without a proposal, a referee's, closed, or
+    agreement beside it. Where its day is still to come, the row holds the club a notice that the date stands, which
+    the confirmation pass mails. Refused for any other row -- open, agreed, declined without a proposal, a referee's, closed, or
     about an Ansetzung the fixture has left, the fixture moving while this request runs included (`REQ-ANSETZUNG-014`):
     the confirmation pass closes that row and tells its club of the move.
     """
@@ -165,7 +167,7 @@ async def verwerfen_spielbestaetigung(
         row = await pull_one_from_db(
             collection=spielbestaetigungen_collection,
             db_filter={"_id": spielbestaetigung_id},
-            projection=["spiel_id", "partei", "ansetzung.stand", "antwort", "geschlossen"],
+            projection=["spiel_id", "partei", "ansetzung.stand", "ansetzung.datum", "antwort", "geschlossen"],
             session=session,
         )
         await judged(row, session)
@@ -174,7 +176,7 @@ async def verwerfen_spielbestaetigung(
             discarded = await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": spielbestaetigung_id, **build_verwerfbar_filter()},
-                update=compose_closing_update(grund="verworfen", today=today),
+                update=compose_closing_update(grund="verworfen", today=today, mitteilung=verwerfen_owes_a_notice(row=row, today=today)),
                 session=session,
                 return_document=ReturnDocument.AFTER,
             )

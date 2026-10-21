@@ -38,7 +38,8 @@ export type SpielbestaetigungStart =
   | { zustand: "vorschlag"; ansicht: FLSpielbestaetigungAnsichtResponse; token: string }
   | { zustand: "zugesagt"; beantwortet_von: FLSpielbestaetigungVon }
   | { zustand: "abgelehnt"; beantwortet_von: FLSpielbestaetigungVon }
-  | { zustand: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "abgelehnt"> | "unlesbar" };
+  | { zustand: "verworfen"; termin: FLSpielbestaetigungTermin }
+  | { zustand: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "abgelehnt" | "verworfen"> | "unlesbar" };
 
 type Stand =
   | SpielbestaetigungStart
@@ -53,6 +54,7 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   "abgelehnt-neu": "Vorschlag gesendet",
   zugesagt: "Schon erledigt",
   abgelehnt: "Schon erledigt",
+  verworfen: "Schon erledigt",
   abgelaufen: "Link ungültig",
   "termin-vorbei": "Link ungültig",
   ungueltig: "Link ungültig",
@@ -185,6 +187,17 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
           tone="erfolg">
           <p className={ABSATZ_CLASSES}>Für dieses Spiel hat Dein Team den Termin schon abgesagt. Über den Termin entscheidet die Liga.</p>
           <GespeicherteAngaben zeilen={[{ label: "Abgesagt von", wert: beantwortetVon(stand.beantwortet_von) }]} />
+          <ZurLiga />
+        </BestaetigungErgebnis>
+      )}
+
+      {/* The decline's own sentence said the league decides, so this one says it has, under the date it kept. */}
+      {stand.zustand === "verworfen" && (
+        <BestaetigungErgebnis
+          panelRef={ergebnisRef}
+          tone="erfolg">
+          <GespeicherteAngaben zeilen={[{ label: "Termin", wert: terminText(stand.termin) }]} />
+          <p className={ABSATZ_CLASSES}>Die Liga hat entschieden: Der Termin oben bleibt.</p>
           <ZurLiga />
         </BestaetigungErgebnis>
       )}

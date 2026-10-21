@@ -33,6 +33,7 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung,
     FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt,
     FLSpielbestaetigungSweepSpielAbgesagt,
+    FLSpielbestaetigungSweepVorschlagVerworfen,
     FLSpielbestaetigungTermin,
 )
 from app.api.spielbestaetigungen.services import (
@@ -105,10 +106,17 @@ WHAT: Final = "Confirmation"
 
 CLOSE_FIELDS: Final = ["spiel_id", "partei", "ansetzung", "angefragt_am", "geschlossen"]
 
-# Each notice per closing reason that owes one (`app/api/spielbestaetigungen/services.py :: notice_owed`), by the party's kind.
-TEAM_NOTICES: Final[Mapping[str, type[FLSpielbestaetigungSweepNeueAnsetzung | FLSpielbestaetigungSweepSpielAbgesagt]]] = {
+# Each notice per closing reason that owes one (`app/api/spielbestaetigungen/services.py :: notice_owed`, and
+# `:: verwerfen_owes_a_notice` for the discard's), by the party's kind.
+TEAM_NOTICES: Final[
+    Mapping[
+        str,
+        type[FLSpielbestaetigungSweepNeueAnsetzung | FLSpielbestaetigungSweepSpielAbgesagt | FLSpielbestaetigungSweepVorschlagVerworfen],
+    ]
+] = {
     "ansetzung_geaendert": FLSpielbestaetigungSweepNeueAnsetzung,
     "abgesagt": FLSpielbestaetigungSweepSpielAbgesagt,
+    "verworfen": FLSpielbestaetigungSweepVorschlagVerworfen,
 }
 SCHIEDSRICHTER_NOTICES: Final[
     Mapping[
@@ -132,6 +140,7 @@ type _Notice = (
     | FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung
     | FLSpielbestaetigungSweepSchiedsrichterGewechselt
     | FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt
+    | FLSpielbestaetigungSweepVorschlagVerworfen
 )
 
 
@@ -370,7 +379,8 @@ async def sweep_spielbestaetigungen(
     notice, and the notice step answers a share of those the season's rows hold, each built off the fixture and the
     mailboxes or address as they stand: a team's move in `neue_ansetzungen`, a referee's in
     `schiedsrichter_neue_ansetzungen`, a referee taken off in `schiedsrichter_gewechselt`, a call-off in `spiel_abgesagt`
-    and `schiedsrichter_spiel_abgesagt`. A notice is answered on every pass until the caller stamps it through
+    and `schiedsrichter_spiel_abgesagt`, and the notice an administrator's discard holds, that the date stands, in
+    `vorschlag_verworfen`. A notice is answered on every pass until the caller stamps it through
     `/mitgeteilt`; one answered as often as `app/api/spielbestaetigungen/services.py :: MITTEILUNG_VERSUCHE_HOECHSTENS`
     allows, or about no day still to come, is given up: answered in `mitteilungen_aufgegeben` by its row, its fixture
     and its party's kind, never a person, for the administrator to tell by hand, and answered so on every pass until
@@ -431,6 +441,7 @@ async def sweep_spielbestaetigungen(
             schiedsrichter_gewechselt=[],
             spiel_abgesagt=[],
             schiedsrichter_spiel_abgesagt=[],
+            vorschlag_verworfen=[],
             geschlossen=0,
             fehlgeschlagen=0,
             mitteilungen_aufgegeben=[],
@@ -975,6 +986,7 @@ async def sweep_spielbestaetigungen(
     schiedsrichter_gewechselt = [notice for notice in notices if isinstance(notice, FLSpielbestaetigungSweepSchiedsrichterGewechselt)]
     spiel_abgesagt = [notice for notice in notices if isinstance(notice, FLSpielbestaetigungSweepSpielAbgesagt)]
     schiedsrichter_spiel_abgesagt = [notice for notice in notices if isinstance(notice, FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt)]
+    vorschlag_verworfen = [notice for notice in notices if isinstance(notice, FLSpielbestaetigungSweepVorschlagVerworfen)]
     mitteilungen_aufgegeben = [notice for answered in told for notice in answered.aufgegeben]
     # The rows whose notice this answer carries, mailed or given up: the mint asks their fixture beside them.
     angekuendigt = {notice.spielbestaetigung_id for notice in [*notices, *mitteilungen_aufgegeben]}
@@ -1060,6 +1072,7 @@ async def sweep_spielbestaetigungen(
         schiedsrichter_gewechselt=schiedsrichter_gewechselt,
         spiel_abgesagt=spiel_abgesagt,
         schiedsrichter_spiel_abgesagt=schiedsrichter_spiel_abgesagt,
+        vorschlag_verworfen=vorschlag_verworfen,
         geschlossen=sum(closed),
         fehlgeschlagen=fehlgeschlagen,
         mitteilungen_aufgegeben=mitteilungen_aufgegeben,

@@ -53,6 +53,8 @@ export async function getSpielbestaetigungAnsicht(token: string): Promise<Spielb
         // The view serves no close reason, so the day the link asked about decides, on Berlin's calendar as the
         // backend's: a link to a match already due must not say the league will still set its date.
         if (zustand === "abgelaufen" && ansicht.ansetzung.datum < getGermanTodayStr()) return { zustand: "termin-vorbei" };
+        if (zustand === "verworfen")
+          return { zustand: zustand, termin: { datum: ansicht.ansetzung.datum, uhrzeit: ansicht.ansetzung.uhrzeit } };
         if (zustand !== "zugesagt" && zustand !== "abgelehnt") return { zustand: zustand };
 
         // The role is a seat and never a person, and it is what tells the club's other two seats who

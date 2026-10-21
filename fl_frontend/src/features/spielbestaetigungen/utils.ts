@@ -251,6 +251,8 @@ export type SpielbestaetigungAnsicht =
   | { zustand: "vorschlag"; ansicht: FLSpielbestaetigungAnsichtResponse }
   | { zustand: "zugesagt"; beantwortet_von: FLSpielbestaetigungVon }
   | { zustand: "abgelehnt"; beantwortet_von: FLSpielbestaetigungVon }
+  // The date the league kept, which its sentence points at: the link's mail named it already.
+  | { zustand: "verworfen"; termin: FLSpielbestaetigungTermin }
   // `termin-vorbei` is the page's own: an `abgelaufen` link whose fixture's day has gone by.
   | { zustand: "abgelaufen" | "termin-vorbei" | "ungueltig" | "abgesagt" | "gesperrt" };
 

@@ -442,3 +442,49 @@ export function buildSpielAbgesagtEmail({ origin, team1, team2, altDatumText, al
     text: [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(site, [empfaengerSatz, ANTWORT_SATZ_TEXT])].join("\n"),
   };
 }
+
+/** What a club whose proposed date the league discarded is told: the slot it was asked about, which stands. */
+export interface SpielVorschlagVerworfenData {
+  readonly origin: string;
+  readonly team1: string;
+  readonly team2: string;
+  readonly datumText: string;
+  readonly uhrzeitText: string;
+}
+
+const VERWORFEN_UEBERSCHRIFT = "Termin bleibt";
+
+/**
+ * The word to a club that the league kept the date it declined and proposed another for: its answer said the league
+ * decides, and nothing else tells it the league has. No button, nothing being left to answer.
+ */
+export function buildSpielVorschlagVerworfenEmail({ origin, team1, team2, datumText, uhrzeitText }: SpielVorschlagVerworfenData): SpielEmail {
+  const site = mailOrigin(origin);
+  const fakten = { team1: einzeilig(team1), team2: einzeilig(team2), datum: einzeilig(datumText), uhrzeit: einzeilig(uhrzeitText) };
+
+  const entschieden = (markup: boolean): string => {
+    const termin = markup
+      ? strong(`${escapeHtml(fakten.datum)} um ${escapeHtml(fakten.uhrzeit)} Uhr`)
+      : `${fakten.datum} um ${fakten.uhrzeit} Uhr`;
+
+    return `Hallo, für das Spiel ${paarung(fakten.team1, fakten.team2, markup)} hat Dein Team einen anderen Termin vorgeschlagen. Die Liga hat entschieden: Das Spiel bleibt am ${termin}.`;
+  };
+  const folge = "Du musst nichts tun.";
+
+  const html = renderKarte({
+    titel: `${BRAND_NAME}: ${VERWORFEN_UEBERSCHRIFT}`,
+    ueberschrift: escapeHtml(VERWORFEN_UEBERSCHRIFT),
+    bloecke: [paragraph(entschieden(true)), paragraph(escapeHtml(folge))],
+    aktionen: [],
+    fuss: `${TEAM_EMPFAENGER_SATZ} ${ANTWORT_SATZ_HTML}`,
+    origin: site,
+  });
+
+  const oben = [`${BRAND_NAME}: ${VERWORFEN_UEBERSCHRIFT}`, "", entschieden(false), "", folge];
+
+  return {
+    subject: `Termin bleibt: ${fakten.team1} gegen ${fakten.team2} am ${fakten.datum}`,
+    html: html,
+    text: [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(site, [TEAM_EMPFAENGER_SATZ, ANTWORT_SATZ_TEXT])].join("\n"),
+  };
+}

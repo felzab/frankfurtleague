@@ -1079,8 +1079,21 @@ class TestTheDiscard:
 
         declined, served, row = on_a_fixture(mongo_replica_set_url, body)
 
-        assert (row["antwort"], row["geschlossen"]) == (declined, {"am": TODAY, "grund": "verworfen"})
+        # Holding the club its notice that the date stands, the fixture's day being to come.
+        assert (row["antwort"], row["geschlossen"]) == (declined, {"am": TODAY, "grund": "verworfen", "mitteilung": {"versuche": 0}})
         assert served.updated_document.geschlossen is not None and served.updated_document.geschlossen.grund == "verworfen"
+
+    def test_the_clubs_link_then_reads_the_leagues_decision(self, mongo_replica_set_url: str):
+        """Read as its decline alone, the link would still say the league is to decide, and the club might stay away."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
+            declined = await ansicht(database, token(TEAM1, "stellvertretung"))
+            await verwerfen(database, client, ROW1)
+
+            return declined.zustand, (await ansicht(database, token(TEAM1, "stellvertretung"))).zustand
+
+        assert on_a_fixture(mongo_replica_set_url, body) == ("abgelehnt", "verworfen")
 
     @pytest.mark.parametrize("agreed", [pytest.param(False, id="open"), pytest.param(True, id="agreed")])
     def test_a_row_no_open_decline_with_a_proposal_is_refused_and_closes_nothing(self, mongo_replica_set_url: str, agreed: bool):

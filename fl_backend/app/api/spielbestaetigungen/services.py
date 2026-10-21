@@ -248,6 +248,16 @@ def zustand_of(
     if grund == "abgesagt":
         return "abgesagt"
 
+    # Ahead of the answer as well, which would read as a decision still to come: the league kept the date. Never once the
+    # fixture moved, the date it kept gone with the move.
+    if (
+        grund is None
+        and isinstance(geschlossen, Mapping)
+        and geschlossen["grund"] in GRUENDE_ANSWERED_FOR_THE_STAND
+        and not stand_moved(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage)
+    ):
+        return "verworfen"
+
     if isinstance(antwort, Mapping):
         return "zugesagt" if antwort["art"] == "zugesagt" else "abgelehnt"
 
@@ -690,7 +700,7 @@ def schiedsrichter_zustand_of(
     """What the panel shows of a referee's own row: the link's state, which no ban and no proposal reaches here."""
 
     zustand = zustand_of(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage, today=today, gesperrt=False, vorschlag_offen=None)
-    assert zustand != "gesperrt" and zustand != "vorschlag"
+    assert zustand != "gesperrt" and zustand != "vorschlag" and zustand != "verworfen"
 
     return zustand
 
@@ -1057,6 +1067,15 @@ def notice_owed(*, row: Mapping[str, Any], grund: FLSpielbestaetigungGrund, spie
     )
 
 
+def verwerfen_owes_a_notice(*, row: Mapping[str, Any], today: str) -> bool:
+    """Whether a discard owes the club a notice that the date stands: about a day to come (`docs/backend/spec.md :: I835`).
+
+    No stamp asked, as `notice_owed` asks one: the decline it discards came through one of the club's own links.
+    """
+
+    return _notice_to_come(row=row, grund="verworfen", spiel={}, today=today)
+
+
 def notice_holds(*, row: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
     """Whether the closing a held notice announces still holds of the fixture as it stands (`docs/backend/spec.md :: I839`).
 
@@ -1073,6 +1092,10 @@ def notice_holds(*, row: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
 
     if grund == "schiedsrichter_gewechselt":
         return _referee_id(spiel) != row["partei"].get("schiedsrichter_id")
+
+    # The date the discard kept: moved since, the club is asked about the new one instead.
+    if grund == "verworfen":
+        return ansetzung_stand_of(spiel) == row["ansetzung"]["stand"]
 
     return ansetzung_stand_of(spiel) != row["ansetzung"]["stand"]
 
