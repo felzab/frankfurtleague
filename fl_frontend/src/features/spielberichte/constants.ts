@@ -72,8 +72,8 @@ const ZUSTAENDE_OFFEN = ["vorgeschlagen", "abweichend", "teams_geaendert"] as co
 export const SPIELBERICHT_ZUSTAENDE_OFFEN: ReadonlySet<FLSpielberichtZustand> = new Set(ZUSTAENDE_OFFEN);
 
 /**
- * What every report surface says while `SPIELBERICHT_EINGABE` reads off. Never „noch nicht“: the switch can go off again
- * after the league opened it.
+ * What the referee's report page and panel say while `SPIELBERICHT_EINGABE` reads off; the administrator's surfaces word
+ * their own. Never „noch nicht“: the switch can go off again after the league opened it.
  */
 export const SPIELBERICHT_GESCHLOSSEN = {
   title: "Der Spielbericht ist gerade nicht freigeschaltet.",

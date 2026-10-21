@@ -21,9 +21,8 @@ const LEER = "Gerade steht kein Spiel für einen Spielbericht an.";
 const FRUEHERE_SAISONS = "Frühere Saisons";
 
 /**
- * The referee panel's reports: one card per played fixture of the running season booked to the referee, and apart
- * from them the ended seasons' reports, which only open read-only. Closed or unread, the panel says why no fixture is
- * offered rather than reading as an empty season.
+ * The referee panel's reports: the running season's played fixtures, and apart from them the ended seasons' reports,
+ * which open read-only. Closed or unread, the panel says why no fixture is offered rather than reading as an empty season.
  */
 export function SchiedsrichterSpielberichteSection({ spiele }: { spiele: SchiedsrichterSpielberichte }) {
   const panel = formPanel();

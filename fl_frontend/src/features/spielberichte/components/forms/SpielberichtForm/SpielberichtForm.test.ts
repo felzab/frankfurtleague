@@ -284,7 +284,7 @@ describe("the referee's report form", () => {
     assert.equal(screen.queryAllByRole("switch", { name: "Im Elfmeterschießen entschieden" }).length, 0);
   });
 
-  /* Hidden once the score stops being level, a shoot-out left in the draft would be refused on a field no longer shown. */
+  /* Hidden once the score stops being level, a shoot-out left in the draft would be refused on a field the form hides. */
   it("drops a knockout's shoot-out once the score stops being level, and sends the report without it", async () => {
     const user = userEvent.setup();
     render(
@@ -325,7 +325,7 @@ describe("the referee's report form", () => {
     await user.click(screen.getByRole("button", { name: "Speichern" }));
     await act(answered);
 
-    assert.equal(calls.length, 1, "the corrected report was refused on the shoot-out it no longer shows");
+    assert.equal(calls.length, 1, "the corrected report was refused on the shoot-out it hides");
     const bericht = Reflect.get(Object(calls[0]?.payload), "bericht") as { ergebnis_vorschlag: unknown };
     assert.deepEqual(bericht.ergebnis_vorschlag, { team1_tore: 1, team2_tore: 0, elfmeterschiessen: null, sonderereignis: null });
   });
