@@ -140,6 +140,25 @@ describe("the referee's report page", () => {
     assert.deepEqual(readsOf(steps), [], "a segment that is no id reached the backend");
   });
 
+  /* A correction upstream fielded another club since the report: its score beside the clubs heading the page would read
+     as theirs, as the administrator's panel and the card's chip withhold it. */
+  it("withholds the score of a report about clubs that left, on the read-only view", async () => {
+    eingabe = "on";
+    answering({
+      ...LESEN,
+      abgeschlossen: true,
+      kader: { team1: [], team2: [] },
+      genannt: [...LESEN.kader.team1, ...LESEN.kader.team2],
+      seiten_geaendert: ["team2"],
+    });
+
+    const { text } = await rendered();
+
+    assert.ok(!text.includes("Ergebnis:"), "the score proposed for the departed club is shown");
+    assert.ok(text.includes("Der Bericht wurde für andere Teams geschrieben"), text);
+    assert.ok(text.includes("früheres Team 2"), "the card is listed under the club now on its side");
+  });
+
   it("tells a referee the fixture is booked to somebody else, and sends one whose record went to the landing", async () => {
     eingabe = "on";
     answerReadsWith(() => {
