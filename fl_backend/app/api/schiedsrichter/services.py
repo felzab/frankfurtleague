@@ -411,8 +411,8 @@ def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
     with no address would record a message that was never composed.
     """
 
-    # A stored value the fold cannot canonicalise is no address either: the placeholder under
-    # `.invalid` a row without one is given, which the ban-list hash would otherwise meet as a 500.
+    # A stored value the fold cannot canonicalise is no address either, which the ban-list hash
+    # would otherwise meet as a 500.
     if email is not None:
         try:
             canonical_address(str(email))

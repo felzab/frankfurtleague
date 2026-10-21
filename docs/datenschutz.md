@@ -253,12 +253,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   `:: READ-REFEREE-005`, [section 4](#4-what-is-published-and-on-what-basis)).
 - **A referee's email address is required on every write, because an administrator enters the
   referee and the link is how that person learns of it** (Art. 14 (3)); the telephone number stays
-  optional (`fl_backend/app/shared/schemas/kontakt.py :: FLKontaktPayload`). Ruled 2026-09-22. The
-  referee rows holding no address are given a placeholder under the reserved `.invalid` domain, by a
-  step run at the database rather than by any code here, and they keep it until an administrator
-  corrects it to the real address or the row is dropped
-  ([section 3](#3-the-current-pupil-records-are-reset-once)); no link is ever minted to a
-  placeholder, the mint refusing it as no address
+  optional (`fl_backend/app/shared/schemas/kontakt.py :: FLKontaktPayload`). Ruled 2026-09-22. No
+  link is ever minted to a row holding no usable address, the mint refusing it as none
   (`fl_backend/app/api/schiedsrichter/services.py :: find_missing_address_refusal`).
 - **Every account's address changes only once the new mailbox confirms it, and the address on file
   can stop the change until it takes effect**, because the address is what the person's sign-in and
@@ -301,11 +297,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
 
 ## 3. The current pupil records are reset once
 
-- **At the end of this season, once, every player row is deleted and the action log is reset in
-  full.** From the next season on every player signs up through the website, and from then on
-  player records are kept and governed by
+- **Once, before the deploy that first requires the record shapes it leaves, every pupil and
+  every referee row is deleted and the action log is emptied in full, last.** Every pupil record
+  goes with its squad rows and pending registrations, and every referee row but the ghost goes with
+  the referee confirmation rows, each fixture naming one repointed at the ghost. Seasons, clubs,
+  season rows with their contact seats, applications, fixtures, matchdays, venues and grants stay,
+  brought to those shapes before the deploy. From then on every player signs up through the website,
+  and player records are kept and governed by
   [section 6](#6-retention-is-bounded-where-a-bound-was-chosen); the reset is not repeated. Ruled
-  2026-09-02.
+  2026-09-02; its moment, its scope and the log's place in it ruled 2026-10-20.
 - **This reset is what reaches the log rows the retention index cannot.** A row carries the date
   stamp the expiry reads only where `fl_backend/app/core/recording.py :: record_write` wrote it, and
   nothing backfills one, so the rows standing before that writer shipped are expired by nothing and
@@ -314,14 +314,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   contact seat keeps one act per choice on its own record, the latest with its evidence
   (`fl_backend/app/shared/schemas/einwilligung.py :: FLEinwilligungNachweise`); every act it
   superseded stands only in the log row its write left, so the reset loses those while each seat's
-  current proof stands on the seat. The pupils' and referees' earlier acts would be lost all the
-  same, their rows going at the moments recorded here. Ruled 2026-10-04.
-- **A referee's record is not on this clock, and the referee rows standing today go at a moment of
-  their own.** A referee entered through the confirmation link is bound to no season
-  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)). The rows standing today carry no
-  consent record at all and are dropped once, immediately before the deploy whose fixture read
-  consults one, rather than at this season's end
-  ([`ops/runbooks.md`](ops/runbooks.md#12-deleting-this-seasons-player-records-and-resetting-the-action-log)).
+  current proof stands on the seat, a grant given before seats recorded evidence taking its proof
+  from its confirmation's log row before the log is emptied. The pupils' and referees' earlier acts would be lost all the
+  same, their rows going in the same reset. Ruled 2026-10-04.
+- **A referee's record is bound to no season afterwards, and the reset takes every referee row
+  standing today all the same.** A referee entered through the confirmation link stays until an
+  erasure ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)); the rows standing today
+  go in the reset, by the steps of
+  [`ops/runbooks.md`](ops/runbooks.md#12-deleting-this-seasons-player-records-and-resetting-the-action-log).
 
 ## 4. What is published, and on what basis
 
@@ -415,21 +415,18 @@ Every ruling below is the sign-up flow as it stands for the next season.
   registration's address, and only an address change taking effect moves that address; a referee's
   create and save each require one. Every erasure is keyed
   on a mailbox, so the rows stored without one before are reached by none: a pupil row from before
-  the registration flow, and a referee row holding one placeholder under the reserved `.invalid`
-  domain, which the administrator's erasure and its reveal refuse before any read, since it would
-  reach every such row at once (`fl_backend/app/api/identitaet/schemas.py :: refuse_the_reserved_domain`).
-  Both kinds go with the one-off removals of [section 3](#3-the-current-pupil-records-are-reset-once):
-  the referee rows immediately before the deploy whose fixture read first consults a referee's own
-  consent, the pupil rows at the end of this season. Until that pupil reset an administrator can still enter a
-  pupil row holding no address into a squad, and the reset takes that squad row too. Until the
-  removals the routes open today cost the person something:
+  the registration flow, and a referee row the league stored without an address of its own. Both
+  kinds go with the one-off reset of [section 3](#3-the-current-pupil-records-are-reset-once).
+  Until that reset an administrator can still enter a pupil row holding no address into a squad, and
+  the reset takes that squad row too. Until the reset the routes open today cost the person
+  something:
   - **A referee row** is reached by the erasure once the person's own address is saved on it, and on
     a row still in service that save answers a confirmation link the page mails to that person before
     anything is erased (`fl_backend/app/api/schiedsrichter/admin_router.py :: patch_schiedsrichter`).
     Retiring the row first, after which the save mails nothing, is refused while a fixture still to be
     played names the referee (`REQ-RETIRE-004`).
-  - **A pupil row** waits for this season's reset, which may fall after the month Art. 12(3) gives
-    for answering the request.
+  - **A pupil row** waits for the reset, which may fall after the month Art. 12(3) gives for
+    answering the request.
 - **A referee's erasure also ends their engagement.** Booking a person after they asked to be erased
   creates fresh personal data about them, with no lawful basis standing for it. The ghost is a
   retired row no list serves and no picker names, so `REQ-BOOKING-001` refuses it every new
@@ -705,8 +702,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   and a past season all keep their rows, and a player who left a squad keeps theirs until the
   season after their last squad season has ended; a person's row goes only by an erasure, for a
   pupil by that season-after rule of [section 6](#6-retention-is-bounded-where-a-bound-was-chosen),
-  or by one of the two one-off removals [section 3](#3-the-current-pupil-records-are-reset-once)
-  records, this season's player reset and the drop of the referee rows standing today; a person
+  or by the one-off reset [section 3](#3-the-current-pupil-records-are-reset-once) records; a person
   asks for their own erasure through `POST /identitaet/selbst/erasure`. The
   Known-open row `docs/backend/spec.md :: Nothing purges a retired row` carries this today, naming
   `fl_backend/app/core/domain.py :: UNENFORCED` and `docs/backend/spec.md :: I12`, which holds that
@@ -1204,7 +1200,7 @@ the `Entry` column carries a token only where one still resolves in that file.
   the booking alone (`docs/backend/spec.md :: I212`, `:: I213`)
   ([section 3](#3-the-current-pupil-records-are-reset-once),
   [`ops/runbooks.md`](ops/runbooks.md#12-deleting-this-seasons-player-records-and-resetting-the-action-log)).
-  Nothing informs these people under Art. 14: a placeholder row is
+  Nothing informs these people under Art. 14: a row holding no address of its own is
   never mailed ([section 2](#2-consent-comes-from-the-person-from-16-or-18)), and a row holding a
   real address is mailed its link only when an administrator's write mints one
   ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)). Art. 14 (5)(b) lifts the duty where

@@ -46,8 +46,6 @@ const staleWindow = (tree: ReactNode): ReactNode =>
     tree,
   );
 
-const PLATZHALTER = "adresse-fehlt@frankfurtleague.invalid";
-
 const RECORD = {
   id: "6890a1b2c3d4e5f607800001",
   name: "Anna Körner",
@@ -76,11 +74,10 @@ afterEach(() => {
   toasts.length = 0;
 });
 
-/* The panel is handed the STORED address's standing, never the draft's, and the placeholder a row without one is
-   given is nowhere a link can go. */
+/* The panel is handed the STORED address's standing, never the draft's. */
 describe("the confirmation panel inside the referee's editor", () => {
-  it("closes the send on a row holding only the placeholder address, naming what to repair", () => {
-    render(editor(PLATZHALTER));
+  it("closes the send on a row holding no address, naming what to repair", () => {
+    render(editor(null));
 
     closedControl("Bestätigungslink senden", SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE);
   });
@@ -94,11 +91,11 @@ describe("the confirmation panel inside the referee's editor", () => {
   });
 });
 
-/* The undo replays the STORED record, and a placeholder written back is an address the payload refuses: the offer
-   names that before any round trip rather than dispatching a restore the action can only turn away. */
+/* The undo replays the STORED record, and no address written back is one the payload refuses: the offer names that
+   before any round trip rather than dispatching a restore the action can only turn away. */
 describe("the undo a referee's save offers", () => {
   async function saveAddressOver(
-    stored: string,
+    stored: string | null,
     around: (tree: ReactNode) => ReactNode = (tree) => tree,
     answer: Record<string, unknown> = { success: true, message: "Gespeichert." },
   ): Promise<void> {
@@ -129,8 +126,8 @@ describe("the undo a referee's save offers", () => {
     (press ?? assert.fail("the offer carries no undo control"))();
   };
 
-  it("refuses to write the placeholder back, naming the address it lacked", async () => {
-    await saveAddressOver(PLATZHALTER);
+  it("refuses to write the missing address back, naming the address it lacked", async () => {
+    await saveAddressOver(null);
     pressUndo();
 
     const refusal = toasts.at(-1);

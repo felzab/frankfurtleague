@@ -110,14 +110,14 @@ PERSON_RECORD: Final = {
     "umfang": "kader_oeffentlich",
     "datum": "2026-03-01",
     "bestaetigt_am": "2026-03-01",
-    "text_version": "2026-09-spielerseite-3",
+    "text_version": "2026-10-spielerseite-5",
     "medien": False,
     NACHWEIS: {
-        "umfang": {"am": CONFIRMED_AT, "text_version": "2026-09-spielerseite-3"},
+        "umfang": {"am": CONFIRMED_AT, "text_version": "2026-10-spielerseite-5"},
         "medien": {
             "am": WITHDRAWN_AT,
             "text_version": "2026-10-konto-spieler",
-            "erteilt_zuvor": {"am": CONFIRMED_AT, "text_version": "2026-09-spielerseite-3"},
+            "erteilt_zuvor": {"am": CONFIRMED_AT, "text_version": "2026-10-spielerseite-5"},
         },
     },
 }
@@ -233,8 +233,8 @@ def _admission() -> Write:
         "bestaetigt_am": "2026-03-10",
         "medien": True,
         NACHWEIS: {
-            "umfang": {"am": registered_at, "text_version": "2026-09-spielerseite-3"},
-            "medien": {"am": registered_at, "text_version": "2026-09-spielerseite-3"},
+            "umfang": {"am": registered_at, "text_version": "2026-10-spielerseite-5"},
+            "medien": {"am": registered_at, "text_version": "2026-10-spielerseite-5"},
         },
     }
     registrierung = {"vorname": "Ida", "nachname": "Musterfrau", "geburtsdatum": "2009-05-04", "einwilligung": fresh}

@@ -146,7 +146,7 @@ const BESTAETIGT = {
   umfang: "kader_oeffentlich" as const,
   datum: "2026-09-22",
   bestaetigt_am: "2026-09-22",
-  text_version: "2026-09-schiedsrichterseite",
+  text_version: "2026-10-schiedsrichterseite-4",
   medien: false,
   nachweis: { umfang: null, medien: null },
 };

@@ -1,5 +1,6 @@
+import dataclasses
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -9,6 +10,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
+from app.api.einwilligung import services as einwilligung_services
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPayload, FLRegistrierungBestaetigungPayload
@@ -29,7 +31,7 @@ from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 from tests import documents
 from tests.bans import ban_list
@@ -84,6 +86,9 @@ THIS_SEASONS_LABEL = LAUFENDE_FASSUNGEN["bestaetigung_spieler"]
 # The returning pupil's page's, which asks no choice.
 RETURNING_LABEL = LAUFENDE_FASSUNGEN["bestaetigung_spieler_wiederkehrend"]
 AN_OLDER_LABEL = "2025-09-spielerseite"
+# An older version of the returning pupil's page, built for the case: the registry holds only the version a
+# stored record can cite, and an older one is what a page loaded before a deploy names.
+EARLIER_RETURNING_LABEL = "2026-01-spielerseite-wiederkehrend"
 
 
 def team_document(team_id: ObjectId, name: str, full_name: str) -> dict[str, Any]:
@@ -443,10 +448,15 @@ class TestWhatAConfirmationWrites:
 class TestTheLabelAPressNames:
     """`REQ-EINWILLIGUNG-001`: a new acceptance names the running label of the page the link opens and nothing else."""
 
+    @pytest.fixture(autouse=True)
+    def _an_earlier_version_of_the_page(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        earlier = dataclasses.replace(FASSUNGEN[RETURNING_LABEL], gilt_ab=date(2026, 1, 1))
+        monkeypatch.setattr(einwilligung_services, "FASSUNGEN", {**FASSUNGEN, EARLIER_RETURNING_LABEL: earlier})
+
     @pytest.mark.parametrize(
         "genannt",
         [
-            pytest.param("2026-09-spielerseite-2", id="a superseded label of the pupil page"),
+            pytest.param(EARLIER_RETURNING_LABEL, id="a superseded label of the returning pupil's page"),
             pytest.param(LAUFENDE_FASSUNGEN["bestaetigung_schiedsrichter"], id="the referee page's running label"),
             pytest.param(AN_OLDER_LABEL, id="the label the returning pupil's stored record names"),
             pytest.param(THIS_SEASONS_LABEL, id="the new pupil page's running label, on the returning pupil's link"),

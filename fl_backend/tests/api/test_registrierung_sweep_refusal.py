@@ -54,7 +54,7 @@ _NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 
 def einwilligung() -> dict[str, Any]:
-    return eigene_einwilligung_document(text_version="2026-09-spielerseite", bestaetigt_am=TODAY)
+    return eigene_einwilligung_document(text_version="2026-10-spielerseite-5", bestaetigt_am=TODAY)
 
 
 def zustellung(stand: str) -> dict[str, Any]:

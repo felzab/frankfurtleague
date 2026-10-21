@@ -18,7 +18,6 @@ from app.api.identitaet.schemas import FLSubjektSitz
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, eigene_sitze, holds_a_seat, ist_eigene_registrierung
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
-from app.api.schiedsrichter.services import vorname_of
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
@@ -240,7 +239,6 @@ def compose_spieler_konto(row: Mapping[str, Any], *, erteilbar: bool, today: str
         "mindestalter": REGISTRIERUNG_MIN_ALTER_JAHRE,
         "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
         "kontext": {
-            "vorname": row["vorname"],
             "team": None if team is None else team.get("name"),
             "schule": None if team is None else team.get("full_name"),
             "saison": None if zeile is None else zeile["saison_id"],
@@ -274,8 +272,6 @@ def compose_schiedsrichter_konto(row: Mapping[str, Any], *, erteilbar: bool, tod
         "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
         "mindestalter": SCHIEDSRICHTER_MIN_AGE_YEARS,
         "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
-        # The one stored name, cut as the referee's confirmation page cut it.
-        "kontext": {"vorname": vorname_of(row.get("name"))},
     }
 
 
@@ -549,7 +545,6 @@ def compose_registrierungen_selbst(
                 "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
                 "nachweis_stand": nachweis_stand_of(bloecke=[block]),
                 "kontext": {
-                    "vorname": row["vorname"],
                     "team": None if team is None else team.get("name"),
                     "schule": None if team is None else team.get("full_name"),
                     "saison": row["saison_id"],

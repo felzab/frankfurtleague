@@ -4,7 +4,7 @@ from app.api.adresswechsel.schemas import FLAdresswechselGenehmigungStand
 from app.api.adresswechsel.services import FLAdresswechselWartetAuf, FLAdresswechselWeg
 from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.bewerbungen.schemas import FLKontaktRolle
-from app.api.schiedsrichter.schemas import FLSchiedsrichterKontext, FLSchiedsrichterSelbst
+from app.api.schiedsrichter.schemas import FLSchiedsrichterSelbst
 from app.api.spieler.schemas import FLEinwilligung, FLEinwilligungUmfang, FLSpielerKontext, FLSpielerPosition, FLSpielerSelbst, FLSpielerStufe
 from app.api.teams.schemas import FLKontaktKenntnisnahmeUmfang
 from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
@@ -54,7 +54,6 @@ class FLKontoSchiedsrichterEinwilligung(FLSchiedsrichterSelbst):
     medien_angeboten: bool
     mindestalter: int
     medien_mindestalter: int = Field(gt=0)
-    kontext: FLSchiedsrichterKontext
 
 
 class FLSitzBestaetigt(BaseModel):

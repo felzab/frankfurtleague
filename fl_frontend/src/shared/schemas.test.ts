@@ -251,17 +251,6 @@ describe("FLKontaktPayloadSchema", () => {
   it("rejects a missing field outright", () => {
     assert.equal(FLKontaktPayloadSchema.safeParse({ telefon: null }).success, false);
   });
-
-  // The placeholder sits under `.invalid`, a special-use name: the reserved domain's sentence would say
-  // nothing about what to type instead.
-  it("answers the placeholder address with its own sentence, never the reserved domain's", () => {
-    const refused = FLKontaktPayloadSchema.safeParse({ telefon: null, email: "adresse-fehlt@frankfurtleague.invalid" });
-
-    assert.deepEqual(
-      refused.error?.issues.map((issue) => issue.message),
-      ["Bitte gib statt des Platzhalters die echte E-Mail-Adresse ein."],
-    );
-  });
 });
 
 const RESERVIERT = "Diese Adresse können wir nicht nutzen: Der Teil nach dem @ ist reserviert und empfängt keine E-Mails.";

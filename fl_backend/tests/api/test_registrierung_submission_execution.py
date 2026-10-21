@@ -428,7 +428,7 @@ LINK_MAY_BE_OUT = [
     pytest.param(
         {
             "geburtsdatum": "2008-05-04",
-            "einwilligung": documents.eigene_einwilligung_document(text_version="2026-09-spielerseite", bestaetigt_am=TODAY, umfang="intern"),
+            "einwilligung": documents.eigene_einwilligung_document(text_version="2026-10-spielerseite-5", bestaetigt_am=TODAY, umfang="intern"),
         },
         id="confirmed",
     ),

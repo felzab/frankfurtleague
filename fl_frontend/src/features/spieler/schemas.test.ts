@@ -19,14 +19,14 @@ const SERVED_EINWILLIGUNG = {
   umfang: "kader_oeffentlich",
   datum: "2026-10-01",
   bestaetigt_am: "2026-10-01",
-  text_version: "2026-10-spielerseite-4",
+  text_version: "2026-10-spielerseite-5",
   medien: false,
   nachweis: {
-    umfang: { am: "2026-10-01T07:42:10+00:00", text_version: "2026-10-spielerseite-4", erteilt_zuvor: null },
+    umfang: { am: "2026-10-01T07:42:10+00:00", text_version: "2026-10-spielerseite-5", erteilt_zuvor: null },
     medien: {
       am: "2026-10-03T16:05:31+00:00",
       text_version: "2026-10-konto-spieler",
-      erteilt_zuvor: { am: "2026-10-01T07:42:10+00:00", text_version: "2026-10-spielerseite-4" },
+      erteilt_zuvor: { am: "2026-10-01T07:42:10+00:00", text_version: "2026-10-spielerseite-5" },
     },
   },
 };

@@ -225,12 +225,6 @@ class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     adresswechsel_id: CustomObjectId | None
 
 
-class FLSchiedsrichterKontext(BaseModel):
-    """What the referee confirmation page's slots name for this record today: the one stored name's first part."""
-
-    vorname: str | None
-
-
 class FLSchiedsrichterSelbst(BaseModel):
     """One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.
 

@@ -399,7 +399,6 @@ class FLSpielerKontext(BaseModel):
     Null where no squad row names a team and season; the words then render without them.
     """
 
-    vorname: CustomNonEmptyString
     team: str | None
     schule: str | None
     saison: str | None

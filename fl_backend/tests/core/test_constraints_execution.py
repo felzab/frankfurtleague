@@ -270,6 +270,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "before": {"name": "Lessing"},
             "modified_count": None,
             "redacted_at": None,
+            "anlass": None,
         },
         # A hash rather than anything recognisable: the collection's whole point is that a row
         # carries no address, and a fixture holding one would be a corpus nobody could sweep for it.
