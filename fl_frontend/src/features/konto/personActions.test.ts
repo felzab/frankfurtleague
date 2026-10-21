@@ -56,6 +56,7 @@ let genehmiger: string[] = [];
 let grant: { verwaltung: "owner" | "administration"; berechtigt_seit: string; inhaber_seit: string | null } | null = null;
 let startAnswer: () => Response;
 let freigabeAnswer: () => Response;
+let stoppAnswer: () => Response;
 const writes: { method: string; path: string; body: unknown; actor: boolean }[] = [];
 
 const mint = () => ({
@@ -88,7 +89,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
       actor: new Headers(init?.headers).get("x-fl-actor") !== null,
     });
     if (path === FREIGABE) return Promise.resolve(freigabeAnswer());
-    if (method === "DELETE") return Promise.resolve(Response.json({ acknowledged: 1, moeglich: true, offen: null }));
+    if (method === "DELETE") return Promise.resolve(stoppAnswer());
     return Promise.resolve(startAnswer());
   }
 
@@ -105,6 +106,8 @@ const { starteAdresswechselAction, gibAdresswechselFreiAction, stoppeAdresswechs
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 const { adresswechselLink } = await import("@/core/adresswechselEmail.ts");
 const { auth } = await import("@/core/auth.ts");
+const { mapKontoAdresswechselRefusal, mapKontoFreigabeRefusal, mapKontoStoppRefusal } = await import("@/features/adresswechsel/refusals.ts");
+const { assertEachAnswered, refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
 /** A grant holder signed in just now, by the passkey the administrator's guard asks of them. */
 async function verwaltendAngemeldet(): Promise<void> {
@@ -130,6 +133,7 @@ beforeEach(() => {
   abgleiche = 0;
   startAnswer = () => Response.json(mint());
   freigabeAnswer = () => Response.json({ acknowledged: 1, id: CARRIER, token: "frei-token", gueltig_bis: "2026-10-21T11:30:00Z", email: NEU });
+  stoppAnswer = () => Response.json({ acknowledged: 1, moeglich: true, offen: null });
   cacheCalls.length = 0;
 });
 
@@ -313,4 +317,84 @@ describe("the approval and the stop on the account page", () => {
     );
     assert.deepEqual(mail.sent, []);
   });
+});
+
+/* `fl_frontend/src/app/refusalCoverage.test.ts` holds each mapper to every code; this holds each action to its mapper:
+   every refusal the document publishes, at its own status and another, answered in the words that mapper gives. */
+describe("each published refusal of the account page's address writes", () => {
+  /** The sweep's refusal as the fetch double answers it, settled before the act reads it: the API client raises it again from the body. */
+  function refusing(answerWith: (answer: () => Response) => void): {
+    refuseWith: (next: () => Promise<unknown>) => void;
+    settled: () => Promise<void>;
+  } {
+    let pending: Promise<void> = Promise.resolve();
+    return {
+      refuseWith: (next) => {
+        pending = next().then(
+          () => assert.fail("the refusal the assertion handed in answered"),
+          (refusal: { serverErrorCode?: string; statusCode: number }) => {
+            answerWith(() => Response.json({ error_code: refusal.serverErrorCode, trace_id: "0".repeat(32) }, { status: refusal.statusCode }));
+          },
+        );
+      },
+      settled: () => pending,
+    };
+  }
+
+  it("answers each refusal of the start through the start's mapper", async () => {
+    await angemeldet();
+    const { refuseWith, settled } = refusing((answer) => (startAnswer = answer));
+
+    await assertEachAnswered({
+      operation: "POST /konto/adresswechsel",
+      refuseWith: refuseWith,
+      act: async () => {
+        await settled();
+        return starteAdresswechselAction({ email: NEU });
+      },
+      mapped: mapKontoAdresswechselRefusal,
+    });
+  });
+
+  it("answers each refusal of the approval through the approval's mapper", async () => {
+    await angemeldet();
+    const { refuseWith, settled } = refusing((answer) => (freigabeAnswer = answer));
+
+    await assertEachAnswered({
+      operation: "POST /konto/adresswechsel/freigabe",
+      refuseWith: refuseWith,
+      act: async () => {
+        await settled();
+        return gibAdresswechselFreiAction({ id: CARRIER });
+      },
+      mapped: mapKontoFreigabeRefusal,
+    });
+  });
+
+  /* A 404 is no rule's refusal, so the sweep above never asks it: the change gone since the page loaded, said by the
+     press's own mapper rather than the shared reader's generic missing record. */
+  for (const { operation, answerWith, act, mapper } of [
+    {
+      operation: "POST /konto/adresswechsel/freigabe",
+      answerWith: (answer: () => Response) => (freigabeAnswer = answer),
+      act: () => gibAdresswechselFreiAction({ id: CARRIER }),
+      mapper: mapKontoFreigabeRefusal,
+    },
+    {
+      operation: "DELETE /konto/adresswechsel",
+      answerWith: (answer: () => Response) => (stoppAnswer = answer),
+      act: () => stoppeAdresswechselAction(),
+      mapper: mapKontoStoppRefusal,
+    },
+  ]) {
+    it(`answers a change gone since the page loaded through its own mapper on ${operation}`, async () => {
+      await angemeldet();
+      const refusal = refusedOn(operation, "DB-COMMON-001");
+      answerWith(() => Response.json({ error_code: refusal.serverErrorCode, trace_id: "0".repeat(32) }, { status: refusal.statusCode }));
+      const own = mapper(refusal);
+
+      assert.notEqual(own, null, `${operation}'s mapper leaves its 404 to the shared reader`);
+      assert.deepEqual(await act(), { success: false, error: own });
+    });
+  }
 });
