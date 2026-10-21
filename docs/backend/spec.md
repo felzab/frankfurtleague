@@ -224,14 +224,17 @@ own erasure has run (I660, `docs/glossary.md :: Sperrliste`). **What asks the
 list:** `fl_backend/app/api/sperrliste/crud.py :: address_is_gesperrt` is reached by
 the ban's own write, by the grant write, refusing `REQ-BERECHTIGUNG-003` (I437), by the public
 registration, its replay included (I413), by the correction and the reseat of an application's
-seat (I414), by the five referee writes that mint a link — the create, the save, both re-sends and
-the reactivation — by the pupil's address request and its re-send, and by the subject read `POST /identitaet/subjekt` and the sign-in
+seat (I414), by the four referee writes that mint a link — the create, the save, the reactivation
+and the consent re-send — by the address tool's start and its re-send, refusing
+`REQ-ADRESSWECHSEL-009`, and by the subject read `POST /identitaet/subjekt` and the sign-in
 gate's read `POST /identitaet/anmeldung`, which answer it as `gesperrt` (I389). `:: gesperrte_hashes` answers a set in one read: the public application asks
 it for every seat's address, its replay included, and `:: gesperrte_adressen` asks it for stored
 addresses on behalf of an application's re-send (I416), the three confirmation presses, which take
 no consent from a barred address however old its link (I505), their three views, which answer such a
-link `gesperrt` (I515), a referee's or a pupil's address link, whose press moves nobody onto a barred address and
-whose view answers it `gesperrt`, the tier change, whose promotion of a barred address it refuses
+link `gesperrt` (I515), the address change's judgement
+(`fl_backend/app/api/adresswechsel/crud.py :: judge_the_effect_in_session`), which the link's view,
+its press, the approval and the hourly pass each ask, so that no change moves onto or off a barred
+address (I563), the approvers a change moving a grant counts, which exclude a barred one, the tier change, whose promotion of a barred address it refuses
 `REQ-BERECHTIGUNG-003` and whose demotion counts no barred owner (I479), the grants' revoke and claim and every
 admin read naming an author, which withhold what it finds (I452), the actor check on every
 admin-tier request, which admits no barred holder (I463), the person check every person's
@@ -307,7 +310,7 @@ for the erasure, which a person holding no Funktion presses too. A withdrawal re
 | PATCH  | `/schiedsrichter/selbst/{schiedsrichter_id}/einwilligung`  | One record's `umfang` and `medien` (I595), refused as the pupil's                                                                                                                                         |
 | GET    | `/konto/einwilligungen`                                    | Every confirmed consent record of the address, empty where it holds none, never refused (I597); pending applications' seats (I592) and registrations too (I593)                                           |
 | GET    | `/konto/adresswechsel`                                     | Whether the address may start a change, and its live change, a league-started one's new address masked (I822); never refused                                                                              |
-| DELETE | `/konto/adresswechsel`                                     | Stops the live change of the address, as its stop link does (I796); 404 where none stands                                                                                                                 |
+| POST   | `/konto/adresswechsel`                                     | Starts a change of every record of the address, both links answered RAW once (I790 to I793); `REQ-AUTH-009`, `REQ-ADRESSWECHSEL-007`, `-010`, `-011`, `REQ-DROSSELUNG-001` refuse                         |
 | POST   | `/konto/adresswechsel/freigabe`                            | The address on file approves the administrator's change its page showed, by id, minting the new mailbox's link (I794, I834); `REQ-AUTH-009`, `REQ-ADRESSWECHSEL-002`, `-003`, `REQ-DROSSELUNG-001` refuse |
 | DELETE | `/konto/adresswechsel`                                     | Stops the live change of the address, as its stop link does (I796); 404 where none stands                                                                                                                 |
 | PATCH  | `/teams/{team_id}/saisons/{saison_id}/person/einwilligung` | `umfang` and `medien` on every seat the address holds on that row (I599), refused as the pupil's                                                                                                          |

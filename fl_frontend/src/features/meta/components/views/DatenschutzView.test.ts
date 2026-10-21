@@ -54,7 +54,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "21. Oktober 2026", digest: "3940fc99e481f44d8fe662c498c37428ab6c59ea483378a04a8cd698f4e03c29" } as const;
+const FASSUNG = { stand: "21. Oktober 2026", digest: "019818673cb54362957ac9c902af64903742413059339d7f0b5e8ad7e6080db1" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -218,16 +218,18 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
-  /* A journal line keeps the person's address as keyed hashes alone, and its envelope's trace id joins it to the access
-     log's line, which holds the visitor's address (`docs/datenschutz.md` §6): the row says both. */
+  /* A journal line keeps an address as keyed hashes alone, an address change's line its new one, and its envelope's
+     trace id joins it to the access log's line, which holds the visitor's address (`docs/datenschutz.md` §6): the row
+     says both. */
   it("names everything a journal line holds, the address only as unreadable keys and the ids joining it to the access log", () => {
     assert.ok(
       ANGABEN.has(
-        "Vermerk eines Schritts, den Du veranlasst hast: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines " +
-          "Widerspruchs als Kontaktperson, der Ablehnung einer neuen E-Mail-Adresse, des Stopps ihrer Änderung oder der Änderung " +
-          "selbst, sobald sie gilt. Deine " +
-          "E-Mail-Adresse steht darin nur als " +
-          "unlesbarer Schlüssel, bei einer Löschung als drei solche Schlüssel. Außerdem enthält er die Art des Schritts und den " +
+        "Vermerk eines Schritts zu Deinen Daten: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines " +
+          "Widerspruchs als Kontaktperson oder, bei einer Änderung Deiner E-Mail-Adresse, ihrer Ablehnung, ihres Stopps, ihres " +
+          "Endes ohne Wirkung, weil die Verwaltung sie verwirft, eine neue Änderung sie ersetzt oder sie nicht gelten kann, oder " +
+          "der Änderung selbst, sobald sie gilt. Eine E-Mail-Adresse steht darin nur als unlesbarer Schlüssel: bei einer Löschung " +
+          "Deine als drei solche Schlüssel, bei einer Änderung die neue Adresse als einer, auch wenn sie jemand anderem gehört, " +
+          "und sobald die Änderung gilt, dazu die bisherige. Außerdem enthält er die Art des Schritts und den " +
           "Zeitpunkt, bei den übrigen Schritten den betroffenen Eintrag, bei einem Widerruf die Fassung des Textes und die Antworten, " +
           "die er setzt, bei einem Widerspruch die Rollen, die er leert, und Kennungen der Anfrage, über die er sich dem Eintrag im " +
           "Zugriffsprotokoll zuordnen lässt",

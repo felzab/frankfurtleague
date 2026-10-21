@@ -701,7 +701,8 @@ seat, registration and grant the address holds, so one sign-in stays whole
   person who can sign in: a request arriving by mail proves nothing about who sent it.
 - **They say they cannot sign in.** Ask the address on file first: start the change in the address
   tool with both addresses and no reason (`POST /adresswechsel`). Nothing goes to the new address
-  until the address on file signs in and approves the change on its account page within 24 hours
+  until the address on file signs in and approves the change on its account page within
+  `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours
   (`docs/backend/spec.md :: I794`). Where the mailbox in fact still works, its holder approves or
   stops it, so a request sent in somebody else's name reaches the real person; where nobody
   approves, the change lapses and the next bullet applies.
@@ -715,7 +716,8 @@ seat, registration and grant the address holds, so one sign-in stays whole
   refuse and say why. Record how you checked as the reason, naming nobody and no address: the reason
   stays twelve months in the log, and the backend refuses a name of the person
   (`REQ-ADRESSWECHSEL-008`). Start the change in the address tool with it. The new address confirms
-  by link within 24 hours, and the change takes effect seven days later, judged again then; until
+  by link within `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours,
+  and the change takes effect `:: ADRESSWECHSEL_WARTEZEIT_TAGE` days later, judged again then; until
   then the address on file, should it still be read, stops it by link or on its account page
   (`docs/backend/spec.md :: I795`). A stopped change means the mailbox is not gone: talk to the
   person before starting again.
@@ -755,8 +757,7 @@ seat, registration and grant the address holds, so one sign-in stays whole
 - **The holder of a pending new address**, a mailbox a change was started for. Until the change
   takes effect, that address reaches nothing of the person's (`docs/backend/spec.md :: I560`), and
   only the erasure's own read finds the change from it: type it on „Löschung auf Anfrage“, whose list
-  names the pending change, then open the change in the address tool by the address on file and
-  discard it there, which takes the address out of the change's record and the log's images of it
+  names the pending change and opens it in the address tool, and discard it there, which takes the address out of the change's record and the log's images of it
   (`docs/backend/spec.md :: I704`). Where the holder asked for their data to be deleted, the erasure
   itself ends the change alone and leaves the records standing (`docs/backend/spec.md :: I668`). The
   link's own „Das ist nicht meine Adresse“ does the same as the discard, past its deadline too, and
@@ -965,10 +966,8 @@ it; work through it before the second press, since the dialog closes on the ban.
 - a registration: „Registrierungen ansehen“ shows a pending one, and a declined one has no link;
   no administrator decides either, its team cannot admit a barred address, and the clock erases
   both;
-- another referee's pending change of address to it: „Adressänderung ansehen“ opens that
-  referee's editor, whose „Änderung verwerfen“ removes it;
-- another pupil's pending change of address to it: „Adressänderung ansehen“ opens that pupil's
-  editor, whose „Änderung verwerfen“ removes it;
+- another address's pending change to it, one item for each: „Adressänderung ansehen“ opens that
+  change in the address tool, whose „Änderung verwerfen“ removes it;
 - a pupil holding no squad row: „Eintrag ansehen“ opens their record.
 
 Where the dialog says the list could not be loaded, it bans nobody until a later read shows the list
@@ -1385,12 +1384,15 @@ the outbox's drain, its notice queued in the same transaction.
 **A `SRV-VAL-001` warning naming pupils left out of the deletion is a stored address no request
 matches** — empty, not in the form sign-in folds it to, or refused by the address rule, which only
 a hand edit of the record leaves ([`../backend/spec.md`](../backend/spec.md#2-invariants) I718).
-The run passes those pupils over on every pass until their address is stored in that form. **An
-address the rule refuses is replaced through the pupil editor's change**, to the person's own, which
-stores it folded once its mailbox confirms. **A spelling that differs from its fold only in case,
-surrounding spaces or the domain's form is refused there as the address already held**
-(`REQ-SPIELER-007`), so it is rewritten to its fold by hand, as a MongoDB Playground paste kept in
-the operator's checklist (§2). An empty one is a pupil holding no address, whom no route reaches
+The run passes those pupils over on every pass until their address is stored in that form. **No
+route repairs one**: the address tool and the account page find a pupil by the folded address alone
+(`fl_backend/app/api/spieler/services.py :: build_selbst_pupil_filter`), so a change started for it
+finds nothing to move (`REQ-ADRESSWECHSEL-010`), and the tool takes no address the rule refuses.
+Rewrite it by hand as a MongoDB Playground paste kept in the operator's checklist (§2): a spelling
+that differs from its fold only in case, surrounding spaces or the domain's form to that fold, and
+an address the rule refuses to the folded address the person is established to hold, as
+[section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it) establishes a lost
+mailbox's. An empty one is a pupil holding no address, whom no route reaches
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)).
 
 **Null means no pass of that kind has ever run against this database**, which on production is one
@@ -1401,10 +1403,13 @@ environment and its startup rather than at the backend. `LOESCHUNG_SWEEP` holds 
 deletion alone, its hourly timer and the activation press both, and `BEWERBUNG_SWEEP` reaches
 neither.
 
-**One promise rests on `BEWERBUNG_SWEEP`**: the word that a lapsed pending address goes the day
-after its link lapses, the address-change mails' „am Tag nach Ablauf des Links“ and the privacy
-notice's „am Tag danach“. It is the hourly pass's to keep, so while `BEWERBUNG_SWEEP` is off it is
-not kept. **The activation press's message that the next hourly pass deletes what it left („Was noch
+**Two promises rest on `BEWERBUNG_SWEEP`**, both the address-change half's to keep
+(`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepAdresswechsel`): the privacy notice's word
+that a change whose step lapsed ends „innerhalb einer Stunde“, and the word, in the notice and in
+both mails the change sends (`fl_frontend/src/core/adresswechselEmail.ts`), that a change an
+administrator started with a reason takes effect its waiting time after its confirmation. While `BEWERBUNG_SWEEP` is off neither is kept: a lapsed change keeps
+its new address and its reason, and a change past its waiting time takes effect only where an
+approval it still owed is pressed after it. **The activation press's message that the next hourly pass deletes what it left („Was noch
 aussteht, löscht der nächste stündliche Durchlauf“) rests on `LOESCHUNG_SWEEP` alone**: the switch
 the press deletes under arms that pass, and with it the squad cache's drop after it.
 
