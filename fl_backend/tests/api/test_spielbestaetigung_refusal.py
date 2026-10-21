@@ -228,7 +228,9 @@ class TestWhatAReopenedLinkShows:
             pytest.param(
                 {"geschlossen": {"am": TODAY, "grund": "schiedsrichter_gewechselt"}}, {}, TODAY, False, None, "ungueltig", id="referee-changed"
             ),
-            pytest.param({"geschlossen": {"am": TODAY, "grund": "spiel_vergangen"}}, {}, TODAY, False, None, "abgelaufen", id="closed-otherwise"),
+            pytest.param(
+                {"geschlossen": {"am": TODAY, "grund": "spiel_vergangen"}}, {}, TODAY, False, None, "abgelaufen", id="closed-otherwise"
+            ),
             pytest.param(
                 {"geschlossen": {"am": AFTER_THE_DAY, "grund": "spiel_vergangen"}},
                 {},
