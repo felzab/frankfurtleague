@@ -13,7 +13,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { filesUnder } from "@/core/treeWalk.ts";
-import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { callPage, clearSteps, steps } from "@/shared/testing/pageHarness.ts";
@@ -21,8 +21,6 @@ import { callPage, clearSteps, steps } from "@/shared/testing/pageHarness.ts";
 import type { ComponentType, ReactElement, ReactNode } from "react";
 
 const { setSession, setSubject } = doubleActionRequest();
-// The admin layout's hold mounts the step-up provider, whose action module reaches `server-only` past the harness.
-doubleEveryAction();
 // The area's panel reports the crash it draws.
 const fetchDouble = doubleFetch();
 

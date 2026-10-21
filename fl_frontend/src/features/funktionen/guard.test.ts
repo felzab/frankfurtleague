@@ -10,7 +10,7 @@ import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
-import { doubleActionRequest, doubleEveryAction, loggedLines } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, loggedLines } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import {
   answerReadsWith,
@@ -32,9 +32,6 @@ const { setSession, setSubject, subjectReads } = doubleActionRequest();
 // The sign-in store as a person's session answers it: no administrator's verdict, and the person's
 // landing. A case naming an administrator says so itself.
 beforeEach(() => setSession(null, "/bereich"));
-
-// The shells hand a sign-out action to the bar, whose real module reaches `next/server` past the harness.
-doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step and the doubles as it evaluates (`docs/frontend/spec.md` §1.9). */

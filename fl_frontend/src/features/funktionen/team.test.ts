@@ -33,7 +33,8 @@ import { textOf } from "@/shared/testing/renderTest.ts";
 import type { ReactNode } from "react";
 
 const { setSubject } = doubleSubjectLookup();
-// The shell hands a sign-out action to the bar, whose real module reaches `next/server` past the harness.
+// The squad and registration pages take their slices' person actions, whose real modules load the sign-in store,
+// which this suite leaves undoubled.
 doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
