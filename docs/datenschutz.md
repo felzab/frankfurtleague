@@ -511,7 +511,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **A grant or a promotion asked while another administrator could approve it waits as a request,
   in plain.** `berechtigungen_antraege` holds the address it is for and the asking administrator's,
   served to every administrator, until a second administrator approves or refuses it, its requester
-  withdraws it, or a week after it was asked (`fl_backend/app/shared/schemas/bounds.py ::
+  withdraws it, the address it is for is changed (`docs/backend/spec.md :: I854`), or a week after it was asked (`fl_backend/app/shared/schemas/bounds.py ::
 GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I848`).
   A decided request's image stays in the log for its twelve months, as every administrator's write
   does; an erasure of either address removes the request whole and takes the address out of those

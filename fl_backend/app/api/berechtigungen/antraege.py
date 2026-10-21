@@ -138,6 +138,34 @@ async def remove_the_antrag_in_session(
     await erase_many_from_db(collection=berechtigungen_postausgang_collection, db_filter={"berechtigung_id": antrag_id}, session=session)
 
 
+async def end_the_antraege_about_in_session(
+    *,
+    berechtigungen_antraege_collection: AsyncCollection,
+    berechtigungen_postausgang_collection: AsyncCollection,
+    adresse: str,
+    session: AsyncClientSession,
+) -> list[Mapping[str, Any]]:
+    """End every request about this folded address as a refusal ends it, lapsed ones too, answering each for the caller's journal.
+
+    Never carried to the new address, which would grant what its approvers never judged (`docs/backend/spec.md :: I854`).
+    """
+
+    rows = await aggregate_many_from_db(
+        collection=berechtigungen_antraege_collection,
+        pipeline=[{"$match": {"adresse": adresse}}, {"$project": {"adresse": 1}}],
+        session=session,
+    )
+    for row in rows:
+        await remove_the_antrag_in_session(
+            berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            antrag_id=row["_id"],
+            session=session,
+        )
+
+    return rows
+
+
 async def erase_antraege_in_session(
     *, berechtigungen_antraege_collection: AsyncCollection, identifier: str, session: AsyncClientSession
 ) -> int:

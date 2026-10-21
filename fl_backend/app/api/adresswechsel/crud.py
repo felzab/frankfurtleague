@@ -37,6 +37,7 @@ from app.api.adresswechsel.services import (
 )
 from app.api.aktionen.crud import carry_the_replaced_address_in_images, reattribute_administrator_in_session, redact_images_in_session
 from app.api.aktionen.services import IMAGE_ADDRESSES
+from app.api.berechtigungen.antraege import abgelehnt_line, end_the_antraege_about_in_session
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
 from app.api.berechtigungen.erasure import carry_authorship_in_session
 from app.api.berechtigungen.services import genehmigung_steht, lebendige_adresse
@@ -429,6 +430,7 @@ async def take_effect_in_session(
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
     berechtigungen_postausgang_collection: AsyncCollection,
+    berechtigungen_antraege_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
     adresswechsel_postausgang_collection: AsyncCollection,
@@ -494,7 +496,7 @@ async def take_effect_in_session(
         )
         return urteil, False
 
-    await move_the_address_in_session(
+    beendet = await move_the_address_in_session(
         record=record,
         bestand=bestand,
         sperrliste=sperrliste,
@@ -508,6 +510,7 @@ async def take_effect_in_session(
         berechtigungen_collection=berechtigungen_collection,
         berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
         berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+        berechtigungen_antraege_collection=berechtigungen_antraege_collection,
         einladungen_collection=einladungen_collection,
         sperrliste_collection=sperrliste_collection,
         adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
@@ -518,6 +521,9 @@ async def take_effect_in_session(
         now=now,
         session=session,
     )
+    # The refusal's own line for each request the effect ended, so a restore from before it does not bring one back.
+    for antrag in beendet:
+        journal.note(abgelehnt_line(antrag=antrag, am=stamp, schluessel=schluessel))
     journal.note(wirksam_line(record=record, now=now, schluessel=schluessel))
 
     return urteil, True
@@ -538,6 +544,7 @@ async def move_the_address_in_session(
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
     berechtigungen_postausgang_collection: AsyncCollection,
+    berechtigungen_antraege_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
     adresswechsel_postausgang_collection: AsyncCollection,
@@ -547,7 +554,7 @@ async def move_the_address_in_session(
     schluessel: SecretStr,
     now: datetime,
     session: AsyncClientSession,
-) -> None:
+) -> list[Mapping[str, Any]]:
     """Move everything `bestand` holds to the change's address in the caller's transaction, then end it as taken effect.
 
     One patch per row, never a fan-out, so each row's own history keeps the write that moved it (`docs/backend/spec.md :: I40`).
@@ -645,6 +652,14 @@ async def move_the_address_in_session(
         session=session,
     )
 
+    # Before the images' carry below, which takes the replaced address out of the image an ended request keeps.
+    beendet = await end_the_antraege_about_in_session(
+        berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+        berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+        adresse=bestand.identifier,
+        session=session,
+    )
+
     # After every write above, so it reaches the images they filed: a record the effect leaves naming the replaced address
     # by address alone would outlive the person's erasure at the new one (`docs/backend/spec.md :: I842`).
     alt, neu = bestand.identifier, sign_in_identifier(neue)
@@ -653,6 +668,7 @@ async def move_the_address_in_session(
     await carry_authorship_in_session(
         berechtigungen_collection=berechtigungen_collection,
         berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+        berechtigungen_antraege_collection=berechtigungen_antraege_collection,
         bewerbungen_collection=bewerbungen_collection,
         registrierungen_collection=registrierungen_collection,
         einladungen_collection=einladungen_collection,
@@ -707,6 +723,9 @@ async def move_the_address_in_session(
     await anchor_the_addresses(
         [neue, bestand.identifier], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session
     )
+
+    # The requests for a grant it ended, each journalled by the caller as a refusal (`docs/backend/spec.md :: I854`).
+    return beendet
 
 
 async def _move_the_grant(

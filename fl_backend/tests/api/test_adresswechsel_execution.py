@@ -11,7 +11,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Iterator, Mapping
 from contextlib import contextmanager
-from datetime import UTC, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 import pytest
@@ -41,7 +41,8 @@ from app.api.adresswechsel.services import (
     build_addresses_filter,
     compose_postausgang,
 )
-from app.api.berechtigungen.admin_router import get_berechtigungen
+from app.api.berechtigungen.admin_router import delete_antrag, get_berechtigungen
+from app.api.berechtigungen.antraege import compose_antrag
 from app.api.berechtigungen.crud import live_unbarred_grant_since
 from app.api.berechtigungen.services import signed_in_since
 from app.api.bewerbungen.services import hash_token
@@ -1215,6 +1216,80 @@ class TestTheAdministratorFollowsTheirMove:
             return await where_held(database, NEW_EMAIL, folded=True)
 
         assert on_a_person(mongo_replica_set_url, body) == {NEW_EMAIL: []}
+
+
+ANTRAG_OID = ObjectId("6890a1b2c3d4e5f6078500a1")
+# Far past the suite's clock, so the TTL monitor removes no request a case seeds.
+ANTRAG_GESTELLT = datetime(2126, 1, 1, tzinfo=UTC)
+
+
+async def requested(database: AsyncDatabase, *, adresse: str, gestartet_von: str) -> None:
+    """A grant asked for `adresse`, undecided."""
+
+    await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(
+        {
+            "_id": ANTRAG_OID,
+            **compose_antrag(
+                adresse=adresse, verwaltung="administration", berechtigung_id=None, gestartet_von=gestartet_von, now=ANTRAG_GESTELLT
+            ),
+        }
+    )
+
+
+class TestTheRequestsForAGrantAnEffectMeets:
+    """A request holds addresses, no identifier surviving a move: the effect carries its requester and ends one about the person."""
+
+    def test_a_request_the_person_made_follows_them_past_their_erasure(self, mongo_replica_set_url: str):
+        """Left on the replaced address, the request outlives the erasure at the new one, which finds who asked by equality."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            await requested(database, adresse=FOREIGN_EMAIL, gestartet_von=EMAIL)
+            minted = await start(database, client)
+            await approve(database, client, minted.id)
+            await answer(database, client, minted.token)
+            carried = await row(database, Collection.BERECHTIGUNGEN_ANTRAEGE, ANTRAG_OID)
+            await erased(database, client, NEW_EMAIL)
+            left = await database[Collection.BERECHTIGUNGEN_ANTRAEGE].count_documents({})
+            return carried["genehmigung"]["gestartet_von"], left, await where_held(database, EMAIL, folded=True)
+
+        # The queued notice of the old grant's end keeps the address until the reconciliation, unrun here, has told the administrators.
+        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == (
+            NEW_EMAIL,
+            0,
+            {EMAIL: [Collection.BERECHTIGUNGEN_POSTAUSGANG]},
+        )
+
+    def test_a_request_about_the_replaced_address_ends_as_a_refusal_ends_it(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Approved, it would grant an address nobody holds; its refusal's own journal line keeps a restore from bringing it back."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await requested(database, adresse=EMAIL, gestartet_von=ADMIN)
+            minted = await start(database, client)
+            with journal_of(caplog) as journal:
+                await answer(database, client, minted.token)
+            return minted.id, await database[Collection.BERECHTIGUNGEN_ANTRAEGE].find_one({"_id": ANTRAG_OID}), journal
+
+        change_id, antrag, journal = on_a_person(mongo_replica_set_url, body)
+
+        assert antrag is None
+        assert [(line.art, line.record_id) for line in journal] == [("antrag_abgelehnt", ANTRAG_OID), ("adresswechsel_wirksam", change_id)]
+        # The refusal's own line, keyed as a refusal keys it, by the address the request was about.
+        assert journal[0].person_hash == loeschung_journal_hash(EMAIL, schluessel=KEY)
+
+    def test_a_decided_request_about_the_person_keeps_no_replaced_address_past_their_erasure(self, mongo_replica_set_url: str):
+        """Its row is gone, so only its kept image names them, which the erasure at the new address reaches by address alone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await requested(database, adresse=EMAIL, gestartet_von=ADMIN)
+            # Refused before the change, through its route, which keeps its image.
+            await call(delete_antrag, database, client, antrag_id=ANTRAG_OID, operator=SECOND_ADMIN)
+            await confirmed_and_moved(database, client)
+            await erased(database, client, NEW_EMAIL)
+            return await where_held(database, EMAIL, folded=True)
+
+        # The pupil alone: the seed's other records keep the replaced address on rows no change moves, an unconfirmed seat's.
+        assert on_a_person(mongo_replica_set_url, body, records=False) == {EMAIL: []}
 
 
 async def outcome_code(call: Awaitable[Any]) -> str | None:

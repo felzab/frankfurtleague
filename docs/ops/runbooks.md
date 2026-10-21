@@ -1892,7 +1892,7 @@ undid the erasures, and which nothing re-runs:
   ([section 3](#3-granting-or-revoking-admin-access)). A grant made after the snapshot is gone and
   is made again. The record of each is the mail every change sent every administrator
   (`docs/backend/spec.md :: I439`).
-- **A request refused or withdrawn inside the window replays from its line** and is removed again
+- **A request refused, withdrawn or ended by a change of its address inside the window replays from its line** and is removed again
   (`docs/backend/spec.md :: I849`). One approved inside the window is back as a request beside the
   grant the restore took: approve it again, or refuse it. One asked inside the window is gone and is
   asked again.

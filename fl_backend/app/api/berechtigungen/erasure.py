@@ -120,6 +120,7 @@ async def carry_authorship_in_session(
     *,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_postausgang_collection: AsyncCollection,
+    berechtigungen_antraege_collection: AsyncCollection,
     bewerbungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
@@ -141,6 +142,9 @@ async def carry_authorship_in_session(
     carried += await _set_authored(sperrliste_collection, "erstellt_von", alt, neue, session)
     carried += await _set_authored(einladungen_collection, "erstellt_von", alt, neue, session)
     carried += await _set_authored(berechtigungen_postausgang_collection, "geaendert_von", alt, neue, session)
+    # A moved requester's request is approvable by nobody, their grant written anew, and waits for its refusal: carried
+    # so it holds no address an erasure at the new one misses.
+    carried += await _set_authored(berechtigungen_antraege_collection, "genehmigung.gestartet_von", alt, neue, session)
 
     return carried
 
@@ -242,7 +246,7 @@ async def erase_grants_and_authorship_in_session(
 
     withheld = await _withhold_queued(berechtigungen_postausgang_collection, identifier, session)
 
-    # The same five fields an address change's effect carries (`fl_backend/app/api/berechtigungen/erasure.py :: carry_authorship_in_session`).
+    # Fields an address change's effect carries too (`fl_backend/app/api/berechtigungen/erasure.py :: carry_authorship_in_session`).
     marked = await _set_authored(berechtigungen_collection, "erteilt_von", identifier, ERASED_ACTOR_MARKER, session)
     marked += await _set_authored(bewerbungen_collection, "entscheidung.von", identifier, ERASED_ACTOR_MARKER, session)
     marked += await _set_authored(registrierungen_collection, "entscheidung.von", identifier, ERASED_ACTOR_MARKER, session)

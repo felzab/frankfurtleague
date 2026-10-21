@@ -119,9 +119,9 @@ def carried_by_the_effect(addresses: Sequence[ImageAddress], neue: str) -> tuple
     )
 
 
-# The collections whose images an effect re-keys: a change's and a grant's, reached by address alone once the effect has
-# moved the person; every other record's images are reached by their record's id.
-EFFECT_IMAGE_COLLECTIONS: Final = (DbCollection.ADRESSWECHSEL, DbCollection.BERECHTIGUNGEN)
+# The collections whose images an effect re-keys: a change's, a grant's and a request's, reached by address alone once the
+# effect has moved the person or ended the request; every other record's images are reached by their record's id.
+EFFECT_IMAGE_COLLECTIONS: Final = (DbCollection.ADRESSWECHSEL, DbCollection.BERECHTIGUNGEN, DbCollection.BERECHTIGUNGEN_ANTRAEGE)
 
 
 def build_address_images_filter(collection: DbCollection, identifier: str) -> Mapping[str, Any]:
