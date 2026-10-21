@@ -4,7 +4,11 @@ import pytest
 from bson import ObjectId
 from pydantic import ValidationError
 
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAnsetzung, FLSpielbestaetigungAntwortPayload
+from app.api.spielbestaetigungen.schemas import (
+    FLSpielbestaetigungAnsetzung,
+    FLSpielbestaetigungAntwortPayload,
+    FLSpielbestaetigungSchiedsrichterAntwortPayload,
+)
 from app.api.spielbestaetigungen.services import (
     ANSETZUNG_QUELLEN,
     ansetzung_stand_of,
@@ -131,3 +135,20 @@ class TestTheAnswersShape:
         )
 
         assert parsed.begruendung is None
+
+
+class TestTheRefereesAnswersShape:
+    """A stale page or a scripted client reaches the endpoint past the panel's own schema, which refuses the same two."""
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"antwort": "abgelehnt", "begruendung": None},
+            {"antwort": "abgelehnt", "begruendung": "   "},
+            {"antwort": "zugesagt", "begruendung": "gern"},
+        ],
+        ids=["decline-without-reason", "decline-with-blank-reason", "accept-with-reason"],
+    )
+    def test_is_refused(self, body: dict[str, Any]):
+        with pytest.raises(ValidationError):
+            FLSpielbestaetigungSchiedsrichterAntwortPayload.model_validate(body)

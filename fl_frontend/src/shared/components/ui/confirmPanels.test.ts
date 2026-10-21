@@ -261,6 +261,7 @@ const einsaetzeSection = () =>
           zustand: "gueltig",
           begruendung: null,
           eingetragen: false,
+          vergangen: false,
         },
       ],
     }),

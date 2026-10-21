@@ -401,11 +401,12 @@ location naming that pair, at its URL and at its twin's, each zone on one `limit
 block naming it**: a link page is one whose own module reads `token` from its search parameters, or
 one a module under `fl_frontend/src` mints a `?token=` link to, so a page reading the token through
 another module is found by its minter, and a `?token=` the checker cannot place refuses the run. Each block restates
-`location /`'s ceiling and action pair and declares no `proxy_set_header`, `add_header` or
-`error_page`, each of which would replace an inherited set. `nginx/edge_test.sh` floods one link
+`location /`'s ceiling and action pair, sets `$linkseite`, and declares no `proxy_set_header`,
+`add_header` or `error_page`, each of which would replace an inherited set. `nginx/edge_test.sh` floods one link
 page past the burst, then fails any link page, twin, double slash, dot segment, percent-encoded
-letter, `HEAD` or JSON post that is not refused with the edge's own `429`, and any link block whose action pair lets a server action past
-the action burst.
+letter, `HEAD` or JSON post that is not refused with the edge's own `429`, any refused load of a
+link page not answered with the edge's page, and any link block whose action pair lets a server
+action past the action burst or answers it otherwise than with the sentence.
 
 **A body cap below the server block's `20M` is set at the location it bounds.** The application
 form's `64k` cap alone is measured, 2026-08-30: a 100,049-byte POST is refused `413` at the edge,
@@ -417,17 +418,24 @@ A burst at the Kürzel check was refused past the burst as `429` (not nginx's `5
 refusal being I2's observation. No rate here is measured — the figures remain judgement calls, and
 the `limit_conn` figure is derived from HTTP/2 semantics and never exercised (measured 2026-08-30).
 
-**Every `429` the edge answers itself is one ASCII sentence under exactly `Content-Type: text/plain`**,
-the server block's `error_page 429` sending a zone's refusal and the connection ceiling's alike to
-`nginx/shared/site.conf :: @edge_refusal`. Next 16.4.2 hands a server action's caller the body of a
+**Every `429` the edge answers itself is one ASCII sentence under exactly `Content-Type: text/plain`,
+but a link page's load**, the server block's `error_page 429` sending a zone's refusal and the
+connection ceiling's alike to `nginx/shared/site.conf :: @edge_refusal`. A `GET` or `HEAD` of a
+link page goes to `:: @edge_refusal_seite` instead (`nginx/shared/http.conf :: $edge_refusal_ziel`):
+a branded page with its way back to the site, since a sentence alone, opened from a mail, is a dead
+end. The page is written inline in the configuration, because the deploy compares every file under
+`nginx/shared/` with what nginx loaded (§1.2) and a page nginx never loads would fail every deploy;
+its colours are the mail shell's, copied by hand from `fl_frontend/src/app/schemes/2027.css` and
+held to it by nothing. Next 16.4.2 hands a server action's caller the body of a
 failed answer that is not RSC as the error's message under that exact type alone, and the frontend
 reads that message as a press that wrote nothing
 ([`docs/frontend/spec.md`](../frontend/spec.md) I656). A `charset` makes the header
 `text/plain; charset=utf-8`, after which every refused press reads as an unclear save again. A route
-handler's caller reads the status alone, and a page load past the connection ceiling or a link
-page's pair shows the sentence. `nginx/edge_test.sh` grades a refused action's type, its body byte for byte against the
+handler's caller reads the status alone, and a page load past the connection ceiling shows the
+sentence. `nginx/edge_test.sh` grades a refused action's type, its body byte for byte against the
 file, and its security headers, asked with and without `Accept-Encoding: gzip`: nginx's gzip filter
-compresses a `200`, `403` or `404` alone, so the `429` leaves the origin plain either way.
+compresses a `200`, `403` or `404` alone, so the `429` leaves the origin plain either way. It
+grades a link page's refused load the same way against the page.
 
 **A refusal writes no record to the error log**, `limit_req_log_level` and `limit_conn_log_level`
 both sitting below that log's own level. nginx puts the request line there WHOLE, query string and
@@ -1548,7 +1556,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | Backend healthcheck fails after an API version bump                                                                                                                                                     | The healthcheck spells the API version itself                                                                                                   | Move the path in `docker-compose.yml`'s backend healthcheck, and in `nginx/shared/site.conf`'s liveness location with it (§4)                                                                                        |
 | The uptime monitor 404s while the backend container reports healthy                                                                                                                                     | The nginx liveness location still spells the old version, so the probe matches `location /` and Next answers it                                 | Move the path in `nginx/shared/site.conf`'s liveness location, then re-point the monitor at the apex host with no trailing slash (§4)                                                                                |
 | Sign-in returns 429                                                                                                                                                                                     | Working as intended — the sign-in POST is rate-limited at the edge                                                                              | Nothing. The limit is `nginx/shared/http.conf`'s `signin` zone, and it applies to POST alone (I4)                                                                                                                    |
-| A page a mailed link opens answers `429` in plain text                                                                                                                                                  | Working as intended — one network opened link pages past the `linkseite` burst (§1.3)                                                           | Nothing. A reload once the zone refills opens the link, its token still in the address bar                                                                                                                           |
+| A page a mailed link opens answers `429` with „Zu viele Aufrufe“                                                                                                                                        | Working as intended — one network opened link pages past the `linkseite` burst (§1.3)                                                           | Nothing. A reload once the zone refills opens the link, its token still in the address bar                                                                                                                           |
 | Uptime monitor shows green during a backend outage                                                                                                                                                      | The error page streams after headers, so the edge status is 200                                                                                 | Monitor `GET https://frankfurtleague.de/api/v0/system/is_live` at the apex host: a trailing slash redirects and reads green, a `HEAD` is answered 405 (`fl_backend/app/api/system/router.py :: check_is_live`, §1.3) |
 | Application container logs are empty right after a deploy                                                                                                                                               | Working as intended — `json-file` logs live in the container, and the deploy replaces both application containers; nginx keeps its own          | Nothing. The deploy copied them to `/var/log/frankfurtleague/` first (`scripts/ops/deploy.sh :: LOG_DIR`)                                                                                                            |
 | Reference data stale after a hand edit: the first visit once the cache's day has passed still gets it, up to its week ([`docs/frontend/spec.md`](../frontend/spec.md#15-out-of-band-invalidation) §1.5) | Working as intended — an out-of-band MongoDB edit invalidates nothing                                                                           | Drop the five league tags ([`runbooks.md`](runbooks.md) §20); waiting takes a day, plus one stale answer to the visit refreshing each entry                                                                          |

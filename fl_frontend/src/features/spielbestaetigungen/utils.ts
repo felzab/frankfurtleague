@@ -74,7 +74,8 @@ export type BestaetigungsSpiel = {
   ergebnis: FLSpiel["ergebnis"];
   elfmeterschiessen: FLSpiel["elfmeterschiessen"];
   sonderereignis: FLSpiel["sonderereignis"];
-  schiedsrichter: { schiedsrichter_id: string } | null;
+  // Optional as `FLSpiel` types it: the confirmations are an admin-tier read, so every fixture judged here carries the id.
+  schiedsrichter: { schiedsrichter_id?: string } | null;
 };
 
 // `fl_backend/app/api/spielbestaetigungen/services.py :: GRUENDE_ENDING_AN_ANSWER`: a move never ends a discard.
@@ -249,7 +250,7 @@ export type SpielbestaetigungAnsicht =
   | { zustand: "zugesagt"; beantwortet_von: FLSpielbestaetigungVon }
   | { zustand: "abgelehnt"; beantwortet_von: FLSpielbestaetigungVon }
   // `termin-vorbei` is the page's own: an `abgelaufen` link whose fixture's day has gone by.
-  | { zustand: "abgelaufen" | "termin-vorbei" | "ungueltig" | "gesperrt" };
+  | { zustand: "abgelaufen" | "termin-vorbei" | "ungueltig" | "abgesagt" | "gesperrt" };
 
 /** Every state a link opens on once no press can spend it. */
 export type SpielbestaetigungLinkZustand = Exclude<SpielbestaetigungAnsicht["zustand"], "gueltig" | "vorschlag">;

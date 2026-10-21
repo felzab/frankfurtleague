@@ -30,7 +30,13 @@ import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES, FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_ERROR_CLASSES,
+  FIELD_INPUT_CLASSES,
+  FIELD_LABEL_CLASSES,
+  FIELD_PAIR_CLASSES,
+  FORM_SECTION_HEADING_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -47,6 +53,9 @@ import type { FLSpielbestaetigungSchiedsrichterZustand, FLSpielbestaetigungSelbs
 
 export const EINSAETZE_LEER = "Du bist zurzeit für kein Spiel eingeteilt.";
 
+/** The fixtures whose day has gone by, listed apart below the ones to come, which a season's past would bury. */
+export const VERGANGENE_EINSAETZE = "Vergangene Einsätze";
+
 /** The place each answer's control holds in every open row, so an answered row hands the focus to the same control in the next. */
 const ZUSAGEN = "zusagen";
 const ABSAGEN = "absagen";
@@ -57,6 +66,8 @@ const ERLEDIGT: Record<Exclude<FLSpielbestaetigungSchiedsrichterZustand, "guelti
   abgelehnt: { text: "Abgesagt", ton: "danger" },
   abgelaufen: { text: "Keine Antwort mehr möglich", ton: null },
   ungueltig: { text: "Nicht mehr gültig: Termin oder Einteilung haben sich geändert", ton: null },
+  // The fixture's word as `SCHLIESSGRUND_LABELS` gives it, never „Abgesagt“ alone, which is the referee's own decline above.
+  abgesagt: { text: "Spiel abgesagt", ton: "danger" },
 };
 
 /** A Zusage the league entered, which puts the referee on the schedule as their own would: never read as theirs. */
@@ -68,6 +79,9 @@ const EINGETRAGEN = { text: "Zusage von der Verwaltung eingetragen", ton: "succe
  */
 export function SchiedsrichterEinsaetzeSection({ einsaetze }: { einsaetze: readonly FLSpielbestaetigungSelbst[] }) {
   const panel = formPanel();
+  // Split as the read ordered them, which judged the day: the ones to come first, then the past, the latest first.
+  const kommend = einsaetze.filter((einsatz) => !einsatz.vergangen);
+  const vergangen = einsaetze.filter((einsatz) => einsatz.vergangen);
 
   return (
     <section
@@ -94,19 +108,35 @@ export function SchiedsrichterEinsaetzeSection({ einsaetze }: { einsaetze: reado
       </div>
 
       <div className={panel.body()}>
-        {einsaetze.length === 0 ? (
+        {kommend.length === 0 ? (
           <p className="muted-hint">{EINSAETZE_LEER}</p>
         ) : (
           <ul
             aria-label="Liste Deiner Einsätze"
             className="flex w-full flex-col gap-3">
-            {einsaetze.map((einsatz) => (
+            {kommend.map((einsatz) => (
               <EinsatzKarte
                 key={einsatz.id}
                 einsatz={einsatz}
               />
             ))}
           </ul>
+        )}
+
+        {vergangen.length > 0 && (
+          <div className="flex w-full flex-col gap-3">
+            <h3 className={FORM_SECTION_HEADING_CLASSES}>{VERGANGENE_EINSAETZE}</h3>
+            <ul
+              aria-label="Liste Deiner vergangenen Einsätze"
+              className="flex w-full flex-col gap-3">
+              {vergangen.map((einsatz) => (
+                <EinsatzKarte
+                  key={einsatz.id}
+                  einsatz={einsatz}
+                />
+              ))}
+            </ul>
+          </div>
         )}
       </div>
     </section>
@@ -270,7 +300,10 @@ function Antwort({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string;
                 onChange={setBegruendung}
                 onBlur={() => validatePaths("absage", absage, ["begruendung"])}
                 maxLength={SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH}>
-                <Label className={FIELD_LABEL_CLASSES}>Begründung</Label>
+                {/* The row heard after the visible word, as the admin panel's box names its party: two open rows hold a box each. */}
+                <Label className={FIELD_LABEL_CLASSES}>
+                  Begründung<span className="sr-only">: {wofuer}</span>
+                </Label>
                 <Input className={FIELD_INPUT_CLASSES} />
                 <FieldError className={FIELD_ERROR_CLASSES} />
                 <Hint
@@ -284,7 +317,13 @@ function Antwort({ spielbestaetigungId, wofuer }: { spielbestaetigungId: string;
                   type="submit"
                   isPending={isSendingAbsage || zusage.isPending}
                   className={formButton({ intent: "submit", stacks: true })}>
-                  {isSendingAbsage ? "Sendet..." : "Absage senden"}
+                  {isSendingAbsage ? (
+                    "Sendet..."
+                  ) : (
+                    <>
+                      Absage senden<span className="sr-only">: {wofuer}</span>
+                    </>
+                  )}
                 </Button>
               </div>
             </Disclosure.Body>

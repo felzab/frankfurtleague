@@ -28,6 +28,7 @@ from app.api.spielbestaetigungen.services import (
     build_eigene_zeilen_filter,
     clubs_without_a_season_row,
     compose_schiedsrichter_antwort_update,
+    current_rows,
     eigene_begruendung_of,
     eingetragen_of,
     find_fremde_zeile_refusal,
@@ -79,12 +80,16 @@ async def get_eigene_spielbestaetigungen(
     today: str = Depends(get_german_date_str),
 ) -> FLSpielbestaetigungenSelbstResponse:
     """
-    Answer every confirmation row in an `active` season naming one of the signed-in address's live, confirmed referee records.
+    Answer each fixture's newest confirmation row naming one of the signed-in address's live, confirmed referee records.
+
+    One row per fixture in an `active` season: a fixture moved, reinstated or booked to them again answers its fresh
+    request alone.
 
     Open, answered and closed rows alike, each with the fixture as it stands -- or, where the fixture moved since, the
-    Ansetzung the row asked about -- its state, the referee's own decline reason, and whether the league recorded the
-    answer for them, naming nobody. No deadline is served: a referee answers until the fixture's day. Ordered with the
-    rows still open first, then by the Ansetzung's day. Nobody's address or seat is served, and no reason an
+    Ansetzung the row asked about -- its state, `abgesagt` once the fixture is called off, the referee's own decline
+    reason, whether the league recorded the answer for them, naming nobody, and whether its day is past. No deadline is
+    served: a referee answers until the fixture's day. Ordered with the days still to come first, rows still open
+    ahead, each by its day; then the days gone by, the latest first. Nobody's address or seat is served, and no reason an
     administrator entered on the row.
 
     Refuses an address holding no live, confirmed referee record (`REQ-FUNKTION-001`).
@@ -113,6 +118,7 @@ async def get_eigene_spielbestaetigungen(
         # Raised rather than cut: a capped list would read as a referee booked onto fewer fixtures.
         if len(rows) > LIST_LIMIT_MAX:
             raise ValueError("a referee's rows in the active seasons outrun one read")
+        rows = current_rows(rows)
 
         lagen = await pull_eigene_lagen(
             spiele_collection=spiele_collection, saison_teams_collection=saison_teams_collection, spielbestaetigungen_raw=rows, session=session
@@ -147,12 +153,15 @@ async def get_eigene_spielbestaetigungen(
                 "zustand": schiedsrichter_zustand_of(spielbestaetigung_raw=row, lage=lage, today=today),
                 "begruendung": eigene_begruendung_of(row),
                 "eingetragen": eingetragen_of(row),
+                "vergangen": ansetzung.datum < today,
             }
         )
 
-    eintraege = sorted(map(eintrag_of, rows), key=lambda eintrag: (eintrag.zustand != "gueltig", eintrag.ansetzung.datum, str(eintrag.id)))
+    eintraege = list(map(eintrag_of, rows))
+    kommend = sorted((e for e in eintraege if not e.vergangen), key=lambda e: (e.zustand != "gueltig", e.ansetzung.datum, str(e.id)))
+    vergangen = sorted((e for e in eintraege if e.vergangen), key=lambda e: (e.ansetzung.datum, str(e.id)), reverse=True)
 
-    return FLSpielbestaetigungenSelbstResponse(spielbestaetigungen=eintraege)
+    return FLSpielbestaetigungenSelbstResponse(spielbestaetigungen=[*kommend, *vergangen])
 
 
 @router.post(
@@ -182,13 +191,14 @@ async def post_schiedsrichter_antwort(
     the season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture
     carries.
 
-    Refuses, in this order: an address holding no live, confirmed referee record (`REQ-FUNKTION-001`); an id naming no
-    row of an `active` season, or a row naming none of those records (`REQ-ANSETZUNG-015`, one answer for both); a row
-    already answered, by them or by the league for them (`REQ-ANSETZUNG-002`); one closed unanswered
-    (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club (`REQ-ANSETZUNG-005`), then one whose date,
-    time, ground or sides moved since the row, or which books another referee or none (`REQ-ANSETZUNG-004`); and a
-    fixture whose day has gone by (`REQ-ANSETZUNG-003`). An acceptance is judged again outside the transaction just
-    before answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.
+    Refuses, in this order: an answer past the person's ceiling for the German day (`REQ-DROSSELUNG-001`); an address
+    holding no live, confirmed referee record (`REQ-FUNKTION-001`); an id naming no row of an `active` season, or a row
+    naming none of those records (`REQ-ANSETZUNG-015`, one answer for both); a row already answered, by them or by the
+    league for them (`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off
+    or left by a club (`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the row, or which
+    books another referee or none (`REQ-ANSETZUNG-004`); and a fixture whose day has gone by (`REQ-ANSETZUNG-003`). An
+    acceptance is judged again outside the transaction just before answering, so a move or a reassignment landing
+    mid-answer refuses it rather than letting it stand.
 
     **The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name
     on the public fixture, and a decline takes it off.

@@ -56,6 +56,7 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   abgelaufen: "Link ungültig",
   "termin-vorbei": "Link ungültig",
   ungueltig: "Link ungültig",
+  abgesagt: "Spiel abgesagt",
   unlesbar: LINK_UNLESBAR_TITEL,
 };
 
@@ -167,7 +168,12 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
-          <p className={ABSATZ_CLASSES}>Für dieses Spiel hat Dein Team schon zugesagt. Du musst nichts weiter tun.</p>
+          {/* The league's own entry once the deadline passed is no answer of the team's, and says so beside the readout. */}
+          <p className={ABSATZ_CLASSES}>
+            {stand.beantwortet_von.art === "admin"
+              ? "Für dieses Spiel hat die Verwaltung der Liga den Termin für Dein Team bestätigt. Du musst nichts weiter tun."
+              : "Für dieses Spiel hat Dein Team schon zugesagt. Du musst nichts weiter tun."}
+          </p>
           <GespeicherteAngaben zeilen={[{ label: "Zugesagt von", wert: beantwortetVon(stand.beantwortet_von) }]} />
           <ZurLiga />
         </BestaetigungErgebnis>
@@ -194,6 +200,18 @@ export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart
             vorbei, legt die Verwaltung der Liga den Termin fest.
           </p>
           <FrageStellen />
+        </BestaetigungErgebnis>
+      )}
+
+      {/* Whatever the team answered: an agreement shown here would send it to a ground nobody plays on. */}
+      {stand.zustand === "abgesagt" && (
+        <BestaetigungErgebnis
+          panelRef={ergebnisRef}
+          tone="hinweis">
+          <p className={ABSATZ_CLASSES}>
+            Dieses Spiel ist abgesagt. Du musst nichts weiter tun. Wird es neu angesetzt, kommt eine neue E-Mail.
+          </p>
+          <ZurLiga />
         </BestaetigungErgebnis>
       )}
 

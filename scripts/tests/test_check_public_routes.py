@@ -698,6 +698,32 @@ def test_an_error_page_sending_to_no_named_location_refuses():
         raise AssertionError("an error_page naming no location was read as whole")
 
 
+def test_a_variable_error_page_reaches_every_location_its_map_names():
+    """Read through the http level's map, so neither the page nor the sentence reads as unreached."""
+    text = "server {\n    error_page 429 = $ziel;\n" + block("location @seite", PASS) + block("location @satz", PASS) + CATCH_ALL + "}\n"
+    maps = routes.map_values(routes.parse("map $request_method $ziel {\n    GET @seite;\n    default @satz;\n}\n", SOURCE))
+
+    found = routes.locations(routes.parse(text, SOURCE), SOURCE, maps)
+
+    assert [location.path for location in found] == ["/"]
+
+
+@pytest.mark.parametrize(
+    ("maps", "named"),
+    [({}, "\\$ziel"), ({"$ziel": frozenset({"@seite", "@weg"})}, "@weg")],
+    ids=["no-map-defines-it", "its-map-names-no-location"],
+)
+def test_a_variable_error_page_this_reader_cannot_resolve_refuses(maps, named):
+    """Unresolved, every named location it reaches would read as dead; resolved to nothing, as reached."""
+    text = "server {\n    error_page 429 = $ziel;\n" + block("location @seite", PASS) + CATCH_ALL + "}\n"
+    try:
+        routes.locations(routes.parse(text, SOURCE), SOURCE, maps)
+    except routes.NginxSyntax as refusal:
+        assert re.search(named, str(refusal)), refusal
+    else:
+        raise AssertionError("a variable error_page was read as whole")
+
+
 def test_a_location_inside_a_location_refuses():
     """Which of the two answers a request is match order this reader does not resolve."""
     nested = block("location /api/", "        location = /api/x { proxy_pass http://frontend:3000; }\n")
@@ -821,8 +847,7 @@ def test_the_module_under_test_is_this_repository_own():
 def repository_own() -> tuple:
     """The real App Router tree and the real edge configuration, read as the gate reads them."""
     conf = routes.REPO_ROOT / routes.NGINX_CONF
-    where = routes.locations(routes.parse(conf.read_bytes().decode("utf-8"), conf.name), conf.name)
-    return routes.handlers(routes.REPO_ROOT / routes.APP_ROUTER), where, conf.name
+    return routes.handlers(routes.REPO_ROOT / routes.APP_ROUTER), routes.edge_locations(conf), conf.name
 
 
 def test_the_repository_own_routes_are_accounted_for():
@@ -866,6 +891,8 @@ def run_main(app: Path, text: str, monkeypatch) -> int:
     monkeypatch.setattr(routes, "INTERNAL", ())
     conf = app.parent / SOURCE
     conf.write_bytes(text.encode("utf-8"))
+    # The http level beside it, holding no map: no planted case sends an error_page through one.
+    (app.parent / routes.NGINX_HTTP_CONF).write_bytes(b"")
     monkeypatch.setattr(sys, "argv", ["check_public_routes.py", str(app), str(conf)])
     return routes.main()
 
