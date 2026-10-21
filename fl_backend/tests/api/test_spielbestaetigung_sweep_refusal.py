@@ -111,7 +111,8 @@ class TestWhyARowCloses:
             pytest.param(TEAM, {"ort": None}, {}, "ansetzung_geaendert", id="the ground gone"),
             pytest.param(TEAM, {"ergebnis": "1:0", "uhrzeit": "19:00:00"}, {}, "spiel_entschieden", id="decided and moved"),
             pytest.param(TEAM, {"sonderereignis": "ausgefallen"}, {}, "abgesagt", id="called off"),
-            pytest.param(TEAM, {"sonderereignis": "nichtantreten_team2"}, {}, "spiel_entschieden", id="a no-show is played"),
+            pytest.param(TEAM, {"sonderereignis": "nichtantreten_team2"}, {}, "abgesagt", id="a no-show entered before the day"),
+            pytest.param(TEAM, {"sonderereignis": "nichtantreten_team2", "datum": TODAY}, {}, "spiel_entschieden", id="a no-show on the day"),
             pytest.param(TEAM, {"uhrzeit": "19:00:00"}, {BETA: TODAY}, "austritt", id="the opponent gone, ahead of the move"),
             pytest.param(REFEREE, {"schiedsrichter": None}, {}, "schiedsrichter_gewechselt", id="the referee taken off"),
             pytest.param(
