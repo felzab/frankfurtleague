@@ -533,6 +533,16 @@ class TestTheSystemsReadOfTheNewAddress:
 
         assert on_a_person(mongo_replica_set_url, body) == [NEW_EMAIL] * 4
 
+    def test_a_row_holding_another_spelling_is_answered_folded(self, mongo_replica_set_url: str):
+        """Every start stores the fold, the validator no spelling: a row written by hand still names the account's key."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await start(database, client)
+            await database[Collection.ADRESSWECHSEL].update_one({"_id": minted.id}, {"$set": {"email": "Lenore.Q@NeuPost.example.org"}})
+            return (await the_new_address(database, client, adresswechsel_id=minted.id)).email
+
+        assert on_a_person(mongo_replica_set_url, body) == NEW_EMAIL
+
     def test_a_key_naming_no_live_change_answers_null(self, mongo_replica_set_url: str):
         """Never a 404: a lapsed or answered link costs the page no error, and the stop link never names the new mailbox."""
 
