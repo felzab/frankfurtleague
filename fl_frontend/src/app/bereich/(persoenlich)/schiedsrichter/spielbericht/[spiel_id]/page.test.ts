@@ -129,7 +129,7 @@ describe("the referee's report page", () => {
     clearSteps();
 
     const { thrown } = await callPage(SchiedsrichterSpielberichtPage, {
-      params: Promise.resolve({ spiel_id: `${BERICHT_SPIEL_ID}/admin?` }),
+      params: Promise.resolve({ spiel_id: `${BERICHT_SPIEL_ID}/person?` }),
       searchParams: Promise.resolve({}),
     });
 
