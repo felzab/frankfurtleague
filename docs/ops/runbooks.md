@@ -19,7 +19,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [9. Checking that the hourly passes have run](#9-checking-that-the-hourly-passes-have-run)                                                      | What answers each, and what each answer means                  |
 | [10. The mail provider's dashboard](#10-the-mail-providers-dashboard)                                                                           | The six steps no code can carry, and what breaks without them  |
 | [11. A contact seat's birthdate that no confirmation stamped](#11-a-contact-seats-birthdate-that-no-confirmation-stamped)                       | What finds the rows, and why no save clears one                |
-| [12. Deleting this season's player records and resetting the action log](#12-deleting-this-seasons-player-records-and-resetting-the-action-log) | The pupils, the referees, the log, and what is lost with them  |
+| [12. Deleting pupils and referees, migrating what's kept, wiping the log](#12-deleting-pupils-and-referees-migrating-whats-kept-wiping-the-log) | The pupils, the referees, the log, and what is lost with them  |
 | [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                                      | Who is re-erased, and what the restore took the record of      |
 | [14. The `auth` database's indexes](#14-the-auth-databases-indexes)                                                                             | What builds them, and what a boot that could not leaves        |
 | [15. When a sign-in code does not arrive](#15-when-a-sign-in-code-does-not-arrive)                                                              | What the person cannot tell apart, and the line that can       |
@@ -663,7 +663,7 @@ answer for that season names nobody to send.
 question is answered at all. **Two populations sit in that collection and only one has an expiry**:
 a row the log stamped is gone twelve months after the write it recorded and a row carrying no stamp
 is expired by nothing (`docs/backend/spec.md :: I119`), so an answer promising a period has to say
-which it is about — the unstamped rows leave at [section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)'s
+which it is about — the unstamped rows leave at [section 12](#12-deleting-pupils-and-referees-migrating-whats-kept-wiping-the-log)'s
 reset instead.
 
 **There is no export route, so an access request is answered by composing what those pages show.**
@@ -855,7 +855,7 @@ Tell them that the first cannot be undone, and that the second is theirs to chan
 page.
 
 **A referee whose row was dropped has nothing left to erase, and their fixtures hold no name**:
-[section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)'s drop empties it
+[section 12](#12-deleting-pupils-and-referees-migrating-whats-kept-wiping-the-log)'s drop empties it
 as it repoints them at the ghost, which no erasure reaches, and empties the log's images of them, a
 fixture's image whole where an erasure repoints its booking alone
 (`docs/backend/spec.md :: I212`, `:: I213`). Where the person has registered again since, erase their
@@ -889,7 +889,7 @@ reached by the address route all the same
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)): save the person's
 own address on the row in the referee editor, which on a row still in service mails them a confirmation
 link first, then erase that address; otherwise the row goes with the reset
-([section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)), as a pupil row
+([section 12](#12-deleting-pupils-and-referees-migrating-whats-kept-wiping-the-log)), as a pupil row
 holding no address does. The page mails the person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
 notice naming no address (`docs/backend/spec.md :: I659`). On the same page „Überall abmelden“ ends
@@ -1579,7 +1579,7 @@ database shell. Four things decide whether the one pasted is right:
 
 Then `--check` again.
 
-## 12. Deleting this season's player records and resetting the action log
+## 12. Deleting pupils and referees, migrating what's kept, wiping the log
 
 **Once, before the deploy that first requires the record shapes it leaves, and never again** — the
 ruling and what it is for are
