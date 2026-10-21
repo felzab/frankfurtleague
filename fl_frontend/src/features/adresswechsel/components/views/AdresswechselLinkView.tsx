@@ -81,7 +81,7 @@ const ENDE: Record<FLAdresswechselEndeArt, Record<Beendet["seite"], { titel: str
     neu: { titel: "Änderung gestoppt", satz: "Die Änderung wurde gestoppt. Diese Adresse wird nicht übernommen." },
     bisherig: {
       titel: "Änderung gestoppt",
-      satz: `Die neue Adresse ist entfernt, diese bleibt. Wurde Dein Konto ohne Dich geändert, schreib uns an ${KONTAKT_EMAIL}.`,
+      satz: `Die neue Adresse ist entfernt, diese bleibt. Hast Du die Änderung nicht selbst angefragt, schreib uns an ${KONTAKT_EMAIL}.`,
     },
   },
   abgelaufen: {
@@ -89,7 +89,11 @@ const ENDE: Record<FLAdresswechselEndeArt, Record<Beendet["seite"], { titel: str
     bisherig: { titel: "Änderung abgelaufen", satz: "Die Änderung ist abgelaufen und gelöscht. Diese Adresse bleibt." },
   },
   ersetzt: {
-    neu: { titel: "Link ersetzt", satz: "Diese Änderung wurde durch eine neuere ersetzt. Gilt sie Dir, nimm den Link aus der neueren E-Mail." },
+    // A newer change waiting on the address on file's approval has mailed no link yet, so none is promised.
+    neu: {
+      titel: "Link ersetzt",
+      satz: "Diese Änderung wurde durch eine neuere ersetzt. Gilt die neuere Dir, nimm nur einen Link aus einer späteren E-Mail.",
+    },
     bisherig: {
       titel: "Änderung ersetzt",
       satz: "Diese Änderung wurde durch eine neuere ersetzt, zu der diese Adresse einen eigenen Hinweis bekommen hat.",

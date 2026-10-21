@@ -159,12 +159,26 @@ describe("the account page's address control", () => {
     );
     assert.match(
       document.body.textContent,
-      /ist bestätigt\. Weil diese Adresse Zugang zur Verwaltung hat, muss außerdem eine andere Person aus der Verwaltung zustimmen, bis 27\. Oktober 2026 um 12:30\. Bis dahin meldest Du Dich weiter mit dieser Adresse an, mit vollem Zugang\./,
+      /ist bestätigt\. Weil Deine bisherige Adresse Zugang zur Verwaltung hat, muss außerdem eine andere Person aus der Verwaltung zustimmen, bis 27\. Oktober 2026 um 12:30\. Bis zur Zustimmung meldest Du Dich weiter mit Deiner bisherigen Adresse an, mit vollem Zugang\./,
     );
     unmount();
 
     render(panel(offen({ genehmigung: { verwaltung: "owner", genehmigt: false, bis: "2026-10-27T11:30:00Z" } }), null));
     assert.match(document.body.textContent, /muss außerdem eine andere Inhaberin oder ein anderer Inhaber der Verwaltung zustimmen/);
+  });
+
+  /* „Bis dahin gilt diese.“ read as the new address, and after the link's deadline: the old address holds until the confirmation. */
+  it("names the address that holds until the confirmation, never the link's deadline as its end", () => {
+    const { unmount } = render(panel(offen({}), null));
+    assert.match(
+      document.body.textContent,
+      /wartet auf ihre Bestätigung, längstens bis 21\. Oktober 2026 um 13:30\. Bis zur Bestätigung gilt Deine bisherige Adresse\./,
+    );
+    unmount();
+
+    render(panel(offen({ wartet_auf: "wartezeit", gueltig_bis: null, wirksam_ab: "2026-10-28T11:30:00Z" }), null));
+    assert.match(document.body.textContent, /gilt ab 28\. Oktober 2026 um 12:30\. Bis dahin gilt Deine bisherige Adresse\./);
+    assert.doesNotMatch(document.body.textContent, /gilt diese/);
   });
 
   it("says nothing of an approval already given", () => {

@@ -88,7 +88,7 @@ function offenSatz(offen: FLKontoAdresswechselOffen): string {
   const zugang =
     genehmigung === null || genehmigung.genehmigt
       ? ""
-      : ` Weil diese Adresse Zugang zur Verwaltung hat, muss außerdem ${genehmigerText(genehmigung.verwaltung)} zustimmen, bis ${adresswechselZeitpunkt(genehmigung.bis)}. Bis dahin meldest Du Dich weiter mit dieser Adresse an, mit vollem Zugang.`;
+      : ` Weil Deine bisherige Adresse Zugang zur Verwaltung hat, muss außerdem ${genehmigerText(genehmigung.verwaltung)} zustimmen, bis ${adresswechselZeitpunkt(genehmigung.bis)}. Bis zur Zustimmung meldest Du Dich weiter mit Deiner bisherigen Adresse an, mit vollem Zugang.`;
 
   if (offen.wartet_auf === "freigabe") {
     return `Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen: ${email}. Sie gilt erst, wenn Du sie hier freigibst und sie danach über ihren Link bestätigt wird. Gib sie nur frei, wenn Du das selbst bei uns angefragt hast.${bis === null ? "" : ` Freigeben kannst Du bis ${bis}.`}${zugang}`;
@@ -98,12 +98,13 @@ function offenSatz(offen: FLKontoAdresswechselOffen): string {
   }
   if (offen.wartet_auf === "wartezeit") {
     const ab = offen.wirksam_ab === null ? "" : ` und gilt ab ${adresswechselZeitpunkt(offen.wirksam_ab)}`;
-    return `Die neue E-Mail-Adresse ${email} ist bestätigt${ab}. Bis dahin gilt diese. Stimmt das nicht, stoppe die Änderung.${zugang}`;
+    return `Die neue E-Mail-Adresse ${email} ist bestätigt${ab}. Bis dahin gilt Deine bisherige Adresse. Stimmt das nicht, stoppe die Änderung.${zugang}`;
   }
   if (offen.weg === "wartezeit") {
     return `Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen, ${email}, weil Deine bisherige nicht mehr erreichbar sein soll. Bestätigt sie ihren Link, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} danach. Stimmt das nicht, stoppe die Änderung.${zugang}`;
   }
-  return `Die neue E-Mail-Adresse ${email} wartet auf ihre Bestätigung${bis === null ? "" : `, bis ${bis}`}. Bis dahin gilt diese.${zugang}`;
+  // The link's deadline ends the change, never the old address's validity: that holds until the confirmation.
+  return `Die neue E-Mail-Adresse ${email} wartet auf ihre Bestätigung${bis === null ? "" : `, längstens bis ${bis}`}. Bis zur Bestätigung gilt Deine bisherige Adresse.${zugang}`;
 }
 
 /**

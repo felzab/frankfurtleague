@@ -367,6 +367,19 @@ describe("the stop side of the address page", () => {
     });
   }
 
+  /* The account did not change, so the stop's way out is for whoever never asked for the change. */
+  it("sends the address on file to the league after a stop where it never asked for the change", () => {
+    const shown = words({ zustand: "beendet", seite: "bisherig", art: "gestoppt" });
+
+    assert.match(shown, /Hast Du die Änderung nicht selbst angefragt, schreib uns/);
+    assert.doesNotMatch(shown, /geändert, schreib/);
+  });
+
+  /* A newer change waiting on the address on file's approval has mailed the new address nothing yet. */
+  it("promises the new mailbox no newer mail where a change was replaced", () => {
+    assert.match(words({ zustand: "beendet", seite: "neu", art: "ersetzt" }), /nimm nur einen Link aus einer späteren E-Mail\./);
+  });
+
   it("turns a stop link that matches nothing under the press into the void link's panel", async () => {
     answerEveryFetch({ success: false, zustand: "ungueltig" });
 
