@@ -160,8 +160,6 @@ export const FLAdresswechselPostausgangZeileSchema = z.object({
   vorname: z.string().nullable(),
   // Whether the address on file's holder asked for or approved the change, which decides whether its account moves.
   weg: FLAdresswechselWegSchema.nullable(),
-  // Whether the new address held records of its own at the effect: its holder never signed in there, so no account moves onto them.
-  adresse_belegt: z.boolean().nullable(),
   aufgegeben: z.boolean(),
 });
 export type FLAdresswechselPostausgangZeile = z.infer<typeof FLAdresswechselPostausgangZeileSchema>;
@@ -284,8 +282,6 @@ export const FLAdresswechselVerwaltungMintResponseSchema = BaseAPIResponseSchema
   bisherige_email: z.string().nonempty(),
   // What the notice greets with, read in the mint's own transaction; null on the lost-mailbox way, greeting nobody.
   vorname: z.string().nullable(),
-  // The administrator's warning that the new address already holds records of its own, which merge.
-  adresse_belegt: z.boolean(),
   // How many could approve the grant's move, whom the grants' outbox tells (`docs/backend/spec.md :: I862`); 0 where none moves.
   genehmiger_anzahl: z.int().nonnegative(),
 });

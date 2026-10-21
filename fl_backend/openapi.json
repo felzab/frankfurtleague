@@ -7361,7 +7361,7 @@
     "/api/v0/adresswechsel": {
       "post": {
         "summary": "Start an address change for a person who cannot sign in",
-        "description": "Start a change of the typed address for a person who cannot sign in, answering its raw links once, for the caller to mail.\n\n**Nothing moves here.** Without a `grund` the change asks the address on file first: the caller mails it the request\nwith its stop link, and nothing goes to the new mailbox until that address approves on its account page. With a\n`grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the\naddress on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new\nmailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never\nthis one's: `genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).\nThe address's live change ends replaced.\n`adresse_belegt` says whether the new address holds records of its own, which the effect would join to these.\n\nRefused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power\n(`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds\n(`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the\nchange moves a pupil (`-006`), a grant nobody could approve (`-011`), and a reason naming a person of the records the\nchange would move (`-008`).",
+        "description": "Start a change of the typed address for a person who cannot sign in, answering its raw links once, for the caller to mail.\n\n**Nothing moves here.** Without a `grund` the change asks the address on file first: the caller mails it the request\nwith its stop link, and nothing goes to the new mailbox until that address approves on its account page. With a\n`grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the\naddress on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new\nmailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never\nthis one's: `genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).\nThe address's live change ends replaced.\n\nRefused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power\n(`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds\n(`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the\nchange moves a pupil (`-006`), a new address holding entries of its own (`-018`), a grant nobody could approve\n(`-011`), and a reason naming a person of the records the change would move (`-008`).",
         "operationId": "post_adresswechsel_verwaltung_api_v0_adresswechsel_post",
         "requestBody": {
           "content": {
@@ -7388,7 +7388,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-007.REQ-ADRESSWECHSEL-009.REQ-ADRESSWECHSEL-010.REQ-ADRESSWECHSEL-011"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-007.REQ-ADRESSWECHSEL-009.REQ-ADRESSWECHSEL-010.REQ-ADRESSWECHSEL-011.REQ-ADRESSWECHSEL-018"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-ADRESSWECHSEL-008.REQ-VAL-001"
@@ -7420,7 +7420,7 @@
     "/api/v0/adresswechsel/{adresswechsel_id}/einladen": {
       "post": {
         "summary": "Send a pending address a fresh link",
-        "description": "Mint the new mailbox a fresh link for the change this id names, answering the raw token once, for the caller to mail.\n\nThe previous link stops working at once and the delivery state of the message it went out in goes with it; the\ndeadline restarts now. The stop link stays, so the address on file is mailed nothing again. A lapsed link is no\nrefusal while the change stands, which is until the next hourly pass ends it (`docs/backend/spec.md :: I693`). Acts\non the change the id names alone, so a page showing a change since replaced re-sends nothing.\n\nRefused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), where the ban list holds the pending address\n(`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), where a grant's approval week has\npassed (`-003`), and where the change ended (`-002`). 404 for an id naming no change, and unless the change waits on\nthe new mailbox: one awaiting the address on file's approval, or confirmed, has no link to re-send.",
+        "description": "Mint the new mailbox a fresh link for the change this id names, answering the raw token once, for the caller to mail.\n\nThe previous link stops working at once and the delivery state of the message it went out in goes with it; the\ndeadline restarts now. The stop link stays, so the address on file is mailed nothing again. A lapsed link is no\nrefusal while the change stands, which is until the next hourly pass ends it (`docs/backend/spec.md :: I693`). Acts\non the change the id names alone, so a page showing a change since replaced re-sends nothing.\n\nRefused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), where the ban list holds the pending address\n(`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), where it has come to hold entries\nof its own (`-018`), where a grant's approval week has passed (`-003`), and where the change ended (`-002`). 404 for\nan id naming no change, and unless the change waits on the new mailbox: one awaiting the address on file's approval,\nor confirmed, has no link to re-send.",
         "operationId": "einladen_adresswechsel_api_v0_adresswechsel__adresswechsel_id__einladen_post",
         "security": [
           {
@@ -7469,7 +7469,7 @@
             "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-PURGE-003.REQ-PURGE-005"
           },
           "409": {
-            "$ref": "#/components/responses/409.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-009"
+            "$ref": "#/components/responses/409.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-009.REQ-ADRESSWECHSEL-018"
           },
           "410": {
             "$ref": "#/components/responses/410.REQ-ADRESSWECHSEL-003"
@@ -7545,7 +7545,7 @@
     "/api/v0/adresswechsel/{adresswechsel_id}/genehmigung": {
       "post": {
         "summary": "Approve the move of an administrator's access with their address change",
-        "description": "Approve the move of an administrator's grant with the change of their address, the second pair of eyes the change waits on.\n\nWhere the new mailbox has confirmed and no waiting time remains, the change takes effect in this transaction: the grant\nis revoked at the replaced address and granted at the new one under this administrator's name, announced to every\nadministrator as a grant and a revoke are, and everything else the address holds moves, its completion notice queued\nin this transaction. Otherwise the approval is recorded and the change takes effect at its confirmation\nor at the end of its waiting time. **An approval refused writes nothing**: the change stands unapproved.\n\nRefused where the change asks no approval or was given it (`REQ-ADRESSWECHSEL-012`), where its seven days have passed\n(`-003`), to the changed address and to the administrator who started it (`-013`), to anyone but an owner, signed in\nsince becoming one, where the grant is an owner's (`-014`), and where the change ended (`-002`); and, where it would\ntake effect, as the confirmation is (`-004`, `-005`, `-006`, `-015`, `-016`). A change whose address has come to hold\nnothing to move ends discarded, its new address told it did not take effect, answering `-010`. 404 for an id naming no\nchange. A sign-in or confirmation older than\n`ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.",
+        "description": "Approve the move of an administrator's grant with the change of their address, the second pair of eyes the change waits on.\n\nWhere the new mailbox has confirmed and no waiting time remains, the change takes effect in this transaction: the grant\nis revoked at the replaced address and granted at the new one under this administrator's name, announced to every\nadministrator as a grant and a revoke are, and everything else the address holds moves, its completion notice queued\nin this transaction. Otherwise the approval is recorded and the change takes effect at its confirmation\nor at the end of its waiting time. **An approval refused writes nothing**: the change stands unapproved.\n\nRefused where the change asks no approval or was given it (`REQ-ADRESSWECHSEL-012`), where its seven days have passed\n(`-003`), to the changed address and to the administrator who started it (`-013`), to anyone but an owner, signed in\nsince becoming one, where the grant is an owner's (`-014`), and where the change ended (`-002`); and, where it would\ntake effect, as the confirmation is (`-004`, `-005`, `-006`, `-015`, `-016`, `-018`). A change whose address has come to hold\nnothing to move ends discarded, its new address told it did not take effect, answering `-010`. 404 for an id naming no\nchange. A sign-in or confirmation older than\n`ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.",
         "operationId": "post_adresswechsel_genehmigung_api_v0_adresswechsel__adresswechsel_id__genehmigung_post",
         "security": [
           {
@@ -7579,7 +7579,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-005.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-010.REQ-ADRESSWECHSEL-012.REQ-ADRESSWECHSEL-015.REQ-ADRESSWECHSEL-016"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-005.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-010.REQ-ADRESSWECHSEL-012.REQ-ADRESSWECHSEL-015.REQ-ADRESSWECHSEL-016.REQ-ADRESSWECHSEL-018"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -8309,7 +8309,7 @@
     "/api/v0/adresswechsel/bestaetigung": {
       "post": {
         "summary": "Confirm or decline a pending address",
-        "description": "Record whether the mailbox this link was sent to is the person's: `bestaetigt` confirms it, `abgelehnt` ends the change.\n\n**A confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's\nstart with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this\ntransaction: every pupil row, confirmed referee row, confirmed contact seat, registration and grant the address on\nfile holds moves to the new one, asking no consent and writing none, and `wirksam` says so; its completion notice is\nqueued in this transaction for `POST /adresswechsel/sweep/postausgang`. A change that waits is confirmed alone,\nanswering `wirksam_ab` or `genehmigung_offen`.\nEither answer spends the link, which keeps answering what became of the change.\n\nRefuses a token no change holds (`REQ-ADRESSWECHSEL-001`), a link already answered or a change ended\n(`REQ-ADRESSWECHSEL-002`), and, in the order the link's view ranks its states, a CONFIRMATION through a link mailed to\nan address the ban list holds now (`-004`), one past its deadline (`-003`), one whose change would replace an address\nthe ban list holds now (`-005`), so a barred person cannot move their records off the address the ban keys on, one\nmoving a pupil onto an address another pupil signs in on (`-006`), one whose address came to hold a grant its approval\ndoes not cover (`-015`), and one moving a grant onto an address holding one (`-016`). **A decline is refused none of\nthese**: it removes an address nobody proved, out of every log image of the change too.\n\nA change whose address has come to hold nothing to move ends discarded, and the press answers `-002`. The codes past\n`-004` tell a caller what the view's `nicht_bestaetigbar` keeps alike; only the edge keeps them from the link's holder.",
+        "description": "Record whether the mailbox this link was sent to is the person's: `bestaetigt` confirms it, `abgelehnt` ends the change.\n\n**A confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's\nstart with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this\ntransaction: every pupil row, confirmed referee row, confirmed contact seat, registration and grant the address on\nfile holds moves to the new one, asking no consent and writing none, and `wirksam` says so; its completion notice is\nqueued in this transaction for `POST /adresswechsel/sweep/postausgang`. A change that waits is confirmed alone,\nanswering `wirksam_ab` or `genehmigung_offen`.\nEither answer spends the link, which keeps answering what became of the change.\n\nRefuses a token no change holds (`REQ-ADRESSWECHSEL-001`), a link already answered or a change ended\n(`REQ-ADRESSWECHSEL-002`), and, in the order the link's view ranks its states, a CONFIRMATION through a link mailed to\nan address the ban list holds now (`-004`), one past its deadline (`-003`), one whose change would replace an address\nthe ban list holds now (`-005`), so a barred person cannot move their records off the address the ban keys on, one\nmoving a pupil onto an address another pupil signs in on (`-006`), one whose address came to hold a grant its approval\ndoes not cover (`-015`), one moving a grant onto an address holding one (`-016`), and one whose new address holds\nentries of its own (`-018`): moving these onto it would join two people's records. **A decline is refused none of\nthese**: it removes an address nobody proved, out of every log image of the change too.\n\nA change whose address has come to hold nothing to move ends discarded, and the press answers `-002`. The codes past\n`-004` tell a caller what the view's `nicht_bestaetigbar` keeps alike; only the edge keeps them from the link's holder.",
         "operationId": "post_adresswechsel_antwort_api_v0_adresswechsel_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -8336,7 +8336,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001.REQ-ADRESSWECHSEL-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-005.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-015.REQ-ADRESSWECHSEL-016"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-005.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-015.REQ-ADRESSWECHSEL-016.REQ-ADRESSWECHSEL-018"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -12048,17 +12048,6 @@
             ],
             "title": "Weg"
           },
-          "adresse_belegt": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Adresse Belegt"
-          },
           "aufgegeben": {
             "type": "boolean",
             "title": "Aufgegeben"
@@ -12072,7 +12061,6 @@
           "email",
           "vorname",
           "weg",
-          "adresse_belegt",
           "aufgegeben"
         ],
         "title": "FLAdresswechselPostausgangZeile",
@@ -12409,10 +12397,6 @@
             ],
             "title": "Vorname"
           },
-          "adresse_belegt": {
-            "type": "boolean",
-            "title": "Adresse Belegt"
-          },
           "genehmiger_anzahl": {
             "type": "integer",
             "minimum": 0.0,
@@ -12429,7 +12413,6 @@
           "email",
           "bisherige_email",
           "vorname",
-          "adresse_belegt",
           "genehmiger_anzahl"
         ],
         "title": "FLAdresswechselVerwaltungMintResponse",
@@ -32758,7 +32741,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-005.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-010.REQ-ADRESSWECHSEL-012.REQ-ADRESSWECHSEL-015.REQ-ADRESSWECHSEL-016": {
+      "409.DB-COMMON-002.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-005.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-010.REQ-ADRESSWECHSEL-012.REQ-ADRESSWECHSEL-015.REQ-ADRESSWECHSEL-016.REQ-ADRESSWECHSEL-018": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -32778,7 +32761,8 @@
                         "REQ-ADRESSWECHSEL-010",
                         "REQ-ADRESSWECHSEL-012",
                         "REQ-ADRESSWECHSEL-015",
-                        "REQ-ADRESSWECHSEL-016"
+                        "REQ-ADRESSWECHSEL-016",
+                        "REQ-ADRESSWECHSEL-018"
                       ]
                     }
                   }
@@ -32788,7 +32772,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-005.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-015.REQ-ADRESSWECHSEL-016": {
+      "409.DB-COMMON-002.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-005.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-015.REQ-ADRESSWECHSEL-016.REQ-ADRESSWECHSEL-018": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -32806,7 +32790,8 @@
                         "REQ-ADRESSWECHSEL-005",
                         "REQ-ADRESSWECHSEL-006",
                         "REQ-ADRESSWECHSEL-015",
-                        "REQ-ADRESSWECHSEL-016"
+                        "REQ-ADRESSWECHSEL-016",
+                        "REQ-ADRESSWECHSEL-018"
                       ]
                     }
                   }
@@ -32816,7 +32801,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-007.REQ-ADRESSWECHSEL-009.REQ-ADRESSWECHSEL-010.REQ-ADRESSWECHSEL-011": {
+      "409.DB-COMMON-002.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-007.REQ-ADRESSWECHSEL-009.REQ-ADRESSWECHSEL-010.REQ-ADRESSWECHSEL-011.REQ-ADRESSWECHSEL-018": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -32834,7 +32819,8 @@
                         "REQ-ADRESSWECHSEL-007",
                         "REQ-ADRESSWECHSEL-009",
                         "REQ-ADRESSWECHSEL-010",
-                        "REQ-ADRESSWECHSEL-011"
+                        "REQ-ADRESSWECHSEL-011",
+                        "REQ-ADRESSWECHSEL-018"
                       ]
                     }
                   }
@@ -33382,7 +33368,7 @@
           }
         }
       },
-      "409.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-009": {
+      "409.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-009.REQ-ADRESSWECHSEL-018": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -33397,7 +33383,8 @@
                       "enum": [
                         "REQ-ADRESSWECHSEL-002",
                         "REQ-ADRESSWECHSEL-006",
-                        "REQ-ADRESSWECHSEL-009"
+                        "REQ-ADRESSWECHSEL-009",
+                        "REQ-ADRESSWECHSEL-018"
                       ]
                     }
                   }

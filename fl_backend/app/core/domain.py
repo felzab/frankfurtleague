@@ -3373,6 +3373,18 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_adresswechsel_execution.py::TestTheAdministratorFollowsTheirMove",
     ),
     Rule(
+        code="REQ-ADRESSWECHSEL-018",
+        status=HTTPStatus.CONFLICT,
+        operation=(
+            "POST /adresswechsel · POST /adresswechsel/{adresswechsel_id}/einladen · POST /adresswechsel/bestaetigung"
+            " · POST /adresswechsel/{adresswechsel_id}/genehmigung"
+        ),
+        aggregate="Adresswechsel",
+        summary="no change onto an address holding entries of its own is minted by the league or takes effect",
+        implemented_by="app.api.adresswechsel.services.find_belegt_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheNewAddressesOwnRecords",
+    ),
+    Rule(
         code="REQ-BERICHT-006",
         status=HTTPStatus.CONFLICT,
         operation="PUT /spielberichte/{spiel_id}/bericht · PATCH /spielberichte/{spiel_id}",

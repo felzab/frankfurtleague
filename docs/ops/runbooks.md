@@ -760,18 +760,17 @@ seat, registration and grant the address holds, so one sign-in stays whole
 - **What refuses an administrator's start**: the ban list (`REQ-ADRESSWECHSEL-009`), another pupil
   signing in on the new address where a pupil row moves (`docs/backend/spec.md :: I702`), an address
   holding nothing a change moves (`REQ-ADRESSWECHSEL-010`), and your own address
-  (`REQ-PURGE-003`), which you change on your own account page. Where the new address already holds
-  records of its own, the start says so: once the change takes effect, they all belong to one
-  sign-in.
+  (`REQ-PURGE-003`), which you change on your own account page, and a new address holding entries
+  of its own (`REQ-ADRESSWECHSEL-018`), which the confirmation would refuse too: where the two
+  addresses are one person's, the league merges their records by hand.
 - **Re-send** a link only while the change waits on the new mailbox
   (`POST /adresswechsel/{adresswechsel_id}/einladen`), and **discard** a change that turns out to be
   wrong (`DELETE /adresswechsel/{adresswechsel_id}`). A change whose step lapses ends within the hour
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
 - **Once a change takes effect**, the replaced address is told. Where the person started it or the
   address on file approved it, their sign-in account moves to the new address and every session of
-  it ends, unless the new address already held records of its own (`docs/backend/spec.md :: I860`)
-  or holds an account of its own (`FE-AUTH-013` at `WARN`), where the old account keeps its sessions
-  until the sweep below; after a change started on a recorded reason, or onto such an address, they
+  it ends, unless the new address holds an account of its own (`FE-AUTH-013` at `WARN`), where the
+  old account keeps its sessions until the sweep below; after a change started on a recorded reason, or onto such an address, they
   sign in anew, and the account sweep
   deletes the replaced address's account within the hour, its passkeys with it, once nothing else
   references the address ([section 9](#9-checking-that-the-hourly-passes-have-run)).
@@ -1366,8 +1365,7 @@ nobody can be named afterwards, so repair the refusal while those lines stand:
     docker compose logs --since 2h frontend | grep -E 'adresswechsel\.(postausgang_failed|stempel_failed|notice_abandoned|wirksam_failed|nicht_wirksam_failed|konto_nicht_umgezogen)'
 
 A `konto_nicht_umgezogen` line at `WARN` needs no repair: reading `grund: "belegt"`, the new address
-held an account of its own, and reading `grund: "adresse_belegt"`, records of its own
-(`docs/backend/spec.md :: I860`); either way the person signs in there anew.
+held an account of its own, and the person signs in there anew.
 
 **The pupils' deletion runs on a timer of its own wherever `LOESCHUNG_SWEEP` reads `on`**, a
 minute after the frontend starts and then hourly, whatever `BEWERBUNG_SWEEP` reads

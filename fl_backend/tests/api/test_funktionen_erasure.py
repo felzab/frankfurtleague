@@ -521,7 +521,6 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
                 email=IDENTIFIER,
                 vorname="Zorbanax",
                 weg="konto",
-                adresse_belegt=False,
                 now=NOW,
             ),
         }
