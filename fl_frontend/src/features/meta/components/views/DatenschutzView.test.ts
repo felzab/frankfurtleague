@@ -54,7 +54,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "21. Oktober 2026", digest: "f7ed7fca6f3581a1cb49fed222d4902dcfae1287be7a29e4caa3485366325333" } as const;
+const FASSUNG = { stand: "21. Oktober 2026", digest: "6e6f37b1615c4cc8e04e8e614ac3c13a8128ca327646fc735311ece1ca82a74f" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -309,9 +309,10 @@ describe("the privacy notice's retention table", () => {
         "schicken wir einen Hinweis mit einem Link, über den sie die Änderung stoppen kann. Hat Deine Adresse Zugang zur Verwaltung, " +
         "gilt die neue erst, wenn eine andere Person aus der Verwaltung zustimmt, bei einem Zugang als Inhaberin oder Inhaber eine " +
         `andere Inhaberin oder ein anderer Inhaber; ohne diese Zustimmung endet die Änderung ${inWochen(GENEHMIGUNG_TAGE)} ` +
-        "nach ihrem Beginn. Auf Deine Bitte trägt auch die Verwaltung die neue Adresse ein: Kannst Du Dich unter der bisherigen noch " +
-        "anmelden, gibst Du die Änderung dort in Deinem Konto frei, bevor wir an die neue schreiben; erreichst Du die bisherige nicht " +
-        `mehr, gilt die neue erst ${inWochen(ADRESSWECHSEL_WARTEZEIT_TAGE)} nach ihrer Bestätigung. Gilt die neue, gilt sie ` +
+        "nach ihrem Beginn. Kannst Du Dich nicht mehr anmelden, trägt auf Deine Bitte auch die Verwaltung die neue Adresse ein: Wir " +
+        "fragen dann zuerst die bisherige, und erst wenn die Änderung dort im Konto freigegeben ist, schreiben wir an die neue; " +
+        `erreichst Du die bisherige nicht mehr, gilt die neue erst ${inWochen(ADRESSWECHSEL_WARTEZEIT_TAGE)} nach ihrer Bestätigung. ` +
+        "Gilt die neue, gilt sie " +
         "für alles, was unter der bisherigen steht: Deine Einträge als Spielerin oder Spieler, einen bestätigten Eintrag als " +
         "Schiedsrichterin oder Schiedsrichter, Deine bestätigten Plätze als Kontaktperson, Deine Registrierungen und einen Zugang zur " +
         "Verwaltung; die bisherige bekommt eine Nachricht darüber.",
