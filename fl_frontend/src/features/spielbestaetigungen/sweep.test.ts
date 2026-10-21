@@ -45,7 +45,7 @@ const leererPass = (saisonId: string) => ({
   schiedsrichter_spiel_abgesagt: [],
   geschlossen: 0,
   fehlgeschlagen: 0,
-  mitteilungen_aufgegeben: 0,
+  mitteilungen_aufgegeben: [],
 });
 
 /** One notice's slot and clubs, each kind carrying them alike. */
@@ -652,19 +652,30 @@ describe("the pass's lines", () => {
     ]);
   });
 
-  /* A notice given up is a party nobody told, which only this count shows an operator (`docs/ops/runbooks.md` §9). */
-  it("warns where the pass gave a notice up", async () => {
-    passAnswer = (saisonId) => ({ ...leererPass(saisonId), mitteilungen_aufgegeben: 2 });
+  /* A notice given up is a party nobody told: its line names the fixture an operator opens to tell them by hand
+     (`docs/ops/runbooks.md` §9), and its stamp keeps the next pass from answering it again. */
+  it("warns of each notice given up by its fixture and party, never a person, and stamps it", async () => {
+    const aufgegeben = [
+      { spielbestaetigung_id: id(11), spiel_id: id(500), partei: "team" as const },
+      { spielbestaetigung_id: id(12), spiel_id: id(501), partei: "schiedsrichter" as const },
+    ];
+    passAnswer = (saisonId) => ({ ...leererPass(saisonId), mitteilungen_aufgegeben: aufgegeben });
 
     await runSpielSweep();
 
     assert.deepEqual(passLines(), [
+      ...aufgegeben.map((notice) => ({
+        level: "warn",
+        event: "spielbestaetigung.mitteilung_aufgegeben",
+        fields: { error_code: "FE-SWEEP-004", saison_id: "2627", ...notice },
+      })),
       {
         level: "warn",
         event: "spielbestaetigung.sweep_pass",
-        fields: { error_code: "FE-SWEEP-004", geschlossen: 0, angefragt: 0, erinnert: 0, mitgeteilt: 0, aufgegeben: 2, fehlgeschlagen: 0 },
+        fields: { error_code: "FE-SWEEP-004", geschlossen: 0, angefragt: 0, erinnert: 0, mitgeteilt: 2, aufgegeben: 2, fehlgeschlagen: 0 },
       },
     ]);
+    assert.deepEqual(mitgeteilt(), [id(11), id(12)]);
   });
 
   it("files a season it could not sweep under its own code, and goes on to the next", async () => {

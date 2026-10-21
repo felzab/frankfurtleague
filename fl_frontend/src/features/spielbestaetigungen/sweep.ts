@@ -142,7 +142,7 @@ async function sweepSaison(saisonId: string, zaehler: Zaehler): Promise<void> {
   zaehler.geschlossen += antwort.geschlossen;
   zaehler.fehlgeschlagen += antwort.fehlgeschlagen;
   zaehler.erinnert += antwort.erinnerungen.length;
-  zaehler.aufgegeben += antwort.mitteilungen_aufgegeben;
+  zaehler.aufgegeben += antwort.mitteilungen_aufgegeben.length;
 
   // First, so a mailbox reads that the earlier request is void before the fresh one for the moved fixture. Each notice
   // the backend holds until stamped here, so one this process never sent is answered again by the next pass.
@@ -155,6 +155,18 @@ async function sweepSaison(saisonId: string, zaehler: Zaehler): Promise<void> {
   for (const weg of antwort.schiedsrichter_gewechselt) notiert(weg.spielbestaetigung_id, await mailSchiedsrichterGewechselt(weg));
   for (const ab of antwort.spiel_abgesagt) notiert(ab.spielbestaetigung_id, await mailSpielAbgesagt(ab));
   for (const ab of antwort.schiedsrichter_spiel_abgesagt) notiert(ab.spielbestaetigung_id, await mailSchiedsrichterSpielAbgesagt(ab));
+  // Stamped like a notice, after its line: answered again until a stamp lands, so a lost answer loses no give-up.
+  for (const aufgegeben of antwort.mitteilungen_aufgegeben) {
+    // Named field by field, never spread: the line names the fixture and the party's kind, never a person.
+    logger.warn("spielbestaetigung.mitteilung_aufgegeben", {
+      error_code: "FE-SWEEP-004",
+      saison_id: saisonId,
+      spielbestaetigung_id: aufgegeben.spielbestaetigung_id,
+      spiel_id: aufgegeben.spiel_id,
+      partei: aufgegeben.partei,
+    });
+    mitgeteilt.push(aufgegeben.spielbestaetigung_id);
+  }
 
   if (mitgeteilt.length > 0) {
     const gestempelt = await postSpielbestaetigungSweepMitgeteilt(saisonId, { spielbestaetigung_ids: mitgeteilt });

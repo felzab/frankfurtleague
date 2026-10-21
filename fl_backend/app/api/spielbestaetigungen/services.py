@@ -803,9 +803,8 @@ def grund_to_close(
     if ansetzung_stand_of(spiel) != ansetzung["stand"]:
         return "ansetzung_geaendert"
 
-    # Last, so a move to or from a past day is still announced while the other day is to come
-    # (`docs/backend/spec.md :: I840`). Kept open, a row whose day went by unplayed would ask
-    # about a past date for good, at the front of the close's oldest-first page.
+    # Last, so a move to or from a past day is still announced (`docs/backend/spec.md :: I840`). Kept open, a row whose
+    # day went by unplayed would ask about a past date for good, heading the close's oldest-first page.
     if _day_passed(ansetzung=ansetzung, today=today):
         return "spiel_vergangen"
 
@@ -1005,8 +1004,7 @@ GRUENDE_OWING_A_NOTICE: Final = frozenset({"ansetzung_geaendert", "schiedsrichte
 def _notice_to_come(*, row: Mapping[str, Any], grund: Any, spiel: Mapping[str, Any], today: str) -> bool:
     """Whether a notice is about a day still to come (`docs/backend/spec.md :: I840`).
 
-    A move's notice is about the slot left and the one the fixture holds now, so either day still to come keeps it: the
-    slot left is void, or a fresh request follows.
+    A move's is about the slot left, now void, and the fixture's slot, which a fresh request asks: either day keeps it.
     """
 
     tage = [row["ansetzung"]["datum"]]
@@ -1017,10 +1015,9 @@ def _notice_to_come(*, row: Mapping[str, Any], grund: Any, spiel: Mapping[str, A
 
 
 def notice_owed(*, row: Mapping[str, Any], grund: FLSpielbestaetigungGrund, spiel: Mapping[str, Any], today: str) -> bool:
-    """Whether closing this row for `grund` owes its party a notice (`docs/backend/spec.md :: I780`, `:: I836`, `:: I840`).
+    """Whether closing this row for `grund` owes its party a notice (`docs/backend/spec.md :: I840`).
 
-    Only a party its request or Einteilung was mailed to, about a day still to come: none owed rather than owed and given up,
-    which would send the administrator to tell by hand about a day gone by.
+    Only once mailed and about a day to come: owed and given up at once, it would send the administrator to tell by hand.
     """
 
     return (
@@ -1033,8 +1030,7 @@ def notice_owed(*, row: Mapping[str, Any], grund: FLSpielbestaetigungGrund, spie
 def notice_holds(*, row: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
     """Whether the closing a held notice announces still holds of the fixture as it stands (`docs/backend/spec.md :: I839`).
 
-    A fixture reinstated, a referee booked onto it again, or a fixture back at the row's slot is asked afresh by the mint,
-    and the notice would tell its party the opposite beside the fresh request.
+    A fixture reinstated, rebooking the row's referee or back at its slot is asked afresh, which the notice would contradict.
     """
 
     grund = row["geschlossen"]["grund"]
@@ -1054,7 +1050,7 @@ def build_mitteilung_filter(*, saison_id: str) -> dict[str, Any]:
 
 
 def mitteilung_spent(*, row: Mapping[str, Any], spiel: Mapping[str, Any], today: str) -> bool:
-    """Whether a pass gives a held notice up: handed out the cap's number of times, or no longer about a day to come."""
+    """Whether a pass gives a held notice up: handed out the cap's number of times, or about no day still to come."""
 
     geschlossen = row["geschlossen"]
 

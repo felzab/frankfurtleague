@@ -454,6 +454,14 @@ class FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt(BaseModel):
     address: str
 
 
+class FLSpielbestaetigungSweepAufgegeben(BaseModel):
+    """A notice given up unsent, for the administrator to tell by hand: the fixture and the party's kind, never a person."""
+
+    spielbestaetigung_id: CustomObjectId
+    spiel_id: CustomObjectId
+    partei: Literal["team", "schiedsrichter"]
+
+
 class FLSpielbestaetigungSweepResponse(BaseAPIResponse):
     """One season's pass: the requests still to stamp, the reminders already stamped, and the notices still to stamp."""
 
@@ -470,8 +478,8 @@ class FLSpielbestaetigungSweepResponse(BaseAPIResponse):
     schiedsrichter_spiel_abgesagt: list[FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt]
     geschlossen: int
     fehlgeschlagen: int
-    # Notices this pass stopped owing unsent: handed out as often as the cap allows, or no longer about a day to come.
-    mitteilungen_aufgegeben: int
+    # Answered on every pass until `/mitgeteilt` stamps them, as the notices are: a lost answer loses no give-up.
+    mitteilungen_aufgegeben: list[FLSpielbestaetigungSweepAufgegeben]
 
 
 # The notices one pass answers. Answered from rows holding them, so a share past it waits for the next pass rather than
@@ -499,7 +507,7 @@ class FLSpielbestaetigungSweepAngefragtResponse(BaseAPIResponse):
 
 
 class FLSpielbestaetigungSweepMitgeteiltPayload(BaseModel):
-    """Which rows' notices went: each stops being owed, so no later pass answers it again."""
+    """Which rows' notices went, or were given up: each stops being owed, so no later pass answers it again."""
 
     model_config = ConfigDict(extra="forbid")
 

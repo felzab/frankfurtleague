@@ -1488,7 +1488,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
     def test_the_sweep(self, mongo_replica_set_url: str):
         """Every step takes rows and every conditional read and write is made.
 
-        Three notices owed and one given up, a fresh row, a seat minted afresh beside its row's reminder, a reminder, an
+        Three notices owed, one given up, one dropped, a fresh row, a seat minted afresh beside a reminder, a reminder, an
         Einteilung told again, the day's first stamp.
         """
 
@@ -1503,6 +1503,8 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
             await confirmations.update_one({"spiel_id": OTHER_SPIEL, "partei.team_id": ALPHA}, {"$set": {"kontakte.trainer": None}})
             await confirmations.update_one({"spiel_id": OTHER_SPIEL, "partei.art": "schiedsrichter"}, {"$set": {"angefragt_am": None}})
             await confirmations.insert_one(a_spent_notice(moved))
+            # A referee no record holds: nobody is left to tell, so the step drops it in a write of its own.
+            await confirmations.insert_one(a_held_notice(moved, partei={"art": "schiedsrichter", "schiedsrichter_id": ObjectId()}))
             await database[Collection.SPIELE].insert_one(fresh)
             await database[Collection.AKTIONEN].delete_many({})
 
@@ -1521,7 +1523,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
             len(answer.erinnerungen),
             sorted(einteilung.spiel_id for einteilung in answer.einteilungen),
         ) == (3, 2, 1, 2, sorted([SPIEL, OTHER_SPIEL, FRESH_SPIEL]))
-        assert answer.mitteilungen_aufgegeben == 1
+        assert len(answer.mitteilungen_aufgegeben) == 1
         assert sum(names.values()) - budget.ROUND_TRIPS_A_ROW * patched == budget.SWEEP_OTHER_COMMANDS, names
 
     def test_angefragt(self, mongo_replica_set_url: str):
@@ -2255,33 +2257,45 @@ class TestANoticeOutlivesALostAnswer:
 
         assert [notice.address for notice in first.schiedsrichter_gewechselt] == [REFEREE_EMAIL]
         assert again.schiedsrichter_gewechselt == first.schiedsrichter_gewechselt
-        assert (stamped.mitgeteilt, settled.schiedsrichter_gewechselt, settled.mitteilungen_aufgegeben) == (1, [], 0)
+        assert (stamped.mitgeteilt, settled.schiedsrichter_gewechselt, settled.mitteilungen_aufgegeben) == (1, [], [])
 
-    def test_a_notice_handed_out_as_often_as_the_cap_allows_is_given_up(self, mongo_replica_set_url: str):
+    def test_a_notice_handed_out_as_often_as_the_cap_allows_is_given_up_until_a_stamp_clears_it(self, mongo_replica_set_url: str):
+        """The first give-up's answer lost, as a frontend stopped mid-pass loses it: the next pass answers it again."""
+
         spiel = fixture(SPIEL, 1, NEXT_WEEK)
+        held = a_held_notice(spiel, versuche=MITTEILUNG_VERSUCHE_HOECHSTENS - 1)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(a_held_notice(spiel, versuche=MITTEILUNG_VERSUCHE_HOECHSTENS - 1))
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(held)
             last = await sweep(database, client)
-            after = await sweep(database, client)
-            return last, after, await rows(database, geschlossen={"$ne": None})
+            given_up = await sweep(database, client)
+            again = await sweep(database, client)
+            await mitgeteilt(database, client, [notice.spielbestaetigung_id for notice in again.mitteilungen_aufgegeben])
+            return last, given_up, again, await sweep(database, client)
 
-        last, after, (held,) = on_a_league(mongo_replica_set_url, body, spiele=[spiel])
+        last, given_up, again, settled = on_a_league(mongo_replica_set_url, body, spiele=[spiel])
 
-        assert ([notice.spiel_id for notice in last.neue_ansetzungen], last.mitteilungen_aufgegeben) == ([SPIEL], 0)
-        assert (after.neue_ansetzungen, after.mitteilungen_aufgegeben) == ([], 1)
-        assert held["geschlossen"]["mitteilung"] is None
+        assert ([notice.spiel_id for notice in last.neue_ansetzungen], last.mitteilungen_aufgegeben) == ([SPIEL], [])
+        assert given_up.neue_ansetzungen == []
+        assert [(notice.spielbestaetigung_id, notice.spiel_id, notice.partei) for notice in given_up.mitteilungen_aufgegeben] == [
+            (held["_id"], SPIEL, "team")
+        ]
+        assert again.mitteilungen_aufgegeben == given_up.mitteilungen_aufgegeben
+        assert (settled.neue_ansetzungen, settled.mitteilungen_aufgegeben) == ([], [])
 
     def test_a_notice_about_a_day_gone_by_is_given_up(self, mongo_replica_set_url: str):
         spiel = fixture(SPIEL, 1, NEXT_WEEK)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(a_held_notice(spiel))
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(
+                a_held_notice(spiel, partei={"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER})
+            )
             return await sweep(database, client, today=days_after(day=NEXT_WEEK, days=1))
 
         late = on_a_league(mongo_replica_set_url, body, spiele=[spiel])
 
-        assert (late.neue_ansetzungen, late.mitteilungen_aufgegeben) == ([], 1)
+        assert late.schiedsrichter_neue_ansetzungen == []
+        assert [(notice.spiel_id, notice.partei) for notice in late.mitteilungen_aufgegeben] == [(SPIEL, "schiedsrichter")]
 
     def test_the_stamp_reaches_no_row_of_another_season_nor_one_holding_no_notice(self, mongo_replica_set_url: str):
         spiel = fixture(SPIEL, 1, NEXT_WEEK)
@@ -2321,7 +2335,7 @@ class TestAMoveIsAnnouncedWhileEitherDayIsToCome:
 
         assert {row["geschlossen"]["grund"] for row in closed} == {"ansetzung_geaendert"}
         assert (len(late.neue_ansetzungen), len(late.schiedsrichter_neue_ansetzungen), late.mitteilungen_aufgegeben) == (
-            (2, 1, 0) if told else (0, 0, 0)
+            (2, 1, []) if told else (0, 0, [])
         )
 
 
@@ -2340,7 +2354,7 @@ class TestANoticeWhoseClosingWasUndoneIsDropped:
         # The premise: the call-off was owed, and the reinstated fixture is asked afresh.
         assert (len(unstamped.spiel_abgesagt), len(unstamped.schiedsrichter_spiel_abgesagt)) == (2, 1)
         assert (len(after.anfragen), len(after.einteilungen)) == (2, 1)
-        assert (after.spiel_abgesagt, after.schiedsrichter_spiel_abgesagt, after.mitteilungen_aufgegeben) == ([], [], 0)
+        assert (after.spiel_abgesagt, after.schiedsrichter_spiel_abgesagt, after.mitteilungen_aufgegeben) == ([], [], [])
         assert [row["geschlossen"]["mitteilung"] for row in called_off] == [None, None, None]
 
     def test_a_taken_off_referee_booked_again(self, mongo_replica_set_url: str):
@@ -2354,7 +2368,7 @@ class TestANoticeWhoseClosingWasUndoneIsDropped:
 
         assert [notice.address for notice in unstamped.schiedsrichter_gewechselt] == [REFEREE_EMAIL]
         assert [einteilung.address for einteilung in after.einteilungen] == [REFEREE_EMAIL]
-        assert (after.schiedsrichter_gewechselt, after.mitteilungen_aufgegeben) == ([], 0)
+        assert (after.schiedsrichter_gewechselt, after.mitteilungen_aufgegeben) == ([], [])
 
     def test_a_fixture_moved_back_to_the_slot_its_parties_were_asked_about(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -2369,7 +2383,7 @@ class TestANoticeWhoseClosingWasUndoneIsDropped:
 
         assert (len(unstamped.neue_ansetzungen), len(unstamped.schiedsrichter_neue_ansetzungen)) == (2, 1)
         assert {(anfrage.ansetzung.datum, anfrage.ansetzung.uhrzeit) for anfrage in after.anfragen} == {(NEXT_WEEK, "18:00:00")}
-        assert (after.neue_ansetzungen, after.schiedsrichter_neue_ansetzungen, after.mitteilungen_aufgegeben) == ([], [], 0)
+        assert (after.neue_ansetzungen, after.schiedsrichter_neue_ansetzungen, after.mitteilungen_aufgegeben) == ([], [], [])
 
 
 class TestAnAddressMovedBesideTheNoticeIsTheOneTold:
@@ -2451,5 +2465,5 @@ class TestACalledOffFixtureTellsEveryPartyItAsked:
             3,
             [],
             [],
-            0,
+            [],
         )
