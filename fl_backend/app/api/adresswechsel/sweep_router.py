@@ -75,9 +75,9 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# The largest share whose dearest change, moving a pupil row and a referee row, finishes inside
-# `app/core/middlewares.py :: REQUEST_DEADLINE_S` (`docs/backend/spec.md :: I322`); the arithmetic is
-# `fl_backend/tests/api/test_adresswechsel_sweep_refusal.py`'s, failing when a command is added; a dearer change meets the deadline.
+# The largest share inside `app/core/middlewares.py :: REQUEST_DEADLINE_S` (`docs/backend/spec.md :: I322`) for the
+# dearest change over a 40,000-row action log a due change reads whole; the arithmetic is
+# `fl_backend/tests/api/test_adresswechsel_sweep_refusal.py`'s, its counts pinned on the wire; a dearer change meets the deadline.
 ADRESSWECHSEL_PER_PASS: Final = 4
 
 

@@ -21,12 +21,13 @@ COMMANDS_A_DUE_PERSON = 54
 # `fl_backend/tests/api/test_adresswechsel_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
 OTHER_COMMANDS = 1
 
-# The running season a page holding a due change asks once, where the season cache holds none.
+# The running season a page holding a due change asks once, where the season cache holds none, pinned on the wire by
+# `fl_backend/tests/api/test_adresswechsel_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
 SEASON_READ = 1
 
-# The per-command cost, the largest of two windows timing whole calls of lapses locally, 2026-10-16; a due change's
-# commands timed lower, 2026-10-20.
-PER_COMMAND_S = 0.00184
+# The widest per-command cost of a full share of due changes over a 40,000-row action log, twice the 20,000 rows sized
+# for, timed locally 2026-10-21: a due change reads the whole log, 1.41 ms empty, 2.26 ms at 20,000 rows.
+PER_COMMAND_S = 0.00318
 
 # The round trip `sweep_router.ADRESSWECHSEL_PER_PASS`'s comment sizes the share for.
 ROUND_TRIP_S = 0.037
