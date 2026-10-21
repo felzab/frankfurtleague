@@ -1,4 +1,5 @@
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
+import { OFFENE_ANTRAEGE } from "@/core/seitenNamen";
 import { benannt } from "@/shared/utils/benannt";
 
 import type { FLGenehmigungVerwehrt, FLVerwaltung } from "./schemas";
@@ -168,9 +169,6 @@ export const uebersprungenHinweis = (anzahl: number): string =>
   anzahl === 1
     ? "Ein Eintrag in der Datenbank passt zu keiner Adresse und gewährt keinen Zugang."
     : `${String(anzahl)} Einträge in der Datenbank passen zu keiner Adresse und gewähren keinen Zugang.`;
-
-/** The heading over the grants and promotions waiting on a second administrator, which a refused second request points to. */
-export const OFFENE_ANTRAEGE = "Offene Anträge";
 
 /** What a request asks for, by the tier it names: `owner` is a promotion of a grant that stands. */
 export const ANTRAG_WAS: Readonly<Record<FLVerwaltung, string>> = {

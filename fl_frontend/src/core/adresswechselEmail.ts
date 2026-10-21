@@ -21,6 +21,7 @@ import {
   textFooter,
 } from "./emailShell";
 import { KONTO_HREF } from "./kontoHref";
+import { ADMINISTRATOREN_TITEL } from "./seitenNamen";
 
 import type { AdresswechselWeg } from "./adresswechsel";
 import type { Aktion } from "./emailShell";
@@ -283,8 +284,7 @@ export function buildAdresswechselGenehmigungEmail({ origin }: { origin: string 
   // Never that the person gave the address: on the lost-mailbox way an administrator typed it.
   const satz =
     "für eine Person mit Zugang zur Verwaltung ist eine neue E-Mail-Adresse eingetragen. Der Zugang wechselt erst zu ihr, wenn die Änderung genehmigt ist.";
-  const pruefen =
-    "Prüfe die Änderung unter „Administratoren“, und genehmige sie nur, wenn Du sicher bist, dass die Person sie selbst angefragt hat.";
+  const pruefen = `Prüfe die Änderung unter „${ADMINISTRATOREN_TITEL}“, und genehmige sie nur, wenn Du sicher bist, dass die Person sie selbst angefragt hat.`;
 
   const html = renderKarte({
     titel: `${BRAND_NAME}: ${GENEHMIGUNG_BETREFF}`,
