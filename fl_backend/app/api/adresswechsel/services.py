@@ -374,11 +374,11 @@ def bisherig_zustand(record: Mapping[str, Any]) -> FLAdresswechselBisherigZustan
 def neu_zustand(record: Mapping[str, Any], *, now: datetime, gesperrt: bool, nicht_bestaetigbar: bool) -> FLAdresswechselNeuZustand:
     """What the new mailbox's link shows, in the order the confirmation judges, so a refused press names what a reload shows.
 
-    The unconfirmable causes read alike here; the press's own codes part them, merged only at the edge. A confirmed
-    change whose approval week lapsed reads `abgelaufen`, never `bestaetigt`: the pass ends it unapproved.
+    The unconfirmable causes read alike here; the press's own codes part them, merged only at the edge.
     """
 
     if record.get("bestaetigt_am") is not None:
+        # Never `bestaetigt` once its approval week lapsed: the pass ends it unapproved, which the page must not deny.
         return "abgelaufen" if ist_abgelaufen(record, now=now) else "bestaetigt"
 
     if gesperrt:
