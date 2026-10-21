@@ -1782,7 +1782,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "the reports a leaving referee sent, read inside their erasure's transaction",
     ),
     # The squad counts, the registrations' number read and a replacement's retirement match by club, with no collation;
-    # the only other index on `saison_id` is led by the pupil (`docs/backend/spec.md :: I834`).
+    # the only other index on `saison_id` is led by the pupil (`docs/backend/spec.md :: I835`).
     SupportIndex(
         Collection.SAISON_SPIELER,
         "saison_spieler_saison_id_team_id",
