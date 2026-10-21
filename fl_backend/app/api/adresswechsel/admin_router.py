@@ -8,6 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.adresswechsel.crud import (
+    Belegung,
     Bestand,
     adresse_belegt,
     end_the_change_in_session,
@@ -279,6 +280,8 @@ async def post_adresswechsel_verwaltung(
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     sperrliste: SperrlisteLookup,
     adressanker_collection: AdressankerCollection,
     aktionen_collection: AktionenCollection,
@@ -301,7 +304,7 @@ async def post_adresswechsel_verwaltung(
     Refused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power
     (`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds
     (`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the
-    change moves a pupil (`-006`), a new address holding entries of its own (`-018`), a grant nobody could approve
+    change moves a pupil (`-006`), a new address any entry names, confirmed or not (`-018`), a grant nobody could approve
     (`-011`), and a reason naming a person of the records the change would move (`-008`).
     """
 
@@ -341,7 +344,17 @@ async def post_adresswechsel_verwaltung(
         # Judged here too, its reader trusted: a change its confirmation would refuse goes nowhere.
         refuse(
             find_belegt_refusal(
-                belegt=await adresse_belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
+                belegt=await adresse_belegt(
+                    email,
+                    records=records,
+                    belegung=Belegung(
+                        berechtigungen_collection=berechtigungen_collection,
+                        berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+                        adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+                        now=germany_now,
+                    ),
+                    session=session,
+                )
             )
         )
         genehmiger = (
@@ -417,6 +430,8 @@ async def einladen_adresswechsel(
     spieler_collection: SpielerCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     operator: str = Depends(get_actor_email),
@@ -432,8 +447,8 @@ async def einladen_adresswechsel(
     on the change the id names alone, so a page showing a change since replaced re-sends nothing.
 
     Refused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), where the ban list holds the pending address
-    (`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), where it has come to hold entries
-    of its own (`-018`), where a grant's approval week has passed (`-003`), and where the change ended (`-002`). 404 for
+    (`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), where an entry has come to name it,
+    confirmed or not (`-018`), where a grant's approval week has passed (`-003`), and where the change ended (`-002`). 404 for
     an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on file's approval,
     or confirmed, has no link to re-send.
     """
@@ -469,7 +484,17 @@ async def einladen_adresswechsel(
         refuse(find_vergeben_refusal(vergeben=vergeben))
         refuse(
             find_belegt_refusal(
-                belegt=await adresse_belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
+                belegt=await adresse_belegt(
+                    email,
+                    records=records,
+                    belegung=Belegung(
+                        berechtigungen_collection=berechtigungen_collection,
+                        berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+                        adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+                        now=germany_now,
+                    ),
+                    session=session,
+                )
             )
         )
         # A grant's approval week that lapsed ends the change at the next pass: a fresh link would be refused on its press.

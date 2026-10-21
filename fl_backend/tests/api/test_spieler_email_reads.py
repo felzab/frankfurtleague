@@ -244,6 +244,8 @@ async def the_address_change_request(database: AsyncDatabase, client: AsyncMongo
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
         berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+        berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+        adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],
         aktionen_collection=database[Collection.AKTIONEN],

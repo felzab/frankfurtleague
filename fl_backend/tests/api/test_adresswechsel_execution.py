@@ -595,25 +595,74 @@ VERA_ROW_OID = ObjectId("6890a1b2c3d4e5f607850032")
 
 
 async def held_by_another(database: AsyncDatabase, what: str) -> None:
-    """The new address holding another person's record, its holder never signed in there."""
+    """The new address named by another person's entry, its holder never signed in there."""
 
-    if what == "a-grant":
-        await granted(database, NEW_EMAIL)
-        return
+    vera = {**documents.kontaktperson_document("Vera", bestaetigt_am=None), "nachname": "Zwirnbach", "email": NEW_EMAIL}
+    bestaetigt = {**documents.kontaktperson_document("Vera", bestaetigt_am="2126-03-21"), "nachname": "Zwirnbach", "email": NEW_EMAIL}
+    match what:
+        case "a-grant":
+            await granted(database, NEW_EMAIL)
+        case "a-seat" | "an-unconfirmed-seat":
+            seat = bestaetigt if what == "a-seat" else vera
+            await database[Collection.SAISON_TEAMS].insert_one(
+                {
+                    **documents.saison_team_document(
+                        SAISON_ID, SECOND_TEAM_OID, "Quellbrunn", "QB", kontakte=documents.kontakte_document(trainer=seat)
+                    ),
+                    "_id": VERA_ROW_OID,
+                }
+            )
+        case "an-application-seat":
+            await database[Collection.BEWERBUNGEN].insert_one(
+                documents.bewerbung_document(
+                    ObjectId(), SAISON_ID, "eingereicht", kontakte=documents.kontakte_document(trainer=vera), eingereicht_am="2126-03-10"
+                )
+            )
+        case "an-unconfirmed-referee":
+            await database[Collection.SCHIEDSRICHTER].insert_one(
+                documents.schiedsrichter_document(ObjectId(), email=NEW_EMAIL, name="Vera Zwirnbach", default_payment=20, einwilligung=None)
+            )
+        case "an-unconfirmed-registration":
+            await database[Collection.REGISTRIERUNGEN].insert_one(
+                documents.registrierung_document(
+                    ObjectId(),
+                    NEW_EMAIL,
+                    saison_id=SAISON_ID,
+                    team_id=SECOND_TEAM_OID,
+                    vorname="Vera",
+                    nachname="Zwirnbach",
+                    token="veras-registration-link",
+                    eingereicht_am="2126-03-30",
+                    frist="2126-04-06",
+                    bestaetigt=None,
+                )
+            )
+        case "a-grant-request":
+            await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(
+                compose_antrag(adresse=NEW_EMAIL, verwaltung="administration", berechtigung_id=None, gestartet_von=ADMIN, now=NOW)
+            )
+        case "an-owed-carry":
+            # Another person's change off it, whose account still stands there until the drain carries it.
+            await database[Collection.ADRESSWECHSEL_POSTAUSGANG].insert_one(
+                compose_postausgang(art="wirksam", email=FOREIGN_EMAIL, bisherige_email=NEW_EMAIL, vorname=None, weg="konto", now=NOW)
+            )
 
-    seat = {**documents.kontaktperson_document("Vera", bestaetigt_am="2126-03-21"), "nachname": "Zwirnbach", "email": NEW_EMAIL}
-    await database[Collection.SAISON_TEAMS].insert_one(
-        {
-            **documents.saison_team_document(
-                SAISON_ID, SECOND_TEAM_OID, "Quellbrunn", "QB", kontakte=documents.kontakte_document(trainer=seat)
-            ),
-            "_id": VERA_ROW_OID,
-        }
-    )
+
+# Each kind of entry naming the new address, confirmed or not: each admits a sign-in there, or will once confirmed or granted.
+HELD_BY_ANOTHER = [
+    "a-seat",
+    "an-unconfirmed-seat",
+    "an-application-seat",
+    "an-unconfirmed-referee",
+    "an-unconfirmed-registration",
+    "a-grant",
+    "a-grant-request",
+    "an-owed-carry",
+]
 
 
 class TestTheNewAddressesOwnRecords:
-    @pytest.mark.parametrize("what", ["a-seat", "a-grant"])
+    @pytest.mark.parametrize("what", HELD_BY_ANOTHER)
     def test_the_press_onto_them_is_refused_and_moves_nothing(self, mongo_replica_set_url: str, what: str):
         """The takeover it closes: joined to the starter's, their holder's records would sign in with the starter's passkey.
 
@@ -630,7 +679,9 @@ class TestTheNewAddressesOwnRecords:
         seen, refused, rows, notices = on_a_person(mongo_replica_set_url, body)
 
         assert (seen, refused) == ("nicht_bestaetigbar", ADRESSWECHSEL_BELEGT)
-        assert (rows["pupil"]["email"], rows["referee"]["kontakt"]["email"], notices) == (EMAIL, EMAIL, [])
+        # No carry and no notice of this change's own, the owed carry seeded for another person aside.
+        assert (rows["pupil"]["email"], rows["referee"]["kontakt"]["email"]) == (EMAIL, EMAIL)
+        assert [notice for notice in notices if notice["email"] == NEW_EMAIL] == []
 
     def test_entries_arriving_after_the_confirmation_end_the_change_not_in_effect(self, mongo_replica_set_url: str):
         """A waiting time lets them arrive after the press judged none, so the pass judges again and tells the new mailbox."""

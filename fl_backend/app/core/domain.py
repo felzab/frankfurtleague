@@ -3380,7 +3380,7 @@ RULES: tuple[Rule, ...] = (
             " · POST /adresswechsel/{adresswechsel_id}/genehmigung"
         ),
         aggregate="Adresswechsel",
-        summary="no change onto an address holding entries of its own is minted by the league or takes effect",
+        summary="no change onto an address any entry names, confirmed or not, is minted by the league or takes effect",
         implemented_by="app.api.adresswechsel.services.find_belegt_refusal",
         tested_by="tests/api/test_adresswechsel_execution.py::TestTheNewAddressesOwnRecords",
     ),

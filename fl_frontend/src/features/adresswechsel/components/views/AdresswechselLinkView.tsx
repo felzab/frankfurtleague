@@ -116,8 +116,10 @@ const PASSKEY_SATZ =
 
 /** What the new mailbox's holder does once the change takes effect, told before it does. */
 const DANACH: Readonly<Record<FLAdresswechselWeg, string>> = {
-  konto: "Bis dahin meldest Du Dich mit der bisherigen an. Danach meldest Du Dich überall neu an, Deine Passkeys gelten weiter.",
-  freigabe: "Bis dahin meldest Du Dich mit der bisherigen an. Danach meldest Du Dich überall neu an, Deine Passkeys gelten weiter.",
+  // Never "Deine Passkeys gelten weiter": a sign-in account already standing at the new address keeps them behind, and no
+  // served field tells this page so (`docs/frontend/spec.md :: I829`).
+  konto: `Bis dahin meldest Du Dich mit der bisherigen an. Danach meldest Du Dich überall neu an. ${PASSKEY_SATZ}`,
+  freigabe: `Bis dahin meldest Du Dich mit der bisherigen an. Danach meldest Du Dich überall neu an. ${PASSKEY_SATZ}`,
   wartezeit:
     "Bis dahin gilt die bisherige Adresse. Danach meldest Du Dich mit einem Code an die neue an. Passkeys der bisherigen gelten dann nicht mehr: Richte in Deinem Konto einen neuen ein.",
 };

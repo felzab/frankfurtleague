@@ -157,8 +157,7 @@ async function sendeHinweis(adresse: string, mail: AdresswechselEmail, ereignis:
 
 /**
  * What the administrator is told of the messages, naming only the new address. A failed notice is said: its stop link
- * is the address on file's one refusal. The toast warns of records at the new address
- * (`fl_frontend/src/shared/utils/linkVersandToast.ts :: meldeAdresswechselVersand`).
+ * is the address on file's one refusal.
  */
 export function describeAdresswechselMail(mint: Pick<AdresswechselMint, "email" | "gueltig_bis">, versand: AdresswechselVersand): string {
   const { email } = mint;

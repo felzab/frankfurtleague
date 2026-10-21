@@ -663,7 +663,7 @@ def find_nicht_gedeckt_refusal(*, gedeckt: bool) -> WriteRefusal | None:
 
 
 def find_belegt_refusal(*, belegt: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-018`: the new address holds entries of its own, and moving these onto it would join two people's.
+    """`REQ-ADRESSWECHSEL-018`: an entry names the new address, and moving the person onto it would join two people's.
 
     Never judged at the person's own start, which would tell its holder which addresses hold entries.
     """
