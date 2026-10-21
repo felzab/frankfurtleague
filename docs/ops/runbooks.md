@@ -696,7 +696,8 @@ seat, registration and grant the address holds, so one sign-in stays whole
 - **The person can still sign in.** Point them to their account page, `/bereich/konto`, „E-Mail-Adresse
   ändern“. They confirm it is them by passkey or by a code to the address on file, a holder of
   access to the Verwaltung by passkey alone, type the new address, and confirm it from its own
-  mailbox within 24 hours; the address on file is told, with a
+  mailbox within `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours; the address on
+  file is told, with a
   link that stops the change (`docs/backend/spec.md :: I790`, `:: I796`). Never start a change for a
   person who can sign in: a request arriving by mail proves nothing about who sent it.
 - **They say they cannot sign in.** Ask the address on file first: start the change in the address
@@ -722,7 +723,8 @@ seat, registration and grant the address holds, so one sign-in stays whole
   (`docs/backend/spec.md :: I795`). A stopped change means the mailbox is not gone: talk to the
   person before starting again.
 - **The address holds a grant of access.** The change also waits on another administrator's
-  approval on the administrators page, an owner's for an owner's grant, within a week of its start;
+  approval on the administrators page, an owner's for an owner's grant, within
+  `fl_backend/app/shared/schemas/bounds.py :: GENEHMIGUNG_TAGE` days of its start;
   neither the changed address nor whoever started the change gives it
   (`docs/backend/spec.md :: I817`, `:: I818`). Revoking the grant while a confirmed change waits needs
   no approval after it: the next hourly pass makes the change take effect, the grant moving nowhere
