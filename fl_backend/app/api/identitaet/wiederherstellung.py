@@ -30,9 +30,16 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
-from app.api.adresswechsel.crud import Belegung, adresse_belegt, end_the_change_in_session, move_the_address_in_session, read_the_bestand
+from app.api.adresswechsel.crud import (
+    Belegung,
+    adresse_belegt,
+    end_the_change_in_session,
+    move_the_address_in_session,
+    queue_the_refusal_notice_in_session,
+    read_the_bestand,
+)
 from app.api.adresswechsel.services import FLAdresswechselEndeArt, deckt
-from app.api.berechtigungen.antraege import ist_offen, remove_the_antrag_in_session
+from app.api.berechtigungen.antraege import ist_offen, queue_the_ending_in_session, remove_the_antrag_in_session
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.services import genehmigung_steht
 from app.api.bewerbungen.services import compose_decline_update, compose_saison_decline_update, seat_adressen, seat_is_answered
@@ -86,6 +93,7 @@ _ENDE_ART: Final[Mapping[str, FLAdresswechselEndeArt]] = {
     "adresswechsel_abgelehnt": "abgelehnt",
     "adresswechsel_gestoppt": "gestoppt",
     "adresswechsel_verworfen": "verworfen",
+    "adresswechsel_verworfen_mitgeteilt": "verworfen",
 }
 
 # A line's standing: to replay, replayed, already as the line left it or set since, held by somebody else or in another
@@ -384,7 +392,7 @@ async def _plan_adresswechsel(
     # The ending's own body, which writes the press's own update and redaction (`docs/backend/spec.md :: I704`). Ended at
     # the press's instant, which its record's expiry counts from; the redaction happens now, so its stamp is the replay's.
     async def rewrite_the_ending(session: AsyncClientSession) -> Any:
-        return await end_the_change_in_session(
+        stored = await end_the_change_in_session(
             adresswechsel_collection=database[Collection.ADRESSWECHSEL],
             aktionen_collection=database[Collection.AKTIONEN],
             db_filter=db_filter,
@@ -393,17 +401,23 @@ async def _plan_adresswechsel(
             stamp=log_stamp(now),
             session=session,
         )
+        # The notice the end queued went with the restore (`docs/backend/spec.md :: I870`).
+        if line.art == "adresswechsel_verworfen_mitgeteilt":
+            await queue_the_refusal_notice_in_session(
+                record, adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG], now=now, session=session
+            )
+        return stored
 
     return Plan("to replay", rewrite_the_ending)
 
 
-async def _plan_antrag_abgelehnt(
+async def _plan_antrag_ende(
     line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None, now: datetime
 ) -> Plan:
-    """A refused or withdrawn request the restore brought back, removed again; one lapsed since is gone to every reader already."""
+    """An ended request the restore brought back, removed again; one lapsed since is gone to every reader already."""
 
     antrag = await database[Collection.BERECHTIGUNGEN_ANTRAEGE].find_one(
-        {"_id": line.record_id}, {"adresse": 1, "genehmigung.bis": 1}, session=session
+        {"_id": line.record_id}, {"adresse": 1, "genehmigung": 1}, session=session
     )
     if antrag is None:
         return Plan("no such record")
@@ -412,16 +426,30 @@ async def _plan_antrag_abgelehnt(
     if not _holds(antrag.get("adresse"), line, schluessel):
         return Plan("left for review")
 
-    async def rewrite_the_refusal(session: AsyncClientSession) -> Any:
-        # The request's notice the restore brought back goes with it, as the refusal took it.
-        return await remove_the_antrag_in_session(
+    async def rewrite_the_end(session: AsyncClientSession) -> Any:
+        # The request's notice the restore brought back goes with it, as the end took it.
+        await remove_the_antrag_in_session(
             berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
             antrag_id=antrag["_id"],
             session=session,
         )
+        # The requester's notice went with the restore: told again as the end told them, a withdrawal telling nobody.
+        if line.art != "antrag_zurueckgezogen":
+            await queue_the_ending_in_session(
+                [antrag],
+                art="antrag_abgelehnt" if line.art == "antrag_abgelehnt" else "antrag_beendet",
+                sperrliste=BanList(
+                    sperrliste_collection=database[Collection.SPERRLISTE],
+                    saisons_collection=database[Collection.SAISONS],
+                    schluessel=schluessel,
+                ),
+                berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+                now=now,
+                session=session,
+            )
 
-    return Plan("to replay", rewrite_the_refusal)
+    return Plan("to replay", rewrite_the_end)
 
 
 def _records_of(database: AsyncDatabase) -> RecordCollections:
@@ -591,12 +619,12 @@ async def plan_replay(
             return await _plan_widerruf(line, database, schluessel=schluessel, session=session)
         case "widerspruch":
             return await _plan_widerspruch(line, database, schluessel=schluessel, session=session, now=now, window=window)
-        case "adresswechsel_abgelehnt" | "adresswechsel_gestoppt" | "adresswechsel_verworfen":
+        case "adresswechsel_abgelehnt" | "adresswechsel_gestoppt" | "adresswechsel_verworfen" | "adresswechsel_verworfen_mitgeteilt":
             return await _plan_adresswechsel(line, database, schluessel=schluessel, session=session, now=now, window=window)
         case "adresswechsel_wirksam":
             return await _plan_adresswechsel_wirksam(line, database, schluessel=schluessel, session=session, now=now)
-        case "antrag_abgelehnt":
-            return await _plan_antrag_abgelehnt(line, database, schluessel=schluessel, session=session, now=now)
+        case "antrag_abgelehnt" | "antrag_zurueckgezogen" | "antrag_beendet":
+            return await _plan_antrag_ende(line, database, schluessel=schluessel, session=session, now=now)
         case "loeschung":
             return await _plan_pseudonym(line, database, session=session, now=now)
 

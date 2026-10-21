@@ -1,5 +1,5 @@
 """
-API · the address change's pure judgements: the masked address, the link's view, and who may not approve a change
+API · the address change's pure judgements: the masked address, the link's view, who may not approve a change, and the system's read
 
 Apart from a database, so the default tier holds them; the routes that serve and refuse on them are
 `tests/api/test_adresswechsel_execution.py`'s.
@@ -10,10 +10,13 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
+from fastapi.testclient import TestClient
 from pydantic import BaseModel, ValidationError
 from pymongo import ASCENDING
 
 from app.api.adresswechsel.schemas import (
+    FLAdresswechselAdressePayload,
+    FLAdresswechselAdresseResponse,
     FLAdresswechselAnsichtBeendet,
     FLAdresswechselAnsichtBisherig,
     FLAdresswechselAnsichtNeu,
@@ -22,9 +25,14 @@ from app.api.adresswechsel.schemas import (
 from app.api.adresswechsel.services import ist_abgelaufen, maskierte_adresse, neu_zustand
 from app.api.berechtigungen.services import genehmigung_steht, genehmigung_verwehrt
 from app.core.collections import Collection
+from app.core.config import API_VERSION
 from app.core.constraints import SUPPORT_INDEXES, UNIQUE_INDEXES
 from app.core.recording import ERASED_ACTOR_MARKER
+from app.core.security import WRONG_SYSTEM_KEY
 from app.shared.folding import canonical_address
+from app.shared.schemas.responses import BaseAPIResponse
+from tests.config import BASE_AUTH
+from tests.core.app_source import application
 
 ADMIN = "verwaltung@frankfurtleague.de"
 OWNER = "inhaberin@frankfurtleague.de"
@@ -86,6 +94,30 @@ class TestWhatALeakedLinkLearns:
             FLAdresswechselAntwortPayload.model_validate({"token": "t" * 43})
         with pytest.raises(ValidationError):
             FLAdresswechselAntwortPayload.model_validate({"token": "t" * 43, "antwort": "bestaetigt", "email": "x@example.org"})
+
+
+class TestTheSystemsReadOfTheNewAddress:
+    """`READ-ADRESSWECHSEL-002`: the address a change would move to, for the frontend's server alone."""
+
+    def test_it_answers_the_address_and_nothing_else(self):
+        assert set(FLAdresswechselAdresseResponse.model_fields) - set(BaseAPIResponse.model_fields) == {"email"}
+
+    @pytest.mark.parametrize(
+        "key",
+        [pytest.param({}, id="neither"), pytest.param({"token": "t" * 43, "adresswechsel_id": "6890a1b2c3d4e5f607850001"}, id="both")],
+    )
+    def test_it_names_exactly_one_key(self, key: dict[str, str]):
+        with pytest.raises(ValidationError):
+            FLAdresswechselAdressePayload.model_validate(key)
+
+    def test_the_base_key_is_refused_as_the_wrong_credential(self):
+        """The links' own key: a browser-facing route holding it would hand any link holder the new mailbox."""
+
+        response = TestClient(application(), raise_server_exceptions=False).post(
+            f"/api/v{API_VERSION}/adresswechsel/sweep/adresse", headers=BASE_AUTH, json={"token": "t" * 43}
+        )
+
+        assert (response.status_code, response.json()["error_code"]) == (401, WRONG_SYSTEM_KEY)
 
 
 NOW = datetime(2026, 4, 1, 10, 0, tzinfo=UTC)

@@ -6160,7 +6160,7 @@
     "/api/v0/identitaet/erasure/ansicht": {
       "post": {
         "summary": "Show what an erasure of an address would remove",
-        "description": "Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names\nevery one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,\nand no other. Another address's referee or pupil row holding a pending change to this address is named by its id, the\nchange going and the row standing, beside why the address tool refuses that change this administrator, or null where it opens it. A squad\nrow and a referee row each carry the day it was retired, null while live, and a referee row every season holding a\nfixture still to be played that it is booked on, as `REQ-RETIRE-004` judges one. Reached and not named: the fixtures\nbooking a referee row, which move onto the ghost, and the referee's name in each of those fixtures' log images, which\ngoes; the match reports a referee row sent, which stand naming the ghost, in\ntheir log images too; the confirmations a referee row was asked for, which go, and its id\nand reason in a removed season's log images; the links its contact seats were mailed on their teams' open match\nconfirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,\nwhich goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for\nothers, which name a marker in its place; its day counts; every request for a grant about the address or made by it,\nwhich goes; its rows in the log; every log image of a record the\nerasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;\na dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the\naddress under another grant's id; and the address in every notice still queued, withheld. Written besides: the\nnotice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.\n`verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the\naddress, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless\nthe administrator holds an owner's power (`REQ-PURGE-005`).",
+        "description": "Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names\nevery one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,\nand no other. Another address's pending change to this address is named by its id, the change going and that address's\nrecords standing, beside why the address tool refuses that change this administrator, or null where it opens it; a change\nof an address holding a grant is left out for an administrator without an owner's power, as the administrators page\nwithholds it, since naming it would answer whether a typed address is its new one. The address's own live change is\nnamed by its id, ending with the records it would move. Every request for a grant about the address (`betroffen`) or\nmade by it (`gestellt`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is\nleft out, though the erasure removes its row too. A squad\nrow and a referee row each carry the day it was retired, null while live, and a referee row every season holding a\nfixture still to be played that it is booked on, as `REQ-RETIRE-004` judges one. Reached and not named: the fixtures\nbooking a referee row, which move onto the ghost, and the referee's name in each of those fixtures' log images, which\ngoes; the match reports a referee row sent, which stand naming the ghost, in\ntheir log images too; the confirmations a referee row was asked for, which go, and its id\nand reason in a removed season's log images; the links its contact seats were mailed on their teams' open match\nconfirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,\nwhich goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for\nothers, which name a marker in its place; its day counts; its rows in the log; every log image of a record the\nerasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;\na dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the\naddress under another grant's id; and the address in every notice still queued, withheld. Written besides: the\nnotice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.\n`verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the\naddress, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless\nthe administrator holds an owner's power (`REQ-PURGE-005`).",
         "operationId": "get_erasure_ansicht_auf_anfrage_api_v0_identitaet_erasure_ansicht_post",
         "requestBody": {
           "content": {
@@ -6214,7 +6214,7 @@
     "/api/v0/identitaet/erasure": {
       "post": {
         "summary": "Erase every record an address holds, on that person's request",
-        "description": "Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.\n\nADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/selbst/erasure` runs and refuses nothing about the\nperson's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.\nTwo refusals are about who asks. The administrator's own address is refused (`REQ-PURGE-003`): their account page\nserves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,\nsigned in since becoming one (`REQ-PURGE-005`), judged inside the write: erasing it removes the grant, whatever grants\nremain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every\nother address is erased from a sign-in inside the step-up window. Either window missed answers `REQ-AUTH-009`.\n\n`anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does. No\nredaction reaches it, so it is refused 422 where it holds an address, and, inside the write ahead of the erasure's first\nstep, where it holds a name of the person's own records as a whole word or before a genitive s (`REQ-PURGE-006`): each\nname field whole and each of its words, but a particle such as `von` before a later word of its field and any single\nletter. Names compare as stored, spacing aside, and equal where their plain lower or their plain upper case is: „Weiss“\nis refused for „Weiß“, whose capitals it shares, and another spelling such as „Mueller“ for „Müller“ passes. A common\nword equal to a name is refused with it. The grant notice names this administrator as ending the\nperson's grant. An address holding nothing is answered with every count zero. The 404 and the 409 answer only a database\nchanged by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once this has\nanswered.",
+        "description": "Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.\n\nADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/selbst/erasure` runs and refuses nothing about the\nperson's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.\nThree refusals are about who asks. The administrator's own address is refused (`REQ-PURGE-003`): their account page\nserves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,\nsigned in since becoming one (`REQ-PURGE-005`), judged inside the write: erasing it removes the grant, whatever grants\nremain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every\nother address is erased from a sign-in inside the step-up window. Either window missed answers `REQ-AUTH-009`. An\naddress another address's pending change would move to is refused, judged inside the write, where that address holds a\nlive grant and the administrator no owner's power (`REQ-PURGE-007`): the erasure ends the change, a discard only an\nowner makes of it. The refusal tells that administrator some change the preview withholds names the address.\n\n`anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does. No\nredaction reaches it, so it is refused 422 where it holds an address, and, inside the write ahead of the erasure's first\nstep, where it holds a name of the person's own records as a whole word or before a genitive s (`REQ-PURGE-006`): each\nname field whole and each of its words, but a particle such as `von` before a later word of its field and any single\nletter. Names compare as stored, spacing aside, and equal where their plain lower or their plain upper case is: „Weiss“\nis refused for „Weiß“, whose capitals it shares, and another spelling such as „Mueller“ for „Müller“ passes. A common\nword equal to a name is refused with it. The grant notice names this administrator as ending the\nperson's grant. An address holding nothing is answered with every count zero. The 404 and the 409 answer only a database\nchanged by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once this has\nanswered.",
         "operationId": "erase_auf_anfrage_api_v0_identitaet_erasure_post",
         "requestBody": {
           "content": {
@@ -6256,7 +6256,7 @@
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
           },
           "403": {
-            "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-PURGE-003.REQ-PURGE-005"
+            "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-PURGE-003.REQ-PURGE-005.REQ-PURGE-007"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -7360,8 +7360,8 @@
     },
     "/api/v0/adresswechsel": {
       "post": {
-        "summary": "Start an address change for a person who cannot sign in",
-        "description": "Start a change of the typed address for a person who cannot sign in, answering its raw links once, for the caller to mail.\n\n**Nothing moves here.** Without a `grund` the change asks the address on file first: the caller mails it the request\nwith its stop link, and nothing goes to the new mailbox until that address approves on its account page. With a\n`grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the\naddress on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new\nmailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never\nthis one's: `genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).\nThe address's live change ends replaced.\n\nRefused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power\n(`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds\n(`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the\nchange moves a pupil (`-006`), a new address any entry names, confirmed or not (`-018`), a grant nobody could approve\n(`-011`), and a reason naming a person of the records the change would move (`-008`).",
+        "summary": "Start an address change for a person who says they cannot sign in",
+        "description": "Start a change of the typed address for a person who says they cannot sign in, answering its raw links once, for the caller to mail.\n\n**Nothing moves here.** Without a `grund` the change asks the address on file first: the caller mails it the request\nwith its stop link, and nothing goes to the new mailbox until that address approves on its account page. With a\n`grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the\naddress on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new\nmailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never\nthis one's: `genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).\nThe address's live change ends replaced.\n\nRefused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power\n(`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds\n(`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the\nchange moves a pupil (`-006`), a new address any entry names, confirmed or not (`-018`), a grant nobody could approve\n(`-011`), and a reason naming a person of the records the change would move (`-008`).",
         "operationId": "post_adresswechsel_verwaltung_api_v0_adresswechsel_post",
         "requestBody": {
           "content": {
@@ -9503,6 +9503,57 @@
         "x-fl-tier": "system"
       }
     },
+    "/api/v0/adresswechsel/sweep/adresse": {
+      "post": {
+        "summary": "Say which address a live change would move to",
+        "description": "Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.\n\nFor the frontend's server alone, which asks its sign-in store whether an account stands there before a press, a link's\nview or an approval; the link's own view never serves the address. A token or id naming no live change -- unknown,\nended, or the stop link's token -- is answered null rather than refused, so a lapsed or answered link costs no\nerror. Stores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the token travels in the body, and the\naddress only in the answer.",
+        "operationId": "get_adresswechsel_adresse_api_v0_adresswechsel_sweep_adresse_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLAdresswechselAdressePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLAdresswechselAdresseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system",
+        "x-fl-stores-nothing": true
+      }
+    },
     "/api/v0/spielbestaetigungen/sweep": {
       "get": {
         "summary": "Every season the confirmation pass visits",
@@ -11544,6 +11595,69 @@
           "stadt"
         ],
         "title": "FLAddressPayload"
+      },
+      "FLAdresswechselAdressePayload": {
+        "properties": {
+          "token": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
+          },
+          "adresswechsel_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{24}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adresswechsel Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "FLAdresswechselAdressePayload",
+        "description": "Exactly one key: the new mailbox's link token, or the change an approval names."
+      },
+      "FLAdresswechselAdresseResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "FLAdresswechselAdresseResponse",
+        "description": "A live change's new address and nothing else, server to server alone (`READ-ADRESSWECHSEL-002`)."
       },
       "FLAdresswechselAnsichtBeendet": {
         "properties": {
@@ -17658,6 +17772,39 @@
         "title": "FLErasureAnsichtAdresswechsel",
         "description": "Another address's live change naming this one as its new address: the change ends, its address's records standing."
       },
+      "FLErasureAnsichtAntrag": {
+        "properties": {
+          "antrag_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Antrag Id"
+          },
+          "verwaltung": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "administration"
+            ],
+            "title": "Verwaltung"
+          },
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "betroffen",
+              "gestellt"
+            ],
+            "title": "Rolle"
+          }
+        },
+        "type": "object",
+        "required": [
+          "antrag_id",
+          "verwaltung",
+          "rolle"
+        ],
+        "title": "FLErasureAnsichtAntrag",
+        "description": "An open request for a grant, about the address (`betroffen`) or made by it (`gestellt`), which the erasure removes."
+      },
       "FLErasureAnsichtBewerbung": {
         "properties": {
           "saison_id": {
@@ -17696,6 +17843,21 @@
           "bewerbung_id"
         ],
         "title": "FLErasureAnsichtBewerbung"
+      },
+      "FLErasureAnsichtEigenerAdresswechsel": {
+        "properties": {
+          "adresswechsel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Adresswechsel Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "adresswechsel_id"
+        ],
+        "title": "FLErasureAnsichtEigenerAdresswechsel",
+        "description": "The address's own live change, which the erasure ends with the records it would move."
       },
       "FLErasureAnsichtKader": {
         "properties": {
@@ -17868,6 +18030,23 @@
             "type": "array",
             "title": "Adresswechsel"
           },
+          "eigener_adresswechsel": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLErasureAnsichtEigenerAdresswechsel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "antraege": {
+            "items": {
+              "$ref": "#/components/schemas/FLErasureAnsichtAntrag"
+            },
+            "type": "array",
+            "title": "Antraege"
+          },
           "verwaltung": {
             "anyOf": [
               {
@@ -17896,6 +18075,8 @@
           "bewerbungen",
           "registrierungen",
           "adresswechsel",
+          "eigener_adresswechsel",
+          "antraege",
           "verwaltung",
           "gesperrt"
         ],
@@ -32377,6 +32558,32 @@
                         "REQ-AUTH-006",
                         "REQ-PURGE-003",
                         "REQ-PURGE-005"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "403.REQ-AUTH-006.REQ-PURGE-003.REQ-PURGE-005.REQ-PURGE-007": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-AUTH-006",
+                        "REQ-PURGE-003",
+                        "REQ-PURGE-005",
+                        "REQ-PURGE-007"
                       ]
                     }
                   }

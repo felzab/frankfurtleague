@@ -1348,6 +1348,12 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "beansprucht_bis": {"bsonType": ["date", "null"]},
                 "beanspruchung": {"bsonType": _STRING_OR_NULL},
                 "versuche": {"bsonType": "int"},
+                # Out of `required`: only an address change's effect writes it, on the rows naming the address it replaced.
+                "nachfolge": _object(
+                    nullable=True,
+                    required=(),
+                    properties={"jetzt": {"bsonType": _STRING_OR_NULL}, "vorher": {"bsonType": _STRING_OR_NULL}},
+                ),
             },
         )
     },

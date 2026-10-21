@@ -12,6 +12,8 @@ from pymongo.errors import PyMongoError
 
 from app.api.adresswechsel.crud import end_the_change_in_session, ending_line, queue_the_refusal_notice_in_session, take_effect_in_session
 from app.api.adresswechsel.schemas import (
+    FLAdresswechselAdressePayload,
+    FLAdresswechselAdresseResponse,
     FLAdresswechselPostausgangArt,
     FLAdresswechselPostausgangResponse,
     FLAdresswechselPostausgangZeile,
@@ -22,12 +24,14 @@ from app.api.adresswechsel.schemas import (
 )
 from app.api.adresswechsel.services import (
     GEHALTEN,
+    LIVE_TERMS,
     build_due_terms,
     build_lapsed_terms,
     build_parked_terms,
     ist_abgelaufen,
 )
 from app.api.berechtigungen.services import BEANSPRUCHUNG_DAUER, VERSUCHE_HOECHSTENS
+from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.lookup import RecordCollections, SubjektLookup
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, sperrliste_saison
 from app.core.collections import Collection
@@ -54,13 +58,14 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import DATABASE_FAILED, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
+from app.core.exception_handlers import DATABASE_FAILED, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME, stores_nothing
 from app.core.exceptions import DocumentNotFoundException
 from app.core.journal import Journal
 from app.core.logging import fl_logger
 from app.core.recording import log_stamp
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 # System tier and the system actor: the clock ends a lapsed change and makes a due one take effect, and no administrator
@@ -207,6 +212,8 @@ async def _make_the_due_change_take_effect(
             now=now,
             journal=journal,
             session=session,
+            # Confirmed and due: its new mailbox was told it waits on this pass.
+            mitteilen=True,
         )
         if wirksam:
             return "wirksam"
@@ -229,12 +236,17 @@ async def _make_the_due_change_take_effect(
             # Journalled, as an administrator's discard is: the cause refusing it may postdate a snapshot a restore brings
             # the change back from, due.
             journal.note(
-                ending_line(art="adresswechsel_verworfen", neue=str(record["email"]), record_id=record["_id"], am=stamp, schluessel=schluessel)
+                ending_line(
+                    art="adresswechsel_verworfen_mitgeteilt",
+                    neue=str(record["email"]),
+                    record_id=record["_id"],
+                    am=stamp,
+                    schluessel=schluessel,
+                )
             )
-
-        await queue_the_refusal_notice_in_session(
-            record, adresswechsel_postausgang_collection=adresswechsel_postausgang_collection, now=now, session=session
-        )
+            await queue_the_refusal_notice_in_session(
+                record, adresswechsel_postausgang_collection=adresswechsel_postausgang_collection, now=now, session=session
+            )
         return "verworfen"
 
     async with journal:
@@ -499,3 +511,33 @@ async def post_adresswechsel_zugestellt(
         zugestellt = await session.with_transaction(remove)
 
     return FLAdresswechselZugestelltResponse(zugestellt=zugestellt, ignoriert=len(ids) - zugestellt)
+
+
+@router.post(
+    "/adresse",
+    response_model=FLAdresswechselAdresseResponse,
+    summary="Say which address a live change would move to",
+    dependencies=[Depends(stores_nothing)],
+)
+async def get_adresswechsel_adresse(
+    adresse_data: Annotated[FLAdresswechselAdressePayload, Body()],
+    adresswechsel_collection: AdresswechselCollection,
+) -> FLAdresswechselAdresseResponse:
+    """
+    Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.
+
+    For the frontend's server alone, which asks its sign-in store whether an account stands there before a press, a link's
+    view or an approval; the link's own view never serves the address. A token or id naming no live change -- unknown,
+    ended, or the stop link's token -- is answered null rather than refused, so a lapsed or answered link costs no
+    error. Stores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the token travels in the body, and the
+    address only in the answer.
+    """
+
+    db_filter = (
+        {"_id": adresse_data.adresswechsel_id, **LIVE_TERMS}
+        if adresse_data.token is None
+        else {"token_hash": hash_token(adresse_data.token), **LIVE_TERMS}
+    )
+    record = await adresswechsel_collection.find_one(db_filter, projection={"email": 1})
+
+    return FLAdresswechselAdresseResponse(email=None if record is None else sign_in_identifier(str(record["email"])))

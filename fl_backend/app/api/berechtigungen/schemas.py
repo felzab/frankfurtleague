@@ -249,6 +249,13 @@ class FLBerechtigungAngekuendigt(BaseModel):
     angekuendigt_am: datetime
 
 
+class FLBerechtigungNachfolge(BaseModel):
+    """Per site, the folded address its grant address's person moved to since the row was queued."""
+
+    jetzt: str | None = Field(default=None)
+    vorher: str | None = Field(default=None)
+
+
 class FLBerechtigungPostausgangZeile(BaseModel):
     """One outbox row as stored: a change still to be mailed, and the claim a pass holds it under."""
 
@@ -272,6 +279,8 @@ class FLBerechtigungPostausgangZeile(BaseModel):
     beanspruchung: str | None
     # How many claims have handed the row out; each claim raises it in its own transaction.
     versuche: int = Field(ge=0)
+    # Absent until an address change moves a person a site names: their erasure at the new address withholds that site too.
+    nachfolge: FLBerechtigungNachfolge | None = Field(default=None)
 
 
 class FLBerechtigungAenderung(BaseModel):

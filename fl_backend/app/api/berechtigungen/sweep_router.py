@@ -6,7 +6,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.adresswechsel.services import LIVE_TERMS, als_utc
+from app.api.adresswechsel.services import als_utc
 from app.api.berechtigungen.antraege import ANTRAG_ENDEN, antrag_steht, read_the_antraege
 from app.api.berechtigungen.crud import (
     pull_the_list_to_judge,
@@ -223,12 +223,13 @@ async def post_berechtigungen_abgleich(
             if any(row["art"] == "beantragt" for row in claimable)
             else {}
         )
-        # The address changes' rows alike, read live, so one approved or ended since asks nobody.
+        # The address changes' rows alike, read now, so one approved or ended since asks nobody: an end takes the approval
+        # off its record (`app/api/adresswechsel/services.py :: compose_end_update`).
         wechsel = (
             {
                 record["_id"]: record
                 async for record in adresswechsel_collection.find(
-                    {"_id": {"$in": [row["berechtigung_id"] for row in claimable if row["art"] == "adresswechsel"]}, **LIVE_TERMS},
+                    {"_id": {"$in": [row["berechtigung_id"] for row in claimable if row["art"] == "adresswechsel"]}},
                     {"adresse": 1, "genehmigung": 1},
                     session=session,
                 )

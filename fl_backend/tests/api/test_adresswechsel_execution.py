@@ -19,6 +19,8 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.adresswechsel.crud import build_erasure_adresswechsel_pipeline
+from app.api.adresswechsel.schemas import FLAdresswechselAdressePayload
 from app.api.adresswechsel.services import (
     ADRESSWECHSEL_ABGELAUFEN,
     ADRESSWECHSEL_BEENDET,
@@ -42,6 +44,7 @@ from app.api.adresswechsel.services import (
     build_addresses_filter,
     compose_postausgang,
 )
+from app.api.adresswechsel.sweep_router import get_adresswechsel_adresse
 from app.api.berechtigungen.admin_router import delete_antrag, get_berechtigungen
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.berechtigungen.crud import live_unbarred_grant_since
@@ -53,6 +56,7 @@ from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansic
 from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
 from app.api.identitaet.schemas import FLErasureAnsichtPayload, FLErasurePayload
 from app.api.identitaet.services import EIGENE_ADRESSE, VERWALTUNG_ADRESSE
+from app.api.identitaet.wiederherstellung import Read, Window, plan_replay, replay_line
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPayload
 from app.api.registrierungen.services import REGISTRIERUNG_TOKEN_UNKNOWN, compose_ablehnung_update, erinnerung_is_due
@@ -63,16 +67,20 @@ from app.api.spieler.services import build_spieler_memberships_pipeline
 from app.api.teams.admin_router import get_team_memberships
 from app.core.adressanker import adressanker_id
 from app.core.collections import Collection
+from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD, patch_one_in_db
 from app.core.drosselung import build_counts_filter
 from app.core.exceptions import ActorConfirmationRequiredException, DocumentNotFoundException, WriteRefusalException
-from app.core.journal import JOURNAL_TOKEN, parse_line
-from app.core.recording import SYSTEM_ACTOR, Actor, PersonActor, actor_var
+from app.core.journal import JOURNAL_TOKEN, JournalLine, parse_line
+from app.core.recording import SYSTEM_ACTOR, Actor, PersonActor, actor_var, log_stamp
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
+from app.core.transactions import transaction_session
+from app.main import create_app
 from app.shared.schemas.bounds import ADRESSWECHSEL_NACHLAUF_TAGE
 from tests import documents
+from tests.app_client import app_client
 from tests.bans import ban_list, ban_through_the_route
-from tests.config import build_test_config, grants_for_the_suite
+from tests.config import SYSTEM_AUTH, build_test_config, grants_for_the_suite
 from tests.holds import HeldCollection
 from tests.records import record_collections
 from tests.whole_database import where_held
@@ -129,6 +137,7 @@ from .adresswechsel_harness import (
     view,
 )
 from .adresswechsel_harness import on_a_person as _on_a_person
+from .conftest import config_for
 
 # Module level: every case below reaches a real mongod, each write being one transaction.
 pytestmark = pytest.mark.db
@@ -502,6 +511,81 @@ class TestTheLinks:
         assert pressed == ADRESSWECHSEL_BEENDET
 
 
+def the_new_address(database: AsyncDatabase, client: AsyncMongoClient, **key: Any) -> Awaitable[Any]:
+    """What the frontend's server asks before a press, a link's view or an approval reads its sign-in store."""
+
+    return call(get_adresswechsel_adresse, database, client, adresse_data=FLAdresswechselAdressePayload.model_validate(key))
+
+
+class TestTheSystemsReadOfTheNewAddress:
+    def test_a_live_change_answers_its_new_address_folded_by_its_link_and_by_its_id(self, mongo_replica_set_url: str):
+        """Confirmed and waiting too: its approval still reads the sign-in store at the address it would move to."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            started = await administrator_starts(database, client, grund=GRUND, email="Lenore.Q@NeuPost.example.org")
+            before = [
+                await the_new_address(database, client, token=started.token),
+                await the_new_address(database, client, adresswechsel_id=started.id),
+            ]
+            await answer(database, client, started.token)
+            after = [
+                await the_new_address(database, client, token=started.token),
+                await the_new_address(database, client, adresswechsel_id=started.id),
+            ]
+            return [answered.email for answered in (*before, *after)]
+
+        assert on_a_person(mongo_replica_set_url, body) == [NEW_EMAIL] * 4
+
+    def test_a_row_holding_another_spelling_is_answered_folded(self, mongo_replica_set_url: str):
+        """Every start stores the fold, the validator no spelling: a row written by hand still names the account's key."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await start(database, client)
+            await database[Collection.ADRESSWECHSEL].update_one({"_id": minted.id}, {"$set": {"email": "Lenore.Q@NeuPost.example.org"}})
+            return (await the_new_address(database, client, adresswechsel_id=minted.id)).email
+
+        assert on_a_person(mongo_replica_set_url, body) == NEW_EMAIL
+
+    def test_a_key_naming_no_live_change_answers_null(self, mongo_replica_set_url: str):
+        """Never a 404: a lapsed or answered link costs the page no error, and the stop link never names the new mailbox."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            stopped = await start(database, client)
+            await stop_by_link(database, client, stopped.stopp_token)
+            live = await start(database, client, identifier=OTHER_EMAIL, email="jonte.neu@anderswo.example")
+            asked = [
+                {"token": live.stopp_token},
+                {"token": "nobody-minted-this"},
+                {"adresswechsel_id": ObjectId()},
+                {"token": stopped.token},
+                {"adresswechsel_id": stopped.id},
+            ]
+            return [(await the_new_address(database, client, **key)).email for key in asked]
+
+        assert on_a_person(mongo_replica_set_url, body) == [None] * 5
+
+    def test_through_the_mounted_route_no_log_line_names_the_address(self, mongo_replica_set_url: str, capfd: pytest.CaptureFixture[str]):
+        """Read off the process's own output, which the app's build points its handlers at, so the request's line itself is held."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await start(database, client)
+            async with app_client(mongo_replica_set_url, app=create_app(config_for(DATABASE_NAME))) as http:
+                capfd.readouterr()
+                response = await http.post(
+                    f"/api/v{API_VERSION}/adresswechsel/sweep/adresse", headers=SYSTEM_AUTH, json={"token": minted.token}
+                )
+                written = capfd.readouterr()
+            return response.status_code, response.json(), written.out + written.err
+
+        status, answered, written = on_a_person(mongo_replica_set_url, body)
+
+        assert (status, answered["email"]) == (200, NEW_EMAIL)
+        assert "/adresswechsel/sweep/adresse -> 200" in written, (
+            "the request's own line was not captured, so the absence below holds of nothing"
+        )
+        assert NEW_EMAIL not in written.lower()
+
+
 class TestTheConfirmation:
     def test_every_own_record_moves_and_every_other_stays(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -641,6 +725,10 @@ async def held_by_another(database: AsyncDatabase, what: str) -> None:
             await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(
                 compose_antrag(adresse=NEW_EMAIL, verwaltung="administration", berechtigung_id=None, gestartet_von=ADMIN, now=NOW)
             )
+        case "a-pupil":
+            await database[Collection.SPIELER].insert_one(
+                documents.spieler_document(ObjectId(), "Vera", "Zwirnbach", email=NEW_EMAIL, geburtsdatum="2010-01-01")
+            )
         case "an-owed-carry":
             # Another person's change off it, whose account still stands there until the drain carries it.
             await database[Collection.ADRESSWECHSEL_POSTAUSGANG].insert_one(
@@ -682,6 +770,18 @@ class TestTheNewAddressesOwnRecords:
         # No carry and no notice of this change's own, the owed carry seeded for another person aside.
         assert (rows["pupil"]["email"], rows["referee"]["kontakt"]["email"]) == (EMAIL, EMAIL)
         assert [notice for notice in notices if notice["email"] == NEW_EMAIL] == []
+
+    def test_a_pupil_there_refuses_a_starter_holding_no_pupil_of_their_own(self, mongo_replica_set_url: str):
+        """A starter holding a pupil is refused `-006` first, so a seat-only starter is the one this kind reaches."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await held_by_another(database, "a-pupil")
+            minted = await start(database, client)
+            seen = (await view(database, client, minted.token)).ansicht.zustand
+            refused = await refused_code(answer(database, client, minted.token))
+            return seen, refused, (await row(database, Collection.SCHIEDSRICHTER, REFEREE_OID))["kontakt"]["email"]
+
+        assert on_a_person(mongo_replica_set_url, body, pupil=False) == ("nicht_bestaetigbar", ADRESSWECHSEL_BELEGT, EMAIL)
 
     def test_entries_arriving_after_the_confirmation_end_the_change_not_in_effect(self, mongo_replica_set_url: str):
         """A waiting time lets them arrive after the press judged none, so the pass judges again and tells the new mailbox."""
@@ -1153,6 +1253,17 @@ class TestTheApproval:
         assert len(first) == anzahl > 0
         assert after == [[]]
 
+    def test_its_approvers_are_asked_by_nobody_once_it_ended(self, mongo_replica_set_url: str):
+        """Its end takes the approval off the record, which the claim reads as nothing to approve."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            await start(database, client)
+            await stop_here(database, client)
+            return await approvers_told(database, client)
+
+        assert on_a_person(mongo_replica_set_url, body) == [[]]
+
     def test_an_approval_before_the_confirmation_lets_the_confirmation_take_effect(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)
@@ -1455,7 +1566,8 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
             "referee": (minted, verwehrt),
             # The Trainer and the Stellvertretung wait on no change of the person's; the Stellvertretung is unconfirmed.
             "seats": (minted, {"trainer": None, "ansprechperson": verwehrt, "stellvertretung": None}),
-            "reveal": [(minted, verwehrt)],
+            # Withheld where the tool refuses it as a grant holder's: a typed address would learn it is that change's new one (I871).
+            "reveal": [] if verwehrt == "verwaltung" else [(minted, verwehrt)],
         }
         if grant:
             expected["approval"] = (minted, verwehrt)
@@ -1655,7 +1767,7 @@ class TestTheAdministratorFollowsTheirMove:
     def test_no_record_or_image_keeps_a_moved_administrator_s_replaced_address_past_their_erasure(self, mongo_replica_set_url: str):
         """A grant they made, its image and log row, their own change's starter and their revoked grant's image named it.
 
-        The queued notice of the old grant's end keeps it until the reconciliation, unrun here, has told the administrators.
+        The queued notice of the old grant's end withholds it too, its stamp naming the new address (I659).
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1678,7 +1790,7 @@ class TestTheAdministratorFollowsTheirMove:
             await erased(database, client, NEW_EMAIL)
             return await where_held(database, EMAIL, folded=True)
 
-        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: [Collection.BERECHTIGUNGEN_POSTAUSGANG]}
+        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: []}
 
     def test_a_ban_an_invitation_and_a_decided_application_of_theirs_follow_them_past_their_erasure(self, mongo_replica_set_url: str):
         """Each record names its author by address alone, so one left at the replaced address outlives the erasure at the new."""
@@ -1705,8 +1817,8 @@ class TestTheAdministratorFollowsTheirMove:
             await erased(database, client, NEW_EMAIL)
             return await where_held(database, EMAIL, folded=True)
 
-        # The queued notice of the old grant's end keeps it until the reconciliation, unrun here, has told the administrators.
-        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: [Collection.BERECHTIGUNGEN_POSTAUSGANG]}
+        # The queued notice of the old grant's end withholds it too, its stamp naming the new address (I659).
+        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: []}
 
     def test_a_former_administrator_s_records_and_images_name_them_nowhere_past_their_erasure(self, mongo_replica_set_url: str):
         """Their grant ended before the change: what they made while holding it names them still.
@@ -1855,15 +1967,11 @@ class TestTheRequestsForAGrantAnEffectMeets:
             left = await database[Collection.BERECHTIGUNGEN_ANTRAEGE].count_documents({})
             return carried["genehmigung"]["gestartet_von"], left, await where_held(database, EMAIL, folded=True)
 
-        # The queued notice of the old grant's end keeps the address until the reconciliation, unrun here, has told the administrators.
-        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == (
-            NEW_EMAIL,
-            0,
-            {EMAIL: [Collection.BERECHTIGUNGEN_POSTAUSGANG]},
-        )
+        # The queued notice of the old grant's end withholds it too, its stamp naming the new address (I659).
+        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == (NEW_EMAIL, 0, {EMAIL: []})
 
     def test_a_request_about_the_replaced_address_ends_as_a_refusal_ends_it(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Approved, it would grant an address nobody holds; its refusal's own journal line keeps a restore from bringing it back."""
+        """Approved, it would grant an address nobody holds; its end's own journal line keeps a restore from bringing it back."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await requested(database, adresse=EMAIL, gestartet_von=ADMIN)
@@ -1875,8 +1983,8 @@ class TestTheRequestsForAGrantAnEffectMeets:
         change_id, antrag, journal = on_a_person(mongo_replica_set_url, body)
 
         assert antrag is None
-        assert [(line.art, line.record_id) for line in journal] == [("antrag_abgelehnt", ANTRAG_OID), ("adresswechsel_wirksam", change_id)]
-        # The refusal's own line, keyed as a refusal keys it, by the address the request was about.
+        assert [(line.art, line.record_id) for line in journal] == [("antrag_beendet", ANTRAG_OID), ("adresswechsel_wirksam", change_id)]
+        # Keyed as a refusal's line is, by the address the request was about.
         assert journal[0].person_hash == loeschung_journal_hash(EMAIL, schluessel=KEY)
 
     def test_the_end_tells_the_requester_in_the_effects_own_write(self, mongo_replica_set_url: str):
@@ -1903,8 +2011,39 @@ class TestTheRequestsForAGrantAnEffectMeets:
             return await where_held(database, EMAIL, folded=True)
 
         # The pupil alone: the seed's other records keep the replaced address on rows no change moves, an unconfirmed seat's.
-        # The refusal's notice to its requester keeps the address until the reconciliation, unrun here, has told them.
-        assert on_a_person(mongo_replica_set_url, body, records=False) == {EMAIL: [Collection.BERECHTIGUNGEN_POSTAUSGANG]}
+        # The refusal's notice to its requester withholds it too, its stamp naming the new address (I659).
+        assert on_a_person(mongo_replica_set_url, body, records=False) == {EMAIL: []}
+
+    @pytest.mark.parametrize("request_", ["none", "refused before the change", "ended by the change", "moved on again"])
+    def test_an_erasure_at_the_new_address_withholds_the_replaced_one_in_every_queued_notice(self, mongo_replica_set_url: str, request_: str):
+        """`docs/backend/spec.md :: I659`: the grant's announcement, the move's revoke and a request's end name the old address.
+
+        A second move carries their stamp on to the address erased.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            if request_ != "none":
+                await requested(database, adresse=EMAIL, gestartet_von=ADMIN)
+            if request_ == "refused before the change":
+                await call(delete_antrag, database, client, antrag_id=ANTRAG_OID, operator=SECOND_ADMIN)
+            minted = await start(database, client)
+            await approve(database, client, minted.id, operator=SECOND_ADMIN)
+            await answer(database, client, minted.token)
+            erased_at = NEW_EMAIL
+            if request_ == "moved on again":
+                onward = await start(database, client, identifier=NEW_EMAIL, email=THIRD_EMAIL)
+                await approve(database, client, onward.id, operator=SECOND_ADMIN)
+                await answer(database, client, onward.token)
+                erased_at = THIRD_EMAIL
+            naming = [row["art"] async for row in database[Collection.BERECHTIGUNGEN_POSTAUSGANG].find({}) if EMAIL in str(row)]
+            await erased(database, client, erased_at)
+            return naming, await where_held(database, EMAIL, folded=True)
+
+        naming, held = on_a_person(mongo_replica_set_url, body, records=False)
+
+        assert naming, "no queued notice named the replaced address, so the withholding below holds of nothing"
+        assert held == {EMAIL: []}
 
 
 async def outcome_code(call: Awaitable[Any]) -> str | None:
@@ -1979,7 +2118,104 @@ class TestTheDecline:
         assert (art, held) == ("abgelehnt", {NEW_EMAIL: []})
 
 
+class TestTheReplayTellsTheNewMailboxAgain:
+    """`docs/backend/spec.md :: I870`: a restore takes back the notice an end queued, and the replay of its line queues it again."""
+
+    @pytest.mark.parametrize(
+        ("end", "expected"),
+        [
+            pytest.param("the pass", [("verworfen", NEW_EMAIL)], id="the pass refusing a due change tells it again"),
+            pytest.param("an approval", [("verworfen", NEW_EMAIL)], id="an approval finding nothing to move tells it again"),
+            pytest.param("a discard", [], id="an administrator's discard tells nobody"),
+        ],
+    )
+    def test_from_a_snapshot_before_the_end(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, end: str, expected: Any):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            if end == "a discard":
+                minted = await start(database, client)
+            elif end == "the pass":
+                minted = await administrator_starts(database, client, grund=GRUND)
+                await answer(database, client, minted.token)
+                await held_by_another(database, "a-seat")
+            else:
+                await granted(database)
+                minted = await start(database, client)
+                await answer(database, client, minted.token)
+                for collection in (Collection.SPIELER, Collection.SCHIEDSRICHTER, Collection.SAISON_TEAMS, Collection.BEWERBUNGEN):
+                    await database[collection].delete_many({})
+                await database[Collection.REGISTRIERUNGEN].delete_many({})
+                await database[Collection.BERECHTIGUNGEN].delete_one({"adresse": EMAIL})
+            snapshot = {
+                collection: await database[collection].find({}).to_list()
+                for collection in (Collection.ADRESSWECHSEL, Collection.ADRESSWECHSEL_POSTAUSGANG)
+            }
+            with journal_of(caplog) as lines:
+                if end == "a discard":
+                    await discard(database, client, minted.id)
+                elif end == "the pass":
+                    await sweep(database, client, germany_now=AFTER_THE_WAIT)
+                else:
+                    await refused_code(approve(database, client, minted.id, operator=ADMIN))
+            for collection, rows in snapshot.items():
+                await database[collection].delete_many({})
+                if rows:
+                    await database[collection].insert_many(rows)
+            window = Window(since=NOW - timedelta(hours=1), until=AFTER_THE_WAIT + timedelta(hours=1))
+            stands = []
+            for line in lines:
+                plan = await plan_replay(line, database, schluessel=KEY, session=None, now=AFTER_THE_WAIT, window=window)
+                stands.append(plan.stand)
+                if plan.rewrite is not None:
+                    async with transaction_session(client) as session:
+                        await session.with_transaction(plan.rewrite)
+            return stands, [(notice["art"], notice["email"]) for notice in await owed(database)]
+
+        stands, notices = on_a_person(mongo_replica_set_url, body)
+
+        assert (stands, notices) == (["to replay"], expected)
+
+
+# A restore's window, the snapshot before the start, its end the next morning; the replay runs after it.
+REPLAY_WINDOW = Window(since=NOW - timedelta(hours=3), until=NOW + timedelta(hours=20))
+REPLAY_NOW = NOW + timedelta(hours=21)
+
+
+class TestTheReplayOntoEntries:
+    """`docs/backend/spec.md :: I860`: replayed onto an address an entry names since, an effect would join two people's records."""
+
+    @pytest.mark.parametrize("what", ["an-unconfirmed-seat", "a-grant-request", "nothing"])
+    def test_a_restored_live_change_whose_new_address_holds_an_entry_is_left_for_review(self, mongo_replica_set_url: str, what: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await start(database, client)
+            if what != "nothing":
+                await held_by_another(database, what)
+            line = JournalLine(
+                person_hash=loeschung_journal_hash(NEW_EMAIL, schluessel=KEY),
+                art="adresswechsel_wirksam",
+                collection=Collection.ADRESSWECHSEL,
+                record_id=minted.id,
+                am=log_stamp(NOW),
+                zuvor=loeschung_journal_hash(EMAIL, schluessel=KEY),
+            )
+            planned = await replay_line(
+                Read(timestamp=NOW + timedelta(minutes=1), line=line), client, database, schluessel=KEY, now=REPLAY_NOW, window=REPLAY_WINDOW
+            )
+            return planned.stand, (await row(database, Collection.SPIELER, SPIELER_OID))["email"]
+
+        assert on_a_person(mongo_replica_set_url, body) == (("replayed", NEW_EMAIL) if what == "nothing" else ("left for review", EMAIL))
+
+
 class TestTheReSendsRefusals:
+    def test_a_new_address_an_entry_has_come_to_name_is_refused(self, mongo_replica_set_url: str):
+        """A link re-sent onto it would only be refused on its press (`docs/backend/spec.md :: I860`)."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            started = await administrator_starts(database, client, grund=GRUND)
+            await held_by_another(database, "a-seat")
+            return await refused_code(resend(database, client, started.id))
+
+        assert on_a_person(mongo_replica_set_url, body) == ADRESSWECHSEL_BELEGT
+
     def test_a_new_address_barred_since_the_start_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             started = await administrator_starts(database, client, grund=GRUND)
@@ -2040,7 +2276,7 @@ class TestTheWaitingTime:
         assert swept.verworfen == 1
         assert notices == [{"art": "verworfen", "bisherige_email": None, "email": NEW_EMAIL, "vorname": None, "weg": None}]
         assert [(line.art, line.record_id, line.person_hash) for line in journal] == [
-            ("adresswechsel_verworfen", started, loeschung_journal_hash(NEW_EMAIL, schluessel=KEY))
+            ("adresswechsel_verworfen_mitgeteilt", started, loeschung_journal_hash(NEW_EMAIL, schluessel=KEY))
         ]
 
 
@@ -2416,6 +2652,29 @@ class TestTheLiveReadsTheIndexServes:
             return [_indexes_named(plan["queryPlanner"]["winningPlan"]) for plan in plans]
 
         assert on_a_person(mongo_replica_set_url, body) == [{"uniq_adresswechsel_adresse"}] * 2
+
+    def test_the_erasures_read_of_either_address_is_answered_by_their_two_indexes(self, mongo_replica_set_url: str):
+        """Two hundred tombstones beside the live change, so a scan cannot pass for one document's plan."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await start(database, client)
+            await database[Collection.ADRESSWECHSEL].insert_many(
+                [{"adresse": None, "email": None, "beendet": {"art": "verworfen", "am": NOW}, "token_hash": f"{i:064x}"} for i in range(200)],
+                bypass_document_validation=True,
+            )
+            return await database.command(
+                {
+                    "explain": {"aggregate": Collection.ADRESSWECHSEL, "pipeline": build_erasure_adresswechsel_pipeline(EMAIL), "cursor": {}},
+                    "verbosity": "executionStats",
+                }
+            )
+
+        explained = on_a_person(mongo_replica_set_url, body)
+        cursor = explained.get("stages", [{}])[0].get("$cursor", explained)
+        stats = cursor["executionStats"]
+
+        assert _indexes_named(cursor["queryPlanner"]["winningPlan"]) == {"uniq_adresswechsel_adresse", "adresswechsel_email"}
+        assert (stats["nReturned"], stats["totalDocsExamined"]) == (1, 1)
 
     def test_the_pupils_list_joins_their_changes_through_the_unique_index(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
