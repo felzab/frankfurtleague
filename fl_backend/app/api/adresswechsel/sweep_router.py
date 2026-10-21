@@ -212,6 +212,8 @@ async def _make_the_due_change_take_effect(
             now=now,
             journal=journal,
             session=session,
+            # Confirmed and due: its new mailbox was told it waits on this pass.
+            mitteilen=True,
         )
         if wirksam:
             return "wirksam"
@@ -234,12 +236,17 @@ async def _make_the_due_change_take_effect(
             # Journalled, as an administrator's discard is: the cause refusing it may postdate a snapshot a restore brings
             # the change back from, due.
             journal.note(
-                ending_line(art="adresswechsel_verworfen", neue=str(record["email"]), record_id=record["_id"], am=stamp, schluessel=schluessel)
+                ending_line(
+                    art="adresswechsel_verworfen_mitgeteilt",
+                    neue=str(record["email"]),
+                    record_id=record["_id"],
+                    am=stamp,
+                    schluessel=schluessel,
+                )
             )
-
-        await queue_the_refusal_notice_in_session(
-            record, adresswechsel_postausgang_collection=adresswechsel_postausgang_collection, now=now, session=session
-        )
+            await queue_the_refusal_notice_in_session(
+                record, adresswechsel_postausgang_collection=adresswechsel_postausgang_collection, now=now, session=session
+            )
         return "verworfen"
 
     async with journal:

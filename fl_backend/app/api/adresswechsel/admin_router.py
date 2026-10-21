@@ -14,7 +14,6 @@ from app.api.adresswechsel.crud import (
     end_the_change_in_session,
     ending_line,
     queue_the_approval_notice_in_session,
-    queue_the_refusal_notice_in_session,
     read_the_bestand,
     refusal_of,
     start_the_change_in_session,
@@ -710,13 +709,11 @@ async def post_adresswechsel_genehmigung(
             now=germany_now,
             journal=journal,
             session=session,
+            # Its new mailbox confirmed and was told the change waits on this approval.
+            mitteilen=True,
         )
         refuse(refusal_of(urteil.ursache))
         if urteil.leer:
-            # Its new mailbox confirmed and was told the change waits on this approval.
-            await queue_the_refusal_notice_in_session(
-                approved, adresswechsel_postausgang_collection=adresswechsel_postausgang_collection, now=germany_now, session=session
-            )
             return None
 
         return FLAdresswechselGenehmigungResponse(id=adresswechsel_id, wirksam=wirksam)

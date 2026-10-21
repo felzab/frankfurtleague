@@ -8,7 +8,7 @@ removed or a restore has put back (`docs/backend/spec.md :: I851`).
 from collections.abc import Mapping, Sequence, Set
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from typing import Any, Final, get_args
+from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
 from pydantic import SecretStr
@@ -243,12 +243,16 @@ async def erase_antraege_in_session(
     return len(rows)
 
 
-def abgelehnt_line(*, antrag: Mapping[str, Any], am: str, schluessel: SecretStr) -> JournalLine:
-    """A refusal's or a withdrawal's line, so a restore from before it does not bring the request back to be approved."""
+# How a request ended, as its journal line names it: the replay tells again whom the end told.
+AntragEndeLine = Literal["antrag_abgelehnt", "antrag_zurueckgezogen", "antrag_beendet"]
+
+
+def antrag_line(*, antrag: Mapping[str, Any], art: AntragEndeLine, am: str, schluessel: SecretStr) -> JournalLine:
+    """An ended request's line, so a restore from before its end does not bring it back to be approved."""
 
     return JournalLine(
         person_hash=loeschung_journal_hash(str(antrag["adresse"]), schluessel=schluessel),
-        art="antrag_abgelehnt",
+        art=art,
         collection=Collection.BERECHTIGUNGEN_ANTRAEGE,
         record_id=antrag["_id"],
         am=am,

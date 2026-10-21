@@ -55,6 +55,7 @@ from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansic
 from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
 from app.api.identitaet.schemas import FLErasureAnsichtPayload, FLErasurePayload
 from app.api.identitaet.services import EIGENE_ADRESSE, VERWALTUNG_ADRESSE
+from app.api.identitaet.wiederherstellung import Window, plan_replay
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPayload
 from app.api.registrierungen.services import REGISTRIERUNG_TOKEN_UNKNOWN, compose_ablehnung_update, erinnerung_is_due
@@ -72,6 +73,7 @@ from app.core.exceptions import ActorConfirmationRequiredException, DocumentNotF
 from app.core.journal import JOURNAL_TOKEN, parse_line
 from app.core.recording import SYSTEM_ACTOR, Actor, PersonActor, actor_var
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
+from app.core.transactions import transaction_session
 from app.main import create_app
 from app.shared.schemas.bounds import ADRESSWECHSEL_NACHLAUF_TAGE
 from tests import documents
@@ -1956,7 +1958,7 @@ class TestTheRequestsForAGrantAnEffectMeets:
         change_id, antrag, journal = on_a_person(mongo_replica_set_url, body)
 
         assert antrag is None
-        assert [(line.art, line.record_id) for line in journal] == [("antrag_abgelehnt", ANTRAG_OID), ("adresswechsel_wirksam", change_id)]
+        assert [(line.art, line.record_id) for line in journal] == [("antrag_beendet", ANTRAG_OID), ("adresswechsel_wirksam", change_id)]
         # The refusal's own line, keyed as a refusal keys it, by the address the request was about.
         assert journal[0].person_hash == loeschung_journal_hash(EMAIL, schluessel=KEY)
 
@@ -2060,6 +2062,63 @@ class TestTheDecline:
         assert (art, held) == ("abgelehnt", {NEW_EMAIL: []})
 
 
+class TestTheReplayTellsTheNewMailboxAgain:
+    """`docs/backend/spec.md :: I869`: a restore takes back the notice an end queued, and the replay of its line queues it again."""
+
+    @pytest.mark.parametrize(
+        ("end", "expected"),
+        [
+            pytest.param("the pass", [("verworfen", NEW_EMAIL)], id="the pass refusing a due change tells it again"),
+            pytest.param("an approval", [("verworfen", NEW_EMAIL)], id="an approval finding nothing to move tells it again"),
+            pytest.param("a discard", [], id="an administrator's discard tells nobody"),
+        ],
+    )
+    def test_from_a_snapshot_before_the_end(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, end: str, expected: Any):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            if end == "a discard":
+                minted = await start(database, client)
+            elif end == "the pass":
+                minted = await administrator_starts(database, client, grund=GRUND)
+                await answer(database, client, minted.token)
+                await held_by_another(database, "a-seat")
+            else:
+                await granted(database)
+                minted = await start(database, client)
+                await answer(database, client, minted.token)
+                for collection in (Collection.SPIELER, Collection.SCHIEDSRICHTER, Collection.SAISON_TEAMS, Collection.BEWERBUNGEN):
+                    await database[collection].delete_many({})
+                await database[Collection.REGISTRIERUNGEN].delete_many({})
+                await database[Collection.BERECHTIGUNGEN].delete_one({"adresse": EMAIL})
+            snapshot = {
+                collection: await database[collection].find({}).to_list()
+                for collection in (Collection.ADRESSWECHSEL, Collection.ADRESSWECHSEL_POSTAUSGANG)
+            }
+            with journal_of(caplog) as lines:
+                if end == "a discard":
+                    await discard(database, client, minted.id)
+                elif end == "the pass":
+                    await sweep(database, client, germany_now=AFTER_THE_WAIT)
+                else:
+                    await refused_code(approve(database, client, minted.id, operator=ADMIN))
+            for collection, rows in snapshot.items():
+                await database[collection].delete_many({})
+                if rows:
+                    await database[collection].insert_many(rows)
+            window = Window(since=NOW - timedelta(hours=1), until=AFTER_THE_WAIT + timedelta(hours=1))
+            stands = []
+            for line in lines:
+                plan = await plan_replay(line, database, schluessel=KEY, session=None, now=AFTER_THE_WAIT, window=window)
+                stands.append(plan.stand)
+                if plan.rewrite is not None:
+                    async with transaction_session(client) as session:
+                        await session.with_transaction(plan.rewrite)
+            return stands, [(notice["art"], notice["email"]) for notice in await owed(database)]
+
+        stands, notices = on_a_person(mongo_replica_set_url, body)
+
+        assert (stands, notices) == (["to replay"], expected)
+
+
 class TestTheReSendsRefusals:
     def test_a_new_address_barred_since_the_start_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -2121,7 +2180,7 @@ class TestTheWaitingTime:
         assert swept.verworfen == 1
         assert notices == [{"art": "verworfen", "bisherige_email": None, "email": NEW_EMAIL, "vorname": None, "weg": None}]
         assert [(line.art, line.record_id, line.person_hash) for line in journal] == [
-            ("adresswechsel_verworfen", started, loeschung_journal_hash(NEW_EMAIL, schluessel=KEY))
+            ("adresswechsel_verworfen_mitgeteilt", started, loeschung_journal_hash(NEW_EMAIL, schluessel=KEY))
         ]
 
 

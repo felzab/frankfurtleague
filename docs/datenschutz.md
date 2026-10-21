@@ -1046,9 +1046,9 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   effect keys the address it replaced as well, which a restore followed by an erasure of the new
   address finds the moved records under (`:: wirksam_line`, `docs/backend/spec.md :: I808`). **A
   request's line keys the address the grant was asked for**, which may be a stranger's an
-  administrator mistyped (`fl_backend/app/api/berechtigungen/antraege.py :: abgelehnt_line`); a
-  restore replays it, so a refused request does not come back to be approved
-  (`fl_backend/app/api/identitaet/wiederherstellung.py :: _plan_antrag_abgelehnt`). The day file keeps each line's whole log
+  administrator mistyped (`fl_backend/app/api/berechtigungen/antraege.py :: antrag_line`); a
+  restore replays it, so an ended request does not come back to be approved
+  (`fl_backend/app/api/identitaet/wiederherstellung.py :: _plan_antrag_ende`). The day file keeps each line's whole log
   envelope, its trace and span ids among them,
   and the trace id joins the line to the edge's access line, which names the visitor's address for
   that log's eight days. Each line is copied into its day file hourly so that a restore can run

@@ -32,8 +32,8 @@ from app.shared.schemas.custom import parse_object_id
 # follows (`scripts/ops/export_journal.sh :: JOURNAL_TOKEN`).
 JOURNAL_TOKEN: Final = "loeschung-journal"
 
-# An erasure, which an administrator runs again on its page, and what an act changed that the replay writes again: three
-# choices, an address change stopped or discarded, a change taking effect, and a grant's request refused.
+# An erasure, which an administrator runs again on its page, and each act the replay writes again. An end that told
+# somebody has an art of its own: the replay tells them again from the art alone.
 JournalArt = Literal[
     "loeschung",
     "widerruf",
@@ -41,8 +41,11 @@ JournalArt = Literal[
     "adresswechsel_abgelehnt",
     "adresswechsel_gestoppt",
     "adresswechsel_verworfen",
+    "adresswechsel_verworfen_mitgeteilt",
     "adresswechsel_wirksam",
     "antrag_abgelehnt",
+    "antrag_zurueckgezogen",
+    "antrag_beendet",
 ]
 
 # The collections each act is made on: a line naming any other is unreadable rather than replayed there.
@@ -55,12 +58,17 @@ DATENSAETZE: Final[Mapping[JournalArt, frozenset[Collection]]] = {
     # Each on the change's own record, whose id names one change: a start never reuses one.
     "adresswechsel_abgelehnt": frozenset({Collection.ADRESSWECHSEL}),
     "adresswechsel_gestoppt": frozenset({Collection.ADRESSWECHSEL}),
-    # Ended by an administrator, by a start replacing it, by finding nothing to move, or by the hourly pass refusing it.
+    # Ended telling nobody: by an administrator, by a start replacing it, or by its own press finding nothing to move.
     "adresswechsel_verworfen": frozenset({Collection.ADRESSWECHSEL}),
+    # Ended at its effect by the hourly pass or an approval, which told its new mailbox it did not take effect.
+    "adresswechsel_verworfen_mitgeteilt": frozenset({Collection.ADRESSWECHSEL}),
     # The replay moves everything the restored address on file holds, as the effect did.
     "adresswechsel_wirksam": frozenset({Collection.ADRESSWECHSEL}),
-    # Restored, a refused request would stand to be approved: the approval its refusal answered.
+    # Restored, an ended request would stand to be approved. Refused by a decider and ended by an address change, it told
+    # its requester; withdrawn by them, nobody.
     "antrag_abgelehnt": frozenset({Collection.BERECHTIGUNGEN_ANTRAEGE}),
+    "antrag_zurueckgezogen": frozenset({Collection.BERECHTIGUNGEN_ANTRAEGE}),
+    "antrag_beendet": frozenset({Collection.BERECHTIGUNGEN_ANTRAEGE}),
 }
 
 _HASH: Final = re.compile(r"[0-9a-f]{64}")

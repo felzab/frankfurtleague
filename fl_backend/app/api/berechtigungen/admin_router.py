@@ -10,7 +10,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.adresswechsel.services import build_awaiting_genehmigung_filter
 from app.api.berechtigungen.antraege import (
-    abgelehnt_line,
+    antrag_line,
     antrag_steht,
     clear_the_address_in_session,
     compose_antrag,
@@ -866,7 +866,14 @@ async def delete_antrag(
                 now=now,
                 session=session,
             )
-        journal.note(abgelehnt_line(antrag=antrag, am=log_stamp(now), schluessel=config.sperrliste_schluessel))
+        journal.note(
+            antrag_line(
+                antrag=antrag,
+                art="antrag_zurueckgezogen" if zurueckgezogen else "antrag_abgelehnt",
+                am=log_stamp(now),
+                schluessel=config.sperrliste_schluessel,
+            )
+        )
 
     async with journal:
         async with transaction_session(db) as session:
