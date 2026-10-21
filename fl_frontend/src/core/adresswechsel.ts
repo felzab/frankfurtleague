@@ -19,9 +19,9 @@ export const ADRESSWECHSEL_WARTEZEIT_TAGE = 7;
 export const ADRESSWECHSEL_NACHLAUF_TAGE = 30;
 
 /**
- * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days after its start a write waits for a second
- * administrator's approval before it lapses; the notice states it for a change moving a grant. Exported for the
- * mirror test, as the waiting time is.
+ * Mirrored from `fl_backend/app/shared/schemas/bounds.py`: the days a write waits for a second administrator's approval
+ * before it lapses, which the notice states for a moved grant and a grant request. Exported for the mirror test, as the
+ * waiting time is.
  * @internal
  */
 export const GENEHMIGUNG_TAGE = 7;

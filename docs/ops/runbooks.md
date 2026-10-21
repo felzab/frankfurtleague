@@ -447,8 +447,10 @@ administration is shut while it is down. Each of these is easy to get wrong:
   wherever another owner could** (`docs/backend/spec.md :: I848`): it takes effect once that person
   approves it on the same page, someone who held their own grant since before the request
   (`:: I849`). Only an administrator, or an owner, nobody else could stand beside acts alone. Tell the
-  colleague: a request nobody decides lapses after a week (`:: I851`), and one whose requester was
-  revoked, demoted or barred since is approved by nobody and waits for a refusal (`:: I850`).
+  colleague: a request nobody decides lapses after the days
+  `fl_backend/app/shared/schemas/bounds.py :: GENEHMIGUNG_TAGE` counts (`docs/backend/spec.md :: I851`),
+  and one whose requester was revoked, demoted or barred since is approved by nobody and waits for a
+  refusal (`:: I850`).
 - **An `owner` is made, and steps down, only through the tier change an `owner` makes**
   (`PATCH /berechtigungen/{berechtigung_id}`, `docs/backend/spec.md :: I436`): it mails every
   administrator and is logged, and the last live, unbarred `owner` is demoted by nobody
@@ -1357,11 +1359,12 @@ counts and no person, `adresswechsel.sweep_pass`, at `INFO` where the pass left 
 `adresswechsel.sweep_failed` under `FE-SWEEP-001` besides.
 
 **A notice the drain could not send stays owed, and goes out again at a later drain** — behind the
-next confirmation or approval, or after the next pass — once its ten-minute lease lapses. A drain
-that failed files `FE-SWEEP-005`; a refused send `FE-MAIL-002`; a sign-in account the store failed
-to carry `FE-AUTH-013`, at `ERROR`, and its completion notice waits for the carry. After 24
-hand-outs the notice is given up under `FE-MAIL-016`, the account left at the replaced address, and
-nobody can be named afterwards, so repair the refusal while those lines stand:
+next confirmation or approval, or after the next pass — once its lease
+(`fl_backend/app/api/berechtigungen/services.py :: BEANSPRUCHUNG_DAUER`) lapses. A drain that failed
+files `FE-SWEEP-005`; a refused send `FE-MAIL-002`; a sign-in account the store failed to carry
+`FE-AUTH-013`, at `ERROR`, and its completion notice waits for the carry. After the hand-outs
+`:: VERSUCHE_HOECHSTENS` allows, the notice is given up under `FE-MAIL-016`, the account left at the
+replaced address, and nobody can be named afterwards, so repair the refusal while those lines stand:
 
     docker compose logs --since 2h frontend | grep -E 'adresswechsel\.(postausgang_failed|stempel_failed|notice_abandoned|wirksam_failed|nicht_wirksam_failed|konto_nicht_umgezogen)'
 
@@ -1491,7 +1494,7 @@ recreating the frontend service ends:
 
     docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_
 
-**Turn the confirmations on once, on a day you choose after this season's player records are reset
+**Turn the confirmations on once, on a day you choose after the pupils and referees are deleted
 (§12), in the same edit as the report form's switch below: the first armed passes are a burst.**
 `SPIEL_SWEEP` ships off, so a deploy mails no team. Armed, the passes ask about every dated fixture
 of the running season inside the answer window
@@ -1509,7 +1512,7 @@ mail at once, the lever for an outage or a fault at the mail provider: until the
 on it, a pass can still mail.
 
 **The referee's report form opens on `SPIELBERICHT_EINGABE=on`, added to `fl_frontend/.env` in the
-same edit as `SPIEL_SWEEP=on`, and never before this season's player records are reset (§12).** A
+same edit as `SPIEL_SWEEP=on`, and never before the pupils and referees are deleted (§12).** A
 report names pupils by their records, so one written before the reset names records the reset
 deletes. It ships off: until the frontend has booted on it, the form shows a closed state and both
 the referee's save and the administrator's refuse before any request leaves. Off again is that line

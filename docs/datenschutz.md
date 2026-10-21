@@ -867,8 +867,9 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   or given up**: an effect's row holds the replaced address, the new one and, where the address on
   file asked for or approved the change, the first name, a refusal's the new address alone. Each is
   written in the end's own transaction, so a lost answer loses no notice, and removed with no image
-  in the log once delivered or after 24 hand-outs (`docs/backend/spec.md :: I846`, `:: I480`); an
-  erasure of either address removes it.
+  in the log once delivered or after the hand-outs
+  `fl_backend/app/api/berechtigungen/services.py :: VERSUCHE_HOECHSTENS` allows
+  (`docs/backend/spec.md :: I846`, `:: I480`); an erasure of either address removes it.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered where the address holds an account; an
   address holding none is mailed nothing** (`docs/frontend/spec.md :: I517`). Ruled 2026-09-27.
