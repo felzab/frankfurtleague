@@ -509,8 +509,8 @@ REFERENCES: tuple[Reference, ...] = (
             "`post_saison_team` reads the club, so entry naming one `teams` does not hold is a 404 and entry naming a "
             "RETIRED one is refused (`REQ-ENTER-005`); that same read seeds this row's `name` and `shorthand`, which a "
             "rename then rewrites while the season is not `past`; a REPLACEMENT is the third writer of all three, reseeding them "
-            "from the incoming club. A row naming no club predates that read -- the entry resolved nothing before it -- and is now "
-            "reachable only by a database edit; `report_relations` is what surfaces one, and the replacement is what repairs one, "
+            "from the incoming club. A row naming no club is reachable only by a database edit, clubs being retired and never "
+            "deleted; `report_relations` is what surfaces one, and the replacement is what repairs one, "
             "which is why it resolves the INCOMING club alone and never the outgoing one. "
             "Retiring a club is refused while a running or planned season holds it (`REQ-RETIRE-001`). A "
             "past season's rows survive the retirement, because those seasons still happened."
@@ -557,7 +557,7 @@ REFERENCES: tuple[Reference, ...] = (
         note=(
             "`REQ-SQUAD-001` counts a `saison_teams` row for the season and reads `teams` nowhere, so this rests on "
             "`post_saison_team` resolving the club at the junction's own entry: a squad row can name a club no "
-            "`teams` document holds only where the junction row predates that read. "
+            "`teams` document holds only by a database edit. "
             "Nothing is embedded and nothing is refused afterwards: a squad row pointing at a retired club still "
             "resolves, and the admin list renders it rather than hiding it."
         ),

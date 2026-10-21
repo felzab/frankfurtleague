@@ -127,8 +127,8 @@ export function mapEinwilligungErneutRefusal(error: unknown): string | null {
         reason: "Über diese Bewerbung ist schon entschieden worden, und ein neuer Link wäre nicht mehr zu beantworten",
         repair: LADE_DIE_SEITE_NEU,
       });
-    // Answered, declined, or a seat an application from before the workflow holds: one sentence for
-    // all three, because the control is offered from a page whose state has since moved.
+    // Answered, declined, or a seat holding no link to answer: one sentence for all three, because
+    // the control is offered from a page whose state has since moved.
     case "REQ-BEWERBUNG-011":
       return buildRefusal({
         reason: "Für diese Rolle steht keine Bestätigung mehr aus",

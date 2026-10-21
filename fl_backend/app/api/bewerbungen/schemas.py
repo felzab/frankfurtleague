@@ -117,8 +117,8 @@ class FLBewerbungBestaetigung(BaseModel):
     # Beside the slot rather than inside it: a decline EMPTIES the person's slot, and a marker in
     # there would go with it.
     abgelehnt_am: CustomOptionalDateString
-    # Null on every seat mailed before the delivery state existed, and on every fresh entry a re-send
-    # writes: nothing is yet known about the message that entry's link went out in.
+    # Defaulted, as every fresh entry, the submission's and a re-send's, is written without it: nothing
+    # is yet known about the message that entry's link went out in.
     zustellung: FLBewerbungZustellung | None = None
 
 
