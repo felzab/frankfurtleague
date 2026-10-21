@@ -766,10 +766,9 @@ class TestTheReads:
         assert ohne_saison.spiele == []
 
     def test_the_referee_s_list_holds_the_reports_of_ended_seasons_apart(self, mongo_replica_set_url: str):
-        """Of an ended season, only a fixture booked to them now and holding a report: its page shows that report read-only.
+        """Of an ended season, only a fixture booked to them now holding a report its page shows read-only, an undated one last.
 
-        The season before's report stands, and so does one whose fixture's date was cleared after it, listed last; its
-        unreported fixture, the other referee's and the running season's do not reach `fruehere`.
+        The season before's unreported fixture, the other referee's and the running season's stay out.
         """
 
         unberichtet, anderer, undatiert = ObjectId(), ObjectId(), ObjectId()
