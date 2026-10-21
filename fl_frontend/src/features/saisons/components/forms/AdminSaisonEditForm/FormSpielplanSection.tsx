@@ -87,6 +87,7 @@ export function FormSpielplanSection({
   spieltageCount,
   schedule,
   bestand,
+  eingereichteBerichte,
   hasDrawnSpiele,
   onBeforeWrite,
   redraw,
@@ -137,6 +138,7 @@ export function FormSpielplanSection({
     spieltageCount,
     schedule,
     bestand,
+    eingereichteBerichte,
   });
 
   const holdsADraw = spielplanHoldsADraw(controlInput);

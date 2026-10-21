@@ -1125,7 +1125,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "email",
         Editability.CONTROL_ONLY,
         "written by two controls alone, each as `sign_in_identifier` folds an address: the admission, from the registration's "
-        "address at the person's creation or onto a proposed person holding none, and an address change taking effect -- its "
+        "address at the person's creation, and an address change taking effect -- its "
         "new mailbox's confirmation through `POST /adresswechsel/bestaetigung`, an administrator's approval, or the hourly "
         "`POST /adresswechsel/sweep` at the end of its waiting time -- from the address that mailbox proved. No payload "
         "carries it, an admission never gives a person holding one another, and `uniq_spieler_email` keeps one person per address. "
@@ -1422,8 +1422,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.REGISTRIERUNGEN,
         "geburtsdatum",
         Editability.COMPOSED,
-        "on no admin payload: the pupil answers on the confirmation page, whose returning pupil's variant asks none where "
-        "the person holds one and the press writes the stored date, never serving it -- matched on the folded address AND the "
+        "on no admin payload: the pupil answers on the confirmation page, whose returning pupil's variant asks none, the "
+        "press writing the stored date, never serving it, and refusing a person holding none (`REQ-REGISTRIERUNG-019`) -- "
+        "matched on the folded address AND the "
         "folded name, so a sibling registering from a mailbox shared anyway is not given the stored person's date -- and "
         "the write lands in the same `$set` as the consent record it is checked for (`REQ-REGISTRIERUNG-007`). No "
         "control puts it back, so a mistyped date is corrected by registering again. A returning pupil's stored date, which "
@@ -3002,6 +3003,15 @@ RULES: tuple[Rule, ...] = (
         summary="a registration confirmed on the returning pupil's page admits nobody where its address holds no stored person",
         implemented_by="app.api.registrierungen.services.find_person_fehlt_refusal",
         tested_by="tests/api/test_registrierung_aufnahme.py::TestAReturningRegistration",
+    ),
+    Rule(
+        code="REQ-REGISTRIERUNG-019",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /registrierungen/bestaetigung",
+        aggregate="Registrierung",
+        summary="the returning pupil's page confirms nobody whose stored person holds no birthdate for it to take",
+        implemented_by="app.api.registrierungen.services.find_ohne_geburtsdatum_refusal",
+        tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestTheBirthdateAPageTakesAsGiven",
     ),
     Rule(
         code="REQ-EINWILLIGUNG-002",

@@ -18,7 +18,6 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { gepaarteSitze } from "./bestaetigungStand";
 import { ERNEUT_OHNE_ADRESSE } from "./constants";
 import { ablehnenBewerbung, annehmenBewerbung, besetzenKontaktSitz, erneutSendenEinwilligung, korrigierenKontaktEmail } from "./mutations";
 import { collectBewerbungEmpfaenger, describeBewerbungMail, rollenText, sendBewerbungMail } from "./notifications";
@@ -300,8 +299,8 @@ type Zustellung = { versand: LinkVersand; message: string };
 const nichtVerschickt = (message: string): Zustellung => ({ versand: "fehlgeschlagen", message: message });
 
 /**
- * The token is minted and the deadline moved by the time this runs, so each ANSWER reports a write
- * that stands: a refused send is a message to try again rather than a write that did not happen.
+ * The token is minted and the deadline moved by the time this runs, so it never throws and each ANSWER reports a
+ * write that stands: a refused send is a message to try again.
  */
 async function sendeBestaetigungErneut({
   operation,
@@ -311,6 +310,7 @@ async function sendeBestaetigungErneut({
   benanntesTeam,
   sitze,
   token,
+  frist,
   ohneLink,
 }: {
   /** The press this send belongs to, which every failure line below names. */
@@ -322,29 +322,14 @@ async function sendeBestaetigungErneut({
   /** Every seat this one link answers for. Phrased here rather than by each caller, so the message and the delivery record name one set. */
   sitze: readonly KontaktRolle[];
   token: string;
+  /**
+   * The deadline the write's own answer set, never the page's read: a frontend clock reckoning fourteen days itself
+   * would disagree with the server across midnight.
+   */
+  frist: string;
   /** What the calling press cost where no message went out, in that press's own words. */
   ohneLink: string;
 }): Promise<Zustellung> {
-  let frist: string;
-
-  try {
-    // Read AFTER the write: the deadline this message states is the one the re-send just set, and a
-    // frontend clock reckoning fourteen days itself would disagree with the server across midnight.
-    const gelesen = await getBewerbungById(bewerbungId);
-    if (gelesen === null) return nichtVerschickt(ohneLink);
-
-    frist = gelesen.bewerbung.bestaetigungsfrist;
-  } catch (error) {
-    // Name only, never the error, and never the token (`docs/logging/spec.md :: L9`).
-    logger.error("bewerbung.mail_failed", undefined, {
-      error_code: "FE-MAIL-002",
-      name: error instanceof Error ? error.name : undefined,
-      operation: operation,
-    });
-
-    return nichtVerschickt(ohneLink);
-  }
-
   const fristText = formatSpielDatum(frist);
   const origin = frontend_config.AUTH_URL;
 
@@ -431,6 +416,7 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
       benanntesTeam: benanntesTeam,
       sitze: erneutOperation.rollen,
       token: erneutOperation.token,
+      frist: erneutOperation.bestaetigungsfrist,
       ohneLink: KEIN_LINK_VERSCHICKT,
     });
 
@@ -494,34 +480,24 @@ export async function kontaktEmailKorrigierenAction(
         : mailKontaktAbgang({
             operation: "kontaktEmailKorrigierenAction",
             saisonId: bewerbung.saison_id,
-            abgang: { email: abgangEmail, rollen: korrekturOperation.rollen, schule: benanntesTeam },
+            // Every seat the person held moves with the address, and no other person shares a mailbox with them.
+            abgang: { email: abgangEmail, rollen: korrekturOperation.rollen, schule: benanntesTeam, bleibt_als: [] },
           });
 
-    let zustellung;
-    try {
-      zustellung = await sendeBestaetigungErneut({
-        operation: "kontaktEmailKorrigierenAction",
-        bewerbungId: validated.data.id,
-        saisonId: bewerbung.saison_id,
-        // The address the write just stored, never the one the read still holds nor the one typed: the message the
-        // administrator asked for is the one going to the corrected mailbox, in the form its delivery events name.
-        person: { vorname: person.vorname, email: korrekturOperation.email },
-        benanntesTeam: benanntesTeam,
-        sitze: gepaarteSitze(bewerbung, validated.data.rolle),
-        token: korrekturOperation.token,
-        ohneLink: KORREKTUR_OHNE_LINK,
-      });
-    } catch (error) {
-      // The address is stored by the time this runs, so a throw escaping here would answer a
-      // correction that stands with „nicht korrigiert“. Name only, never the error or the token
-      // (`docs/logging/spec.md :: L9`).
-      logger.error("bewerbung.mail_failed", undefined, {
-        error_code: "FE-MAIL-002",
-        name: error instanceof Error ? error.name : undefined,
-        operation: "kontaktEmailKorrigierenAction",
-      });
-      zustellung = nichtVerschickt(KORREKTUR_OHNE_LINK);
-    }
+    const zustellung = await sendeBestaetigungErneut({
+      operation: "kontaktEmailKorrigierenAction",
+      bewerbungId: validated.data.id,
+      saisonId: bewerbung.saison_id,
+      // The address the write just stored, never the one the read still holds nor the one typed: the message the
+      // administrator asked for is the one going to the corrected mailbox, in the form its delivery events name.
+      person: { vorname: person.vorname, email: korrekturOperation.email },
+      benanntesTeam: benanntesTeam,
+      // The seats the WRITE answered, as the leaving notice above names them, never a pairing read before it.
+      sitze: korrekturOperation.rollen,
+      token: korrekturOperation.token,
+      frist: korrekturOperation.bestaetigungsfrist,
+      ohneLink: KORREKTUR_OHNE_LINK,
+    });
     await abgang;
 
     return { success: true, ...zustellung };
@@ -566,32 +542,19 @@ export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSit
     // No tag moves, for the correction's reason: this writes the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
 
-    let zustellung;
-    try {
-      zustellung = await sendeBestaetigungErneut({
-        operation: "besetzeKontaktSitzAction",
-        bewerbungId: validated.data.id,
-        saisonId: gelesen.bewerbung.saison_id,
-        // As stored, never as typed: the form its delivery events name.
-        person: { vorname: validated.data.vorname, email: sitzOperation.email },
-        benanntesTeam: benanntesTeam,
-        // The WRITE's own answer, never `gepaarteSitze`: that helper mirrors `paired_seat`, which
-        // drops an emptied seat from the pair, and every seat this write filled was emptied.
-        sitze: sitzOperation.rollen,
-        token: sitzOperation.token,
-        ohneLink: BESETZUNG_OHNE_LINK,
-      });
-    } catch (error) {
-      // The person is seated by the time this runs, so a throw escaping here would answer a write
-      // that stands with „nicht besetzt“. Name only, never the error or the token
-      // (`docs/logging/spec.md :: L9`).
-      logger.error("bewerbung.mail_failed", undefined, {
-        error_code: "FE-MAIL-002",
-        name: error instanceof Error ? error.name : undefined,
-        operation: "besetzeKontaktSitzAction",
-      });
-      zustellung = nichtVerschickt(BESETZUNG_OHNE_LINK);
-    }
+    const zustellung = await sendeBestaetigungErneut({
+      operation: "besetzeKontaktSitzAction",
+      bewerbungId: validated.data.id,
+      saisonId: gelesen.bewerbung.saison_id,
+      // As stored, never as typed: the form its delivery events name.
+      person: { vorname: validated.data.vorname, email: sitzOperation.email },
+      benanntesTeam: benanntesTeam,
+      // The WRITE's own answer: `paired_seat` drops an emptied seat from the pair, and every seat this write filled was emptied.
+      sitze: sitzOperation.rollen,
+      token: sitzOperation.token,
+      frist: sitzOperation.bestaetigungsfrist,
+      ohneLink: BESETZUNG_OHNE_LINK,
+    });
 
     return { success: true, ...zustellung };
   });

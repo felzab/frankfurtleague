@@ -16,6 +16,8 @@ import { answerReadsWith, clearSteps, EMPTIEST_ANSWER, pageBody, readsOf, render
 import { textOf } from "@/shared/testing/renderTest.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
+import { FLOffeneRegistrierungSchema } from "../../schemas.ts";
+
 import type { UserEvent } from "@testing-library/user-event";
 
 const { setSubject } = doubleSubjectLookup(person({ sitze: [sitz({ rolle: "trainer" })] }));
@@ -193,12 +195,12 @@ describe("the registrations page, as a seat holder reads it", () => {
   });
 });
 
-/** The view with one confirmed row, `fields` over it. */
+/** The view with one confirmed row, `fields` over it, parsed as the page parses it: a row drifting from the wire fails here. */
 const viewWith = (fields: Record<string, unknown>) =>
   render(
     underNext(
       h(RegistrierungenView, {
-        registrierungen: [zeile(LENA, "Lena", "Meier", fields)] as never,
+        registrierungen: [FLOffeneRegistrierungSchema.parse(zeile(LENA, "Lena", "Meier", fields))],
         adresse: ADRESSE,
         unvollstaendig: null,
       }),

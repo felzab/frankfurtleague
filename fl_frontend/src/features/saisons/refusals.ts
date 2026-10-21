@@ -1,7 +1,14 @@
 import { SAISONS_EINTRAG } from "@/features/admin/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 
-import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, REGELN_ABSCHNITT, SPIELPLAN_ABSCHNITT, SPIELTAGE_UNDATED } from "./constants";
+import {
+  GRUPPEN_OFF_RULES,
+  RECORDED_FACTS_NONE,
+  REGELN_ABSCHNITT,
+  SPIELBERICHTE_HALTEN_DEN_SPIELPLAN,
+  SPIELPLAN_ABSCHNITT,
+  SPIELTAGE_UNDATED,
+} from "./constants";
 import { MAX_QUALIFIERS } from "./schemas";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -118,10 +125,6 @@ export function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?:
       return null;
   }
 }
-
-// No reload and no repair: the panel cannot see a report, and no page takes one back, so a fresh page meets this too.
-const SPIELBERICHTE_HALTEN_DEN_SPIELPLAN =
-  "Für diese Saison sind Spielberichte eingereicht. Solange ein Spielbericht vorliegt, lässt sich der Spielplan weder neu auslosen noch zurücknehmen.";
 
 /**
  * A generator refusal as the message it should render, or `null` for any other code. A state the panel

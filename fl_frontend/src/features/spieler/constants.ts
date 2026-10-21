@@ -53,8 +53,8 @@ export const EINWILLIGUNG_UMFANG_LABELS: Record<FLEinwilligung["umfang"], string
 };
 
 /**
- * `false` is read as nobody having agreed rather than as a refusal: the value stands on a carried-over
- * record nobody was asked, and a word naming a decision would put one in that person's mouth.
+ * `false` is read as nobody having agreed rather than as a refusal: it stands on a seat the applicant
+ * entered until its person answers, and a word naming a decision would put one in that person's mouth.
  */
 export const EINWILLIGUNG_MEDIEN_LABELS = {
   erteilt: "Fotos, Videos und Interviews zugesagt",

@@ -10,6 +10,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.saisons.crud import pull_current_saison_id, pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielberichte.crud import pull_zustaende, restore_the_adoption, stamp_the_adoption
+from app.api.spielberichte.schemas import FLSpieleActionRequiredResponse
 from app.api.spielberichte.services import BERICHT_ZUSTAENDE_OFFEN, seiten_of
 from app.api.spielbestaetigungen.services import ansetzung_stand_of, build_triage_rows_filter
 from app.api.spiele.crud import (
@@ -36,7 +37,6 @@ from app.api.spiele.schemas import (
     FLPatchSpielPaarungPayload,
     FLSpiel,
     FLSpielAdvancement,
-    FLSpieleActionRequiredResponse,
     FLSpieleAdminListResponse,
     FLSpieleAdminSingleResponse,
     FLSpieleFilterParams,
@@ -159,7 +159,7 @@ async def get_spiele_action_required(
 
     Qualifying: cancelled, missing a date, time, venue or referee, past with no result, a
     knockout side with neither team nor `quelle`, or holding a referee's report the administrator has
-    not adopted as it stands (`GET /spielberichte` serves its state). Scoped to `saison_id`, the active season when none
+    not adopted as it stands. Every report's state the season holds is served beside them. Scoped to `saison_id`, the active season when none
     is named, which answers 404 while no season is active.
 
     Also every fixture a club's unclosed confirmation about its Ansetzung as it stands puts before the
@@ -249,7 +249,7 @@ async def get_spiele_action_required(
         for spiel in FLSpielJoinedAdminListAdapter.validate_python(berichtet_raw):
             by_id.setdefault(spiel.id, spiel)
 
-    return FLSpieleActionRequiredResponse(spiele=list(by_id.values()), bracket_faults=bracket_faults)
+    return FLSpieleActionRequiredResponse(spiele=list(by_id.values()), bracket_faults=bracket_faults, spielberichte=berichte)
 
 
 # A static suffix rather than a second `GET /{spiel_id}`: the public router owns that path at this
