@@ -155,6 +155,24 @@ describe("the person's own start of an address change", () => {
     );
   });
 
+  /* Never refused at the person's own start for an account at the new address: its answer would tell whoever types an
+     address whether somebody signs in with it. The new mailbox's press refuses it instead. */
+  it("starts a change onto an address an account already signs in at, as onto any other", async () => {
+    const { row } = await sessionByCode(auth, store, NEU);
+    try {
+      await angemeldet();
+
+      const answer = await starteAdresswechselAction({ email: NEU });
+
+      assert.equal(answer.success, true, JSON.stringify(answer));
+      assert.deepEqual(writes, [{ method: "POST", path: ADRESSWECHSEL, body: { email: NEU }, actor: true }]);
+    } finally {
+      // The store outlives each case, and no other case expects an account at the new address.
+      store.session.splice(0, store.session.length, ...store.session.filter(({ userId }) => userId !== row.userId));
+      store.user.splice(0, store.user.length, ...store.user.filter(({ id }) => id !== row.userId));
+    }
+  });
+
   /* The answer reaches the browser: neither token, nor either address, ever does. */
   it("answers the browser one sentence carrying no token and no address", async () => {
     await angemeldet();

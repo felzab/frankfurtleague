@@ -1864,6 +1864,15 @@ async function deleteEndedSessions(adapter: Pick<DBTransactionAdapter, "deleteMa
   }
 }
 
+/**
+ * Whether an account signs in at `address`, which refuses an address change onto it as the library's own change of
+ * address refuses one (`better-auth/api :: changeEmail`): joining it would hand one person's sign-in to another.
+ */
+export async function accountStandsAt(address: string): Promise<boolean> {
+  const { internalAdapter } = await auth.$context;
+  return (await internalAdapter.findUserByEmail(asSignInIdentifier(address))) !== null;
+}
+
 /** Where an address change's effect left the replaced address's account: moved, none there, or the new address holding its own. */
 export type KontoUmzug = "umgezogen" | "keines" | "belegt";
 
@@ -1888,6 +1897,7 @@ export async function carryAccount(bisherige: string, neue: string): Promise<Kon
     return "umgezogen";
   } catch (failed) {
     // `user_email_uidx` refusing a second account: the new address signs in to its own, the old one waits for the account sweep.
+    // Every press and approval refuses such an address (`accountStandsAt`), so only an account opened there since reaches this.
     if (failed instanceof MongoServerError && failed.code === DUPLICATE_KEY && "email" in (failed.keyPattern ?? {})) return "belegt";
     throw failed;
   }

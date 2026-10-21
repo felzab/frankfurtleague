@@ -1561,6 +1561,8 @@ const LANDINGS: Record<string, Landing> = {
           bewerbungen: [],
           registrierungen: [],
           adresswechsel: [],
+          eigener_adresswechsel: null,
+          antraege: [],
           verwaltung: null,
         },
       },

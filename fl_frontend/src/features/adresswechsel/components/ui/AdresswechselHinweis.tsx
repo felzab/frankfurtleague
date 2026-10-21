@@ -69,8 +69,8 @@ export function AdresswechselHinweis({ adresswechselId, verwehrt }: { adresswech
         />
       )}
       <p className="muted-hint text-pretty">
-        Mit dieser Adresse meldet sich die Person an. Eine neue trägt sie selbst in ihrem Konto ein. Kann sie sich nicht mehr anmelden, ändert
-        die Verwaltung sie unter{" "}
+        Mit dieser Adresse meldet sich die Person an. Eine neue trägt sie selbst in ihrem Konto ein. Sagt sie, dass sie sich nicht mehr anmelden
+        kann, ändert die Verwaltung sie unter{" "}
         <Link
           href={saisonHref("/bereich/admin/adresswechsel")}
           prefetch={false}

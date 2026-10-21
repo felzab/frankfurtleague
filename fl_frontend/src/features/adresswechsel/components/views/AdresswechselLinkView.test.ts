@@ -9,11 +9,13 @@ import { act, createElement as h } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { ADRESSWECHSEL_STOPPEN, JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
+import { ADRESSWECHSEL_STOPPEN, JA_ANGEFRAGT, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
+import { KONTAKT_EMAIL } from "@/core/brand.ts";
+import { overridingModule, registerDoubles } from "@/core/exportingModule.ts";
 import { KONTO_HREF } from "@/core/kontoHref.ts";
 import { doubleLogger, doubleToasts, loggedErrorCodes, loggedErrorTraces } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
-import { answerReadsWith, backendUnreachable, EDGE_TRACE_ID, pageBody } from "@/shared/testing/pageHarness.ts";
+import { answerReadsWith, backendUnreachable, clearSteps, EDGE_TRACE_ID, pageBody, steps } from "@/shared/testing/pageHarness.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
@@ -21,6 +23,17 @@ import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 import type { AdresswechselStart } from "@/features/adresswechsel/link.ts";
 import type { NextPageProps } from "@/shared/types/types.ts";
 import type { ReactElement } from "react";
+
+/** The folded addresses the sign-in store holds an account at, which the page asks about a live link's new address. */
+let konten: string[] = [];
+registerDoubles({
+  modules: {
+    // The real store, but for the one lookup the page makes: no database answers this process.
+    "core/auth.ts": overridingModule(`${import.meta.resolve("@/core/auth.ts")}?real`, {
+      accountStandsAt: () => async (address: string) => konten.includes(address),
+    }),
+  },
+});
 
 const { raised: toasts } = doubleToasts();
 const fetchMock = doubleFetch();
@@ -76,8 +89,17 @@ describe("the new mailbox's side of the address page", () => {
 
     assert.deepEqual(
       screen.getAllByRole("button").map((button) => button.textContent.trim()),
-      [JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE],
+      [JA_ANGEFRAGT, NICHT_MEINE_ADRESSE],
     );
+  });
+
+  /* The holder of an address the league already writes to owns it truthfully, so a press asking that would hand a
+     stranger's records over: the confirmation asks about the change. */
+  it("asks whether the reader asked for the change, never whether the address is theirs", () => {
+    render(h(AdresswechselLinkView, { start: OFFEN }));
+
+    const [bestaetigen] = screen.getAllByRole("button");
+    assert.equal(bestaetigen?.textContent.trim(), "Ja, ich habe diese Änderung angefragt");
   });
 
   /* The change moves every record the address holds, so the page names no record; the deadline is an instant. */
@@ -105,12 +127,27 @@ describe("the new mailbox's side of the address page", () => {
       const shown = words({ zustand, weg: "konto", token: "abc123" });
 
       assert.ok(shown.includes(NICHT_MEINE_ADRESSE), "the decline is missing");
-      assert.ok(!shown.includes(JA_MEINE_ADRESSE), "a closed link offers the confirmation");
+      assert.ok(!shown.includes(JA_ANGEFRAGT), "a closed link offers the confirmation");
     });
   }
 
   it("names neither a ban nor another pupil on a change it can no longer confirm", () => {
     assert.doesNotMatch(words({ zustand: "nicht_bestaetigbar", weg: "konto", token: "abc123" }), /gesperrt|Sperre|bisherige|andere/);
+  });
+
+  /* An account's move still owed, or entries the league removes, refuse the confirmation for a while only: the page claims
+     no end, and offers the retry beside the league. */
+  it("tells a change it cannot confirm now to try again later or write to the league, and claims no end", () => {
+    render(h(AdresswechselLinkView, { start: { zustand: "nicht_bestaetigbar", weg: "konto", token: "abc123" } }));
+
+    assert.equal(screen.getByRole("heading", { level: 1 }).textContent, "Bestätigung gerade nicht möglich");
+    assert.ok(
+      document.body.textContent.includes(
+        `Diese Änderung der E-Mail-Adresse kann gerade nicht bestätigt werden. Versuche es später erneut, oder schreib uns an ${KONTAKT_EMAIL}.`,
+      ),
+      document.body.textContent,
+    );
+    assert.doesNotMatch(document.body.textContent, /nicht mehr/);
   });
 
   /* Only the person's own start can be asked again on the account page; an administrator's needs the league. */
@@ -141,7 +178,7 @@ describe("the new mailbox's side of the address page", () => {
     assert.doesNotMatch(wartezeit, /meldest Du Dich mit der bisherigen an/, "a lost mailbox's holder is sent back to it");
     assert.match(wartezeit, /Danach meldest Du Dich mit einem Code an die neue an\. Passkeys der bisherigen gelten dann nicht mehr/);
     assert.ok(
-      !wartezeit.includes(JA_MEINE_ADRESSE) && !wartezeit.includes(NICHT_MEINE_ADRESSE),
+      !wartezeit.includes(JA_ANGEFRAGT) && !wartezeit.includes(NICHT_MEINE_ADRESSE),
       "a pressed link offers a press the backend refuses",
     );
   });
@@ -187,7 +224,7 @@ describe("the new mailbox's side of the address page", () => {
       [OFFEN, null],
       [STOPP, null],
       [{ zustand: "abgelaufen", weg: "konto", token: "abc123" }, "Dieser Link ist abgelaufen."],
-      [{ zustand: "nicht_bestaetigbar", weg: "konto", token: "abc123" }, "kann nicht mehr bestätigt werden."],
+      [{ zustand: "nicht_bestaetigbar", weg: "konto", token: "abc123" }, "kann gerade nicht bestätigt werden."],
       [{ zustand: "bestaetigt", wirksamAb: null, genehmigungOffen: true, weg: "konto" }, "sobald die Verwaltung die Änderung genehmigt hat."],
       [{ zustand: "genehmigung_abgelaufen", weg: "konto" }, "weil die Verwaltung ihr nicht rechtzeitig zugestimmt hat."],
       [{ zustand: "beendet", seite: "bisherig", art: "wirksam" }, "Für das Konto gilt inzwischen eine neue E-Mail-Adresse."],
@@ -200,13 +237,9 @@ describe("the new mailbox's side of the address page", () => {
   });
 
   for (const [gedrueckteTaste, antwort, ergebnis] of [
-    [
-      JA_MEINE_ADRESSE,
-      gedrueckt("bestaetigt", { wirksam: true }),
-      /Die neue E-Mail-Adresse gilt jetzt\. Melde Dich mit ihr neu an\..*Passkey/s,
-    ],
+    [JA_ANGEFRAGT, gedrueckt("bestaetigt", { wirksam: true }), /Die neue E-Mail-Adresse gilt jetzt\. Melde Dich mit ihr neu an\..*Passkey/s],
     // A change an administrator started with a reason takes effect only once its waiting time ends.
-    [JA_MEINE_ADRESSE, gedrueckt("bestaetigt", { wirksam_ab: "2026-10-28T12:30:00Z" }), /gilt ab 28\. Oktober 2026 um 13:30\./],
+    [JA_ANGEFRAGT, gedrueckt("bestaetigt", { wirksam_ab: "2026-10-28T12:30:00Z" }), /gilt ab 28\. Oktober 2026 um 13:30\./],
     [NICHT_MEINE_ADRESSE, gedrueckt("abgelehnt"), /Diese Adresse ist aus der Änderung entfernt und wird nicht übernommen\./],
   ] as const) {
     it(`posts „${gedrueckteTaste}“ as ${antwort.antwort} to the one route and shows its result`, async () => {
@@ -226,17 +259,17 @@ describe("the new mailbox's side of the address page", () => {
      offer with the token, or the route refuses it as a link opened without one (`docs/frontend/spec.md :: I630`). */
   for (const [zustand, panel] of [
     ["abgelaufen", /Dieser Link ist abgelaufen/],
-    ["nicht_bestaetigbar", /kann nicht mehr bestätigt werden/],
+    ["nicht_bestaetigbar", /kann gerade nicht bestätigt werden/],
   ] as const) {
     it(`turns a link ${zustand} under the press into that panel, keeping the token for the decline`, async () => {
       const { sent } = answerEveryFetch({ success: false, zustand });
 
       render(h(AdresswechselLinkView, { start: OFFEN }));
       const user = userEvent.setup();
-      await user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE }));
+      await user.click(screen.getByRole("button", { name: JA_ANGEFRAGT }));
       await act(fetchMock.answered);
       await waitFor(() => assert.match(document.body.textContent, panel));
-      assert.equal(screen.queryAllByRole("button", { name: JA_MEINE_ADRESSE }).length, 0);
+      assert.equal(screen.queryAllByRole("button", { name: JA_ANGEFRAGT }).length, 0);
       assert.deepEqual(toasts, []);
 
       await user.click(screen.getByRole("button", { name: NICHT_MEINE_ADRESSE }));
@@ -256,7 +289,7 @@ describe("the new mailbox's side of the address page", () => {
 
     render(h(AdresswechselLinkView, { start: OFFEN }));
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE }));
+    await user.click(screen.getByRole("button", { name: JA_ANGEFRAGT }));
     await act(fetchMock.answered);
     await waitFor(() => assert.match(document.body.textContent, /Dieser Link ist abgelaufen/));
 
@@ -274,7 +307,7 @@ describe("the new mailbox's side of the address page", () => {
     answerEveryFetch({ success: false, error: satz });
 
     render(h(AdresswechselLinkView, { start: OFFEN }));
-    await userEvent.setup().click(screen.getByRole("button", { name: JA_MEINE_ADRESSE }));
+    await userEvent.setup().click(screen.getByRole("button", { name: JA_ANGEFRAGT }));
     await act(fetchMock.answered);
 
     await waitFor(() => assert.equal(toasts.length, 1));
@@ -286,7 +319,7 @@ describe("the new mailbox's side of the address page", () => {
     answerEveryFetch({ success: false, ansicht: { zustand: "beendet", seite: "neu", art: "ersetzt" } });
 
     render(h(AdresswechselLinkView, { start: OFFEN }));
-    await userEvent.setup().click(screen.getByRole("button", { name: JA_MEINE_ADRESSE }));
+    await userEvent.setup().click(screen.getByRole("button", { name: JA_ANGEFRAGT }));
     await act(fetchMock.answered);
 
     await waitFor(() => assert.match(document.body.textContent, /durch eine neuere ersetzt/));
@@ -426,19 +459,24 @@ const pageStart = async (): Promise<AdresswechselStart> =>
     })) as ReactElement<{ start: AdresswechselStart }>
   ).props.start;
 
+/** The system tier's read of a live link's new address, which the page asks the sign-in store about. */
+const ADRESSE = "/adresswechsel/sweep/adresse";
+const NEUE_ADRESSE = "lena@neu.example";
+
+/** An open link's read, its new address answered to the system tier's read beside it. */
+const OFFENE_ANSICHT = {
+  acknowledged: 1,
+  ansicht: { seite: "neu", zustand: "gueltig", gueltig_bis: "2026-10-21T11:30:00Z", wirksam_ab: null, weg: "konto", genehmigung_offen: false },
+};
+const offenGelesen = (endpoint: string) => (endpoint === ADRESSE ? { acknowledged: 1, email: NEUE_ADRESSE } : OFFENE_ANSICHT);
+
 describe("the address page over its read", () => {
+  afterEach(() => {
+    konten = [];
+  });
+
   it("opens the new mailbox's side and the stop side with the link's token, and an ended change without", async () => {
-    answerReadsWith(() => ({
-      acknowledged: 1,
-      ansicht: {
-        seite: "neu",
-        zustand: "gueltig",
-        gueltig_bis: "2026-10-21T11:30:00Z",
-        wirksam_ab: null,
-        weg: "konto",
-        genehmigung_offen: false,
-      },
-    }));
+    answerReadsWith(offenGelesen);
     assert.deepEqual(await pageStart(), { zustand: "gueltig", gueltigBis: "2026-10-21T11:30:00Z", weg: "konto", token: "kein-echtes-token" });
 
     answerReadsWith(() => ({
@@ -465,6 +503,20 @@ describe("the address page over its read", () => {
     }));
 
     assert.deepEqual(await pageStart(), { zustand: "genehmigung_abgelaufen", weg: "konto" });
+  });
+
+  /* The backend's view cannot see the sign-in store, so the page closes the confirmation its press would refuse, as the
+     backend's own refusals of the address close it, and keeps the token for the decline. */
+  it("opens a live link whose new address an account signs in at as unconfirmable, keeping the token for the decline", async () => {
+    konten = [NEUE_ADRESSE];
+    answerReadsWith(offenGelesen);
+    clearSteps();
+
+    assert.deepEqual(await pageStart(), { zustand: "nicht_bestaetigbar", weg: "konto", token: "kein-echtes-token" });
+    assert.deepEqual(
+      steps.flatMap((step) => (step.kind === "read" && step.endpoint === ADRESSE ? [[step.body, step.authType]] : [])),
+      [[{ token: "kein-echtes-token" }, "system"]],
+    );
   });
 
   it("opens on its own state where the network never answered the read, rather than calling a live link void", async () => {

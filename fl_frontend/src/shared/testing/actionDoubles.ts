@@ -275,6 +275,8 @@ type SignInAnswers = {
   accountDeletionFailure: Error | null;
   /** Whether an account holds the address a ban signs out or an erasure deletes, which the real store answers. */
   accountHeld: boolean;
+  /** The folded addresses `accountStandsAt` finds an account at; none unless a case names one. */
+  accountsAt: string[];
   /** `isFreshlySignedIn`'s answer, whatever session it is handed. */
   fresh: boolean;
   /** Why the guard refuses where it refuses, or `null` to read it off the landing the case named. */
@@ -353,6 +355,12 @@ const signInStore = (answers: SignInAnswers) => ({
     answers.deletedAccounts.push(String(address));
     return answering(answers.accountDeletionFailure ?? answers.accountHeld);
   },
+  // Folded as the real lookup folds, so a case naming one spelling holds every other; imported at the call, for
+  // `administratorOf`'s reason.
+  accountStandsAt: async (address: unknown) => {
+    const { asSignInIdentifier } = await import("@/core/emailAddress.ts");
+    return answers.accountsAt.includes(asSignInIdentifier(String(address)));
+  },
 });
 
 /**
@@ -402,6 +410,8 @@ export function doubleActionRequest({
   failAccountDeletion: (failure: Error) => void;
   /** Makes every sign-out and account deletion for the rest of the case find no account; an account is held by default. */
   holdNoAccount: () => void;
+  /** Makes `accountStandsAt` find an account at `address`, folded, for the rest of the case. */
+  holdAccountAt: (address: string) => Promise<void>;
   /** Why the guard refuses for the rest of the case, where it refuses. */
   setRefusal: (next: AdminRefusal) => void;
 } {
@@ -416,6 +426,7 @@ export function doubleActionRequest({
     deletedAccounts: [],
     accountDeletionFailure: null,
     accountHeld: true,
+    accountsAt: [],
     fresh: true,
     refusal: null,
   };
@@ -439,6 +450,7 @@ export function doubleActionRequest({
     answers.deletedAccounts.length = 0;
     answers.accountDeletionFailure = null;
     answers.accountHeld = true;
+    answers.accountsAt.length = 0;
     answers.fresh = true;
     answers.refusal = null;
   });
@@ -463,6 +475,10 @@ export function doubleActionRequest({
     deletedAccounts: () => [...answers.deletedAccounts],
     failAccountDeletion: (failure) => void (answers.accountDeletionFailure = failure),
     holdNoAccount: () => void (answers.accountHeld = false),
+    holdAccountAt: async (address) => {
+      const { asSignInIdentifier } = await import("@/core/emailAddress.ts");
+      answers.accountsAt.push(asSignInIdentifier(address));
+    },
     setRefusal: (next) => void (answers.refusal = next),
   };
 }

@@ -10,6 +10,7 @@ import {
   FLSelbstErasureSpielerSchema,
   FLSubjektResponseSchema,
 } from "@/core/schemas";
+import { FLVerwaltungSchema } from "@/features/berechtigungen/schemas";
 import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
 import { FLRegistrierungSchema } from "@/features/registrierungen/schemas";
 import { ADRESSE_IM_GRUND_REGEX } from "@/features/sperrliste/schemas";
@@ -111,6 +112,18 @@ export const FLErasureAnsichtAdresswechselSchema = z.object({
   einsehbar_verwehrt: z.enum(ADRESSWECHSEL_EINSEHBAR_VERWEHRT).nullable(),
 });
 
+/** The address's own pending change, which its erasure ends; absent where it is one this reader may not see. */
+export const FLErasureAnsichtEigenerAdresswechselSchema = z.object({
+  adresswechsel_id: CustomObjectIdStringSchema,
+});
+
+/** An open grant request the erasure ends: one for this address (`betroffen`), or one this address asked (`gestellt`). */
+export const FLErasureAnsichtAntragSchema = z.object({
+  antrag_id: CustomObjectIdStringSchema,
+  verwaltung: FLVerwaltungSchema,
+  rolle: z.enum(["betroffen", "gestellt"]),
+});
+
 /**
  * Mirrors `FLErasureAnsichtResponse`: every record the erasure would reach, by kind, name and id, and never the
  * address or a birthdate.
@@ -122,6 +135,8 @@ export const FLErasureAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   bewerbungen: z.array(FLErasureAnsichtBewerbungSchema),
   registrierungen: z.array(FLErasureAnsichtRegistrierungSchema),
   adresswechsel: z.array(FLErasureAnsichtAdresswechselSchema),
+  eigener_adresswechsel: FLErasureAnsichtEigenerAdresswechselSchema.nullable(),
+  antraege: z.array(FLErasureAnsichtAntragSchema),
   verwaltung: FLSubjektResponseSchema.shape.verwaltung,
   gesperrt: z.boolean(),
 });

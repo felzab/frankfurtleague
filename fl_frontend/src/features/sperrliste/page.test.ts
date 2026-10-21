@@ -69,6 +69,7 @@ const SPIELER = "6890a1b2c3d4e5f607250012";
 const SCHIEDSRICHTER = "6890a1b2c3d4e5f607250013";
 const BEWERBUNG = "6890a1b2c3d4e5f607250014";
 const WECHSEL = "6890a1b2c3d4e5f607250016";
+const EIGENER_WECHSEL = "6890a1b2c3d4e5f607250018";
 
 const PERSON = { vorname: "Zorbanax", nachname: "Quell" };
 const NICHTS = {
@@ -78,6 +79,8 @@ const NICHTS = {
   bewerbungen: [],
   registrierungen: [],
   adresswechsel: [],
+  eigener_adresswechsel: null,
+  antraege: [],
 };
 
 /**
@@ -105,6 +108,8 @@ const BESTAND = {
     { registrierung_id: "6890a1b2c3d4e5f607250015", team_id: TEAM, saison_id: "2026", team_name: null, status: "eingereicht", ...PERSON },
   ],
   adresswechsel: [{ adresswechsel_id: WECHSEL, einsehbar_verwehrt: null }],
+  eigener_adresswechsel: { adresswechsel_id: EIGENER_WECHSEL },
+  antraege: [{ antrag_id: "6890a1b2c3d4e5f607250017", verwaltung: "administration", rolle: "betroffen" }],
 };
 
 /** What the read of the address answers in the case at hand, its grant's field among the records. */
@@ -232,9 +237,13 @@ describe("what the ban's dialog shows before the ban (`docs/frontend/spec.md :: 
       ["Kontakte bearbeiten", `/bereich/admin/kontakte/${TEAM}?saison_id=2026`],
       ["Bewerbung öffnen", `/bereich/admin/bewerbungen/${BEWERBUNG}?saison_id=2025`],
       ["Registrierungen ansehen", "/bereich/admin/registrierungen?saison_id=2025"],
+      // The address's own change, then another's onto it; an open request is decided on the administrators page.
+      ["Adressänderung ansehen", `/bereich/admin/adresswechsel?adresswechsel=${EIGENER_WECHSEL}&saison_id=2025`],
       ["Adressänderung ansehen", `/bereich/admin/adresswechsel?adresswechsel=${WECHSEL}&saison_id=2025`],
     ]);
     for (const [, href] of verweiseIn(dialog)) assert.ok(href !== null && !href.includes("@"), `${String(href)} carries an address`);
+    assert.ok(within(dialog).queryByText("Eine laufende Adressänderung dieser Adresse") !== null, "the address's own change is unnamed");
+    assert.ok(within(dialog).queryByText("Ein offener Antrag für diese Adresse: Zugang zur Verwaltung") !== null, "an open request is unnamed");
   });
 
   /* The registrations list serves pending ones alone, so a declined one has no link, no tool to edit it with and nothing

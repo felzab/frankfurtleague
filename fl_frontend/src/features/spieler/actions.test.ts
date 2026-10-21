@@ -831,8 +831,14 @@ describe("the pupil's address on the editor", () => {
     });
   }
 
-  it("names the address tool where no change waits, and links no change", async () => {
+  /* „Sagt sie“: the tool's first way asks the address on file, which approves only where someone still signs in there. */
+  it("names the address tool where no change waits, for a person who says they cannot sign in, and links no change", async () => {
     await renderAdressePage({ email: GESPEICHERT, adresswechselId: null });
+
+    assert.match(
+      document.body.textContent,
+      /Eine neue trägt sie selbst in ihrem Konto ein\. Sagt sie, dass sie sich nicht mehr anmelden kann, ändert die Verwaltung sie unter „Adressänderung auf Anfrage“\./,
+    );
 
     assert.equal(screen.queryAllByRole("link", { name: "Zur Änderung" }).length, 0);
     assert.equal(

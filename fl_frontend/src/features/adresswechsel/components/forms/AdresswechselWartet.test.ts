@@ -267,12 +267,14 @@ describe("a press of the waiting change's controls nobody can tell landed", () =
     send: {
       control: ADRESSWECHSEL_ERNEUT,
       title: "Unklar, ob der Link verschickt wurde",
-      repair: "Prüfe die Verbindung, lade die Seite neu und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
+      repair:
+        "Prüfe die Verbindung, lade die Seite neu und zeige die bisherige Adresse erneut an. Wartet die neue Adresse dann noch, sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
     },
     discard: {
       control: ADRESSWECHSEL_VERWERFEN,
       title: "Unklar, ob es gespeichert wurde",
-      repair: "Prüfe die Verbindung und zeige die Adresse erneut an. Wartet die neue Adresse dann noch, verwirf die Änderung erneut.",
+      repair:
+        "Prüfe die Verbindung, lade die Seite neu und zeige die bisherige Adresse erneut an. Wartet die neue Adresse dann noch, verwirf die Änderung erneut.",
     },
   };
   for (const [arm, { control, title, repair }] of Object.entries(arms)) {

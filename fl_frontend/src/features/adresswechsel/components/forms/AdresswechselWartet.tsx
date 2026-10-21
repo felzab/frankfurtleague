@@ -24,7 +24,7 @@ import { textLink } from "@/shared/components/ui/textLink";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useStepUp } from "@/shared/hooks/useStepUp";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
-import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR, rejectedWrite } from "@/shared/utils/actionError";
+import { LINK_UNKLAR, rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { FOCUS_HEADING, focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -56,9 +56,16 @@ const WARTET: Readonly<Record<FLAdresswechselWartetAuf, string>> = {
   wartezeit: "Neue Adresse wartet auf das Ende der Wartezeit",
 };
 
+/**
+ * The reload comes first (`docs/frontend/spec.md` §1.12), and this page holds what it showed in no address: a reload
+ * opens on an empty box, so the address is shown again before anything is pressed again.
+ */
+const ERNEUT_OHNE_ANTWORT =
+  "Prüfe die Verbindung, lade die Seite neu und zeige die bisherige Adresse erneut an. Wartet die neue Adresse dann noch, sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.";
+
 /** Unlike a re-send, a second discard of a change already gone is refused, so the page, read again, decides. */
 const VERWERFEN_OHNE_ANTWORT =
-  "Prüfe die Verbindung und zeige die Adresse erneut an. Wartet die neue Adresse dann noch, verwirf die Änderung erneut.";
+  "Prüfe die Verbindung, lade die Seite neu und zeige die bisherige Adresse erneut an. Wartet die neue Adresse dann noch, verwirf die Änderung erneut.";
 
 /**
  * The change at the address, **the address on file still in force**. Both writes name it by id: an older page meets
@@ -81,7 +88,7 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAdressw
       router,
       pending: setSendet,
       write: () => einladeAdresswechselAction({ id: offen.id }),
-      repair: LINK_ERNEUT_OHNE_ANTWORT,
+      repair: ERNEUT_OHNE_ANTWORT,
     });
     if (res === null) return;
 
