@@ -58,6 +58,7 @@ const renderEditor = () =>
           geburtsdatum: "2009-05-04",
           email: "lena.meier@example.com",
           adresswechsel_id: null,
+          adresswechsel_einsehbar_verwehrt: null,
         },
         einwilligung: bestaetigteEinwilligung(),
         saison: {

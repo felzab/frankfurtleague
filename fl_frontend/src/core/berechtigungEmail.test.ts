@@ -215,7 +215,7 @@ describe("the notice a change to who administers sends", () => {
   });
 });
 
-/* `docs/backend/spec.md :: I865`: a request's end is told to its requester under the request's own subject, naming the
+/* `docs/backend/spec.md :: I866`: a request's end is told to its requester under the request's own subject, naming the
    address they asked about and nobody who acted. */
 describe("the notice a request's end sends its requester", () => {
   it("tells a grant's refusal under the request's subject, naming the address asked about, in both parts", () => {

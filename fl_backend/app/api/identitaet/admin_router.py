@@ -21,7 +21,7 @@ from app.api.identitaet.schemas import (
 from app.api.identitaet.services import (
     JEDE_VERWALTUNG,
     NUR_INHABER,
-    adresswechsel_einsehbar,
+    adresswechsel_einsehbar_verwehrt,
     build_erasure_kader_pipeline,
     build_season_team_pipeline,
     build_unplayed_saison_pipeline,
@@ -107,7 +107,7 @@ async def get_erasure_ansicht_auf_anfrage(
     ADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names
     every one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,
     and no other. Another address's referee or pupil row holding a pending change to this address is named by its id, the
-    change going and the row standing, beside whether the address tool opens that change for this administrator. A squad
+    change going and the row standing, beside why the address tool refuses that change this administrator, or null where it opens it. A squad
     row and a referee row each carry the day it was retired, null while live, and a referee row every season holding a
     fixture still to be played that it is booked on, as `REQ-RETIRE-004` judges one. Reached and not named: the fixtures
     booking a referee row, which move onto the ghost, and the referee's name in each of those fixtures' log images, which
@@ -192,10 +192,15 @@ async def get_erasure_ansicht_auf_anfrage(
         pupil_rows=subject.spieler,
         registrierung_rows=subject.registrierungen,
         adresswechsel_rows=naming,
-        einsehbar={
-            str(row["adresse"])
+        verwehrt={
+            str(row["adresse"]): grund
             for row in naming
-            if adresswechsel_einsehbar(str(row["adresse"]), akteur=akteur, auth_time=auth_time, grants=grants, announced=announced)
+            if (
+                grund := adresswechsel_einsehbar_verwehrt(
+                    str(row["adresse"]), akteur=akteur, auth_time=auth_time, grants=grants, announced=announced
+                )
+            )
+            is not None
         },
         kader_rows=kader_rows,
         team_rows=team_rows,

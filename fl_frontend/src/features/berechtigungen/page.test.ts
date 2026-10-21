@@ -299,7 +299,7 @@ describe("who is offered an address change's approval", () => {
       bestaetigt: true,
       bis: "2026-10-27T11:30:00Z",
       verwehrt,
-      einsehbar: true,
+      einsehbar_verwehrt: null,
     },
   });
 
@@ -405,6 +405,20 @@ describe("the grants and promotions waiting on a second administrator", () => {
     }
     assert.deepEqual(antragNamen(markup), ["Antrag genehmigen: neu@schule.de", "Antrag ablehnen: neu@schule.de"]);
     assert.deepEqual(geschlossen(markup), [], "an approver's controls stand closed");
+  });
+
+  /* Under the requests' heading alone the grants would read as more requests, in heading navigation as on screen. */
+  it("heads the grants „Alle Zugänge“ while a request stands above them, the list named by that heading, and not otherwise", async () => {
+    const ohne = await renderPage(PAGE);
+    assert.doesNotMatch(ohne, /Alle Zugänge/, "a lone grants list gains a heading the page's title already gives it");
+    assert.match(ohne, /<ul\b[^>]*aria-label="Liste aller Zugänge"/);
+
+    antraege = [antrag()];
+    const mit = await renderPage(PAGE);
+    const ueberschrift = /<h2\b[^>]*\bid="([^"]+)"[^>]*>Alle Zugänge<\/h2>/.exec(mit);
+    assert.ok(ueberschrift !== null, "no heading over the grants under the requests' section");
+    assert.ok(mit.indexOf("Offene Anträge") < mit.indexOf("Alle Zugänge"), "the grants' heading stands above the requests'");
+    assert.match(mit, new RegExp(`<ul\\b[^>]*aria-labelledby="${ueberschrift[1] ?? ""}"`), "the list is not named by its heading");
   });
 
   it("names a promotion by what it asks", async () => {

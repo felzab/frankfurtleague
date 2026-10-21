@@ -1,3 +1,4 @@
+import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
 import type {
   FLPatchSaisonSpielerPayload,
   FLPatchSpielerPayload,
@@ -98,6 +99,8 @@ export type AdminSpielerStored = {
   geburtsdatum: string;
   email: string;
   adresswechsel_id: string | null;
+  /** Why the address tool refuses this administrator that change, as the read serves it: the editor then links nowhere. */
+  adresswechsel_einsehbar_verwehrt: EinsehbarVerwehrt | null;
 };
 
 /** Where a retired squad row's return to the club it names stands; the editor and the list each word a refusal for their own reader. */

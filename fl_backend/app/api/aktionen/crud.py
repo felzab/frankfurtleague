@@ -20,9 +20,24 @@ from app.api.aktionen.services import (
     carried_by_the_effect,
 )
 from app.api.kontakte.services import SEAT_IMAGE_COLLECTIONS, build_seat_images_filter, seat_address_carry_edits
+from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, patch_many_in_db
 from app.core.recording import ERASED_ACTOR_MARKER, ImageEdits, build_image_redactions
 from app.shared.folding import sign_in_identifier
+
+
+def _referee_address_carry_edits(image: Mapping[str, Any], *, alt: str, neue: str, held: Set[Any]) -> dict[str, str]:
+    """A referee row's image at the replaced address carried to the new one, but a row either address still holds.
+
+    Either address's erasure reaches that row itself; the moved one's images keep the move's history until then.
+    """
+
+    kontakt = image.get("kontakt")
+    email = kontakt.get("email") if isinstance(kontakt, Mapping) else None
+    if not isinstance(email, str) or sign_in_identifier(email) != alt or image.get("_id") in held:
+        return {}
+
+    return {"kontakt.email": neue}
 
 
 async def redact_images_in_session(
@@ -141,12 +156,14 @@ async def carry_the_replaced_address_in_images(
     neue: str,
     # Each document and slot still seating `alt` once the effect moved its own seats.
     staying: Set[tuple[Any, str]],
+    # Each referee row naming `alt` or `neue` once the effect moved its own, which an erasure reaches through the row.
+    referees_held: Set[Any],
     stamp: str,
     session: AsyncClientSession,
 ) -> int:
     """Re-key the replaced address in the log images an effect owes, in ONE read, as its share is sized.
 
-    Who acted, a change's, grant's or request's subject, and a left seat, which only its address reaches.
+    Who acted, a change's, grant's or request's subject, and a left seat or referee row, which only its address reaches.
     """
 
     judges: dict[str, list[Callable[[Mapping[str, Any]], ImageEdits]]] = {}
@@ -165,6 +182,9 @@ async def carry_the_replaced_address_in_images(
     for collection in SEAT_IMAGE_COLLECTIONS:
         judges.setdefault(str(collection), []).append(partial(seat_address_carry_edits, alt=alt, neue=neue, staying=staying))
     clauses.append(build_seat_images_filter(alt))
+    # A referee row the editor re-addressed before the change is in no document an erasure at the new address reads.
+    judges.setdefault(str(Collection.SCHIEDSRICHTER), []).append(partial(_referee_address_carry_edits, alt=alt, neue=neue, held=referees_held))
+    clauses.append(build_address_images_filter(Collection.SCHIEDSRICHTER, alt))
 
     # Each clause keyed on its `collection`, the half `aktionen_target` serves; unbounded, as `read_imaged_rows` reads.
     rows = await aggregate_many_from_db(

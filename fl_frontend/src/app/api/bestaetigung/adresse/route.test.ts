@@ -90,7 +90,6 @@ const OWED = {
   email: NEU,
   vorname: null,
   weg: "wartezeit",
-  adresse_belegt: false,
   aufgegeben: false,
 };
 

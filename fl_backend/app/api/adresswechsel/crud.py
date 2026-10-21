@@ -30,6 +30,7 @@ from app.api.adresswechsel.services import (
     compose_postausgang,
     deckt,
     find_abgelaufen_refusal,
+    find_belegt_refusal,
     find_bestaetigung_gesperrt_refusal,
     find_ersetzte_gesperrt_refusal,
     find_neue_berechtigt_refusal,
@@ -44,11 +45,12 @@ from app.api.aktionen.crud import (
 from app.api.berechtigungen.antraege import abgelehnt_line, end_the_antraege_about_in_session
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
 from app.api.berechtigungen.erasure import carry_authorship_in_session
+from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
 from app.api.berechtigungen.services import compose_postausgang as compose_berechtigung_postausgang
 from app.api.berechtigungen.services import genehmigung_steht, lebendige_adresse
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import RecordCollections
-from app.api.identitaet.services import adresswechsel_einsehbar, eigene_sitze, ist_eigener_schiedsrichter, namen_aus
+from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt, eigene_sitze, ist_eigener_schiedsrichter, namen_aus
 from app.api.kontakte.services import find_matching_slots, rows_seating
 from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_ist_bestaetigt
 from app.api.schiedsrichter.services import build_selbst_referee_filter, vorname_of
@@ -197,9 +199,9 @@ async def read_the_bestand(
 async def adresse_belegt(
     email: str, *, records: RecordCollections, berechtigungen_collection: AsyncCollection, session: AsyncClientSession | None
 ) -> bool:
-    """Whether a new address holds records of its own, which an effect joins to the ones it moves.
+    """Whether a new address holds entries of its own, which refuses the change (`REQ-ADRESSWECHSEL-018`).
 
-    The start warns of it; an effect, reading it before its move, carries no sign-in account onto them.
+    An effect onto them would join two people's records, and the sign-in account carried there would sign in to theirs.
     """
 
     bestand = await read_the_bestand(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
@@ -329,7 +331,7 @@ async def start_the_change_in_session(
 
 
 # Why the effect is refused, in the order the link's view ranks its states.
-FLAdresswechselUrsache = Literal["neue_gesperrt", "abgelaufen", "ersetzte_gesperrt", "vergeben", "nicht_gedeckt", "neue_berechtigt"]
+FLAdresswechselUrsache = Literal["neue_gesperrt", "abgelaufen", "ersetzte_gesperrt", "vergeben", "nicht_gedeckt", "neue_berechtigt", "belegt"]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -385,9 +387,7 @@ async def queue_the_refusal_notice_in_session(
 
     await post_one_to_db(
         collection=adresswechsel_postausgang_collection,
-        document=compose_postausgang(
-            art="verworfen", email=str(record["email"]), bisherige_email=None, vorname=None, weg=None, adresse_belegt=None, now=now
-        ),
+        document=compose_postausgang(art="verworfen", email=str(record["email"]), bisherige_email=None, vorname=None, weg=None, now=now),
         session=session,
     )
 
@@ -396,6 +396,7 @@ async def judge_the_effect_in_session(
     *,
     record: Mapping[str, Any],
     bestand: Bestand,
+    records: RecordCollections,
     spieler_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
@@ -430,14 +431,20 @@ async def judge_the_effect_in_session(
         return Urteil(ursache="vergeben", leer=False, wartet=False)
 
     grant = bestand.berechtigung
+    genehmigung = record.get("genehmigung")
+    if grant is not None:
+        if not deckt(genehmigung, grant.get("verwaltung")):
+            return Urteil(ursache="nicht_gedeckt", leer=False, wartet=False)
+        if await live_grant_of(sign_in_identifier(neue), berechtigungen_collection=berechtigungen_collection, session=session) is not None:
+            return Urteil(ursache="neue_berechtigt", leer=False, wartet=False)
+
+    # After the causes naming one kind of entry, so a press names the specific one; judged in the effect's own read, so
+    # nothing reaches the new address between this judgement and the move.
+    if await adresse_belegt(neue, records=records, berechtigungen_collection=berechtigungen_collection, session=session):
+        return Urteil(ursache="belegt", leer=False, wartet=False)
+
     if grant is None:
         return Urteil(ursache=None, leer=False, wartet=False)
-
-    genehmigung = record.get("genehmigung")
-    if not deckt(genehmigung, grant.get("verwaltung")):
-        return Urteil(ursache="nicht_gedeckt", leer=False, wartet=False)
-    if await live_grant_of(sign_in_identifier(neue), berechtigungen_collection=berechtigungen_collection, session=session) is not None:
-        return Urteil(ursache="neue_berechtigt", leer=False, wartet=False)
 
     assert isinstance(genehmigung, Mapping)
     if genehmigung.get("genehmigt_am") is None:
@@ -475,6 +482,8 @@ def refusal_of(ursache: FLAdresswechselUrsache | None) -> WriteRefusal | None:
             return find_nicht_gedeckt_refusal(gedeckt=False)
         case "neue_berechtigt":
             return find_neue_berechtigt_refusal(berechtigt=True)
+        case "belegt":
+            return find_belegt_refusal(belegt=True)
 
 
 async def take_effect_in_session(
@@ -520,6 +529,7 @@ async def take_effect_in_session(
     urteil = await judge_the_effect_in_session(
         record=record,
         bestand=bestand,
+        records=records,
         spieler_collection=spieler_collection,
         berechtigungen_collection=berechtigungen_collection,
         berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
@@ -570,10 +580,6 @@ async def take_effect_in_session(
     beendet = await move_the_address_in_session(
         record=record,
         bestand=bestand,
-        # Before the move, after which the new address holds the moved records too.
-        adresse_belegt=await adresse_belegt(
-            str(record["email"]), records=records, berechtigungen_collection=berechtigungen_collection, session=session
-        ),
         sperrliste=sperrliste,
         adresswechsel_collection=adresswechsel_collection,
         spieler_collection=spieler_collection,
@@ -608,8 +614,6 @@ async def move_the_address_in_session(
     *,
     record: Mapping[str, Any],
     bestand: Bestand,
-    # `adresse_belegt` of the new address, judged before this move.
-    adresse_belegt: bool,
     sperrliste: BanList,
     adresswechsel_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
@@ -759,13 +763,21 @@ async def move_the_address_in_session(
     )
     await _reattribute_the_changes(adresswechsel_collection, alt, neu, session=session)
     await reattribute_administrator_in_session(aktionen_collection=aktionen_collection, identifier=alt, value=neu, session=session)
-    # A seat left before the change is in no document an erasure at the new address reads, so its images follow the
-    # person; one standing at the replaced address as nobody's proven own keeps it.
+    # A seat or referee row left before the change is in no document an erasure at the new address reads, so its images
+    # follow the person; one standing at the replaced address as nobody's proven own keeps it.
     await carry_the_replaced_address_in_images(
         aktionen_collection=aktionen_collection,
         alt=alt,
         neue=neu,
         staying=await _seats_staying_at(alt, collections=(saison_teams_collection, bewerbungen_collection), session=session),
+        referees_held={
+            row["_id"]
+            for row in await aggregate_many_from_db(
+                collection=schiedsrichter_collection,
+                pipeline=[{"$match": build_selbst_referee_filter(alt, neu)}, {"$project": {"_id": 1}}],
+                session=session,
+            )
+        },
         stamp=stamp,
         session=session,
     )
@@ -800,9 +812,6 @@ async def move_the_address_in_session(
             # Greeting nobody on the lost-mailbox way: that mailbox may have passed to a stranger.
             vorname=None if record["weg"] == "wartezeit" else bestand.vorname,
             weg=record["weg"],
-            # The sign-in account is carried nowhere the new address held records of its own: their holder never signed
-            # in there, and a passkey enrolled at the replaced address would sign in to them.
-            adresse_belegt=adresse_belegt,
             now=now,
         ),
         session=session,
@@ -966,7 +975,7 @@ def build_erasure_adresswechsel_pipeline(identifier: str) -> list[Mapping[str, A
     ]
 
 
-async def einsehbare_adressen(
+async def verwehrte_adressen(
     adressen: Iterable[str],
     *,
     akteur: str,
@@ -974,23 +983,24 @@ async def einsehbare_adressen(
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
     session: AsyncClientSession | None,
-) -> set[str]:
-    """Which of these folded addresses' changes the address tool opens for this administrator.
+) -> dict[str, FLAdresswechselEinsehbarVerwehrt]:
+    """Which of these folded addresses' changes the address tool refuses this administrator, and why; one absent opens.
 
-    Judged by `app/api/identitaet/services.py :: adresswechsel_einsehbar`; the grants are read only where an address is
-    asked, most reads serving no change.
+    Judged by `app/api/identitaet/services.py :: adresswechsel_einsehbar_verwehrt`; the grants are read only where an
+    address is asked, most reads serving no change.
     """
 
     gefragt = set(adressen)
     if not gefragt:
-        return set()
+        return {}
     grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
     announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
 
     return {
-        adresse
+        adresse: grund
         for adresse in gefragt
-        if adresswechsel_einsehbar(adresse, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced)
+        if (grund := adresswechsel_einsehbar_verwehrt(adresse, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced))
+        is not None
     }
 
 

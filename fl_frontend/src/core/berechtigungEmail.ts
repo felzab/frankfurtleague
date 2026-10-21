@@ -140,7 +140,7 @@ function urheberSatz(urheber: Urheber, wer: (adresse: string) => string, verb = 
   return urheber.am === null ? `${verb} von ${von}.` : `${verb} von ${von} am ${wer(zeitText(urheber.am))}.`;
 }
 
-/** How a request ended, told to its requester alone (`docs/backend/spec.md :: I865`). */
+/** How a request ended, told to its requester alone (`docs/backend/spec.md :: I866`). */
 export type AntragEnde = {
   readonly art: "antrag_abgelehnt" | "antrag_beendet";
   // The address the request was for, or why it is withheld.

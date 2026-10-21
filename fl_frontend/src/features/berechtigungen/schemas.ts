@@ -1,6 +1,6 @@
 import z from "zod";
 
-import { ADRESSWECHSEL_WEGE } from "@/core/adresswechsel";
+import { ADRESSWECHSEL_EINSEHBAR_VERWEHRT, ADRESSWECHSEL_WEGE } from "@/core/adresswechsel";
 import { asSignInIdentifier, isSignInLibraryAddress } from "@/core/emailAddress";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { ANKUENDIGUNGEN_MAX } from "@/features/berechtigungen/constants";
@@ -36,8 +36,8 @@ export const FLBerechtigungAdresswechselSchema = z.object({
   bestaetigt: z.boolean(),
   bis: z.string(),
   verwehrt: FLGenehmigungVerwehrtSchema.nullable(),
-  // Whether the address tool opens the change for this administrator, where a refused approval sends them to discard it.
-  einsehbar: z.boolean(),
+  // Why the address tool refuses the change this administrator, null where it opens it: a refused approval sends them there.
+  einsehbar_verwehrt: z.enum(ADRESSWECHSEL_EINSEHBAR_VERWEHRT).nullable(),
 });
 export type FLBerechtigungAdresswechsel = z.infer<typeof FLBerechtigungAdresswechselSchema>;
 

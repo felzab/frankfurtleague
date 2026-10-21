@@ -138,7 +138,8 @@ async def remove_the_antrag_in_session(
 
     await delete_many_from_db(collection=berechtigungen_antraege_collection, db_filter={"_id": antrag_id}, session=session)
     # Its queued notice goes too, imageless as the outbox's bookkeeping is (`docs/backend/spec.md :: I465`), and by the id
-    # alone, as an erasure's filter is: only that notice holds the request's id. One a pass holds asks nobody (`:: I856`).
+    # alone, as an erasure's filter is: only that notice holds the request's id. Claimed already, it is still sent
+    # (`docs/frontend/spec.md`).
     await erase_many_from_db(collection=berechtigungen_postausgang_collection, db_filter={"berechtigung_id": antrag_id}, session=session)
 
 
@@ -154,7 +155,7 @@ async def queue_the_ending_in_session(
     """Tell each requester how their request ended, after the removal that takes its own notices.
 
     The requester stands in `geaendert_von`, where an erasure, a ban and an address change reach any actor; none names the
-    decider (`docs/backend/spec.md :: I865`).
+    decider (`docs/backend/spec.md :: I866`).
     """
 
     if not antraege:

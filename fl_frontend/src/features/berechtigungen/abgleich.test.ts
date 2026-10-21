@@ -340,7 +340,7 @@ describe("one pass over the claimed changes", () => {
   });
 
   /* A request's end goes to its requester alone, whom the claim names in `an`, under the request's own subject, and
-     names nobody who acted (`docs/backend/spec.md :: I865`). */
+     names nobody who acted (`docs/backend/spec.md :: I866`). */
   it("mails a request's end to its requester alone, naming the address asked about, and stamps it", async () => {
     claim = claimOf([aenderung({ art: "antrag_abgelehnt", geaendert_von: "anna@schule.de", an: ["anna@schule.de"] })]);
 

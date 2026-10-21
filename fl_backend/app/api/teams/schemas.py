@@ -17,6 +17,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
@@ -278,6 +279,12 @@ class FLSaisonTeamBestaetigungenAnsicht(BaseModel):
     stellvertretung: FLSaisonTeamBestaetigungAnsicht | None
 
 
+class FLSaisonTeamAdresswechselVerwehrt(BaseModel):
+    trainer: FLAdresswechselEinsehbarVerwehrt | None
+    ansprechperson: FLAdresswechselEinsehbarVerwehrt | None
+    stellvertretung: FLAdresswechselEinsehbarVerwehrt | None
+
+
 class FLSaisonTeamAdresswechsel(BaseModel):
     """The live change of each confirmed seat's address, which the address tool shows.
 
@@ -287,8 +294,8 @@ class FLSaisonTeamAdresswechsel(BaseModel):
     trainer: CustomObjectId | None
     ansprechperson: CustomObjectId | None
     stellvertretung: CustomObjectId | None
-    # The seats among these whose change the address tool opens for this administrator.
-    einsehbar: list[FLKontaktRolle]
+    # Per seat, why the address tool refuses its change this administrator; null where it opens it or none stands.
+    einsehbar_verwehrt: FLSaisonTeamAdresswechselVerwehrt
 
 
 def _project_seat(value: Any) -> Any:

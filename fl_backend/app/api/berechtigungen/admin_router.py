@@ -55,7 +55,7 @@ from app.api.berechtigungen.services import (
     lebendige,
     stand_of,
 )
-from app.api.identitaet.services import adresswechsel_einsehbar
+from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
 from app.api.sperrliste.services import withheld_actor
 from app.core.adressanker import anchor_the_addresses
@@ -121,7 +121,7 @@ async def get_berechtigungen(
     `adresswechsel` names the change of a grant's address waiting on an administrator's approval: its new address, how it was
     started (`weg`), the administrator who started it and the reason they recorded, and why this administrator may not approve
     it, where they may not: their own, one they started, or an owner's without an owner's power
-    (`POST /adresswechsel/{adresswechsel_id}/genehmigung`); and whether the address tool opens it for them (`einsehbar`). An
+    (`POST /adresswechsel/{adresswechsel_id}/genehmigung`); and why the address tool refuses it them (`einsehbar_verwehrt`). An
     owner's change withholds its new address, starter and reason from that non-owner, as the address tool refuses them an
     owner's address; a barred new address or starter is withheld as on a grant's row. A change any step of which lapsed is
     left out: its approval is refused, and the next hourly pass ends it.
@@ -229,7 +229,9 @@ def _adresswechsel_zeile(
         bestaetigt=record.get("bestaetigt_am") is not None,
         bis=genehmigung["bis"],
         verwehrt=verwehrt,
-        einsehbar=adresswechsel_einsehbar(record["adresse"], akteur=akteur, auth_time=auth_time, grants=grants, announced=announced),
+        einsehbar_verwehrt=adresswechsel_einsehbar_verwehrt(
+            record["adresse"], akteur=akteur, auth_time=auth_time, grants=grants, announced=announced
+        ),
     )
 
 
@@ -854,7 +856,7 @@ async def delete_antrag(
             antrag_id=antrag_id,
             session=session,
         )
-        # A decider's refusal is news to its requester; their own withdrawal is not (`docs/backend/spec.md :: I865`).
+        # A decider's refusal is news to its requester; their own withdrawal is not (`docs/backend/spec.md :: I866`).
         if not zurueckgezogen:
             await queue_the_ending_in_session(
                 [antrag],

@@ -26,6 +26,7 @@ import {
 } from "./constants.ts";
 import { mapAlreadyInSaisonRefusal, mapSquadRefusal } from "./refusals.ts";
 
+import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar.ts";
 import type { ReactElement, ReactNode } from "react";
 import type { FLSpielerRolle } from "./schemas.ts";
 import type { AdminSpielerRow, SpielerSaisonMembership, SpielerTeamOption } from "./types.ts";
@@ -103,6 +104,7 @@ registerDoubles({ modules: PAGE_DOUBLES });
 
 const { default: AdminSpielerEditPage } = await import("@/app/bereich/admin/spieler/[spieler_id]/page.tsx");
 const { default: AdminSpielerPage } = await import("@/app/bereich/admin/spieler/page.tsx");
+const { EINSEHBAR_VERWEHRT } = await import("@/features/adresswechsel/einsehbar.ts");
 
 /** A tree under every context `next/navigation` reads, on the season the sidemenu names. */
 const underSaison = (tree: ReactNode, router = recordingRouter().router): ReactNode =>
@@ -127,6 +129,7 @@ const SPIELER_LENA = {
   geburtsdatum: "2009-05-04",
   email: "lena.meier@example.com",
   adresswechsel_id: null,
+  adresswechsel_einsehbar_verwehrt: null,
 };
 
 /** The player's editor on this season's squad row, which names the stored club. */
@@ -231,6 +234,7 @@ function person(id: string, vorname: string, rows: { saison_id: string; team_id:
     einwilligung: bestaetigteEinwilligung(),
     email: `${vorname.toLowerCase()}@schule.example`,
     adresswechsel_id: null as string | null,
+    adresswechsel_einsehbar_verwehrt: null as EinsehbarVerwehrt | null,
     memberships: rows.map(({ saison_id, team_id, rolle = null }) => ({
       saison_id,
       team_id,
@@ -787,12 +791,13 @@ const GESPEICHERT = "lena@schule.example";
 const WARTEND = "68c1f0a2b3c4d5e6f7a8b9e0";
 
 /** The editor page over one pupil holding `adresse`, rendered as its reads answer it. */
-async function renderAdressePage(adresse: { email: string; adresswechselId: string | null }) {
+async function renderAdressePage(adresse: { email: string; adresswechselId: string | null; verwehrt?: EinsehbarVerwehrt | null }) {
   answerPages([
     {
       ...person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }]),
       email: adresse.email,
       adresswechsel_id: adresse.adresswechselId,
+      adresswechsel_einsehbar_verwehrt: adresse.verwehrt ?? null,
     },
   ]);
   render(underSaison(await editorPageBody()));
@@ -814,6 +819,17 @@ describe("the pupil's address on the editor", () => {
     );
     assert.equal(screen.queryAllByRole("button", { name: /Link erneut senden|Änderung verwerfen|Adresse ändern/ }).length, 0);
   });
+
+  /* The tool refuses its reader their own address and, without an owner's power, a grant holder's: the line then links
+     into no refusal and says where the change opens instead. */
+  for (const verwehrt of ["eigene", "verwaltung"] as const) {
+    it(`links no change the tool refuses this reader as ${verwehrt}, saying where it opens`, async () => {
+      await renderAdressePage({ email: GESPEICHERT, adresswechselId: WARTEND, verwehrt: verwehrt });
+
+      assert.equal(screen.queryAllByRole("link", { name: "Zur Änderung" }).length, 0);
+      assert.ok(screen.getByText(/Für diese Adresse läuft eine Änderung\./).textContent.includes(EINSEHBAR_VERWEHRT[verwehrt]));
+    });
+  }
 
   it("names the address tool where no change waits, and links no change", async () => {
     await renderAdressePage({ email: GESPEICHERT, adresswechselId: null });

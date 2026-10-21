@@ -116,7 +116,7 @@ async function abgleichen(): Promise<void> {
 async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: readonly string[]): Promise<boolean> {
   const genannt = [aenderung.jetzt?.adresse, aenderung.vorher?.adresse].filter((adresse) => adresse !== null && adresse !== undefined);
   // A request, and an address change waiting on an approval, goes to whoever could approve it alone: neither the address
-  // it is for nor whoever asked (`docs/backend/spec.md :: I856`, `:: I862`). A request's end goes to its requester (`:: I865`).
+  // it is for nor whoever asked (`docs/backend/spec.md :: I856`, `:: I862`). A request's end goes to its requester (`:: I866`).
   const adressen = [...new Set(aenderung.an ?? [...empfaenger, ...genannt])];
   const erreicht = offen.get(aenderung.id) ?? new Set<string>();
 

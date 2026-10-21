@@ -8,7 +8,9 @@ import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type { FLGenehmigungVerwehrt } from "@/features/berechtigungen/schemas";
+import type { RefusalParts } from "@/shared/utils/refusal";
 import type { FieldErrors } from "@/shared/utils/validation";
+import type { EinsehbarVerwehrt } from "./einsehbar";
 import type { AdresswechselLinkZustand } from "./link";
 
 // ---- The link page ------------------------------------------------------------------------------
@@ -48,12 +50,13 @@ export function mapAdresswechselPresseRefusal(error: unknown): AdresswechselPres
       return { zustand: "abgelaufen" };
     case "REQ-ADRESSWECHSEL-004":
       return { zustand: "gesperrt" };
-    // The replaced address barred, the new one another pupil's or the administration's, or a grant the approval does
-    // not cover: one panel, so the link's holder learns nothing about who holds an address.
+    // The replaced address barred, the new one another pupil's, the administration's or holding entries of its own, or a
+    // grant the approval does not cover: one panel, so the link's holder learns nothing about who holds an address.
     case "REQ-ADRESSWECHSEL-005":
     case "REQ-ADRESSWECHSEL-006":
     case "REQ-ADRESSWECHSEL-015":
     case "REQ-ADRESSWECHSEL-016":
+    case "REQ-ADRESSWECHSEL-018":
     case "DB-COMMON-002":
       return { zustand: "nicht_bestaetigbar" };
     default:
@@ -151,6 +154,12 @@ const ADRESSE_BELEGT = "Mit dieser Adresse meldet sich schon eine andere Spieler
 
 const NAME_IM_GRUND = "Der Grund enthält ein Wort, das einem Namen der Person gleicht.";
 
+/** The new address holds entries of its own (`REQ-ADRESSWECHSEL-018`): moving these onto it would join two people's. */
+const EINTRAEGE_DA = "Unter der neuen Adresse stehen schon Einträge bei der Liga.";
+
+/** No page here joins two addresses' entries, so the administrator is told it is a task by hand rather than sent to one. */
+const NUR_VON_HAND = "Die Einträge beider Adressen lassen sich nur von Hand zusammenführen, nicht über diese Seite.";
+
 /** The tool's start, or `null`: a refusal of either value stands on its box, which is the way out. */
 export function mapVerwaltungStartRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   // Published for the start, though no path of it answers 404 now: a lost race there is a retried write conflict.
@@ -169,6 +178,8 @@ export function mapVerwaltungStartRefusal(error: unknown): { error?: string; fie
       return { error: SPERRLISTE_ADRESSE_GESPERRT, fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT_FELD } };
     case "REQ-ADRESSWECHSEL-006":
       return { error: ADRESSE_BELEGT, fieldErrors: { email: ADRESSE_BELEGT } };
+    case "REQ-ADRESSWECHSEL-018":
+      return { error: `${EINTRAEGE_DA} ${NUR_VON_HAND}`, fieldErrors: { email: EINTRAEGE_DA } };
     case "REQ-ADRESSWECHSEL-011":
       return {
         error:
@@ -203,6 +214,9 @@ export function mapVerwaltungLinkRefusal(error: unknown): string | null {
     // The panel has no box, so the sentence names the way out it does hold.
     case "REQ-ADRESSWECHSEL-006":
       return `${ADRESSE_BELEGT} Verwirf die Änderung und beginne eine mit einer anderen Adresse.`;
+    // Entries reached the new address since the start: a fresh link would be refused on its press.
+    case "REQ-ADRESSWECHSEL-018":
+      return `${EINTRAEGE_DA} Verwirf die Änderung. ${NUR_VON_HAND}`;
     // The re-send's alone: a fresh link would be refused on its press, the change ending at the next pass.
     case "REQ-ADRESSWECHSEL-003":
       return "Die Frist für die Genehmigung ist abgelaufen, die Änderung endet in der nächsten Stunde. Beginne sie danach neu.";
@@ -211,11 +225,26 @@ export function mapVerwaltungLinkRefusal(error: unknown): string | null {
   }
 }
 
-const ohneGenehmigung = (grund: string): string =>
+/** Who discards a change the approval left open, by why the tool refuses this approver, the tool's discard being the only one. */
+function verwerfen(verwehrt: EinsehbarVerwehrt | null): Omit<RefusalParts, "reason"> {
+  switch (verwehrt) {
+    case null:
+      return { repair: { before: "Verwirf sie", after: "" }, where: ADRESSWECHSEL_EINTRAG.label };
+    case "verwaltung":
+      return {
+        repair: { before: "Frag eine Inhaberin oder einen Inhaber der Verwaltung, sie", after: "zu verwerfen" },
+        where: ADRESSWECHSEL_EINTRAG.label,
+      };
+    // One's own change is refused its approval before the effect judges it, so this one is never reached by a press.
+    case "eigene":
+      return { repair: "Stoppe sie auf Deiner Kontoseite" };
+  }
+}
+
+const ohneGenehmigung = (grund: string, verwehrt: EinsehbarVerwehrt | null): string =>
   buildRefusal({
     reason: `${grund}, deshalb ist nichts genehmigt. Die Änderung bleibt offen, bis sie verworfen wird oder abläuft`,
-    repair: { before: "Verwirf sie", after: "" },
-    where: ADRESSWECHSEL_EINTRAG.label,
+    ...verwerfen(verwehrt),
   });
 
 /**
@@ -239,7 +268,7 @@ export const GENEHMIGUNG_VERWEHRT: Readonly<Record<FLGenehmigungVerwehrt, string
 };
 
 /** Said beside the press it refuses, the administrators page holding the change's row. */
-const GENEHMIGUNG_WORTE: Readonly<Record<string, string>> = {
+const genehmigungWorte = (verwehrt: EinsehbarVerwehrt | null): Readonly<Record<string, string>> => ({
   "REQ-ADRESSWECHSEL-017": GENEHMIGUNG_VERWEHRT.juenger,
   "REQ-ADRESSWECHSEL-002": BEENDET,
   // The press itself ended the change, finding the address emptied since its start: never „schon beendet“.
@@ -252,17 +281,24 @@ const GENEHMIGUNG_WORTE: Readonly<Record<string, string>> = {
   "REQ-ADRESSWECHSEL-003": buildRefusal({ reason: "Diese Änderung ist abgelaufen", repair: LADE_DIE_SEITE_NEU }),
   // The effect's own refusals write nothing, the approval and the effect being one transaction: the change
   // stands unapproved until it is discarded or lapses.
-  "REQ-ADRESSWECHSEL-004": ohneGenehmigung("Die neue Adresse steht auf der Sperrliste"),
-  "REQ-ADRESSWECHSEL-005": ohneGenehmigung("Die bisherige Adresse steht auf der Sperrliste"),
-  "REQ-ADRESSWECHSEL-006": ohneGenehmigung("Mit der neuen Adresse meldet sich schon eine andere Spielerin oder ein anderer Spieler an"),
-  "REQ-ADRESSWECHSEL-015": ohneGenehmigung("Die Adresse hat inzwischen einen Zugang, den diese Genehmigung nicht abdeckt"),
-  "REQ-ADRESSWECHSEL-016": ohneGenehmigung("Die neue Adresse hat schon Zugang zur Verwaltung"),
-};
+  "REQ-ADRESSWECHSEL-004": ohneGenehmigung("Die neue Adresse steht auf der Sperrliste", verwehrt),
+  "REQ-ADRESSWECHSEL-005": ohneGenehmigung("Die bisherige Adresse steht auf der Sperrliste", verwehrt),
+  "REQ-ADRESSWECHSEL-006": ohneGenehmigung(
+    "Mit der neuen Adresse meldet sich schon eine andere Spielerin oder ein anderer Spieler an",
+    verwehrt,
+  ),
+  "REQ-ADRESSWECHSEL-015": ohneGenehmigung("Die Adresse hat inzwischen einen Zugang, den diese Genehmigung nicht abdeckt", verwehrt),
+  "REQ-ADRESSWECHSEL-016": ohneGenehmigung("Die neue Adresse hat schon Zugang zur Verwaltung", verwehrt),
+  "REQ-ADRESSWECHSEL-018": ohneGenehmigung("Unter der neuen Adresse stehen inzwischen eigene Einträge", verwehrt),
+});
 
-/** The approval's refusal, or `null`, the `DB-COMMON` pair among them, which the shared reader words. */
-export function mapGenehmigungRefusal(error: unknown): string | null {
+/**
+ * The approval's refusal, or `null`, the `DB-COMMON` pair among them, which the shared reader words. `verwehrt` is the
+ * row's served reason the tool refuses this approver, which picks the discard's wording and nothing else.
+ */
+export function mapGenehmigungRefusal(error: unknown, verwehrt: EinsehbarVerwehrt | null): string | null {
   if (isRecordMissing(error)) return KEIN_ADRESSWECHSEL;
   if (!isRefusal(error)) return null;
 
-  return GENEHMIGUNG_WORTE[error.serverErrorCode ?? ""] ?? null;
+  return genehmigungWorte(verwehrt)[error.serverErrorCode ?? ""] ?? null;
 }

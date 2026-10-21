@@ -1,6 +1,8 @@
 "use client";
 
-import { erteiltVonAnzeige, uebersprungenHinweis, vonOderGesperrt } from "@/features/berechtigungen/constants";
+import { useId } from "react";
+
+import { ALLE_ZUGAENGE, erteiltVonAnzeige, uebersprungenHinweis, vonOderGesperrt } from "@/features/berechtigungen/constants";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 import { Callout } from "@/shared/components/ui/Callout";
 
@@ -29,6 +31,9 @@ export function AdminBerechtigungenView({
   antraege: FLBerechtigungAntragZeile[];
   inhaberAdresse: string | null;
 }) {
+  const zugaengeId = useId();
+  const mitAntraegen = antraege.length > 0;
+
   return (
     <div className="flex flex-col gap-4">
       {/* Not dismissible: a standing property of the store, which a closed notice would hide. */}
@@ -42,18 +47,29 @@ export function AdminBerechtigungenView({
 
       <AdminBerechtigungAntraegeList antraege={antraege} />
 
-      <AdminCrudView<FLBerechtigungZeile>
-        items={berechtigungen}
-        searchKeys={SEARCH_KEYS}
-        shape="cards"
-        renderTable={({ filteredItems, emptiness }) => (
-          <AdminBerechtigungenList
-            filteredBerechtigungen={filteredItems}
-            emptiness={emptiness}
-            inhaberAdresse={inhaberAdresse}
-          />
+      <section className="flex w-full flex-col gap-3">
+        {/* Under the requests' heading the grants would read as more requests; alone, the page's own title names them. */}
+        {mitAntraegen && (
+          <h2
+            id={zugaengeId}
+            className="fluid-xl font-extrabold tracking-tight text-foreground">
+            {ALLE_ZUGAENGE}
+          </h2>
         )}
-      />
+        <AdminCrudView<FLBerechtigungZeile>
+          items={berechtigungen}
+          searchKeys={SEARCH_KEYS}
+          shape="cards"
+          renderTable={({ filteredItems, emptiness }) => (
+            <AdminBerechtigungenList
+              filteredBerechtigungen={filteredItems}
+              emptiness={emptiness}
+              inhaberAdresse={inhaberAdresse}
+              ueberschriftId={mitAntraegen ? zugaengeId : null}
+            />
+          )}
+        />
+      </section>
     </div>
   );
 }

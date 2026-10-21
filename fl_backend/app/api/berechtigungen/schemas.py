@@ -30,12 +30,16 @@ FLGenehmigungVerwehrt = Literal["eigene", "gestartet", "inhaber", "juenger"]
 # administrator's with a recorded reason, waiting after its confirmation. Here, below both slices, for a grant's approval row.
 FLAdresswechselWeg = Literal["konto", "freigabe", "wartezeit"]
 
+# Why the address tool refuses this reader an address's change, served beside every id a page links into it:
+# `eigene` their own address (`REQ-PURGE-003`), `verwaltung` a grant holder's without an owner's power (`REQ-PURGE-005`).
+FLAdresswechselEinsehbarVerwehrt = Literal["eigene", "verwaltung"]
+
 # What happened to one grant: added, removed, or its tier changed in place, by the tier change or by
 # a database edit. An address changed in place is a removal and a grant, never `geaendert`.
 FLBerechtigungAenderungArt = Literal["erteilt", "entzogen", "geaendert"]
 
 # What else an outbox row tells: a request's end, for its requester: refused by an administrator, or ended by its
-# address's change (`docs/backend/spec.md :: I865`).
+# address's change (`docs/backend/spec.md :: I866`).
 FLBerechtigungAntragEndeArt = Literal["antrag_abgelehnt", "antrag_beendet"]
 
 # What an outbox row tells: a change to a grant; or, no change of one yet, a grant or promotion asked for (`beantragt`)
@@ -97,8 +101,8 @@ class FLBerechtigungAdresswechsel(BaseModel):
     bis: FLUtcInstant
     # Why the reader may not approve it, or null where they may.
     verwehrt: FLGenehmigungVerwehrt | None
-    # Whether the address tool opens it for the reader, where a refused approval sends them to discard it.
-    einsehbar: bool
+    # Why the address tool refuses it the reader, null where it opens it: a refused approval sends them to discard it there.
+    einsehbar_verwehrt: FLAdresswechselEinsehbarVerwehrt | None
 
 
 class FLBerechtigungZeile(BaseModel):

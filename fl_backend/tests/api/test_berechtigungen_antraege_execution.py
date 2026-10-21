@@ -937,7 +937,7 @@ async def erased_whole(database: AsyncDatabase, client: AsyncMongoClient, identi
 
 
 class TestTheRequesterIsToldHowItEnded:
-    """`docs/backend/spec.md :: I865`: a refusal and an address change's end tell the requester, naming nobody who acted."""
+    """`docs/backend/spec.md :: I866`: a refusal and an address change's end tell the requester, naming nobody who acted."""
 
     def test_a_refusal_queues_its_requester_a_notice_beside_the_removal(self, mongo_replica_set_url: str):
         """Queued after the removal took the request's own notice, and naming the requester, never Bernd who refused it."""
@@ -1025,7 +1025,7 @@ async def anna_barred(database: AsyncDatabase, client: AsyncMongoClient, _: Obje
 
 
 class TestTheRequestersNoticeReadsItsRecipientAtTheClaim:
-    """`docs/backend/spec.md :: I865`: the requester is read as the claim finds them, so one who left the administration hears nothing."""
+    """`docs/backend/spec.md :: I866`: the requester is read as the claim finds them, so one who left the administration hears nothing."""
 
     def test_a_requester_erased_before_the_claim_is_told_nothing(self, mongo_replica_set_url: str):
         expected = [("antrag_abgelehnt", NEU, "administration", ERASED_ACTOR_MARKER, [])]
