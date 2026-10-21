@@ -52,7 +52,7 @@ admits a path, then the `/bereich` prefix test inside the proxy decides whether 
 session cookie is turned away, and it reads the path raw and decoded. A spelling the matcher admits
 and the prefix test misses — an encoded segment, a doubled or trailing slash, a case variant, a
 malformed escape — reaches a page with no cookie check, leaving `runAdminRead`'s check on every
-admin-tier read and each person page's own guard, the in-layout guard covering the shell alone.
+admin-tier read and each person page's own guard.
 
 S4. **Privilege escalation via key tiers.** Per `apiClient` call site: authType | routes it is
 reachable from | minimum privilege actually required. A public page transitively invoking an
