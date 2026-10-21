@@ -38,6 +38,8 @@ from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
+from .test_bewerbung_einwilligung_execution import ReadsRecorded, leaf_paths
+
 # Module level, as the application's confirmation suite marks its own: every test below reaches a
 # real mongod.
 pytestmark = pytest.mark.db
@@ -167,12 +169,12 @@ def on_a_league(
     return on_the_seed_loop(_run())
 
 
-async def ansicht(database: AsyncDatabase, token: str) -> Any:
+async def ansicht(database: AsyncDatabase, token: str, *, spieler_collection: Any = None) -> Any:
     return await get_bestaetigung_ansicht(
         ansicht_data=FLRegistrierungBestaetigungAnsichtPayload(token=token),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         teams_collection=database[Collection.TEAMS],
-        spieler_collection=database[Collection.SPIELER],
+        spieler_collection=database[Collection.SPIELER] if spieler_collection is None else spieler_collection,
         sperrliste=ban_list(database),
         today=TODAY,
     )
@@ -312,6 +314,27 @@ class TestWhatALinkOpens:
                 await ansicht(database, RAW)
 
         on_a_league(mongo_replica_set_url, body, registrierungen=[orphan])
+
+
+# What the view resolves off the person its address holds: the name it matches and the stamp the page turns on. Never a
+# choice, which this page neither shows nor asks.
+PERSON_ANSICHT_RESOLVES = frozenset({"_id", "vorname", "nachname", "geburtsdatum", "einwilligung.bestaetigt_am"})
+
+
+class TestWhatTheLinksPersonReadLoads:
+    """Holds the narrowing alone: the returning page's cases drive each field the read resolves."""
+
+    def test_the_view_never_holds_the_person_beyond_what_it_judges(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[Any]:
+            recorder = ReadsRecorded(database[Collection.SPIELER])
+            await ansicht(database, RAW, spieler_collection=recorder)
+
+            return [document for _, document in recorder.answered if document is not None]
+
+        loaded = on_a_league(mongo_replica_set_url, body, spieler=[spieler_document(SPIELER_OID)])
+
+        assert loaded, "the person read found nobody, so nothing below is judged"
+        assert set().union(*(leaf_paths(document) for document in loaded)) <= PERSON_ANSICHT_RESOLVES
 
 
 class TestWhatAConfirmationWrites:

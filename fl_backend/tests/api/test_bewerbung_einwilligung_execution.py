@@ -212,8 +212,8 @@ async def log_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return await database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN)}).sort("_id", 1).to_list(length=None)
 
 
-class _ReadsRecorded:
-    """The applications collection, keeping what each `find_one` answered.
+class ReadsRecorded:
+    """A collection, keeping what each `find_one` answered: the season rows' and the registrations' link tests read it too.
 
     A delegating wrapper rather than a stub: mongod applies the projection, and a stub would hand
     back whatever the handler asked for.
@@ -235,7 +235,7 @@ class _ReadsRecorded:
         return document
 
 
-def loaded_by_the_link(recorder: _ReadsRecorded) -> list[Any]:
+def loaded_by_the_link(recorder: ReadsRecorded) -> list[Any]:
     """Every document the TOKEN filter found.
 
     `fl_backend/app/core/crud.py :: patch_one_in_db` reads the same application twice more, on `_id`
@@ -367,7 +367,7 @@ class TestWhatAnAnonymousReadLoads:
 
     def test_the_view_never_holds_the_application_beyond_the_fields_its_answer_is_built_from(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[Any]:
-            recorder = _ReadsRecorded(database[Collection.BEWERBUNGEN])
+            recorder = ReadsRecorded(database[Collection.BEWERBUNGEN])
             await ansicht(database, RAW["ansprechperson"], bewerbungen=recorder)
 
             return loaded_by_the_link(recorder)
@@ -379,7 +379,7 @@ class TestWhatAnAnonymousReadLoads:
 
     def test_the_answer_never_holds_the_application_beyond_the_fields_it_judges_and_writes_on(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
-            recorder = _ReadsRecorded(database[Collection.BEWERBUNGEN])
+            recorder = ReadsRecorded(database[Collection.BEWERBUNGEN])
             await answer(database, client, RAW["ansprechperson"], bewerbungen=recorder)
 
             return loaded_by_the_link(recorder)
