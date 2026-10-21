@@ -132,8 +132,7 @@ class FLAktion(BaseModel):
     stand_gesichert: bool
     modified_count: int | None
     redacted_at: str | None
-    # Defaulted, never required: every row the log took before an erasure set it carries no key.
-    anlass: str | None = None
+    anlass: str | None
 
     @model_validator(mode="before")
     @classmethod

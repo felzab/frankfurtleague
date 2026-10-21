@@ -1278,28 +1278,12 @@ def test_every_ttl_index_expires_on_a_date_field_the_validator_declares(ttl):
         assert (ttl.name in ENDED_ROW_TTL_INDEXES) is ("null" in holder.get("bsonType", [])), ttl.name
 
 
-# The TTL indexes built over a collection already holding rows without the key, each by name. Its
-# rows stand unexpired (`fl_backend/tests/core/test_aktionen_validator_execution.py ::
-# test_a_row_stored_before_a_key_existed_is_still_redactable`).
-RETROFITTED_TTL_INDEXES = frozenset({"aktionen_retention"})
-
-
 @pytest.mark.parametrize("ttl", TTL_INDEXES, ids=lambda ttl: ttl.name)
-def test_a_ttl_key_is_required_exactly_where_no_row_predates_it(ttl):
-    """Retrofitted, a required key invalidates every row standing, strict validation refusing an UPDATE of one.
-
-    Anywhere else, an unrequired key admits a row never expired; a nested key is required at every level it sits in.
-    """
+def test_a_ttl_key_is_required(ttl):
+    """An unrequired key admits a row never expired; a nested key is required at every level it sits in."""
     parent, key = _ttl_path(ttl)
-    required = all(step in required_at(ttl.collection, (*parent[:depth],)) for depth, step in enumerate((*parent, key)))
 
-    assert required is (ttl.name not in RETROFITTED_TTL_INDEXES)
-
-
-def test_every_retrofitted_ttl_index_is_one_declared():
-    """A stale name would excuse nothing while reading as a decision."""
-
-    assert RETROFITTED_TTL_INDEXES <= {ttl.name for ttl in TTL_INDEXES}
+    assert all(step in required_at(ttl.collection, (*parent[:depth],)) for depth, step in enumerate((*parent, key)))
 
 
 @pytest.mark.parametrize("index", UNIQUE_INDEXES, ids=lambda index: index.name)

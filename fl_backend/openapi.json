@@ -12368,7 +12368,8 @@
           "db_filter",
           "stand_gesichert",
           "modified_count",
-          "redacted_at"
+          "redacted_at",
+          "anlass"
         ],
         "title": "FLAktion",
         "description": "One recorded write.\n\nA read model, so nothing here refuses a stored value (`docs/backend/spec.md :: I36`): this\ncollection holds copies of documents from every other one, and a row it cannot serve is a row\nnobody can see was recorded."
@@ -12530,6 +12531,7 @@
           "stand_gesichert",
           "modified_count",
           "redacted_at",
+          "anlass",
           "before"
         ],
         "title": "FLAktionMitStand",
