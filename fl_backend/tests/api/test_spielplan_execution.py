@@ -1110,6 +1110,8 @@ class CountedRows:
         return self.rows[:length] if length is not None else self.rows
 
 
+# Never `tests/isolation.py :: InterleavedCollection`, which awaits its rival inside the write: a report nested in the
+# open removal conflicts on every retry, and the removal cannot commit until the server kills its transaction.
 class ReportsAnchorMeetingTheRemoval:
     """Counts each time the report's season anchor meets a write the removal holds open, and says so.
 
