@@ -78,10 +78,10 @@ BACKEND: Final = REPO_ROOT / "fl_backend"
 
 
 def db_modules() -> list[str]:
-    """The modules `pytest -m db` collects, by the db tier's own reader of a module's source.
+    """The modules `pytest -m db` collects, by the db tier's own reader.
 
-    Named to pytest, a module is collected whatever it spells (`fl_backend/tests/db_modules.py ::
-    pytest_ignore_collect`), so a module holding no db case would be imported for nothing.
+    A module named to pytest is collected whatever it spells (`fl_backend/tests/db_modules.py ::
+    pytest_ignore_collect`), so one holding no db case would be imported for nothing.
     """
     # Loaded by its path, so neither tree's `tests` package shadows the other's on sys.path.
     spec = importlib.util.spec_from_file_location("fl_backend_db_modules", BACKEND / "tests" / "db_modules.py")

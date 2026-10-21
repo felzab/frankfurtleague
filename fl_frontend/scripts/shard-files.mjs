@@ -1,6 +1,6 @@
-// Run by `scripts/gate/verify.sh` on each side of `scripts/gate/shard_plan.py` for a sharded tier:
-// `<script name>` prints every file that `package.json` script would run, and `--literal` writes each
-// planned path read from stdin as the pattern the runner reads as that file alone.
+// Run by `scripts/gate/verify.sh` on each side of `scripts/gate/shard_plan.py`: `<script name>` lists
+// the files that script would run, and `--literal` writes each planned path on stdin as a pattern
+// the runner reads as that file alone.
 
 // Named clear of `test-*`, `*.test.*`, `*-test.*` and `*_test.*`: `node --test` collects a file so
 // named as a test and runs it a second time.
@@ -17,22 +17,20 @@ export function patternsOf(command) {
 }
 
 /**
- * The files `node --test` runs for those patterns: the runner's own discovery, `createTestFileList` in Node's
- * `lib/internal/test_runner/runner.js` (read at v26.12.0; it moves without us), globs with this same exclusion
- * and sorts. Forward slashes on every platform, as a cost table names them.
+ * The files `node --test` runs for those patterns: `createTestFileList` in Node's
+ * `lib/internal/test_runner/runner.js` (read at v26.12.0) globs with this same exclusion. Forward
+ * slashes on every platform, as a cost table names them.
  */
 export function filesOf(patterns, cwd) {
   const found = globSync(patterns, { cwd, exclude: (name) => name === "node_modules" });
   return [...new Set(found.map((file) => file.split(path.sep).join("/")))].sort();
 }
 
-// What opens a glob construct: a wildcard, a class, and each character that opens an extglob before
-// `(`. Next's route folders spell `[spiel_id]`, which the runner reads as a class of one character;
-// a class holding the one character is that character, literally.
+// A wildcard, a class, and each extglob opener before `(`: the runner reads a route folder's
+// `[spiel_id]` as a one-character class, and a class holding one character is that character.
 const GLOB_SPECIAL = new Set(["*", "?", "[", "!", "+", "@"]);
-// A brace set expands before any class is read, and the runner's glob takes no backslash escape, so
-// a brace has no literal spelling: it is matched as any one character, and `--literal` refuses a
-// path whose pattern then selects another file too.
+// A brace set expands before any class is read, and the glob takes no backslash escape, so a brace
+// is matched as any one character; `--literal` refuses a pattern selecting a second file.
 const BRACE = new Set(["{", "}"]);
 
 /** The path as a pattern the runner matches to that file, for `node --test` reads every path it is named as a glob. */

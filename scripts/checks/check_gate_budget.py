@@ -310,11 +310,10 @@ def check_matrix_budgets(head: dict[str, Row]) -> list[Finding]:
 
 
 def split_from(base: dict[str, Row] | None, head: dict[str, Row], job: str) -> Row | None:
-    """The base's row `X` a new matrix instance `X (i)` replaces, where it carries `X`'s stamp unchanged.
+    """The base's row `X` that a new `X (i)` carrying `X`'s stamp replaces.
 
-    A job split into a matrix runs a part of its tests over the same setup, so every span its parent's
-    population holds bounds an instance from above: the instance's row is that population's, not a
-    new stamp, until its own runs re-cut it.
+    An instance runs part of its parent's tests over the same setup, so each span the parent's
+    stamp counts bounds it from above.
     """
     instance = INSTANCE.match(job)
     if base is None or job in base or instance is None:
