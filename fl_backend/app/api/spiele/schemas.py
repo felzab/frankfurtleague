@@ -888,19 +888,6 @@ class FLSpieleAdminSingleResponse(BaseAPIResponse):
     spiel: FLSpielJoinedAdmin
 
 
-class FLSpieleActionRequiredResponse(BaseAPIResponse):
-    """The matches needing attention, and why the bracket ones do.
-
-    A fault joins its match by `spiel_id`, never `spiel_nr`, which is unique within one season only.
-    `spiele` carries every match a fault names.
-    """
-
-    # The ADMIN shape, not the base tier's: a card on this page opens the modal that prints the
-    # referee's name, which the base tier serves reduced (`READ-REFEREE-001`).
-    spiele: list[FLSpielJoinedAdmin]
-    bracket_faults: list[FLBracketFault] = Field(default_factory=list)
-
-
 # Private for `_BracketFault`'s reason: the reports state the destroyed result once.
 class _VoidedResult(BaseModel):
     # Beside the number, as a bracket fault carries it: a message names a fixture by `spiel_nr`, and

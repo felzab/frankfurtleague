@@ -168,7 +168,7 @@ const LEVEL_KNOCKOUT = spielFields({
   elfmeterschiessen: { team1: 5, team2: 4 },
   ort: { spielort_id: VENUE.id, name: VENUE.name, maps_link: VENUE.maps_link, mietpreis: 40 },
   schiedsrichter: { schiedsrichter_id: REFEREE.id, name: REFEREE.name, payment: 25 },
-} as never);
+});
 const staende = async () => {
   const { bestaetigungsStand } = await import("@/features/bewerbungen/bestaetigungStand.ts");
   const kontakt = (vorname: string, email: string) => ({
@@ -190,7 +190,7 @@ const staende = async () => {
     },
     bestaetigungen: { ansprechperson: offen, stellvertretung: offen, trainer: { ...offen, abgelehnt_am: "2026-09-03" } },
     status: "eingereicht",
-  } as never);
+  });
 };
 
 type FormCase = {
@@ -508,6 +508,7 @@ const FORMS: Record<string, FormCase> = {
               { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
             ],
             bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
+            eingereichteBerichte: 0,
           },
           hasDrawnSpiele: false,
           spieltagBound: { startMax: null, endMin: null },

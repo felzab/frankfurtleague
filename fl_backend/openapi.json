@@ -3136,7 +3136,7 @@
     "/api/v0/spiele/action_required": {
       "get": {
         "summary": "Spiele needing attention",
-        "description": "List Spiele needing attention, and the bracket faults among them.\n\nQualifying: cancelled, missing a date, time, venue or referee, past with no result, a\nknockout side with neither team nor `quelle`, or holding a referee's report the administrator has\nnot adopted as it stands (`GET /spielberichte` serves its state). Scoped to `saison_id`, the active season when none\nis named, which answers 404 while no season is active.\n\nAlso every fixture a club's unclosed confirmation about its Ansetzung as it stands puts before the\nadministrator: a decline proposing another date, a deadline passed unanswered, or a deadline of\ntoday on a request sent today or never. The rows themselves are not served: `GET /spielbestaetigungen`\nfor the same season serves them, read separately, so a row reaching one of those states between\nthe two reads shows its fixture on the next.\n\nThe faults include a fixture still to be played that is booked onto a retired venue or referee,\nand one whose venue or referee another fixture of any season claims less than four hours away.",
+        "description": "List Spiele needing attention, and the bracket faults among them.\n\nQualifying: cancelled, missing a date, time, venue or referee, past with no result, a\nknockout side with neither team nor `quelle`, or holding a referee's report the administrator has\nnot adopted as it stands. Every report's state the season holds is served beside them. Scoped to `saison_id`, the active season when none\nis named, which answers 404 while no season is active.\n\nAlso every fixture a club's unclosed confirmation about its Ansetzung as it stands puts before the\nadministrator: a decline proposing another date, a deadline passed unanswered, or a deadline of\ntoday on a request sent today or never. The rows themselves are not served: `GET /spielbestaetigungen`\nfor the same season serves them, read separately, so a row reaching one of those states between\nthe two reads shows its fixture on the next.\n\nThe faults include a fixture still to be played that is booked onto a retired venue or referee,\nand one whose venue or referee another fixture of any season claims less than four hours away.",
         "operationId": "get_spiele_action_required_api_v0_spiele_action_required_get",
         "security": [
           {
@@ -7943,7 +7943,7 @@
     "/api/v0/registrierungen/bestaetigung": {
       "post": {
         "summary": "Confirm one registration and record the pupil's consent",
-        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the consent record, in one update.\n\nWhich page the link opens is resolved again here, as the view resolves it. On the new pupil's page the record\ncarries the publication scope they chose, the media answer beside it, the stamp and the wording they were shown.\nOn the returning pupil's page, which asks no choice, it carries the stamp and the wording alone: the choices\nstanding on the person's own record are theirs to change on the account page, and nothing here re-grants one.\nWhere that person has a birthdate stored, the body carries none: the one read here is judged and written, and\nthe answer echoes null rather than the stored date.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but\nthe running one of the page the link opens now (`REQ-EINWILLIGUNG-001`), answers that are not the ones that page\nasks -- both choices on the new pupil's, none on the returning pupil's, and a birthdate exactly where none is\nstored (`REQ-REGISTRIERUNG-017`) -- a link mailed to an\naddress the ban list holds now, whenever the link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor\n(`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`). Every one is\njudged before anything is written, so a reloaded page or a mistyped year spends nothing and the pupil keeps the\nlink.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
+        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the consent record, in one update.\n\nWhich page the link opens is resolved again here, as the view resolves it. On the new pupil's page the record\ncarries the publication scope they chose, the media answer beside it, the stamp and the wording they were shown.\nOn the returning pupil's page, which asks no choice, it carries the stamp and the wording alone: the choices\nstanding on the person's own record are theirs to change on the account page, and nothing here re-grants one.\nIts body carries no birthdate: the person's stored one, read here, is judged and written, and the answer echoes\nnull rather than the stored date.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but\nthe running one of the page the link opens now (`REQ-EINWILLIGUNG-001`), answers that are not the ones that page\nasks -- both choices and a birthdate on the new pupil's, none of the three on the returning pupil's\n(`REQ-REGISTRIERUNG-017`) -- a returning pupil's person holding no birthdate to take (`-019`), a link mailed to an\naddress the ban list holds now, whenever the link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor\n(`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`). Every one is\njudged before anything is written, so a reloaded page or a mistyped year spends nothing and the pupil keeps the\nlink.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
         "operationId": "post_bestaetigung_api_v0_registrierungen_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -7985,7 +7985,7 @@
             "$ref": "#/components/responses/404.REQ-REGISTRIERUNG-004"
           },
           "409": {
-            "$ref": "#/components/responses/409.REQ-EINWILLIGUNG-001.REQ-REGISTRIERUNG-006"
+            "$ref": "#/components/responses/409.REQ-EINWILLIGUNG-001.REQ-REGISTRIERUNG-006.REQ-REGISTRIERUNG-019"
           },
           "410": {
             "$ref": "#/components/responses/410.REQ-REGISTRIERUNG-005"
@@ -9829,7 +9829,7 @@
     "/api/v0/registrierungen/{registrierung_id}/aufnehmen": {
       "post": {
         "summary": "Admit a registration into the team's squad",
-        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name, its confirmed birthdate and\nits freshly confirmed consent record. Where that person's name or birthdate differs, `spieler_id` must name them\n(the team said it is the same person). With no such person, `spieler_id` is null for a new one. A retired person\ncomes back. A pending address change of theirs stands, asked over the address this admission proves again.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived\ntoday; this person's retired row of this season is rewritten rather than a second one written, whichever team\nit was on. The registration is deleted and its values redacted from the log in the same transaction, so a second\npress meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.\n\nRefuses, in this order: no pending registration with this id (404), no seat on its team's season\n(`REQ-FUNKTION-001`), a registration the pupil has not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban\nlist holds (`REQ-REGISTRIERUNG-009`, worded to the team as neutrally as to the pupil), a Stufe the season no\nlonger offers (`REQ-REGISTRIERUNG-003`), a registration confirmed on the returning pupil's page whose address holds\nno stored person (`REQ-REGISTRIERUNG-018`: it carries no choice, so it admits nobody, and the pupil registers\nagain), a `spieler_id` that is not the person this registration may be admitted\ninto (`REQ-REGISTRIERUNG-014`), a person already playing in a squad this season (`REQ-REGISTRIERUNG-015`) and a\nfull squad (`REQ-SQUAD-003`). Nothing is written on any of them.",
+        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name and, where the new pupil's page\nasked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page\nleaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's\nname or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such\nperson, `spieler_id` is null for a new one. A retired person comes back. A pending address change of theirs\nstands, asked over the address this admission proves again.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived\ntoday; this person's retired row of this season is rewritten rather than a second one written, whichever team\nit was on. The registration is deleted and its values redacted from the log in the same transaction, so a second\npress meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.\n\nRefuses, in this order: no pending registration with this id (404), no seat on its team's season\n(`REQ-FUNKTION-001`), a registration the pupil has not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban\nlist holds (`REQ-REGISTRIERUNG-009`, worded to the team as neutrally as to the pupil), a Stufe the season no\nlonger offers (`REQ-REGISTRIERUNG-003`), a registration confirmed on the returning pupil's page whose address holds\nno stored person (`REQ-REGISTRIERUNG-018`: it carries no choice, so it admits nobody, and the pupil registers\nagain), a `spieler_id` that is not the person this registration may be admitted\ninto (`REQ-REGISTRIERUNG-014`), a person already playing in a squad this season (`REQ-REGISTRIERUNG-015`) and a\nfull squad (`REQ-SQUAD-003`). Nothing is written on any of them.",
         "operationId": "aufnehmen_api_v0_registrierungen__registrierung_id__aufnehmen_post",
         "security": [
           {
@@ -18050,13 +18050,26 @@
           "schule": {
             "type": "string",
             "title": "Schule"
+          },
+          "bleibt_als": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "trainer",
+                "ansprechperson",
+                "stellvertretung"
+              ]
+            },
+            "type": "array",
+            "title": "Bleibt Als"
           }
         },
         "type": "object",
         "required": [
           "rollen",
           "email",
-          "schule"
+          "schule",
+          "bleibt_als"
         ],
         "title": "FLKontaktAbgang",
         "description": "One mailbox a write took off a seat of a season row, for the admin's notice; the server action reads it and the browser never does."
@@ -28659,14 +28672,22 @@
             },
             "type": "array",
             "title": "Bracket Faults"
+          },
+          "spielberichte": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielberichtZustandEintrag"
+            },
+            "type": "array",
+            "title": "Spielberichte"
           }
         },
         "type": "object",
         "required": [
-          "spiele"
+          "spiele",
+          "spielberichte"
         ],
         "title": "FLSpieleActionRequiredResponse",
-        "description": "The matches needing attention, and why the bracket ones do.\n\nA fault joins its match by `spiel_id`, never `spiel_nr`, which is unique within one season only.\n`spiele` carries every match a fault names."
+        "description": "The matches needing attention, why the bracket ones do, and every report's state.\n\nA fault joins its match by `spiel_id`, never `spiel_nr`, unique within one season only; `spiele` carries every\nmatch a fault or an open report names."
       },
       "FLSpieleAdminListResponse": {
         "properties": {
@@ -32894,7 +32915,7 @@
           }
         }
       },
-      "409.REQ-EINWILLIGUNG-001.REQ-REGISTRIERUNG-006": {
+      "409.REQ-EINWILLIGUNG-001.REQ-REGISTRIERUNG-006.REQ-REGISTRIERUNG-019": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -32908,7 +32929,8 @@
                     "error_code": {
                       "enum": [
                         "REQ-EINWILLIGUNG-001",
-                        "REQ-REGISTRIERUNG-006"
+                        "REQ-REGISTRIERUNG-006",
+                        "REQ-REGISTRIERUNG-019"
                       ]
                     }
                   }

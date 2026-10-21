@@ -223,7 +223,13 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       zeile: "offen",
     }),
   buildKontaktAbgangEmail: (origin) =>
-    buildKontaktAbgangEmail({ origin: origin, rollenText: "Ansprechperson", schule: "Ernst-Reuter-Schule", saisonId: "2627" }),
+    buildKontaktAbgangEmail({
+      origin: origin,
+      rollenText: "Ansprechperson",
+      bleibtText: null,
+      schule: "Ernst-Reuter-Schule",
+      saisonId: "2627",
+    }),
   buildCodeEmail: (origin) => buildCodeEmail("048213", origin),
   buildLoeschungEmail: (origin) => buildLoeschungEmail({ origin: origin, token: "beispiel-sieben" }),
   buildPasskeyHinzugefuegtEmail: (origin) =>

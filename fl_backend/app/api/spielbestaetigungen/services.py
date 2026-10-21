@@ -665,7 +665,7 @@ def build_eigene_zeilen_filter(*, saison_ids: Sequence[str], schiedsrichter_ids:
 def current_rows(rows: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
     """Each fixture's newest row alone: a move, a reinstatement or a re-booking asks afresh, and the earlier row is history.
 
-    One card per fixture on the referee's panel, by `_id`, which the pass mints in order (`docs/backend/spec.md :: I836`).
+    One card per fixture on the referee's panel, by `_id`, which the pass mints in order (`docs/backend/spec.md :: I837`).
     """
 
     newest: dict[Any, Mapping[str, Any]] = {}
@@ -982,7 +982,7 @@ def compose_seats_update(*, hashes: Mapping[str, str]) -> dict[str, Any]:
 
 
 def compose_closing_update(*, grund: FLSpielbestaetigungGrund, today: str, mitteilung: bool = False) -> dict[str, Any]:
-    """The closing, holding the notice it owes its party where `mitteilung` (`docs/backend/spec.md :: I834`)."""
+    """The closing, holding the notice it owes its party where `mitteilung` (`docs/backend/spec.md :: I835`)."""
 
     geschlossen: dict[str, Any] = {"am": today, "grund": grund}
     if mitteilung:
@@ -999,7 +999,7 @@ MITTEILUNG_VERSUCHE_HOECHSTENS: Final = 24
 
 
 def notice_owed(*, row: Mapping[str, Any], grund: FLSpielbestaetigungGrund, today: str) -> bool:
-    """Whether closing this row for `grund` owes its party a notice (`docs/backend/spec.md :: I780`, `:: I835`).
+    """Whether closing this row for `grund` owes its party a notice (`docs/backend/spec.md :: I780`, `:: I836`).
 
     Only a party its request or Einteilung was mailed to; a referee change and a call-off only about a day still to come.
     """

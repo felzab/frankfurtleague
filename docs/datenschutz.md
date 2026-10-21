@@ -948,8 +948,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   message names a person.** A club's seats receive the request and its reminders, a booked referee the
   Einteilung; a party mailed about it is told when the fixture moves, a referee when the fixture no
   longer books them, and every party mailed when it is called off (`docs/backend/spec.md :: I780`,
-  `:: I835`). A notice still owed is held on its closed row as a count of attempts and never as an
-  address (`:: I834`), so it needs no erasure step of its own: the address is read as each pass
+  `:: I836`). A notice still owed is held on its closed row as a count of attempts and never as an
+  address (`:: I835`), so it needs no erasure step of its own: the address is read as each pass
   sends, and a referee's erasure removes their rows. The taken-off and called-off notices ruled
   2026-10-20.
 - **A match report keeps its scorers, its cards and its proposed result as the league's record, and

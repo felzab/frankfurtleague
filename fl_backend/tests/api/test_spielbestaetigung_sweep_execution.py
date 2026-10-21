@@ -2237,7 +2237,7 @@ class TestARefereeWhoAcceptedIsToldTheyWereTakenOff:
         assert [notice.address for notice in second.schiedsrichter_gewechselt] == [REFEREE_EMAIL]
 
 
-# --- The NOTICES a close owes, held on the rows it closed (`docs/backend/spec.md :: I834`).
+# --- The NOTICES a close owes, held on the rows it closed (`docs/backend/spec.md :: I835`).
 
 
 class TestANoticeOutlivesALostAnswer:
@@ -2320,7 +2320,7 @@ class TestAnAddressMovedBesideTheNoticeIsTheOneTold:
         assert [notice.address for notice in answer.schiedsrichter_gewechselt] == [moved_to]
 
 
-# --- A FIXTURE CALLED OFF after its parties were asked (`docs/backend/spec.md :: I835`).
+# --- A FIXTURE CALLED OFF after its parties were asked (`docs/backend/spec.md :: I836`).
 
 
 async def asked_and_called_off(database: AsyncDatabase, client: AsyncMongoClient, *, stamped: bool = True) -> Any:

@@ -3,7 +3,14 @@ from typing import Annotated, Literal, Self
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 
 from app.api.berechtigungen.schemas import FLUtcInstant
-from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLSaisonPhase, FLSonderereignis, FLSpielElfmeterschiessen
+from app.api.spiele.schemas import (
+    SONDEREREIGNIS_NO_SHOW,
+    FLBracketFault,
+    FLSaisonPhase,
+    FLSonderereignis,
+    FLSpielElfmeterschiessen,
+    FLSpielJoinedAdmin,
+)
 from app.shared.schemas.bounds import SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH, SPIELBERICHT_EINTRAEGE_MAX
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -307,4 +314,20 @@ class FLSpielberichtZustandEintrag(BaseModel):
 class FLSpielberichteSaisonResponse(BaseAPIResponse):
     """Every report of one season that holds a block, each with its state."""
 
+    spielberichte: list[FLSpielberichtZustandEintrag]
+
+
+# Here rather than beside the fixtures' models: it composes the fixtures' read and the reports', and this module imports those.
+class FLSpieleActionRequiredResponse(BaseAPIResponse):
+    """The matches needing attention, why the bracket ones do, and every report's state.
+
+    A fault joins its match by `spiel_id`, never `spiel_nr`, unique within one season only; `spiele` carries every
+    match a fault or an open report names.
+    """
+
+    # The ADMIN shape, not the base tier's: a card on this page opens the modal that prints the
+    # referee's name, which the base tier serves reduced (`READ-REFEREE-001`).
+    spiele: list[FLSpielJoinedAdmin]
+    bracket_faults: list[FLBracketFault] = Field(default_factory=list)
+    # The states the union above was judged on, served rather than read again beside it: one snapshot for both.
     spielberichte: list[FLSpielberichtZustandEintrag]

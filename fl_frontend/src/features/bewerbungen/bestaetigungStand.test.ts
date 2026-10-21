@@ -7,7 +7,6 @@ import {
   adressenAndererPersonen,
   bestaetigungsStand,
   endstand,
-  gepaarteSitze,
   istOffen,
   linkAngebot,
   loeschungsSatz,
@@ -393,31 +392,6 @@ describe("the two seats one person holds", () => {
     });
 
     assert.deepEqual([...linkAngebot(standsOf2(trainerGone))].sort(), ["ansprechperson", "stellvertretung"]);
-  });
-
-  /* The message names both, because the answer covers both: a reader told only „Trainerin oder
-     Trainer“ would look for a second link for the seat they also hold. */
-  it("are both named by the link either row mints", () => {
-    assert.deepEqual(gepaarteSitze(PAAR, "trainer"), ["ansprechperson", "trainer"]);
-    assert.deepEqual(gepaarteSitze(PAAR, "ansprechperson"), ["ansprechperson", "trainer"]);
-    assert.deepEqual(gepaarteSitze(PAAR, "stellvertretung"), ["stellvertretung"]);
-  });
-
-  /* `paired_seat`'s `seat_stands` half: a dotted `$set` under a null slot aborts the transaction,
-     so the backend drops such a partner and the message must not name it either. */
-  it("fall apart where the partner seat has been emptied", () => {
-    const halfAnswered = seatsOf({
-      ansprechperson: null,
-      trainer: twinned,
-      zugleich: "ansprechperson",
-      bestaetigungen: { ansprechperson: null, stellvertretung: OFFEN, trainer: OFFEN },
-    });
-
-    assert.deepEqual(gepaarteSitze(halfAnswered, "trainer"), ["trainer"]);
-  });
-
-  it("are one seat where no claim was made", () => {
-    assert.deepEqual(gepaarteSitze(seatsOf(), "trainer"), ["trainer"]);
   });
 });
 

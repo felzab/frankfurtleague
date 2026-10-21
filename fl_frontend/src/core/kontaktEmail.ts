@@ -208,6 +208,8 @@ export interface KontaktAbgangData {
   origin: string;
   /** Every seat the mailbox held there, as one phrase, rendered by the caller as `KontaktBestaetigungData.rollenText` is. */
   rollenText: string;
+  /** The seats the mailbox still holds there as one phrase, or `null` where it left the row. */
+  bleibtText: string | null;
   schule: string;
   saisonId: string;
 }
@@ -218,9 +220,18 @@ const ABGANG_FOLGE =
   "Der Link zum Bestätigen dieses Eintrags und die Links zum Bestätigen von Spielterminen, die Du dafür bekommen hast, funktionieren nicht mehr. Du musst nichts tun.";
 
 /** The word to a mailbox that its seat on a team's season row is gone: no button, since nothing is left for it to answer. */
-export function buildKontaktAbgangEmail({ origin, rollenText, schule, saisonId }: KontaktAbgangData): KontaktEmail {
+export function buildKontaktAbgangEmail({ origin, rollenText, bleibtText, schule, saisonId }: KontaktAbgangData): KontaktEmail {
   const site = mailOrigin(origin);
   const fakten = { rollen: einzeilig(rollenText), schule: einzeilig(schule), saisonId: einzeilig(saisonId) };
+  // A mailbox keeping a paired seat keeps that seat's links, so neither the heading nor the dead links are its.
+  const bleibt = bleibtText === null ? null : einzeilig(bleibtText);
+  const ueberschrift = bleibt === null ? ABGANG_UEBERSCHRIFT : `Nicht mehr als ${fakten.rollen} eingetragen`;
+  const folge = (markup: boolean): string =>
+    bleibt === null
+      ? markup
+        ? escapeHtml(ABGANG_FOLGE)
+        : ABGANG_FOLGE
+      : `Als ${markup ? escapeHtml(bleibt) : bleibt} bleibst Du für ${markup ? strong(escapeHtml(fakten.schule)) : fakten.schule} eingetragen, dafür ändert sich nichts. Du musst nichts tun.`;
 
   const abgang = (markup: boolean): string => {
     const team = markup ? strong(escapeHtml(fakten.schule)) : fakten.schule;
@@ -230,15 +241,15 @@ export function buildKontaktAbgangEmail({ origin, rollenText, schule, saisonId }
   };
 
   const html = renderKarte({
-    titel: `${BRAND_NAME}: ${ABGANG_UEBERSCHRIFT}`,
-    ueberschrift: escapeHtml(ABGANG_UEBERSCHRIFT),
-    bloecke: [paragraph(abgang(true)), paragraph(escapeHtml(ABGANG_FOLGE))],
+    titel: `${BRAND_NAME}: ${ueberschrift}`,
+    ueberschrift: escapeHtml(ueberschrift),
+    bloecke: [paragraph(abgang(true)), paragraph(folge(true))],
     aktionen: [],
     fuss: `${EMPFAENGER_SATZ} ${ANTWORT_SATZ_HTML}`,
     origin: site,
   });
 
-  const oben = [`${BRAND_NAME}: ${ABGANG_UEBERSCHRIFT}`, "", abgang(false), "", ABGANG_FOLGE];
+  const oben = [`${BRAND_NAME}: ${ueberschrift}`, "", abgang(false), "", folge(false)];
 
   return {
     subject: `Du bist nicht mehr als ${fakten.rollen} für ${fakten.schule} eingetragen`,

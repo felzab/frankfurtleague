@@ -2,12 +2,12 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 
 import { funktionenOf } from "@/core/funktionen";
-import { FunktionenGuard } from "@/features/funktionen/components/providers/FunktionenGuard";
+import { getSubjectSession } from "@/core/subject";
 import { PersonAreaBoundary } from "@/features/funktionen/components/providers/PersonAreaBoundary";
+import { PersonSessionHold } from "@/features/funktionen/components/providers/PersonSessionHold";
 import { PersonLaneFunktionSwitcher } from "@/features/funktionen/components/ui/PersonLaneFunktionSwitcher";
 import { PersonShell, PersonSidemenuEntries } from "@/features/funktionen/components/ui/PersonShell";
 import { PERSON_SIDEMENU_ENTRIES, PERSON_SIDEMENU_STRUCTURE, personStructureFor } from "@/features/funktionen/constants";
-import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { personEintraegeOf } from "@/features/funktionen/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
@@ -40,9 +40,9 @@ export default function PersoenlichLayout({ children }: { children: React.ReactN
           </Suspense>
         }>
         {/* Not redundant with `loading.tsx`, which Next nests INSIDE this boundary: this one covers the
-            guard's session round-trip, which sits above the page segment. */}
+            hold's session round-trip, which sits above the page segment. */}
         <Suspense fallback={<ContentLoader />}>
-          <FunktionenGuard>{children}</FunktionenGuard>
+          <PersonSessionHold>{children}</PersonSessionHold>
         </Suspense>
       </PersonShell>
     </PersonAreaBoundary>
@@ -53,8 +53,11 @@ async function PersonEntries() {
   // Its own, whatever is mounted above: the builder stage reaches no sign-in store, so a session read
   // ahead of this runs at build time (`docs/frontend/spec.md :: I448`).
   await connection();
-  // The guard's own read, memoised per render (`fl_frontend/src/core/subject.ts :: getSubjectSession`).
-  const { funktionen } = funktionenOf(await requireSubjectSession());
+  // The hold's own read, memoised per render; a refused session keeps the fallback, the page turning it away
+  // (`docs/frontend/spec.md :: I834`).
+  const subject = await getSubjectSession();
+  if (subject === null) return <PersonSidemenuEntries structure={personStructureFor(new Set(["landing"]))} />;
+  const { funktionen } = funktionenOf(subject);
 
   return <PersonSidemenuEntries structure={personStructureFor(personEintraegeOf(funktionen))} />;
 }

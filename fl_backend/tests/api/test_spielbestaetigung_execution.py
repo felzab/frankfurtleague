@@ -1772,7 +1772,7 @@ ZUGESAGT = {"art": "zugesagt", "am": TODAY, "von": {"art": "schiedsrichter"}, "v
 
 class TestTheRefereesOwnRows:
     def test_one_card_per_fixture_its_current_request(self, mongo_replica_set_url: str):
-        """`docs/backend/spec.md :: I836`: the row about the slot the fixture left was minted first, and the fresh request answers alone.
+        """`docs/backend/spec.md :: I837`: the row about the slot the fixture left was minted first, and the fresh request answers alone.
 
         Another referee's row of the same fixture is not theirs at all.
         """

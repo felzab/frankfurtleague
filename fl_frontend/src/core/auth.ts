@@ -43,6 +43,7 @@ import {
 } from "./sessionLifetimes";
 import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "./signInCode";
 import { lookUpAnmeldung, lookUpSubjekt, mayReceiveSignIn, signInVerdictOf } from "./signInGate";
+import { HOUR_MS } from "./timeUnits";
 import { versandAusfallOf } from "./versandAusfall";
 import { madeSince, verwaltungOf } from "./verwaltung";
 
@@ -94,8 +95,6 @@ const CODE_SIGN_IN_PATH = "/sign-in/email-otp";
 
 /** The one path that mails a code, which `fl_frontend/src/features/auth/actions.ts :: handleSignIn` calls in process. */
 const CODE_SEND_PATH = "/email-otp/send-verification-otp";
-
-const HOUR_MS = 60 * 60 * 1000;
 
 // Prefixes the plugin never writes, so these rows are told from its code rows by identifier alone,
 // and an operator can clear every lock at once (`docs/ops/runbooks.md` §17).

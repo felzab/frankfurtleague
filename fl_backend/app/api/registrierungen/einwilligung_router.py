@@ -24,6 +24,7 @@ from app.api.registrierungen.services import (
     find_bestaetigung_gesperrt_refusal,
     find_expired_token_refusal,
     find_medien_refusal,
+    find_ohne_geburtsdatum_refusal,
     find_unknown_token_refusal,
     find_wahlen_refusal,
     gespeichertes_geburtsdatum,
@@ -141,14 +142,14 @@ async def post_bestaetigung(
     carries the publication scope they chose, the media answer beside it, the stamp and the wording they were shown.
     On the returning pupil's page, which asks no choice, it carries the stamp and the wording alone: the choices
     standing on the person's own record are theirs to change on the account page, and nothing here re-grants one.
-    Where that person has a birthdate stored, the body carries none: the one read here is judged and written, and
-    the answer echoes null rather than the stored date.
+    Its body carries no birthdate: the person's stored one, read here, is judged and written, and the answer echoes
+    null rather than the stored date.
 
     Refuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has
     passed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but
     the running one of the page the link opens now (`REQ-EINWILLIGUNG-001`), answers that are not the ones that page
-    asks -- both choices on the new pupil's, none on the returning pupil's, and a birthdate exactly where none is
-    stored (`REQ-REGISTRIERUNG-017`) -- a link mailed to an
+    asks -- both choices and a birthdate on the new pupil's, none of the three on the returning pupil's
+    (`REQ-REGISTRIERUNG-017`) -- a returning pupil's person holding no birthdate to take (`-019`), a link mailed to an
     address the ban list holds now, whenever the link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor
     (`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`). Every one is
     judged before anything is written, so a reloaded page or a mistyped year spends nothing and the pupil keeps the
@@ -191,10 +192,10 @@ async def post_bestaetigung(
                 umfang=antwort_data.umfang,
                 medien=antwort_data.medien,
                 geburtsdatum=antwort_data.geburtsdatum,
-                gespeichert=gespeichert,
             )
         )
-        # Exactly one of the two is set once the refusal above has passed.
+        refuse(find_ohne_geburtsdatum_refusal(seite=seite, gespeichert=gespeichert))
+        # Exactly one of the two is set once the refusals above have passed.
         geburtsdatum = antwort_data.geburtsdatum or gespeichert
         assert geburtsdatum is not None
         # Asked at the press rather than only at the mint: a ban entered after the link went out

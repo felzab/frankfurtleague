@@ -144,6 +144,19 @@ describe("the panel a triage decision is taken from", () => {
     });
   }
 
+  /* A seat confirmed before choices carried their own evidence stands on its confirmation alone. */
+  it("reads a confirmed seat's choice with no evidence of its own as standing on the confirmation", () => {
+    const ansprechperson = BEWERBUNG.kontakte.ansprechperson;
+    assert.ok(ansprechperson !== null);
+    const einwilligung = { ...ansprechperson.einwilligung, bestaetigt_am: "2026-08-02", nachweis: { umfang: null, medien: null } };
+    const html = markup({ status: "eingereicht", kontakte: { ...BEWERBUNG.kontakte, ansprechperson: { ...ansprechperson, einwilligung } } });
+
+    assert.ok(
+      textOf(factLine(html, "Medien")).endsWith("seit der Bestätigung am 02.08.2026, Fassung 2026-08"),
+      textOf(factLine(html, "Medien")),
+    );
+  });
+
   /* A decided application's copy is frozen: the seats' choices move on the team's row from then on, so
      the copy read out in the present tense would contradict them for as long as it is kept. */
   for (const status of ["angenommen", "abgelehnt"] as const) {
