@@ -1099,6 +1099,10 @@ async def undraw_spielplan(
             )
         )
 
+        # The season a report's first write anchors, so the two conflict: the `$unset` below changes nothing on a season
+        # holding no watermark, and the report's insert meets no delete here (`docs/backend/spec.md :: I833`).
+        await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
+
         # Fixtures first, the reverse of the draw's write order: neither the log's rows nor a restore
         # replaying them then holds a fixture whose matchday is already gone. Confirmations and reports
         # go first for that reason (`app/core/domain.py :: REFERENCES`).

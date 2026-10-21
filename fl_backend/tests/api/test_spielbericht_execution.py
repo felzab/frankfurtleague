@@ -540,6 +540,41 @@ class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
         assert (outcome, versions) == (BERICHT_SAISON_BEENDET, [1])
         assert passes == 1
 
+    def test_a_first_write_conflicts_with_the_season_ending_under_it(self, mongo_replica_set_url: str):
+        """The season's anchor conflicts with the end, so a retry refuses the write in its transaction.
+
+        Unanchored, the write meets the end only in its judgement outside the transaction, as a correction does above.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            berichte = BerichteRunningARivalBeforeTheirWrite(database[Collection.SPIELBERICHTE], lambda: end_the_season(database))
+            saisons = SaisonsCountingTheAttempts(database[Collection.SAISONS])
+            outcome = await outcome_of(put(database, client, bericht(), spielberichte_collection=berichte, saisons_collection=saisons))
+            berichte.assert_landed_inside(serially=0)
+
+            return outcome, await stored(database), saisons.attempts
+
+        outcome, documents_now, attempts = on_the_league(mongo_replica_set_url, body)
+
+        assert (outcome, documents_now) == (BERICHT_SAISON_BEENDET, [])
+        assert attempts == 2, "the season's end conflicted with nothing the write wrote"
+
+
+class SaisonsCountingTheAttempts:
+    """Every attempt of the write's transaction reads the fixture's season once inside it, so those reads count the attempts."""
+
+    def __init__(self, collection: Any) -> None:
+        self._collection = collection
+        self.attempts = 0
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        if kwargs.get("session") is not None:
+            self.attempts += 1
+        return await self._collection.find_one(*args, **kwargs)
+
 
 class BerichteRunningARivalBeforeTheirCorrection(InterleavedCollection):
     async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
