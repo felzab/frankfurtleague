@@ -2634,7 +2634,7 @@ RULES: tuple[Rule, ...] = (
         operation="POST /identitaet/erasure",
         aggregate="Berechtigung",
         summary=(
-            "an erasure ending another address's pending change, that address holding a protected grant, is made only by an"
+            "an erasure ending another address's pending change, that address holding a live grant, is made only by an"
             " actor holding an owner's power, as only an owner discards such a change"
         ),
         implemented_by="app.api.identitaet.services.find_fremder_adresswechsel_refusal",

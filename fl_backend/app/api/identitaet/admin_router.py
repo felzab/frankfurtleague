@@ -276,9 +276,9 @@ async def erase_auf_anfrage(
     signed in since becoming one (`REQ-PURGE-005`), judged inside the write: erasing it removes the grant, whatever grants
     remain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every
     other address is erased from a sign-in inside the step-up window. Either window missed answers `REQ-AUTH-009`. An
-    address another address's pending change would move to is refused, judged inside the write, where that address holds an
-    `owner` grant and the administrator no owner's power (`REQ-PURGE-007`): the erasure ends the change, a discard only an
-    owner makes of it.
+    address another address's pending change would move to is refused, judged inside the write, where that address holds a
+    live grant and the administrator no owner's power (`REQ-PURGE-007`): the erasure ends the change, a discard only an
+    owner makes of it. The refusal tells that administrator some change the preview withholds names the address.
 
     `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does. No
     redaction reaches it, so it is refused 422 where it holds an address, and, inside the write ahead of the erasure's first

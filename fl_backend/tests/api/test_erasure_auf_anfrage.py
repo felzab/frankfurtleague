@@ -27,7 +27,6 @@ from app.api.berechtigungen.antraege import compose_antrag
 from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
 from app.api.identitaet.schemas import FLErasure, FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
 from app.api.identitaet.services import (
-    ADRESSWECHSEL_GESCHUETZT,
     EIGENE_ADRESSE,
     FREMDER_ADRESSWECHSEL,
     NAME_IM_ANLASS,
@@ -685,7 +684,7 @@ class TestAGrantHoldersPendingChange:
         ]
 
     @pytest.mark.parametrize("tier", ["administration", "owner"])
-    def test_the_erasure_ending_it_is_the_owners_for_a_protected_tier(self, mongo_replica_set_url: str, tier: str):
+    def test_the_erasure_ending_it_is_the_owners_whatever_the_tier(self, mongo_replica_set_url: str, tier: str):
         """Ending it is a discard, which only an owner makes of an administrator's change."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -699,10 +698,7 @@ class TestAGrantHoldersPendingChange:
 
         by_operator, untouched, owners_status, ended = on_a_league(mongo_replica_set_url, body)
 
-        if tier in ADRESSWECHSEL_GESCHUETZT:
-            assert (by_operator.status_code, by_operator.json()["error_code"], untouched) == (403, FREMDER_ADRESSWECHSEL, True)
-        else:
-            assert by_operator.status_code == 200
+        assert (by_operator.status_code, by_operator.json()["error_code"], untouched) == (403, FREMDER_ADRESSWECHSEL, True)
         assert owners_status == 200
         assert ended is not None and ended["beendet"]["art"] == "verworfen"
 

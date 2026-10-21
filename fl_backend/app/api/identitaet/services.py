@@ -558,8 +558,9 @@ NUR_INHABER: Final[frozenset[str]] = frozenset({OWNER})
 # change is a discard, which only an owner may make of it.
 FREMDER_ADRESSWECHSEL = "REQ-PURGE-007"
 
-# The tiers whose holder's pending change an erasure ends only for an actor holding an owner's power.
-ADRESSWECHSEL_GESCHUETZT: Final[frozenset[str]] = NUR_INHABER
+# The tiers whose holder's pending change an erasure ends only for an actor holding an owner's power: every one, the set
+# the erasure's preview withholds from anyone else, as only an owner discards an administrator's change.
+ADRESSWECHSEL_GESCHUETZT: Final[frozenset[str]] = JEDE_VERWALTUNG
 
 
 def verwaltung_adresse_verwehrt(
