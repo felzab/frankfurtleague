@@ -12,6 +12,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
+from app.api.adresswechsel.services import compose_postausgang
 from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
 from app.api.berechtigungen.antraege import compose_antrag
@@ -400,6 +401,21 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         "adresswechsel": {
             "_id": ADRESSWECHSEL_OID,
             **adresswechsel_document(adresse="alt@example.invalid", email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16"),
+        },
+        # An effect's notice a pass holds claimed on the lost-mailbox way, greeting nobody: every nullable key both ways.
+        "adresswechsel_postausgang": {
+            "_id": ADRESSWECHSEL_OID,
+            **compose_postausgang(
+                art="wirksam",
+                email="neu@example.invalid",
+                now=datetime(2026, 3, 16, tzinfo=UTC),
+                bisherige_email="alt@example.invalid",
+                vorname=None,
+                weg="wartezeit",
+            ),
+            "beansprucht_bis": datetime(2026, 3, 16, 0, 10, tzinfo=UTC),
+            "beanspruchung": "a-claim",
+            "versuche": 1,
         },
         # A promotion asked, so `berechtigung_id` is an id rather than the null a grant's request holds.
         "berechtigungen_antraege": {
