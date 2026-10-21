@@ -82,7 +82,7 @@ class FLBerechtigung(BaseModel):
     # finding one made in the database: an older session holds no owner's power (`docs/backend/spec.md :: I534`).
     ernannt_am: datetime | None = None
     # Written by an address change's move alone, read by the four-eyes rule and never by a session's check
-    # (`docs/backend/spec.md :: I865`).
+    # (`docs/backend/spec.md :: I866`).
     fortgefuehrt: FLBerechtigungFortgefuehrt | None = None
 
 

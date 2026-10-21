@@ -142,7 +142,7 @@ async def carry_authorship_in_session(
     carried += await _set_authored(sperrliste_collection, "erstellt_von", alt, neue, session)
     carried += await _set_authored(einladungen_collection, "erstellt_von", alt, neue, session)
     carried += await _set_authored(berechtigungen_postausgang_collection, "geaendert_von", alt, neue, session)
-    # A moved requester's request stays theirs, approvable as before (`docs/backend/spec.md :: I865`): carried so it holds no
+    # A moved requester's request stays theirs, approvable as before (`docs/backend/spec.md :: I866`): carried so it holds no
     # address an erasure at the new one misses.
     carried += await _set_authored(berechtigungen_antraege_collection, "genehmigung.gestartet_von", alt, neue, session)
 

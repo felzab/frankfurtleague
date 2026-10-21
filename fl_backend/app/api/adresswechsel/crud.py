@@ -880,7 +880,7 @@ async def _move_the_grant(
         berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
         now=now,
         session=session,
-        # The four-eyes rule dates the person, not the mailbox (`docs/backend/spec.md :: I865`).
+        # The four-eyes rule dates the person, not the mailbox (`docs/backend/spec.md :: I866`).
         fortgefuehrt=compose_fortgefuehrt(grant, announced[0] if announced else None),
     )
 

@@ -343,7 +343,7 @@ def compose_announced(*, berechtigung_id: ObjectId, stand: FLBerechtigungStand, 
 def vier_augen_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None, *, verwaltung: str) -> datetime | None:
     """Since when the four-eyes rule counts this grant's holder as holding `verwaltung`'s tier.
 
-    The person's, not the mailbox's: a row their own address change moved keeps the dates it replaced (`docs/backend/spec.md :: I865`).
+    The person's, not the mailbox's: a row their own address change moved keeps the dates it replaced (`docs/backend/spec.md :: I866`).
     """
 
     seit = (inhaber_seit if verwaltung == OWNER else berechtigt_seit)(row, angekuendigt)

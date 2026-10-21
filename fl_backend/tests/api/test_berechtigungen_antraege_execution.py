@@ -889,7 +889,7 @@ async def move(database: AsyncDatabase, client: AsyncMongoClient, *, at: datetim
 
 
 class TestAMovedAdministratorKeepsTheirStanding:
-    """`docs/backend/spec.md :: I865`: the four-eyes rule dates the person, so their own address change keeps their since-when.
+    """`docs/backend/spec.md :: I866`: the four-eyes rule dates the person, so their own address change keeps their since-when.
 
     `EMAIL`'s grant predates the request asked an hour ago; the move half an hour ago grants `NEW_EMAIL` afresh after it.
     """
