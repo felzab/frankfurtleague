@@ -10,6 +10,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { ADRESSWECHSEL_STOPPEN, JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
+import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { KONTO_HREF } from "@/core/kontoHref.ts";
 import { doubleLogger, doubleToasts, loggedErrorCodes, loggedErrorTraces } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
@@ -113,6 +114,21 @@ describe("the new mailbox's side of the address page", () => {
     assert.doesNotMatch(words({ zustand: "nicht_bestaetigbar", weg: "konto", token: "abc123" }), /gesperrt|Sperre|bisherige|andere/);
   });
 
+  /* An account's move still owed, or entries the league removes, refuse the confirmation for a while only: the page claims
+     no end, and offers the retry beside the league. */
+  it("tells a change it cannot confirm now to try again later or write to the league, and claims no end", () => {
+    render(h(AdresswechselLinkView, { start: { zustand: "nicht_bestaetigbar", weg: "konto", token: "abc123" } }));
+
+    assert.equal(screen.getByRole("heading", { level: 1 }).textContent, "Bestätigung gerade nicht möglich");
+    assert.ok(
+      document.body.textContent.includes(
+        `Diese Änderung der E-Mail-Adresse kann gerade nicht bestätigt werden. Versuche es später erneut, oder schreib uns an ${KONTAKT_EMAIL}.`,
+      ),
+      document.body.textContent,
+    );
+    assert.doesNotMatch(document.body.textContent, /nicht mehr/);
+  });
+
   /* Only the person's own start can be asked again on the account page; an administrator's needs the league. */
   it("sends a lapsed own change back to the account page, and an administrator's to the league", () => {
     assert.match(
@@ -187,7 +203,7 @@ describe("the new mailbox's side of the address page", () => {
       [OFFEN, null],
       [STOPP, null],
       [{ zustand: "abgelaufen", weg: "konto", token: "abc123" }, "Dieser Link ist abgelaufen."],
-      [{ zustand: "nicht_bestaetigbar", weg: "konto", token: "abc123" }, "kann nicht mehr bestätigt werden."],
+      [{ zustand: "nicht_bestaetigbar", weg: "konto", token: "abc123" }, "kann gerade nicht bestätigt werden."],
       [{ zustand: "bestaetigt", wirksamAb: null, genehmigungOffen: true, weg: "konto" }, "sobald die Verwaltung die Änderung genehmigt hat."],
       [{ zustand: "genehmigung_abgelaufen", weg: "konto" }, "weil die Verwaltung ihr nicht rechtzeitig zugestimmt hat."],
       [{ zustand: "beendet", seite: "bisherig", art: "wirksam" }, "Für das Konto gilt inzwischen eine neue E-Mail-Adresse."],
@@ -226,7 +242,7 @@ describe("the new mailbox's side of the address page", () => {
      offer with the token, or the route refuses it as a link opened without one (`docs/frontend/spec.md :: I630`). */
   for (const [zustand, panel] of [
     ["abgelaufen", /Dieser Link ist abgelaufen/],
-    ["nicht_bestaetigbar", /kann nicht mehr bestätigt werden/],
+    ["nicht_bestaetigbar", /kann gerade nicht bestätigt werden/],
   ] as const) {
     it(`turns a link ${zustand} under the press into that panel, keeping the token for the decline`, async () => {
       const { sent } = answerEveryFetch({ success: false, zustand });

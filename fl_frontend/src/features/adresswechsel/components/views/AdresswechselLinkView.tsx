@@ -58,7 +58,7 @@ const TITEL: Record<Exclude<AdresswechselStart["zustand"], "gesperrt" | "beendet
   abgelaufen: "Link abgelaufen",
   // The heading the change's tombstone reads once the hourly pass has ended it.
   genehmigung_abgelaufen: "Änderung abgelaufen",
-  nicht_bestaetigbar: "Änderung nicht mehr möglich",
+  nicht_bestaetigbar: "Bestätigung gerade nicht möglich",
   ungueltig: "Link ungültig",
   unlesbar: LINK_UNLESBAR_TITEL,
 };
@@ -424,15 +424,16 @@ export function AdresswechselLinkView({ start }: { start: AdresswechselStart }) 
         </BestaetigungErgebnis>
       )}
 
-      {/* Naming neither the ban, nor another pupil holding the address: the holder of this mailbox may be a
-          stranger to both. */}
+      {/* Naming no cause, the holder of this mailbox being a stranger to each, and no end: an account's move still owed,
+          or entries the league removes, pass, and the confirmation opens again. */}
       {stand.zustand === "nicht_bestaetigbar" && (
         <>
           <BestaetigungErgebnis
             panelRef={ergebnisRef}
             tone="hinweis">
             <p className={ABSATZ_CLASSES}>
-              Diese Änderung der E-Mail-Adresse kann nicht mehr bestätigt werden. Fragen jederzeit per E-Mail an {KONTAKT_EMAIL}.
+              Diese Änderung der E-Mail-Adresse kann gerade nicht bestätigt werden. Versuche es später erneut, oder schreib uns an{" "}
+              {KONTAKT_EMAIL}.
             </p>
           </BestaetigungErgebnis>
           <NurAblehnen antwort={antwort} />
