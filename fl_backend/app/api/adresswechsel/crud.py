@@ -38,11 +38,9 @@ from app.api.adresswechsel.services import (
 )
 from app.api.aktionen.crud import (
     carry_the_replaced_address_in_images,
-    carry_the_replaced_address_in_seat_images,
     reattribute_administrator_in_session,
     redact_images_in_session,
 )
-from app.api.aktionen.services import IMAGE_ADDRESSES
 from app.api.berechtigungen.antraege import abgelehnt_line, end_the_antraege_about_in_session
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
 from app.api.berechtigungen.erasure import carry_authorship_in_session
@@ -760,12 +758,9 @@ async def move_the_address_in_session(
     )
     await _reattribute_the_changes(adresswechsel_collection, alt, neu, session=session)
     await reattribute_administrator_in_session(aktionen_collection=aktionen_collection, identifier=alt, value=neu, session=session)
-    await carry_the_replaced_address_in_images(
-        aktionen_collection=aktionen_collection, alt=alt, neue=neu, collections=tuple(IMAGE_ADDRESSES), stamp=stamp, session=session
-    )
     # A seat left before the change is in no document an erasure at the new address reads, so its images follow the
     # person; one standing at the replaced address as nobody's proven own keeps it.
-    await carry_the_replaced_address_in_seat_images(
+    await carry_the_replaced_address_in_images(
         aktionen_collection=aktionen_collection,
         alt=alt,
         neue=neu,

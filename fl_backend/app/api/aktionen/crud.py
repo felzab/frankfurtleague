@@ -19,8 +19,7 @@ from app.api.aktionen.services import (
     build_address_images_filter,
     carried_by_the_effect,
 )
-from app.api.kontakte.services import build_seat_images_filter, seat_address_carry_edits
-from app.core.collections import Collection as DbCollection
+from app.api.kontakte.services import SEAT_IMAGE_COLLECTIONS, build_seat_images_filter, seat_address_carry_edits
 from app.core.crud import aggregate_many_from_db, patch_many_in_db
 from app.core.recording import ERASED_ACTOR_MARKER, ImageEdits, build_image_redactions
 from app.shared.folding import sign_in_identifier
@@ -140,57 +139,53 @@ async def carry_the_replaced_address_in_images(
     # Both folded (`app/shared/folding.py :: sign_in_identifier`).
     alt: str,
     neue: str,
-    collections: Sequence[DbCollection],
-    stamp: str,
-    session: AsyncClientSession,
-) -> int:
-    """Re-key the replaced address in these collections' log images as an address change's effect owes them.
-
-    Every other collection keeps its subject's address, its record reached by id, a seat's apart
-    (`app/api/aktionen/crud.py :: carry_the_replaced_address_in_seat_images`); who acted carries everywhere.
-    """
-
-    changed = 0
-    for collection in collections:
-        addresses = tuple(
-            address
-            for address in IMAGE_ADDRESSES[collection]
-            if collection in EFFECT_IMAGE_COLLECTIONS or address.replacement == ERASED_ACTOR_MARKER
-        )
-        if not addresses:
-            continue
-        changed += await redact_images_in_session(
-            aktionen_collection=aktionen_collection,
-            db_filter=build_address_images_filter(collection, alt),
-            judge=partial(address_image_edits, identifier=alt, addresses=carried_by_the_effect(addresses, neue)),
-            stamp=stamp,
-            session=session,
-        )
-
-    return changed
-
-
-async def carry_the_replaced_address_in_seat_images(
-    *,
-    aktionen_collection: AsyncCollection,
-    # Both folded (`app/shared/folding.py :: sign_in_identifier`).
-    alt: str,
-    neue: str,
     # Each document and slot still seating `alt` once the effect moved its own seats.
     staying: Set[tuple[Any, str]],
     stamp: str,
     session: AsyncClientSession,
 ) -> int:
-    """Re-key the replaced address in every seat image an address change's effect leaves nobody holding.
+    """Re-key the replaced address in the log images an address change's effect owes, in ONE read of the log.
 
-    A seat the person left before their change is reached by no document, so its images are an erasure's by address alone
-    (`app/api/kontakte/services.py :: build_seat_images_filter`).
+    Who acted carries everywhere; a change's, a grant's and a request's subject address too, and a seat's wherever no
+    document seats the address still: a seat the person left is reached by no document, so its images are an erasure's by
+    address alone (`app/api/kontakte/services.py :: build_seat_images_filter`). Every other record's images are reached by
+    its id. One read, as the effect's share is sized (`fl_backend/tests/api/test_adresswechsel_sweep_refusal.py`).
     """
 
-    return await redact_images_in_session(
-        aktionen_collection=aktionen_collection,
-        db_filter=build_seat_images_filter(alt),
-        judge=partial(seat_address_carry_edits, alt=alt, neue=neue, staying=staying),
-        stamp=stamp,
+    judges: dict[str, list[Callable[[Mapping[str, Any]], ImageEdits]]] = {}
+    clauses: list[Mapping[str, Any]] = []
+    for collection in IMAGE_ADDRESSES:
+        addresses = tuple(
+            address
+            for address in IMAGE_ADDRESSES[collection]
+            if collection in EFFECT_IMAGE_COLLECTIONS or address.replacement == ERASED_ACTOR_MARKER
+        )
+        if addresses:
+            judges.setdefault(str(collection), []).append(
+                partial(address_image_edits, identifier=alt, addresses=carried_by_the_effect(addresses, neue))
+            )
+            clauses.append(build_address_images_filter(collection, alt))
+    for collection in SEAT_IMAGE_COLLECTIONS:
+        judges.setdefault(str(collection), []).append(partial(seat_address_carry_edits, alt=alt, neue=neue, staying=staying))
+    clauses.append(build_seat_images_filter(alt))
+
+    # Each clause keyed on its `collection`, the half `aktionen_target` serves; unbounded, as `read_imaged_rows` reads.
+    rows = await aggregate_many_from_db(
+        collection=aktionen_collection,
+        pipeline=[{"$match": {"$or": clauses, "before": {"$ne": None}}}, {"$project": {"before": 1, "collection": 1}}],
         session=session,
     )
+
+    changed = 0
+    for name, judged in judges.items():
+        held = [row for row in rows if row.get("collection") == name]
+        if held:
+            changed += await redact_rows_in_session(
+                aktionen_collection=aktionen_collection,
+                rows=held,
+                judge=lambda image, judged=judged: {path: value for judge in judged for path, value in judge(image).items()},
+                stamp=stamp,
+                session=session,
+            )
+
+    return changed

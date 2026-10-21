@@ -73,7 +73,7 @@ router = APIRouter(
 # The largest share whose dearest change, moving a pupil row and a referee row, finishes inside
 # `app/core/middlewares.py :: REQUEST_DEADLINE_S` (`docs/backend/spec.md :: I322`); the arithmetic is
 # `fl_backend/tests/api/test_adresswechsel_sweep_refusal.py`'s, failing when a command is added; a dearer change meets the deadline.
-ADRESSWECHSEL_PER_PASS: Final = 4
+ADRESSWECHSEL_PER_PASS: Final = 5
 
 
 def _pipeline(*, now: datetime, nach: Any, groesse: int) -> list[dict[str, Any]]:

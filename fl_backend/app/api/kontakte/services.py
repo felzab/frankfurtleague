@@ -62,6 +62,10 @@ def build_accepted_application_pipeline(*, saison_id: str, team_id: Any) -> list
     ]
 
 
+# The collections whose log images seat a contact person.
+SEAT_IMAGE_COLLECTIONS: tuple[Collection, ...] = (Collection.SAISON_TEAMS, Collection.BEWERBUNGEN)
+
+
 def build_seat_images_filter(identifier: str) -> Mapping[str, Any]:
     """Log rows whose images seat this person; `seat_image_edits` decides which slot.
 
@@ -72,7 +76,7 @@ def build_seat_images_filter(identifier: str) -> Mapping[str, Any]:
     return {
         # `collection` first, the one half of this an index serves: `aktionen_target` is a prefix
         # match here, and nothing indexes inside `before`.
-        "collection": {"$in": [str(Collection.SAISON_TEAMS), str(Collection.BEWERBUNGEN)]},
+        "collection": {"$in": [str(collection) for collection in SEAT_IMAGE_COLLECTIONS]},
         "$or": [{f"before.kontakte.{slot}.email": sign_in_identifier(identifier)} for slot in KONTAKT_ROLLEN],
     }
 
