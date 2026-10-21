@@ -16,6 +16,7 @@ from app.api.spiele.schemas import FLSpielElfmeterschiessen
 from app.api.spieler.schemas import FLSpielerStufe
 from app.core.collections import Collection
 from app.core.config import MONGODB_URI_FILE, get_config  # noqa: TID251
+from app.core.crud import GERMAN_COLLATION
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN
 from app.shared.schemas.bounds import (
@@ -1638,6 +1639,9 @@ class SupportIndex:
     name: str
     keys: tuple[tuple[str, int], ...]
     rule: str
+    # The collation of the reads it serves, which must be the index's own: a read under another one walks none of its
+    # string keys (`docs/backend/spec.md :: I54`).
+    collation: Mapping[str, Any] | None = None
 
 
 SUPPORT_INDEXES: Sequence[SupportIndex] = (
@@ -1842,13 +1846,22 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("bericht.eingereicht_von.schiedsrichter_id", ASCENDING),),
         "the reports a leaving referee sent, read inside their erasure's transaction",
     ),
-    # The report reads it on every form and panel read and twice on every write, as do a team's
-    # registrations and squad pages; the only index led by `saison_id` is led by the pupil instead.
+    # The squad counts, the registrations' number read and a replacement's retirement match by club, with no collation;
+    # the only other index on `saison_id` is led by the pupil (`docs/backend/spec.md :: I838`).
     SupportIndex(
         Collection.SAISON_SPIELER,
         "saison_spieler_saison_id_team_id",
         (("saison_id", ASCENDING), ("team_id", ASCENDING)),
-        "one season's squad rows of one or two clubs",
+        "one season's squad rows of one club, counted",
+    ),
+    # The same keys under the collation the two squad reads sort names by, which the plain one cannot serve: the report
+    # reads it on every form and panel read and twice on every write, the squad page on every read.
+    SupportIndex(
+        Collection.SAISON_SPIELER,
+        "saison_spieler_saison_id_team_id_de",
+        (("saison_id", ASCENDING), ("team_id", ASCENDING)),
+        "one season's squad rows of one or two clubs, ordered by name",
+        collation=GERMAN_COLLATION,
     ),
     # A person's records by the fold every address payload stores (`docs/backend/spec.md :: I333`), one index per
     # clause of each `$or`, for the registration's pair's reason.
@@ -1985,6 +1998,12 @@ class _PartialFilterOption(TypedDict, total=False):
     partialFilterExpression: Mapping[str, Any]
 
 
+class _CollationOption(TypedDict, total=False):
+    """Typed for `_PartialFilterOption`'s reason."""
+
+    collation: Mapping[str, Any]
+
+
 async def _apply_unique_index(db: AsyncDatabase, index: UniqueIndex) -> None:
     # Omitted rather than passed as `None` where a rule reaches every row: an omitted key and
     # `partialFilterExpression=None` are different options under one name, and `create_index` refuses
@@ -1998,8 +2017,11 @@ async def _apply_unique_index(db: AsyncDatabase, index: UniqueIndex) -> None:
 
 
 async def _apply_support_index(db: AsyncDatabase, support: SupportIndex) -> None:
+    # Omitted rather than passed as `None`, for `_apply_unique_index`'s reason.
+    collation_option: _CollationOption = {"collation": support.collation} if support.collation is not None else {}
+
     try:
-        await db[support.collection].create_index(list(support.keys), name=support.name)
+        await db[support.collection].create_index(list(support.keys), name=support.name, **collation_option)
     except OperationFailure as failure:
         raise RuntimeError(f"Could not build support index '{support.collection}.{support.name}' ({support.rule}): {failure}") from failure
 

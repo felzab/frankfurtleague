@@ -283,7 +283,10 @@ class FLSpielberichtSchiedsrichterResponse(_SpielberichtAnsicht):
 
 
 class FLSpielberichtAdminResponse(_SpielberichtAnsicht):
-    """The administrator's panel, with the state the report reads in. Null exactly where no block stands."""
+    """The administrator's panel, with the state the report reads in, null exactly where no block stands.
+
+    Both squads empty unless the read asks `kader`, the correction's form; a write answers them always.
+    """
 
     zustand: FLSpielberichtZustand | None
 

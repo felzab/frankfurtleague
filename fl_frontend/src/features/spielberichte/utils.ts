@@ -1,5 +1,3 @@
-import { SONDEREREIGNIS_LABELS } from "@/features/spiele/constants";
-import { IM_ELFMETERSCHIESSEN } from "@/features/spiele/utils";
 import { kaderName, NUMMER_NICHT_HINTERLEGT, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
@@ -17,20 +15,11 @@ import type {
 } from "./schemas";
 import type { Eingesetzt } from "./types";
 
-/** A fixture card's word on its report, worn in its state's tone. */
-export type BerichtChip = { readonly text: string; readonly tone: PillTone };
-
-/** The proposal as one line: the score, its shoot-out, and the event, a no-show naming its event alone. */
-export function vorschlagText(vorschlag: FLSpielberichtVorschlag): string {
-  const ereignis = vorschlag.sonderereignis === null ? null : SONDEREREIGNIS_LABELS[vorschlag.sonderereignis];
-  if (vorschlag.team1_tore === null || vorschlag.team2_tore === null) return ereignis ?? "";
-
-  const elfmeter =
-    vorschlag.elfmeterschiessen === null
-      ? ""
-      : ` (${String(vorschlag.elfmeterschiessen.team1)}:${String(vorschlag.elfmeterschiessen.team2)} ${IM_ELFMETERSCHIESSEN})`;
-  return `${String(vorschlag.team1_tore)}:${String(vorschlag.team2_tore)}${elfmeter}${ereignis === null ? "" : `, ${ereignis}`}`;
-}
+/**
+ * A fixture card's word on its report, worn in its state's tone, and the proposal the card renders after it through
+ * `fl_frontend/src/features/spielberichte/components/ui/VorschlagText.tsx`; `null` where the card names no score.
+ */
+export type BerichtChip = { readonly worte: string; readonly vorschlag: FLSpielberichtVorschlag | null; readonly tone: PillTone };
 
 /**
  * What an administrator's fixture card says of its report, in its state's tone; `null` for a state awaiting nobody.
@@ -39,10 +28,12 @@ export function vorschlagText(vorschlag: FLSpielberichtVorschlag): string {
 export function berichtChip({ zustand, ergebnis_vorschlag }: FLSpielberichtZustandEintrag): BerichtChip | null {
   if (!SPIELBERICHT_ZUSTAENDE_OFFEN.has(zustand)) return null;
   // No score: it was proposed for other clubs than the fixture fields now, and beside the card it would read as theirs.
-  if (zustand === "teams_geaendert") return { text: "Bericht zu anderen Teams", tone: SPIELBERICHT_ZUSTAND_TONE[zustand] };
+  if (zustand === "teams_geaendert") {
+    return { worte: "Bericht zu anderen Teams", vorschlag: null, tone: SPIELBERICHT_ZUSTAND_TONE[zustand] };
+  }
 
   const worte = zustand === "vorgeschlagen" ? "Ergebnis vorgeschlagen" : "Bericht nicht übernommen";
-  return { text: `${worte} ${vorschlagText(ergebnis_vorschlag)}`, tone: SPIELBERICHT_ZUSTAND_TONE[zustand] };
+  return { worte, vorschlag: ergebnis_vorschlag, tone: SPIELBERICHT_ZUSTAND_TONE[zustand] };
 }
 
 /** A side as the match editor's draft holds it: the club, its goals, and nothing where the slot is open. */
