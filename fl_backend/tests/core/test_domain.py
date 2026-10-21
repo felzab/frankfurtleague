@@ -1,6 +1,7 @@
 import ast
 import functools
 import importlib
+import re
 from collections.abc import Iterator, Mapping
 from importlib.util import resolve_name
 from itertools import combinations
@@ -324,6 +325,37 @@ def test_every_collection_is_declared_once():
     assert {getattr(Collection, member).value for member in accessed} == declared, (
         "a collection has no DI accessor, or one names a member nothing declares"
     )
+
+
+DOMAIN_PAGE = BACKEND_ROOT.parent / "docs" / "domain.md"
+ENTITY_SECTION = "## The entities, and what holds them together"
+
+
+def _entity_list_names() -> set[str]:
+    """The list's lines alone, up to the next heading: the prose and the subsection beside it cite symbols that are no collection."""
+
+    lines = DOMAIN_PAGE.read_text(encoding="utf-8").splitlines()
+    names: set[str] = set()
+    for line in lines[lines.index(ENTITY_SECTION) + 1 :]:
+        if line.startswith("#"):
+            break
+        if line.startswith(("- ", "  ")):
+            names.update(re.findall(r"`([^`]+)`", line))
+    return names
+
+
+def test_the_domain_pages_entity_list_places_every_collection_and_names_nothing_else():
+    """Hand-kept: the page places each collection by whether it outlives a season.
+
+    One left out is placed nowhere, and a name the list backticks is a collection's.
+    """
+
+    named = _entity_list_names()
+    declared = {collection.value for collection in Collection}
+
+    assert named, f"no list item under `{ENTITY_SECTION}`, so the comparison holds of nothing"
+    assert sorted(declared - named) == [], f"`{DOMAIN_PAGE.name}`'s entity list leaves these collections out"
+    assert sorted(named - declared) == [], f"`{DOMAIN_PAGE.name}`'s entity list names what no `Collection` member holds"
 
 
 def test_every_declared_value_is_used():

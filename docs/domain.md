@@ -42,10 +42,12 @@ model holds; read this for the shape those tables are stating.
 - **Standing apart** — one school's application to play one season (`bewerbungen`), one pupil's registration
   to play it (`registrierungen`), one minted registration link (`einladungen`), one party's answer about one
   fixture's Ansetzung (`spielbestaetigungen`), one fixture's report by its referee (`spielberichte`),
-  one change of the address a person signs in on (`adresswechsel`), one barred address
-  (`sperrliste`), one address's access to the administration (`berechtigungen`), what the
-  administrators have been told of it (`berechtigungen_angekuendigt`) and what they are still to be
-  told (`berechtigungen_postausgang`), one recorded write (`aktionen`), and one person's count of
+  one change of the address a person signs in on (`adresswechsel`) and the notice its end still owes
+  (`adresswechsel_postausgang`), one barred address (`sperrliste`), one address's access to the
+  administration (`berechtigungen`), what the administrators have been told of it
+  (`berechtigungen_angekuendigt`), what they are still to be told (`berechtigungen_postausgang`) and
+  a grant waiting on a second administrator's approval (`berechtigungen_antraege`), one recorded
+  write (`aktionen`), and one person's count of
   writes on one day (`drosselung`) and one address's conflict point (`adressanker`), each operational
   state rather than a fact about the league.
 
