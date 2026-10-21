@@ -44,6 +44,16 @@ export function vonOderGesperrt(von: string | null, gesperrt: boolean): string {
   return von === ERASED_ACTOR_MARKER ? GELOESCHTE_PERSON : von;
 }
 
+/**
+ * `vonOderGesperrt` after „von“, where a withheld actor takes the dative: „von Gesperrte Adresse“ reads as a typing
+ * error. The words are the grant notice's (`fl_frontend/src/core/berechtigungEmail.ts :: urheberName`).
+ */
+export function nachVonOderGesperrt(von: string | null, gesperrt: boolean): string {
+  if (gesperrt || von === null) return "einer gesperrten Adresse";
+
+  return von === ERASED_ACTOR_MARKER ? "einer nicht genannten Adresse" : von;
+}
+
 /** What the runbook's Playground paste writes as `erteilt_von` (`docs/ops/runbooks.md` §3), which names nobody. */
 export const PLAYGROUND_MARKER = "PLAYGROUND";
 
