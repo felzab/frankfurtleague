@@ -34,13 +34,24 @@ const OHNE_VERWALTUNG = "Diese Änderung wurde nicht in der Verwaltung vorgenomm
 /** What a reader does with the notice, and the whole of why every holder is sent it. */
 const WARNSATZ = "Wenn Du diese Änderung nicht erwartet hast, melde Dich sofort bei den anderen Administratorinnen und Administratoren.";
 
-/** A request's own heading and subject: it changes nobody's access, and asks its reader to decide it. */
-const ANTRAG_UEBERSCHRIFT = "Antrag auf Zugang zur Verwaltung";
-const ANTRAG_BETREFF = `${ANTRAG_UEBERSCHRIFT} der ${BRAND_NAME}`;
-
-/** What the approver does, and the check their approval stands for. */
-const ANTRAG_AUFGABE =
-  "Genehmige oder lehne den Antrag in der Verwaltung unter „Offene Anträge“ ab. Genehmige ihn nur, wenn Du sicher bist, dass die Person diesen Zugang bekommen soll.";
+/**
+ * A request's own heading, subject and closing, by what it asks: it changes nobody's access and asks its reader to
+ * decide it, and a promotion's subject already holds the access a grant's asks for.
+ */
+const ANTRAG: Readonly<Record<"zugang" | "ernennung", { ueberschrift: string; betreff: string; aufgabe: string }>> = {
+  zugang: {
+    ueberschrift: "Antrag auf Zugang zur Verwaltung",
+    betreff: `Antrag auf Zugang zur Verwaltung der ${BRAND_NAME}`,
+    aufgabe:
+      "Genehmige oder lehne den Antrag in der Verwaltung unter „Offene Anträge“ ab. Genehmige ihn nur, wenn Du sicher bist, dass die Person diesen Zugang bekommen soll.",
+  },
+  ernennung: {
+    ueberschrift: "Antrag auf Ernennung zur Inhaberin oder zum Inhaber",
+    betreff: `Antrag auf Ernennung in der Verwaltung der ${BRAND_NAME}`,
+    aufgabe:
+      "Genehmige oder lehne den Antrag in der Verwaltung unter „Offene Anträge“ ab. Genehmige ihn nur, wenn Du sicher bist, dass die Person Inhaberin oder Inhaber werden soll.",
+  },
+};
 
 /** Why a grant's address is withheld, the notice naming neither a barred address nor an erased person's. */
 export type Vorenthalten = { readonly vorenthalten: "gesperrt" | "geloescht" };
@@ -86,7 +97,8 @@ function aenderungsSatz(aenderung: Zugangsaenderung, wer: (adresse: string) => s
 
   switch (aenderung.art) {
     case "erteilt": {
-      // An `owner` grant says so: the application grants none, so one is always a change made in the database.
+      // An `owner` grant says so: the application writes one only as an owner's address change moves it, the
+      // rest coming from the database, and an owner's grant is the one a holder most needs told.
       const zugang = aenderung.inhaber ? `hat jetzt Zugang zur Verwaltung als ${INHABER}.` : "hat jetzt Zugang zur Verwaltung.";
       return `${subjekt} ${zugang}`;
     }
@@ -135,10 +147,10 @@ export function buildBerechtigungEmail(aenderungRoh: Zugangsaenderung, urheberRo
   const aenderung: Zugangsaenderung = { ...aenderungRoh, adresse: typeof adresse === "string" ? einzeilig(adresse) : adresse };
   const urheber: Urheber = urheberRoh === null || urheberRoh.von === null ? urheberRoh : { ...urheberRoh, von: einzeilig(urheberRoh.von) };
   // A request is asked of its reader rather than told to them, so it is headed, signed and closed as one.
-  const antrag = aenderung.art === "beantragt";
-  const ueberschrift = antrag ? ANTRAG_UEBERSCHRIFT : UEBERSCHRIFT;
-  const verb = antrag ? "Beantragt" : "Geändert";
-  const schluss = antrag ? ANTRAG_AUFGABE : WARNSATZ;
+  const antrag = aenderung.art === "beantragt" ? ANTRAG[aenderung.inhaber ? "ernennung" : "zugang"] : null;
+  const ueberschrift = antrag?.ueberschrift ?? UEBERSCHRIFT;
+  const verb = antrag === null ? "Geändert" : "Beantragt";
+  const schluss = antrag?.aufgabe ?? WARNSATZ;
 
   const html = renderKarte({
     titel: `${BRAND_NAME}: ${ueberschrift}`,
@@ -166,5 +178,5 @@ export function buildBerechtigungEmail(aenderungRoh: Zugangsaenderung, urheberRo
   ];
   const text = [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(origin, [ANTWORT_SATZ_TEXT])].join("\n");
 
-  return { subject: antrag ? ANTRAG_BETREFF : BETREFF, html: html, text: text };
+  return { subject: antrag?.betreff ?? BETREFF, html: html, text: text };
 }
