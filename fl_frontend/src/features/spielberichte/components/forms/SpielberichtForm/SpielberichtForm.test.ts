@@ -246,9 +246,10 @@ describe("the referee's report form", () => {
         { router: nextRouter() },
       ),
     );
+    // A boolean, never the node: a failing comparison would serialise the whole form.
     assert.equal(
-      document.querySelector('[name="bericht.karten.0.grund"]')?.closest('[data-required="true"]') ?? null,
-      null,
+      document.querySelector('[name="bericht.karten.0.grund"]')?.closest('[data-required="true"]') != null,
+      false,
       "the stripped caution's reason is marked as owed",
     );
     await user.type(screen.getByRole("textbox", { name: /Bemerkungen zum Spiel/ }), "Protest nach Abpfiff.");
