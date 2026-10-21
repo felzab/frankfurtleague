@@ -57,13 +57,14 @@ async function AdminSpielberichtContent({ params }: { params: NextPageProps<{ sp
     );
   }
 
-  // The write's refusals the fixture already shows, stated before a whole report is typed, as the referee's page does.
+  // The write's refusals the fixture already shows, stated before a whole report is typed, as the referee's page does. A
+  // report may stand from before the fixture moved or was called off, so the hints say when it is edited, never that none exists.
   const sperre = berichtSperre(lesen.spiel, getGermanTodayStr());
   if (sperre === "abgesagt") {
     return (
       <SpielberichtZustandView
         title="Das Spiel ist als ausgefallen oder annulliert eingetragen."
-        hint="Einen Spielbericht gibt es, sobald Du das Sonderereignis im Spiel entfernst."
+        hint="Den Spielbericht bearbeitest Du, sobald Du das Sonderereignis im Spiel entfernst."
         aktion={zumSpiel}
       />
     );
@@ -72,7 +73,7 @@ async function AdminSpielberichtContent({ params }: { params: NextPageProps<{ sp
     return (
       <SpielberichtZustandView
         title={sperre === "undatiert" ? "Das Spiel hat noch kein Datum." : "Das Spiel hat noch nicht stattgefunden."}
-        hint="Einen Spielbericht gibt es ab dem Spieltag."
+        hint="Den Spielbericht bearbeitest Du ab dem Spieltag."
         aktion={zumSpiel}
       />
     );

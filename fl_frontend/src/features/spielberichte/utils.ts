@@ -151,7 +151,10 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
       reason: "Eine gewählte Person steht nicht mehr im Kader ihres Teams",
       repair: "Lade die Seite neu und wähle neu",
     }),
-    "REQ-BERICHT-004": "Dieses Spiel ist ausgefallen oder annulliert. Dafür gibt es keinen Spielbericht.",
+    "REQ-BERICHT-004": buildRefusal({
+      reason: "Dieses Spiel ist inzwischen als ausgefallen oder annulliert eingetragen und nimmt keinen Spielbericht an",
+      repair: LADE_DIE_SEITE_NEU,
+    }),
     "REQ-BERICHT-008": GRUND_FEHLT,
     "REQ-BERICHT-009": ELFMETER_IN_DER_GRUPPE,
     "REQ-BERICHT-007": buildRefusal({
