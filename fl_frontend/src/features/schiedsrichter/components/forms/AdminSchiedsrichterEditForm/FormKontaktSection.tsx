@@ -42,6 +42,22 @@ export function FormKontaktSection({
 
   const emptyAsNull = (value: string): string | null => (value.trim() === "" ? null : value);
 
+  const telefon = (
+    <TextField
+      type="tel"
+      name="kontakt.telefon"
+      value={kontakt.telefon ?? ""}
+      onChange={(next) => onChange({ ...kontakt, telefon: emptyAsNull(next) })}
+      onBlur={() => onFieldLeft(["kontakt.telefon"])}>
+      <FieldLabel<SchiedsrichterFieldPath> path="kontakt.telefon">Telefon</FieldLabel>
+      <Input
+        placeholder="z.B. 0151 12345678"
+        className={FIELD_INPUT_CLASSES}
+      />
+      <FieldError className={FIELD_ERROR_CLASSES} />
+    </TextField>
+  );
+
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
@@ -64,8 +80,8 @@ export function FormKontaktSection({
       </div>
 
       <div className={panel.body()}>
-        <div className={FIELD_PAIR_CLASSES}>
-          {bestaetigt === null ? (
+        {bestaetigt === null ? (
+          <div className={FIELD_PAIR_CLASSES}>
             <TextField
               type="email"
               name="kontakt.email"
@@ -79,29 +95,18 @@ export function FormKontaktSection({
               />
               <FieldError className={FIELD_ERROR_CLASSES} />
             </TextField>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <dl>
-                <Angabe label="Hinterlegte Adresse">{bestaetigt.email}</Angabe>
-              </dl>
-              <AdresswechselHinweis adresswechselId={bestaetigt.adresswechselId} />
-            </div>
-          )}
-
-          <TextField
-            type="tel"
-            name="kontakt.telefon"
-            value={kontakt.telefon ?? ""}
-            onChange={(next) => onChange({ ...kontakt, telefon: emptyAsNull(next) })}
-            onBlur={() => onFieldLeft(["kontakt.telefon"])}>
-            <FieldLabel<SchiedsrichterFieldPath> path="kontakt.telefon">Telefon</FieldLabel>
-            <Input
-              placeholder="z.B. 0151 12345678"
-              className={FIELD_INPUT_CLASSES}
-            />
-            <FieldError className={FIELD_ERROR_CLASSES} />
-          </TextField>
-        </div>
+            {telefon}
+          </div>
+        ) : (
+          // The pupil editor's readout row and full-width hint (`FormAdresseSection.tsx`), the telephone on a row of its own.
+          <>
+            <dl className={FIELD_PAIR_CLASSES}>
+              <Angabe label="Hinterlegte Adresse">{bestaetigt.email}</Angabe>
+            </dl>
+            <AdresswechselHinweis adresswechselId={bestaetigt.adresswechselId} />
+            <div className={FIELD_PAIR_CLASSES}>{telefon}</div>
+          </>
+        )}
       </div>
     </section>
   );

@@ -86,22 +86,11 @@ type AdminSchiedsrichterEditFormProps = {
   pageHeader: EditPageHeaderContent;
 };
 
-/** The editor, keyed by the stored record its drafts mirror, so a save's refresh remounts it on the saved values. */
-export function AdminSchiedsrichterEditForm(props: AdminSchiedsrichterEditFormProps) {
-  return (
-    <SchiedsrichterEditForm
-      key={JSON.stringify(props.schiedsrichter)}
-      {...props}
-    />
-  );
-}
-
 /**
- * One save bar over one endpoint, unlike the squad editor's two: a referee is a single document with
- * no junction row, so the patch carries the whole draft and a partial failure is not a state this
- * form can reach.
+ * One save bar over one endpoint, unlike the squad editor's two: a referee is one document with no junction
+ * row, so no partial failure is reachable. Its drafts start from the props, the page's key remounting it after a save.
  */
-function SchiedsrichterEditForm({ schiedsrichter, istFassungBekannt, isRetired, pageHeader }: AdminSchiedsrichterEditFormProps) {
+export function AdminSchiedsrichterEditForm({ schiedsrichter, istFassungBekannt, isRetired, pageHeader }: AdminSchiedsrichterEditFormProps) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
@@ -113,7 +102,10 @@ function SchiedsrichterEditForm({ schiedsrichter, istFassungBekannt, isRetired, 
   const [schule, setSchule] = useState(schiedsrichter.schule);
   const [kontakt, setKontakt] = useState<FLKontakt>(schiedsrichter.kontakt);
   const [defaultPayment, setDefaultPayment] = useState<number | null>(schiedsrichter.default_payment);
-  const bestaetigt = schiedsrichter.einwilligung?.bestaetigt_am != null && schiedsrichter.kontakt.email !== null;
+  const bestaetigteAdresse =
+    schiedsrichter.einwilligung?.bestaetigt_am != null && schiedsrichter.kontakt.email !== null
+      ? { email: schiedsrichter.kontakt.email, adresswechselId: schiedsrichter.adresswechsel_id }
+      : null;
 
   // Over the STORED address: null, or the placeholder a row without one is given, is somewhere no
   // link can go and no undo may write back.
@@ -286,11 +278,7 @@ function SchiedsrichterEditForm({ schiedsrichter, istFassungBekannt, isRetired, 
 
           <FormKontaktSection
             kontakt={kontakt}
-            bestaetigt={
-              bestaetigt && schiedsrichter.kontakt.email !== null
-                ? { email: schiedsrichter.kontakt.email, adresswechselId: schiedsrichter.adresswechsel_id }
-                : null
-            }
+            bestaetigt={bestaetigteAdresse}
             onChange={setKontakt}
             onFieldLeft={validateFields}
           />
