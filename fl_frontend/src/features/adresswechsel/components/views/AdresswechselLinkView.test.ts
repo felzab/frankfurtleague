@@ -198,25 +198,50 @@ describe("the new mailbox's side of the address page", () => {
     });
   }
 
-  /* The link died between the open and the press: its panel replaces the answers, never a toast, and the decline stays on offer. */
-  it("turns a link that lapsed under the press into the lapsed panel, keeping the token for the decline", async () => {
-    const { sent } = answerEveryFetch({ success: false, zustand: "abgelaufen" });
+  /* The link closed between the open and the press: its panel replaces the answers, never a toast, and the decline stays on
+     offer with the token, or the route refuses it as a link opened without one (`docs/frontend/spec.md :: I630`). */
+  for (const [zustand, panel] of [
+    ["abgelaufen", /Dieser Link ist abgelaufen/],
+    ["nicht_bestaetigbar", /kann nicht mehr bestätigt werden/],
+  ] as const) {
+    it(`turns a link ${zustand} under the press into that panel, keeping the token for the decline`, async () => {
+      const { sent } = answerEveryFetch({ success: false, zustand });
+
+      render(h(AdresswechselLinkView, { start: OFFEN }));
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE }));
+      await act(fetchMock.answered);
+      await waitFor(() => assert.match(document.body.textContent, panel));
+      assert.equal(screen.queryAllByRole("button", { name: JA_MEINE_ADRESSE }).length, 0);
+      assert.deepEqual(toasts, []);
+
+      await user.click(screen.getByRole("button", { name: NICHT_MEINE_ADRESSE }));
+      await act(fetchMock.answered);
+
+      assert.deepEqual(sent, [
+        { token: "abc123", antwort: "bestaetigt" },
+        { token: "abc123", antwort: "abgelehnt" },
+      ]);
+    });
+  }
+
+  /* The decline unmounts from under its press as the first answer's did, so its result takes the focus as well. */
+  it("hands the focus to the result of a second answer, as to the first", async () => {
+    const antworten = [{ success: false, zustand: "abgelaufen" }, gedrueckt("abgelehnt")];
+    fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify(antworten.shift()), { status: 200 })));
 
     render(h(AdresswechselLinkView, { start: OFFEN }));
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE }));
     await act(fetchMock.answered);
     await waitFor(() => assert.match(document.body.textContent, /Dieser Link ist abgelaufen/));
-    assert.equal(screen.queryAllByRole("button", { name: JA_MEINE_ADRESSE }).length, 0);
-    assert.deepEqual(toasts, []);
 
     await user.click(screen.getByRole("button", { name: NICHT_MEINE_ADRESSE }));
     await act(fetchMock.answered);
 
-    assert.deepEqual(sent, [
-      { token: "abc123", antwort: "bestaetigt" },
-      { token: "abc123", antwort: "abgelehnt" },
-    ]);
+    await waitFor(() => assert.match(document.body.textContent, /Diese Adresse ist aus der Änderung entfernt/));
+    const ergebnis = screen.getByRole("status");
+    assert.ok(document.activeElement === ergebnis, `the focus is on <${document.activeElement?.tagName.toLowerCase() ?? "none"}>`);
   });
 
   /* A refusal the handler words is the toast's sentence: the generic one would hide what the page can tell its holder. */
@@ -311,7 +336,7 @@ describe("the stop side of the address page", () => {
   it("says a change waiting on an administrator's approval still signs in with this address", () => {
     assert.match(
       words({ zustand: "genehmigung", gueltigBis: null, wirksamAb: null, weg: "konto", token: "stopp-1" }),
-      /andere Person aus der Verwaltung die Änderung genehmigt hat\. Bis dahin meldest Du Dich weiter mit dieser Adresse an/,
+      /Sie gilt erst, wenn die Verwaltung die Änderung genehmigt hat\. Bis dahin meldest Du Dich weiter mit dieser Adresse an/,
     );
   });
 
@@ -341,6 +366,19 @@ describe("the stop side of the address page", () => {
       assert.match(words({ zustand: "beendet", seite: "bisherig", art }), /Diese Adresse bleibt|diese bleibt|eigenen Hinweis/);
     });
   }
+
+  /* The account did not change, so the stop's way out is for whoever never asked for the change. */
+  it("sends the address on file to the league after a stop where it never asked for the change", () => {
+    const shown = words({ zustand: "beendet", seite: "bisherig", art: "gestoppt" });
+
+    assert.match(shown, /Hast Du die Änderung nicht selbst angefragt, schreib uns/);
+    assert.doesNotMatch(shown, /geändert, schreib/);
+  });
+
+  /* A newer change waiting on the address on file's approval has mailed the new address nothing yet. */
+  it("promises the new mailbox no newer mail where a change was replaced", () => {
+    assert.match(words({ zustand: "beendet", seite: "neu", art: "ersetzt" }), /nimm nur einen Link aus einer späteren E-Mail\./);
+  });
 
   it("turns a stop link that matches nothing under the press into the void link's panel", async () => {
     answerEveryFetch({ success: false, zustand: "ungueltig" });

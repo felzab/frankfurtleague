@@ -362,6 +362,11 @@ describe("another administrator's approval", () => {
         .map(({ body }) => body),
       [{ beanspruchung: "claim-1", ids: [OWED_ID] }],
     );
+    // The count above holds any two tasks: the moved grant is announced by the grants' own pass, asked here.
+    assert.ok(
+      requestsOf(client.calls).some(({ endpoint }) => endpoint === "/berechtigungen/abgleich"),
+      "the moved grant waits for the next pass to be announced",
+    );
   });
 
   it("answers every refusal the approval publishes through its mapper, and announces nothing", async () => {

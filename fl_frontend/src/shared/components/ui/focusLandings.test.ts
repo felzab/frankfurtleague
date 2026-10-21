@@ -68,6 +68,8 @@ const { FormPersonLoeschenSection } = await import("@/features/funktionen/compon
 const { FormAdresswechselSection } =
   await import("@/features/adresswechsel/components/forms/AdminAdresswechselForm/FormAdresswechselSection.tsx");
 const { EinwilligungPanel } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungPanel.tsx");
+const { AdresswechselPanel } = await import("@/features/konto/components/forms/AdresswechselForm/AdresswechselPanel.tsx");
+const { KontoPanel } = await import("@/shared/components/ui/KontoPanel.tsx");
 const { EinwilligungForm } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungForm.tsx");
 const { patchBewerbungEinwilligungAction } = await import("@/features/kontakte/personActions.ts");
 const { patchRegistrierungEinwilligungAction } = await import("@/features/registrierungen/personActions.ts");
@@ -724,6 +726,44 @@ const kontoBewerbung = (medien: boolean, whatsapp = false) =>
     ],
   });
 
+/** The account page's address panel, confirmed a minute ago so no press asks first, holding `offen` or no change. */
+const kontoAnmeldung = (offen: Parameters<typeof AdresswechselPanel>[0]["adresswechsel"]["offen"] | "keine") => {
+  const jetzt = Date.now();
+  return h(KontoPanel, {
+    email: "lena@schule.example",
+    // `keine`: the address now holds nothing a change moves, so the page draws no control.
+    adresswechsel:
+      offen === "keine"
+        ? null
+        : h(AdresswechselPanel, {
+            adresswechsel: { acknowledged: 1, moeglich: true, offen: offen },
+            bestaetigung: {
+              freshUntil: jetzt + 60 * 60 * 1000,
+              enrolmentUntil: jetzt + 4 * 60 * 1000,
+              servedAt: jetzt,
+              hasPasskey: true,
+              verwaltung: null,
+              inhaberId: "inhaber",
+              inhaberAdresse: "lena@schule.example",
+            },
+          }),
+    sicherheit: null,
+    einwilligung: null,
+    loeschung: null,
+  });
+};
+
+const KONTO_OFFEN = {
+  id: "68c1f0a2b3c4d5e6f7a8b961",
+  email: "lena@neu.example",
+  weg: "konto" as const,
+  wartet_auf: "neue_adresse" as const,
+  gueltig_bis: "2099-10-21T11:30:00Z",
+  wirksam_ab: null,
+  genehmigung: null,
+};
+const KONTO_FREIGABE = { ...KONTO_OFFEN, weg: "freigabe" as const, wartet_auf: "freigabe" as const, email: "l•••@n•••.example" };
+
 const REGISTRIERUNG_ID = "68c1f0a2b3c4d5e6f7a8b952";
 /** One of a referee's own rows on their panel, open unless a case answers it. */
 const einsatz = (id: string, team2_name: string, zustand: "gueltig" | "zugesagt" | "abgelehnt" = "gueltig") => ({
@@ -1366,7 +1406,7 @@ const LANDINGS: Record<string, Landing> = {
       readAdresswechselAnsichtAction: { success: true, ansicht: TOOL_ANSICHT },
     },
     before: () => h(FormAdresswechselSection, { anfang: { status: "read", ansicht: { ...TOOL_ANSICHT, offen: TOOL_OFFEN } } }),
-    press: (user) => user.click(screen.getByRole("button", { name: "Änderung verwerfen" })),
+    press: (user) => pressTwice(user, { resting: "Änderung verwerfen", armed: "Ja, Änderung verwerfen" }),
     // The tool reads the address again itself, so the page hands it nothing new.
     after: () => h(FormAdresswechselSection, { anfang: { status: "read", ansicht: { ...TOOL_ANSICHT, offen: TOOL_OFFEN } } }),
     lands: () => heading(/^Adresse ändern/),
@@ -1385,6 +1425,40 @@ const LANDINGS: Record<string, Landing> = {
     },
     after: () => h(FormAdresswechselSection, { anfang: { status: "read", ansicht: TOOL_ANSICHT } }),
     lands: () => screen.getByRole("button", { name: "Neue Adresse eintragen" }),
+  },
+  /* The start closes its box and the refresh draws the pending change, so the focus goes to that change's own control. */
+  "an address change started on the account page, on the withdrawal replacing it": {
+    answers: { starteAdresswechselAction: { success: true, message: "Bestätige die neue Adresse.", versand: "gesendet" } },
+    before: () => kontoAnmeldung(null),
+    press: async (user) => {
+      await user.click(screen.getByRole("button", { name: "E-Mail-Adresse ändern" }));
+      await user.type(screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ }), "lena@neu.example");
+      await user.click(screen.getByRole("button", { name: "Link an neue Adresse senden" }));
+    },
+    after: () => kontoAnmeldung(KONTO_OFFEN),
+    lands: () => screen.getByRole("button", { name: "Änderung zurückziehen" }),
+  },
+  "an address change withdrawn on the account page, on the start replacing it": {
+    answers: { stoppeAdresswechselAction: { success: true, message: "Diese Adresse bleibt." } },
+    before: () => kontoAnmeldung(KONTO_OFFEN),
+    press: (user) => user.click(screen.getByRole("button", { name: "Änderung zurückziehen" })),
+    after: () => kontoAnmeldung(null),
+    lands: () => screen.getByRole("button", { name: "E-Mail-Adresse ändern" }),
+  },
+  "an address change approved on the account page, on its stop beside it": {
+    answers: { gibAdresswechselFreiAction: { success: true, message: "Bestätige die neue Adresse.", versand: "gesendet" } },
+    before: () => kontoAnmeldung(KONTO_FREIGABE),
+    press: (user) => user.click(screen.getByRole("button", { name: "Änderung freigeben" })),
+    after: () => kontoAnmeldung({ ...KONTO_FREIGABE, wartet_auf: "neue_adresse" }),
+    lands: () => screen.getByRole("button", { name: "Änderung stoppen" }),
+  },
+  /* A stop whose address then holds nothing a change moves: the page draws no address control, so the panel's heading. */
+  "an address change stopped where nothing is left to change, on the sign-in panel's heading": {
+    answers: { stoppeAdresswechselAction: { success: true, message: "Diese Adresse bleibt." } },
+    before: () => kontoAnmeldung(KONTO_FREIGABE),
+    press: (user) => user.click(screen.getByRole("button", { name: "Änderung stoppen" })),
+    after: () => kontoAnmeldung("keine"),
+    lands: () => heading("Anmeldung"),
   },
   // In no season, as a retired club stands: no season takes a retired club in (`REQ-ENTER-005`).
   "a club editor's reactivation, on the retirement replacing it": {

@@ -81,7 +81,7 @@ const ENDE: Record<FLAdresswechselEndeArt, Record<Beendet["seite"], { titel: str
     neu: { titel: "Änderung gestoppt", satz: "Die Änderung wurde gestoppt. Diese Adresse wird nicht übernommen." },
     bisherig: {
       titel: "Änderung gestoppt",
-      satz: `Die neue Adresse ist entfernt, diese bleibt. Wurde Dein Konto ohne Dich geändert, schreib uns an ${KONTAKT_EMAIL}.`,
+      satz: `Die neue Adresse ist entfernt, diese bleibt. Hast Du die Änderung nicht selbst angefragt, schreib uns an ${KONTAKT_EMAIL}.`,
     },
   },
   abgelaufen: {
@@ -89,7 +89,11 @@ const ENDE: Record<FLAdresswechselEndeArt, Record<Beendet["seite"], { titel: str
     bisherig: { titel: "Änderung abgelaufen", satz: "Die Änderung ist abgelaufen und gelöscht. Diese Adresse bleibt." },
   },
   ersetzt: {
-    neu: { titel: "Link ersetzt", satz: "Diese Änderung wurde durch eine neuere ersetzt. Gilt sie Dir, nimm den Link aus der neueren E-Mail." },
+    // A newer change waiting on the address on file's approval has mailed no link yet, so none is promised.
+    neu: {
+      titel: "Link ersetzt",
+      satz: "Diese Änderung wurde durch eine neuere ersetzt. Gilt die neuere Dir, nimm nur einen Link aus einer späteren E-Mail.",
+    },
     bisherig: {
       titel: "Änderung ersetzt",
       satz: "Diese Änderung wurde durch eine neuere ersetzt, zu der diese Adresse einen eigenen Hinweis bekommen hat.",
@@ -254,7 +258,7 @@ function stoppSatz(zustand: FLAdresswechselBisherigZustand, weg: FLAdresswechsel
     return "Die Verwaltung hat eine neue E-Mail-Adresse für Dich eingetragen. Sie gilt nur, wenn Du sie in Deinem Konto freigibst: Melde Dich dazu mit dieser Adresse an. Gib sie nur frei, wenn Du das selbst angefragt hast, und stoppe die Änderung sonst hier.";
   }
   if (zustand === "genehmigung") {
-    return "Die neue E-Mail-Adresse ist bestätigt. Sie gilt erst, wenn eine andere Person aus der Verwaltung die Änderung genehmigt hat. Bis dahin meldest Du Dich weiter mit dieser Adresse an. Hast Du das nicht angefragt, stoppe die Änderung.";
+    return "Die neue E-Mail-Adresse ist bestätigt. Sie gilt erst, wenn die Verwaltung die Änderung genehmigt hat. Bis dahin meldest Du Dich weiter mit dieser Adresse an. Hast Du das nicht angefragt, stoppe die Änderung.";
   }
   if (zustand === "wartezeit" && wirksamAb !== null) {
     return (

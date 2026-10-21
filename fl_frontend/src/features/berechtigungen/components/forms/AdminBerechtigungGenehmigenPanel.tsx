@@ -6,7 +6,7 @@ import CircleCheck from "@gravity-ui/icons/CircleCheck";
 
 import { adresswechselZeitpunkt } from "@/core/adresswechsel";
 import { genehmigeAdresswechselAction } from "@/features/adresswechsel/actions";
-import { GENEHMIGUNG_JUENGER } from "@/features/adresswechsel/refusals";
+import { GENEHMIGUNG_VERWEHRT } from "@/features/adresswechsel/refusals";
 import { vonOderGesperrt } from "@/features/berechtigungen/constants";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -15,19 +15,12 @@ import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
 import type { FLBerechtigungAdresswechsel } from "@/features/berechtigungen/schemas";
 
 export const AENDERUNG_GENEHMIGEN = "Adressänderung genehmigen";
-
-/** Why this administrator may not give the approval, in the backend's own refusals' words. */
-const VERWEHRT: Readonly<Record<NonNullable<FLBerechtigungAdresswechsel["verwehrt"]>, string>> = {
-  eigene: "Eine Änderung Deiner eigenen Adresse genehmigt eine andere Person aus der Verwaltung.",
-  gestartet: "Eine Änderung, die Du selbst begonnen hast, genehmigt eine andere Person aus der Verwaltung.",
-  inhaber: "Die neue Adresse eines Zugangs als Inhaberin oder Inhaber genehmigt nur eine andere Inhaberin oder ein anderer Inhaber.",
-  juenger: GENEHMIGUNG_JUENGER,
-};
 
 /**
  * Who started the change and how, which is what a pretext hides: the starter is absent where the row withholds them
@@ -108,10 +101,10 @@ export function AdminBerechtigungGenehmigenPanel({
         <FocusSlot name="genehmigen">
           <ConfirmPressButton
             confirm={twoPress}
-            reason={adresswechsel.verwehrt === null ? null : VERWEHRT[adresswechsel.verwehrt]}
+            reason={adresswechsel.verwehrt === null ? null : GENEHMIGUNG_VERWEHRT[adresswechsel.verwehrt]}
             resting={AENDERUNG_GENEHMIGEN}
             // Named by its row, so each control in the list is one a screen reader can tell from the next.
-            restingName={`${AENDERUNG_GENEHMIGEN}: ${adresse ?? neueAdresse(adresswechsel)}`}
+            restingName={benannt(AENDERUNG_GENEHMIGEN, adresse ?? neueAdresse(adresswechsel))}
             armed="Ja, Adressänderung genehmigen"
             running="Genehmigt..."
             icon={

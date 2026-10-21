@@ -213,7 +213,7 @@ const FRISTEN = [
   {
     daten:
       "Änderung der E-Mail-Adresse eines Kontos, ein Eintrag je bisheriger Adresse: die neue Adresse, solange sie nicht gilt, dazu ihr Link und der Stopp-Link an die bisherige Adresse als unlesbare Schlüssel, das Versanddatum, die Frist, gegebenenfalls die Freigabe oder die Genehmigung durch die Verwaltung, der Grund der Verwaltung, die Bestätigung und der Zeitpunkt, ab dem sie gilt",
-    frist: `Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird, die Verwaltung sie verwirft oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund aus dem Eintrag; es bleibt ein Vermerk ohne Adresse, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach ${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Endet die Änderung, ohne zu gelten, löschen wir beides auch aus dem Änderungsprotokoll; gilt sie, bleibt der Grund dort zwölf Monate ab seinem Eintrag, damit nachvollziehbar bleibt, warum die Verwaltung die Adresse geändert hat. Die Nachricht, dass die Änderung gilt oder nicht gelten kann, halten wir mit den Adressen, die sie braucht, nur bis zu ihrem Versand bereit. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem Versand, der Stopp-Link bis die Änderung gilt. Ist eine Frist abgelaufen, endet die Änderung innerhalb einer Stunde. Hat die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung; kann sie dann nicht gelten, schreiben wir der neuen Adresse, dass sie nicht gilt, ohne den Grund zu nennen`,
+    frist: `Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird, die Verwaltung sie verwirft, eine neuere Änderung derselben Adresse sie ersetzt, die Daten der bisherigen oder der neuen Adresse gelöscht werden oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund aus dem Eintrag; es bleibt ein Vermerk ohne Adresse, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach ${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Endet die Änderung, ohne zu gelten, löschen wir beides auch aus dem Änderungsprotokoll; gilt sie, bleibt der Grund dort zwölf Monate ab seinem Eintrag, damit nachvollziehbar bleibt, warum die Verwaltung die Adresse geändert hat. Die Nachricht, dass die Änderung gilt oder nicht gelten kann, halten wir mit den Adressen, die sie braucht, nur bis zu ihrem Versand bereit. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem Versand, der Stopp-Link bis die Änderung gilt. Ist eine Frist abgelaufen, endet die Änderung innerhalb einer Stunde. Hat die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung; kann sie dann nicht gelten, schreiben wir der neuen Adresse, dass sie nicht gilt, ohne den Grund zu nennen`,
   },
   {
     daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
@@ -228,7 +228,7 @@ const FRISTEN = [
     daten:
       "Antrag auf einen Zugang zur Verwaltung oder darauf, Inhaberin oder Inhaber zu werden: E-Mail-Adresse, Stufe, Zeitpunkt und die Person aus der Verwaltung, die ihn gestellt hat",
     // The approval window of the address change, which a request shares (`fl_backend/app/api/berechtigungen/antraege.py :: compose_antrag`).
-    frist: `Bis eine zweite Person aus der Verwaltung ihn genehmigt oder ablehnt oder die Person, die ihn gestellt hat, ihn zurückzieht, längstens ${GENEHMIGUNG_DAUER}; danach löschen wir ihn. Ist er entschieden, bleibt er wie jede Änderung der Verwaltung zwölf Monate im Änderungsprotokoll`,
+    frist: `Bis eine zweite Person aus der Verwaltung ihn genehmigt oder ablehnt, die Person, die ihn gestellt hat, ihn zurückzieht, die Adresse, für die er gestellt ist, durch eine Änderung wechselt oder die Daten einer der beiden Personen gelöscht werden, längstens ${GENEHMIGUNG_DAUER}; danach löschen wir ihn. Ist er entschieden, bleibt er wie jede Änderung der Verwaltung zwölf Monate im Änderungsprotokoll`,
   },
   {
     daten: "Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey",
@@ -262,7 +262,7 @@ const FRISTEN = [
   },
   {
     daten:
-      "Vermerk eines Schritts zu Deinen Daten: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines Widerspruchs als Kontaktperson oder, bei einer Änderung Deiner E-Mail-Adresse, ihrer Ablehnung, ihres Stopps, ihres Endes ohne Wirkung, weil die Verwaltung sie verwirft, eine neue Änderung sie ersetzt oder sie nicht gelten kann, oder der Änderung selbst, sobald sie gilt. Eine E-Mail-Adresse steht darin nur als unlesbarer Schlüssel: bei einer Löschung Deine als drei solche Schlüssel, bei einer Änderung die neue Adresse als einer, auch wenn sie jemand anderem gehört, und sobald die Änderung gilt, dazu die bisherige. Außerdem enthält er die Art des Schritts und den Zeitpunkt, bei den übrigen Schritten den betroffenen Eintrag, bei einem Widerruf die Fassung des Textes und die Antworten, die er setzt, bei einem Widerspruch die Rollen, die er leert, und Kennungen der Anfrage, über die er sich dem Eintrag im Zugriffsprotokoll zuordnen lässt",
+      "Vermerk eines Schritts zu Deinen Daten: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines Widerspruchs als Kontaktperson, des Endes eines Antrags auf einen Zugang zur Verwaltung für Deine Adresse ohne Genehmigung, weil er abgelehnt oder zurückgezogen wird oder Deine Adresse wechselt, oder, bei einer Änderung Deiner E-Mail-Adresse, ihrer Ablehnung, ihres Stopps, ihres Endes ohne Wirkung, weil die Verwaltung sie verwirft, eine neue Änderung sie ersetzt oder sie nicht gelten kann, oder der Änderung selbst, sobald sie gilt. Eine E-Mail-Adresse steht darin nur als unlesbarer Schlüssel: bei einer Löschung Deine als drei solche Schlüssel, bei einem Antrag die Adresse, für die er gestellt war, als einer, bei einer Änderung die neue Adresse als einer, auch wenn sie jemand anderem gehört, und sobald die Änderung gilt, dazu die bisherige. Außerdem enthält er die Art des Schritts und den Zeitpunkt, bei den übrigen Schritten den betroffenen Eintrag, bei einem Widerruf die Fassung des Textes und die Antworten, die er setzt, bei einem Widerspruch die Rollen, die er leert, und Kennungen der Anfrage, über die er sich dem Eintrag im Zugriffsprotokoll zuordnen lässt",
     // The line stands in the application log as every line does, and the day file ages from its last write
     // (`docs/ops/runbooks.md` §7), so the row names both and no flat period.
     frist:
@@ -633,12 +633,13 @@ export function DatenschutzView() {
             Deine E-Mail-Adresse änderst Du selbst in Deinem Konto, gleich als was Du bei uns eingetragen bist. Die neue gilt erst, wenn Du sie
             über den Link bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir
             einen Hinweis mit einem Link, über den sie die Änderung stoppen kann. Hat Deine Adresse Zugang zur Verwaltung, gilt die neue erst,
-            wenn eine andere Person aus der Verwaltung zustimmt; ohne diese Zustimmung endet die Änderung {GENEHMIGUNG_DAUER} nach ihrem Beginn.
-            Auf Deine Bitte trägt auch die Verwaltung die neue Adresse ein: Kannst Du Dich unter der bisherigen noch anmelden, gibst Du die
-            Änderung dort in Deinem Konto frei, bevor wir an die neue schreiben; erreichst Du die bisherige nicht mehr, gilt die neue erst{" "}
-            {ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung. Gilt die neue, gilt sie für alles, was unter der bisherigen steht: Deine
-            Einträge als Spielerin oder Spieler, einen bestätigten Eintrag als Schiedsrichterin oder Schiedsrichter, Deine bestätigten Plätze
-            als Kontaktperson, Deine Registrierungen und einen Zugang zur Verwaltung; die bisherige bekommt eine Nachricht darüber.
+            wenn eine andere Person aus der Verwaltung zustimmt, bei einem Zugang als Inhaberin oder Inhaber eine andere Inhaberin oder ein
+            anderer Inhaber; ohne diese Zustimmung endet die Änderung {GENEHMIGUNG_DAUER} nach ihrem Beginn. Auf Deine Bitte trägt auch die
+            Verwaltung die neue Adresse ein: Kannst Du Dich unter der bisherigen noch anmelden, gibst Du die Änderung dort in Deinem Konto frei,
+            bevor wir an die neue schreiben; erreichst Du die bisherige nicht mehr, gilt die neue erst {ADRESSWECHSEL_WARTEZEIT_DAUER} nach
+            ihrer Bestätigung. Gilt die neue, gilt sie für alles, was unter der bisherigen steht: Deine Einträge als Spielerin oder Spieler,
+            einen bestätigten Eintrag als Schiedsrichterin oder Schiedsrichter, Deine bestätigten Plätze als Kontaktperson, Deine
+            Registrierungen und einen Zugang zur Verwaltung; die bisherige bekommt eine Nachricht darüber.
           </p>
           <p className={ABSATZ_CLASSES}>
             Rechtsgrundlage für die Daten, die wir für Deine Teilnahme brauchen, ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse

@@ -13,6 +13,7 @@ import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { nextRouter, recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
+import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import type { FLAdresswechselVerwaltungOffen } from "@/features/adresswechsel/schemas.ts";
 
@@ -26,7 +27,8 @@ const { answerWith, answered, calls } = doubleActions({
 const { raised: toasts } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { AdresswechselWartet, ADRESSWECHSEL_ERNEUT, ADRESSWECHSEL_VERWERFEN } = await import("./AdresswechselWartet.tsx");
+const { AdresswechselWartet, ADRESSWECHSEL_ERNEUT, ADRESSWECHSEL_VERWERFEN, ADRESSWECHSEL_VERWERFEN_ARMED } =
+  await import("./AdresswechselWartet.tsx");
 
 const ADRESSWECHSEL_ID = "68c1f0a2b3c4d5e6f7a8b9e0";
 
@@ -65,6 +67,12 @@ beforeEach(() => {
   toasts.length = 0;
 });
 
+/** A control's whole press: the re-send's one, the discard's two. */
+const druecke = (user: ReturnType<typeof userEvent.setup>, control: string): Promise<void> =>
+  control === ADRESSWECHSEL_VERWERFEN
+    ? pressTwice(user, { resting: ADRESSWECHSEL_VERWERFEN, armed: ADRESSWECHSEL_VERWERFEN_ARMED })
+    : user.click(screen.getByRole("button", { name: control }));
+
 describe("what the tool shows of the change waiting at an address", () => {
   it("names the new address, its way and reason, the day its link went and its deadline to the minute, with both controls", () => {
     const shown = words(OFFEN);
@@ -97,6 +105,14 @@ describe("what the tool shows of the change waiting at an address", () => {
     assert.match(shown, /Freigabe bis 31\.12\.2099 um 12:30 Uhr/);
     assert.ok(!shown.includes(ADRESSWECHSEL_ERNEUT), "a change with no link to send offers a re-send");
     assert.ok(shown.includes(ADRESSWECHSEL_VERWERFEN), "the discard is missing");
+  });
+
+  /* Once the address on file approved, the change asks the new mailbox like any other, so the approval's instant is the one trace of it. */
+  it("names when the address on file approved a change, once it has", () => {
+    const shown = words({ ...OFFEN, weg: "freigabe", grund: null, freigegeben_am: "2026-10-02T08:15:00Z" });
+
+    assert.match(shown, /Freigegeben am 02\.10\.2026 um 10:15 Uhr/);
+    assert.doesNotMatch(words({ ...OFFEN, weg: "freigabe", grund: null }), /Freigegeben am/);
   });
 
   it("shows a confirmed change by the instant it takes effect, with the discard alone", () => {
@@ -134,6 +150,14 @@ describe("what the tool shows of the change waiting at an address", () => {
     unmount();
   });
 
+  /* Under the tool's `h2` beside its other block's `h3`: an `h2` here reads in an outline as a second tool. */
+  it("heads the change one level under the tool, as the read's own list is", () => {
+    const { unmount } = render(panel(OFFEN).tree);
+
+    assert.ok(screen.getByRole("heading", { name: "Neue E-Mail-Adresse", level: 3 }));
+    unmount();
+  });
+
   it("names when the approval was given, once given", () => {
     const shown = words({
       ...OFFEN,
@@ -166,7 +190,7 @@ describe("the waiting change's two controls", () => {
       const { unmount } = render(tree);
       const before = calls.length;
 
-      await userEvent.setup().click(screen.getByRole("button", { name: control }));
+      await druecke(userEvent.setup(), control);
       await act(answered);
 
       assert.deepEqual(
@@ -205,12 +229,27 @@ describe("the waiting change's two controls", () => {
     });
   }
 
+  /* The discard ends the person's change and mails nobody, so one stray press inside the step-up window must not send it. */
+  it("arms the discard on its first press, sending nothing and naming what it costs", async () => {
+    const { tree, geschrieben } = panel(OFFEN);
+    const { unmount } = render(tree);
+    const before = calls.length;
+
+    await userEvent.setup().click(screen.getByRole("button", { name: ADRESSWECHSEL_VERWERFEN }));
+
+    assert.equal(calls.length, before, "one press sent the discard");
+    assert.equal(geschrieben.count, 0);
+    assert.ok(screen.getByRole("button", { name: ADRESSWECHSEL_VERWERFEN_ARMED }), "the press did not arm");
+    assert.match(screen.getByRole("alert").textContent ?? "", /Eine E-Mail darüber bekommt niemand\./);
+    unmount();
+  });
+
   it("titles a discard „Änderung verworfen“ with the action's own words", async () => {
     answerWith(() => Promise.resolve({ success: true, message: "Die Änderung ist verworfen. Die bisherige Adresse bleibt." }));
     const { tree } = panel(OFFEN);
     const { unmount } = render(tree);
 
-    await userEvent.setup().click(screen.getByRole("button", { name: ADRESSWECHSEL_VERWERFEN }));
+    await druecke(userEvent.setup(), ADRESSWECHSEL_VERWERFEN);
     await act(answered);
 
     await waitFor(() =>
@@ -245,7 +284,7 @@ describe("a press of the waiting change's controls nobody can tell landed", () =
       const { tree, geschrieben } = panel(OFFEN, router);
       const { unmount } = render(tree);
 
-      await userEvent.setup().click(screen.getByRole("button", { name: control }));
+      await druecke(userEvent.setup(), control);
       await act(answered);
 
       await waitFor(() =>
