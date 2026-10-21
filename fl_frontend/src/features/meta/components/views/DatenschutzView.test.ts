@@ -54,7 +54,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "21. Oktober 2026", digest: "f870e77d4b7e2432f5f65705178a9d0ce09936d325f3b69d48557d8437ed733c" } as const;
+const FASSUNG = { stand: "21. Oktober 2026", digest: "2cab5b63bec136bea32326a1800e8d60b9667f2e40650bd457b37a9a19fb83b0" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -700,7 +700,8 @@ describe("the privacy notice states the registration, referee-link and ban clock
       frist.startsWith(
         "Bis eine zweite Person aus der Verwaltung ihn genehmigt oder ablehnt, die Person, die ihn gestellt hat, ihn zurückzieht, " +
           "die Adresse, für die er gestellt ist, durch eine Änderung wechselt oder die Daten einer der beiden Personen gelöscht " +
-          "werden, längstens eine Woche; danach löschen wir ihn.",
+          "werden, längstens eine Woche; danach löschen wir ihn, eine Benachrichtigung über seine Ablehnung oder sein Ende an " +
+          "die Person, die ihn gestellt hat, sobald sie versandt ist.",
       ),
       frist,
     );

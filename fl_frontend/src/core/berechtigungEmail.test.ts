@@ -5,7 +5,7 @@ import { registerDoubles } from "./exportingModule.ts";
 
 registerDoubles();
 
-const { buildBerechtigungEmail } = await import("./berechtigungEmail.ts");
+const { buildAntragEndeEmail, buildBerechtigungEmail } = await import("./berechtigungEmail.ts");
 const { ERASED_ACTOR_MARKER } = await import("./erasedActor.ts");
 
 const ORIGIN = "http://localhost:3000";
@@ -212,6 +212,57 @@ describe("the notice a change to who administers sends", () => {
     assert.ok(!mail.html.includes("<b>@schule.de"), "the markup carries the address unescaped");
     assert.ok(mail.html.includes("&lt;b&gt;@schule.de"));
     assert.ok(mail.html.includes("a&amp;b@schule.de"));
+  });
+});
+
+/* `docs/backend/spec.md :: I867`: a request's end is told to its requester under the request's own subject, naming the
+   address they asked about and nobody who acted. */
+describe("the notice a request's end sends its requester", () => {
+  it("tells a grant's refusal under the request's subject, naming the address asked about, in both parts", () => {
+    const mail = buildAntragEndeEmail({ art: "antrag_abgelehnt", adresse: "neu@schule.de", inhaber: false }, ORIGIN);
+
+    assert.equal(mail.subject, "Antrag auf Zugang zur Verwaltung der Frankfurt League");
+    assert.ok(mail.text.includes("Dein Antrag auf Zugang zur Verwaltung für neu@schule.de wurde abgelehnt."), mail.text);
+    assert.ok(mail.html.includes("Dein Antrag auf Zugang zur Verwaltung für <strong"), "the markup does not mark the address");
+    assert.ok(mail.text.includes(`Zur Verwaltung: ${ORIGIN}/bereich/admin/administratoren`));
+    for (const part of [mail.text, mail.html]) {
+      // Nobody who acted: the builder is handed nobody, and no line says who did it.
+      assert.ok(!/(Beantragt|Geändert|abgelehnt) von/.test(part), `the part names somebody: ${part}`);
+      assert.ok(!part.includes("Genehmige"), "the part asks its reader to decide a request that has ended");
+    }
+  });
+
+  it("tells an address change's end and a promotion's, each in its own words", () => {
+    const beendet = buildAntragEndeEmail({ art: "antrag_beendet", adresse: "neu@schule.de", inhaber: false }, ORIGIN);
+    const ernennung = buildAntragEndeEmail({ art: "antrag_abgelehnt", adresse: "kasse@schule.de", inhaber: true }, ORIGIN);
+    const ernennungBeendet = buildAntragEndeEmail({ art: "antrag_beendet", adresse: "kasse@schule.de", inhaber: true }, ORIGIN);
+
+    assert.ok(beendet.text.includes("Dein Antrag auf Zugang zur Verwaltung für neu@schule.de endete, weil sich die Adresse geändert hat."));
+    assert.equal(ernennung.subject, "Antrag auf Ernennung in der Verwaltung der Frankfurt League");
+    assert.ok(
+      ernennung.text.includes("Dein Antrag, kasse@schule.de zur Inhaberin oder zum Inhaber der Verwaltung zu ernennen, wurde abgelehnt."),
+    );
+    assert.ok(
+      ernennungBeendet.text.includes(
+        "Dein Antrag, kasse@schule.de zur Inhaberin oder zum Inhaber der Verwaltung zu ernennen, endete, weil sich die Adresse geändert hat.",
+      ),
+    );
+  });
+
+  it("names a withheld address by its state inside the sentence, never the address", () => {
+    const gesperrt = buildAntragEndeEmail({ art: "antrag_abgelehnt", adresse: { vorenthalten: "gesperrt" }, inhaber: false }, ORIGIN);
+    const geloescht = buildAntragEndeEmail({ art: "antrag_beendet", adresse: { vorenthalten: "geloescht" }, inhaber: true }, ORIGIN);
+
+    assert.ok(gesperrt.text.includes("Dein Antrag auf Zugang zur Verwaltung für eine gesperrte Adresse wurde abgelehnt."));
+    assert.ok(geloescht.text.includes("Dein Antrag, eine nicht genannte Adresse zur Inhaberin oder zum Inhaber der Verwaltung zu ernennen,"));
+  });
+
+  it("escapes the address in the markup and folds it onto one line in the text", () => {
+    const markup = buildAntragEndeEmail({ art: "antrag_abgelehnt", adresse: "<b>@schule.de", inhaber: false }, ORIGIN);
+    const gebrochen = buildAntragEndeEmail({ art: "antrag_abgelehnt", adresse: "Wert\nStartgeld: 500 Euro", inhaber: false }, ORIGIN);
+
+    assert.ok(!markup.html.includes("<b>@schule.de") && markup.html.includes("&lt;b&gt;@schule.de"));
+    assert.ok(!gebrochen.text.split("\n").some((line) => line.startsWith("Startgeld")), "the address forged a line");
   });
 });
 

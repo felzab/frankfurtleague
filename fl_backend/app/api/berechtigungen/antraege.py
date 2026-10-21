@@ -8,7 +8,7 @@ removed or a restore has put back (`docs/backend/spec.md :: I851`).
 from collections.abc import Mapping, Sequence, Set
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from typing import Any
+from typing import Any, Final, get_args
 
 from bson import ObjectId
 from pydantic import SecretStr
@@ -16,10 +16,11 @@ from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.berechtigungen.schemas import FLGenehmigungVerwehrt, as_utc
-from app.api.berechtigungen.services import haelt_seit
+from app.api.berechtigungen.schemas import FLBerechtigungAntragEndeArt, FLBerechtigungStand, FLGenehmigungVerwehrt, as_utc
+from app.api.berechtigungen.services import compose_postausgang, haelt_seit
+from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, delete_many_from_db, erase_many_from_db, refuse
+from app.core.crud import aggregate_many_from_db, delete_many_from_db, erase_many_from_db, post_many_to_db, refuse
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException, WriteRefusal
 from app.core.journal import JournalLine
 from app.core.security import loeschung_journal_hash
@@ -32,6 +33,9 @@ BERECHTIGUNG_GENEHMIGUNG_INHABER = "REQ-BERECHTIGUNG-010"
 BERECHTIGUNG_GENEHMIGUNG_JUENGER = "REQ-BERECHTIGUNG-011"
 # 409: the request's own state, which no approver lifts; a new request does.
 BERECHTIGUNG_ANTRAG_VERFALLEN = "REQ-BERECHTIGUNG-012"
+
+# The outbox kinds telling a requester how their request ended, each mailed to them alone.
+ANTRAG_ENDEN: Final = frozenset(get_args(FLBerechtigungAntragEndeArt))
 
 
 def compose_antrag(*, adresse: str, verwaltung: str, berechtigung_id: ObjectId | None, gestartet_von: str, now: datetime) -> dict[str, Any]:
@@ -139,11 +143,53 @@ async def remove_the_antrag_in_session(
     await erase_many_from_db(collection=berechtigungen_postausgang_collection, db_filter={"berechtigung_id": antrag_id}, session=session)
 
 
+async def queue_the_ending_in_session(
+    antraege: Sequence[Mapping[str, Any]],
+    *,
+    art: FLBerechtigungAntragEndeArt,
+    sperrliste: BanList,
+    berechtigungen_postausgang_collection: AsyncCollection,
+    now: datetime,
+    session: AsyncClientSession,
+) -> None:
+    """Tell each requester how their request ended, after the removal that takes its own notices.
+
+    The requester stands in `geaendert_von`, where an erasure, a ban and an address change reach any actor; none names the
+    decider (`docs/backend/spec.md :: I867`).
+    """
+
+    if not antraege:
+        return
+    beteiligt = {str(antrag["adresse"]) for antrag in antraege} | {str(antrag["genehmigung"]["gestartet_von"]) for antrag in antraege}
+    barred = await adressen_gesperrt(sperrliste, beteiligt, session=session)
+    await post_many_to_db(
+        collection=berechtigungen_postausgang_collection,
+        documents=[
+            compose_postausgang(
+                berechtigung_id=antrag["_id"],
+                art=art,
+                # The address and tier it asked for, as its own notice named them to its approvers.
+                jetzt=FLBerechtigungStand.model_validate(
+                    {"adresse": str(antrag["adresse"]), "verwaltung": antrag["genehmigung"]["verwaltung"]}
+                ),
+                vorher=None,
+                geaendert_von=str(antrag["genehmigung"]["gestartet_von"]),
+                now=now,
+                gesperrt=barred,
+            )
+            for antrag in antraege
+        ],
+        session=session,
+    )
+
+
 async def end_the_antraege_about_in_session(
     *,
     berechtigungen_antraege_collection: AsyncCollection,
     berechtigungen_postausgang_collection: AsyncCollection,
+    sperrliste: BanList,
     adresse: str,
+    now: datetime,
     session: AsyncClientSession,
 ) -> list[Mapping[str, Any]]:
     """End every request about this folded address as a refusal ends it, lapsed ones too, answering each for the caller's journal.
@@ -153,7 +199,7 @@ async def end_the_antraege_about_in_session(
 
     rows = await aggregate_many_from_db(
         collection=berechtigungen_antraege_collection,
-        pipeline=[{"$match": {"adresse": adresse}}, {"$project": {"adresse": 1}}],
+        pipeline=[{"$match": {"adresse": adresse}}, {"$project": {"adresse": 1, "genehmigung": 1}}],
         session=session,
     )
     for row in rows:
@@ -163,6 +209,15 @@ async def end_the_antraege_about_in_session(
             antrag_id=row["_id"],
             session=session,
         )
+    # One still open tells its requester; a lapsed one ended at its lapse, and nobody hears of it again.
+    await queue_the_ending_in_session(
+        [row for row in rows if ist_offen(row, now=now)],
+        art="antrag_beendet",
+        sperrliste=sperrliste,
+        berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+        now=now,
+        session=session,
+    )
 
     return rows
 
