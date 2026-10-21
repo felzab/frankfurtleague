@@ -206,7 +206,7 @@ const ABGANG_UEBERSCHRIFT = "Nicht mehr als Kontaktperson eingetragen";
 /** What a mailbox a write took a contact seat or its live link from is told. No name, as the confirmation names none: behind a typo its reader is a stranger. */
 export interface KontaktAbgangData {
   origin: string;
-  /** Every seat the mailbox held there, as one phrase, rendered by the caller as `KontaktBestaetigungData.rollenText` is. */
+  /** The seats the mailbox lost there, as one phrase, rendered by the caller as `KontaktBestaetigungData.rollenText` is. */
   rollenText: string;
   /** The seats the mailbox still holds there as one phrase, or `null` where it left the row. */
   bleibtText: string | null;

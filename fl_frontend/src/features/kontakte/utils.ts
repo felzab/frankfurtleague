@@ -203,10 +203,8 @@ export function resolveTeamSaisonMembership(
 }
 
 /**
- * The contacts editor's key: what the page hands it, but never the club's other rows nor each seat's link state and
- * pending address change, which the editor reads live and which move with no edit here: a key holding them
- * remounts the editor and drops the typed draft (`docs/frontend/spec.md` "The editor's subtree is keyed by the
- * fixture's stored state").
+ * The contacts editor's key, holding neither the club's other rows nor a seat's link state or pending address change:
+ * those move with no edit here, and remounting on them drops the typed draft (`docs/frontend/spec.md` §1.10).
  */
 export function kontakteEditorKey(
   { id, name, shorthand, inactive_since }: FLTeamWithMemberships,

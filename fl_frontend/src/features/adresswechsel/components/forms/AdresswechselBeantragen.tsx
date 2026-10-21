@@ -135,7 +135,7 @@ export function AdresswechselBeantragen({
     }
 
     const landing = focusAfterWrite();
-    // The link it mails replaces any the new address already holds (`docs/frontend/spec.md :: I432`).
+    // Ends the change standing at the address on file, its links with it (`docs/backend/spec.md :: I792`).
     const res = await pressLinkWrite({
       isDirty: false,
       stepUp,

@@ -6,7 +6,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
@@ -74,9 +74,9 @@ beforeEach(() => {
   answerWith(() => Promise.resolve({ success: true, message: "Bestätige die neue Adresse.", versand: "gesendet" }));
 });
 
-async function starte(vor: number | null): Promise<void> {
+async function starte(vor: number | null, verwaltung: "owner" | "administration" | null = null): Promise<void> {
   const user = userEvent.setup();
-  render(panel(OHNE, vor));
+  render(panel(OHNE, vor, verwaltung));
   await user.click(screen.getByRole("button", { name: E_MAIL_ADRESSE_AENDERN }));
   await user.type(screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ }), "lena@neu.example");
   await user.click(screen.getByRole("button", { name: "Link an neue Adresse senden" }));
@@ -99,6 +99,17 @@ describe("the account page's address control", () => {
 
     await waitFor(() => assert.ok(screen.getByRole("dialog", { name: IDENTITY_CONFIRMATION_TITLE })));
     assert.deepEqual(calls, []);
+  });
+
+  /* The administrator's guard admits a grant's address by passkey alone, so a code would confirm a session it refuses. */
+  it("offers a grant's address the passkey alone, and any other the code beside it", async () => {
+    await starte(30, "administration");
+    await waitFor(() => assert.ok(screen.getByRole("dialog", { name: IDENTITY_CONFIRMATION_TITLE })));
+    assert.equal(screen.queryAllByRole("button", { name: "Code per E-Mail senden" }).length, 0, "a grant's address is offered a code");
+    cleanup();
+
+    await starte(30);
+    await waitFor(() => assert.ok(screen.getByRole("button", { name: "Code per E-Mail senden" })));
   });
 
   it("asks for the confirmation where the server refused the start for want of one", async () => {

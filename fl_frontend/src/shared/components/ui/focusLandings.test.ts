@@ -731,7 +731,7 @@ const kontoAnmeldung = (offen: Parameters<typeof AdresswechselPanel>[0]["adressw
   const jetzt = Date.now();
   return h(KontoPanel, {
     email: "lena@schule.example",
-    // `keine`: the address holds nothing a change moves any more, so the page draws no control.
+    // `keine`: the address now holds nothing a change moves, so the page draws no control.
     adresswechsel:
       offen === "keine"
         ? null

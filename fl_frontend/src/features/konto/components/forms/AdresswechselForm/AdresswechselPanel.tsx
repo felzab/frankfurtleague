@@ -59,8 +59,8 @@ const KONTO_LINK_TITEL: VersandTitel = {
 type Wartend = { art: "start"; email: string } | { art: "freigabe"; id: string };
 
 /**
- * The one place every control of this panel stands in, so the focus a landed write takes off the page goes to the
- * control the refresh puts there (`docs/frontend/spec.md :: I536`): the start's to the stop, the stop's to the start.
+ * The one place every control of this panel stands in, so a landed write's focus goes to whatever control the
+ * refresh puts there (`docs/frontend/spec.md :: I536`): the start's to the stop, the stop's to the start.
  */
 const ADRESSWECHSEL_PLACE = "adresswechsel";
 
@@ -343,7 +343,8 @@ export function AdresswechselPanel({
           hinweis={STEP_UP_HINT}
           hasPasskey={bestaetigung.hasPasskey}
           codeHalf={
-            // A code goes to the address on file, which is the holder the change asks (`docs/frontend/spec.md :: I422`).
+            // A grant's address confirms by passkey alone (`docs/backend/spec.md :: I790`); any other's code goes to the
+            // address on file, the holder the change asks.
             bestaetigung.verwaltung !== null ? null : (
               <CodeConfirmation
                 address={bestaetigung.inhaberAdresse}

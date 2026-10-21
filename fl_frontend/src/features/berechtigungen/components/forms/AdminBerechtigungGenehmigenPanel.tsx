@@ -15,6 +15,7 @@ import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
 import type { FLBerechtigungAdresswechsel } from "@/features/berechtigungen/schemas";
@@ -103,7 +104,7 @@ export function AdminBerechtigungGenehmigenPanel({
             reason={adresswechsel.verwehrt === null ? null : GENEHMIGUNG_VERWEHRT[adresswechsel.verwehrt]}
             resting={AENDERUNG_GENEHMIGEN}
             // Named by its row, so each control in the list is one a screen reader can tell from the next.
-            restingName={`${AENDERUNG_GENEHMIGEN}: ${adresse ?? neueAdresse(adresswechsel)}`}
+            restingName={benannt(AENDERUNG_GENEHMIGEN, adresse ?? neueAdresse(adresswechsel))}
             armed="Ja, Adressänderung genehmigen"
             running="Genehmigt..."
             icon={

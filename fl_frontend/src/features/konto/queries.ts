@@ -30,7 +30,10 @@ export const getLoeschungAnsicht = cache(async (): Promise<FLSelbstErasureAnsich
   ),
 );
 
-/** The signed-in address's address control: whether it holds a record to move, and the change pending there, never its new address. */
+/**
+ * The signed-in address's address control: whether it holds a record to move, and the change pending there with its
+ * new address, whole where the person typed it and masked where the league did (`docs/backend/spec.md :: I822`).
+ */
 // Never `"use cache"`, for `getKontoEinwilligungen`'s reason.
 export const getKontoAdresswechsel = cache(async (): Promise<FLKontoAdresswechselResponse> =>
   runPersonRead(() =>

@@ -153,7 +153,7 @@ const NAME_IM_GRUND = "Der Grund enthält ein Wort, das einem Namen der Person g
 
 /** The tool's start, or `null`: a refusal of either value stands on its box, which is the way out. */
 export function mapVerwaltungStartRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  // The change the start would end has ended since the tool read it, so the page is older than the address's present.
+  // Published for the start, though no path of it answers 404 now: a lost race there is a retried write conflict.
   if (isRecordMissing(error)) return { error: KEIN_ADRESSWECHSEL };
   if (!isRefusal(error)) return null;
 
@@ -205,7 +205,7 @@ export function mapVerwaltungLinkRefusal(error: unknown): string | null {
       return `${ADRESSE_BELEGT} Verwirf die Änderung und beginne eine mit einer anderen Adresse.`;
     // The re-send's alone: a fresh link would be refused on its press, the change ending at the next pass.
     case "REQ-ADRESSWECHSEL-003":
-      return "Die Woche für die Genehmigung ist abgelaufen, die Änderung endet in der nächsten Stunde. Beginne sie danach neu.";
+      return "Die Frist für die Genehmigung ist abgelaufen, die Änderung endet in der nächsten Stunde. Beginne sie danach neu.";
     default:
       return null;
   }
