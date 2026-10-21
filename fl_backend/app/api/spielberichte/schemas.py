@@ -84,7 +84,7 @@ class FLSpielberichtTorschuetze(BaseModel):
 
 
 class FLSpielberichtKarte(BaseModel):
-    """One card as stored, its reason null on a red card and on every card once its season's end strips the reasons."""
+    """One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons."""
 
     seite: FLSpielberichtSeite
     spieler_id: CustomObjectId
@@ -96,7 +96,7 @@ class FLSpielberichtKarte(BaseModel):
 class FLSpielberichtKartePayload(FLSpielberichtKarte):
     """One card as a write sends it.
 
-    A caution's reason is judged against the stored block, never here: a correction after the season's end resends the
+    A caution's reason is judged against the stored block, never here: a correction after the strip resends the
     cautions whose reasons it stripped (`app/api/spielberichte/services.py :: find_grund_fehlt_refusal`).
     """
 
@@ -186,7 +186,7 @@ class FLSpielberichtBerichtPayload(BaseModel):
 
         if vorschlag.sonderereignis in SONDEREREIGNIS_NO_SHOW:
             if vorschlag.team1_tore is not None or vorschlag.team2_tore is not None or vorschlag.elfmeterschiessen is not None:
-                raise ValueError("Bei einem Nichtantreten trägst Du keine Tore ein: Das Ergebnis setzt die Liga.")
+                raise ValueError("Bei einem Nichtantreten stehen keine Tore im Bericht: Das Ergebnis ist die Wertung der Liga.")
             if self.torschuetzen:
                 raise ValueError("Bei einem Nichtantreten gibt es keine Torschützen.")
             return self
@@ -292,7 +292,7 @@ class FLSpielberichtAdminResponse(_SpielberichtAnsicht):
 
 
 class FLSpielberichtPersonEintrag(BaseModel):
-    """One played fixture booked to the signed-in referee, and whether their report stands."""
+    """One played fixture booked to the signed-in referee, and when its report, whoever wrote it, was first sent."""
 
     spiel_id: CustomObjectId
     datum: CustomDateString
@@ -303,7 +303,10 @@ class FLSpielberichtPersonEintrag(BaseModel):
 
 
 class FLSpielberichtePersonResponse(BaseAPIResponse):
+    """`spiele` of the running season, which the referee reports on; `fruehere` of ended ones, each holding a report they only read."""
+
     spiele: list[FLSpielberichtPersonEintrag]
+    fruehere: list[FLSpielberichtPersonEintrag]
 
 
 class FLSpielberichtZustandEintrag(BaseModel):

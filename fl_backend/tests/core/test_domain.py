@@ -626,7 +626,8 @@ def _steps_reaching(collection: Collection, scope: frozenset[Personengruppe] = J
 def test_every_reference_to_a_person_has_an_erasure_step_reaching_its_source():
     """A reference to a person no step reaches outlives their erasure, naming a document that is gone.
 
-    Programme 3's lineups, scorers and cards each add a row here, and fail until a step reaches them.
+    A match report's scorer and card ids declare no row, so this passes over them
+    (`docs/backend/spec.md :: "A pupil's erasure leaves their id"`).
     """
 
     assert REFERENCES_TO_A_PERSON, "no reference targets a person, so the comparison below holds of nothing"

@@ -5,6 +5,7 @@ import { Label } from "@heroui/react/label";
 import { ListBox } from "@heroui/react/list-box";
 
 import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
+import { Hint } from "@/shared/components/ui/Hint";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
 import { Select } from "@/shared/components/ui/Select";
@@ -28,6 +29,7 @@ export function AuswahlSelect<T extends string>({
   error,
   ownLabel,
   isRequired,
+  hint,
 }: {
   /** The payload path, so a refusal reaches the field by name. */
   name: string;
@@ -41,6 +43,11 @@ export function AuswahlSelect<T extends string>({
   ownLabel?: ReactNode;
   /** A mark a rule outside the leaf owes, which the caller names; absent, the schema's own decides. */
   isRequired?: boolean;
+  /**
+   * Why the picker offers what it does, as its description. Passed from the first render, empty while nothing applies:
+   * a description mounting later is never named in the trigger's `aria-describedby`.
+   */
+  hint?: string;
 }) {
   const item = listboxRow();
   const picked = options.find((option) => option.id === value);
@@ -80,6 +87,12 @@ export function AuswahlSelect<T extends string>({
         </ListBox>
       </Select.Popover>
       <FieldError className={FIELD_ERROR_CLASSES}>{error}</FieldError>
+      {hint !== undefined && (
+        <Hint
+          mode="field"
+          text={hint}
+        />
+      )}
     </Select>
   );
 }

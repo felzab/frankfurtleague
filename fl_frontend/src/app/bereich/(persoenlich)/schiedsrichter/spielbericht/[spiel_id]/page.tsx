@@ -13,6 +13,7 @@ import { SCHIEDSRICHTER_HREF, SpielberichtZustandView } from "@/features/spielbe
 import { SPIELBERICHT_GESCHLOSSEN } from "@/features/spielberichte/constants";
 import { getSchiedsrichterSpielbericht } from "@/features/spielberichte/queries";
 import { berichtSperre } from "@/features/spielberichte/utils";
+import { resolveSpielId } from "@/features/spiele/resolvers";
 import { isFunktionLost, isRefusal } from "@/shared/utils/actionError";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -42,10 +43,10 @@ export default async function SchiedsrichterSpielberichtPage({ params }: NextPag
     );
   }
 
-  const { spiel_id } = await params;
+  const spielId = await resolveSpielId(params);
   let read;
   try {
-    read = await getSchiedsrichterSpielbericht(spiel_id);
+    read = await getSchiedsrichterSpielbericht(spielId);
   } catch (error) {
     // The record went between the page's own check and the backend's: the panel's own landing.
     if (isFunktionLost(error)) redirect("/bereich");

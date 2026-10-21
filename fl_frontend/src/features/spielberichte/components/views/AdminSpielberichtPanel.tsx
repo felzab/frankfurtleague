@@ -145,7 +145,8 @@ function BerichtInhalt({
                 <Hint
                   mode="refusal"
                   reason={uebernahmeGesperrt}
-                  label="Vorschlag übernehmen">
+                  // The press's name whole: while blocked, the overlay is what names the control, which is `inert`.
+                  label={benannt("Vorschlag übernehmen", "Spielbericht")}>
                   <Button
                     type="button"
                     variant="secondary"
@@ -173,7 +174,9 @@ function BerichtInhalt({
               <Hint
                 mode="reveal"
                 label="Hinweis zum Vorschlag"
-                body={{ lead: "Setzt Tore, Elfmeterschießen und Ereignis aus dem Spielbericht ein. Gespeichert wird erst mit „Speichern“." }}
+                body={{
+                  lead: "Setzt Tore, Elfmeterschießen und Sonderereignis aus dem Spielbericht ein. Gespeichert wird erst mit „Speichern“.",
+                }}
               />
             </div>
           )}

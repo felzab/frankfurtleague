@@ -115,7 +115,11 @@ export function FormVorschlagSection({
         />
 
         {istNichtantreten ? (
-          <p className="muted-hint">Ist ein Team nicht angetreten, trägst Du keine Tore ein: Das Ergebnis setzt die Liga.</p>
+          <p className="muted-hint">
+            {leser === "admin"
+              ? "Ist ein Team nicht angetreten, stehen im Bericht keine Tore: Das Ergebnis ergibt sich im Spiel aus der Wertung."
+              : "Ist ein Team nicht angetreten, trägst Du keine Tore ein: Das Ergebnis setzt die Liga."}
+          </p>
         ) : (
           <div className={FIELD_PAIR_CLASSES}>
             {(

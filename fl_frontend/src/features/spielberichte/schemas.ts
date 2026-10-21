@@ -43,7 +43,7 @@ export type FLSpielberichtSeite = z.infer<typeof FLSpielberichtSeiteSchema>;
  * called off or struck out has no report (`REQ-BERICHT-004`).
  */
 const FLSpielberichtSonderereignisSchema = z.enum(["abgebrochen", "nichtantreten_team1", "nichtantreten_team2"], {
-  error: "Bitte wähle ein Ereignis.",
+  error: "Bitte wähle ein Sonderereignis.",
 });
 export type FLSpielberichtSonderereignis = z.infer<typeof FLSpielberichtSonderereignisSchema>;
 
@@ -89,8 +89,8 @@ export type KartenSchluessel = {
 };
 
 /**
- * Whether each card may name no reason (`REQ-BERICHT-008`): each caution the stored report holds stripped at the
- * season's end excuses one equal caution, those listed earlier without a reason using it first, as the backend counts.
+ * Whether each card may name no reason (`REQ-BERICHT-008`): each caution the season-end strip left reasonless in the
+ * stored report excuses one equal caution, those listed earlier without a reason using it first, as the backend counts.
  */
 export const gruendeErlassen = (bestand: readonly KartenSchluessel[], karten: readonly KartenSchluessel[]): boolean[] => {
   const gleich = (eine: KartenSchluessel, andere: KartenSchluessel) =>
@@ -116,7 +116,10 @@ export type FLSpielberichtTorschuetze = z.infer<typeof FLSpielberichtTorschuetze
 export const FLSpielberichtKarteSchema = karte(CustomObjectIdStringSchema);
 export type FLSpielberichtKarte = z.infer<typeof FLSpielberichtKarteSchema>;
 
-/** A card as a write sends it: its caution's reason is judged against the stored report (`REQ-BERICHT-008`). */
+/**
+ * A card as a write sends it, built as the stored card is: the backend's write model differs only in refusing unknown
+ * keys, and the pairing (`fl_frontend/src/core/apiContract.test.ts`) asks a mirror of every published component.
+ */
 export const FLSpielberichtKartePayloadSchema = karte(CustomObjectIdStringSchema);
 
 export const FLSpielberichtVonSchiedsrichterSchema = z.object({
@@ -167,7 +170,11 @@ const berichtPayload = <TTor extends z.ZodType<string | null>, TKarten extends z
 
       if (isNoShow(sonderereignis)) {
         if (team1_tore !== null || team2_tore !== null || elfmeterschiessen !== null) {
-          issue("Bei einem Nichtantreten trägst Du keine Tore ein: Das Ergebnis setzt die Liga.", ["ergebnis_vorschlag", "sonderereignis"]);
+          // Both readers' words: the administrator correcting the report is the league this would name as someone else.
+          issue("Bei einem Nichtantreten stehen keine Tore im Bericht: Das Ergebnis ist die Wertung der Liga.", [
+            "ergebnis_vorschlag",
+            "sonderereignis",
+          ]);
         }
         if (bericht.torschuetzen.length > 0) issue("Bei einem Nichtantreten gibt es keine Torschützen.", ["torschuetzen"]);
         return;
@@ -316,8 +323,10 @@ export const FLSpielberichtPersonEintragSchema = z.object({
 });
 export type FLSpielberichtPersonEintrag = z.infer<typeof FLSpielberichtPersonEintragSchema>;
 
+/** `fruehere`: fixtures of ended seasons holding a report, which the referee reads and writes no more. */
 export const FLSpielberichtePersonResponseSchema = BaseAPIResponseSchema.extend({
   spiele: z.array(FLSpielberichtPersonEintragSchema),
+  fruehere: z.array(FLSpielberichtPersonEintragSchema),
 });
 export type FLSpielberichtePersonResponse = z.infer<typeof FLSpielberichtePersonResponseSchema>;
 

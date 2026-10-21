@@ -35,15 +35,20 @@ import type { SpielberichtDraft, SpielberichtKontext } from "./spielberichtDraft
 /** The block as the form edits it, and its counter, which the write names as the version it was composed on. */
 type GespeicherterBericht = Pick<FLSpielberichtBericht, "ergebnis_vorschlag" | "torschuetzen" | "karten" | "bemerkungen" | "version">;
 
-/** The report about other clubs than the fixture fields now, which a save moves to them (`seiten_geaendert`). */
-const TEAMS_GEAENDERT: RailBanner = {
+/**
+ * The report about other clubs than the fixture fields now, which a save moves to them (`seiten_geaendert`). The body
+ * names a removal only where the opening took a person out of an entry (`eroeffnungOf`).
+ */
+const teamsGeaendert = (geleert: boolean): RailBanner => ({
   id: "spielbericht.teams-geaendert",
   severity: "warning",
   raisedBy: "state",
   title: "Im Spiel stehen inzwischen andere Teams",
-  body: "Personen der Teams, die nicht mehr spielen, sind aus ihren Einträgen genommen. Wähle sie neu und speichere den Bericht für die Teams, die jetzt spielen.",
+  body: geleert
+    ? "Personen der Teams, die nicht mehr spielen, sind aus ihren Einträgen genommen. Wähle sie neu und speichere den Bericht für die Teams, die jetzt spielen."
+    : "Speichere den Bericht für die Teams, die jetzt spielen.",
   inline: null,
-};
+});
 
 /**
  * The whole report, one editor for both readers: the booked referee's PUT and the administrator's step-up PATCH
@@ -152,7 +157,11 @@ export function SpielberichtForm({
             isDirty={isDirty}
             rail={
               <DraftRail
-                banners={kontext.seitenGeaendert.size === 0 ? [] : [TEAMS_GEAENDERT]}
+                banners={
+                  kontext.seitenGeaendert.size === 0
+                    ? []
+                    : [teamsGeaendert(eroeffnung.geleert.torschuetzen.size + eroeffnung.geleert.karten.size > 0)]
+                }
                 nomen="Spielbericht"
               />
             }>

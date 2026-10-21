@@ -12,8 +12,8 @@ import { SCHIEDSRICHTER_HREF } from "./SpielberichtZustandView";
 import type { FLSpielberichtSchiedsrichterResponse } from "../../schemas";
 
 /**
- * The referee's report once the fixture's season has ended: the report alone, read-only, since the backend refuses
- * their write then (`REQ-BERICHT-007`) and serves no squad to pick from.
+ * A fixture's report as its booked referee reads it once the fixture's season has ended: the report alone, read-only,
+ * since the backend refuses their write then (`REQ-BERICHT-007`) and serves no squad to pick from.
  */
 export function SpielberichtLesenView({ lesen }: { lesen: FLSpielberichtSchiedsrichterResponse }) {
   const panel = formPanel();
@@ -35,16 +35,26 @@ export function SpielberichtLesenView({ lesen }: { lesen: FLSpielberichtSchiedsr
           <div className={panel.body()}>
             <p className="muted-hint">Die Saison dieses Spiels ist vorbei. Den Spielbericht kannst Du ansehen, aber nicht mehr ändern.</p>
             {bericht === null ? (
-              <p className="muted-hint">Zu diesem Spiel hast Du keinen Spielbericht eingetragen.</p>
+              <p className="muted-hint">Zu diesem Spiel liegt kein Spielbericht vor.</p>
             ) : (
               <>
-                <p className="fluid-sm font-semibold text-foreground">
-                  Ergebnis: <VorschlagText vorschlag={bericht.ergebnis_vorschlag} />
-                </p>
+                {/* A proposal by side about clubs that left: beside the clubs heading this page it would read as theirs, as
+                    the administrator's panel withholds it
+                    (`fl_frontend/src/features/spielberichte/components/views/AdminSpielberichtPanel.tsx :: BerichtInhalt`). */}
+                {lesen.seiten_geaendert.length === 0 ? (
+                  <p className="fluid-sm font-semibold text-foreground">
+                    Ergebnis: <VorschlagText vorschlag={bericht.ergebnis_vorschlag} />
+                  </p>
+                ) : (
+                  <p className="muted-hint">
+                    Der Bericht wurde für andere Teams geschrieben, als jetzt im Spiel stehen. Sein Ergebnis steht deshalb nicht hier.
+                  </p>
+                )}
+                {/* The fixture's referee booked now reads it, who may not have written it, nor every remark in it. */}
                 <BerichtEintraege
                   lesen={lesen}
                   bericht={bericht}
-                  bemerkungenTitel="Deine Bemerkungen"
+                  bemerkungenTitel="Bemerkungen"
                 />
               </>
             )}
