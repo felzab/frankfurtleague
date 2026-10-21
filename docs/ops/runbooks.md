@@ -1348,11 +1348,15 @@ counts and no person, `adresswechsel.sweep_pass`, at `INFO` where the pass left 
 
 **A notice the drain could not send stays owed, and goes out again at a later drain** — behind the
 next confirmation or approval, or after the next pass — once its ten-minute lease lapses. A drain
-that failed files `FE-SWEEP-005`; a refused send `FE-MAIL-002`. After 24 hand-outs the notice is
-given up under `FE-MAIL-016`, and nobody can be named afterwards, so repair the refusal while those
-lines stand:
+that failed files `FE-SWEEP-005`; a refused send `FE-MAIL-002`; a sign-in account the store failed
+to carry `FE-AUTH-013`, at `ERROR`, and its completion notice waits for the carry. After 24
+hand-outs the notice is given up under `FE-MAIL-016`, the account left at the replaced address, and
+nobody can be named afterwards, so repair the refusal while those lines stand:
 
-    docker compose logs --since 2h frontend | grep -E 'adresswechsel\.(postausgang_failed|stempel_failed|notice_abandoned|wirksam_failed|nicht_wirksam_failed)'
+    docker compose logs --since 2h frontend | grep -E 'adresswechsel\.(postausgang_failed|stempel_failed|notice_abandoned|wirksam_failed|nicht_wirksam_failed|konto_nicht_umgezogen)'
+
+A `konto_nicht_umgezogen` line at `WARN` reading `grund: "belegt"` needs no repair: the new address
+held an account of its own, and the person signs in there anew.
 
 **The pupils' deletion runs on a timer of its own wherever `LOESCHUNG_SWEEP` reads `on`**, a
 minute after the frontend starts and then hourly, whatever `BEWERBUNG_SWEEP` reads
