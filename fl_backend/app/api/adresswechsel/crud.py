@@ -1019,9 +1019,10 @@ def build_erasure_adresswechsel_pipeline(identifier: str) -> list[Mapping[str, A
 
     folded = sign_in_identifier(identifier)
 
-    # Each clause its index's, or the `$or` scans the collection: the key's type stated for `build_address_filter`'s reason.
+    # Each clause its index's, the live terms inside each: beside the `$or` they leave the planner no indexed plan, and it
+    # scans every tombstone. The key's type stated for `build_address_filter`'s reason.
     return [
-        {"$match": {**LIVE_TERMS, "$or": [{"adresse": {"$eq": folded, "$type": "string"}}, {"email": folded}]}},
+        {"$match": {"$or": [build_address_filter(folded), {"email": folded, **LIVE_TERMS}]}},
         {"$project": {"adresse": 1, "email": 1, "token_hash": 1}},
         {"$sort": {"_id": 1}},
     ]

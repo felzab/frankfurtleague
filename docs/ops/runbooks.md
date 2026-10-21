@@ -1685,8 +1685,9 @@ reset belongs in a break between match weeks; and the ghost claims no slot
 fixtures is ever reported.
 
 **Neither half touches the sign-in store, and the frontend keeps running throughout.** Each paste
-holds league rows alone: once no record holds an address, the account sweep deletes its account
-within the hour, mailing nobody, a barred address's alike
+holds league rows alone: once no record holds an address, and no change that replaced it still owes
+its account's carry to the new one, the account sweep deletes its account within the hour, mailing
+nobody, a barred address's alike
 ([section 9](#9-checking-that-the-hourly-passes-have-run)). That needs the sweep live before the
 first paste, `KONTO_SWEEP` reading `on` on a production build, and its next `konto.sweep_completed`
 line counts the accounts it deleted.
