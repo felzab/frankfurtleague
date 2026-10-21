@@ -405,9 +405,10 @@ _ADRESSWECHSEL_ENDE_ARTEN = ["wirksam", "abgelehnt", "gestoppt", "abgelaufen", "
 # The approval a change moving a grant waits on. Its two addresses are administrators', as `erteilt_von` is.
 _ADRESSWECHSEL_GENEHMIGUNG = _object(
     nullable=True,
-    required=("verwaltung", "bis", "gestartet_von", "genehmigt_am", "genehmigt_von"),
+    required=("verwaltung", "angefragt_am", "bis", "gestartet_von", "genehmigt_am", "genehmigt_von"),
     properties={
         "verwaltung": {"bsonType": "string", "enum": ["owner", "administration"]},
+        "angefragt_am": {"bsonType": "date"},
         "bis": {"bsonType": "date"},
         "gestartet_von": {"bsonType": "string"},
         "genehmigt_am": {"bsonType": ["date", "null"]},
@@ -1453,6 +1454,36 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             },
         )
     },
+    Collection.ADRESSWECHSEL_POSTAUSGANG: {
+        "$jsonSchema": _object(
+            required=(
+                "_id",
+                "art",
+                "bisherige_email",
+                "email",
+                "vorname",
+                "weg",
+                "erfasst_am",
+                "beansprucht_bis",
+                "beanspruchung",
+                "versuche",
+            ),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "art": {"bsonType": "string", "enum": ["wirksam", "verworfen"]},
+                # The effect's notice names both addresses and whom it greets; a refusal's names the new address alone.
+                "bisherige_email": {"bsonType": _STRING_OR_NULL},
+                "email": {"bsonType": "string"},
+                "vorname": {"bsonType": _STRING_OR_NULL},
+                "weg": {"bsonType": _STRING_OR_NULL, "enum": [*_ADRESSWECHSEL_WEGE, None]},
+                "erfasst_am": {"bsonType": "date"},
+                # Required as keys and null until a pass claims the row, for `berechtigungen_postausgang`'s reason.
+                "beansprucht_bis": {"bsonType": ["date", "null"]},
+                "beanspruchung": {"bsonType": _STRING_OR_NULL},
+                "versuche": {"bsonType": "int"},
+            },
+        )
+    },
 }
 
 
@@ -2413,6 +2444,9 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
     },
     Collection.ADRESSWECHSEL: {
         "verschickt_am": _DAY,
+    },
+    Collection.ADRESSWECHSEL_POSTAUSGANG: {
+        "versuche": _COUNT,
     },
     Collection.SPIELER: {
         "einwilligung.datum": _DAY,

@@ -15,7 +15,7 @@ COMMANDS_A_LAPSE = 6
 # A due change moving a pupil row and a confirmed referee row, pinned by
 # `fl_backend/tests/api/test_adresswechsel_sweep_execution.py :: TestADueChangeCostsTheCommandsItsShareIsSizedAt`. No
 # retention rule bounds an address's records, so a dearer change meets the deadline, moving nothing (`:: TestTheDeadlineStopsTheCall`).
-COMMANDS_A_DUE_PERSON = 26
+COMMANDS_A_DUE_PERSON = 45
 
 # The call's other command, one aggregate answering one document at any size, pinned on the wire by
 # `fl_backend/tests/api/test_adresswechsel_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.

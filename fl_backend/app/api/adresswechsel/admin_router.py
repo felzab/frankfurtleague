@@ -50,11 +50,10 @@ from app.api.adresswechsel.services import (
     genehmigung_offen,
     ist_abgelaufen,
     ist_faellig,
-    verwehrt_fuer,
     wartet_auf,
 )
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
-from app.api.berechtigungen.services import genehmiger_of, holds_an_owners_power, lebendige
+from app.api.berechtigungen.services import genehmiger_of, genehmigung_verwehrt, holds_an_owners_power, lebendige
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import RecordCollections, SubjektLookup
 from app.api.identitaet.services import JEDE_VERWALTUNG, find_eigene_adresse_refusal, find_verwaltung_adresse_refusal, holds_a_name
@@ -65,15 +64,19 @@ from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     AdressankerCollection,
     AdresswechselCollection,
+    AdresswechselPostausgangCollection,
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
     BerechtigungenPostausgangCollection,
     BewerbungenCollection,
     DBClient,
+    DrosselungCollection,
+    EinladungenCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
+    SperrlisteCollection,
     SpielbestaetigungenCollection,
     SpielerCollection,
     get_germany_now,
@@ -244,6 +247,7 @@ async def _genehmiger(
     grants: list[Mapping[str, Any]],
     announced: list[Mapping[str, Any]],
     sperrliste: BanList,
+    now: datetime,
     session: AsyncClientSession,
 ) -> list[str]:
     """Who could approve a change of this address's grant, the start's actor excluded; refused `-011` where nobody could."""
@@ -256,6 +260,7 @@ async def _genehmiger(
         grants=grants,
         announced=announced,
         gesperrt=gesperrt,
+        vor=now,
     )
     refuse(find_kein_genehmiger_refusal(genehmiger=len(genehmiger)))
 
@@ -338,7 +343,9 @@ async def post_adresswechsel_verwaltung(
         genehmiger = (
             []
             if bestand.berechtigung is None
-            else await _genehmiger(bestand, akteur=akteur, grants=grants, announced=announced, sperrliste=sperrliste, session=session)
+            else await _genehmiger(
+                bestand, akteur=akteur, grants=grants, announced=announced, sperrliste=sperrliste, now=germany_now, session=session
+            )
         )
         refuse(find_name_im_grund_refusal(nennt_namen=grund is not None and holds_a_name(grund, bestand.namen())))
 
@@ -373,7 +380,7 @@ async def post_adresswechsel_verwaltung(
             gueltig_bis=record["gueltig_bis"],
             email=email,
             bisherige_email=identifier,
-            vorname=bestand.vorname,
+            vorname=None if weg == "wartezeit" else bestand.vorname,
             adresse_belegt=await _belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session),
             genehmiger=genehmiger,
         )
@@ -414,9 +421,9 @@ async def einladen_adresswechsel(
     on the change the id names alone, so a page showing a change since replaced re-sends nothing.
 
     Refused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), where the ban list holds the pending address
-    (`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), and where the change ended (`-002`).
-    404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on file's
-    approval, or confirmed, has no link to re-send.
+    (`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), where a grant's approval week has
+    passed (`-003`), and where the change ended (`-002`). 404 for an id naming no change, and unless the change waits on
+    the new mailbox: one awaiting the address on file's approval, or confirmed, has no link to re-send.
     """
 
     akteur = sign_in_identifier(operator)
@@ -448,6 +455,10 @@ async def einladen_adresswechsel(
             spieler_collection=spieler_collection, identifier=sign_in_identifier(email), spieler_id=bestand.spieler["_id"], session=session
         )
         refuse(find_vergeben_refusal(vergeben=vergeben))
+        # A grant's approval week that lapsed ends the change at the next pass: a fresh link would be refused on its press.
+        genehmigung = record.get("genehmigung")
+        bis = als_utc(genehmigung.get("bis")) if isinstance(genehmigung, Mapping) and genehmigung.get("genehmigt_am") is None else None
+        refuse(find_abgelaufen_refusal(abgelaufen=bis is not None and bis <= germany_now))
 
         # The filter is the judgement: a change awaiting its approval or confirmed is the 404 here.
         updated = await patch_one_in_db(
@@ -468,7 +479,7 @@ async def einladen_adresswechsel(
             gueltig_bis=gueltig_bis,
             email=email,
             bisherige_email=identifier,
-            vorname=bestand.vorname,
+            vorname=None if updated["weg"] == "wartezeit" else bestand.vorname,
             adresse_belegt=await _belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session),
             genehmiger=[],
         )
@@ -571,6 +582,10 @@ async def post_adresswechsel_genehmigung(
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    einladungen_collection: EinladungenCollection,
+    sperrliste_collection: SperrlisteCollection,
+    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
+    drosselung_collection: DrosselungCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
     adressanker_collection: AdressankerCollection,
@@ -585,8 +600,8 @@ async def post_adresswechsel_genehmigung(
 
     Where the new mailbox has confirmed and no waiting time remains, the change takes effect in this transaction: the grant
     is revoked at the replaced address and granted at the new one under this administrator's name, announced to every
-    administrator as a grant and a revoke are, and everything else the address holds moves; `mitteilung` names whom the
-    caller's completion notice greets. Otherwise the approval is recorded and the change takes effect at its confirmation
+    administrator as a grant and a revoke are, and everything else the address holds moves, its completion notice queued
+    in this transaction. Otherwise the approval is recorded and the change takes effect at its confirmation
     or at the end of its waiting time. **An approval refused writes nothing**: the change stands unapproved.
 
     Refused where the change asks no approval or was given it (`REQ-ADRESSWECHSEL-012`), where its seven days have passed
@@ -610,7 +625,10 @@ async def post_adresswechsel_genehmigung(
         grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
         announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
         inhaber = holds_an_owners_power(akteur=akteur, auth_time=auth_time, grants=grants, announced=announced)
-        refuse(find_genehmigung_verwehrt_refusal(verwehrt=verwehrt_fuer(record, akteur=akteur, inhaber=inhaber)))
+        verwehrt = genehmigung_verwehrt(
+            betroffen=record["adresse"], genehmigung=record["genehmigung"], akteur=akteur, inhaber=inhaber, grants=grants, announced=announced
+        )
+        refuse(find_genehmigung_verwehrt_refusal(verwehrt=verwehrt))
 
         # The filter is the judgement: a rival's approval committed since the read is the miss.
         approved = await patch_one_in_db(
@@ -621,9 +639,9 @@ async def post_adresswechsel_genehmigung(
             return_document=ReturnDocument.AFTER,
         )
         if not ist_faellig(approved, now=germany_now):
-            return FLAdresswechselGenehmigungResponse(id=adresswechsel_id, wirksam=False, mitteilung=None)
+            return FLAdresswechselGenehmigungResponse(id=adresswechsel_id, wirksam=False)
 
-        urteil, mitteilung = await take_effect_in_session(
+        urteil, wirksam = await take_effect_in_session(
             record=approved,
             records=records,
             sperrliste=sperrliste,
@@ -638,6 +656,10 @@ async def post_adresswechsel_genehmigung(
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
             berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            einladungen_collection=einladungen_collection,
+            sperrliste_collection=sperrliste_collection,
+            adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+            drosselung_collection=drosselung_collection,
             aktionen_collection=aktionen_collection,
             adressanker_collection=adressanker_collection,
             schluessel=config.sperrliste_schluessel,
@@ -649,7 +671,7 @@ async def post_adresswechsel_genehmigung(
         if urteil.leer:
             return None
 
-        return FLAdresswechselGenehmigungResponse(id=adresswechsel_id, wirksam=mitteilung is not None, mitteilung=mitteilung)
+        return FLAdresswechselGenehmigungResponse(id=adresswechsel_id, wirksam=wirksam)
 
     async with journal:
         async with transaction_session(db) as session:

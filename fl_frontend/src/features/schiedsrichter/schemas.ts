@@ -134,7 +134,7 @@ export const FLSchiedsrichterSingleResponseSchema = BaseAPIResponseSchema.extend
   schiedsrichter: FLSchiedsrichterSchema,
   // The backend's judgement of the link's deadline today, so the editor reads no day of its own.
   bestaetigung_abgelaufen: z.boolean(),
-  // The change pending at the stored address, whichever record's page started it, for the address tool's link.
+  // The change pending at the stored address, one for every record the address holds, for the address tool's link.
   adresswechsel_id: CustomObjectIdStringSchema.nullable(),
 });
 export type FLSchiedsrichterSingleResponse = z.infer<typeof FLSchiedsrichterSingleResponseSchema>;

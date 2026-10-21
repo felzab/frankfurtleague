@@ -26,6 +26,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.adresswechsel.crud import end_an_emptied_change_in_session
+from app.api.adresswechsel.services import compose_postausgang
 from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung, compose_widerruf_update
 from app.api.identitaet.crud import ERASURE_STEPS, JEDE_PERSONENGRUPPE, erase_everything
@@ -197,7 +198,12 @@ PAYMENT = 25
 
 # A day count of each age the TTL monitor may not have reached, under a bound far off so the monitor
 # itself never takes one during a case.
-COUNT_IDS = (f"kontakt:{PSEUDONYM}:{TODAY}", f"spieler:{PSEUDONYM}:{YESTERDAY}", f"schiedsrichter:{PSEUDONYM}:2026-03-02")
+COUNT_IDS = (
+    f"kontakt:{PSEUDONYM}:{TODAY}",
+    f"spieler:{PSEUDONYM}:{YESTERDAY}",
+    f"schiedsrichter:{PSEUDONYM}:2026-03-02",
+    f"adresswechsel:{PSEUDONYM}:{TODAY}",
+)
 OTHER_COUNT_ID = f"kontakt:{OTHER_PSEUDONYM}:{TODAY}"
 FAR_OFF = datetime(2099, 1, 1, tzinfo=UTC)
 
@@ -269,6 +275,7 @@ async def edited(database: AsyncDatabase, collection: Collection, document_id: A
 # The reports a referee sent, one of theirs an undraw of an earlier season took, and another referee's.
 THEIR_REPORT_OID = ObjectId("6890a1b2c3d4e5f607b000b1")
 OTHER_REPORT_OID = ObjectId("6890a1b2c3d4e5f607b000b2")
+OWED_NOTICE_OID = ObjectId("6890a1b2c3d4e5f607b000d1")
 THEIR_REMARKS = "Flutlicht fiel in der 70. Minute aus."
 
 
@@ -478,6 +485,16 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         database,
         (OTHER_REFEREE_CHANGE_OID, "kraus.bernd@example.com", IDENTIFIER, "their-new-address", "2026-03-28"),
         (MOVING_PUPIL_CHANGE_OID, "gwendolyn@example.com", IDENTIFIER, "her-new-address", "2026-03-29"),
+    )
+    # A notice still owed to them from an earlier change of theirs, which the pass has not delivered yet.
+    # A fixed id: the log keeps the erasure's filter by id, which two runs of this seed must spell alike.
+    await database[Collection.ADRESSWECHSEL_POSTAUSGANG].insert_one(
+        {
+            "_id": OWED_NOTICE_OID,
+            **compose_postausgang(
+                art="wirksam", bisherige_email="vorher.zorbanax@example.org", email=IDENTIFIER, vorname="Zorbanax", weg="konto", now=NOW
+            ),
+        }
     )
 
     # The history: every image the log holds of the person is one of these edits'.
@@ -820,7 +837,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
             "registrierungen": 2,
             "adresswechsel": 2,
             "berechtigungen": 0,
-            "drosselung": 3,
+            "drosselung": 4,
         }
 
 
@@ -1105,7 +1122,7 @@ class TestOneTransaction:
 
         # On the code, so this cannot pass because something else failed before any write.
         assert code == DOCUMENT_VALIDATION_FAILED
-        assert counts == {"berechtigungen": 2, "spieler": 5, "saison_spieler": 2, "schiedsrichter": 4, "registrierungen": 4, "drosselung": 4}
+        assert counts == {"berechtigungen": 2, "spieler": 5, "saison_spieler": 2, "schiedsrichter": 4, "registrierungen": 4, "drosselung": 5}
         assert (seat, pending, their_rows, stamped, on_the_ghost) == (IDENTIFIER, IDENTIFIER, 2, 0, 0)
         # And no journal line nor floor warning: an erasure rolled back is no erasure a replay may repeat.
         assert not [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
@@ -1515,6 +1532,22 @@ class TestThePreview:
         assert answer["registrierungen"] == [{"saison_id": SAISON_ID, "team_name": "Heim-Schule", "vorname": VORNAME, "nachname": NACHNAME}] * 2
         assert (answer["adresswechsel"], answer["verwaltung"], answer["letzter_inhaber"]) == (2, "administration", False)
         assert "@" not in response.text and GEBURTSDATUM not in response.text
+
+    def test_it_counts_no_change_whose_link_has_not_reached_this_mailbox(self, mongo_replica_set_url: str):
+        """An administrator's request still awaiting the address on file has told the new mailbox nothing, and its preview neither."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            asked_first = documents.adresswechsel_document(
+                adresse="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2026-03-30", weg="freigabe"
+            )
+            await database[Collection.ADRESSWECHSEL].insert_one(asked_first)
+            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+                preview = (await http.get(f"{PATH}/ansicht", headers=as_person(TYPED))).json()["adresswechsel"]
+
+            return preview, (await erased_by_the_handler(database, client)).adresswechsel
+
+        # The seed's two changes alone; the press still ends all three, nothing of the asked one being this address's.
+        assert on_a_league(mongo_replica_set_url, body) == (2, 3)
 
     def test_a_dead_spelling_of_the_address_goes_unnamed_and_goes(self, mongo_replica_set_url: str):
         """A grant typed in capitals admits nobody, so the preview names no tier for it; the press removes it all the same."""

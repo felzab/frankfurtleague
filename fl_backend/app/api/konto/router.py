@@ -7,7 +7,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.adresswechsel.crud import end_the_change_in_session, ending_line, read_the_bestand, start_the_change_in_session
+from app.api.adresswechsel.crud import end_the_change_in_session, ending_line, live_grant_of, read_the_bestand, start_the_change_in_session
 from app.api.adresswechsel.schemas import FLAdresswechselGenehmigungStand
 from app.api.adresswechsel.services import (
     LIVE_TERMS,
@@ -18,6 +18,7 @@ from app.api.adresswechsel.services import (
     compose_link_update,
     compose_record,
     find_abgelaufen_refusal,
+    find_beendet_refusal,
     find_kein_genehmiger_refusal,
     find_nichts_refusal,
     find_unveraendert_refusal,
@@ -32,6 +33,7 @@ from app.api.identitaet.crud import funktionen_aus
 from app.api.identitaet.lookup import RecordCollections, SubjektLookup
 from app.api.identitaet.services import ist_eigener_schiedsrichter, ist_eigener_spieler, may_grant_on_schiedsrichter, may_grant_on_spieler
 from app.api.konto.schemas import (
+    FLKontoAdresswechselFreigabePayload,
     FLKontoAdresswechselFreigabeResponse,
     FLKontoAdresswechselMintResponse,
     FLKontoAdresswechselOffen,
@@ -78,7 +80,14 @@ from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_K
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.journal import Journal
 from app.core.recording import log_stamp
-from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin, verify_recent_person_confirmation
+from app.core.security import (
+    PERSON_ACTOR_BINDERS,
+    KontaktIdentifier,
+    StepUpCheck,
+    get_person_confirmation_check,
+    verify_access_admin,
+    verify_recent_person_confirmation,
+)
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 
@@ -208,6 +217,7 @@ def _offen(record: Mapping[str, Any]) -> FLKontoAdresswechselOffen:
         )
 
     return FLKontoAdresswechselOffen(
+        id=record["_id"],
         # The address the person typed here is theirs to see; one an administrator typed is shown recognisable alone.
         email=record["email"] if record["weg"] == "konto" else maskierte_adresse(str(record["email"])),
         weg=record["weg"],
@@ -279,6 +289,7 @@ async def post_adresswechsel(
     adressanker_collection: AdressankerCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
+    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_person_confirmation_check)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLKontoAdresswechselMintResponse:
     """
@@ -291,7 +302,8 @@ async def post_adresswechsel(
     a sign-in at the address on file proves the mailbox is not lost. **Nothing about the new address is judged here** --
     the ban list, another pupil, a grant it holds -- so this start answers alike whatever the new address holds.
 
-    Refused `REQ-AUTH-009` from a sign-in or confirmation, passkey or code, older than `ENROLMENT_WINDOW_MINUTES`;
+    Refused `REQ-AUTH-009` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
+    address holds a grant;
     `REQ-ADRESSWECHSEL-010` where the address holds nothing a change moves; `-007` where the typed address is the one
     signed in; `-011` where nobody could approve the grant's move, the last owner making another first; and
     `REQ-DROSSELUNG-001` past the day's count of starts and approvals.
@@ -311,11 +323,15 @@ async def post_adresswechsel(
         genehmiger: list[str] = []
         genehmigung = None
         if bestand.berechtigung is not None:
+            # The change hands the grant over, so it asks the passkey a revoke does: this lane admits a sign-in by code.
+            refuse_unconfirmed()
             grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
             announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
             gesperrt = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in lebendige(grants)], session=session)
             verwaltung = str(bestand.berechtigung["verwaltung"])
-            genehmiger = genehmiger_of(verwaltung=verwaltung, ausgenommen={identifier}, grants=grants, announced=announced, gesperrt=gesperrt)
+            genehmiger = genehmiger_of(
+                verwaltung=verwaltung, ausgenommen={identifier}, grants=grants, announced=announced, gesperrt=gesperrt, vor=germany_now
+            )
             refuse(find_kein_genehmiger_refusal(genehmiger=len(genehmiger)))
             genehmigung = compose_genehmigung(verwaltung=verwaltung, gestartet_von=identifier, now=germany_now)
 
@@ -365,29 +381,42 @@ async def post_adresswechsel(
 )
 async def post_adresswechsel_freigabe(
     identifier: KontaktIdentifier,
+    freigabe_data: Annotated[FLKontoAdresswechselFreigabePayload, Body()],
     adresswechsel_collection: AdresswechselCollection,
+    berechtigungen_collection: BerechtigungenCollection,
     db: DBClient,
+    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_person_confirmation_check)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLKontoAdresswechselFreigabeResponse:
     """
-    Approve a change an administrator started without a reason, minting the new mailbox's link once, for the frontend's server to mail.
+    Approve the change `id` names, which an administrator started without a reason, minting the new mailbox's link once.
 
     **Nothing reaches the new mailbox before this press** (`docs/backend/spec.md :: I794`). Nothing about the new address is
-    judged here either: the approver is owed no answer about it, and the confirmation judges it.
+    judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
+    change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
 
-    Refused `REQ-AUTH-009` as the start is; 404 where no such change awaits the address's approval;
-    `REQ-ADRESSWECHSEL-003` past the approval's deadline; and `REQ-DROSSELUNG-001` as the start is.
+    Refused `REQ-AUTH-009` as the start is; `REQ-ADRESSWECHSEL-002` where the change `id` names has ended; 404 where it
+    is no change of this address awaiting its approval; `REQ-ADRESSWECHSEL-003` past the approval's deadline; and
+    `REQ-DROSSELUNG-001` as the start is.
     """
 
     raw_token, token_hash = mint_token()
-    db_filter = {**build_address_filter(identifier), **build_awaiting_approval_terms()}
+    adresswechsel_id = freigabe_data.id
+    db_filter = {"_id": adresswechsel_id, **build_address_filter(identifier), **build_awaiting_approval_terms()}
 
     async def approve_the_change(session: AsyncClientSession) -> Mapping[str, Any]:
         record = await adresswechsel_collection.find_one(db_filter, session=session)
         if record is None:
+            ended = await adresswechsel_collection.find_one(
+                {"_id": adresswechsel_id, "beendet": {"$type": "object"}}, {"_id": 1}, session=session
+            )
+            refuse(find_beendet_refusal(offen=ended is None))
             # The judgement names no address: the exception's filter reaches the log line.
-            raise DocumentNotFoundException(filter=build_awaiting_approval_terms(), error_code=DOCUMENT_NOT_FOUND)
+            raise DocumentNotFoundException(filter={"_id": adresswechsel_id, **build_awaiting_approval_terms()}, error_code=DOCUMENT_NOT_FOUND)
         refuse(find_abgelaufen_refusal(abgelaufen=ist_abgelaufen(record, now=germany_now)))
+        # As the start: the press lets a link go that hands over any grant the address holds at the effect.
+        if await live_grant_of(identifier, berechtigungen_collection=berechtigungen_collection, session=session) is not None:
+            refuse_unconfirmed()
 
         return await patch_one_in_db(
             collection=adresswechsel_collection,

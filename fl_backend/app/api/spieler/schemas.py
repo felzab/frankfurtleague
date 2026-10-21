@@ -309,8 +309,8 @@ class FLSpielerWithMemberships(_SpielerPerson):
     # Served here and withheld from the base tier, as the record above is: this read is the admin
     # editor's, and an address is the person's own. Never null: the admission writes one.
     email: str
-    # The live change of the pupil's address, which the address tool shows; required, so a read forgetting to look
-    # answers no change rather than hiding one.
+    # The live change of the pupil's address, which the address tool shows; required, so a read forgetting to look fails
+    # rather than hiding a change as none.
     adresswechsel_id: CustomObjectId | None
     memberships: list[FLSpielerMembership]
 

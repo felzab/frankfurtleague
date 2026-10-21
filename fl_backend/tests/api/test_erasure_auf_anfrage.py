@@ -358,7 +358,7 @@ class TestTheRegistryRunsWhole:
             "registrierungen": 2,
             "adresswechsel": 2,
             "berechtigungen": 0,
-            "drosselung": 3,
+            "drosselung": 4,
         }
         assert left == dict.fromkeys(THEIR_VALUES, [])
         assert (squad, squad_left) == (2, 1)

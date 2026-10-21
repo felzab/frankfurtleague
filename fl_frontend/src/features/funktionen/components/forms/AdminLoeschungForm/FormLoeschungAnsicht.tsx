@@ -53,7 +53,7 @@ function zeilenOf(
     })),
     // A pending change names no person of its own, so its line opens the change in the address tool.
     ...adresswechsel.map(({ adresswechsel_id }) => ({
-      text: "Eine noch nicht bestätigte Adressänderung auf diese Adresse",
+      text: "Eine laufende Adressänderung auf diese Adresse",
       href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechsel_id}`),
     })),
     ...(verwaltung === null

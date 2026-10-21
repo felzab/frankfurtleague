@@ -6,7 +6,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.adresswechsel.services import build_awaiting_genehmigung_filter, verwehrt_fuer
+from app.api.adresswechsel.services import build_awaiting_genehmigung_filter
 from app.api.berechtigungen.crud import grant_in_session, pull_the_list_to_judge, read_berechtigungen, read_the_announced, revoke_in_session
 from app.api.berechtigungen.schemas import (
     FLBerechtigung,
@@ -30,6 +30,7 @@ from app.api.berechtigungen.services import (
     find_nur_inhaber_refusal,
     find_vorhanden_refusal,
     gefunden,
+    genehmigung_verwehrt,
     holds_an_owners_power,
     lebendige,
     stand_of,
@@ -136,7 +137,14 @@ async def get_berechtigungen(
                     email=record["email"],
                     bestaetigt=record.get("bestaetigt_am") is not None,
                     bis=record["genehmigung"]["bis"],
-                    verwehrt=verwehrt_fuer(record, akteur=akteur, inhaber=inhaber),
+                    verwehrt=genehmigung_verwehrt(
+                        betroffen=record["adresse"],
+                        genehmigung=record["genehmigung"],
+                        akteur=akteur,
+                        inhaber=inhaber,
+                        grants=rows,
+                        announced=announced,
+                    ),
                 ),
             )
         )

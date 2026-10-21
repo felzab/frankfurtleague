@@ -409,6 +409,9 @@ SYSTEM_WRITES = [
     # Recorded under `SYSTEM`: the rule and the clock delete, never the administrator whose press may run one.
     ("/api/v0/identitaet/loeschung/lauf", "POST"),
     ("/api/v0/adresswechsel/sweep", "POST"),
+    # The address change's owed notices, claimed and stamped by the frontend's pass as the grants' are.
+    ("/api/v0/adresswechsel/sweep/postausgang", "POST"),
+    ("/api/v0/adresswechsel/sweep/postausgang/zugestellt", "POST"),
 ]
 
 # The writes a signed-in person makes on the admin key, binding one of `PERSON_ACTOR_BINDERS` in

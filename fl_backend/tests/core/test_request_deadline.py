@@ -749,6 +749,8 @@ class TestAWriteTheDeadlineCutIsNotCalledFailed:
             # An erasure's removal of the person's counts, inside the erasure's transaction, so a cut
             # removal commits nothing and "failed" is the truth.
             "app/core/drosselung.py :: erase_counts_in_session",
+            # An effect's carry of the counts onto the new pseudonym, inside the effect's transaction, for the same reason.
+            "app/core/drosselung.py :: carry_counts_in_session",
         }
 
     def test_the_method_does_not_decide_it(self):

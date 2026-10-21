@@ -303,3 +303,9 @@ async def get_adresswechsel_collection(
     db: AsyncDatabase = Depends(get_database),
 ) -> AsyncCollection:
     return db[Collection.ADRESSWECHSEL]
+
+
+async def get_adresswechsel_postausgang_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.ADRESSWECHSEL_POSTAUSGANG]

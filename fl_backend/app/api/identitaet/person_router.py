@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.adresswechsel.crud import others_naming
+from app.api.adresswechsel.crud import known_to_the_new_mailbox, others_naming
 from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen
 from app.api.berechtigungen.services import lebendige
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, ErasureJournal, erase_everything, resolve_subject
@@ -23,6 +23,7 @@ from app.core.db import get_drosselung_collection
 from app.core.dependencies import (
     AdressankerCollection,
     AdresswechselCollection,
+    AdresswechselPostausgangCollection,
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
@@ -86,6 +87,7 @@ async def erase_selbst(
     sperrliste_collection: SperrlisteCollection,
     adressanker_collection: AdressankerCollection,
     adresswechsel_collection: AdresswechselCollection,
+    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     sperrliste: SperrlisteLookup,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_person_confirmation_check)],
     db: DBClient,
@@ -103,10 +105,10 @@ async def erase_selbst(
 
     Removed: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every
     fixture it was booked on moving to the one row that holds no person and keeping its own fee, and every confirmation it
-    was asked for, answered or not; every registration at the
-    address, pending or declined; another referee's or pupil's pending address change naming this address, that row itself
-    standing; every grant the address holds, an `owner` grant and the last two among them, every administrator being told it
-    ended; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an
+    was asked for, answered or not; every registration at the address, pending or declined; another address's pending
+    change naming this one as its new address, every record it would move standing at its own; every grant the address
+    holds, an `owner` grant and the last two among them, every administrator being told it ended; and the person's day
+    counts. Emptied: every contact seat the address holds on a team's season row and on an
     application of any status, the row and its other seats standing, an emptied seat's links on its team's open match
     confirmations stopping to answer. Every reason the person typed answering a match confirmation, from any seat they held,
     goes from its row and its log images, the answer standing. Every match report the referee record sent stands, its
@@ -157,6 +159,7 @@ async def erase_selbst(
             sperrliste_collection=sperrliste_collection,
             adressanker_collection=adressanker_collection,
             adresswechsel_collection=adresswechsel_collection,
+            adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
             sperrliste=sperrliste,
             geaendert_von=identifier,
             schluessel=config.sperrliste_schluessel,
@@ -199,8 +202,8 @@ async def get_erasure_ansicht(
 
     Read through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure
     removes or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address
-    and no birthdate is answered. A pending address change on another address's referee or pupil row is counted and not
-    named, that row not being this address's until the change is confirmed. Reached and not named: the fixtures booking
+    and no birthdate is answered. Another address's pending change naming this one is counted and not named, once its link
+    has reached this mailbox: its records are not this address's until it takes effect. Reached and not named: the fixtures booking
     their referee record, which move onto the ghost, and their name in each of those fixtures' log images, which goes; the
     confirmations their referee record was asked for, which go, and its id and reason in a removed season's log images;
     the match reports their referee record sent, which stand naming the ghost, in their log images too;
@@ -260,7 +263,8 @@ async def get_erasure_ansicht(
         referee_rows=subject.schiedsrichter,
         pupil_rows=subject.spieler,
         registrierung_rows=subject.registrierungen,
-        adresswechsel_rows=others_naming(subject.adresswechsel, identifier),
+        # The person's own preview counts only what reached their mailbox, which an administrator's request has not yet.
+        adresswechsel_rows=known_to_the_new_mailbox(others_naming(subject.adresswechsel, identifier)),
         team_rows=team_rows,
     )
 

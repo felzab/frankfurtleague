@@ -12,7 +12,7 @@ import { SAISONENDE_NOTIZ, SAISONENDE_TAG } from "@/core/saisonendeTag";
 import { HOUR_MS } from "@/core/timeUnits";
 import { versandAusfallOf } from "@/core/versandAusfall";
 import { postAdresswechselSweep } from "@/features/adresswechsel/mutations";
-import { adresswechselWirksam, mailAdresswechselNichtWirksam } from "@/features/adresswechsel/notifications";
+import { runAdresswechselPostausgang } from "@/features/adresswechsel/postausgang";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants";
 import { postRegistrierungSweep } from "@/features/registrierungen/mutations";
 import { sendZielMail } from "@/features/zustellung/notifications";
@@ -111,16 +111,8 @@ async function sweepAdresswechsel(): Promise<void> {
     do {
       antwort = await postAdresswechselSweep(nach);
       entfernt += antwort.entfernt;
-      verworfen += antwort.verworfen.length;
-      wirksam += antwort.wirksam.length;
-      // Each call's own effects and refusals, owed before the next call: the answer is the only place either
-      // address survives, and a later call's failure must not take this one's with it.
-      for (const mitteilung of antwort.wirksam) {
-        await adresswechselWirksam({ operation: "sweepAdresswechsel", mitteilung: mitteilung });
-      }
-      for (const abgelehnt of antwort.verworfen) {
-        await mailAdresswechselNichtWirksam({ operation: "sweepAdresswechsel", verworfen: abgelehnt });
-      }
+      verworfen += antwort.verworfen;
+      wirksam += antwort.wirksam;
       // The pass's one end and its guard against a place not past the one sent, as the pupils' deletion's
       // (`fl_frontend/src/features/saisons/loeschung.ts :: loeschungLaufen`).
       if (nach !== null && antwort.nach !== null && antwort.nach <= nach) {
@@ -139,6 +131,10 @@ async function sweepAdresswechsel(): Promise<void> {
     logger.info("adresswechsel.sweep_pass", { entfernt: entfernt, wirksam: wirksam, verworfen: verworfen });
     logSweepFailure("adresswechsel.sweep_failed", error, undefined);
   }
+
+  // Whatever the calls came to: every notice an end queued, this pass's and any whose answer a confirmation or an
+  // approval lost, is delivered from the outbox (`docs/backend/spec.md :: I842`).
+  await runAdresswechselPostausgang();
 }
 
 async function sweepAlleSaisons(): Promise<void> {

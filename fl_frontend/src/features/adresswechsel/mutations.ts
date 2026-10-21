@@ -5,10 +5,12 @@ import {
   FLAdresswechselAntwortResponseSchema,
   FLAdresswechselGenehmigungResponseSchema,
   FLAdresswechselIdResponseSchema,
+  FLAdresswechselPostausgangResponseSchema,
   FLAdresswechselStoppResponseSchema,
   FLAdresswechselSweepResponseSchema,
   FLAdresswechselVerwaltungAnsichtResponseSchema,
   FLAdresswechselVerwaltungMintResponseSchema,
+  FLAdresswechselZugestelltResponseSchema,
 } from "./schemas";
 
 import type {
@@ -20,6 +22,7 @@ import type {
   FLAdresswechselGenehmigungPayload,
   FLAdresswechselGenehmigungResponse,
   FLAdresswechselIdResponse,
+  FLAdresswechselPostausgangResponse,
   FLAdresswechselStoppPayload,
   FLAdresswechselStoppResponse,
   FLAdresswechselSweepResponse,
@@ -28,6 +31,8 @@ import type {
   FLAdresswechselVerwaltungMintResponse,
   FLAdresswechselVerwaltungPayload,
   FLAdresswechselVerwerfenPayload,
+  FLAdresswechselZugestelltPayload,
+  FLAdresswechselZugestelltResponse,
 } from "./schemas";
 
 /** A POST that reads: the token is the credential, and a GET would put it in a query string the backend's route template does not redact. */
@@ -72,6 +77,23 @@ export async function postAdresswechselSweep(nach: string | null): Promise<FLAdr
     method: "POST",
     authType: "system",
     params: params,
+  });
+}
+
+/** Claims the notices the ends still owe, for this server alone: the answer names addresses. */
+export async function postAdresswechselPostausgang(): Promise<FLAdresswechselPostausgangResponse> {
+  return apiClient<FLAdresswechselPostausgangResponse>("/adresswechsel/sweep/postausgang", FLAdresswechselPostausgangResponseSchema, {
+    method: "POST",
+    authType: "system",
+  });
+}
+
+/** Removes the notices a claim delivered, under that claim alone. */
+export async function postAdresswechselZugestellt(payload: FLAdresswechselZugestelltPayload): Promise<FLAdresswechselZugestelltResponse> {
+  return apiClient<FLAdresswechselZugestelltResponse>("/adresswechsel/sweep/postausgang/zugestellt", FLAdresswechselZugestelltResponseSchema, {
+    method: "POST",
+    authType: "system",
+    body: JSON.stringify(payload),
   });
 }
 

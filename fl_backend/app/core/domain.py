@@ -363,12 +363,14 @@ AGGREGATES: tuple[Aggregate, ...] = (
     Aggregate(
         name="Adresswechsel",
         root=Collection.ADRESSWECHSEL,
-        members=(),
+        members=(Collection.ADRESSWECHSEL_POSTAUSGANG,),
         boundary=(
             "One live change per address, `uniq_adresswechsel_adresse`. The records it moves are the address's, read at "
             "the effect, never stored on the change: a registration committed during its waiting time moves too. So it is "
             "in no boundary with `spieler`, a seat, a referee or a grant, each of which the effect writes in its own "
-            "transaction beside the change's end. An ended change keeps no address and is removed by its TTL index."
+            "transaction beside the change's end. An ended change keeps no address and is removed by its TTL index. The "
+            "outbox joins it because an end owing a notice queues it in the end's own transaction, so a commit whose "
+            "answer was lost still has its notice delivered."
         ),
     ),
 )
@@ -3172,7 +3174,7 @@ RULES: tuple[Rule, ...] = (
         operation=(
             "POST /adresswechsel/bestaetigung · POST /adresswechsel/bestaetigung/stopp · POST /adresswechsel/ansicht"
             " · POST /adresswechsel/{adresswechsel_id}/einladen · DELETE /adresswechsel/{adresswechsel_id}"
-            " · POST /adresswechsel/{adresswechsel_id}/genehmigung"
+            " · POST /adresswechsel/{adresswechsel_id}/genehmigung · POST /konto/adresswechsel/freigabe"
         ),
         aggregate="Adresswechsel",
         summary="a change that ended, or a link already answered, takes no further answer, re-send, discard or approval",
@@ -3184,6 +3186,7 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.GONE,
         operation=(
             "POST /adresswechsel/bestaetigung · POST /konto/adresswechsel/freigabe · POST /adresswechsel/{adresswechsel_id}/genehmigung"
+            " · POST /adresswechsel/{adresswechsel_id}/einladen"
         ),
         aggregate="Adresswechsel",
         summary=("a step whose deadline has passed -- a link, the address on file's approval, a grant's approval -- moves nothing"),
@@ -3309,6 +3312,15 @@ RULES: tuple[Rule, ...] = (
         summary="a change takes no effect moving a grant onto an address holding one",
         implemented_by="app.api.adresswechsel.services.find_neue_berechtigt_refusal",
         tested_by="tests/api/test_adresswechsel_execution.py::TestTheMovedGrant",
+    ),
+    Rule(
+        code="REQ-ADRESSWECHSEL-017",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /adresswechsel/{adresswechsel_id}/genehmigung",
+        aggregate="Adresswechsel",
+        summary="a change is approved by an administrator holding their access, an owner's change their tier, since before it started",
+        implemented_by="app.api.adresswechsel.services.find_genehmigung_verwehrt_refusal",
+        tested_by="tests/api/test_adresswechsel_execution.py::TestTheAdministratorFollowsTheirMove",
     ),
     Rule(
         code="REQ-BERICHT-006",

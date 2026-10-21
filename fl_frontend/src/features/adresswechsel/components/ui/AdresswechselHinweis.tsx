@@ -8,13 +8,13 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 
 const ZUR_AENDERUNG = "Zur Änderung";
 
-/** The one line every editor shows under an address a change waits at, whichever record's page started it. */
+/** The one line every editor shows under an address a change is pending at, one change for every record it holds. */
 export function AdresswechselOffen({ adresswechselId }: { adresswechselId: string }) {
   const saisonHref = useSaisonHref();
 
   return (
     <p className="fluid-sm text-pretty text-foreground">
-      Eine neue Adresse wartet auf ihre Bestätigung.{" "}
+      Für diese Adresse läuft eine Änderung.{" "}
       <Link
         href={saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${adresswechselId}`)}
         prefetch={false}

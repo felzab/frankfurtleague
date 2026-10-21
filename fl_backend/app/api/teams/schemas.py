@@ -279,7 +279,10 @@ class FLSaisonTeamBestaetigungenAnsicht(BaseModel):
 
 
 class FLSaisonTeamAdresswechsel(BaseModel):
-    """The live change of each seat's address, which the address tool shows; null where none stands or the seat is empty."""
+    """The live change of each confirmed seat's address, which the address tool shows.
+
+    Null where none stands, the seat is empty, or its person never confirmed it, the change moving nothing of theirs.
+    """
 
     trainer: CustomObjectId | None
     ansprechperson: CustomObjectId | None
@@ -521,9 +524,9 @@ class FLTeamMembership(BaseModel):
     # Each seat's link as the editor shows it, the referee editor's twin. Defaulted: `$project` omits a
     # key the stored row has not got, and a row holds none until a save mints its first link.
     bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | None = None
-    # Composed after the read from the `adresswechsel` collection, never projected off the season row.
-    # Defaulted for `kontakte`'s reason.
-    adresswechsel: FLSaisonTeamAdresswechsel | None = None
+    # Composed after the read from the `adresswechsel` collection, never projected off the season row; required, so a
+    # read that forgot to compose it fails rather than answering every seat as holding no change.
+    adresswechsel: FLSaisonTeamAdresswechsel | None
 
     @computed_field
     @property
