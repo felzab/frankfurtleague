@@ -28,6 +28,7 @@ from app.api.adresswechsel.sweep_router import (
 )
 from app.api.berechtigungen.services import BEANSPRUCHUNG_DAUER, VERSUCHE_HOECHSTENS
 from app.api.bewerbungen.services import hash_token
+from app.api.saisons.cache import invalidate_saison_cache
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.services import build_ghost_spieler
 from app.core.collections import Collection
@@ -45,7 +46,7 @@ from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
 from .adresswechsel_harness import owed
-from .test_adresswechsel_sweep_refusal import COMMANDS_A_DUE_PERSON, COMMANDS_A_LAPSE, OTHER_COMMANDS
+from .test_adresswechsel_sweep_refusal import COMMANDS_A_DUE_PERSON, COMMANDS_A_LAPSE, OTHER_COMMANDS, SEASON_READ
 
 pytestmark = pytest.mark.db
 
@@ -631,6 +632,21 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
 
         assert answer.entfernt == ADRESSWECHSEL_PER_PASS
         assert names.total() - ADRESSWECHSEL_PER_PASS * COMMANDS_A_LAPSE == OTHER_COMMANDS, names
+
+    def test_a_full_share_of_due_changes_asking_the_running_season(self, mongo_replica_set_url: str):
+        """The page's own read beside the season it asks once, which the per-change count's difference cancels out."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
+            for position in range(ADRESSWECHSEL_PER_PASS + 1):
+                await a_due_person(database, position)
+            invalidate_saison_cache()
+
+            return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
+
+        answer, names = on_a_league(mongo_replica_set_url, body)
+
+        assert answer.wirksam == ADRESSWECHSEL_PER_PASS
+        assert names.total() - ADRESSWECHSEL_PER_PASS * COMMANDS_A_DUE_PERSON == OTHER_COMMANDS + SEASON_READ, names
 
 
 async def queue(database: AsyncDatabase, *positions: int) -> list[ObjectId]:

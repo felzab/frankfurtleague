@@ -1401,15 +1401,24 @@ def read_id(db_filter: dict[str, Any]) -> str:
     return "+".join(named) or "none"
 
 
-def index_reads(filters: list[dict[str, Any]]) -> list[Any]:
+def index_reads(filters: list[dict[str, Any]]) -> list[tuple[dict[str, Any], str]]:
     return [
         # Every filter, because the planner is asked afresh for each. Some share an index with the
         # unfiltered read; what the case pins is that the added predicate does not push the plan off it.
-        *(pytest.param(db_filter, "desc", id=f"{read_id(db_filter)}-desc") for db_filter in filters),
+        *((db_filter, "desc") for db_filter in filters),
         # The whole `asc` pin: both sort builders derive a single `direction`, so a tie-break pinned
-        # against `order` breaks every `asc` read alike and one case catches it.
-        pytest.param({}, "asc", id="none-asc"),
+        # against `order` breaks every `asc` read alike and one read catches it.
+        ({}, "asc"),
     ]
+
+
+def misplanned(planned: list[tuple[str, list[str]]], *, banned: tuple[str, ...] = ("SORT", "COLLSCAN")) -> list[tuple[str, list[str]]]:
+    """Each read whose plan reaches no index or holds a banned stage, so one case names every read that regressed.
+
+    One corpus serves them all: each filter and order is a query shape of its own, planned afresh.
+    """
+
+    return [(read, stages) for read, stages in planned if "IXSCAN" not in stages or any(stage in stages for stage in banned)]
 
 
 def walk_stages(node: Any) -> list[str]:
@@ -1514,14 +1523,13 @@ def test_an_apply_refuses_a_retention_bound_already_built_at_another_number(mong
     assert bound == STALE_RETENTION_SECONDS
 
 
-@pytest.mark.parametrize(("db_filter", "order"), index_reads(BEWERBUNGEN_QUEUE_FILTERS))
-def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str, db_filter: dict[str, Any], order: str):
+def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str):
     """The property, not the key list: naming keys passes for an index this endpoint's own sort cannot use.
 
     The sort comes from `build_bewerbungen_sort`, so a change there is judged rather than mirrored.
     """
 
-    async def body(database: AsyncDatabase) -> list[str]:
+    async def body(database: AsyncDatabase) -> list[tuple[str, list[str]]]:
         await database["bewerbungen"].insert_many(
             [
                 valid_document(
@@ -1534,30 +1542,28 @@ def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str
                 for row in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX)
             ]
         )
-        explained = (
-            await database["bewerbungen"]
-            .find(db_filter)
-            .sort(build_bewerbungen_sort(sort_by="eingereicht_am", order=order))
-            .limit(50)
-            .explain()
-        )
-        return winning_stages(explained)
+        planned = []
+        for db_filter, order in index_reads(BEWERBUNGEN_QUEUE_FILTERS):
+            explained = (
+                await database["bewerbungen"]
+                .find(db_filter)
+                .sort(build_bewerbungen_sort(sort_by="eingereicht_am", order=order))
+                .limit(50)
+                .explain()
+            )
+            planned.append((f"{read_id(db_filter)}-{order}", winning_stages(explained)))
+        return planned
 
-    stages = on_the_shipped_schema(mongo_url, body)
-
-    assert "IXSCAN" in stages, f"{order} on {db_filter or 'no filter'} reached no index: {stages}"
-    assert "SORT" not in stages, f"{order} on {db_filter or 'no filter'} blocks on an in-memory sort: {stages}"
-    assert "COLLSCAN" not in stages, f"{order} on {db_filter or 'no filter'} scans the archive: {stages}"
+    assert misplanned(on_the_shipped_schema(mongo_url, body)) == []
 
 
-@pytest.mark.parametrize("db_filter", BEWERBUNGEN_COUNT_FILTERS, ids=read_id)
-def test_the_per_status_count_walks_index_keys_rather_than_the_archive(mongo_url: str, db_filter: dict[str, Any]):
+def test_the_per_status_count_walks_index_keys_rather_than_the_archive(mongo_url: str):
     """Every read of the triage list counts all three statuses, so a count that scans is a scan per page load.
 
     `COUNT_SCAN` and not merely an index: it answers off the keys and fetches no document at all.
     """
 
-    async def body(database: AsyncDatabase) -> list[str]:
+    async def body(database: AsyncDatabase) -> list[tuple[str, list[str]]]:
         await database["bewerbungen"].insert_many(
             [
                 valid_document(
@@ -1570,35 +1576,36 @@ def test_the_per_status_count_walks_index_keys_rather_than_the_archive(mongo_url
                 for row in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX)
             ]
         )
-        # The pipeline `count_documents` itself issues, explained through the command: a `find` the
-        # endpoint never makes would plan something no page load pays for.
-        explained = await database.command(
-            {
-                "explain": {
-                    "aggregate": "bewerbungen",
-                    "pipeline": [{"$match": db_filter}, {"$group": {"_id": 1, "n": {"$sum": 1}}}],
-                    "cursor": {},
-                },
-                "verbosity": "queryPlanner",
-            }
-        )
-        return counted_stages(explained)
+        planned = []
+        for db_filter in BEWERBUNGEN_COUNT_FILTERS:
+            # The pipeline `count_documents` itself issues, explained through the command: a `find` the
+            # endpoint never makes would plan something no page load pays for.
+            explained = await database.command(
+                {
+                    "explain": {
+                        "aggregate": "bewerbungen",
+                        "pipeline": [{"$match": db_filter}, {"$group": {"_id": 1, "n": {"$sum": 1}}}],
+                        "cursor": {},
+                    },
+                    "verbosity": "queryPlanner",
+                }
+            )
+            planned.append((read_id(db_filter), counted_stages(explained)))
+        return planned
 
-    stages = on_the_shipped_schema(mongo_url, body)
+    planned = on_the_shipped_schema(mongo_url, body)
 
-    assert "COUNT_SCAN" in stages, f"counting {db_filter} fetched documents rather than walking keys: {stages}"
-    assert "COLLSCAN" not in stages, f"counting {db_filter} scans the archive: {stages}"
+    assert [(read, stages) for read, stages in planned if "COUNT_SCAN" not in stages or "COLLSCAN" in stages] == []
 
 
-@pytest.mark.parametrize(("db_filter", "order"), index_reads(AKTIONEN_QUEUE_FILTERS))
-def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_url: str, db_filter: dict[str, Any], order: str):
+def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_url: str):
     """The log holds twelve months of recorded writes, so a read that cannot walk an index scans them all.
 
     `trace_id` is left out: it selects one write's fan-out, which the planner sorts in memory
     over a handful of rows.
     """
 
-    async def body(database: AsyncDatabase) -> list[str]:
+    async def body(database: AsyncDatabase) -> list[tuple[str, list[str]]]:
         await database["aktionen"].insert_many(
             [
                 valid_documents()["aktionen"]
@@ -1612,21 +1619,19 @@ def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_url: str, 
                 for row in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX)
             ]
         )
-        explained = await database["aktionen"].find(db_filter).sort(build_aktionen_sort(order=order)).limit(50).explain()
-        return winning_stages(explained)
+        planned = []
+        for db_filter, order in index_reads(AKTIONEN_QUEUE_FILTERS):
+            explained = await database["aktionen"].find(db_filter).sort(build_aktionen_sort(order=order)).limit(50).explain()
+            planned.append((f"{read_id(db_filter)}-{order}", winning_stages(explained)))
+        return planned
 
-    stages = on_the_shipped_schema(mongo_url, body)
-
-    assert "IXSCAN" in stages, f"{order} on {db_filter or 'no filter'} reached no index: {stages}"
-    assert "SORT" not in stages, f"{order} on {db_filter or 'no filter'} blocks on an in-memory sort: {stages}"
-    assert "COLLSCAN" not in stages, f"{order} on {db_filter or 'no filter'} scans the whole log: {stages}"
+    assert misplanned(on_the_shipped_schema(mongo_url, body)) == []
 
 
-@pytest.mark.parametrize("db_filter", AKTIONEN_TALLY_FILTERS, ids=read_id)
-def test_the_facet_tally_walks_index_keys_rather_than_the_whole_log(mongo_url: str, db_filter: dict[str, Any]):
+def test_the_facet_tally_walks_index_keys_rather_than_the_whole_log(mongo_url: str):
     """`FACET_TALLY` itself, never a copy: a copy would pin a pipeline nothing issues once a group key moves."""
 
-    async def body(database: AsyncDatabase) -> list[str]:
+    async def body(database: AsyncDatabase) -> list[tuple[str, list[str]]]:
         await database[Collection.AKTIONEN].insert_many(
             [
                 valid_documents()["aktionen"]
@@ -1639,21 +1644,20 @@ def test_the_facet_tally_walks_index_keys_rather_than_the_whole_log(mongo_url: s
                 for row in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX)
             ]
         )
-        explained = await database.command(
-            {
-                "explain": {"aggregate": str(Collection.AKTIONEN), "pipeline": [{"$match": db_filter}, *FACET_TALLY], "cursor": {}},
-                "verbosity": "queryPlanner",
-            }
-        )
-        return counted_stages(explained)
+        planned = []
+        for db_filter in AKTIONEN_TALLY_FILTERS:
+            explained = await database.command(
+                {
+                    "explain": {"aggregate": str(Collection.AKTIONEN), "pipeline": [{"$match": db_filter}, *FACET_TALLY], "cursor": {}},
+                    "verbosity": "queryPlanner",
+                }
+            )
+            planned.append((read_id(db_filter), counted_stages(explained)))
+        return planned
 
-    stages = on_the_shipped_schema(mongo_url, body)
-
-    assert "IXSCAN" in stages, f"counting {db_filter or 'the whole log'} reached no index: {stages}"
-    assert "COLLSCAN" not in stages, f"counting {db_filter or 'the whole log'} scans the whole log: {stages}"
-    # The `$sort` is what makes the planner reach for an index at all, and it is free only while one
-    # provides the order: without `aktionen_facets` the same stage sorts the log in memory instead.
-    assert "SORT" not in stages, f"counting {db_filter or 'the whole log'} blocks on an in-memory sort: {stages}"
+    # `SORT` among the banned: the `$sort` is what makes the planner reach for an index at all, and it is free only while
+    # one provides the order; without `aktionen_facets` the same stage sorts the log in memory instead.
+    assert misplanned(on_the_shipped_schema(mongo_url, body)) == []
 
 
 PLAIN_SQUAD_INDEX = "saison_spieler_saison_id_team_id"

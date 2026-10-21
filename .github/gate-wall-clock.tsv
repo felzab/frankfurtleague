@@ -850,11 +850,9 @@
 #   `fl_backend/tests/api/test_saison_cache.py :: test_no_two_writers_share_a_key`, under 5 ms
 # - `db`:
 #   `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows`,
-#   0.36-0.50 s an arm over its two; the worst-call cases
+#   0.36-0.50 s an arm over its two; the worst-call case
 #   `fl_backend/tests/api/test_loeschung_sweep.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`,
-#   0.42-0.52 s, and
-#   `fl_backend/tests/api/test_adresswechsel_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`,
-#   0.71-0.78 s; `fl_backend/tests/api/test_sperrliste_execution.py :: TestANameARivalWritesMidBan`,
+#   0.42-0.52 s; `fl_backend/tests/api/test_sperrliste_execution.py :: TestANameARivalWritesMidBan`,
 #   4.5-7.2 s alone, 3.8-4.5 s of it the database setup its first case pays;
 #   `fl_backend/tests/core/test_constraints_execution.py :: test_the_erasure_marks_a_persons_log_rows_through_an_index`,
 #   0.16-0.29 s a call; and five more read-model offenders, 0.04-0.07 s each, inside the offenders'
@@ -1029,7 +1027,7 @@
 #   `fl_backend/tests/core/test_conftest_servers.py`, 5 cases starting servers of their own,
 #   2.70-3.39 s over four of them, the fifth
 #   (`:: test_a_replica_set_that_never_initiates_fails_naming_its_log_and_leaves_no_container`)
-#   unmeasured. Each module has a pair of runs within 0.2 s, and its run outside the pair read
+#   measured with the four in the `db` paragraph below. Each module has a pair of runs within 0.2 s, and its run outside the pair read
 #   0.3-0.7 s higher.
 # - `frontend-units`, by the runner's own `duration_ms` through `test:base`, each run 1.2-1.4 s
 #   longer from pnpm's start:
@@ -1055,6 +1053,135 @@
 # each job's span read first log line to last over the attempts that passed: `backend` 65-104 s
 # against its 105 s budget, `db` 112-157 s against 160 s, and the four `frontend-units` shards
 # 127-190, 94-169, 109-176 and 107-154 s against 205 s. No row moves and none takes a stamp.
+#
+# `backend`'s default tier, module by module, at this branch's head 1efaa6a04 against 53377c00f, the
+# tree the row's stamp counts: each module alone in a pytest process of its own, one run at each
+# tree, the two trees interleaved, run by the coordinator on 2026-10-21 on a sixteen-core Windows
+# machine whose load through that loop was not recorded, 30 percent read as the db loop before it
+# ended. Each run's wall less that of a run collecting no case, 3.02 s at the head and 2.84 s at the
+# stamp, summed 181.7 s against 136.1 s, and the cases' own phases 110.7 s against 86.9 s. This
+# branch added
+# `fl_backend/tests/api/test_adresswechsel_refusal.py`, 42 cases, 2.14 s by pytest's span;
+# `fl_backend/tests/api/test_spielbericht_shapes.py`, 78 cases, 0.92 s; and
+# `fl_backend/tests/api/test_adresswechsel_sweep_refusal.py`, 2 cases, 0.82 s. Most of the growth is
+# in the source sweeps, whose case counts held: each one's first case builds a trace of the
+# application's source that `fl_backend/tests/core/app_source.py` caches for the process, 6.1-6.2 s at
+# the head against 3.2 s at the stamp in
+# `fl_backend/tests/core/test_duplicate_key_publication.py` and `fl_backend/tests/api/test_admin_guard.py`,
+# the application having grown from 42,752 lines to 62,657. A process a module pays that build once in
+# every module reading it, where the tier's workers pay it once each, so these sums compare the two
+# trees and are no runner's seconds. Beside the tier in the scope's pool, later that day with no
+# other agent's tests running, interleaved after one warm run of each: pyright over the backend took
+# 19.34-19.61 s against 15.09-15.12 s at the stamp, three rounds, and `scripts/checks/check_test_estate.py`
+# 6.67-6.76 s against 5.14-5.25 s, five rounds, every run exit 0. No row moves and none takes a stamp.
+#
+# `db`, module by module, at this branch's head 1efaa6a04 against 53377c00f, the tree the row's stamp
+# counts: each module's db-marked cases alone in a pytest process of its own, one run at each tree,
+# the two trees interleaved, run by the coordinator on 2026-10-21 on a sixteen-core Windows machine
+# with no other agent's tests running, whose load through that loop was not recorded (84 percent read
+# as it started and 30 percent as it ended). Each figure is pytest's own span, and holds about 2.2 s
+# of its first case's setup starting the servers, which the gate starts once a run:
+#
+# - added by this branch: `fl_backend/tests/api/test_adresswechsel_execution.py`, 173 cases, 26.80 s;
+#   `fl_backend/tests/api/test_berechtigungen_antraege_execution.py`, 61 cases, 9.84 s;
+#   `fl_backend/tests/api/test_adresswechsel_sweep_execution.py`, 21 cases, 8.61 s; and
+#   `fl_backend/tests/api/test_spielbericht_execution.py`, 40 cases, 7.22 s
+# - grown by it: `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py`, 93 cases, 17.64 s;
+#   `fl_backend/tests/api/test_spielbestaetigung_execution.py`, 87 cases, 9.51 s;
+#   `fl_backend/tests/api/test_spielbestaetigung_seats_execution.py`, 18 cases, 5.71 s;
+#   `fl_backend/tests/api/test_kontakt_bestaetigung.py`, 68 cases, 8.79 s against 7.28 s;
+#   `fl_backend/tests/api/test_undraw_execution.py`, 31 cases, 6.40 s against 5.62 s; and
+#   `fl_backend/tests/api/test_drosselung_execution.py`, 41 cases, 7.84 s against 7.42 s
+# - `fl_backend/tests/core/test_conftest_servers.py`, 5 cases, 4.26 s: the replica set that never
+#   initiates 1.65 s of call time, the two servers exiting at start 1.15 s and 0.64 s, and the two
+#   containers the daemon never created 0.01 s each
+# - each sweep's worst call: `fl_backend/tests/api/test_adresswechsel_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`,
+#   its full share 0.09 s of call time, `fl_backend/tests/api/test_loeschung_sweep.py`'s 0.39 s and
+#   `fl_backend/tests/api/test_bewerbung_sweep_execution.py`'s two 0.68 s and 0.11 s; and,
+#   measured alone twice later that day with the module at 22 cases, 9.32-9.37 s,
+#   `fl_backend/tests/api/test_adresswechsel_sweep_execution.py :: test_a_full_share_of_due_changes_asking_the_running_season`
+#   0.36 s
+#
+# Summed with each module's server start taken out, the tier's work came to 334.6 s against 195.4 s:
+# 36.0 s of it modules this branch added and about 25.6 s its growth of older ones, the rest modules
+# and cases `main` gained after the stamp. Two older modules grew per case rather than by cases.
+# `fl_backend/tests/api/test_schiedsrichter_anonymisierung.py`'s seed now takes each of its two
+# referees through a whole address change, 184-204 ms against 37-42 ms, before an erasure of 76-83 ms
+# against 14-16 ms, by a profile of its phases over two runs at each tree that day; every case erases,
+# so each seeds its own. `fl_backend/tests/core/test_constraints_execution.py`'s 18 index-read cases
+# each seeded a corpus of 2000 rows, 6.38 s at the head against 3.30 s; one case a family now seeds
+# it once and explains every read, and the four took 7.27-7.84 s by pytest's span against
+# 12.25-12.33 s for the 18, two interleaved runs each with the servers' start in both, later that
+# day. Sums of one module a process compare the two trees and are no runner's seconds. No row moves
+# and none takes a stamp.
+#
+# `frontend-units (4)`, file by file, at this branch's head 1efaa6a04 against 53377c00f, the tree the
+# row's stamp counts: each of the shard's files alone through `test:base`, one run at each tree, the
+# two trees interleaved, run by the coordinator on 2026-10-21 on a sixteen-core Windows machine with
+# no other agent's tests running, at 23-87 percent CPU over its last five minutes with its own runs
+# counted and unread before them. By the runner's own `duration_ms` the shard's files held 498.9 s
+# against 258.8 s, 124 files against 105, each run 1.32-2.13 s longer from pnpm's start. The shard
+# takes the files at its positions in the sorted list, and only 19 of its files sat in it at the
+# stamp: the 81 that moved in from other shards hold 357.6 s, against 189.7 s for the 86 that moved
+# out, so membership makes 167.9 s of the 240.1 s it grew. Its largest file, 45.2 s,
+# `fl_frontend/src/features/admin/editorWiring.test.ts`, sat in shard 3. Files new since the stamp add
+# 79.4 s, 47.7 s of it the twelve this branch added there:
+# `fl_frontend/src/features/konto/components/forms/AdresswechselForm/AdresswechselPanel.test.ts`
+# 13.22 s, `fl_frontend/src/features/adresswechsel/components/views/AdresswechselLinkView.test.ts`
+# 10.36 s, `fl_frontend/src/features/berechtigungen/components/forms/AdminCreateBerechtigungForm.test.ts`
+# 9.81 s, `fl_frontend/src/app/bereich/admin/finalrunden/page.test.ts` 2.69 s,
+# `fl_frontend/src/features/admin/components/views/AdminSpieleActionRequiredView.test.ts` 2.53 s,
+# `fl_frontend/src/app/dashboard/layoutError.test.ts` 2.38 s,
+# `fl_frontend/src/app/bereich/admin/spielsuche/page.test.ts` 2.29 s,
+# `fl_frontend/src/features/spielberichte/components/views/AdminSpielberichtPanel.test.ts` 2.03 s,
+# `fl_frontend/src/features/adresswechsel/actions.test.ts` 0.97 s, `fl_frontend/src/app/api/signout/route.test.ts`
+# 0.95 s, and `fl_frontend/src/features/adresswechsel/refusals.test.ts` and
+# `fl_frontend/src/features/spielberichte/utils.test.ts` 0.20 s each. The 19 files that stayed took
+# 7.1 s less. A moved file's own growth since the stamp is inside the membership figure, the loop
+# having timed shard 4 alone. Sums of one file a process compare the two trees and are no runner's
+# seconds.
+#
+# The files this branch added in the other three shards, each run once alone through `test:base`
+# later on 2026-10-21 with no other agent's tests running, at 46-70 percent CPU read between the
+# runs, so upper bounds, by `duration_ms`: nine in shard 1, 43.3 s; eight in shard 2, 30.2 s; and
+# thirteen in shard 3, 76.9 s. The longest were
+# `fl_frontend/src/features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm.test.ts`
+# 17.03 s, `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/vorschlagSeed.test.ts`
+# 13.62 s, `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/bestaetigungPanel.test.ts`
+# 12.76 s, `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/adoptionSave.test.ts`
+# 12.58 s,
+# `fl_frontend/src/features/adresswechsel/components/forms/AdminAdresswechselForm/FormAdresswechselSection.test.ts`
+# 11.91 s, `fl_frontend/src/features/adresswechsel/components/forms/AdresswechselBeantragen.test.ts`
+# 11.11 s, `fl_frontend/src/features/adresswechsel/components/forms/AdresswechselWartet.test.ts`
+# 10.03 s, and the three approval panels under
+# `fl_frontend/src/features/berechtigungen/components/forms/` 9.36-9.45 s each; the other twenty
+# took 0.31-3.39 s, `fl_frontend/src/features/spielberichte/components/views/SchiedsrichterSpielberichteSection.test.ts`
+# 2.72 s among them. No row moves and none takes a stamp.
+#
+# `scripts` and `docs` gained this branch's cases and reads, measured locally on 2026-10-21 on a
+# sixteen-core Windows machine with no other agent's tests running, at 46-70 percent CPU read between
+# the runs, so upper bounds, by pytest's own figures, each module alone:
+#
+# - `scripts/tests/test_gate_pool.py`, 32 cases, 40.07-40.55 s over two runs: the stall named before
+#   the job's timeout,
+#   `scripts/tests/test_gate_pool.py :: test_a_stall_in_a_pooled_ci_job_is_named_before_the_job_s_timeout`,
+#   0.03 s, and the watcher held to that bound,
+#   `scripts/tests/test_gate_pool.py :: test_a_silent_unit_is_named_no_later_than_the_timeout_case_counts`,
+#   0.17 s
+# - `scripts/tests/test_fixture_readers.py`, 27 cases, 3.59 s alone, its eleven functions over the
+#   shell lift's bash parse, nineteen cases, 2.13-2.17 s over two runs
+# - `scripts/tests/test_check_public_routes.py`, 100 cases, 0.76 s alone
+# - `scripts/tests/test_workflow_caches.py`, 15 cases, 2.64 s alone
+# - `scripts/tests/test_branch_checks.py :: test_a_hash_inside_a_quoted_nginx_value_is_text_and_the_comment_after_it_is_read`,
+#   0.75 s, and the two cases `scripts/tests/test_check_gate_budget.py` gained, under 5 ms each
+# - `docs`: `scripts/checks/check_public_routes.py`, finding link pages by their minters across
+#   `fl_frontend/src`, took 318-350 ms end to end, median 333 ms, against 194-261 ms, median 205 ms,
+#   for the checker before that read, ten interleaved rounds after one warm run of each, every run
+#   exit 0
+#
+# Each module is one chunk under `--dist loadfile`, shorter than the suite's longest; the `scripts` row
+# carries `-` for its reference, and the checker sits far inside the floor the `docs` row carries.
+# No row moves and none takes a stamp.
 #
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
