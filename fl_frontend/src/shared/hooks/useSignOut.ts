@@ -55,7 +55,7 @@ export function useSignOut(onSignOut: () => Promise<SignOutResult>) {
     }
 
     // A full document load, as Next's guide advises for a sign-out: a soft navigation keeps every hidden route
-    // with its rows and typed text, and a refresh runs an area's guard against the ended session.
+    // with its rows and typed text, and a refresh renders a page whose own check empties the area.
     leaveDocumentFor("/");
   };
 
