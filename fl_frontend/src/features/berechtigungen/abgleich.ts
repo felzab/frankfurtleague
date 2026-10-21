@@ -3,7 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import { buildAdresswechselGenehmigungEmail } from "@/core/adresswechselEmail";
-import { buildBerechtigungEmail } from "@/core/berechtigungEmail";
+import { buildAntragEndeEmail, buildBerechtigungEmail } from "@/core/berechtigungEmail";
 import { BERECHTIGUNG_HINWEIS, BERECHTIGUNG_TAG } from "@/core/berechtigungTag";
 import { frontend_config } from "@/core/config";
 import { requestOf } from "@/core/errors";
@@ -14,7 +14,7 @@ import { versandAusfallOf } from "@/core/versandAusfall";
 
 import { postBerechtigungenAbgleich, postBerechtigungenAngekuendigt } from "./mutations";
 
-import type { Urheber, Vorenthalten, Zugangsaenderung } from "@/core/berechtigungEmail";
+import type { BerechtigungEmail, Urheber, Vorenthalten, Zugangsaenderung } from "@/core/berechtigungEmail";
 import type { FLBerechtigungAenderung } from "./schemas";
 
 /**
@@ -116,7 +116,7 @@ async function abgleichen(): Promise<void> {
 async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: readonly string[]): Promise<boolean> {
   const genannt = [aenderung.jetzt?.adresse, aenderung.vorher?.adresse].filter((adresse) => adresse !== null && adresse !== undefined);
   // A request, and an address change waiting on an approval, goes to whoever could approve it alone: neither the address
-  // it is for nor whoever asked (`docs/backend/spec.md :: I856`, `:: I862`).
+  // it is for nor whoever asked (`docs/backend/spec.md :: I856`, `:: I862`). A request's end goes to its requester (`:: I865`).
   const adressen = [...new Set(aenderung.an ?? [...empfaenger, ...genannt])];
   const erreicht = offen.get(aenderung.id) ?? new Set<string>();
 
@@ -133,12 +133,7 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
     return true;
   }
 
-  const { art } = aenderung;
-  const message =
-    art === "adresswechsel"
-      ? // Naming nobody: neither address of the change, nor who started it.
-        buildAdresswechselGenehmigungEmail({ origin: frontend_config.AUTH_URL })
-      : buildBerechtigungEmail(zugangsaenderung(aenderung, art), urheber(aenderung), frontend_config.AUTH_URL);
+  const message = nachricht(aenderung);
   // The body a key is reused over: an erasure or a ban committing between two passes rewrites it, and the provider refuses
   // a key reused over another body for its day (`409 invalid_idempotent_request`), the recipient left untold.
   const fassung = createHash("sha256")
@@ -186,17 +181,40 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
   return false;
 }
 
+/** The message one claimed row sends, by its kind. */
+function nachricht(aenderung: FLBerechtigungAenderung): BerechtigungEmail {
+  const { art } = aenderung;
+  switch (art) {
+    case "adresswechsel":
+      // Naming nobody: neither address of the change, nor who started it.
+      return buildAdresswechselGenehmigungEmail({ origin: frontend_config.AUTH_URL });
+    case "antrag_abgelehnt":
+    case "antrag_beendet":
+      // Naming the address asked about and nobody who acted: `geaendert_von` is the requester it goes to.
+      return buildAntragEndeEmail(
+        { art: art, adresse: adresseOf(aenderung, aenderung.jetzt), inhaber: aenderung.jetzt?.verwaltung === "owner" },
+        frontend_config.AUTH_URL,
+      );
+    default:
+      return buildBerechtigungEmail(zugangsaenderung(aenderung, art), urheber(aenderung), frontend_config.AUTH_URL);
+  }
+}
+
+/** A row's address as a notice names it, or why it is withheld. */
+function adresseOf(aenderung: FLBerechtigungAenderung, stand: FLBerechtigungAenderung["jetzt"]): string | Vorenthalten {
+  // `geloescht` read rather than the null: an erased holder's address is withheld as a barred one's is, and
+  // every other withheld grant address is a barred one's (`docs/backend/spec.md :: I661`).
+  return stand?.adresse ?? { vorenthalten: aenderung.geloescht ? "geloescht" : "gesperrt" };
+}
+
 /**
  * A change as the notice words it. An address repointed under one id reaches here as two changes, its
  * removal and the new address's grant, so a `geaendert` is a change of tier alone.
  */
 function zugangsaenderung(aenderung: FLBerechtigungAenderung, art: Zugangsaenderung["art"]): Zugangsaenderung {
-  // `geloescht` read rather than the null: an erased holder's address is withheld as a barred one's is, and
-  // every other withheld grant address is a barred one's (`docs/backend/spec.md :: I661`).
-  const ohneAdresse: Vorenthalten = { vorenthalten: aenderung.geloescht ? "geloescht" : "gesperrt" };
   const stand = art === "entzogen" ? aenderung.vorher : aenderung.jetzt;
 
-  return { art: art, adresse: stand?.adresse ?? ohneAdresse, inhaber: stand?.verwaltung === "owner" };
+  return { art: art, adresse: adresseOf(aenderung, stand), inhaber: stand?.verwaltung === "owner" };
 }
 
 /** Read off `urheber`, never off a null actor: a barred administrator's change is no database edit. */
