@@ -1,11 +1,12 @@
 import secrets
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence, Set
 from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.berechtigungen.antraege import antrag_steht, read_the_antraege
 from app.api.berechtigungen.crud import (
     pull_the_list_to_judge,
     read_berechtigungen,
@@ -27,6 +28,7 @@ from app.api.berechtigungen.services import (
     compose_postausgang,
     ernannt,
     gefunden,
+    genehmiger_of,
     lebendige,
     withheld,
 )
@@ -36,6 +38,7 @@ from app.core.config import API_VERSION
 from app.core.crud import erase_many_from_db, patch_many_in_db, post_many_to_db, pull_many_from_db
 from app.core.dependencies import (
     BerechtigungenAngekuendigtCollection,
+    BerechtigungenAntraegeCollection,
     BerechtigungenCollection,
     BerechtigungenPostausgangCollection,
     DBClient,
@@ -63,6 +66,7 @@ async def post_berechtigungen_abgleich(
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     now: datetime = Depends(get_germany_now),
@@ -91,6 +95,11 @@ async def post_berechtigungen_abgleich(
     `geaendert_von` reads `ERASED`, naming nobody. An address changed in place is two changes, its removal and the new
     address's grant.
     `empfaenger` is every live, unbarred grant holder now; a removed address is read off its change.
+
+    A `beantragt` row is a grant or a promotion asked for, which no grant has yet. It goes to its own `an` rather than to
+    `empfaenger`: whoever could approve the request now, as `POST /berechtigungen/antraege/{antrag_id}/genehmigung` judges
+    them, and nobody once the request is decided, withdrawn, lapsed or erased, or its requester no longer holds the tier it
+    asks for. `an` is null on every other row.
     """
 
     async def queue_and_claim(session: AsyncClientSession) -> tuple[list[dict[str, Any]], list[str], int, str | None]:
@@ -194,7 +203,18 @@ async def post_berechtigungen_abgleich(
             sperrliste, claimed_addresses - stored, massgebliche_saison_id=massgebliche_saison_id, session=session
         )
 
-        answered = [_answered(row, barred) for row in claimable]
+        # Read at the claim rather than stored with the row, so a request decided since asks nobody (`docs/backend/spec.md :: I848`).
+        offene = (
+            {
+                antrag["_id"]: antrag
+                for antrag in await read_the_antraege(
+                    berechtigungen_antraege_collection=berechtigungen_antraege_collection, now=now, session=session
+                )
+            }
+            if any(row["art"] == "beantragt" for row in claimable)
+            else {}
+        )
+        answered = [_answered(row, barred, an=_genehmiger(row, offene, grants=grants, announced=announced, barred=barred)) for row in claimable]
 
         return answered, recipients, len(grants) - len(live), token
 
@@ -210,7 +230,34 @@ async def post_berechtigungen_abgleich(
     )
 
 
-def _answered(row: Mapping[str, Any], barred: set[str]) -> dict[str, Any]:
+def _genehmiger(
+    row: Mapping[str, Any],
+    offene: Mapping[Any, Mapping[str, Any]],
+    *,
+    grants: Sequence[Mapping[str, Any]],
+    announced: Sequence[Mapping[str, Any]],
+    barred: Set[str],
+) -> list[str] | None:
+    """A request row's recipients, its approval's own judgement of who may give it; `None` for every change to a grant."""
+
+    if row["art"] != "beantragt":
+        return None
+    antrag = offene.get(row["berechtigung_id"])
+    if antrag is None or not antrag_steht(antrag, grants=grants, announced=announced, gesperrt=barred):
+        return []
+    genehmigung = antrag["genehmigung"]
+
+    return genehmiger_of(
+        verwaltung=str(genehmigung["verwaltung"]),
+        ausgenommen={str(antrag["adresse"]), str(genehmigung["gestartet_von"])},
+        grants=grants,
+        announced=announced,
+        gesperrt=barred,
+        vor=genehmigung["angefragt_am"],
+    )
+
+
+def _answered(row: Mapping[str, Any], barred: set[str], *, an: list[str] | None) -> dict[str, Any]:
     """One claimed row as the answer carries it, every barred address in it withheld."""
 
     zeile = FLBerechtigungPostausgangZeile.model_validate(row)
@@ -236,6 +283,7 @@ def _answered(row: Mapping[str, Any], barred: set[str]) -> dict[str, Any]:
         "geloescht": vorenthalten == "geloescht",
         # The row as read before this claim raised its count.
         "aufgegeben": zeile.versuche + 1 > VERSUCHE_HOECHSTENS,
+        "an": an,
     }
 
 

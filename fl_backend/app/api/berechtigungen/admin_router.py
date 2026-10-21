@@ -28,6 +28,7 @@ from app.api.berechtigungen.schemas import (
     FLBerechtigungAntragGenehmigtResponse,
     FLBerechtigungAntragZeile,
     FLBerechtigungenListResponse,
+    FLBerechtigungStand,
     FLBerechtigungStufeResponse,
     FLBerechtigungWriteResponse,
     FLBerechtigungZeile,
@@ -289,6 +290,15 @@ async def post_berechtigung(
                 document=compose_antrag(adresse=adresse, verwaltung=ADMINISTRATION, berechtigung_id=None, gestartet_von=akteur, now=now),
                 session=session,
             )
+            await _queue_the_request(
+                created.inserted_id,
+                adresse=adresse,
+                verwaltung=ADMINISTRATION,
+                gestartet_von=erteilt_von,
+                berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                now=now,
+                session=session,
+            )
             # The address entering a record, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
             await anchor_the_addresses(
                 [adresse], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session
@@ -316,6 +326,37 @@ async def post_berechtigung(
         created_id, beantragt = await session.with_transaction(judge_and_grant)
 
     return FLPostBerechtigungResponse(acknowledged=1, created_id=created_id, beantragt=beantragt)
+
+
+async def _queue_the_request(
+    antrag_id: ObjectId,
+    *,
+    adresse: str,
+    verwaltung: str,
+    gestartet_von: str,
+    berechtigungen_postausgang_collection: AsyncCollection,
+    now: datetime,
+    session: AsyncClientSession,
+) -> None:
+    """Keyed by the request's id and read for its recipients when a pass claims it, so one decided by then asks nobody.
+
+    `docs/backend/spec.md :: I848`.
+    """
+
+    await post_one_to_db(
+        collection=berechtigungen_postausgang_collection,
+        document=compose_postausgang(
+            berechtigung_id=antrag_id,
+            art="beantragt",
+            jetzt=FLBerechtigungStand.model_validate({"adresse": adresse, "verwaltung": verwaltung}),
+            vorher=None,
+            geaendert_von=gestartet_von,
+            now=now,
+            # Neither address is barred: the request's own write refused a barred one, and a barred actor writes nothing.
+            gesperrt=frozenset(),
+        ),
+        session=session,
+    )
 
 
 async def _genehmiger_exist(
@@ -488,11 +529,20 @@ async def patch_berechtigung(
                 now=now,
                 session=session,
             ):
-                await post_one_to_db(
+                created = await post_one_to_db(
                     collection=berechtigungen_antraege_collection,
                     document=compose_antrag(
                         adresse=str(grant["adresse"]), verwaltung=OWNER, berechtigung_id=berechtigung_id, gestartet_von=akteur, now=now
                     ),
+                    session=session,
+                )
+                await _queue_the_request(
+                    created.inserted_id,
+                    adresse=str(grant["adresse"]),
+                    verwaltung=OWNER,
+                    gestartet_von=geaendert_von,
+                    berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                    now=now,
                     session=session,
                 )
                 return True
@@ -654,7 +704,10 @@ async def post_antrag_genehmigung(
 
         # Removed by the write that reads it, so a second approval, a refusal or an erasure beside this one conflicts and finds none.
         await remove_the_antrag_in_session(
-            berechtigungen_antraege_collection=berechtigungen_antraege_collection, antrag_id=antrag_id, session=session
+            berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            antrag_id=antrag_id,
+            session=session,
         )
 
         if antrag["berechtigung_id"] is None:
@@ -715,6 +768,7 @@ async def delete_antrag(
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
@@ -751,7 +805,10 @@ async def delete_antrag(
         refuse(find_genehmigung_verwehrt_refusal(verwehrt=None if verwehrt == "gestartet" else verwehrt))
 
         await remove_the_antrag_in_session(
-            berechtigungen_antraege_collection=berechtigungen_antraege_collection, antrag_id=antrag_id, session=session
+            berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            antrag_id=antrag_id,
+            session=session,
         )
         journal.note(abgelehnt_line(antrag=antrag, am=log_stamp(now), schluessel=config.sperrliste_schluessel))
 

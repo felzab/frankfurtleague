@@ -212,10 +212,11 @@ async def grant(
     email: str = NEU_TYPED,
     *,
     als: str = ANNA,
+    approver: str | None = None,
     berechtigungen: Any = None,
     now: datetime = NOW,
 ) -> ObjectId:
-    """A grant made here: asked by `als` and, where a colleague could approve it, approved by `APPROVER[als]`."""
+    """A grant made here: asked by `als` and, where a colleague could approve it, approved by `approver` or `APPROVER[als]`."""
 
     async def call() -> Any:
         return await post_berechtigung(
@@ -237,7 +238,7 @@ async def grant(
     if not answer.beantragt:
         return answer.created_id
 
-    return await approved(database, client, answer.created_id, als=APPROVER[als], now=now)
+    return await approved(database, client, answer.created_id, als=approver or APPROVER[als], now=now)
 
 
 async def revoke(
@@ -355,6 +356,7 @@ async def claimed(
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
             sperrliste=ban_list(database),
             db=client,
             now=now,
@@ -455,12 +457,12 @@ class TestTheOutboxMovesWithItsChange:
         """Made by its approval, the request stands as it was: the approval wrote nothing."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int, int]:
-            async def asked() -> Any:
+            async def asked(postausgang: AsyncCollection) -> Any:
                 return await post_berechtigung(
                     berechtigung_data=FLPostBerechtigungPayload(email=NEU_TYPED),
                     berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
                     berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-                    berechtigungen_postausgang_collection=aborting,
+                    berechtigungen_postausgang_collection=postausgang,
                     berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
                     sperrliste=ban_list(database),
                     adressanker_collection=database[Collection.ADRESSANKER],
@@ -488,15 +490,16 @@ class TestTheOutboxMovesWithItsChange:
             aborting = cast(AsyncCollection, Aborting(database[Collection.BERECHTIGUNGEN_POSTAUSGANG], "insert_one"))
             if grants is not None:
                 with pytest.raises(RuntimeError):
-                    await administering(OWNER, asked)
+                    await administering(OWNER, lambda: asked(aborting))
             else:
-                answer = await administering(OWNER, asked)
+                # The request's own notice written, so the approval's is the insert that aborts.
+                answer = await administering(OWNER, lambda: asked(database[Collection.BERECHTIGUNGEN_POSTAUSGANG]))
                 with pytest.raises(RuntimeError):
                     await administering(BERND, lambda: approved_aborting(answer.created_id))
 
             return (
                 await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": NEU}),
-                await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].count_documents({}),
+                await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].count_documents({"art": "erteilt"}),
                 await database[Collection.BERECHTIGUNGEN_ANTRAEGE].count_documents({}),
             )
 
@@ -1195,8 +1198,9 @@ class TestTheClaim:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[str], list[str]]:
             await told(database, client)
-            # Asked by Bernd, so the address the database edit removes acts on no bookkeeping row: Anna approves.
-            created = await grant(database, client, als=BERND)
+            # Asked by the owner and approved by Anna, so the address the database edit removes acts on no bookkeeping row,
+            # the request's notice included.
+            created = await grant(database, client, als=OWNER, approver=ANNA)
             await revoke(database, client, created)
             await database[Collection.BERECHTIGUNGEN].delete_one({"_id": BERND_ID})
             await told(database, client)

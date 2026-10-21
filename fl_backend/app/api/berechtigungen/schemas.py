@@ -30,6 +30,10 @@ FLGenehmigungVerwehrt = Literal["eigene", "gestartet", "inhaber", "juenger"]
 # a database edit. An address changed in place is a removal and a grant, never `geaendert`.
 FLBerechtigungAenderungArt = Literal["erteilt", "entzogen", "geaendert"]
 
+# What an outbox row tells: a change to a grant, or a grant or a promotion asked for and waiting on another
+# administrator's approval, which no grant has yet and so is no change of one.
+FLBerechtigungPostausgangArt = Literal[FLBerechtigungAenderungArt, Literal["beantragt"]]
+
 # Who made a queued change: an administrator through the application, or an edit in the database.
 # Stated, since a null actor also stands for one whose address is withheld (`docs/backend/spec.md :: I452`).
 FLBerechtigungUrheber = Literal["anwendung", "datenbank"]
@@ -213,8 +217,9 @@ class FLBerechtigungPostausgangZeile(BaseModel):
     """One outbox row as stored: a change still to be mailed, and the claim a pass holds it under."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    # The request's own id on a `beantragt` row, which has no grant yet: the claim finds by it whether the request still waits.
     berechtigung_id: CustomObjectId
-    art: FLBerechtigungAenderungArt
+    art: FLBerechtigungPostausgangArt
     urheber: FLBerechtigungUrheber
     jetzt: FLBerechtigungStand | None
     vorher: FLBerechtigungStand | None
@@ -236,7 +241,7 @@ class FLBerechtigungAenderung(BaseModel):
 
     id: CustomObjectId
     berechtigung_id: CustomObjectId
-    art: FLBerechtigungAenderungArt
+    art: FLBerechtigungPostausgangArt
     urheber: FLBerechtigungUrheber
     jetzt: FLBerechtigungStand | None
     vorher: FLBerechtigungStand | None
@@ -252,6 +257,9 @@ class FLBerechtigungAenderung(BaseModel):
     geloescht: bool
     # Set where this claim is past the row's last hand-out: the pass mails nothing and stamps it.
     aufgegeben: bool
+    # A request's recipients, in `empfaenger`'s place: whoever could approve it now, none once it is decided, lapsed
+    # or approved by nobody. Null on every change to a grant.
+    an: list[str] | None
 
 
 class FLBerechtigungAbgleichResponse(BaseAPIResponse):

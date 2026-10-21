@@ -12,7 +12,13 @@ from typing import Any, Final
 
 from bson import ObjectId
 
-from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungStand, FLGenehmigungVerwehrt, as_utc
+from app.api.berechtigungen.schemas import (
+    FLBerechtigungAenderungArt,
+    FLBerechtigungPostausgangArt,
+    FLBerechtigungStand,
+    FLGenehmigungVerwehrt,
+    as_utc,
+)
 from app.api.sperrliste.services import withheld_actor
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import is_stored_identifier, sign_in_identifier
@@ -298,7 +304,7 @@ def withheld(stand: FLBerechtigungStand | None, gesperrt: Collection[str]) -> FL
 def compose_postausgang(
     *,
     berechtigung_id: ObjectId,
-    art: FLBerechtigungAenderungArt,
+    art: FLBerechtigungPostausgangArt,
     jetzt: FLBerechtigungStand | None,
     vorher: FLBerechtigungStand | None,
     geaendert_von: str | None,

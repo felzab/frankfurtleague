@@ -413,8 +413,12 @@ async def _plan_antrag_abgelehnt(
         return Plan("left for review")
 
     async def rewrite_the_refusal(session: AsyncClientSession) -> Any:
+        # The request's notice the restore brought back goes with it, as the refusal took it.
         return await remove_the_antrag_in_session(
-            berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE], antrag_id=antrag["_id"], session=session
+            berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            antrag_id=antrag["_id"],
+            session=session,
         )
 
     return Plan("to replay", rewrite_the_refusal)

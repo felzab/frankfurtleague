@@ -23,10 +23,10 @@ from app.api.adresswechsel.services import FLAdresswechselEndeArt, FLAdresswechs
 from app.api.aktionen.schemas import FLAktion, FLAktionMitStand, FLAktionRequest, FLAktorKind, FLAktorMitAdresse, FLAktorPerson, _served_prefix
 from app.api.berechtigungen.schemas import (
     FLBerechtigung,
-    FLBerechtigungAenderungArt,
     FLBerechtigungAngekuendigt,
     FLBerechtigungAntrag,
     FLBerechtigungAntragGenehmigung,
+    FLBerechtigungPostausgangArt,
     FLBerechtigungPostausgangZeile,
     FLBerechtigungStand,
     FLBerechtigungUrheber,
@@ -501,7 +501,7 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # Closed on the stored row as well as the wire: the Playground writes a grant by hand.
     (Collection.BERECHTIGUNGEN, (), "verwaltung", get_args(FLVerwaltung), False),
     (Collection.BERECHTIGUNGEN_ANGEKUENDIGT, (), "verwaltung", get_args(FLVerwaltung), False),
-    (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), "art", get_args(FLBerechtigungAenderungArt), False),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), "art", get_args(FLBerechtigungPostausgangArt), False),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), "urheber", get_args(FLBerechtigungUrheber), False),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), "vorenthalten", get_args(FLBerechtigungVorenthalten), True),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("jetzt",), "verwaltung", get_args(FLVerwaltung), False),

@@ -124,11 +124,20 @@ async def clear_the_address_in_session(
 
 
 async def remove_the_antrag_in_session(
-    *, berechtigungen_antraege_collection: AsyncCollection, antrag_id: ObjectId, session: AsyncClientSession
+    *,
+    berechtigungen_antraege_collection: AsyncCollection,
+    berechtigungen_postausgang_collection: AsyncCollection,
+    antrag_id: ObjectId,
+    session: AsyncClientSession,
 ) -> None:
     """Remove a decided request, its image kept: who asked, for what and when stays on the log beside the grant it made."""
 
     await delete_many_from_db(collection=berechtigungen_antraege_collection, db_filter={"_id": antrag_id}, session=session)
+    # Its queued notice goes too, nobody being left to ask: imageless, as the outbox's bookkeeping is (`docs/backend/spec.md :: I465`).
+    # One a pass holds already is answered to nobody at its claim (`:: I848`).
+    await erase_many_from_db(
+        collection=berechtigungen_postausgang_collection, db_filter={"berechtigung_id": antrag_id, "art": "beantragt"}, session=session
+    )
 
 
 async def erase_antraege_in_session(

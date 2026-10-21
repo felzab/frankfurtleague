@@ -41,13 +41,14 @@ from app.api.berechtigungen.antraege import (
 )
 from app.api.berechtigungen.schemas import FLPatchBerechtigungPayload, FLPostBerechtigungPayload
 from app.api.berechtigungen.services import BERECHTIGUNG_GESPERRT, BERECHTIGUNG_VORHANDEN
+from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich
 from app.api.identitaet.wiederherstellung import Window, plan_replay
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.crud import WritesSent, writes_sent_var
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.journal import JOURNAL_TOKEN, parse_line
-from app.core.recording import Actor, actor_var
+from app.core.recording import SYSTEM_ACTOR, Actor, actor_var
 from app.core.security import admin_judge
 from app.core.transactions import actor_judge_var, transaction_session
 from app.shared.schemas.bounds import ADRESSWECHSEL_GENEHMIGUNG_TAGE
@@ -266,14 +267,14 @@ class RunningARivalAfterTheFirstRead(InterleavedCollection):
 class TestFourEyesOnAGrant:
     """`docs/backend/spec.md :: I840`: a grant takes effect only on another administrator's approval, wherever one could give it."""
 
-    def test_a_grant_another_administrator_could_approve_waits_as_a_request_and_announces_nothing(self, mongo_replica_set_url: str):
+    def test_a_grant_another_administrator_could_approve_waits_as_a_request_and_announces_no_grant(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             answer = await ask(database, client)
             return answer.beantragt, await tiers(database), await antraege(database), await announced(database)
 
         beantragt, granted_tiers, rows, queued = on_a_league(mongo_replica_set_url, body)
 
-        assert (beantragt, NEU in granted_tiers, queued) == (True, False, [])
+        assert (beantragt, NEU in granted_tiers, queued) == (True, False, [("beantragt", NEU, ANNA)])
         assert [{key: value for key, value in row.items() if key != "_id"} for row in rows] == [
             {
                 "adresse": NEU,
@@ -307,7 +308,15 @@ class TestFourEyesOnAGrant:
                 removal["before"][0]["genehmigung"]["gestartet_von"],
             )
 
-        assert on_a_league(mongo_replica_set_url, body) == (True, BERND, [], [("erteilt", NEU, BERND)], BERND, ANNA)
+        assert on_a_league(mongo_replica_set_url, body) == (
+            True,
+            BERND,
+            [],
+            # The request's notice went with the request: nobody is left to ask.
+            [("erteilt", NEU, BERND)],
+            BERND,
+            ANNA,
+        )
 
     def test_a_lone_administrator_grants_alone_and_announces_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -357,9 +366,10 @@ class TestFourEyesOnAPromotion:
     def test_a_lone_owner_promotes_alone_though_administrators_could_approve(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             answer = await tier(database, client, ANNA_ID)
-            return answer.beantragt, (await tiers(database))[ANNA], await antraege(database)
+            kinds = {art for art, _, _ in await announced(database)}
+            return answer.beantragt, (await tiers(database))[ANNA], await antraege(database), "beantragt" in kinds
 
-        assert on_a_league(mongo_replica_set_url, body) == (False, "owner", [])
+        assert on_a_league(mongo_replica_set_url, body) == (False, "owner", [], False)
 
     def test_a_demotion_takes_effect_at_once(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -367,6 +377,102 @@ class TestFourEyesOnAPromotion:
             return answer.beantragt, (await tiers(database))[ANNA], await antraege(database)
 
         assert on_a_league(mongo_replica_set_url, body, grants=TWO_OWNERS) == (False, "administration", [])
+
+
+async def claimed(database: AsyncDatabase, client: AsyncMongoClient, *, now: datetime = NOW) -> Any:
+    """The pass's claim, as the system actor makes it: every queued row, each request's own recipients beside it."""
+
+    token = actor_var.set(SYSTEM_ACTOR)
+    try:
+        return await post_berechtigungen_abgleich(
+            berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+            berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+            sperrliste=ban_list(database),
+            db=client,
+            now=now,
+        )
+    finally:
+        actor_var.reset(token)
+
+
+def asked(answer: Any) -> list[tuple[str | None, str | None, list[str] | None]]:
+    """Each claimed request's subject, requester and recipients."""
+
+    return [
+        (None if row.jetzt is None else row.jetzt.adresse, row.geaendert_von, row.an) for row in answer.aenderungen if row.art == "beantragt"
+    ]
+
+
+class TestTheRequestAsksItsApprovers:
+    """`docs/backend/spec.md :: I848`: a request is mailed to whoever could approve it as the claim reads it, and to nobody else."""
+
+    def test_a_grants_request_goes_to_its_other_administrators_alone(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await asked_for(database, client)
+            answer = await claimed(database, client)
+            changes = [row.art for row in answer.aenderungen if row.art != "beantragt"]
+            return asked(answer), changes, [row.an for row in answer.aenderungen if row.art != "beantragt"]
+
+        # The paste's three grants go to every holder as before; the request to neither its requester nor its subject.
+        assert on_a_league(mongo_replica_set_url, body) == (
+            [(NEU, ANNA, [BERND, OWNER])],
+            ["erteilt", "erteilt", "erteilt"],
+            [None, None, None],
+        )
+
+    def test_a_promotions_request_goes_to_the_other_owners_alone(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await tier(database, client, BERND_ID)
+            return asked(await claimed(database, client))
+
+        grants = [*TWO_OWNERS, grant_document(CARLA_ID, CARLA, "administration")]
+        assert on_a_league(mongo_replica_set_url, body, grants=grants) == [(BERND, OWNER, [ANNA])]
+
+    def test_an_administrator_granted_after_the_request_is_not_asked(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await asked_for(database, client, now=since(ASKED_AN_HOUR_AGO))
+            return asked(await claimed(database, client, now=since(60)))
+
+        assert on_a_league(mongo_replica_set_url, body, grants=WITH_CARLA_SINCE_HALF_AN_HOUR) == [(NEU, ANNA, [BERND, OWNER])]
+
+    @pytest.mark.parametrize(
+        "decided",
+        [
+            pytest.param(lambda database, client, antrag_id: approve(database, client, antrag_id, als=BERND), id="approved"),
+            pytest.param(lambda database, client, antrag_id: refuse(database, client, antrag_id, als=BERND), id="refused"),
+            pytest.param(lambda database, client, antrag_id: refuse(database, client, antrag_id, als=ANNA), id="withdrawn"),
+        ],
+    )
+    def test_a_decided_request_takes_its_notice_with_it(self, mongo_replica_set_url: str, decided: Racer):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            antrag_id = await asked_for(database, client)
+            await decided(database, client, antrag_id)
+            return [art for art, _, _ in await announced(database) if art == "beantragt"], asked(await claimed(database, client))
+
+        assert on_a_league(mongo_replica_set_url, body) == ([], [])
+
+    def test_a_request_claimed_before_its_approval_asks_nobody(self, mongo_replica_set_url: str):
+        """The approval withdraws only what no pass holds: a notice handed out already is answered to nobody at its next claim."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            antrag_id = await asked_for(database, client)
+            first = asked(await claimed(database, client))
+            await database[Collection.BERECHTIGUNGEN_ANTRAEGE].delete_one({"_id": antrag_id})
+            # Past the first claim's lease, as a pass that never stamped its rows leaves them.
+            return first, asked(await claimed(database, client, now=NOW + timedelta(hours=1)))
+
+        assert on_a_league(mongo_replica_set_url, body) == ([(NEU, ANNA, [BERND, OWNER])], [(NEU, ANNA, [])])
+
+    def test_a_request_whose_requester_lost_the_tier_asks_nobody(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await asked_for(database, client)
+            await revoke(database, client, ANNA_ID)
+            return asked(await claimed(database, client))
+
+        grants = [*THREE, grant_document(CARLA_ID, CARLA, "administration")]
+        assert on_a_league(mongo_replica_set_url, body, grants=grants) == [(NEU, ANNA, [])]
 
 
 class TestOneRequestPerAddress:
