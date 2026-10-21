@@ -93,6 +93,22 @@ async def read_the_antraege(
     )
 
 
+async def read_the_antraege_of(
+    *, berechtigungen_antraege_collection: AsyncCollection, identifier: str, now: datetime, session: AsyncClientSession | None
+) -> list[Mapping[str, Any]]:
+    """Every request not yet lapsed about this folded address or made by it, oldest first: what an erasure of it removes."""
+
+    return await aggregate_many_from_db(
+        collection=berechtigungen_antraege_collection,
+        pipeline=[
+            {"$match": {"$or": [{"adresse": identifier}, {"genehmigung.gestartet_von": identifier}], **build_offen_filter(now)}},
+            {"$project": {"adresse": 1, "genehmigung.verwaltung": 1, "genehmigung.angefragt_am": 1}},
+            {"$sort": {"genehmigung.angefragt_am": ASCENDING, "_id": ASCENDING}},
+        ],
+        session=session,
+    )
+
+
 async def pull_the_antrag(
     *, berechtigungen_antraege_collection: AsyncCollection, antrag_id: ObjectId, now: datetime, session: AsyncClientSession
 ) -> Mapping[str, Any]:

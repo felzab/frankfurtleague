@@ -2629,6 +2629,18 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_erasure_auf_anfrage.py::TestANameInTheAnlass",
     ),
     Rule(
+        code="REQ-PURGE-007",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /identitaet/erasure",
+        aggregate="Berechtigung",
+        summary=(
+            "an erasure ending another address's pending change, that address holding a protected grant, is made only by an"
+            " actor holding an owner's power, as only an owner discards such a change"
+        ),
+        implemented_by="app.api.identitaet.services.find_fremder_adresswechsel_refusal",
+        tested_by="tests/api/test_erasure_auf_anfrage.py::TestAGrantHoldersPendingChange",
+    ),
+    Rule(
         code="REQ-REFERENZEN-001",
         status=HTTPStatus.CONFLICT,
         operation="POST /identitaet/referenzen",

@@ -240,6 +240,8 @@ def compose_erasure_ansicht_auf_anfrage(
     adresswechsel_rows: Sequence[Mapping[str, Any]],
     # Each address the tool refuses this reader, and why; one absent opens.
     verwehrt: Mapping[str, FLAdresswechselEinsehbarVerwehrt],
+    eigener_adresswechsel: Mapping[str, Any] | None,
+    antrag_rows: Sequence[Mapping[str, Any]],
     kader_rows: Sequence[Mapping[str, Any]],
     team_rows: Sequence[Mapping[str, Any]],
     unplayed_rows: Sequence[Mapping[str, Any]],
@@ -283,6 +285,15 @@ def compose_erasure_ansicht_auf_anfrage(
             ],
             "adresswechsel": [
                 {"adresswechsel_id": row["_id"], "einsehbar_verwehrt": verwehrt.get(str(row.get("adresse")))} for row in adresswechsel_rows
+            ],
+            "eigener_adresswechsel": None if eigener_adresswechsel is None else {"adresswechsel_id": eigener_adresswechsel["_id"]},
+            "antraege": [
+                {
+                    "antrag_id": row["_id"],
+                    "verwaltung": row["genehmigung"]["verwaltung"],
+                    "rolle": "betroffen" if row["adresse"] == identifier else "gestellt",
+                }
+                for row in antrag_rows
             ],
         }
     )
@@ -543,6 +554,13 @@ JEDE_VERWALTUNG: Final[frozenset[str]] = frozenset(get_args(FLVerwaltung))
 # The sign-out's: an ended session is repaired by signing in again, so only an owner's is held back.
 NUR_INHABER: Final[frozenset[str]] = frozenset({OWNER})
 
+# 403 for who asks, as `REQ-PURGE-005`: an erasure ends every change naming its address, and ending a grant holder's
+# change is a discard, which only an owner may make of it.
+FREMDER_ADRESSWECHSEL = "REQ-PURGE-007"
+
+# The tiers whose holder's pending change an erasure ends only for an actor holding an owner's power.
+ADRESSWECHSEL_GESCHUETZT: Final[frozenset[str]] = NUR_INHABER
+
 
 def verwaltung_adresse_verwehrt(
     *,
@@ -583,6 +601,34 @@ def find_verwaltung_adresse_refusal(
         error_code=VERWALTUNG_ADRESSE,
         status=HTTPStatus.FORBIDDEN,
         message="this address holds access to the administration; only an owner, signed in since becoming one, acts on it here",
+    )
+
+
+def find_fremder_adresswechsel_refusal(
+    *,
+    adressen: Iterable[str],
+    akteur: str,
+    auth_time: int,
+    grants: Sequence[Mapping[str, Any]],
+    announced: Sequence[Mapping[str, Any]],
+) -> WriteRefusal | None:
+    """`REQ-PURGE-007`: an erasure ends no pending change of an address holding an `ADRESSWECHSEL_GESCHUETZT` grant without an owner's power.
+
+    `adressen` are the changes' own addresses, never the one erased; the message names none of them.
+    """
+
+    if not any(
+        verwaltung_adresse_verwehrt(
+            identifier=adresse, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced, geschuetzt=ADRESSWECHSEL_GESCHUETZT
+        )
+        for adresse in adressen
+    ):
+        return None
+
+    return WriteRefusal(
+        error_code=FREMDER_ADRESSWECHSEL,
+        status=HTTPStatus.FORBIDDEN,
+        message="erasing this address would end an administrator's pending address change, which only an owner ends",
     )
 
 

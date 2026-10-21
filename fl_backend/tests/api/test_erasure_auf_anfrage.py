@@ -11,6 +11,7 @@ import functools
 import logging
 import time
 from collections.abc import Awaitable, Callable, Iterator, Mapping
+from datetime import timedelta
 from typing import Any, cast
 
 import pymongo
@@ -26,7 +27,9 @@ from app.api.berechtigungen.antraege import compose_antrag
 from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
 from app.api.identitaet.schemas import FLErasure, FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
 from app.api.identitaet.services import (
+    ADRESSWECHSEL_GESCHUETZT,
     EIGENE_ADRESSE,
+    FREMDER_ADRESSWECHSEL,
     NAME_IM_ANLASS,
     NAME_IM_GRUND,
     VERWALTUNG_ADRESSE,
@@ -61,6 +64,8 @@ from tests.worker import worker_database
 
 from .conftest import config_for
 from .test_funktionen_erasure import (
+    ANTRAG_BY_THEM_OID,
+    ANTRAG_FOR_THEM_OID,
     BEWERBUNG_OID,
     BLOCKLESS_BEWERBUNG_OID,
     DECLINED_OID,
@@ -82,6 +87,7 @@ from .test_funktionen_erasure import (
     REFEREE_OID,
     SAISON_ID,
     SPIELTAG_OID,
+    THEIR_CHANGE_OID,
     THEIR_GRANT_OID,
     THEIR_VALUES,
     TYPED,
@@ -91,6 +97,7 @@ from .test_funktionen_erasure import (
     acting,
     as_person,
     everything_in,
+    pending_changes,
 )
 from .test_funktionen_erasure import PATH as SELBST_PATH
 
@@ -118,8 +125,8 @@ DEAD_GRANT_OID = ObjectId("6890a1b2c3d4e5f607e00001")
 HAND_TYPED_GRANT_OID = ObjectId("6890a1b2c3d4e5f607e00002")
 
 # What the erasure counts and its reveal names nothing of, as the reveal's description says: the fixtures moved onto the
-# ghost, the day counts, and the requests for a grant.
-COUNTED_AND_NOT_NAMED = ("spiele", "drosselung", "berechtigungen_antraege")
+# ghost, and the day counts.
+COUNTED_AND_NOT_NAMED = ("spiele", "drosselung")
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -207,11 +214,13 @@ async def revealed(database: AsyncDatabase, client: AsyncMongoClient, email: str
         spiele_collection=database[Collection.SPIELE],
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+        berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
         sperrliste=ban_list(database),
         db=client,
         config=CONFIG,
         operator=OPERATOR,
         auth_time=int(time.time()) - 60,
+        germany_now=NOW,
     )
 
 
@@ -287,7 +296,14 @@ def registration(registrierung_id: ObjectId, status: str) -> dict[str, str]:
     }
 
 
+async def their_requests_open(database: AsyncDatabase) -> None:
+    """The seed's two requests, asked far off so no TTL pass removes them and so lapsed at the suite's clock, open again."""
+
+    await database[Collection.BERECHTIGUNGEN_ANTRAEGE].update_many({}, {"$set": {"genehmigung.bis": NOW + timedelta(days=1)}})
+
+
 # Every record the seed's person holds, as the page links each: compared whole, so every key at every depth is asserted.
+# The seed's requests opened by `their_requests_open`.
 EXPECTED_ANSICHT = {
     "acknowledged": 1,
     "spieler": [
@@ -327,6 +343,12 @@ EXPECTED_ANSICHT = {
     "adresswechsel": [
         {"adresswechsel_id": str(OTHER_REFEREE_CHANGE_OID), "einsehbar_verwehrt": None},
         {"adresswechsel_id": str(MOVING_PUPIL_CHANGE_OID), "einsehbar_verwehrt": None},
+    ],
+    "eigener_adresswechsel": None,
+    # A grant asked for their address and one they asked for another's.
+    "antraege": [
+        {"antrag_id": str(ANTRAG_FOR_THEM_OID), "verwaltung": "administration", "rolle": "betroffen"},
+        {"antrag_id": str(ANTRAG_BY_THEM_OID), "verwaltung": "administration", "rolle": "gestellt"},
     ],
     "verwaltung": "administration",
     "gesperrt": False,
@@ -544,6 +566,7 @@ class TestTheReveal:
     def test_it_names_every_record_the_erasure_removes_by_the_ids_its_links_need_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
+            await their_requests_open(database)
             before = await everything_in(database)
             response = await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(), by=OWNER)
 
@@ -609,6 +632,7 @@ class TestTheReveal:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             await a_grant(database, DEAD_GRANT_OID, TYPED, "administration")
+            await their_requests_open(database)
             ansicht = (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(), by=OWNER)).json()
 
             return ansicht, (await posted(mongo_replica_set_url, PATH, erasure_of(), by=OWNER)).json()
@@ -620,7 +644,8 @@ class TestTheReveal:
             "schiedsrichter": len(ansicht["schiedsrichter"]),
             "kontakt_sitze": len(ansicht["sitze"]) + len(ansicht["bewerbungen"]),
             "registrierungen": len(ansicht["registrierungen"]),
-            "adresswechsel": len(ansicht["adresswechsel"]),
+            "adresswechsel": len(ansicht["adresswechsel"]) + (ansicht["eigener_adresswechsel"] is not None),
+            "berechtigungen_antraege": len(ansicht["antraege"]),
         }
 
         assert named == {key: erased[key] for key in named}
@@ -630,6 +655,79 @@ class TestTheReveal:
         assert {*named, "berechtigungen", *COUNTED_AND_NOT_NAMED} == set(FLErasure.model_fields)
         # The premise: an address holding nothing would agree on zeros.
         assert all(erased[key] for key in FLErasure.model_fields)
+
+
+# The address the seed's referee change moves away from, given a grant by the cases below.
+CHANGING_HOLDER = "kraus.bernd@example.com"
+CHANGING_HOLDER_GRANT_OID = ObjectId("6890a1b2c3d4e5f607e00003")
+
+
+@pytest.mark.db
+class TestAGrantHoldersPendingChange:
+    """`docs/backend/spec.md :: I871`: a grant holder's change naming the address is shown and ended only where the tool would open it."""
+
+    @pytest.mark.parametrize("tier", ["administration", "owner"])
+    def test_the_reveal_leaves_it_out_for_an_administrator_without_an_owners_power(self, mongo_replica_set_url: str, tier: str):
+        """Named, it would answer whether a typed address is that change's new one, which the administrators page withholds."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, CHANGING_HOLDER_GRANT_OID, CHANGING_HOLDER, tier)
+            return [
+                (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(), by=by)).json()["adresswechsel"] for by in (OPERATOR, OWNER)
+            ]
+
+        operators, owners = on_a_league(mongo_replica_set_url, body)
+
+        assert operators == [{"adresswechsel_id": str(MOVING_PUPIL_CHANGE_OID), "einsehbar_verwehrt": None}]
+        assert owners == [
+            {"adresswechsel_id": str(OTHER_REFEREE_CHANGE_OID), "einsehbar_verwehrt": None},
+            {"adresswechsel_id": str(MOVING_PUPIL_CHANGE_OID), "einsehbar_verwehrt": None},
+        ]
+
+    @pytest.mark.parametrize("tier", ["administration", "owner"])
+    def test_the_erasure_ending_it_is_the_owners_for_a_protected_tier(self, mongo_replica_set_url: str, tier: str):
+        """Ending it is a discard, which only an owner makes of an administrator's change."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, CHANGING_HOLDER_GRANT_OID, CHANGING_HOLDER, tier)
+            before = await everything_in(database)
+            by_operator = await posted(mongo_replica_set_url, PATH, erasure_of())
+            untouched = before == await everything_in(database)
+            by_owner = by_operator if by_operator.status_code == 200 else await posted(mongo_replica_set_url, PATH, erasure_of(), by=OWNER)
+            ended = await database[Collection.ADRESSWECHSEL].find_one({"_id": OTHER_REFEREE_CHANGE_OID})
+            return by_operator, untouched, by_owner.status_code, ended
+
+        by_operator, untouched, owners_status, ended = on_a_league(mongo_replica_set_url, body)
+
+        if tier in ADRESSWECHSEL_GESCHUETZT:
+            assert (by_operator.status_code, by_operator.json()["error_code"], untouched) == (403, FREMDER_ADRESSWECHSEL, True)
+        else:
+            assert by_operator.status_code == 200
+        assert owners_status == 200
+        assert ended is not None and ended["beendet"]["art"] == "verworfen"
+
+    def test_the_reveal_names_their_own_change_and_open_requests_alone(self, mongo_replica_set_url: str):
+        """A lapsed request is gone to every reader already (`docs/backend/spec.md :: I851`), so it is left out though removed."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await pending_changes(database, (THEIR_CHANGE_OID, IDENTIFIER, "neu.adresse@anderswo.org", "their-own-change", "2126-03-30"))
+            await their_requests_open(database)
+            lapsed = NOW - timedelta(days=8)
+            await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(
+                compose_antrag(
+                    adresse="verfallen@example.com",
+                    verwaltung="owner",
+                    berechtigung_id=None,
+                    gestartet_von=IDENTIFIER,
+                    now=lapsed,
+                )
+            )
+            return (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of())).json()
+
+        answer = on_a_league(mongo_replica_set_url, body)
+
+        assert answer["eigener_adresswechsel"] == {"adresswechsel_id": str(THEIR_CHANGE_OID)}
+        assert answer["antraege"] == EXPECTED_ANSICHT["antraege"]
 
 
 @pytest.mark.db
