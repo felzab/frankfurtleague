@@ -30,6 +30,7 @@ export const AKTION_COLLECTION_LABELS: Record<string, string> = {
   berechtigungen: "Administratoren",
   berechtigungen_angekuendigt: "Angekündigte Zugänge",
   berechtigungen_postausgang: "Ausstehende Zugangsmeldungen",
+  berechtigungen_antraege: "Zugangsanträge",
   einladungen: "Registrierungslinks",
   registrierungen: "Registrierungen",
   spielbestaetigungen: "Spielbestätigungen",
