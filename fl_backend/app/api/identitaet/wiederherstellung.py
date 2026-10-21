@@ -30,7 +30,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
-from app.api.adresswechsel.crud import end_the_change_in_session, move_the_address_in_session, read_the_bestand
+from app.api.adresswechsel.crud import adresse_belegt, end_the_change_in_session, move_the_address_in_session, read_the_bestand
 from app.api.adresswechsel.services import FLAdresswechselEndeArt, deckt
 from app.api.berechtigungen.antraege import ist_offen, remove_the_antrag_in_session
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
@@ -490,6 +490,9 @@ async def _plan_adresswechsel_wirksam(
         await move_the_address_in_session(
             record=record,
             bestand=bestand,
+            adresse_belegt=await adresse_belegt(
+                str(record["email"]), records=records, berechtigungen_collection=database[Collection.BERECHTIGUNGEN], session=session
+            ),
             sperrliste=sperrliste,
             adresswechsel_collection=database[Collection.ADRESSWECHSEL],
             spieler_collection=database[Collection.SPIELER],

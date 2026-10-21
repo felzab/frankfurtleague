@@ -12039,6 +12039,17 @@
             ],
             "title": "Weg"
           },
+          "adresse_belegt": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adresse Belegt"
+          },
           "aufgegeben": {
             "type": "boolean",
             "title": "Aufgegeben"
@@ -12052,6 +12063,7 @@
           "email",
           "vorname",
           "weg",
+          "adresse_belegt",
           "aufgegeben"
         ],
         "title": "FLAdresswechselPostausgangZeile",

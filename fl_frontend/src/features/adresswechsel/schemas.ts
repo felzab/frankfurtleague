@@ -160,6 +160,8 @@ export const FLAdresswechselPostausgangZeileSchema = z.object({
   vorname: z.string().nullable(),
   // Whether the address on file's holder asked for or approved the change, which decides whether its account moves.
   weg: FLAdresswechselWegSchema.nullable(),
+  // Whether the new address held records of its own at the effect: its holder never signed in there, so no account moves onto them.
+  adresse_belegt: z.boolean().nullable(),
   aufgegeben: z.boolean(),
 });
 export type FLAdresswechselPostausgangZeile = z.infer<typeof FLAdresswechselPostausgangZeileSchema>;

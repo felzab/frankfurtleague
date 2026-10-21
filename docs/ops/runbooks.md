@@ -762,7 +762,8 @@ seat, registration and grant the address holds, so one sign-in stays whole
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
 - **Once a change takes effect**, the replaced address is told. Where the person started it or the
   address on file approved it, their sign-in account moves to the new address and every session of
-  it ends; after a change started on a recorded reason they sign in anew, and the account sweep
+  it ends, unless the new address already held records of its own (`docs/backend/spec.md :: I860`);
+  after a change started on a recorded reason, or onto such an address, they sign in anew, and the account sweep
   deletes the replaced address's account within the hour, its passkeys with it, once nothing else
   references the address ([section 9](#9-checking-that-the-hourly-passes-have-run)).
 - **A referee who has NOT confirmed.** Correct `kontakt.email` in the referee editor. The save

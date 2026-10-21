@@ -95,14 +95,18 @@ export async function adresswechselWirksam({
   mitteilung,
 }: {
   operation: string;
-  mitteilung: Pick<FLAdresswechselPostausgangZeile, "bisherige_email" | "email" | "vorname" | "weg">;
+  mitteilung: Pick<FLAdresswechselPostausgangZeile, "bisherige_email" | "email" | "vorname" | "weg" | "adresse_belegt">;
 }): Promise<boolean> {
   const { bisherige_email: bisherige } = mitteilung;
   if (bisherige === null) return true;
 
   // A change made because the address on file is lost carries nothing from it: its holder may be a stranger who signed
   // in there during the waiting time, and their sessions and passkeys must not follow the person.
-  if (mitteilung.weg !== "wartezeit") {
+  const traegt = mitteilung.weg !== "wartezeit";
+  if (traegt && mitteilung.adresse_belegt === true) {
+    // Never onto another person's records: a passkey enrolled at the replaced address would sign in to them.
+    logger.warn("adresswechsel.konto_nicht_umgezogen", { error_code: "FE-AUTH-013", grund: "adresse_belegt", operation });
+  } else if (traegt) {
     try {
       const umzug = await carryAccount(bisherige, mitteilung.email);
       if (umzug === "belegt") logger.warn("adresswechsel.konto_nicht_umgezogen", { error_code: "FE-AUTH-013", grund: "belegt", operation });

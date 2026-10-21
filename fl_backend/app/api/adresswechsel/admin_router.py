@@ -9,6 +9,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.adresswechsel.crud import (
     Bestand,
+    adresse_belegt,
     end_the_change_in_session,
     ending_line,
     read_the_bestand,
@@ -55,7 +56,7 @@ from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.schemas import FLAdresswechselWeg
 from app.api.berechtigungen.services import genehmiger_of, genehmigung_verwehrt, holds_an_owners_power, lebendige
 from app.api.bewerbungen.services import mint_token
-from app.api.identitaet.lookup import RecordCollections, SubjektLookup
+from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.services import JEDE_VERWALTUNG, find_eigene_adresse_refusal, find_verwaltung_adresse_refusal, holds_a_name
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.spieler.crud import another_pupil_holds
@@ -174,14 +175,6 @@ def _bestand(bestand: Bestand) -> FLAdresswechselVerwaltungBestand:
         registrierungen=len(bestand.registrierungen),
         berechtigung=None if bestand.berechtigung is None else bestand.berechtigung["verwaltung"],
     )
-
-
-async def _belegt(email: str, *, records: RecordCollections, berechtigungen_collection: AsyncCollection, session: AsyncClientSession) -> bool:
-    """Whether the new address holds records of its own, read in the start's transaction, so its answer never fails after a commit."""
-
-    bestand = await read_the_bestand(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
-
-    return not bestand.leer
 
 
 @router.post(
@@ -382,7 +375,7 @@ async def post_adresswechsel_verwaltung(
             email=email,
             bisherige_email=identifier,
             vorname=None if weg == "wartezeit" else bestand.vorname,
-            adresse_belegt=await _belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session),
+            adresse_belegt=await adresse_belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session),
             genehmiger=genehmiger,
         )
 
@@ -481,7 +474,7 @@ async def einladen_adresswechsel(
             email=email,
             bisherige_email=identifier,
             vorname=None if updated["weg"] == "wartezeit" else bestand.vorname,
-            adresse_belegt=await _belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session),
+            adresse_belegt=await adresse_belegt(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session),
             genehmiger=[],
         )
 

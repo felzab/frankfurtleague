@@ -514,7 +514,13 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         {
             "_id": OWED_NOTICE_OID,
             **compose_postausgang(
-                art="wirksam", bisherige_email="vorher.zorbanax@example.org", email=IDENTIFIER, vorname="Zorbanax", weg="konto", now=NOW
+                art="wirksam",
+                bisherige_email="vorher.zorbanax@example.org",
+                email=IDENTIFIER,
+                vorname="Zorbanax",
+                weg="konto",
+                adresse_belegt=False,
+                now=NOW,
             ),
         }
     )

@@ -345,7 +345,18 @@ describe("another administrator's approval", () => {
      answer beside the grant's announcement, so a lost answer loses neither. */
   it("finishes a change it made take effect behind the answer: the outbox's notice, stamped once sent, and the announcement", async () => {
     antwort[APPROVAL] = () => ({ acknowledged: 1, id: ADRESSWECHSEL_ID, wirksam: true });
-    owed = [{ id: OWED_ID, art: "wirksam", bisherige_email: BISHER, email: NEU, vorname: null, weg: "wartezeit", aufgegeben: false }];
+    owed = [
+      {
+        id: OWED_ID,
+        art: "wirksam",
+        bisherige_email: BISHER,
+        email: NEU,
+        vorname: null,
+        weg: "wartezeit",
+        adresse_belegt: false,
+        aufgegeben: false,
+      },
+    ];
 
     const res = await genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID });
 

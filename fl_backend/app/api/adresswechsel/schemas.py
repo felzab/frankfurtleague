@@ -95,6 +95,7 @@ class FLAdresswechselPostausgang(BaseModel):
     email: str
     vorname: str | None
     weg: FLAdresswechselWeg | None
+    adresse_belegt: bool | None
     erfasst_am: datetime
     beansprucht_bis: datetime | None
     beanspruchung: str | None
@@ -118,6 +119,9 @@ class FLAdresswechselPostausgangZeile(BaseModel):
     vorname: str | None
     # A change that waited carries no sign-in account: whatever its old mailbox's holder enrolled meanwhile would follow.
     weg: FLAdresswechselWeg | None
+    # Whether the new address held records of its own at the effect, null on a refusal's notice: true carries no sign-in
+    # account, which would sign whoever enrolled its passkeys in to that holder's records.
+    adresse_belegt: bool | None
     # Past the last hand-out: the caller mails nothing, logs it by its id, and stamps it.
     aufgegeben: bool
 

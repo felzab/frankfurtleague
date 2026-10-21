@@ -157,7 +157,14 @@ def compose_genehmigt_update(*, akteur: str, now: datetime) -> dict[str, Any]:
 
 
 def compose_postausgang(
-    *, art: Literal["wirksam", "verworfen"], email: str, now: datetime, bisherige_email: str | None, vorname: str | None, weg: str | None
+    *,
+    art: Literal["wirksam", "verworfen"],
+    email: str,
+    now: datetime,
+    bisherige_email: str | None,
+    vorname: str | None,
+    weg: str | None,
+    adresse_belegt: bool | None,
 ) -> dict[str, Any]:
     """One notice an end owes, queued in the end's own transaction: its answer alone carried it, and a lost answer lost it.
 
@@ -170,6 +177,7 @@ def compose_postausgang(
         "email": email,
         "vorname": vorname,
         "weg": weg,
+        "adresse_belegt": adresse_belegt,
         "erfasst_am": now.astimezone(UTC),
         "beansprucht_bis": None,
         "beanspruchung": None,

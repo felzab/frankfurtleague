@@ -257,7 +257,7 @@ class TestADueChangeTakesEffect:
         assert answer.wirksam == 1
         assert notices == [
             # The lost-mailbox way greets nobody.
-            {"art": "wirksam", "bisherige_email": on_file(1), "email": pending(1), "vorname": None, "weg": "wartezeit"}
+            {"art": "wirksam", "bisherige_email": on_file(1), "email": pending(1), "vorname": None, "weg": "wartezeit", "adresse_belegt": False}
         ]
         assert addresses == [pending(1)]
 
@@ -278,7 +278,9 @@ class TestADueChangeTakesEffect:
         answer, ended, notices = on_a_league(mongo_replica_set_url, body)
 
         assert (answer.verworfen, answer.wirksam) == (1, 0)
-        assert notices == [{"art": "verworfen", "bisherige_email": None, "email": pending(1), "vorname": None, "weg": None}]
+        assert notices == [
+            {"art": "verworfen", "bisherige_email": None, "email": pending(1), "vorname": None, "weg": None, "adresse_belegt": None}
+        ]
         assert (ended["beendet"]["art"], ended["email"]) == ("verworfen", None)
 
     def test_a_change_finding_nothing_to_move_is_refused_alike(self, mongo_replica_set_url: str):
@@ -643,6 +645,7 @@ async def queue(database: AsyncDatabase, *positions: int) -> list[ObjectId]:
             bisherige_email=on_file(position),
             vorname=None,
             weg="wartezeit",
+            adresse_belegt=False,
         )
         ids.append((await database[Collection.ADRESSWECHSEL_POSTAUSGANG].insert_one(row)).inserted_id)
 

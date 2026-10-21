@@ -367,7 +367,7 @@ async def change(database: AsyncDatabase, adresswechsel_id: ObjectId) -> Mapping
 async def owed(database: AsyncDatabase) -> list[dict[str, Any]]:
     """The notices the ends queued for the frontend's pass, in the order a claim hands them out."""
 
-    fields = ("art", "bisherige_email", "email", "vorname", "weg")
+    fields = ("art", "bisherige_email", "email", "vorname", "weg", "adresse_belegt")
     return [
         {field: row[field] for field in fields}
         async for row in database[Collection.ADRESSWECHSEL_POSTAUSGANG].find({}, sort=[("erfasst_am", 1), ("_id", 1)])

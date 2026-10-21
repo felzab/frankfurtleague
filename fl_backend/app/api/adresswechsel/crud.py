@@ -189,6 +189,19 @@ async def read_the_bestand(
     )
 
 
+async def adresse_belegt(
+    email: str, *, records: RecordCollections, berechtigungen_collection: AsyncCollection, session: AsyncClientSession | None
+) -> bool:
+    """Whether a new address holds records of its own, which an effect joins to the ones it moves.
+
+    The start warns of it; an effect, reading it before its move, carries no sign-in account onto them.
+    """
+
+    bestand = await read_the_bestand(email, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
+
+    return not bestand.leer
+
+
 def _redacting(fields: tuple[str, ...]) -> Callable[[Mapping[str, Any]], dict[str, None]]:
     def redacted(image: Mapping[str, Any]) -> dict[str, None]:
         return {field: None for field in fields if image.get(field) is not None}
@@ -499,6 +512,10 @@ async def take_effect_in_session(
     beendet = await move_the_address_in_session(
         record=record,
         bestand=bestand,
+        # Before the move, after which the new address holds the moved records too.
+        adresse_belegt=await adresse_belegt(
+            str(record["email"]), records=records, berechtigungen_collection=berechtigungen_collection, session=session
+        ),
         sperrliste=sperrliste,
         adresswechsel_collection=adresswechsel_collection,
         spieler_collection=spieler_collection,
@@ -533,6 +550,8 @@ async def move_the_address_in_session(
     *,
     record: Mapping[str, Any],
     bestand: Bestand,
+    # `adresse_belegt` of the new address, judged before this move.
+    adresse_belegt: bool,
     sperrliste: BanList,
     adresswechsel_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
@@ -713,6 +732,9 @@ async def move_the_address_in_session(
             # Greeting nobody on the lost-mailbox way: that mailbox may have passed to a stranger.
             vorname=None if record["weg"] == "wartezeit" else bestand.vorname,
             weg=record["weg"],
+            # The sign-in account is carried nowhere the new address held records of its own: their holder never signed
+            # in there, and a passkey enrolled at the replaced address would sign in to them.
+            adresse_belegt=adresse_belegt,
             now=now,
         ),
         session=session,
