@@ -31,8 +31,9 @@ FLAdresswechselWartetAuf = Literal["freigabe", "neue_adresse", "genehmigung", "w
 # What the stop link of the address on file shows, one state per step the change waits on.
 FLAdresswechselBisherigZustand = Literal["freigabe_offen", "offen", "genehmigung", "wartezeit"]
 
-# What the new mailbox's link shows while the change stands.
-FLAdresswechselNeuZustand = Literal["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar", "bestaetigt"]
+# What the new mailbox's link shows while the change stands. `genehmigung_abgelaufen` is a confirmed change's lapsed
+# approval week, never `abgelaufen`: that is the link's own deadline, and a confirmed link takes no second answer.
+FLAdresswechselNeuZustand = Literal["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar", "bestaetigt", "genehmigung_abgelaufen"]
 
 # How a change ended. `verworfen` is every discard: an administrator's, the pass's refusal when due, nothing left to
 # move, and an erasure's.
@@ -380,7 +381,7 @@ def neu_zustand(record: Mapping[str, Any], *, now: datetime, gesperrt: bool, nic
 
     if record.get("bestaetigt_am") is not None:
         # Never `bestaetigt` once its approval week lapsed: the pass ends it unapproved, which the page must not deny.
-        return "abgelaufen" if ist_abgelaufen(record, now=now) else "bestaetigt"
+        return "genehmigung_abgelaufen" if ist_abgelaufen(record, now=now) else "bestaetigt"
 
     if gesperrt:
         return "gesperrt"

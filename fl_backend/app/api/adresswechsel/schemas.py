@@ -171,7 +171,7 @@ class FLAdresswechselAnsichtNeu(BaseModel):
 
     seite: Literal["neu"]
     zustand: FLAdresswechselNeuZustand
-    # Null exactly where `bestaetigt`: a confirmed change waits on no deadline of this link's.
+    # Null exactly where the change is confirmed: it waits on no deadline of this link's.
     gueltig_bis: FLUtcInstant | None
     wirksam_ab: FLUtcInstant | None
     weg: FLAdresswechselWeg

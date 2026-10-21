@@ -402,7 +402,8 @@ class TestTheLinks:
 
         seen = on_a_person(mongo_replica_set_url, body)
 
-        assert (seen.zustand, seen.genehmigung_offen) == ("abgelaufen", None)
+        # Never `abgelaufen`, the link's own lapse: the page would offer a decline the confirmed link refuses.
+        assert (seen.zustand, seen.genehmigung_offen) == ("genehmigung_abgelaufen", None)
 
     @pytest.mark.parametrize(
         ("cause", "refused"),
