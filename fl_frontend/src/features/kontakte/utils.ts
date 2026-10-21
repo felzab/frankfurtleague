@@ -14,6 +14,7 @@ import type {
   FLKontaktpersonPayload,
   FLSaisonTeamKontaktePayload,
   FLTeamMembership,
+  FLTeamWithMemberships,
   FLTrainerZugleich,
 } from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
@@ -179,6 +180,23 @@ export function resolveTeamSaisonMembership(
             kontakte_stand: membership.kontakte_stand,
           },
   };
+}
+
+/**
+ * The contacts editor's key: what the page hands it, but never the club's other rows nor each seat's link state and
+ * pending address change, which the editor reads live and which move with no edit here: a key holding them
+ * remounts the editor and drops the typed draft (`docs/frontend/spec.md` "The editor's subtree is keyed by the
+ * fixture's stored state").
+ */
+export function kontakteEditorKey(
+  { id, name, shorthand, inactive_since }: FLTeamWithMemberships,
+  { membership, ...saison }: TeamSaisonMembership,
+): string {
+  const team = { id, name, shorthand, inactive_since };
+  if (membership === null) return JSON.stringify({ team, saison, membership });
+  const { bestaetigungen: _bestaetigungen, adresswechsel: _adresswechsel, ...gesaet } = membership;
+
+  return JSON.stringify({ team, saison, membership: gesaet });
 }
 
 /** One seat as the write side spells it: the provenance is the server's own (`docs/backend/spec.md :: I142`). */

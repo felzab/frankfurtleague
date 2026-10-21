@@ -199,11 +199,13 @@ const sectionElement = (
   bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null = null,
   adresswechsel: FLSaisonTeamAdresswechsel | null = null,
   medienFragen: MedienFragen = {},
+  /** The draft, where it has moved off what the row stores. */
+  value: FLSaisonTeamKontakte | null = kontakte,
 ): ReactNode =>
   h(FormKontakteSection, {
     laufendesLabel: FORM.text_version,
     medienFragen,
-    value: kontakte,
+    value,
     stored: kontakte,
     bestaetigungen,
     adresswechsel,
@@ -334,6 +336,9 @@ const PAGE_PROPS = { params: Promise.resolve({ team_id: OBJECT_ID }), searchPara
 
 /** The block the page's memberships read answers with, as the backend holds it at that moment. */
 let storedBlock: FLSaisonTeamKontakte = BLOCK;
+/** The row's stand token and each seat's pending address change, as the same read serves them. */
+let storedStand = "9f2c";
+let storedAdresswechsel: FLSaisonTeamAdresswechsel | null = null;
 /** The registry's answer where a case names one, an `Error` failing its read. */
 let seitenAntwort: unknown = undefined;
 
@@ -355,7 +360,7 @@ answerReadsWith((endpoint, schema, params) => {
       shorthand: "SA",
       full_name: "Sportgemeinschaft Alpha",
       address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
-      memberships: [membershipAnswer({ kontakte: storedBlock, kontakte_stand: "9f2c" })],
+      memberships: [membershipAnswer({ kontakte: storedBlock, kontakte_stand: storedStand, adresswechsel: storedAdresswechsel })],
     });
     return answer(schema, endpoint, { teams: [club] });
   }
@@ -511,6 +516,47 @@ describe("the editor's shape", () => {
     unmount();
   });
 
+  /* The stand moves with every write to the block, another administrator's included, whose seats may read alike. */
+  it("re-seeds the draft where the row's stand moved, the seats reading alike", async () => {
+    const user = userEvent.setup({ delay: null });
+    storedBlock = BLOCK;
+    const { rerender, unmount } = render(underNext(await pageBody(AdminKontakteEditPage, PAGE_PROPS), { search: "saison_id=2526" }));
+    const addresses = () => screen.getAllByRole<HTMLInputElement>("textbox", { name: "E-Mail" });
+    const gespeichert = addresses()[0]?.value;
+    await user.clear(addresses()[0] ?? assert.fail("the seats render no address box"));
+    await user.paste("erika@example.org");
+
+    storedStand = "a1b2";
+    try {
+      rerender(underNext(await pageBody(AdminKontakteEditPage, PAGE_PROPS), { search: "saison_id=2526" }));
+      assert.equal(addresses()[0]?.value, gespeichert, "the box keeps the draft over a block another write moved");
+    } finally {
+      storedStand = "9f2c";
+      unmount();
+    }
+  });
+
+  /* A seat's pending address change starts and ends with no edit here, and the page reads it live: the typed draft stays. */
+  it("keeps the typed draft where only a seat's pending address change moved", async () => {
+    const user = userEvent.setup({ delay: null });
+    storedBlock = BLOCK;
+    const { rerender, unmount } = render(underNext(await pageBody(AdminKontakteEditPage, PAGE_PROPS), { search: "saison_id=2526" }));
+    const addresses = () => screen.getAllByRole<HTMLInputElement>("textbox", { name: "E-Mail" });
+    await user.clear(addresses()[0] ?? assert.fail("the seats render no address box"));
+    await user.paste("erika@example.org");
+
+    storedAdresswechsel = { trainer: null, ansprechperson: "68c1f0a2b3c4d5e6f7a8b9e0", stellvertretung: null };
+    try {
+      rerender(underNext(await pageBody(AdminKontakteEditPage, PAGE_PROPS), { search: "saison_id=2526" }));
+      // The control: the refresh reached the editor, or the kept draft below proves nothing.
+      assert.ok(screen.getByRole("link", { name: "Zur Änderung" }), "the refresh drew no pending change");
+      assert.equal(addresses()[0]?.value, "erika@example.org", "a pending change starting threw the typed draft away");
+    } finally {
+      storedAdresswechsel = null;
+      unmount();
+    }
+  });
+
   /* A ratified decision (`.claude/rules/frontend.md`): a typed field is judged when it is LEFT. A
      message between two keystrokes describes a value nobody finished entering. */
   it("judges a typed field when it is left, and never between keystrokes", async () => {
@@ -661,9 +707,23 @@ describe("the editor's shape", () => {
     const id = "68c1f0a2b3c4d5e6f7a8b9e0";
     const html = editorTree(sectionElement(BLOCK, true, true, null, { trainer: null, ansprechperson: id, stellvertretung: null }), BLOCK);
 
-    assert.equal(html.split("Für diese Adresse läuft eine Änderung.").length - 1, 1, "the line shows on other than the one seat");
+    assert.equal(html.split("läuft eine Änderung.").length - 1, 1, "the line shows on other than the one seat");
     assert.ok(html.includes(`href="/bereich/admin/adresswechsel?adresswechsel=${id}`), "the line links elsewhere than the change in the tool");
-    assert.ok(!sectionMarkup(BLOCK).includes("Für diese Adresse läuft eine Änderung"), "a seat no change waits at shows the line");
+    assert.ok(!sectionMarkup(BLOCK).includes("läuft eine Änderung"), "a seat no change waits at shows the line");
+  });
+
+  /* The seat's box takes input, so „diese Adresse“ would point at what is typed: the change is the stored address's. */
+  it("names the stored address the change is at, whatever the seat's box now holds", () => {
+    const id = "68c1f0a2b3c4d5e6f7a8b9e0";
+    const grace = BLOCK.ansprechperson ?? assert.fail("the block seats no Ansprechperson");
+    const getippt = { ...BLOCK, ansprechperson: { ...grace, email: "neu@example.org" } };
+    const html = editorTree(
+      sectionElement(BLOCK, true, true, null, { trainer: null, ansprechperson: id, stellvertretung: null }, {}, getippt),
+      BLOCK,
+    );
+
+    assert.match(html, /Für <span[^>]*>grace@example\.org<\/span> läuft eine Änderung\./);
+    assert.doesNotMatch(html, /Für diese Adresse/);
   });
 
   /* An empty seat is a saveable state rather than a half-finished one, and the record keeps no field
