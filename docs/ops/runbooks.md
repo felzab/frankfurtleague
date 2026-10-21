@@ -19,7 +19,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [9. Checking that the hourly passes have run](#9-checking-that-the-hourly-passes-have-run)                                                      | What answers each, and what each answer means                  |
 | [10. The mail provider's dashboard](#10-the-mail-providers-dashboard)                                                                           | The six steps no code can carry, and what breaks without them  |
 | [11. A contact seat's birthdate that no confirmation stamped](#11-a-contact-seats-birthdate-that-no-confirmation-stamped)                       | What finds the rows, and why no save clears one                |
-| [12. Deleting this season's player records and resetting the action log](#12-deleting-this-seasons-player-records-and-resetting-the-action-log) | Its two halves, the referee drop, and what is lost with them   |
+| [12. Deleting this season's player records and resetting the action log](#12-deleting-this-seasons-player-records-and-resetting-the-action-log) | The pupils, the referees, the log, and what is lost with them  |
 | [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                                      | Who is re-erased, and what the restore took the record of      |
 | [14. The `auth` database's indexes](#14-the-auth-databases-indexes)                                                                             | What builds them, and what a boot that could not leaves        |
 | [15. When a sign-in code does not arrive](#15-when-a-sign-in-code-does-not-arrive)                                                              | What the person cannot tell apart, and the line that can       |
@@ -882,11 +882,9 @@ an administrator who is not an owner. A referee row stored without an address of
 reached by the address route all the same
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)): save the person's
 own address on the row in the referee editor, which on a row still in service mails them a confirmation
-link first, then erase that address; otherwise the row goes with the referee drop, immediately
-before the deploy whose fixture read first consults a referee's own consent
-([section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)). A pupil row
-holding no address waits for that section's pupil reset at the end of this season. The page mails the
-person nothing. **Erasing an administrator's address tells every
+link first, then erase that address; otherwise the row goes with the reset
+([section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)), as a pupil row
+holding no address does. The page mails the person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
 notice naming no address (`docs/backend/spec.md :: I659`). On the same page „Überall abmelden“ ends
 every session of an address without erasing or barring it; past the step-up window its second press
@@ -1572,75 +1570,83 @@ Then `--check` again.
 
 ## 12. Deleting this season's player records and resetting the action log
 
-**Once, at the end of this season, and never again** — the ruling and what it is for are
-[`../datenschutz.md`](../datenschutz.md#3-the-current-pupil-records-are-reset-once)'s. Both halves are
-database edits: `aktionen` carries no POST and no DELETE route, and no code removes a row from it
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I119).
+**Once, before the deploy that first requires the record shapes it leaves, and never again** — the
+ruling and what it is for are
+[`../datenschutz.md`](../datenschutz.md#3-the-current-pupil-records-are-reset-once)'s. Every step is a
+database edit run by hand as a MongoDB Playground paste, as every migration here is (§2): no route
+deletes a pupil or referee row wholesale, and `aktionen` carries no POST and no DELETE route, no code
+removing a row from it ([`../backend/spec.md`](../backend/spec.md#2-invariants) I119).
 
-**The log goes LAST whichever route the player half takes**, because every write through
-`fl_backend/app/core/crud.py` appends a row to it: taken through „Löschung auf Anfrage“ per person,
-the player half leaves rows this reset then has to take. Which route the player half takes is not
-settled here, but **„Löschung auf Anfrage“ cannot be the whole of it**: it reaches a record only
-through the address the record holds, so a pupil row holding none survives it
+**The order is the pupils, then the referees, then the records that stay brought to the deploy's
+shapes, then the log, LAST**, because every write through `fl_backend/app/core/crud.py` appends a row
+to it. Run it in a break between match weeks, the old build still serving, and keep the time up to
+the deploy short: a record that build stamps meanwhile can cite a consent label the deploy's
+registry does not hold. Before the deploy, §2's `--check` from the deploy's checkout reads clean.
+
+**„Löschung auf Anfrage“ is not the route for either half**: it reaches a record only through the
+address the record holds, so a pupil row holding none survives it
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)), and every row this
 reset is for has to go.
 
-**Neither half, nor the referee drop below, touches the sign-in store, and the frontend keeps
-running through all three.** Each paste holds league rows alone: once no record holds an address,
-the account sweep deletes its account within the hour, mailing nobody, a barred address's alike
-([section 9](#9-checking-that-the-hourly-passes-have-run)). That needs the sweep live before the
-first paste, `KONTO_SWEEP` reading `on` on a production build, and its next
-`konto.sweep_completed` line counts the accounts it deleted.
+**The pupils.** Every `spieler` row but the pupil ghost
+(`fl_backend/app/core/sentinels.py :: GHOST_SPIELER_ID`), every `saison_spieler` row and every
+`registrierungen` row go, with each pupil's daily write counts: what the pupil steps of
+`fl_backend/app/api/identitaet/crud.py :: ERASURE_STEPS` leave of an erased pupil. Where a pupil
+stands and no ghost does, the ghost is written first, exactly the document
+`fl_backend/app/api/spieler/services.py :: build_ghost_spieler` builds. Nothing the reset keeps names a
+pupil.
 
-**Each paste is followed by [section 20](#20-after-a-hand-edit-in-mongodb)'s call**: until then the
-public squad pages and fixtures go on naming whom the paste removed, for as long as each cached
-entry lives.
-
-**What the reset reaches that the retention index cannot is the rows carrying no `at_date`**, which
-nothing expires (I119), and a count of them says how many are left.
-
-**Nothing here is reversible and the rows are their own record.** A log row IS the image of what a
-write replaced ([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)),
-so nothing survives this to say what the removed writes held. Take the snapshot's timestamp down
-first ([section 13](#13-after-a-restore-from-a-snapshot)). Erasing every `aktionen` row is run by
-hand as a MongoDB Playground paste, as every migration here is (§2).
-
-**The referee rows standing today go at a different moment, not at this season's end**: immediately
-before the deploy whose fixture read first consults a referee's own consent record, so that read
-never meets a live row nobody asked
-([`../datenschutz.md`](../datenschutz.md#3-the-current-pupil-records-are-reset-once)). The rows are
-the ones carrying no consent record; a row whose confirmation link went out and is still unanswered
-carries none either, so read what the term matches before dropping anything. It is run by hand as a
-MongoDB Playground paste as well, and it is **not** a referee's erasure, though it repoints as one
-does: every fixture naming one of those rows is repointed at the ghost
-(`fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`) with its embedded `name` nulled, the
-update `fl_backend/app/api/schiedsrichter/services.py :: build_ghost_repoint` builds. Four things
-decide whether the one pasted is right:
+**The referees.** Every referee row but the ghost goes, as an erasure leaves a referee, though the
+paste is **not** a referee's erasure:
 
 - **The ghost exists first.** Only an erasure writes it, inside its own transaction, so a league
   that has had none holds no such row: insert exactly the document
   `fl_backend/app/api/schiedsrichter/services.py :: build_ghost_schiedsrichter` builds, and a repoint
   run without it points every fixture at a document nobody has.
+- **Their confirmation rows go first**: every `spielbestaetigungen` row whose party is a referee, as
+  `fl_backend/app/api/spielbestaetigungen/crud.py :: erase_referee_confirmations_in_session`
+  removes a referee's.
 - **Repoint before deleting, counting both** — the fixtures naming the rows, and the rows — and read
-  each count the database reports against it. `spiele.schiedsrichter.schiedsrichter_id` is a
-  required id, so a null is refused rather than stored.
-- **Afterwards no fixture names an id with no referee row behind it, no fixture booked to the ghost
-  holds a name, and exactly one ghost stands.** Read one of those fixtures on the site once
-  [section 20](#20-after-a-hand-edit-in-mongodb)'s call has answered `204`; its referee reads „anonym“.
-- **The log's images of them go too, more of each than an erasure takes.** Every `aktionen` row holding a dropped
-  referee's image, their own rows' and the `spiele` rows' naming them, takes
-  `fl_backend/app/core/recording.py :: build_redaction_update` under one stamp, found by
-  `fl_backend/app/core/recording.py :: build_redaction_filter` and
-  `fl_backend/app/api/schiedsrichter/services.py :: build_booked_image_filter`; otherwise the log
-  keeps their contact fields for its twelve months. An erasure instead repoints a `spiele` image's
-  booking and keeps the match's earlier states (`:: booked_image_edits`).
+  each count the database reports against it. Every fixture naming one is repointed at the ghost
+  (`fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`) with its embedded `name` nulled and
+  its `payment` kept, the update
+  `fl_backend/app/api/schiedsrichter/services.py :: build_ghost_repoint` builds; a report one of them
+  filed is repointed as
+  `fl_backend/app/api/spielberichte/crud.py :: repoint_referee_reports_in_session` does.
+  `spiele.schiedsrichter.schiedsrichter_id` is a required id, so a null is refused rather than stored.
+- **Afterwards no referee row but the ghost stands, no fixture names an id with no referee row
+  behind it, and no fixture booked to the ghost holds a name.** Read one of those fixtures on the site
+  once [section 20](#20-after-a-hand-edit-in-mongodb)'s call has answered `204`; its referee reads
+  „anonym“.
 
 A fixture still to be played at that moment sits on the ghost and surfaces as a retired booking
 until a referee is assigned
-([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)), so the drop belongs
-in a break between match weeks; and the ghost claims no slot
+([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)), which is why the
+reset belongs in a break between match weeks; and the ghost claims no slot
 (`fl_backend/app/api/spiele/services.py :: find_slot_claims`), so no double booking among those
 fixtures is ever reported.
+
+**Neither half touches the sign-in store, and the frontend keeps running throughout.** Each paste
+holds league rows alone: once no record holds an address, the account sweep deletes its account
+within the hour, mailing nobody, a barred address's alike
+([section 9](#9-checking-that-the-hourly-passes-have-run)). That needs the sweep live before the
+first paste, `KONTO_SWEEP` reading `on` on a production build, and its next `konto.sweep_completed`
+line counts the accounts it deleted.
+
+**Each paste is followed by [section 20](#20-after-a-hand-edit-in-mongodb)'s call**: until then the
+public squad pages and fixtures go on naming whom the paste removed, for as long as each cached
+entry lives.
+
+**The log, last, emptied in full rather than redacted.** Neither half redacts the log's images of
+whom it removed: emptying the log takes every one of them. A contact seat's WhatsApp consent given
+before seats recorded evidence takes its proof from its confirmation's log row first, the one step
+that reads the log. **What the emptying reaches that the retention index cannot is the rows carrying
+no `at_date`**, which nothing expires (I119).
+
+**Nothing here is reversible and the rows are their own record.** A log row IS the image of what a
+write replaced ([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)),
+so nothing survives this to say what the removed writes held. Take the snapshot's timestamp down
+first ([section 13](#13-after-a-restore-from-a-snapshot)).
 
 ## 13. After a restore from a snapshot
 
