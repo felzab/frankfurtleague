@@ -5,6 +5,7 @@ import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 
 import {
+  addressOnlyConfirmedSeatLabels,
   applySeatPresence,
   applySharedSeat,
   describeUnrestorableKontakte,
@@ -240,6 +241,22 @@ describe("emptiedSeatLabels", () => {
      list is read off the two blocks rather than off the controls. */
   it("names the seat the shared-seat claim emptied", () => {
     assert.deepEqual(emptiedSeatLabels(block(), block({ ansprechperson: null })), ["Ansprechperson"]);
+  });
+});
+
+describe("addressOnlyConfirmedSeatLabels", () => {
+  /* Only a confirmed person keeping their name: a new person is the seat's replacement, and an unconfirmed seat loses nothing. */
+  it("names a confirmed seat whose draft changes the address and keeps the name, and no other", () => {
+    assert.deepEqual(addressOnlyConfirmedSeatLabels(block(), block({ trainer: person({ email: "erika@anders.de" }) })), ["Trainer"]);
+    assert.deepEqual(
+      addressOnlyConfirmedSeatLabels(block(), block({ trainer: person({ email: "erika@anders.de", nachname: "Lovelace" }) })),
+      [],
+    );
+    assert.deepEqual(addressOnlyConfirmedSeatLabels(block(), block({ trainer: person({ nachname: "Lovelace" }) })), []);
+    assert.deepEqual(addressOnlyConfirmedSeatLabels(block(), block()), []);
+
+    const offen = person({ einwilligung: { ...person().einwilligung, bestaetigt_am: null } });
+    assert.deepEqual(addressOnlyConfirmedSeatLabels(block({ trainer: offen }), block({ trainer: person({ email: "erika@anders.de" }) })), []);
   });
 });
 

@@ -1,7 +1,10 @@
+import { ADRESSWECHSEL_EINTRAG } from "@/features/admin/constants";
+
 import type { TeamSaisonMembership } from "@/features/teams/types";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
-type KontakteBannerId = "kontakte.not-in-saison" | "kontakte.saison-past" | "kontakte.seats-emptied" | "kontakte.confirmation-cleared";
+type KontakteBannerId =
+  "kontakte.not-in-saison" | "kontakte.saison-past" | "kontakte.seats-emptied" | "kontakte.confirmation-cleared" | "kontakte.address-only";
 
 type KontakteBannerSpot = "kontakte-block";
 
@@ -17,6 +20,7 @@ export function buildKontakteBanners({
   isMember,
   emptiedSeatLabels,
   renamedConfirmedSeatLabels,
+  addressOnlySeatLabels,
 }: {
   saisonId: string;
   saisonStatus: TeamSaisonMembership["saisonStatus"];
@@ -25,6 +29,8 @@ export function buildKontakteBanners({
   emptiedSeatLabels: readonly string[];
   /** The seats whose person confirmed and whose draft names somebody else, in the panel's own order. */
   renamedConfirmedSeatLabels: readonly string[];
+  /** The confirmed seats whose draft changes the address and keeps the name, a subset of the renamed ones. */
+  addressOnlySeatLabels: readonly string[];
 }): readonly KontakteBanner[] {
   const banners: KontakteBanner[] = [];
 
@@ -77,6 +83,17 @@ export function buildKontakteBanners({
       // so it comes back unconfirmed too.
       title: "Ein neuer Name oder eine neue E-Mail-Adresse kostet die Bestätigung endgültig",
       body: `Betroffen: ${renamedConfirmedSeatLabels.join(", ")}.`,
+      inline: "kontakte-block",
+    });
+  }
+
+  if (addressOnlySeatLabels.length > 0) {
+    banners.push({
+      id: "kontakte.address-only",
+      // Where rather than what it costs, which the banner above says: so it opens no save dialog of its own.
+      severity: "info",
+      raisedBy: "change",
+      title: `Eine neue Adresse für dieselbe Person ändert sich unter „${ADRESSWECHSEL_EINTRAG.label}“`,
       inline: "kontakte-block",
     });
   }

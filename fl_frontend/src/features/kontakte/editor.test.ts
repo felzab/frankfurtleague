@@ -13,6 +13,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { einwilligungAnswer, publishedFassung, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
+import { ADRESSWECHSEL_EINTRAG } from "@/features/admin/constants";
 import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung.ts";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
@@ -149,6 +150,7 @@ const bannersFor = (state: Partial<Parameters<typeof buildKontakteBanners>[0]>):
     isMember: true,
     emptiedSeatLabels: [],
     renamedConfirmedSeatLabels: [],
+    addressOnlySeatLabels: [],
     ...state,
   });
 
@@ -559,6 +561,23 @@ describe("the editor's shape", () => {
 
   /* A ratified decision (`.claude/rules/frontend.md`): a typed field is judged when it is LEFT. A
      message between two keystrokes describes a value nobody finished entering. */
+  /* Raised off the composed draft, so it holds only where the editor hands the banner author its seats. */
+  it("names the address tool once a confirmed seat's address alone is retyped, and not for a new person", async () => {
+    const user = userEvent.setup({ delay: null });
+    render(editorElement(viewElement(BLOCK), BLOCK));
+    const wegweiser = () => screen.queryAllByText(/Eine neue Adresse für dieselbe Person ändert sich/).length;
+    const [address] = screen.getAllByRole("textbox", { name: "E-Mail" });
+    const [nachname] = screen.getAllByRole("textbox", { name: /^Nachname/ });
+
+    await user.clear(address ?? assert.fail("the seats render no address box"));
+    await user.paste("grace.neu@example.org");
+    assert.ok(wegweiser() > 0, "an address-only change on a confirmed seat names no way to the address tool");
+
+    await user.clear(nachname ?? assert.fail("the seats render no surname box"));
+    await user.paste("Lovelace");
+    assert.equal(wegweiser(), 0, "a new person on the seat is sent to the address tool");
+  });
+
   it("judges a typed field when it is left, and never between keystrokes", async () => {
     const user = userEvent.setup({ delay: null });
     render(editorElement(viewElement(BLOCK), BLOCK));
@@ -1049,6 +1068,22 @@ describe("what the banners say", () => {
     assert.equal(zwei?.body, "Betroffen: Ansprechperson, Trainer.");
     assert.equal(einer?.title, zwei?.title, "the title changes with the seats, so it has to agree with a count");
     assert.match(einer?.title ?? "", /endgültig/, "the title leaves the loss open, which a fresh confirmation cannot repair");
+  });
+
+  /* A person who only changed mailbox keeps the seat through the address tool: the save is not the way, so the page names it. */
+  it("names the address tool where a confirmed seat's draft changes the address alone, opening no dialog of its own", () => {
+    const banners = bannersFor({ renamedConfirmedSeatLabels: ["Trainer"], addressOnlySeatLabels: ["Trainer"] });
+    const wegweiser = banners.find((banner) => banner.id === "kontakte.address-only");
+
+    assert.ok(wegweiser, "an address-only change names no way to the address tool");
+    assert.equal(wegweiser.title, `Eine neue Adresse für dieselbe Person ändert sich unter „${ADRESSWECHSEL_EINTRAG.label}“`);
+    assert.equal(wegweiser.severity, "info");
+    assert.deepEqual(
+      resolveBlockingBanners(banners)?.map((banner) => banner.id),
+      ["kontakte.confirmation-cleared"],
+      "the way to the tool opens the save dialog",
+    );
+    assert.ok(!bannersFor({ renamedConfirmedSeatLabels: ["Trainer"] }).some((banner) => banner.id === "kontakte.address-only"));
   });
 });
 

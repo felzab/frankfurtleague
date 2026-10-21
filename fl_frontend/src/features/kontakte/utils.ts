@@ -135,6 +135,26 @@ export function renamedConfirmedSeatLabels(stored: SaisonTeamKontakteDraft | nul
   }).map(({ label }) => label);
 }
 
+/**
+ * The confirmed seats whose draft keeps the person's name and changes the address alone: a person who only changed
+ * mailbox keeps their seat and its confirmation through the address change, which this save would cost them.
+ */
+export function addressOnlyConfirmedSeatLabels(
+  stored: SaisonTeamKontakteDraft | null,
+  draft: SaisonTeamKontakteDraft | null,
+): readonly string[] {
+  return KONTAKT_ROLLEN.filter(({ value }) => {
+    const held = stored?.[value] ?? null;
+    const sent = draft?.[value] ?? null;
+    if (held === null || sent === null || held.einwilligung.bestaetigt_am === null) return false;
+
+    const [heldAddress, ...heldName] = seatIdentity(held);
+    const [sentAddress, ...sentName] = seatIdentity(sent);
+
+    return heldAddress !== sentAddress && heldName.every((wert, index) => wert === sentName[index]);
+  }).map(({ label }) => label);
+}
+
 /** The club's own page, where the season membership these seats hang off is entered. */
 export function teamPageHref(teamId: string, saisonId: string): string {
   // The season rides along: the seats are season-scoped, and a link without it lands the admin on

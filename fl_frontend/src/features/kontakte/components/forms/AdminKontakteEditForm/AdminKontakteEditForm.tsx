@@ -8,6 +8,7 @@ import { deriveKontakteDraftStatus } from "@/features/kontakte/kontakteDraftStat
 import { kontakteMayMoveLinks } from "@/features/kontakte/linkMint";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
 import {
+  addressOnlyConfirmedSeatLabels,
   describeUnrestorableKontakte,
   emptiedSeatLabels,
   kontaktZeile,
@@ -146,6 +147,7 @@ export function AdminKontakteEditForm({
     // Composed for the same reason: renaming the named seat renames the Trainer reading it, and the
     // server unstamps the composed block it is sent.
     renamedConfirmedSeatLabels: renamedConfirmedSeatLabels(storedKontakte, kontakte === null ? null : mirrorKontakte(kontakte)),
+    addressOnlySeatLabels: addressOnlyConfirmedSeatLabels(storedKontakte, kontakte === null ? null : mirrorKontakte(kontakte)),
   });
 
   const resetDraftToStored = () => {
