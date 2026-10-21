@@ -6,6 +6,7 @@ import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
+import { EinsehbarVerwehrtSchema } from "./einsehbar";
 import {
   beantrageAdresswechsel,
   einladeAdresswechsel,
@@ -26,6 +27,7 @@ import {
 
 import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type { HinweisVersand, LinkVersand } from "@/shared/utils/linkVersand";
+import type { EinsehbarVerwehrt } from "./einsehbar";
 import type {
   FLAdresswechselEinladenPayload,
   FLAdresswechselGenehmigungPayload,
@@ -35,12 +37,8 @@ import type {
   FLAdresswechselVerwerfenPayload,
 } from "./schemas";
 
-/** What the tool's two link writes answer: each message's outcome, and the warning the start owes where the new address holds records. */
-export type AdresswechselGesendet = ActionResult<{ versand: LinkVersand | null; hinweis: HinweisVersand | null; adresseBelegt: boolean }>;
-
-/** The administrator's one signal that a pretext's target may already hold league records, which the toast grades a warning. */
-const ADRESSE_BELEGT_SATZ =
-  "Unter der neuen Adresse stehen schon Einträge bei der Liga. Bestätigt die Person den Link, gehören danach alle zu einer Anmeldung.";
+/** What the tool's two link writes answer: each message's outcome. */
+export type AdresswechselGesendet = ActionResult<{ versand: LinkVersand | null; hinweis: HinweisVersand | null }>;
 
 // No write here moves a cache tag: no cached read holds an address, a pending one least of all, and the records a
 // change moves are served on admin reads alone, which are never cached.
@@ -96,10 +94,9 @@ export async function beantrageAdresswechselAction(rawPayload: FLAdresswechselVe
       success: true,
       // The address the mint names, never the one typed: a rival request landing between the two
       // replaced the mailbox the credential was made for.
-      message: `${describeAdresswechselMail(mint, versand)}${mint.adresse_belegt ? ` ${ADRESSE_BELEGT_SATZ}` : ""}`,
+      message: describeAdresswechselMail(mint, versand),
       versand: versand.link,
       hinweis: versand.hinweis,
-      adresseBelegt: mint.adresse_belegt,
     };
   });
 }
@@ -133,11 +130,9 @@ export async function einladeAdresswechselAction(rawPayload: FLAdresswechselEinl
       success: true,
       // Said whichever way the send went: the previous link is dead either way, which is the fact an
       // administrator has to act on when the message did not leave.
-      message: `${describeAdresswechselMail(mint, versand)} Der vorherige Link gilt nicht mehr.${mint.adresse_belegt ? ` ${ADRESSE_BELEGT_SATZ}` : ""}`,
+      message: `${describeAdresswechselMail(mint, versand)} Der vorherige Link gilt nicht mehr.`,
       versand: versand.link,
       hinweis: versand.hinweis,
-      // Read again by the re-send's own transaction: records may have reached the new address since the start.
-      adresseBelegt: mint.adresse_belegt,
     };
   });
 }
@@ -172,18 +167,25 @@ export async function verwirfAdresswechselAction(rawPayload: FLAdresswechselVerw
  * this press, which owes what a confirmation would: the account's move, the completion notice, and the grant's
  * announcement.
  */
-export async function genehmigeAdresswechselAction(rawPayload: FLAdresswechselGenehmigungPayload): Promise<ActionResult> {
+export async function genehmigeAdresswechselAction(
+  rawPayload: FLAdresswechselGenehmigungPayload,
+  // The row's served reason the address tool refuses this approver, sent by the page: it words the discard a refusal
+  // sends them to, and authorises nothing, the backend judging the approval and the tool on their own.
+  einsehbarVerwehrt: EinsehbarVerwehrt | null,
+): Promise<ActionResult> {
   // The enrolment's window, the grant write's own: the approval hands a grant to another address (`docs/frontend/spec.md :: I458`).
   return runAdminMutation("genehmigeAdresswechselAction", { stepUp: "enrolment" }, async () => {
     const validated = FLAdresswechselGenehmigungPayloadSchema.safeParse(rawPayload);
+    const verwehrt = EinsehbarVerwehrtSchema.nullable().safeParse(einsehbarVerwehrt);
 
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    if (!verwehrt.success) return { success: false, error: VALIDATION_FAILED };
 
     let antwort;
     try {
       antwort = await genehmigeAdresswechsel(validated.data);
     } catch (error) {
-      const refusal = mapGenehmigungRefusal(error);
+      const refusal = mapGenehmigungRefusal(error, verwehrt.data);
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }

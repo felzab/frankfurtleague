@@ -107,6 +107,15 @@ function offenSatz(offen: FLKontoAdresswechselOffen): string {
   return `Die neue E-Mail-Adresse ${email} wartet auf ihre Bestätigung${bis === null ? "" : `, längstens bis ${bis}`}. Bis zur Bestätigung gilt Deine bisherige Adresse.${zugang}`;
 }
 
+/** A lapsed change's sentence, naming the cause only where the person did their part and the administration did not. */
+function abgelaufenSatz(offen: FLKontoAdresswechselOffen): string {
+  const satz = `Die Änderung auf die neue E-Mail-Adresse ${offen.email} ist abgelaufen`;
+  // Confirmed, so only the grant's approval can have lapsed.
+  const bestaetigt = offen.wartet_auf === "genehmigung" || offen.wartet_auf === "wartezeit";
+
+  return bestaetigt ? `${satz}, weil die Verwaltung ihr nicht rechtzeitig zugestimmt hat.` : `${satz}.`;
+}
+
 /**
  * The account page's address control: the person's own start, and a pending change's approval and stop.
  * A start or an approval hands the records over, so each asks a confirmation first
@@ -223,8 +232,11 @@ export function AdresswechselPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      {offen === null ? (
+      {/* A lapsed change's approval is refused until the hourly pass ends it, and a start replaces it: the panel offers
+          the start, so the person never waits on the pass to change their address. */}
+      {offen === null || offen.abgelaufen ? (
         <>
+          {offen !== null && <p className="fluid-sm text-pretty text-foreground">{abgelaufenSatz(offen)}</p>}
           <p className="muted-hint text-pretty">
             Mit dieser Adresse meldest Du Dich an, und unter ihr stehen Deine Einträge. Eine neue gilt erst, wenn Du sie über den Link
             bestätigst, den wir an sie schicken. Bis dahin bleibt diese in Kraft.

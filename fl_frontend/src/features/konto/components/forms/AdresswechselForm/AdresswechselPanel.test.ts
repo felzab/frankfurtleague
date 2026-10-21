@@ -216,6 +216,46 @@ describe("the account page's address control", () => {
     assert.doesNotMatch(document.body.textContent, /Zugang zur Verwaltung/);
   });
 
+  /* The backend refuses a lapsed step's approval until the hourly pass ends the change, and a start replaces it. */
+  it("offers a lapsed change's start in place of its approval and its stop, naming no deadline past", async () => {
+    const user = userEvent.setup();
+    render(panel(offen({ email: "m•••@g•••.de", weg: "freigabe", wartet_auf: "freigabe", abgelaufen: true }), 1));
+
+    assert.deepEqual(
+      screen.getAllByRole("button").map((button) => button.textContent.trim()),
+      [E_MAIL_ADRESSE_AENDERN],
+    );
+    assert.match(document.body.textContent, /Die Änderung auf die neue E-Mail-Adresse m•••@g•••\.de ist abgelaufen\./);
+    assert.doesNotMatch(document.body.textContent, /Freigeben kannst Du bis/);
+
+    await user.click(screen.getByRole("button", { name: E_MAIL_ADRESSE_AENDERN }));
+    await user.type(screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ }), "lena@neu.example");
+    await user.click(screen.getByRole("button", { name: "Link an neue Adresse senden" }));
+    await act(answered);
+
+    assert.deepEqual(
+      calls.map(({ action, payload }) => [action, payload]),
+      [["starteAdresswechselAction", { email: "lena@neu.example" }]],
+    );
+  });
+
+  /* The person confirmed, and was told the change waits on the administration: the lapse names that step. */
+  it("says a confirmed change lapsed on the administration's approval, never the deadline it passed", () => {
+    const genehmigung = { verwaltung: "administration" as const, genehmigt: false, bis: "2026-10-20T11:30:00Z" };
+    // Waiting on its approval alone, and on a waiting time besides: both were confirmed.
+    for (const wartend of [{ wartet_auf: "genehmigung" as const }, { wartet_auf: "wartezeit" as const, wirksam_ab: "2026-10-27T11:30:00Z" }]) {
+      const { unmount } = render(panel(offen({ ...wartend, gueltig_bis: null, genehmigung: genehmigung, abgelaufen: true }), null));
+
+      assert.match(
+        document.body.textContent,
+        /Die Änderung auf die neue E-Mail-Adresse lena@neu\.example ist abgelaufen, weil die Verwaltung ihr nicht rechtzeitig zugestimmt hat\./,
+        wartend.wartet_auf,
+      );
+      assert.doesNotMatch(document.body.textContent, /zustimmen, bis|gilt ab/, wartend.wartet_auf);
+      unmount();
+    }
+  });
+
   /* A stop hands nothing over, so it asks nothing, whatever the window. */
   it("takes the person's own start back without asking, the press their own word for it", async () => {
     render(panel(offen({}), null));

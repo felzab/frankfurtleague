@@ -40,7 +40,7 @@ import {
   steps,
 } from "@/shared/testing/pageHarness.ts";
 import { answerShown, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { renderMarkup, renderTree } from "@/shared/testing/renderTest";
+import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import { buildKontakteBanners } from "./components/forms/AdminKontakteEditForm/banners.ts";
@@ -98,6 +98,7 @@ const { default: AdminKontakteEditPage } = await import("@/app/bereich/admin/kon
 const { AdminTeamEditForm } = await import("@/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx");
 const { DRAFT_DISCARDED } = await import("@/shared/utils/draftGuard.ts");
 const { StepUpContext } = (await import("@/shared/components/ui/stepUp.ts")) as unknown as { StepUpContext: React.Context<unknown> };
+const { EINSEHBAR_VERWEHRT } = await import("@/features/adresswechsel/einsehbar.ts");
 
 /** The stored shape, which the list seat takes a subset of, so one person serves both renders below. */
 const ADA: FLKontaktperson = {
@@ -743,6 +744,26 @@ describe("the editor's shape", () => {
     assert.ok(html.includes(`href="/bereich/admin/adresswechsel?adresswechsel=${id}`), "the line links elsewhere than the change in the tool");
     assert.ok(!sectionMarkup(BLOCK).includes("läuft eine Änderung"), "a seat no change waits at shows the line");
   });
+
+  /* A contact person who is an administrator too: the tool refuses its reader their own address, and a grant holder's
+     without an owner's power, so that seat's line links into no refusal and says where the change opens. */
+  for (const verwehrt of ["eigene", "verwaltung"] as const) {
+    it(`links no seat's change the tool refuses this reader as ${verwehrt}, saying where it opens`, () => {
+      const id = "68c1f0a2b3c4d5e6f7a8b9e0";
+      const html = editorTree(
+        sectionElement(BLOCK, true, true, null, {
+          trainer: null,
+          ansprechperson: id,
+          stellvertretung: null,
+          einsehbar_verwehrt: { trainer: null, ansprechperson: verwehrt, stellvertretung: null },
+        }),
+        BLOCK,
+      );
+
+      assert.ok(!html.includes(`adresswechsel=${id}`), "the seat's line links into the tool's refusal");
+      assert.ok(textOf(html, " ").includes(`läuft eine Änderung. ${EINSEHBAR_VERWEHRT[verwehrt]}`), "the line says nothing of where it opens");
+    });
+  }
 
   /* The seat's box takes input, so „diese Adresse“ would point at what is typed: the change is the stored address's. */
   it("names the stored address the change is at, whatever the seat's box now holds", () => {

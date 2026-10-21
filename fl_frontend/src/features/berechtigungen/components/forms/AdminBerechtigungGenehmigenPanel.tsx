@@ -65,7 +65,7 @@ export function AdminBerechtigungGenehmigenPanel({
     const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await genehmigeAdresswechselAction({ id: adresswechsel.id }).catch(rejectedWrite(router));
+      const res = await genehmigeAdresswechselAction({ id: adresswechsel.id }, adresswechsel.einsehbar_verwehrt).catch(rejectedWrite(router));
 
       if (!res.success) {
         appToast.failure("Nicht genehmigt", res);

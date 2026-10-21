@@ -192,6 +192,9 @@ export const GESTELLT_VON_LABEL = "Gestellt von";
 export const GESTELLT_AM_LABEL = "Gestellt am";
 export const OFFEN_BIS_LABEL = "Offen bis";
 
+/** The heading over the grants while the requests' section stands above them, which would otherwise seem to head them too. */
+export const ALLE_ZUGAENGE = "Alle Zugänge";
+
 /** A second request about an address one already waits for: the way out is deciding that one, so the sentence says where it is. */
 export const ANTRAG_OFFEN = `Für diese Adresse wartet schon ein Antrag. Du findest ihn unter „${OFFENE_ANTRAEGE}“.`;
 

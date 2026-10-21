@@ -6,6 +6,8 @@ import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
+import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
+
 /**
  * The pupil's sign-in address, read here and changed nowhere on this page: the save never carries it, and a change
  * is the person's own on their account page or the address tool's.
@@ -13,10 +15,12 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 export function FormAdresseSection({
   email,
   adresswechselId,
+  adresswechselVerwehrt,
 }: {
   /** The stored, folded address: every pupil holds one, their registration's. */
   email: string;
   adresswechselId: string | null;
+  adresswechselVerwehrt: EinsehbarVerwehrt | null;
 }) {
   const panel = formPanel();
 
@@ -34,7 +38,10 @@ export function FormAdresseSection({
           <Angabe label="Hinterlegte Adresse">{email}</Angabe>
         </dl>
 
-        <AdresswechselHinweis adresswechselId={adresswechselId} />
+        <AdresswechselHinweis
+          adresswechselId={adresswechselId}
+          verwehrt={adresswechselVerwehrt}
+        />
       </div>
     </section>
   );

@@ -70,9 +70,10 @@ export type FLAdresswechselAnsichtPayload = z.infer<typeof FLAdresswechselAnsich
  */
 export const FLAdresswechselAnsichtNeuSchema = z.object({
   seite: z.literal("neu"),
-  // `bestaetigt` is a pressed link whose change still stands, waiting on its time or an approval.
-  zustand: z.enum(["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar", "bestaetigt"]),
-  // Null exactly on `bestaetigt`, a pressed link running to no deadline.
+  // `bestaetigt` is a pressed link whose change still stands, waiting on its time or an approval;
+  // `genehmigung_abgelaufen` one whose approval's week ran out, which the hourly pass ends unapproved.
+  zustand: z.enum(["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar", "bestaetigt", "genehmigung_abgelaufen"]),
+  // Null exactly on a pressed link, which runs to no deadline of its own.
   gueltig_bis: z.string().nullable(),
   wirksam_ab: z.string().nullable(),
   weg: FLAdresswechselWegSchema,

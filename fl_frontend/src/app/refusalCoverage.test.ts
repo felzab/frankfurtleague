@@ -143,7 +143,7 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /adresswechsel": adresswechsel.mapVerwaltungStartRefusal,
   "POST /adresswechsel/{adresswechsel_id}/einladen": adresswechsel.mapVerwaltungLinkRefusal,
   "DELETE /adresswechsel/{adresswechsel_id}": adresswechsel.mapVerwaltungLinkRefusal,
-  "POST /adresswechsel/{adresswechsel_id}/genehmigung": adresswechsel.mapGenehmigungRefusal,
+  "POST /adresswechsel/{adresswechsel_id}/genehmigung": (error) => adresswechsel.mapGenehmigungRefusal(error, null),
   // The operator's own address and a grant holder's are the slice's; the unique index's is the shared reader's.
   "POST /identitaet/erasure/ansicht": funktionen.mapErasureRefusal,
   "POST /identitaet/erasure": funktionen.mapErasureRefusal,

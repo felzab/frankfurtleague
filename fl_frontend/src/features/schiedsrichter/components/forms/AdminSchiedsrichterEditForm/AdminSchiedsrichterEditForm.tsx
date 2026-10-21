@@ -32,6 +32,7 @@ import { FormHonorarSection } from "./FormHonorarSection";
 import { FormKontaktSection } from "./FormKontaktSection";
 import { FormPersonSection } from "./FormPersonSection";
 
+import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
 import type {
   FLPatchSchiedsrichterPayload,
   FLSchiedsrichterBestaetigung,
@@ -76,6 +77,8 @@ type AdminSchiedsrichterEditFormProps = {
     bestaetigung: FLSchiedsrichterBestaetigung | null;
     /** The change pending at the stored address, which the address tool shows and this page links to. */
     adresswechsel_id: string | null;
+    /** Why the address tool refuses this administrator that change, as the read serves it: the page then links nowhere. */
+    adresswechsel_einsehbar_verwehrt: EinsehbarVerwehrt | null;
     /** Whether the link's deadline has passed, as the read judged it rather than this browser's day. */
     abgelaufen: { bestaetigung: boolean };
   };
@@ -104,7 +107,11 @@ export function AdminSchiedsrichterEditForm({ schiedsrichter, istFassungBekannt,
   const [defaultPayment, setDefaultPayment] = useState<number | null>(schiedsrichter.default_payment);
   const bestaetigteAdresse =
     schiedsrichter.einwilligung?.bestaetigt_am != null && schiedsrichter.kontakt.email !== null
-      ? { email: schiedsrichter.kontakt.email, adresswechselId: schiedsrichter.adresswechsel_id }
+      ? {
+          email: schiedsrichter.kontakt.email,
+          adresswechselId: schiedsrichter.adresswechsel_id,
+          adresswechselVerwehrt: schiedsrichter.adresswechsel_einsehbar_verwehrt,
+        }
       : null;
 
   // Over the STORED address: none is somewhere no link can go and no undo may write back.

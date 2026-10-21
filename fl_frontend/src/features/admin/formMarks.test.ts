@@ -237,6 +237,7 @@ const FORMS: Record<string, FormCase> = {
             einwilligung: null,
             bestaetigung: null,
             adresswechsel_id: null,
+            adresswechsel_einsehbar_verwehrt: null,
             abgelaufen: { bestaetigung: false },
           },
           istFassungBekannt: true,
@@ -259,6 +260,7 @@ const FORMS: Record<string, FormCase> = {
         geburtsdatum: "2009-05-04",
         email: "lena.meier@example.com",
         adresswechsel_id: null,
+        adresswechsel_einsehbar_verwehrt: null,
       };
       const membership = {
         team_id: TEAM_A.teamId,

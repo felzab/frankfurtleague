@@ -93,9 +93,10 @@ describe("the new mailbox's side of the address page", () => {
     assert.doesNotMatch(words(OFFEN), /eine Woche/);
   });
 
-  /* Told alike whatever the address holds: a sentence for an address holding records would answer a stranger whether it is known. */
-  it("warns every open link that records already under the address join the sign-in", () => {
-    assert.match(words(OFFEN), /Bestätige nur, wenn Du diese Änderung selbst angefragt hast\. Stehen unter dieser Adresse schon Einträge/);
+  /* An address already holding entries of its own is refused at the confirmation, so no open link promises them a join. */
+  it("asks for the confirmation only of whoever asked for the change, and promises no join of entries", () => {
+    assert.match(words(OFFEN), /Bestätige nur, wenn Du diese Änderung selbst angefragt hast\./);
+    assert.doesNotMatch(words(OFFEN), /Einträge|einer Anmeldung/);
   });
 
   /* The decline outlives the deadline and the ban (`docs/frontend/spec.md :: I630`): the address goes whatever stands. */
@@ -133,13 +134,6 @@ describe("the new mailbox's side of the address page", () => {
       words(bestaetigt),
       /gilt ab 28\. Oktober 2026 um 13:30 ?\..*Bis dahin meldest Du Dich mit der bisherigen an\..*Passkeys gelten weiter/,
     );
-    // No account is carried onto an address holding records of its own, so the passkeys' promise names that case.
-    for (const weg of ["konto", "freigabe"] as const) {
-      assert.match(
-        words({ ...bestaetigt, weg: weg }),
-        /Stand unter der neuen Adresse schon etwas bei uns, meldest Du Dich dort mit einem Code an und richtest einen neuen Passkey ein\./,
-      );
-    }
     assert.match(words({ ...bestaetigt, wirksamAb: null, genehmigungOffen: true }), /gilt, sobald die Verwaltung die Änderung genehmigt hat/);
     assert.match(words({ ...bestaetigt, genehmigungOffen: true }), /frühestens ab 28\. Oktober 2026 um 13:30 ?, und erst wenn die Verwaltung/);
 
@@ -150,6 +144,28 @@ describe("the new mailbox's side of the address page", () => {
       !wartezeit.includes(JA_MEINE_ADRESSE) && !wartezeit.includes(NICHT_MEINE_ADRESSE),
       "a pressed link offers a press the backend refuses",
     );
+  });
+
+  /* Pressed, so the backend refuses the decline as well; and its link never lapsed, the approval's week did. */
+  it("tells a confirmed change whose approval lapsed why it ends, offering no press", () => {
+    render(h(AdresswechselLinkView, { start: { zustand: "genehmigung_abgelaufen", weg: "konto" } }));
+
+    assert.equal(screen.getByRole("heading", { level: 1 }).textContent, "Änderung abgelaufen");
+    assert.deepEqual(
+      screen.queryAllByRole("button").map((button) => button.textContent.trim()),
+      [],
+    );
+    assert.match(
+      document.body.textContent,
+      /Die Änderung ist abgelaufen, weil die Verwaltung ihr nicht rechtzeitig zugestimmt hat\. Diese Adresse wird nicht übernommen\. Brauchst Du die Änderung noch, frag sie in Deinem Konto neu an\./,
+    );
+    assert.doesNotMatch(document.body.textContent, /Dieser Link ist abgelaufen|24 Stunden/);
+
+    for (const weg of ["freigabe", "wartezeit"] as const) {
+      const shown = words({ zustand: "genehmigung_abgelaufen", weg });
+      assert.doesNotMatch(shown, /in Deinem Konto/, `a lapsed ${weg} change is sent to an account page that cannot start it`);
+      assert.match(shown, /Brauchst Du die Änderung noch, schreib uns an/);
+    }
   });
 
   it("a barred address opens on the ban's sentence and nothing else (`docs/frontend/spec.md :: I516`)", () => {
@@ -173,6 +189,7 @@ describe("the new mailbox's side of the address page", () => {
       [{ zustand: "abgelaufen", weg: "konto", token: "abc123" }, "Dieser Link ist abgelaufen."],
       [{ zustand: "nicht_bestaetigbar", weg: "konto", token: "abc123" }, "kann nicht mehr bestätigt werden."],
       [{ zustand: "bestaetigt", wirksamAb: null, genehmigungOffen: true, weg: "konto" }, "sobald die Verwaltung die Änderung genehmigt hat."],
+      [{ zustand: "genehmigung_abgelaufen", weg: "konto" }, "weil die Verwaltung ihr nicht rechtzeitig zugestimmt hat."],
       [{ zustand: "beendet", seite: "bisherig", art: "wirksam" }, "Für das Konto gilt inzwischen eine neue E-Mail-Adresse."],
       [{ zustand: "ungueltig" }, "Zu diesem Link finden wir keine Änderung."],
       [{ zustand: "gesperrt" }, LINK_ADRESSE_GESPERRT],
@@ -291,6 +308,7 @@ describe("the new mailbox's side of the address page", () => {
       { zustand: "gesperrt" },
       { zustand: "beendet", seite: "neu", art: "wirksam" },
       { zustand: "bestaetigt", wirksamAb: null, genehmigungOffen: true, weg: "konto" },
+      { zustand: "genehmigung_abgelaufen", weg: "konto" },
     ] as const) {
       assert.ok(!("token" in startOf(ohne, "abc123")), `${ohne.zustand} kept a token no press may spend`);
     }
@@ -437,6 +455,16 @@ describe("the address page over its read", () => {
 
     answerReadsWith(() => ({ acknowledged: 1, ansicht: { seite: "bisherig", zustand: "beendet", art: "wirksam" } }));
     assert.deepEqual(await pageStart(), { zustand: "beendet", seite: "bisherig", art: "wirksam" });
+  });
+
+  /* Pressed, so its own state and no token: the read's `abgelaufen` keeps one for the decline an unpressed link still takes. */
+  it("opens a pressed link whose approval lapsed on its own state, without the token", async () => {
+    answerReadsWith(() => ({
+      acknowledged: 1,
+      ansicht: { seite: "neu", zustand: "genehmigung_abgelaufen", gueltig_bis: null, wirksam_ab: null, weg: "konto", genehmigung_offen: null },
+    }));
+
+    assert.deepEqual(await pageStart(), { zustand: "genehmigung_abgelaufen", weg: "konto" });
   });
 
   it("opens on its own state where the network never answered the read, rather than calling a live link void", async () => {
