@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -178,6 +178,29 @@ describe("the referee's report form", () => {
     const gespeichert = draftOf(LESEN.bericht);
     const status = deriveSpielberichtDraftStatus({ kontext, stored: gespeichert, draft: gespeichert, fieldErrors: {} });
     assert.equal(status.byPath.get("bericht.torschuetzen")?.storedText, "Goethe-Gymnasium: anonym, 23.");
+  });
+
+  /* Every entry repeats „Team“, „Spielerin oder Spieler“ and „Minute“: named by its title, each entry's group tells a
+     screen reader whose controls these are (W3C ARIA17). */
+  it("groups each entry's controls under the entry's title", async () => {
+    const user = userEvent.setup();
+    render(leer());
+    await user.click(screen.getByRole("button", { name: "Tor hinzufügen" }));
+    await user.click(screen.getByRole("button", { name: "Karte hinzufügen" }));
+
+    for (const titel of ["Tor 1", "Karte 1"]) {
+      const gruppe = screen.getByRole("group", { name: titel });
+      assert.ok(within(gruppe).getByRole("button", { name: /^Team/ }), `${titel} holds no team picker`);
+      assert.ok(within(gruppe).getByRole("textbox", { name: "Minute" }), `${titel} holds no minute`);
+    }
+
+    // The picker's description stands from the first render, so a note arriving later is named, and hides while empty.
+    const person = within(screen.getByRole("group", { name: "Tor 1" })).getByRole("button", { name: /Spielerin oder Spieler/ });
+    const beschreibung = (person.getAttribute("aria-describedby") ?? "")
+      .split(" ")
+      .map((id) => document.getElementById(id))
+      .find((element) => element?.tagName === "P");
+    assert.equal(beschreibung?.hidden, true, "the picker's empty description is missing or takes space");
   });
 
   /* „45+2“ needs a „+“, which a digits keypad may not carry on the phone a referee fills the report in on. */
@@ -353,7 +376,13 @@ describe("the referee's report form", () => {
 
     await pick(user, screen.getByRole("button", { name: /^Team/ }), "Lessing-Gymnasium");
 
-    assert.ok(screen.getByText(/Für dieses Team ist kein Kader hinterlegt\. Jedes Tor trägst Du dann als „unbekannt“ ein\./));
+    // The picker's own description, which a screen reader hears on reaching it, and no paragraph beside it.
+    assert.ok(
+      screen.getByRole("button", {
+        name: /Spielerin oder Spieler/,
+        description: /Für dieses Team ist kein Kader hinterlegt\. Jedes Tor trägst Du dann als „unbekannt“ ein\./,
+      }),
+    );
   });
 
   /* A knockout correction re-fielded team 2 since the report: the backend reads it `teams_geaendert` until a write stamps
@@ -394,7 +423,13 @@ describe("the referee's report form", () => {
       const gelesen = spielberichtReadFixture();
       // Team 2's squad is the new club's: the stored card names a pupil of the club that left.
       render(umbesetzt({ ...gelesen, kader: { ...gelesen.kader, team2: [] } }));
-      assert.ok(screen.getByText("Die eingetragene Person spielt nicht für dieses Team. Wähle die Person neu."));
+      assert.ok(
+        screen.getByRole("button", {
+          name: /Spielerin oder Spieler/,
+          description: /^Die eingetragene Person spielt nicht für dieses Team\. Wähle die Person neu\./,
+        }),
+        "the emptied picker does not say why",
+      );
       assert.ok(screen.getByText(/aus ihren Einträgen genommen/), "the banner leaves the removal unsaid");
       calls.length = 0;
 
