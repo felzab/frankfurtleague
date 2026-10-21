@@ -155,7 +155,7 @@ async def queue_the_ending_in_session(
     """Tell each requester how their request ended, after the removal that takes its own notices.
 
     The requester stands in `geaendert_von`, where an erasure, a ban and an address change reach any actor; none names the
-    decider (`docs/backend/spec.md :: I866`).
+    decider (`docs/backend/spec.md :: I867`).
     """
 
     if not antraege:

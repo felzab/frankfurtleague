@@ -39,7 +39,7 @@ FLAdresswechselEinsehbarVerwehrt = Literal["eigene", "verwaltung"]
 FLBerechtigungAenderungArt = Literal["erteilt", "entzogen", "geaendert"]
 
 # What else an outbox row tells: a request's end, for its requester: refused by an administrator, or ended by its
-# address's change (`docs/backend/spec.md :: I866`).
+# address's change (`docs/backend/spec.md :: I867`).
 FLBerechtigungAntragEndeArt = Literal["antrag_abgelehnt", "antrag_beendet"]
 
 # What an outbox row tells: a change to a grant; or, no change of one yet, a grant or promotion asked for (`beantragt`)

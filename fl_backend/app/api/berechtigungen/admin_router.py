@@ -856,7 +856,7 @@ async def delete_antrag(
             antrag_id=antrag_id,
             session=session,
         )
-        # A decider's refusal is news to its requester; their own withdrawal is not (`docs/backend/spec.md :: I866`).
+        # A decider's refusal is news to its requester; their own withdrawal is not (`docs/backend/spec.md :: I867`).
         if not zurueckgezogen:
             await queue_the_ending_in_session(
                 [antrag],
