@@ -296,7 +296,10 @@ export const FLSpielberichtSchiedsrichterResponseSchema = BaseAPIResponseSchema.
 });
 export type FLSpielberichtSchiedsrichterResponse = z.infer<typeof FLSpielberichtSchiedsrichterResponseSchema>;
 
-/** `zustand` is null exactly where no block stands. */
+/**
+ * `zustand` is null exactly where no block stands. Both squads read empty unless the read asked `kader`
+ * (`getAdminSpielbericht`), as only the correction's form does: the panel names the report's pupils off `genannt`.
+ */
 export const FLSpielberichtAdminResponseSchema = BaseAPIResponseSchema.extend({
   ...spielberichtAnsicht,
   zustand: FLSpielberichtZustandSchema.nullable(),

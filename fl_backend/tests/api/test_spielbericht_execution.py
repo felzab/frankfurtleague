@@ -623,6 +623,31 @@ class TestAPupilErasedMidWriteConflictsWithTheAnchor:
         assert writes == 0
 
 
+class TestThePanelsReadServesTheSquadsOnlyWhereAsked:
+    def test_the_squads_come_with_kader_and_the_named_pupils_by_name_either_way(self, mongo_replica_set_url: str):
+        """The editor's panel reads every render and picks no pupil; the correction's form asks for the squads it picks from."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            ohne_bericht = await get_spielbericht_admin(spiel_id=SPIEL, db=client, **handles(database))
+            await put(database, client, bericht())
+            panel = await get_spielbericht_admin(spiel_id=SPIEL, db=client, **handles(database))
+            korrektur = await get_spielbericht_admin(spiel_id=SPIEL, db=client, kader=True, **handles(database))
+            return ohne_bericht, panel, korrektur
+
+        ohne_bericht, panel, korrektur = on_the_league(mongo_replica_set_url, body)
+
+        for read in (ohne_bericht, panel):
+            assert (read.kader.team1, read.kader.team2) == ([], [])
+        assert ohne_bericht.genannt == []
+        assert sorted((spieler.spieler_id, spieler.nachname) for spieler in panel.genannt) == [(LINA, "Krause"), (MIA, "Westphal")]
+        assert ([spieler.spieler_id for spieler in korrektur.kader.team1], [spieler.spieler_id for spieler in korrektur.kader.team2]) == (
+            [LINA],
+            [MIA],
+        )
+        # Named off the squads served, so the form's pickers hold them once.
+        assert korrektur.genannt == []
+
+
 # A correction on the first write's version, naming no pupil anew: both writes answer with the pupils the report names.
 KORREKTUR = bericht(torschuetzen=[tor("team1", LINA, "24")], stand=1)
 
