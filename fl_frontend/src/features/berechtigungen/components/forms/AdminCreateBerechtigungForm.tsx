@@ -48,9 +48,9 @@ export function AdminCreateBerechtigungForm({ onClose }: { onClose: () => void }
       marksRequired
       // The action's own window: a grant outlives the session making it.
       stepUp="enrolment"
-      successMessage={ZUGANG_ERTEILT}
-      // Saved as a request rather than the grant: the title must not say a grant was made that waits on another administrator.
-      warning={{ title: ZUGANG_BEANTRAGT, when: (saved) => saved.beantragt }}
+      // Saved as a request rather than the grant, a save that stood like any other: the title must not say a grant was
+      // made that waits on another administrator. The tier panel titles its promotion's request the same way.
+      successMessage={(saved) => (saved.beantragt ? ZUGANG_BEANTRAGT : ZUGANG_ERTEILT)}
       onClose={onClose}
     />
   );
