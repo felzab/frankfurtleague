@@ -11696,7 +11696,14 @@
             "title": "Weg"
           },
           "genehmigung_offen": {
-            "type": "boolean",
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Genehmigung Offen"
           }
         },

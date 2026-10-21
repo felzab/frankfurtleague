@@ -78,7 +78,8 @@ export const FLAdresswechselAnsichtNeuSchema = z.object({
   gueltig_bis: z.string().nullable(),
   wirksam_ab: z.string().nullable(),
   weg: FLAdresswechselWegSchema,
-  genehmigung_offen: z.boolean(),
+  // Null exactly where not `bestaetigt`: before the press it would tell a mistyped link's holder the account is an administrator's.
+  genehmigung_offen: z.boolean().nullable(),
 });
 export type FLAdresswechselAnsichtNeu = z.infer<typeof FLAdresswechselAnsichtNeuSchema>;
 

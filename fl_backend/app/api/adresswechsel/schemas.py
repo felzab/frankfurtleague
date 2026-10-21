@@ -175,7 +175,8 @@ class FLAdresswechselAnsichtNeu(BaseModel):
     gueltig_bis: FLUtcInstant | None
     wirksam_ab: FLUtcInstant | None
     weg: FLAdresswechselWeg
-    genehmigung_offen: bool
+    # Null exactly where not `bestaetigt`: whether the confirmed change waits on another administrator's approval.
+    genehmigung_offen: bool | None
 
 
 class FLAdresswechselAnsichtBisherig(BaseModel):

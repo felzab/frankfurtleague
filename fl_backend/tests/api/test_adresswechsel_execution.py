@@ -350,9 +350,24 @@ class TestTheLinks:
             "zustand": "gueltig",
             "wirksam_ab": None,
             "weg": "konto",
-            "genehmigung_offen": False,
+            "genehmigung_offen": None,
         }
         assert (bisherig.ansicht.seite, bisherig.ansicht.zustand, bisherig.ansicht.weg) == ("bisherig", "offen", "konto")
+
+    def test_a_grant_holder_s_link_tells_of_the_approval_only_once_pressed(self, mongo_replica_set_url: str):
+        """Before the press it would tell whoever holds a mistyped link that the account holds access to the administration."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            minted = await start(database, client)
+            before = await view(database, client, minted.token)
+            await answer(database, client, minted.token)
+            return before.ansicht, (await view(database, client, minted.token)).ansicht
+
+        before, after = on_a_person(mongo_replica_set_url, body)
+
+        assert (before.zustand, before.genehmigung_offen) == ("gueltig", None)
+        assert (after.zustand, after.genehmigung_offen) == ("bestaetigt", True)
 
     def test_a_token_no_change_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
