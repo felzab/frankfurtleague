@@ -53,7 +53,13 @@ function landed({ endpoint, method }: ApiCall): Promise<unknown> {
   };
   // The re-send reads the referee first, to mail the address the row holds.
   if (method === undefined)
-    return Promise.resolve({ acknowledged: 1, schiedsrichter: stored, bestaetigung_abgelaufen: false, adresswechsel_id: null });
+    return Promise.resolve({
+      acknowledged: 1,
+      schiedsrichter: stored,
+      bestaetigung_abgelaufen: false,
+      adresswechsel_id: null,
+      adresswechsel_einsehbar: false,
+    });
   if (method === "PATCH") return Promise.resolve({ acknowledged: 1, updated_document: stored, fanned_out_to_spiele: 0, bestaetigung: null });
   if (endpoint.endsWith("/reactivate")) return Promise.resolve({ acknowledged: 1, updated_document: stored, bestaetigung: null });
   return Promise.resolve({ acknowledged: 1, updated_document: stored });

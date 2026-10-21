@@ -512,10 +512,16 @@ def find_letzter_inhaber_erasure_refusal(*, identifier: str, grants: Iterable[Ma
 EIGENE_ADRESSE = "REQ-PURGE-003"
 
 
+def ist_eigene_adresse(*, identifier: str, akteur: str) -> bool:
+    """`REQ-PURGE-003`'s judgement, both folded: the refusal raises on it, and a read serving whether the tool opens an address asks it."""
+
+    return identifier == akteur
+
+
 def find_eigene_adresse_refusal(*, identifier: str, akteur: str) -> WriteRefusal | None:
     """`REQ-PURGE-003`: an administrator's route on a mailbox refuses the mailbox they act as, both folded."""
 
-    if identifier != akteur:
+    if not ist_eigene_adresse(identifier=identifier, akteur=akteur):
         return None
 
     return WriteRefusal(
@@ -535,6 +541,22 @@ JEDE_VERWALTUNG: Final[frozenset[str]] = frozenset(get_args(FLVerwaltung))
 NUR_INHABER: Final[frozenset[str]] = frozenset({OWNER})
 
 
+def verwaltung_adresse_verwehrt(
+    *,
+    identifier: str,
+    akteur: str,
+    auth_time: int,
+    grants: Sequence[Mapping[str, Any]],
+    announced: Sequence[Mapping[str, Any]],
+    geschuetzt: frozenset[str],
+) -> bool:
+    """`REQ-PURGE-005`'s judgement: the address holds a live grant of a `geschuetzt` tier and the actor no owner's power."""
+
+    return verwaltung_des(identifier, grants) in geschuetzt and not holds_an_owners_power(
+        akteur=akteur, auth_time=auth_time, grants=grants, announced=announced
+    )
+
+
 def find_verwaltung_adresse_refusal(
     *,
     identifier: str,
@@ -549,8 +571,8 @@ def find_verwaltung_adresse_refusal(
     `grants` and `announced` as stored, read where the caller judges, so a retry judges them afresh.
     """
 
-    if verwaltung_des(identifier, grants) not in geschuetzt or holds_an_owners_power(
-        akteur=akteur, auth_time=auth_time, grants=grants, announced=announced
+    if not verwaltung_adresse_verwehrt(
+        identifier=identifier, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced, geschuetzt=geschuetzt
     ):
         return None
 
@@ -566,15 +588,11 @@ def adresswechsel_einsehbar(
 ) -> bool:
     """Whether the address tool opens this address's change for this administrator: refused neither `REQ-PURGE-003` nor `-005`.
 
-    Served beside every change id a page links into the tool, so no link leads to the refusal.
+    Their judgements, never their finders: a read reaching a finder publishes that code (`tests/core/test_rule_publication.py`).
     """
 
-    return (
-        find_eigene_adresse_refusal(identifier=identifier, akteur=akteur) is None
-        and find_verwaltung_adresse_refusal(
-            identifier=identifier, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced, geschuetzt=JEDE_VERWALTUNG
-        )
-        is None
+    return not ist_eigene_adresse(identifier=identifier, akteur=akteur) and not verwaltung_adresse_verwehrt(
+        identifier=identifier, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced, geschuetzt=JEDE_VERWALTUNG
     )
 
 
