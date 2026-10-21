@@ -41,7 +41,7 @@ const APP_DIR = path.resolve(import.meta.dirname, "..");
 const TEAM = { team_id: SITZ.team_id, saison_id: "2526" };
 const TEAM_HREF = `/bereich/team/${TEAM.team_id}/${TEAM.saison_id}`;
 
-/** What stands in each layout's page slot, which the session's guard holds back. */
+/** What stands in each layout's page slot, which the layout holds back until the session is read. */
 const PAGE = "Seiteninhalt";
 
 /** A person holding every place, so whatever the session decides shows once it is read. */

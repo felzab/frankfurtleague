@@ -6,7 +6,9 @@ import { pathToFileURL } from "node:url";
 import { createElement as h } from "react";
 
 import { registerRenderingNothing } from "@/core/exportingModule.ts";
+import { person } from "@/core/subjectFixtures.ts";
 import { filesUnder, routeHandlerFiles } from "@/core/treeWalk.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answerReadsWith, backendNotFound, callPage, EMPTIEST_ANSWER } from "@/shared/testing/pageHarness.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
@@ -18,6 +20,8 @@ import type { Metadata, ResolvedMetadata } from "next";
 
 /* The views and forms are doubled whole: no case renders a page's body. */
 registerRenderingNothing(/\/src\/features\/[a-z]+\/components\/(?:views|forms)\/\w+\.tsx$/);
+// An administrator who is a person too, so each area's catch-all reaches its 404 past its own session check.
+doubleActionRequest({ subject: person() });
 
 /* Reached with `await import` and never a static import beside the harness
    (`docs/frontend/spec.md` §1.9). */
@@ -264,11 +268,12 @@ describe("where each area's 404 lives", () => {
      at all would serve that page for every mistyped address instead of the area's boundary. */
   it("hands that address to the area's own boundary", async () => {
     for (const dir of PREFIXED) {
-      const { default: Route } = (await import(pathToFileURL(catchAllsIn(dir)[0]!).href)) as { default: () => unknown };
+      const { default: Route } = (await import(pathToFileURL(catchAllsIn(dir)[0]!).href)) as { default: (props: PageProps) => unknown };
+      const { thrown } = await callPage(Route, { params: Promise.resolve({}), searchParams: Promise.resolve({}) });
 
-      assert.throws(
-        () => Route(),
-        (error: { digest?: string }) => error.digest === "NEXT_HTTP_ERROR_FALLBACK;404",
+      assert.deepEqual(
+        thrown.map((error) => (error as { digest?: unknown } | null)?.digest),
+        ["NEXT_HTTP_ERROR_FALLBACK;404"],
         `${prefixOf(dir)}'s catch-all renders rather than answering not-found`,
       );
     }

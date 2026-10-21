@@ -56,7 +56,7 @@ const SHELLS: { name: string; shell: ReactElement; pathname: string; params?: Re
 ];
 
 /* A server action deleting the session's cookie makes Next render the area again with the session gone, and the
-   guard's redirect unmounts the area's whole frame before the start page loads. */
+   page's redirect empties it before the start page loads. */
 describe("each area's sign-out (`docs/frontend/spec.md :: I831`)", () => {
   for (const { name, shell, pathname, params } of SHELLS) {
     it(`ends ${name}'s session at the sign-out route, calls no server action, and leaves by a document load`, async () => {
