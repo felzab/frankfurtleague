@@ -152,8 +152,19 @@ async function sweepSaison(saisonId: string, zaehler: Zaehler): Promise<void> {
   const notiert = (spielbestaetigungId: string, versand: "gesendet" | VersandAusfall) => {
     if (istVersandt(versand)) mitgeteilt.push(spielbestaetigungId);
   };
-  for (const neu of antwort.neue_ansetzungen) notiert(neu.spielbestaetigung_id, await mailNeueAnsetzung(neu));
-  for (const neu of antwort.schiedsrichter_neue_ansetzungen) notiert(neu.spielbestaetigung_id, await mailSchiedsrichterNeueAnsetzung(neu));
+  // Each fixture's mailbox whose void notice did not go: its fresh request waits, unstamped, for the next pass to ask it
+  // after the notice (`docs/frontend/spec.md :: I869`).
+  const ungewarnt = new Set<string>();
+  for (const neu of antwort.neue_ansetzungen) {
+    const versand = await mailNeueAnsetzung(neu);
+    notiert(neu.spielbestaetigung_id, versand);
+    if (!istVersandt(versand)) for (const { address } of neu.empfaenger) ungewarnt.add(postfach(neu.spiel_id, address));
+  }
+  for (const neu of antwort.schiedsrichter_neue_ansetzungen) {
+    const versand = await mailSchiedsrichterNeueAnsetzung(neu);
+    notiert(neu.spielbestaetigung_id, versand);
+    if (!istVersandt(versand)) ungewarnt.add(postfach(neu.spiel_id, neu.address));
+  }
   for (const weg of antwort.schiedsrichter_gewechselt) notiert(weg.spielbestaetigung_id, await mailSchiedsrichterGewechselt(weg));
   for (const ab of antwort.spiel_abgesagt) notiert(ab.spielbestaetigung_id, await mailSpielAbgesagt(ab));
   for (const ab of antwort.schiedsrichter_spiel_abgesagt) notiert(ab.spielbestaetigung_id, await mailSchiedsrichterSpielAbgesagt(ab));
@@ -186,9 +197,12 @@ async function sweepSaison(saisonId: string, zaehler: Zaehler): Promise<void> {
 
   const angefragt: string[] = [];
   for (const anfrage of antwort.anfragen) {
+    // The whole row waits, never one link of it: a row stamped for its other mailboxes is never asked again.
+    if (anfrage.links.some(({ address }) => ungewarnt.has(postfach(anfrage.spiel_id, address)))) continue;
     if (await mailAnfrage(anfrage, "anfrage")) angefragt.push(anfrage.spielbestaetigung_id);
   }
   for (const einteilung of antwort.einteilungen) {
+    if (ungewarnt.has(postfach(einteilung.spiel_id, einteilung.address))) continue;
     if (istVersandt(await mailEinteilung(einteilung))) angefragt.push(einteilung.spielbestaetigung_id);
   }
 
@@ -197,6 +211,11 @@ async function sweepSaison(saisonId: string, zaehler: Zaehler): Promise<void> {
     zaehler.angefragt += gestempelt.angefragt;
     zaehler.fehlgeschlagen += gestempelt.fehlgeschlagen;
   }
+}
+
+/** One fixture's mailbox: a person reading two fixtures' mail is told of each apart. */
+function postfach(spielId: string, address: string): string {
+  return `${spielId} ${address}`;
 }
 
 /** One fixture as the messages state it: the dates as the site prints them, a venue nobody assigned in the fixtures' word. */

@@ -490,6 +490,32 @@ describe("what one pass mails", () => {
     assert.equal(frische?.idempotencyKey, undefined, "a request carrying a fresh token was keyed");
   });
 
+  /* A mailbox the void notice missed would read the fresh request as the newer of the two: the request waits unstamped,
+     the next pass asking it after the notice, while the fixture's other mailboxes are asked as usual. */
+  it("holds a fresh request back from a mailbox its void notice did not reach, and leaves it unstamped", async () => {
+    ausgang.set("abgewiesen@schule.de", "refused");
+    ausgang.set("schiri-abgewiesen@schule.de", "refused");
+    passAnswer = (saisonId) => ({
+      ...leererPass(saisonId),
+      anfragen: [anfrage(1, "abgewiesen@schule.de"), anfrage(2, "gast@schule.de")],
+      einteilungen: [einteilung(3, "schiri-abgewiesen@schule.de")],
+      neue_ansetzungen: [{ ...hinweis(4), empfaenger: [{ address: "abgewiesen@schule.de", rollen: ["trainer"] }] }],
+      schiedsrichter_neue_ansetzungen: [{ ...hinweis(5), address: "schiri-abgewiesen@schule.de" }],
+    });
+
+    await runSpielSweep();
+
+    assert.deepEqual(
+      gesendet().map(({ to, subject }) => [to, subject.split(":")[0]]),
+      [
+        ["abgewiesen@schule.de", "Neu angesetzt"],
+        ["schiri-abgewiesen@schule.de", "Neu angesetzt"],
+        ["gast@schule.de", "Bitte bestätigen"],
+      ],
+    );
+    assert.deepEqual([gestempelt(), mitgeteilt()], [[id(2)], []]);
+  });
+
   /* The deadline the row carries, never one reckoned from the fixture's day. */
   it("names the deadline the pass answered and the link the row's token makes, to the mailbox that holds it", async () => {
     passAnswer = (saisonId) => ({ ...leererPass(saisonId), anfragen: [anfrage(1, "team@schule.de")] });
