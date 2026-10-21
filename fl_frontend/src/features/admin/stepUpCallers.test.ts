@@ -160,6 +160,7 @@ const refereeRecord = (answered: boolean) => ({
   einwilligung: answered ? BESTAETIGT : null,
   bestaetigung: null,
   adresswechsel_id: null,
+  adresswechsel_einsehbar_verwehrt: null,
 });
 
 /** As the list serves the record. */

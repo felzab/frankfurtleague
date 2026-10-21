@@ -1,5 +1,6 @@
 import z from "zod";
 
+import { ADRESSWECHSEL_EINSEHBAR_VERWEHRT } from "@/core/adresswechsel";
 import {
   BaseAPIResponseSchema,
   FLSelbstErasureBewerbungSchema,
@@ -102,10 +103,13 @@ export const FLErasureAnsichtRegistrierungSchema = FLSelbstErasureRegistrierungS
 });
 
 /**
- * Another address's pending change naming this one as its new address, which names no person to show; `einsehbar` says
- * whether the address tool opens it for this administrator.
+ * Another address's pending change naming this one as its new address, which names no person to show; `einsehbar_verwehrt`
+ * says why the address tool refuses it this administrator, null where it opens it.
  */
-export const FLErasureAnsichtAdresswechselSchema = z.object({ adresswechsel_id: CustomObjectIdStringSchema, einsehbar: z.boolean() });
+export const FLErasureAnsichtAdresswechselSchema = z.object({
+  adresswechsel_id: CustomObjectIdStringSchema,
+  einsehbar_verwehrt: z.enum(ADRESSWECHSEL_EINSEHBAR_VERWEHRT).nullable(),
+});
 
 /**
  * Mirrors `FLErasureAnsichtResponse`: every record the erasure would reach, by kind, name and id, and never the

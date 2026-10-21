@@ -185,7 +185,7 @@ describe("the waiting change's two controls", () => {
     [ADRESSWECHSEL_VERWERFEN, "verwirfAdresswechselAction"],
   ] as const) {
     it(`sends ${action} for the change shown alone, and has the tool read again`, async () => {
-      answerWith(() => Promise.resolve({ success: true, message: "Gesendet.", versand: "gesendet", hinweis: null, adresseBelegt: false }));
+      answerWith(() => Promise.resolve({ success: true, message: "Gesendet.", versand: "gesendet", hinweis: null }));
       const { tree, geschrieben } = panel(OFFEN);
       const { unmount } = render(tree);
       const before = calls.length;
@@ -210,9 +210,7 @@ describe("the waiting change's two controls", () => {
     ["zurueckgehalten", "warning", "Link zurückgehalten"],
   ] as const) {
     it(`grades a re-send whose link is ${versand} a ${variant} titled „${title}“`, async () => {
-      answerWith(() =>
-        Promise.resolve({ success: true, message: "Der vorherige Link gilt nicht mehr.", versand, hinweis: null, adresseBelegt: false }),
-      );
+      answerWith(() => Promise.resolve({ success: true, message: "Der vorherige Link gilt nicht mehr.", versand, hinweis: null }));
       const { tree } = panel(OFFEN);
       const { unmount } = render(tree);
 

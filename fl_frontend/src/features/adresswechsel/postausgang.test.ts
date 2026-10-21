@@ -46,7 +46,6 @@ const notice = {
   email: "neu@schule.de",
   vorname: null,
   weg: null,
-  adresse_belegt: null,
   aufgegeben: false,
 };
 const claimOf = (mitteilungen: unknown[]) => ({

@@ -1,5 +1,6 @@
 import z from "zod";
 
+import { ADRESSWECHSEL_EINSEHBAR_VERWEHRT } from "@/core/adresswechsel";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
@@ -136,8 +137,8 @@ export const FLSchiedsrichterSingleResponseSchema = BaseAPIResponseSchema.extend
   bestaetigung_abgelaufen: z.boolean(),
   // The change pending at the stored address, one for every record the address holds, for the address tool's link.
   adresswechsel_id: CustomObjectIdStringSchema.nullable(),
-  // Whether the address tool opens that change for this administrator; false where none stands.
-  adresswechsel_einsehbar: z.boolean(),
+  // Why the address tool refuses that change this administrator; null where it opens it or none stands.
+  adresswechsel_einsehbar_verwehrt: z.enum(ADRESSWECHSEL_EINSEHBAR_VERWEHRT).nullable(),
 });
 export type FLSchiedsrichterSingleResponse = z.infer<typeof FLSchiedsrichterSingleResponseSchema>;
 

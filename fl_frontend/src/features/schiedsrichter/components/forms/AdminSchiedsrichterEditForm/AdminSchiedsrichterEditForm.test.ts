@@ -56,6 +56,7 @@ const RECORD = {
   einwilligung: null,
   bestaetigung: null,
   adresswechsel_id: null,
+  adresswechsel_einsehbar_verwehrt: null,
   abgelaufen: { bestaetigung: false },
 };
 

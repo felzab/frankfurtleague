@@ -15,7 +15,7 @@ from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
 
-from app.api.berechtigungen.schemas import FLVerwaltung
+from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt, FLVerwaltung
 from app.api.berechtigungen.services import OWNER, holds_an_owners_power, lebendige, verwaltung_des
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
 from app.api.identitaet.schemas import FLErasureAnsicht, FLSelbstErasureAnsicht, FLSubjekt, FLSubjektSitz
@@ -238,7 +238,8 @@ def compose_erasure_ansicht_auf_anfrage(
     pupil_rows: Sequence[Mapping[str, Any]],
     registrierung_rows: Sequence[Mapping[str, Any]],
     adresswechsel_rows: Sequence[Mapping[str, Any]],
-    einsehbar: AbstractSet[str],
+    # Each address the tool refuses this reader, and why; one absent opens.
+    verwehrt: Mapping[str, FLAdresswechselEinsehbarVerwehrt],
     kader_rows: Sequence[Mapping[str, Any]],
     team_rows: Sequence[Mapping[str, Any]],
     unplayed_rows: Sequence[Mapping[str, Any]],
@@ -280,7 +281,9 @@ def compose_erasure_ansicht_auf_anfrage(
                 {**_registrierung_entry(row, team_names), "registrierung_id": row["_id"], "team_id": row["team_id"], "status": row["status"]}
                 for row in registrierung_rows
             ],
-            "adresswechsel": [{"adresswechsel_id": row["_id"], "einsehbar": row.get("adresse") in einsehbar} for row in adresswechsel_rows],
+            "adresswechsel": [
+                {"adresswechsel_id": row["_id"], "einsehbar_verwehrt": verwehrt.get(str(row.get("adresse")))} for row in adresswechsel_rows
+            ],
         }
     )
 
@@ -583,17 +586,22 @@ def find_verwaltung_adresse_refusal(
     )
 
 
-def adresswechsel_einsehbar(
+def adresswechsel_einsehbar_verwehrt(
     identifier: str, *, akteur: str, auth_time: int, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
-) -> bool:
-    """Whether the address tool opens this address's change for this administrator: refused neither `REQ-PURGE-003` nor `-005`.
+) -> FLAdresswechselEinsehbarVerwehrt | None:
+    """Why the address tool refuses this administrator this address's change, in the order it refuses; `None` where it opens it.
 
     Their judgements, never their finders: a read reaching a finder publishes that code (`tests/core/test_rule_publication.py`).
     """
 
-    return not ist_eigene_adresse(identifier=identifier, akteur=akteur) and not verwaltung_adresse_verwehrt(
+    if ist_eigene_adresse(identifier=identifier, akteur=akteur):
+        return "eigene"
+    if verwaltung_adresse_verwehrt(
         identifier=identifier, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced, geschuetzt=JEDE_VERWALTUNG
-    )
+    ):
+        return "verwaltung"
+
+    return None
 
 
 # 422 on the box, as the address the payload's own validator refuses there: the value typed is what is

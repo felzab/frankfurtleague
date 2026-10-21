@@ -30,6 +30,7 @@ const { raised } = doubleToasts();
 const { default: AdminLoeschungPage } = await import("@/app/bereich/admin/loeschung/page.tsx");
 const { FLErasureAnsichtResponseSchema } = await import("./schemas.ts");
 const { mapAbmeldungRefusal, mapErasureRefusal } = await import("./refusals.ts");
+const { EINSEHBAR_VERWEHRT } = await import("@/features/adresswechsel/einsehbar.ts");
 const { STEP_UP_LABEL, StepUpContext } = await import("@/shared/components/ui/stepUp.ts");
 
 /** A rule's refusal as the client raises one, for the mappers' own words. */
@@ -79,7 +80,7 @@ const EIN_EINTRAG_JE_ART = {
   registrierungen: [
     { registrierung_id: ID, saison_id: "2026", team_id: ID, team_name: "SG Alpha", status: "eingereicht", vorname: "Lena", nachname: "Meier" },
   ],
-  adresswechsel: [{ adresswechsel_id: "68c1f0a2b3c4d5e6f7a8b9e0", einsehbar: true }],
+  adresswechsel: [{ adresswechsel_id: "68c1f0a2b3c4d5e6f7a8b9e0", einsehbar_verwehrt: null }],
   verwaltung: "owner",
   gesperrt: true,
 } satisfies Omit<FLErasureAnsichtResponse, "acknowledged">;
@@ -522,6 +523,27 @@ describe("the reveal the arming read answers", () => {
       .map((link) => link.getAttribute("href"));
     assert.deepEqual(ziele, ["/bereich/admin/adresswechsel?adresswechsel=68c1f0a2b3c4d5e6f7a8b9e0&saison_id=2026"]);
   });
+
+  /* The address tool refuses its reader their own address and, without an owner's power, a grant holder's: such a
+     change's line opens nothing, and says where the change opens instead. */
+  for (const verwehrt of ["eigene", "verwaltung"] as const) {
+    it(`links no pending change the tool refuses this reader as ${verwehrt}, saying where it opens`, async () => {
+      const ansicht = {
+        ...NICHTS_GESPEICHERT,
+        adresswechsel: [{ adresswechsel_id: "68c1f0a2b3c4d5e6f7a8b9e0", einsehbar_verwehrt: verwehrt }],
+      };
+      const { user } = await renderPage({ readErasureAnsichtAction: { success: true, ansicht: ansicht } });
+      await typeRequest(user);
+      await arm(user);
+
+      const reveal = screen.getByRole("alert");
+      assert.equal(within(reveal).queryAllByRole("link").length, 0, "the line links into a refusal");
+      assert.ok(
+        within(reveal).queryByText(`Eine laufende Adressänderung auf diese Adresse. ${EINSEHBAR_VERWEHRT[verwehrt]}`) !== null,
+        "the line says nothing of where the change opens",
+      );
+    });
+  }
 
   /* A read nobody answered: the names ARE the confirmation, so the press stays closed and says why on itself as the
      reveal does, with how to read the list again (`docs/frontend/spec.md` §1.14). */

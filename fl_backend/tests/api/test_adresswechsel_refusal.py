@@ -115,8 +115,8 @@ class TestTheNewMailboxsState:
                 a_live_change(lapsed=True, bestaetigt=True),
                 True,
                 True,
-                "abgelaufen",
-                id="a confirmed change's lapsed approval week ranks first",
+                "genehmigung_abgelaufen",
+                id="a confirmed change's lapsed approval week ranks first, apart from a lapsed link",
             ),
         ],
     )

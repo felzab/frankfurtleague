@@ -271,9 +271,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   on file is mailed a link that stops the change at its start and a notice once it took effect, and
   neither names the new address; until a change takes effect the new address reaches nothing of the
   person's (`docs/backend/spec.md :: I560`). The sign-in account moves with a change its person started or the address on file
-  approved, every session of it ended, unless the new address already held records of its own
-  (`docs/backend/spec.md :: I860`), whose holder's records it would otherwise open, or holds an
-  account of its own; either way the old account keeps its sessions until the account sweep. After
+  approved, every session of it ended, unless the new address holds an account of its own, where the
+  old account keeps its sessions until the account sweep. A new address holding entries of its own
+  refuses the change (`docs/backend/spec.md :: I860`): no change joins two people's records. After
   a change started on a recorded reason, or onto such an address, the person signs in anew at the
   new address. A referee who has not yet confirmed holds no record an address could
   reach, so theirs is still replaced by the save and the fresh consent link goes to it.
