@@ -18,6 +18,7 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungZustand,
 )
 from app.api.spiele.schemas import (
+    SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY,
     FLPatchSpielDataPayload,
     FLSpiel,
     FLSpielOrtFieldPayload,
@@ -810,9 +811,13 @@ def grund_to_close(
     clubs = (ansetzung["team1_id"], ansetzung["team2_id"])
     # First, ahead of a move, neither leaving a new Ansetzung to announce; on the fixture's day as it
     # stands, or the row's where the fixture lost its date.
-    entschieden = entscheidung_of(
-        spiel=spiel, austritte=[austritte[team_id] for team_id in clubs if team_id in austritte], tag=spiel.get("datum") or ansetzung["datum"]
-    )
+    tag = spiel.get("datum") or ansetzung["datum"]
+    # Ahead of the decision a no-show records: entered before the day, nobody is due at the ground, so its
+    # parties are told and shown a call-off (`docs/backend/spec.md :: I836`).
+    if today < tag and spiel.get("sonderereignis") in SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY:
+        return "abgesagt"
+
+    entschieden = entscheidung_of(spiel=spiel, austritte=[austritte[team_id] for team_id in clubs if team_id in austritte], tag=tag)
     if entschieden is not None:
         return entschieden
 
@@ -1056,7 +1061,11 @@ def notice_holds(*, row: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
 
     grund = row["geschlossen"]["grund"]
     if grund == "abgesagt":
-        return entscheidung_of(spiel=spiel, austritte=[], tag=None) == "abgesagt"
+        # A no-show stands past its day, deciding the fixture, and still voids what its parties were asked.
+        return (
+            spiel.get("sonderereignis") in SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY
+            or entscheidung_of(spiel=spiel, austritte=[], tag=None) == "abgesagt"
+        )
 
     if grund == "schiedsrichter_gewechselt":
         return _referee_id(spiel) != row["partei"].get("schiedsrichter_id")

@@ -2451,13 +2451,15 @@ class TestAnAddressMovedBesideTheNoticeIsTheOneTold:
 # --- A FIXTURE CALLED OFF after its parties were asked (`docs/backend/spec.md :: I836`).
 
 
-async def asked_and_called_off(database: AsyncDatabase, client: AsyncMongoClient, *, stamped: bool = True) -> Any:
+async def asked_and_called_off(
+    database: AsyncDatabase, client: AsyncMongoClient, *, stamped: bool = True, sonderereignis: str = "ausgefallen"
+) -> Any:
     """The first pass asks both clubs and the referee, its requests stamped as mailed or not, and the fixture is called off."""
 
     first = await sweep(database, client)
     if stamped:
         await angefragt(database, client, [row["_id"] for row in await rows(database)])
-    await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"sonderereignis": "ausgefallen"}})
+    await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"sonderereignis": sonderereignis}})
 
     return first
 
@@ -2482,6 +2484,34 @@ class TestACalledOffFixtureTellsEveryPartyItAsked:
         assert {(notice.alt.datum, notice.alt.uhrzeit) for notice in [*second.spiel_abgesagt, *second.schiedsrichter_spiel_abgesagt]} == {
             (NEXT_WEEK, "18:00:00")
         }
+
+    def test_a_no_show_entered_before_the_day_tells_every_party_until_stamped(self, mongo_replica_set_url: str):
+        """Nobody is due at the ground, though the no-show decides the fixture: its notice holds on the pass after."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await asked_and_called_off(database, client, sonderereignis="nichtantreten_team1")
+            return await sweep(database, client), await sweep(database, client), await rows(database)
+
+        second, third, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        assert {row["geschlossen"]["grund"] for row in stored} == {"abgesagt"}
+        for answer in (second, third):
+            assert sorted(empfaenger.address for notice in answer.spiel_abgesagt for empfaenger in notice.empfaenger) == sorted(
+                address(team_id, seat) for team_id in (ALPHA, BETA) for seat in KONTAKT_ROLLEN
+            )
+            assert [notice.address for notice in answer.schiedsrichter_spiel_abgesagt] == [REFEREE_EMAIL]
+
+    def test_a_no_show_entered_on_the_day_tells_nobody(self, mongo_replica_set_url: str):
+        """Read as the decision it records: the parties may already be at the ground."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await asked_and_called_off(database, client, sonderereignis="nichtantreten_team2")
+            return await sweep(database, client, today=NEXT_WEEK), await rows(database)
+
+        second, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+
+        assert {row["geschlossen"]["grund"] for row in stored} == {"spiel_entschieden"}
+        assert (second.geschlossen, second.spiel_abgesagt, second.schiedsrichter_spiel_abgesagt) == (3, [], [])
 
     def test_a_party_never_mailed_is_told_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

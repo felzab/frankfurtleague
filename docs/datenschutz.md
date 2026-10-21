@@ -969,7 +969,8 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
 - **A fixture's parties are mailed about it at the address on file when each message goes, and no
   message names a person.** A club's seats receive the request and its reminders, a booked referee the
   Einteilung; a party mailed about it is told when the fixture moves, a referee when the fixture no
-  longer books them, and every party mailed when it is called off (`docs/backend/spec.md :: I780`,
+  longer books them, and every party mailed when it is called off, a no-show entered before its day
+  included (`docs/backend/spec.md :: I780`,
   `:: I836`). A notice still owed is held on its closed row as a count of attempts and never as an
   address (`:: I835`), so it needs no erasure step of its own: the address is read as each pass
   sends, and a referee's erasure removes their rows. The taken-off and called-off notices ruled

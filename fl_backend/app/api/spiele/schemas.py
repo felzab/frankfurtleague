@@ -60,6 +60,13 @@ SONDEREREIGNIS_PRODUCING_A_RECORD: tuple[FLSonderereignis, ...] = (
     "nichtantreten_team2",
 )
 
+# What a fixture's confirmations read as a call-off once entered before the fixture's day: nobody is
+# due at the ground, though the event decides the fixture (`app/api/spielbestaetigungen/services.py :: grund_to_close`).
+SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY: tuple[FLSonderereignis, ...] = (
+    "nichtantreten_team1",
+    "nichtantreten_team2",
+)
+
 # `anzahl_abgesagte_spiele` counts fixtures that did not take place, so an annulment is in it and
 # only an abandonment -- played until it stopped -- is out. Equal to the absence half above by
 # accident, never by derivation: the questions differ.

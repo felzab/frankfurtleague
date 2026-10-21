@@ -1899,11 +1899,13 @@ class TestTheRefereesOwnRows:
 
         assert [eintrag.id for eintrag in eintraege] == [REFEREE_ROW]
 
-    def test_an_agreed_fixture_called_off_reads_as_called_off(self, mongo_replica_set_url: str):
+    # A no-show entered before the day decides the fixture, yet nobody is due at the ground either.
+    @pytest.mark.parametrize("sonderereignis", ["annulliert", "nichtantreten_team2"])
+    def test_an_agreed_fixture_called_off_reads_as_called_off(self, mongo_replica_set_url: str, sonderereignis: str):
         """Ahead of the agreement, before the pass has closed the row: a referee checking the panel must not travel."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"sonderereignis": "annulliert"}})
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"sonderereignis": sonderereignis}})
             return (await eigene(database, client)).spielbestaetigungen
 
         (eintrag,) = on_a_refereed_fixture(mongo_replica_set_url, body, rows=[referee_row(antwort=ZUGESAGT)])
