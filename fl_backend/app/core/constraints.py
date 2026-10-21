@@ -726,7 +726,12 @@ _SPIELBESTAETIGUNG_ANTWORT = _object(
 _SPIELBESTAETIGUNG_GESCHLOSSEN = _object(
     nullable=True,
     required=("am", "grund"),
-    properties={"am": {"bsonType": "string"}, "grund": {"bsonType": "string", "enum": _SPIELBESTAETIGUNG_GRUENDE}},
+    properties={
+        "am": {"bsonType": "string"},
+        "grund": {"bsonType": "string", "enum": _SPIELBESTAETIGUNG_GRUENDE},
+        # Optional: only a closing owing a notice holds one, until the pass is told it went or gives it up.
+        "mitteilung": _object(nullable=True, required=("versuche",), properties={"versuche": {"bsonType": "int"}}),
+    },
 )
 
 
@@ -1768,6 +1773,14 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("antwort.von.halter", ASCENDING),),
         "the reasons a leaving contact typed, from whichever seat",
     ),
+    # Read on every load of a referee's own panel, and inside every referee erasure's transaction, neither stating a
+    # fixture the season-leading index could narrow by.
+    SupportIndex(
+        Collection.SPIELBESTAETIGUNGEN,
+        "spielbestaetigungen_partei_schiedsrichter_id_saison_id",
+        (("partei.schiedsrichter_id", ASCENDING), ("saison_id", ASCENDING)),
+        "a referee's own rows, on their panel and at their erasure",
+    ),
     SupportIndex(
         Collection.SPIELBERICHTE,
         "spielberichte_saison_id",
@@ -1782,7 +1795,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "the reports a leaving referee sent, read inside their erasure's transaction",
     ),
     # The squad counts, the registrations' number read and a replacement's retirement match by club, with no collation;
-    # the only other index on `saison_id` is led by the pupil (`docs/backend/spec.md :: I835`).
+    # the only other index on `saison_id` is led by the pupil (`docs/backend/spec.md :: I838`).
     SupportIndex(
         Collection.SAISON_SPIELER,
         "saison_spieler_saison_id_team_id",

@@ -482,9 +482,9 @@ class TestTheRefereesNameFollowsTheirConsent:
         document = on_a_refereed_fixture(mongo_url, rows, joined, einwilligung=intern, fixture=fixture)
 
         served = FLSpielJoined.model_validate(document).schiedsrichter
-        assert served is not None and (served.schiedsrichter_id, served.name, served.name_is_public) == (REFEREE_ID, None, False)
+        assert served is not None and (served.name, served.name_is_public) == (None, False)
         admin = FLSpielJoinedAdmin.model_validate(document).schiedsrichter
-        assert admin is not None and admin.name == REFEREE_NAME
+        assert admin is not None and (admin.schiedsrichter_id, admin.name) == (REFEREE_ID, REFEREE_NAME)
 
     def test_a_published_name_is_served_reduced(self, mongo_url: str):
         served = FLSpielJoined.model_validate(on_a_refereed_fixture(mongo_url, [], joined)).schiedsrichter

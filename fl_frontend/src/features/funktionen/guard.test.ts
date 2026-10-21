@@ -281,6 +281,7 @@ const EINSATZ = {
   zustand: "gueltig",
   begruendung: null,
   eingetragen: false,
+  vergangen: false,
 };
 
 /** The referee's page, its two reads answering the referee's own data and the fixtures named. */

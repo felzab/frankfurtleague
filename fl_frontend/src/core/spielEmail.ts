@@ -73,6 +73,9 @@ export interface SpielNeueAnsetzungData {
   readonly empfaenger: SpielEmpfaenger;
 }
 
+/** What a party asked about a fixture called off since is told: the slot it was asked about, the one it knows. */
+export type SpielAbgesagtData = SpielNeueAnsetzungData;
+
 /** What a referee taken off a fixture after their Einteilung went out is told: the slot they were told of, as they know it. */
 export interface SpielEinteilungAufgehobenData {
   readonly origin: string;
@@ -90,6 +93,7 @@ const ERINNERUNG_UEBERSCHRIFT = "Erinnerung: Spieltermin bestätigen";
 const EINTEILUNG_UEBERSCHRIFT = "Einteilung als Schiedsrichterin oder Schiedsrichter";
 const NEU_UEBERSCHRIFT = "Spiel neu angesetzt";
 const AUFGEHOBEN_UEBERSCHRIFT = "Einteilung aufgehoben";
+const ABGESAGT_UEBERSCHRIFT = "Spiel abgesagt";
 
 /** Every seat of a team is mailed alike, so the close says who else read it. */
 const TEAM_EMPFAENGER_SATZ = "Diese E-Mail geht an die Kontaktpersonen Deines Teams.";
@@ -383,5 +387,58 @@ export function buildSpielEinteilungAufgehobenEmail({
     subject: `Nicht mehr eingeteilt: ${fakten.team1} gegen ${fakten.team2}`,
     html: html,
     text: [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(site, [EINZEL_EMPFAENGER_SATZ, ANTWORT_SATZ_TEXT])].join("\n"),
+  };
+}
+
+/** What the call-off ends for each reader, and what a reinstated fixture brings: a team was asked, a referee booked. */
+const ABGESAGT_SAETZE: Record<SpielEmpfaenger, readonly string[]> = {
+  team: [
+    "Die Anfrage zu diesem Spiel und ihr Link gelten nicht mehr. Du musst nichts tun.",
+    "Wird das Spiel neu angesetzt, bekommst Du eine neue Anfrage.",
+  ],
+  schiedsrichter: [
+    "Deine Einteilung zu diesem Spiel gilt nicht mehr. Du musst nichts tun.",
+    "Wird das Spiel neu angesetzt, bekommst Du eine neue Einteilung.",
+  ],
+};
+
+/**
+ * The word that a fixture a party was asked about is called off, so nobody who agreed travels to it: no button, nothing
+ * being left to answer, and no name, the address perhaps having changed hands since the request.
+ */
+export function buildSpielAbgesagtEmail({ origin, team1, team2, altDatumText, altUhrzeitText, empfaenger }: SpielAbgesagtData): SpielEmail {
+  const site = mailOrigin(origin);
+  const fakten = {
+    team1: einzeilig(team1),
+    team2: einzeilig(team2),
+    datum: einzeilig(altDatumText),
+    uhrzeit: einzeilig(altUhrzeitText),
+  };
+  const saetze = ABGESAGT_SAETZE[empfaenger];
+  const empfaengerSatz = empfaenger === "team" ? TEAM_EMPFAENGER_SATZ : EINZEL_EMPFAENGER_SATZ;
+
+  const abgesagt = (markup: boolean): string => {
+    const termin = markup
+      ? strong(`${escapeHtml(fakten.datum)} um ${escapeHtml(fakten.uhrzeit)} Uhr`)
+      : `${fakten.datum} um ${fakten.uhrzeit} Uhr`;
+
+    return `Hallo, das Spiel ${paarung(fakten.team1, fakten.team2, markup)} am ${termin} ist abgesagt.`;
+  };
+
+  const html = renderKarte({
+    titel: `${BRAND_NAME}: ${ABGESAGT_UEBERSCHRIFT}`,
+    ueberschrift: escapeHtml(ABGESAGT_UEBERSCHRIFT),
+    bloecke: [paragraph(abgesagt(true)), paragraph(saetze.map(escapeHtml).join(" "))],
+    aktionen: [],
+    fuss: `${empfaengerSatz} ${ANTWORT_SATZ_HTML}`,
+    origin: site,
+  });
+
+  const oben = [`${BRAND_NAME}: ${ABGESAGT_UEBERSCHRIFT}`, "", abgesagt(false), "", ...saetze];
+
+  return {
+    subject: `Abgesagt: ${fakten.team1} gegen ${fakten.team2} am ${fakten.datum}`,
+    html: html,
+    text: [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(site, [empfaengerSatz, ANTWORT_SATZ_TEXT])].join("\n"),
   };
 }

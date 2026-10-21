@@ -222,13 +222,17 @@ function BestaetigungZeile({
         ))}
 
       <dl className={FIELD_PAIR_CLASSES}>
+        {/* A closed row may be about any slot the fixture held, and its heading names only the party. */}
+        {geschlossen !== null && <Angabe label="Termin">{terminText({ datum: ansetzung.datum, uhrzeit: ansetzung.uhrzeit })}</Angabe>}
         <Angabe label="Antwort">{antwort === null ? <Leer>Noch keine</Leer> : ANTWORT_LABELS[antwort.art].label}</Angabe>
         {antwort !== null && <Angabe label="Von">{beantwortetVon(antwort.von)}</Angabe>}
         {antwort !== null && <Angabe label="Am">{formatSpielDatum(antwort.am)}</Angabe>}
         {antwort?.vorschlag && <Angabe label="Vorschlag">{terminText(antwort.vorschlag)}</Angabe>}
         {/* Unabridged and quoted: it is the record of how the date was agreed, and a cut one says something else. */}
         {antwort?.begruendung && <Angabe label="Begründung">„{antwort.begruendung}“</Angabe>}
-        <Angabe label="Frist">{formatSpielDatum(zeile.frist)}</Angabe>
+        {/* A club's alone: a referee answers until the fixture's day, whatever the row stores
+            (`fl_backend/app/api/spielbestaetigungen/services.py :: _past_frist`). */}
+        {zeile.partei.art === "team" && <Angabe label="Frist">{formatSpielDatum(zeile.frist)}</Angabe>}
         <Angabe label="Angefragt">{zeile.angefragt_am === null ? <Leer>Nicht verschickt</Leer> : formatSpielDatum(zeile.angefragt_am)}</Angabe>
         {zeile.erinnert_am.length > 0 && (
           <Angabe label="Erinnert am">{zeile.erinnert_am.map((tag) => formatSpielDatum(tag)).join(", ")}</Angabe>

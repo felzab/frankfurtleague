@@ -91,8 +91,8 @@ export const SCHIEDSRICHTER_KORREKTUR_HINWEIS =
 export const SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE = "Trage zuerst eine E-Mail-Adresse ein und speichere.";
 export const SCHIEDSRICHTER_EINLADEN_STILLGELEGT = "Reaktiviere den Eintrag, bevor Du einen Link sendest.";
 
-/** A booked referee as a fixture serves one: the public tier adds whether the name may stand, the admin tier nothing. */
-type GebuchterSchiedsrichter = { schiedsrichter_id: string; name: string | null; name_is_public?: boolean };
+/** A booked referee as a fixture serves one: the public tier serves whether the name may stand, the admin tier the id. */
+type GebuchterSchiedsrichter = { schiedsrichter_id?: string; name: string | null; name_is_public?: boolean };
 
 /**
  * **The id and the verdict decide, never the null name alone**: the ghost and a withheld name name nobody, a
