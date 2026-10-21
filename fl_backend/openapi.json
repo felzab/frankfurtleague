@@ -7545,7 +7545,7 @@
     "/api/v0/adresswechsel/{adresswechsel_id}/genehmigung": {
       "post": {
         "summary": "Approve the move of an administrator's access with their address change",
-        "description": "Approve the move of an administrator's grant with the change of their address, the second pair of eyes the change waits on.\n\nWhere the new mailbox has confirmed and no waiting time remains, the change takes effect in this transaction: the grant\nis revoked at the replaced address and granted at the new one under this administrator's name, announced to every\nadministrator as a grant and a revoke are, and everything else the address holds moves, its completion notice queued\nin this transaction. Otherwise the approval is recorded and the change takes effect at its confirmation\nor at the end of its waiting time. **An approval refused writes nothing**: the change stands unapproved.\n\nRefused where the change asks no approval or was given it (`REQ-ADRESSWECHSEL-012`), where its seven days have passed\n(`-003`), to the changed address and to the administrator who started it (`-013`), to anyone but an owner, signed in\nsince becoming one, where the grant is an owner's (`-014`), and where the change ended (`-002`); and, where it would\ntake effect, as the confirmation is (`-004`, `-005`, `-006`, `-015`, `-016`). A change whose address has come to hold\nnothing to move ends discarded, answering `-002`. 404 for an id naming no change. A sign-in or confirmation older than\n`ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.",
+        "description": "Approve the move of an administrator's grant with the change of their address, the second pair of eyes the change waits on.\n\nWhere the new mailbox has confirmed and no waiting time remains, the change takes effect in this transaction: the grant\nis revoked at the replaced address and granted at the new one under this administrator's name, announced to every\nadministrator as a grant and a revoke are, and everything else the address holds moves, its completion notice queued\nin this transaction. Otherwise the approval is recorded and the change takes effect at its confirmation\nor at the end of its waiting time. **An approval refused writes nothing**: the change stands unapproved.\n\nRefused where the change asks no approval or was given it (`REQ-ADRESSWECHSEL-012`), where its seven days have passed\n(`-003`), to the changed address and to the administrator who started it (`-013`), to anyone but an owner, signed in\nsince becoming one, where the grant is an owner's (`-014`), and where the change ended (`-002`); and, where it would\ntake effect, as the confirmation is (`-004`, `-005`, `-006`, `-015`, `-016`). A change whose address has come to hold\nnothing to move ends discarded, its new address told it did not take effect, answering `-010`. 404 for an id naming no\nchange. A sign-in or confirmation older than\n`ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.",
         "operationId": "post_adresswechsel_genehmigung_api_v0_adresswechsel__adresswechsel_id__genehmigung_post",
         "security": [
           {
@@ -7579,7 +7579,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-005.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-012.REQ-ADRESSWECHSEL-015.REQ-ADRESSWECHSEL-016"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-005.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-010.REQ-ADRESSWECHSEL-012.REQ-ADRESSWECHSEL-015.REQ-ADRESSWECHSEL-016"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -32631,7 +32631,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-005.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-012.REQ-ADRESSWECHSEL-015.REQ-ADRESSWECHSEL-016": {
+      "409.DB-COMMON-002.REQ-ADRESSWECHSEL-002.REQ-ADRESSWECHSEL-005.REQ-ADRESSWECHSEL-006.REQ-ADRESSWECHSEL-010.REQ-ADRESSWECHSEL-012.REQ-ADRESSWECHSEL-015.REQ-ADRESSWECHSEL-016": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -32648,6 +32648,7 @@
                         "REQ-ADRESSWECHSEL-002",
                         "REQ-ADRESSWECHSEL-005",
                         "REQ-ADRESSWECHSEL-006",
+                        "REQ-ADRESSWECHSEL-010",
                         "REQ-ADRESSWECHSEL-012",
                         "REQ-ADRESSWECHSEL-015",
                         "REQ-ADRESSWECHSEL-016"

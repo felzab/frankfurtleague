@@ -378,6 +378,23 @@ async def queue_the_approval_notice_in_session(
     )
 
 
+async def queue_the_refusal_notice_in_session(
+    record: Mapping[str, Any], *, adresswechsel_postausgang_collection: AsyncCollection, now: datetime, session: AsyncClientSession
+) -> None:
+    """A confirmed change's notice that it did not take effect, queued in its end's transaction.
+
+    Off the record as it stood before the end: never why, nor the address on file (`docs/backend/spec.md :: I827`, `:: I846`).
+    """
+
+    await post_one_to_db(
+        collection=adresswechsel_postausgang_collection,
+        document=compose_postausgang(
+            art="verworfen", email=str(record["email"]), bisherige_email=None, vorname=None, weg=None, adresse_belegt=None, now=now
+        ),
+        session=session,
+    )
+
+
 async def judge_the_effect_in_session(
     *,
     record: Mapping[str, Any],

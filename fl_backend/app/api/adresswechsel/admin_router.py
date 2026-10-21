@@ -13,6 +13,7 @@ from app.api.adresswechsel.crud import (
     end_the_change_in_session,
     ending_line,
     queue_the_approval_notice_in_session,
+    queue_the_refusal_notice_in_session,
     read_the_bestand,
     refusal_of,
     start_the_change_in_session,
@@ -614,7 +615,8 @@ async def post_adresswechsel_genehmigung(
     (`-003`), to the changed address and to the administrator who started it (`-013`), to anyone but an owner, signed in
     since becoming one, where the grant is an owner's (`-014`), and where the change ended (`-002`); and, where it would
     take effect, as the confirmation is (`-004`, `-005`, `-006`, `-015`, `-016`). A change whose address has come to hold
-    nothing to move ends discarded, answering `-002`. 404 for an id naming no change. A sign-in or confirmation older than
+    nothing to move ends discarded, its new address told it did not take effect, answering `-010`. 404 for an id naming no
+    change. A sign-in or confirmation older than
     `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.
     """
 
@@ -676,6 +678,10 @@ async def post_adresswechsel_genehmigung(
         )
         refuse(refusal_of(urteil.ursache))
         if urteil.leer:
+            # Its new mailbox confirmed and was told the change waits on this approval.
+            await queue_the_refusal_notice_in_session(
+                approved, adresswechsel_postausgang_collection=adresswechsel_postausgang_collection, now=germany_now, session=session
+            )
             return None
 
         return FLAdresswechselGenehmigungResponse(id=adresswechsel_id, wirksam=wirksam)
@@ -684,8 +690,8 @@ async def post_adresswechsel_genehmigung(
         async with transaction_session(db) as session:
             approved = await session.with_transaction(approve_the_change)
 
-    # After the commit, the discard standing: the change found nothing to move.
-    refuse(find_beendet_refusal(offen=approved is not None))
+    # After the commit, the discard standing: this approval found nothing left to move and ended the change.
+    refuse(find_nichts_refusal(leer=approved is None))
     assert approved is not None
 
     return approved

@@ -854,8 +854,8 @@ GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I851`
   change the pass refuses at its due time — either address barred meanwhile, the address on file
   holding nothing left to move, the new address another pupil's or another grant's, or a grant the
   approval does not cover
-  (`fl_backend/app/api/adresswechsel/crud.py :: judge_the_effect_in_session`) — ends there, as does one whose grant's approval
-  lapses unapproved, and the new address is mailed a short notice
+  (`fl_backend/app/api/adresswechsel/crud.py :: judge_the_effect_in_session`) — ends there, as do one whose grant's approval
+  lapses unapproved and one an approval finds with nothing left to move, and the new address is mailed a short notice
   naming nobody, saying the change did not take effect and the league can help; the address on file
   is mailed nothing. The published notice states the ending and the thirty days
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06, its timing re-ruled 2026-10-15 and

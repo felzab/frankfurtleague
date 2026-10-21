@@ -907,6 +907,26 @@ async def approvers_told(database: AsyncDatabase, client: AsyncMongoClient, *, n
 
 
 class TestTheApproval:
+    def test_an_approval_finding_nothing_left_to_move_ends_it_tells_its_new_mailbox_and_says_so(self, mongo_replica_set_url: str):
+        """The new mailbox confirmed and was told the change waits on this approval; the approver is told it ended for want of records."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            minted = await start(database, client)
+            await answer(database, client, minted.token)
+            # The address's last records and its grant gone since, by routes no change hears of.
+            for collection in (Collection.SPIELER, Collection.SCHIEDSRICHTER, Collection.SAISON_TEAMS, Collection.BEWERBUNGEN):
+                await database[collection].delete_many({})
+            await database[Collection.REGISTRIERUNGEN].delete_many({})
+            await database[Collection.BERECHTIGUNGEN].delete_one({"adresse": EMAIL})
+            code = await refused_code(approve(database, client, minted.id, operator=ADMIN))
+            return code, (await change(database, minted.id))["beendet"]["art"], await owed(database)
+
+        code, art, notices = on_a_person(mongo_replica_set_url, body)
+
+        assert (code, art) == (ADRESSWECHSEL_NICHTS, "verworfen")
+        assert [(notice["art"], notice["email"]) for notice in notices] == [("verworfen", NEW_EMAIL)]
+
     def test_its_approvers_are_told_once_through_the_grants_outbox_and_nobody_once_it_is_given(self, mongo_replica_set_url: str):
         """Read at the claim, so a retry after the approval mails nobody; queued in the start's transaction, its answer carrying none."""
 
