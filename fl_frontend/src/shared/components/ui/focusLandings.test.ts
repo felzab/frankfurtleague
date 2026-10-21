@@ -1366,7 +1366,7 @@ const LANDINGS: Record<string, Landing> = {
       readAdresswechselAnsichtAction: { success: true, ansicht: TOOL_ANSICHT },
     },
     before: () => h(FormAdresswechselSection, { anfang: { status: "read", ansicht: { ...TOOL_ANSICHT, offen: TOOL_OFFEN } } }),
-    press: (user) => user.click(screen.getByRole("button", { name: "Änderung verwerfen" })),
+    press: (user) => pressTwice(user, { resting: "Änderung verwerfen", armed: "Ja, Änderung verwerfen" }),
     // The tool reads the address again itself, so the page hands it nothing new.
     after: () => h(FormAdresswechselSection, { anfang: { status: "read", ansicht: { ...TOOL_ANSICHT, offen: TOOL_OFFEN } } }),
     lands: () => heading(/^Adresse ändern/),

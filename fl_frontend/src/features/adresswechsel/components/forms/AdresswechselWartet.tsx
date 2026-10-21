@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -12,19 +12,21 @@ import { Button } from "@heroui/react/button";
 import { einladeAdresswechselAction, verwirfAdresswechselAction } from "@/features/adresswechsel/actions";
 import { LinkStandAngaben, zeitpunktText } from "@/features/bewerbungen/components/ui/LinkStandAngaben";
 import { Angabe } from "@/shared/components/ui/Angabe";
+import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
+import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
+import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
-import { formPanel } from "@/shared/components/ui/formPanel";
+import { FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";
-import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { textLink } from "@/shared/components/ui/textLink";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR } from "@/shared/utils/actionError";
+import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR, rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
-import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
+import { FOCUS_HEADING, focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { meldeAdresswechselVersand } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
@@ -33,6 +35,11 @@ import type { FLAdresswechselVerwaltungOffen, FLAdresswechselWartetAuf, FLAdress
 
 export const ADRESSWECHSEL_ERNEUT = "Link erneut senden";
 export const ADRESSWECHSEL_VERWERFEN = "Änderung verwerfen";
+export const ADRESSWECHSEL_VERWERFEN_ARMED = "Ja, Änderung verwerfen";
+
+/** What the armed discard costs: nothing tells the person, so the administrator who discards is the one who can. */
+const VERWERFEN_FOLGE =
+  "Die Änderung endet, und ihre Links öffnen danach nichts mehr. Die bisherige Adresse bleibt. Eine E-Mail darüber bekommt niemand.";
 
 /** How the change began, as the panel names it: the administrator reads off it who still has to act. */
 const WEG_LABEL: Readonly<Record<FLAdresswechselWeg, string>> = {
@@ -60,35 +67,53 @@ const VERWERFEN_OHNE_ANTWORT =
 export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAdresswechselVerwaltungOffen; onGeschrieben: () => void }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const [laeuft, setLaeuft] = useState<"senden" | "verwerfen" | null>(null);
+  const [sendet, setSendet] = useState(false);
   const stepUp = useStepUp();
-  const panel = formPanel();
+  // Two presses, as every neighbouring control ending something does: the discard ends the person's change and mails nobody.
+  const verwerfen = useTwoPressConfirm({ stepUp: true });
+  const busy = sendet || verwerfen.isPending;
 
-  const schreibe = async (art: "senden" | "verwerfen") => {
+  const sende = async () => {
     const landing = focusAfterWrite();
-    const res = await pressLinkWrite<
-      Awaited<ReturnType<typeof einladeAdresswechselAction>> | Awaited<ReturnType<typeof verwirfAdresswechselAction>>
-    >({
+    const res = await pressLinkWrite({
       isDirty: false,
       stepUp,
       router,
-      pending: (running) => setLaeuft(running ? art : null),
-      write: art === "senden" ? () => einladeAdresswechselAction({ id: offen.id }) : () => verwirfAdresswechselAction({ id: offen.id }),
-      repair: art === "senden" ? LINK_ERNEUT_OHNE_ANTWORT : VERWERFEN_OHNE_ANTWORT,
+      pending: setSendet,
+      write: () => einladeAdresswechselAction({ id: offen.id }),
+      repair: LINK_ERNEUT_OHNE_ANTWORT,
     });
     if (res === null) return;
 
     if (!res.success) {
-      if (art === "senden") appToast.failure("Link nicht gesendet", res, LINK_UNKLAR);
-      else appToast.failure("Änderung nicht verworfen", res);
+      appToast.failure("Link nicht gesendet", res, LINK_UNKLAR);
       return;
     }
 
     landing.landed();
     onGeschrieben();
     // Graded as the start's press grades its link: the earlier link is dead whichever way this one went.
-    if ("versand" in res) meldeAdresswechselVersand(res, res.message);
-    else appToast.success("Änderung verworfen", { description: res.message });
+    meldeAdresswechselVersand(res, res.message);
+  };
+
+  const verwirf = () => {
+    const landing = focusAfterWrite();
+    verwerfen.press(async () => {
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await verwirfAdresswechselAction({ id: offen.id }).catch(rejectedWrite(router, VERWERFEN_OHNE_ANTWORT));
+
+      // Wrapped again: the press runs this inside its transition, and React leaves an update after an `await` outside it.
+      startTransition(() => {
+        if (!res.success) {
+          appToast.failure("Änderung nicht verworfen", res);
+          return;
+        }
+
+        landing.landed();
+        onGeschrieben();
+        appToast.success("Änderung verworfen", { description: res.message });
+      });
+    });
   };
 
   const titel =
@@ -98,104 +123,117 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAdressw
   const { genehmigung } = offen;
 
   return (
+    // A block of the tool's panel under an `h3`, as the read's list beside it: a box here would hold the discard's
+    // reveal at its own rung (`docs/frontend/spec.md` §1.18).
     <section
-      className={panel.root()}
+      className="flex w-full flex-col gap-4"
       {...focusSection("adresswechsel")}>
-      <div className={panel.header()}>
-        <PanelHeading
-          className={panel.heading()}
-          title="Neue E-Mail-Adresse">
-          <Hint
-            mode="reveal"
-            label="Hinweis zur neuen E-Mail-Adresse"
-            body={{
-              lead: "Die neue Adresse gilt erst, wenn sie über ihren Link bestätigt ist, nach einer Wartezeit erst an deren Ende. Bis dahin bleibt die bisherige Adresse in Kraft, und ihre Inhaberin oder ihr Inhaber kann die Änderung stoppen.",
-            }}
-          />
-        </PanelHeading>
+      <div>
+        <h3
+          className={`${FORM_SECTION_HEADING_CLASSES} inline`}
+          {...FOCUS_HEADING}>
+          Neue E-Mail-Adresse
+        </h3>
+        <Hint
+          mode="reveal"
+          label="Hinweis zur neuen E-Mail-Adresse"
+          body={{
+            lead: "Die neue Adresse gilt erst, wenn sie über ihren Link bestätigt ist, nach einer Wartezeit erst an deren Ende. Bis dahin bleibt die bisherige Adresse in Kraft, und ihre Inhaberin oder ihr Inhaber kann die Änderung stoppen.",
+          }}
+        />
       </div>
 
-      <div className={panel.body()}>
-        {/* The lapse is the mark beside the deadline alone, as the consent link's panel says it. */}
-        <p className="muted-hint">{titel}</p>
+      {/* The lapse is the mark beside the deadline alone, as the consent link's panel says it. */}
+      <p className="muted-hint">{titel}</p>
 
-        <dl className={FIELD_PAIR_CLASSES}>
-          <Angabe label="Neue Adresse">{offen.email}</Angabe>
-          <Angabe label="Weg">{WEG_LABEL[offen.weg]}</Angabe>
-          {offen.grund !== null && <Angabe label="Grund">{offen.grund}</Angabe>}
-          {/* Only this step sent a link to the new mailbox: the request before it went to the address on file, and a
+      <dl className={FIELD_PAIR_CLASSES}>
+        <Angabe label="Neue Adresse">{offen.email}</Angabe>
+        <Angabe label="Weg">{WEG_LABEL[offen.weg]}</Angabe>
+        {offen.grund !== null && <Angabe label="Grund">{offen.grund}</Angabe>}
+        {/* Only this step sent a link to the new mailbox: the request before it went to the address on file, and a
               confirmed change's link is spent. */}
-          {offen.wartet_auf === "neue_adresse" && offen.gueltig_bis !== null && (
-            <LinkStandAngaben
-              verschicktAm={offen.verschickt_am}
-              frist={offen.gueltig_bis}
-              fristArt="zeitpunkt"
-              istAbgelaufen={offen.abgelaufen}
-              zustellung={offen.zustellung}
-            />
-          )}
-          {offen.wartet_auf === "freigabe" && (
-            <>
-              <Angabe label="Anfrage gesendet am">{formatSpielDatum(offen.verschickt_am)}</Angabe>
-              {offen.gueltig_bis !== null && <Angabe label="Freigabe bis">{zeitpunktText(offen.gueltig_bis)}</Angabe>}
-            </>
-          )}
-          {offen.bestaetigt_am !== null && <Angabe label="Bestätigt am">{zeitpunktText(offen.bestaetigt_am)}</Angabe>}
-          {offen.wirksam_ab !== null && <Angabe label="Wirksam ab">{zeitpunktText(offen.wirksam_ab)}</Angabe>}
-          {genehmigung !== null && (
-            <Angabe label="Genehmigung">
-              {genehmigung.genehmigt_am === null ? (
-                <>
-                  Offen bis {zeitpunktText(genehmigung.bis)}.{" "}
-                  {/* Pressed on the grant's own row, where granting and revoking already are: one place for the approval. */}
-                  <Link
-                    href={saisonHref("/bereich/admin/administratoren")}
-                    prefetch={false}
-                    className={textLink()}>
-                    Zu den Administratoren
-                  </Link>
-                </>
-              ) : (
-                `Erteilt am ${zeitpunktText(genehmigung.genehmigt_am)}`
-              )}
-            </Angabe>
-          )}
-        </dl>
+        {offen.wartet_auf === "neue_adresse" && offen.gueltig_bis !== null && (
+          <LinkStandAngaben
+            verschicktAm={offen.verschickt_am}
+            frist={offen.gueltig_bis}
+            fristArt="zeitpunkt"
+            istAbgelaufen={offen.abgelaufen}
+            zustellung={offen.zustellung}
+          />
+        )}
+        {offen.wartet_auf === "freigabe" && (
+          <>
+            <Angabe label="Anfrage gesendet am">{formatSpielDatum(offen.verschickt_am)}</Angabe>
+            {offen.gueltig_bis !== null && <Angabe label="Freigabe bis">{zeitpunktText(offen.gueltig_bis)}</Angabe>}
+          </>
+        )}
+        {offen.bestaetigt_am !== null && <Angabe label="Bestätigt am">{zeitpunktText(offen.bestaetigt_am)}</Angabe>}
+        {offen.wirksam_ab !== null && <Angabe label="Wirksam ab">{zeitpunktText(offen.wirksam_ab)}</Angabe>}
+        {genehmigung !== null && (
+          <Angabe label="Genehmigung">
+            {genehmigung.genehmigt_am === null ? (
+              <>
+                Offen bis {zeitpunktText(genehmigung.bis)}.{" "}
+                {/* Pressed on the grant's own row, where granting and revoking already are: one place for the approval. */}
+                <Link
+                  href={saisonHref("/bereich/admin/administratoren")}
+                  prefetch={false}
+                  className={textLink()}>
+                  Zu den Administratoren
+                </Link>
+              </>
+            ) : (
+              `Erteilt am ${zeitpunktText(genehmigung.genehmigt_am)}`
+            )}
+          </Angabe>
+        )}
+      </dl>
 
-        <div className="flex w-full flex-wrap items-start gap-2">
-          {offen.wartet_auf === "neue_adresse" && (
-            <FocusSlot name="adresswechsel-einladen">
-              <Button
-                type="button"
-                isPending={laeuft === "senden"}
-                isDisabled={laeuft !== null}
-                onPress={() => void schreibe("senden")}
-                className={`${formButton({ intent: "nav", size: "xs" })} gap-x-2`}>
-                <PaperPlane
-                  className="size-3.5"
-                  aria-hidden="true"
-                />
-                <span>{laeuft === "senden" ? stepUp.running("Sendet...") : ADRESSWECHSEL_ERNEUT}</span>
-              </Button>
-            </FocusSlot>
-          )}
-          <FocusSlot name="adresswechsel-verwerfen">
+      {verwerfen.isConfirming && (
+        <ConfirmReveal>
+          <p className="fluid-xxs leading-normal font-medium text-foreground">{VERWERFEN_FOLGE}</p>
+        </ConfirmReveal>
+      )}
+
+      <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        {offen.wartet_auf === "neue_adresse" && (
+          <FocusSlot name="adresswechsel-einladen">
             <Button
               type="button"
-              isPending={laeuft === "verwerfen"}
-              isDisabled={laeuft !== null}
-              onPress={() => void schreibe("verwerfen")}
+              isPending={sendet}
+              isDisabled={busy}
+              onPress={() => void sende()}
               className={`${formButton({ intent: "nav", size: "xs" })} gap-x-2`}>
-              <TrashBin
+              <PaperPlane
                 className="size-3.5"
                 aria-hidden="true"
               />
-              <span>{laeuft === "verwerfen" ? stepUp.running("Verwirft...") : ADRESSWECHSEL_VERWERFEN}</span>
+              <span>{sendet ? stepUp.running("Sendet...") : ADRESSWECHSEL_ERNEUT}</span>
             </Button>
           </FocusSlot>
-        </div>
-        <StepUpRefused refused={stepUp.refused} />
+        )}
+        <ConfirmActionRow confirm={verwerfen}>
+          <FocusSlot name="adresswechsel-verwerfen">
+            <ConfirmPressButton
+              confirm={verwerfen}
+              reason={null}
+              // Held while the re-send flies, which a discard would otherwise race over the one change.
+              held={sendet}
+              resting={ADRESSWECHSEL_VERWERFEN}
+              armed={ADRESSWECHSEL_VERWERFEN_ARMED}
+              running="Verwirft..."
+              icon={
+                <TrashBin
+                  className="size-4.5"
+                  aria-hidden="true"
+                />
+              }
+              onPress={verwirf}
+            />
+          </FocusSlot>
+        </ConfirmActionRow>
       </div>
+      <StepUpRefused refused={stepUp.refused} />
     </section>
   );
 }
