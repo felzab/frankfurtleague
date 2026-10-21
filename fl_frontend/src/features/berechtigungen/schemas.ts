@@ -1,5 +1,6 @@
 import z from "zod";
 
+import { ADRESSWECHSEL_WEGE } from "@/core/adresswechsel";
 import { asSignInIdentifier, isSignInLibraryAddress } from "@/core/emailAddress";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { ANKUENDIGUNGEN_MAX } from "@/features/berechtigungen/constants";
@@ -22,8 +23,15 @@ export type FLGenehmigungVerwehrt = z.infer<typeof FLGenehmigungVerwehrtSchema>;
  */
 export const FLBerechtigungAdresswechselSchema = z.object({
   id: CustomObjectIdStringSchema,
-  // The new address whole: the administrator's tier, as the address tool shows it.
-  email: z.string(),
+  // Null where withheld: barred (`email_gesperrt`), or an owner's change a non-owner reads (`verwehrt` "inhaber").
+  email: z.string().nullable(),
+  email_gesperrt: z.boolean(),
+  weg: z.enum(ADRESSWECHSEL_WEGE),
+  // The administrator who started it, null on the person's own start (`konto`), withheld as `email` is, or barred.
+  gestartet_von: z.string().nullable(),
+  gestartet_von_gesperrt: z.boolean(),
+  // The reason recorded for a lost mailbox, null on every other way and where withheld as `email` is.
+  grund: z.string().nullable(),
   // Whether the new mailbox has confirmed, so an approval now takes effect at once.
   bestaetigt: z.boolean(),
   bis: z.string(),

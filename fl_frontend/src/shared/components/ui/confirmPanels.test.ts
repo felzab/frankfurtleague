@@ -646,6 +646,11 @@ const PANELS: Record<string, Arming[]> = {
             adresswechsel: {
               id: "68c1f0a2b3c4d5e6f7a8b9e0",
               email: "vorstand@neu.de",
+              email_gesperrt: false,
+              weg: "konto",
+              gestartet_von: null,
+              gestartet_von_gesperrt: false,
+              grund: null,
               bestaetigt: true,
               bis: "2026-10-27T11:30:00Z",
               verwehrt: null,

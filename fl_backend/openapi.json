@@ -6478,7 +6478,7 @@
     "/api/v0/berechtigungen": {
       "get": {
         "summary": "List who may enter the administration",
-        "description": "List every live grant of access to the administration, by address: its tier, who granted it and when.\n\nUncapped, as few people hold one. A row whose address no request can match -- empty, unfolded or refused by the address rule --\nadmits nobody and is left out, counted in `uebersprungen`. An address on the ban list is answered as `null` beside `gesperrt`,\nnever in plain, and so is a barred `erteilt_von`, beside `erteilt_von_gesperrt`; it is otherwise an administrator's address\nfor a grant made here and whatever the database edit wrote for one made there.\n\n`adresswechsel` names the change of a grant's address waiting on an administrator's approval, its new address whole,\nand why this administrator may not approve it, where they may not: their own, one they started, or an owner's without\nan owner's power (`POST /adresswechsel/{adresswechsel_id}/genehmigung`).\n\n`antraege` lists every grant and promotion waiting on a second administrator's approval and not yet lapsed, oldest first:\nthe address, the tier asked, who asked and when, until when it waits, whether its requester still holds that tier since\nbefore it (`steht`), and why this administrator may not approve it, where they may not. A barred address is withheld as on a\ngrant's row.",
+        "description": "List every live grant of access to the administration, by address: its tier, who granted it and when.\n\nUncapped, as few people hold one. A row whose address no request can match -- empty, unfolded or refused by the address rule --\nadmits nobody and is left out, counted in `uebersprungen`. An address on the ban list is answered as `null` beside `gesperrt`,\nnever in plain, and so is a barred `erteilt_von`, beside `erteilt_von_gesperrt`; it is otherwise an administrator's address\nfor a grant made here and whatever the database edit wrote for one made there.\n\n`adresswechsel` names the change of a grant's address waiting on an administrator's approval: its new address, how it was\nstarted (`weg`), the administrator who started it and the reason they recorded, and why this administrator may not approve\nit, where they may not: their own, one they started, or an owner's without an owner's power\n(`POST /adresswechsel/{adresswechsel_id}/genehmigung`). An owner's change withholds its new address, starter and reason from\nthat non-owner, as the address tool refuses them an owner's address; a barred new address or starter is withheld as on a\ngrant's row.\n\n`antraege` lists every grant and promotion waiting on a second administrator's approval and not yet lapsed, oldest first:\nthe address, the tier asked, who asked and when, until when it waits, whether its requester still holds that tier since\nbefore it (`steht`), and why this administrator may not approve it, where they may not. A barred address is withheld as on a\ngrant's row.",
         "operationId": "get_berechtigungen_api_v0_berechtigungen_get",
         "responses": {
           "200": {
@@ -13434,8 +13434,54 @@
             "title": "Id"
           },
           "email": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Email"
+          },
+          "email_gesperrt": {
+            "type": "boolean",
+            "title": "Email Gesperrt"
+          },
+          "weg": {
+            "type": "string",
+            "enum": [
+              "konto",
+              "freigabe",
+              "wartezeit"
+            ],
+            "title": "Weg"
+          },
+          "gestartet_von": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gestartet Von"
+          },
+          "gestartet_von_gesperrt": {
+            "type": "boolean",
+            "title": "Gestartet Von Gesperrt"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
           },
           "bestaetigt": {
             "type": "boolean",
@@ -13468,12 +13514,17 @@
         "required": [
           "id",
           "email",
+          "email_gesperrt",
+          "weg",
+          "gestartet_von",
+          "gestartet_von_gesperrt",
+          "grund",
           "bestaetigt",
           "bis",
           "verwehrt"
         ],
         "title": "FLBerechtigungAdresswechsel",
-        "description": "The change of a grant's address waiting on an administrator's approval, which the list's reader may press."
+        "description": "The change of a grant's address waiting on an administrator's approval, which the list's reader may press.\n\nWho started it, how and why is what a pretext hides (`docs/backend/spec.md :: I855`, `:: I856`)."
       },
       "FLBerechtigungAenderung": {
         "properties": {

@@ -28,7 +28,6 @@ from app.api.adresswechsel.schemas import (
     FLAdresswechselVerwaltungPayload,
 )
 from app.api.adresswechsel.services import (
-    FLAdresswechselWeg,
     als_utc,
     build_address_filter,
     build_live_filter,
@@ -53,6 +52,7 @@ from app.api.adresswechsel.services import (
     wartet_auf,
 )
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
+from app.api.berechtigungen.schemas import FLAdresswechselWeg
 from app.api.berechtigungen.services import genehmiger_of, genehmigung_verwehrt, holds_an_owners_power, lebendige
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import RecordCollections, SubjektLookup

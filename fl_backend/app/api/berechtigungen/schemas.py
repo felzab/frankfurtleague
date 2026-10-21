@@ -26,6 +26,10 @@ FLVerwaltung = Literal["owner", "administration"]
 # owner's power, or a grant or tier younger than the request.
 FLGenehmigungVerwehrt = Literal["eigene", "gestartet", "inhaber", "juenger"]
 
+# How an address change takes effect: the person's own start, an administrator's the address on file approves, or an
+# administrator's with a recorded reason, waiting after its confirmation. Here, below both slices, for a grant's approval row.
+FLAdresswechselWeg = Literal["konto", "freigabe", "wartezeit"]
+
 # What happened to one grant: added, removed, or its tier changed in place, by the tier change or by
 # a database edit. An address changed in place is a removal and a grant, never `geaendert`.
 FLBerechtigungAenderungArt = Literal["erteilt", "entzogen", "geaendert"]
@@ -68,11 +72,22 @@ class FLBerechtigung(BaseModel):
 
 
 class FLBerechtigungAdresswechsel(BaseModel):
-    """The change of a grant's address waiting on an administrator's approval, which the list's reader may press."""
+    """The change of a grant's address waiting on an administrator's approval, which the list's reader may press.
+
+    Who started it, how and why is what a pretext hides (`docs/backend/spec.md :: I855`, `:: I856`).
+    """
 
     id: CustomObjectId
-    # Whole, as the address tool shows it to the same tier.
-    email: str
+    # Null where withheld: on the ban list (`email_gesperrt`), as a grant's barred address is, or from a non-owner.
+    email: str | None
+    email_gesperrt: bool
+    weg: FLAdresswechselWeg
+    # The administrator who started it, null on the person's own start (`konto`), where withheld as `email` is, or where
+    # `gestartet_von_gesperrt` is set.
+    gestartet_von: str | None
+    gestartet_von_gesperrt: bool
+    # The reason an administrator recorded for a lost mailbox, null on every other way and where withheld as `email` is.
+    grund: str | None
     # Whether the new mailbox has confirmed, so the approval would make the change take effect.
     bestaetigt: bool
     bis: FLUtcInstant

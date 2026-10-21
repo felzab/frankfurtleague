@@ -9,9 +9,8 @@ from app.api.adresswechsel.services import (
     FLAdresswechselNeuZustand,
     FLAdresswechselVerwaltung,
     FLAdresswechselWartetAuf,
-    FLAdresswechselWeg,
 )
-from app.api.berechtigungen.schemas import FLUtcInstant
+from app.api.berechtigungen.schemas import FLAdresswechselWeg, FLUtcInstant
 from app.api.sperrliste.schemas import refuse_an_address_in_the_reason
 from app.shared.schemas.bounds import BEWERBUNG_TOKEN_MAX_LENGTH, ERASURE_ANLASS_MAX_LENGTH, LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import (

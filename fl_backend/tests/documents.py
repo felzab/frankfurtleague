@@ -19,7 +19,8 @@ from zoneinfo import ZoneInfo
 
 from bson import ObjectId
 
-from app.api.adresswechsel.services import FLAdresswechselWeg, compose_record
+from app.api.adresswechsel.services import compose_record
+from app.api.berechtigungen.schemas import FLAdresswechselWeg
 from app.api.bewerbungen.services import bestaetigungsfrist_from, compose_bestaetigungen, compose_einwilligung, hash_token
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash

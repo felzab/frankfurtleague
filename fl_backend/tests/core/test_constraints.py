@@ -19,9 +19,10 @@ from app.api.adresswechsel.schemas import (
     FLAdresswechselPostausgangArt,
     FLAdresswechselVersand,
 )
-from app.api.adresswechsel.services import FLAdresswechselEndeArt, FLAdresswechselVerwaltung, FLAdresswechselWeg
+from app.api.adresswechsel.services import FLAdresswechselEndeArt, FLAdresswechselVerwaltung
 from app.api.aktionen.schemas import FLAktion, FLAktionMitStand, FLAktionRequest, FLAktorKind, FLAktorMitAdresse, FLAktorPerson, _served_prefix
 from app.api.berechtigungen.schemas import (
+    FLAdresswechselWeg,
     FLBerechtigung,
     FLBerechtigungAngekuendigt,
     FLBerechtigungAntrag,

@@ -32,8 +32,8 @@ export const ADRESSWECHSEL_WARTEZEIT_DAUER = ({ 7: "eine Woche" } as const)[ADRE
 export const GENEHMIGUNG_DAUER = ({ 7: "eine Woche" } as const)[GENEHMIGUNG_TAGE];
 
 /**
- * How a change reaches its effect, as the backend stores it: the one spelling the slice's mirror, the mails
- * and the link reports read, `core` being the layer all three may import.
+ * How a change reaches its effect, as the backend stores it: the one spelling the slices' mirrors, the mails
+ * and the link reports read, `core` being the layer all of them may import.
  */
 export const ADRESSWECHSEL_WEGE = ["konto", "freigabe", "wartezeit"] as const;
 export type AdresswechselWeg = (typeof ADRESSWECHSEL_WEGE)[number];

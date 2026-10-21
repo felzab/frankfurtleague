@@ -33,6 +33,32 @@ const ADRESSWECHSEL_ID = "68c1f0a2b3c4d5e6f7a8b9e0";
 /** A session inside the window: the prompt is the confirm panel sweep's to drive (`shared/components/ui/confirmPanels.test.ts`). */
 const FRESH = { isStale: () => false, confirm: () => Promise.resolve(true) };
 
+/** The person's own start, every field served. */
+const EIGENE = {
+  id: ADRESSWECHSEL_ID,
+  email: "vorstand@neu.de",
+  email_gesperrt: false,
+  weg: "konto" as const,
+  gestartet_von: null,
+  gestartet_von_gesperrt: false,
+  grund: null,
+  bestaetigt: false,
+  bis: "2026-10-27T11:30:00Z",
+  verwehrt: null,
+};
+
+function shown(adresswechsel: typeof EIGENE | Record<string, unknown>): string {
+  render(
+    h(
+      StepUpContext.Provider,
+      { value: FRESH },
+      underNext(h(AdminBerechtigungGenehmigenPanel, { adresse: "vorstand@schule.de", adresswechsel: { ...EIGENE, ...adresswechsel } })),
+    ),
+  );
+
+  return document.body.textContent ?? "";
+}
+
 /** Armed and pressed, as an administrator approves: the first press only asks, and a press too soon after it is a double click. */
 async function genehmige(t: TestContext): Promise<void> {
   const user = userEvent.setup();
@@ -43,7 +69,7 @@ async function genehmige(t: TestContext): Promise<void> {
       underNext(
         h(AdminBerechtigungGenehmigenPanel, {
           adresse: "vorstand@schule.de",
-          adresswechsel: { id: ADRESSWECHSEL_ID, email: "vorstand@neu.de", bestaetigt: false, bis: "2026-10-27T11:30:00Z", verwehrt: null },
+          adresswechsel: EIGENE,
         }),
       ),
     ),
@@ -81,15 +107,42 @@ describe("the approval on a grant's row", () => {
   });
 
   it("raises a refusal in the backend's words under the approval's own title", async (t) => {
-    answerWith(() => Promise.resolve({ success: false, error: "Die Zeit für die Genehmigung ist abgelaufen. Lade die Seite neu." }));
+    answerWith(() => Promise.resolve({ success: false, error: "Diese Änderung ist abgelaufen. Lade die Seite neu." }));
 
     await genehmige(t);
 
     await waitFor(() =>
       assert.deepEqual(
         toasts.map((shown) => [shown.title, shown.description]),
-        [["Nicht genehmigt", "Die Zeit für die Genehmigung ist abgelaufen. Lade die Seite neu."]],
+        [["Nicht genehmigt", "Diese Änderung ist abgelaufen. Lade die Seite neu."]],
       ),
     );
+  });
+});
+
+/* Whether the person asked, or an administrator started it for a lost mailbox and why, is the fact a pretext hides. */
+describe("what the approver reads of the change", () => {
+  it("says the person asked it themselves on their own start", () => {
+    assert.match(shown({}), /Die Person hat die Änderung selbst in ihrem Konto angefragt\./);
+  });
+
+  it("names the administrator who started it, how, and the reason they recorded", () => {
+    const text = shown({ weg: "wartezeit", gestartet_von: "inhaber@schule.de", grund: "Postfach gelöscht, telefonisch bestätigt" });
+
+    assert.match(text, /Begonnen von inhaber@schule\.de, ohne die bisherige Adresse\. Grund: Postfach gelöscht, telefonisch bestätigt/);
+  });
+
+  it("names what the row withholds from a non-owner without guessing at it", () => {
+    const text = shown({ weg: "freigabe", email: null, verwehrt: "inhaber" });
+
+    assert.match(text, /Neue Adresse für diesen Zugang: nur für Inhaberinnen und Inhaber sichtbar\./);
+    assert.match(text, /Aus der Verwaltung begonnen, mit Freigabe durch die bisherige Adresse\./);
+  });
+
+  it("reads a barred new address and a barred starter as barred", () => {
+    const text = shown({ weg: "wartezeit", email: null, email_gesperrt: true, gestartet_von_gesperrt: true });
+
+    assert.match(text, /Neue Adresse für diesen Zugang: Gesperrte Adresse\./);
+    assert.match(text, /Begonnen von Gesperrte Adresse, ohne die bisherige Adresse\./);
   });
 });

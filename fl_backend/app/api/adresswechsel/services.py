@@ -16,14 +16,11 @@ from http import HTTPStatus
 from typing import Any, Final, Literal, get_args
 from zoneinfo import ZoneInfo
 
-from app.api.berechtigungen.schemas import FLGenehmigungVerwehrt
+from app.api.berechtigungen.schemas import FLAdresswechselWeg, FLGenehmigungVerwehrt
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import canonical_address
 from app.shared.schemas.bounds import ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_TAGE, GENEHMIGUNG_TAGE
 
-# How the change takes effect: the person's own start, an administrator's start the address on file approves, and an
-# administrator's start with a recorded reason that waits after its confirmation.
-FLAdresswechselWeg = Literal["konto", "freigabe", "wartezeit"]
 ADRESSWECHSEL_WEGE: Final[tuple[str, ...]] = get_args(FLAdresswechselWeg)
 
 # What the change waits on: the address on file's approval, the new mailbox's link, another administrator's approval of a
@@ -225,10 +222,17 @@ def build_addresses_filter(adressen: list[str]) -> dict[str, Any]:
     return {"adresse": {"$in": adressen, "$type": "string"}, **LIVE_TERMS}
 
 
-def build_awaiting_genehmigung_filter(adressen: list[str]) -> dict[str, Any]:
-    """The live changes of these folded addresses whose grant's approval is owed: what the administrators page offers to approve."""
+def build_awaiting_genehmigung_filter(adressen: list[str], *, now: datetime) -> dict[str, Any]:
+    """The live changes of these folded addresses whose grant's approval is owed, inside its week: what the administrators page offers.
 
-    return {**build_addresses_filter(adressen), "genehmigung.genehmigt_am": {"$type": "null"}}
+    Past the week the approval is refused and the pass ends the change, which `build_parked_terms` then leaves unparked.
+    """
+
+    return {
+        **build_addresses_filter(adressen),
+        "genehmigung.genehmigt_am": {"$type": "null"},
+        "genehmigung.bis": {"$type": "date", "$gt": now},
+    }
 
 
 def build_awaiting_approval_terms() -> dict[str, Any]:

@@ -116,9 +116,12 @@ async def get_berechtigungen(
     never in plain, and so is a barred `erteilt_von`, beside `erteilt_von_gesperrt`; it is otherwise an administrator's address
     for a grant made here and whatever the database edit wrote for one made there.
 
-    `adresswechsel` names the change of a grant's address waiting on an administrator's approval, its new address whole,
-    and why this administrator may not approve it, where they may not: their own, one they started, or an owner's without
-    an owner's power (`POST /adresswechsel/{adresswechsel_id}/genehmigung`).
+    `adresswechsel` names the change of a grant's address waiting on an administrator's approval: its new address, how it was
+    started (`weg`), the administrator who started it and the reason they recorded, and why this administrator may not approve
+    it, where they may not: their own, one they started, or an owner's without an owner's power
+    (`POST /adresswechsel/{adresswechsel_id}/genehmigung`). An owner's change withholds its new address, starter and reason from
+    that non-owner, as the address tool refuses them an owner's address; a barred new address or starter is withheld as on a
+    grant's row.
 
     `antraege` lists every grant and promotion waiting on a second administrator's approval and not yet lapsed, oldest first:
     the address, the tier asked, who asked and when, until when it waits, whether its requester still holds that tier since
@@ -146,10 +149,19 @@ async def get_berechtigungen(
             record["adresse"]: record
             for record in await aggregate_many_from_db(
                 collection=adresswechsel_collection,
-                pipeline=[{"$match": build_awaiting_genehmigung_filter([grant.adresse for grant in grants if grant.adresse not in barred])}],
+                pipeline=[
+                    {"$match": build_awaiting_genehmigung_filter([grant.adresse for grant in grants if grant.adresse not in barred], now=now)}
+                ],
                 session=session,
             )
         }
+        # A pending new address and an administrator's start are judged as every address the page serves is.
+        barred_im_wechsel = await adressen_gesperrt(
+            sperrliste,
+            [str(record["email"]) for record in wartend.values()]
+            + [str(record["genehmigung"]["gestartet_von"]) for record in wartend.values()],
+            session=session,
+        )
     inhaber = holds_an_owners_power(akteur=akteur, auth_time=auth_time, grants=rows, announced=announced)
 
     served = []
@@ -168,20 +180,7 @@ async def get_berechtigungen(
                 erteilt_am=grant.erteilt_am,
                 adresswechsel=None
                 if record is None
-                else FLBerechtigungAdresswechsel(
-                    id=record["_id"],
-                    email=record["email"],
-                    bestaetigt=record.get("bestaetigt_am") is not None,
-                    bis=record["genehmigung"]["bis"],
-                    verwehrt=genehmigung_verwehrt(
-                        betroffen=record["adresse"],
-                        genehmigung=record["genehmigung"],
-                        akteur=akteur,
-                        inhaber=inhaber,
-                        grants=rows,
-                        announced=announced,
-                    ),
-                ),
+                else _adresswechsel_zeile(record, akteur=akteur, inhaber=inhaber, grants=rows, announced=announced, barred=barred_im_wechsel),
             )
         )
 
@@ -191,6 +190,39 @@ async def get_berechtigungen(
         antraege=[
             _antrag_zeile(antrag, akteur=akteur, inhaber=inhaber, grants=rows, announced=announced, barred=barred) for antrag in antraege
         ],
+    )
+
+
+def _adresswechsel_zeile(
+    record: Mapping[str, Any],
+    *,
+    akteur: str,
+    inhaber: bool,
+    grants: Sequence[Mapping[str, Any]],
+    announced: Sequence[Mapping[str, Any]],
+    barred: Set[str],
+) -> FLBerechtigungAdresswechsel:
+    genehmigung, weg = record["genehmigung"], record["weg"]
+    verwehrt = genehmigung_verwehrt(
+        betroffen=record["adresse"], genehmigung=genehmigung, akteur=akteur, inhaber=inhaber, grants=grants, announced=announced
+    )
+    # `REQ-PURGE-005`'s reach: the tool refuses a non-owner an owner's address, so this row tells them no more of it.
+    withheld = verwehrt == "inhaber"
+    email = str(record["email"])
+    # On the person's own start the starter is the address on file, the row's own.
+    von = None if weg == "konto" else str(genehmigung["gestartet_von"])
+
+    return FLBerechtigungAdresswechsel(
+        id=record["_id"],
+        email=None if withheld or email in barred else email,
+        email_gesperrt=email in barred,
+        weg=weg,
+        gestartet_von=None if withheld else withheld_actor(von, barred),
+        gestartet_von_gesperrt=von is not None and withheld_actor(von, barred) is None,
+        grund=None if withheld else record.get("grund"),
+        bestaetigt=record.get("bestaetigt_am") is not None,
+        bis=genehmigung["bis"],
+        verwehrt=verwehrt,
     )
 
 

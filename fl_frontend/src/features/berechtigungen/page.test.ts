@@ -288,7 +288,18 @@ describe("who is offered the tier change", () => {
 describe("who is offered an address change's approval", () => {
   const wartend = (verwehrt: "eigene" | "gestartet" | "inhaber" | null) => ({
     ...VORSTAND,
-    adresswechsel: { id: "68c1f0a2b3c4d5e6f7a8b9e0", email: "vorstand@neu.de", bestaetigt: true, bis: "2026-10-27T11:30:00Z", verwehrt },
+    adresswechsel: {
+      id: "68c1f0a2b3c4d5e6f7a8b9e0",
+      email: "vorstand@neu.de",
+      email_gesperrt: false,
+      weg: "konto" as const,
+      gestartet_von: null,
+      gestartet_von_gesperrt: false,
+      grund: null,
+      bestaetigt: true,
+      bis: "2026-10-27T11:30:00Z",
+      verwehrt,
+    },
   });
 
   /* On the grant the change moves, where granting and revoking already are: one place for the approval. */

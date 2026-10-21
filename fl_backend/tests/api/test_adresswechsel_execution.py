@@ -874,9 +874,84 @@ class TestTheApproval:
         assert own[EMAIL] is not None and own[EMAIL].verwehrt == "eigene"
         assert others[EMAIL] is not None
         assert (others[EMAIL].id, others[EMAIL].email, others[EMAIL].bestaetigt, others[EMAIL].verwehrt) == (minted, NEW_EMAIL, False, None)
+        # The person's own start: its starter is the row's own address, and no reason is asked of it.
+        assert (others[EMAIL].weg, others[EMAIL].gestartet_von, others[EMAIL].grund) == ("konto", None, None)
         assert confirmed[EMAIL] is not None and confirmed[EMAIL].bestaetigt
         # Every other row names no change, its grant's address having none waiting.
         assert {adresse: change for adresse, change in others.items() if adresse != EMAIL} == dict.fromkeys(set(others) - {EMAIL})
+
+    def test_the_grants_list_names_who_started_a_change_how_and_why(self, mongo_replica_set_url: str):
+        """What a pretext hides: an administrator's start for a lost mailbox, beside the reason they recorded."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            await administrator_starts(database, client, grund=GRUND, operator=OWNER)
+            listed = await call(get_berechtigungen, database, client, operator=SECOND_ADMIN)
+            return {row.adresse: row.adresswechsel for row in listed.berechtigungen}[EMAIL]
+
+        row = on_a_person(mongo_replica_set_url, body)
+
+        assert row is not None
+        assert (row.email, row.weg, row.gestartet_von, row.gestartet_von_gesperrt, row.grund) == (NEW_EMAIL, "wartezeit", OWNER, False, GRUND)
+
+    def test_an_owner_s_change_tells_a_non_owner_none_of_its_address_starter_or_reason(self, mongo_replica_set_url: str):
+        """The address tool refuses them an owner's address (`REQ-PURGE-005`), so the approval row may not serve it either."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database, verwaltung="owner")
+            # A second owner beside the starter, so an owner's change has an approver.
+            await database[Collection.BERECHTIGUNGEN].update_one({"adresse": SECOND_ADMIN}, {"$set": {"verwaltung": "owner"}})
+            await administrator_starts(database, client, grund=GRUND, operator=OWNER)
+            rows = []
+            for reader in (ADMIN, SECOND_ADMIN):
+                listed = await call(get_berechtigungen, database, client, operator=reader)
+                rows.append({row.adresse: row.adresswechsel for row in listed.berechtigungen}[EMAIL])
+            return rows
+
+        non_owner, owner = on_a_person(mongo_replica_set_url, body)
+
+        assert non_owner is not None and owner is not None
+        assert (non_owner.verwehrt, non_owner.email, non_owner.gestartet_von, non_owner.grund) == ("inhaber", None, None, None)
+        assert (owner.email, owner.gestartet_von, owner.grund) == (NEW_EMAIL, OWNER, GRUND)
+
+    def test_a_barred_new_address_and_a_barred_starter_are_withheld(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            await administrator_starts(database, client, grund=GRUND, operator=OWNER)
+            await database[Collection.SPERRLISTE].insert_many(
+                [documents.ban_document(address, bis=SAISON_ID) for address in (NEW_EMAIL, OWNER)]
+            )
+            listed = await call(get_berechtigungen, database, client, operator=SECOND_ADMIN)
+            return {row.id: row.adresswechsel for row in listed.berechtigungen if row.gesperrt is False and row.adresse == EMAIL}
+
+        (row,) = on_a_person(mongo_replica_set_url, body).values()
+
+        assert row is not None
+        assert (row.email, row.email_gesperrt, row.gestartet_von, row.gestartet_von_gesperrt) == (None, True, None, True)
+
+    def test_a_barred_grant_s_row_carries_no_waiting_change(self, mongo_replica_set_url: str):
+        """Its own address is withheld, so its change, which names the new one and offers the approval, is too."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            await start(database, client)
+            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(EMAIL, bis=SAISON_ID))
+            listed = await call(get_berechtigungen, database, client, operator=SECOND_ADMIN)
+            return [(row.adresse, row.adresswechsel) for row in listed.berechtigungen if row.gesperrt]
+
+        assert on_a_person(mongo_replica_set_url, body) == [(None, None)]
+
+    def test_a_change_past_its_approval_week_is_offered_to_nobody(self, mongo_replica_set_url: str):
+        """Its approval is refused then (`REQ-ADRESSWECHSEL-003`), and a reload the refusal asks for must not offer it again."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            minted = await start(database, client)
+            await answer(database, client, minted.token)
+            listed = await call(get_berechtigungen, database, client, operator=SECOND_ADMIN, now=AFTER_THE_WEEK)
+            return {row.adresse: row.adresswechsel for row in listed.berechtigungen}[EMAIL]
+
+        assert on_a_person(mongo_replica_set_url, body) is None
 
     def test_an_owner_s_grant_is_approved_by_no_administrator(self, mongo_replica_set_url: str):
         assert self.refused_approval(mongo_replica_set_url, approver=ADMIN, verwaltung="owner") == (ADRESSWECHSEL_GENEHMIGUNG_INHABER, None)
@@ -958,12 +1033,21 @@ class TestAGrantEndedBeforeTheApproval:
             confirmed = await answer(database, client, minted.token)
             # Any route ending the grant, a revoke's, a tier change's or an erasure's, leaves no row at the address.
             await database[Collection.BERECHTIGUNGEN].delete_one({"_id": grant})
+            listed = await call(get_berechtigungen, database, client, operator=SECOND_ADMIN)
             swept = await sweep(database, client, germany_now=NOW + timedelta(hours=1))
-            return confirmed.genehmigung_offen, swept, await change(database, minted.id), await owed(database), await everything(database)
+            offered = [row.adresswechsel for row in listed.berechtigungen if row.adresswechsel is not None]
+            return (
+                confirmed.genehmigung_offen,
+                offered,
+                swept,
+                await change(database, minted.id),
+                await owed(database),
+                await everything(database),
+            )
 
-        offen, swept, record, notices, after = on_a_person(mongo_replica_set_url, body)
+        offen, offered, swept, record, notices, after = on_a_person(mongo_replica_set_url, body)
 
-        assert offen is True
+        assert (offen, offered) == (True, [])
         assert (swept.wirksam, swept.verbleibend) == (1, 0)
         assert record["beendet"]["art"] == "wirksam"
         assert [(notice["art"], notice["bisherige_email"], notice["email"]) for notice in notices] == [("wirksam", EMAIL, NEW_EMAIL)]
