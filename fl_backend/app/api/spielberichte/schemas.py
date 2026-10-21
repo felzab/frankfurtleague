@@ -302,11 +302,17 @@ class FLSpielberichtPersonEintrag(BaseModel):
     eingereicht_am: FLUtcInstant | None
 
 
+class FLSpielberichtPersonFruehererEintrag(FLSpielberichtPersonEintrag):
+    """One reported fixture of an ended season, its date null where it was cleared after the report: the report still stands."""
+
+    datum: CustomDateString | None
+
+
 class FLSpielberichtePersonResponse(BaseAPIResponse):
     """`spiele` of the running season, which the referee reports on; `fruehere` of ended ones, each holding a report they only read."""
 
     spiele: list[FLSpielberichtPersonEintrag]
-    fruehere: list[FLSpielberichtPersonEintrag]
+    fruehere: list[FLSpielberichtPersonFruehererEintrag]
 
 
 class FLSpielberichtZustandEintrag(BaseModel):

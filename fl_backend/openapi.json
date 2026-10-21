@@ -11125,7 +11125,7 @@
     "/api/v0/spielberichte/person": {
       "get": {
         "summary": "The fixtures a signed-in referee reports on",
-        "description": "The `active` season's fixtures booked to the signed-in referee whose day has come, newest first.\n\nBooked to any confirmed, live referee record of the address, each with when its report was first sent, null where\nnone stands. A fixture called off or struck out is left out, having no report; `spiele` is empty while no season is\n`active`.\n\n`fruehere` holds every dated fixture of an ended season booked to those records now on which a report stands,\nnewest first: its page shows the report read-only. Refused `REQ-FUNKTION-001` where the address holds no\nconfirmed, live referee record.",
+        "description": "The `active` season's fixtures booked to the signed-in referee whose day has come, newest first.\n\nBooked to any confirmed, live referee record of the address, each with when its report was first sent, null where\nnone stands. A fixture called off or struck out is left out, having no report; `spiele` is empty while no season is\n`active`.\n\n`fruehere` holds every fixture of an ended season booked to those records now on which a report stands, newest\nfirst, one whose date was cleared after its report last with a null `datum`: its page shows the report read-only.\nRefused `REQ-FUNKTION-001` where the address holds no confirmed, live referee record.",
         "operationId": "get_spielberichte_person_api_v0_spielberichte_person_get",
         "responses": {
           "200": {
@@ -27280,6 +27280,84 @@
         "title": "FLSpielberichtPersonEintrag",
         "description": "One played fixture booked to the signed-in referee, and when its report, whoever wrote it, was first sent."
       },
+      "FLSpielberichtPersonFruehererEintrag": {
+        "properties": {
+          "spiel_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id"
+          },
+          "datum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datum"
+          },
+          "uhrzeit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uhrzeit"
+          },
+          "team1_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team1 Name"
+          },
+          "team2_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team2 Name"
+          },
+          "eingereicht_am": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eingereicht Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_id",
+          "datum",
+          "uhrzeit",
+          "team1_name",
+          "team2_name",
+          "eingereicht_am"
+        ],
+        "title": "FLSpielberichtPersonFruehererEintrag",
+        "description": "One reported fixture of an ended season, its date null where it was cleared after the report: the report still stands."
+      },
       "FLSpielberichtSchiedsrichterResponse": {
         "properties": {
           "acknowledged": {
@@ -27751,7 +27829,7 @@
           },
           "fruehere": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielberichtPersonEintrag"
+              "$ref": "#/components/schemas/FLSpielberichtPersonFruehererEintrag"
             },
             "type": "array",
             "title": "Fruehere"
