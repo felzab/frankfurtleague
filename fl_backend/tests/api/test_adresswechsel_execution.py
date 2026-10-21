@@ -1069,11 +1069,23 @@ class TestTheApproval:
             await answer(database, client, minted.token)
             refused = await refused_code(approve(database, client, minted.id, germany_now=AFTER_THE_WEEK))
             swept = await sweep(database, client, germany_now=AFTER_THE_WEEK)
-            return refused, swept.entfernt, await change(database, minted.id)
+            return refused, swept.entfernt, await change(database, minted.id), await owed(database)
 
-        refused, entfernt, record = on_a_person(mongo_replica_set_url, body)
+        refused, entfernt, record, notices = on_a_person(mongo_replica_set_url, body)
 
         assert (refused, entfernt, record["beendet"]["art"]) == (ADRESSWECHSEL_ABGELAUFEN, 1, "abgelaufen")
+        # The new mailbox was told the change waits on the administration, so it is told it did not take effect.
+        assert [(notice["art"], notice["email"], notice["vorname"]) for notice in notices] == [("verworfen", NEW_EMAIL, None)]
+
+    def test_a_link_lapsing_unconfirmed_queues_nothing(self, mongo_replica_set_url: str):
+        """Nobody confirmed it, so nobody waits to hear of it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await start(database, client)
+            swept = await sweep(database, client, germany_now=AFTER_THE_DEADLINE)
+            return swept.entfernt, await owed(database)
+
+        assert on_a_person(mongo_replica_set_url, body) == (1, [])
 
     def test_a_confirmed_change_with_a_waiting_time_unapproved_a_week_after_its_start_lapses_at_the_pass(self, mongo_replica_set_url: str):
         """Its waiting time ends after its approval's week, so the pass meets it lapsed, never due."""

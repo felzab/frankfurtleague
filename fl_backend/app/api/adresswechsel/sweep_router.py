@@ -109,6 +109,7 @@ async def _end_the_lapsed_change(
     row: Mapping[str, Any],
     *,
     adresswechsel_collection: AsyncCollection,
+    adresswechsel_postausgang_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     db: AsyncMongoClient,
     now: datetime,
@@ -120,7 +121,7 @@ async def _end_the_lapsed_change(
     """
 
     async def end_the_lapsed_change(session: AsyncClientSession) -> None:
-        await end_the_change_in_session(
+        stored = await end_the_change_in_session(
             adresswechsel_collection=adresswechsel_collection,
             aktionen_collection=aktionen_collection,
             db_filter={"_id": row["_id"], **build_lapsed_terms(now)},
@@ -129,9 +130,33 @@ async def _end_the_lapsed_change(
             stamp=stamp,
             session=session,
         )
+        # A confirmed change lapsing on its owed approval: its new mailbox was told it waits on the administration, so it is
+        # told it did not take effect, as a refused due change's is (`docs/backend/spec.md :: I827`).
+        if stored.get("bestaetigt_am") is not None:
+            await _queue_the_refusal(
+                stored, adresswechsel_postausgang_collection=adresswechsel_postausgang_collection, now=now, session=session
+            )
 
     async with transaction_session(db) as session:
         await session.with_transaction(end_the_lapsed_change)
+
+
+async def _queue_the_refusal(
+    record: Mapping[str, Any], *, adresswechsel_postausgang_collection: AsyncCollection, now: datetime, session: AsyncClientSession
+) -> None:
+    """The new mailbox's notice that a confirmed change did not take effect, queued in the end's transaction.
+
+    Read off the record as it stood before its end nulled it: never why, never the address on file, greeting nobody
+    (`docs/backend/spec.md :: I827`, `:: I846`).
+    """
+
+    await post_one_to_db(
+        collection=adresswechsel_postausgang_collection,
+        document=compose_postausgang(
+            art="verworfen", email=str(record["email"]), bisherige_email=None, vorname=None, weg=None, adresse_belegt=None, now=now
+        ),
+        session=session,
+    )
 
 
 async def _make_the_due_change_take_effect(
@@ -226,15 +251,7 @@ async def _make_the_due_change_take_effect(
                 ending_line(art="adresswechsel_verworfen", neue=str(record["email"]), record_id=record["_id"], am=stamp, schluessel=schluessel)
             )
 
-        # Read in this transaction before the end nulled it, and queued in it: never why, never the address on file, greeting
-        # nobody (`docs/backend/spec.md :: I827`, `:: I846`).
-        await post_one_to_db(
-            collection=adresswechsel_postausgang_collection,
-            document=compose_postausgang(
-                art="verworfen", email=str(record["email"]), bisherige_email=None, vorname=None, weg=None, adresse_belegt=None, now=now
-            ),
-            session=session,
-        )
+        await _queue_the_refusal(record, adresswechsel_postausgang_collection=adresswechsel_postausgang_collection, now=now, session=session)
         return "verworfen"
 
     async with journal:
@@ -349,6 +366,7 @@ async def sweep_adresswechsel(
                 await _end_the_lapsed_change(
                     row,
                     adresswechsel_collection=adresswechsel_collection,
+                    adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
                     aktionen_collection=aktionen_collection,
                     db=db,
                     now=germany_now,
