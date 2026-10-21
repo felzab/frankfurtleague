@@ -684,15 +684,15 @@ def _seat_paths(block: str, *leaves: str) -> set[str]:
     return {f"{block}.{seat}.{leaf}" for seat in SEATS for leaf in leaves}
 
 
-# What each handler resolves off the row its token found, `_id` among them since a projection keeps it unless told
-# otherwise. Neither holds the wording label a seat confirmed under: the page names its own, and the press records it.
+# What each handler resolves off the row its token found, `_id` the answer's alone, which keys its patch on it. Neither
+# holds the wording label a seat confirmed under: the page names its own, and the press records it.
 SAISON_ANSICHT_RESOLVES = frozenset(
     _seat_paths("bestaetigungen", "token_hash", "abgelehnt_am", "frist")
     | _seat_paths("kontakte", "email", "einwilligung.bestaetigt_am", "einwilligung.eingetragen_von")
-    | {"_id", "kontakte.trainer_ist_zugleich", "saison_id", "name", "austritt"}
+    | {"kontakte.trainer_ist_zugleich", "saison_id", "name", "austritt"}
 )
-SAISON_ANTWORT_RESOLVES = SAISON_ANSICHT_RESOLVES | _seat_paths(
-    "kontakte", "einwilligung.umfang", "einwilligung.medien", "einwilligung.nachweis"
+SAISON_ANTWORT_RESOLVES = (
+    SAISON_ANSICHT_RESOLVES | _seat_paths("kontakte", "einwilligung.umfang", "einwilligung.medien", "einwilligung.nachweis") | {"_id"}
 )
 
 
