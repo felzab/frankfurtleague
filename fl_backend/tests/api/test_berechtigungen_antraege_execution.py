@@ -40,6 +40,7 @@ from app.api.berechtigungen.antraege import (
     erase_antraege_in_session,
 )
 from app.api.berechtigungen.schemas import FLPatchBerechtigungPayload, FLPostBerechtigungPayload
+from app.api.berechtigungen.services import BERECHTIGUNG_GESPERRT, BERECHTIGUNG_VORHANDEN
 from app.api.identitaet.wiederherstellung import Window, plan_replay
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
@@ -562,6 +563,40 @@ class TestARequestOutlivesNoRequester:
             return await outcome(approve(database, client, antrag_id, als=BERND))
 
         assert on_a_league(mongo_replica_set_url, body) == BERECHTIGUNG_ANTRAG_VERFALLEN
+
+
+class TestTheApprovalJudgesTheAddressAgain:
+    """What the direct act refuses, the approval refuses too, judged when it is pressed: a week is long enough for a ban or a paste."""
+
+    def test_a_subject_barred_since_is_withheld_on_the_list_and_granted_nothing(self, mongo_replica_set_url: str):
+        """Withheld beside its flag as a grant's address is (`docs/backend/spec.md :: I452`), and the request left to be refused."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            antrag_id = await asked_for(database, client)
+            await database[Collection.SPERRLISTE].insert_one(ban_document(NEU, bis=STANDING))
+            (served,) = (await listed(database, client)).antraege
+            approved = await outcome(approve(database, client, antrag_id, als=BERND))
+            return (served.adresse, served.gesperrt), approved, NEU in await tiers(database), len(await antraege(database))
+
+        assert on_a_league(mongo_replica_set_url, body) == ((None, True), BERECHTIGUNG_GESPERRT, False, 1)
+
+    def test_an_administrator_barred_since_is_promoted_by_nobody(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await tier(database, client, BERND_ID)
+            (antrag,) = await antraege(database)
+            await database[Collection.SPERRLISTE].insert_one(ban_document(BERND, bis=STANDING))
+            return await outcome(approve(database, client, antrag["_id"], als=ANNA)), (await tiers(database))[BERND]
+
+        assert on_a_league(mongo_replica_set_url, body, grants=TWO_OWNERS) == (BERECHTIGUNG_GESPERRT, "administration")
+
+    def test_an_address_granted_since_in_the_database_is_granted_no_second_time(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            antrag_id = await asked_for(database, client)
+            await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(CARLA_ID, NEU, "administration"))
+            approved = await outcome(approve(database, client, antrag_id, als=BERND))
+            return approved, await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": NEU})
+
+        assert on_a_league(mongo_replica_set_url, body) == (BERECHTIGUNG_VORHANDEN, 1)
 
 
 Racer = Callable[[AsyncDatabase, AsyncMongoClient, ObjectId], Awaitable[Any]]
