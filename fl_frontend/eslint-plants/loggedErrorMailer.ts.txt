@@ -1,9 +1,0 @@
-// Linted as src/features/kontakte/notifications.ts.
-// A module importing the mailer hands the log no error, though no list names its path.
-import { sendMail } from "@/core/mail";
-
-export const send = sendMail;
-export function planted(error: Error): void {
-  logger.error("kontakt.abgang_failed", error); // expect: logged-error
-  logger.error("kontakt.abgang_failed", undefined, { error_code: "FE-MAIL-002", name: error.name });
-}

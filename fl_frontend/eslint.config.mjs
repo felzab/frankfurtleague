@@ -1063,19 +1063,18 @@ const LOGGED_ERROR = {
   selector:
     'CallExpression[callee.object.name="logger"][callee.property.name="error"] > :not(Identifier[name="undefined"]).arguments:nth-child(2)',
   message: "Hand `logger.error` `undefined` for the error on this path: its message and stack carry the submitted address.",
-};
-
-/**
- * Every module importing the mailer, whatever its path, so the next one written is held without being listed; the
- * scoped list below keeps the paths reaching the mailer through another module.
- */
-const MAILER_LOGGED_ERROR = {
-  selector: `Program:has(ImportDeclaration[source.value="@/core/mail"]) ${LOGGED_ERROR.selector}`,
-  message: LOGGED_ERROR.message,
+  // Production-wide but for these, never a list of mail paths: a lint judges one file, and cannot see a
+  // module reach the mailer through another.
+  exempt: [
+    // Next's hook for a crash no code caught, whose stack is the only account of it.
+    "src/core/instrumentation.ts",
+    // A backend read's failure absorbed by a page, the error being the read's own answer, never a submitted form.
+    "src/shared/utils/degradedRead.ts",
+  ],
 };
 
 const SOURCE_BANS = [
-  MAILER_LOGGED_ERROR,
+  LOGGED_ERROR,
   {
     // A test's router double counts `seen.back` and destructures `back` off itself, which the
     // property rule production takes would refuse, so a test keeps the call ban alone.
@@ -1414,8 +1413,6 @@ const SCOPED_BANS = [
       selector: `Program:not(:has(> ExpressionStatement[directive="use client"])) :matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${moduleNamed("facets")}/]`,
       message: "A facet carries a `read` function, which a Server Component cannot hand across to a client.",
     },
-    // The provider's delivery report names the recipient, so a failure reading or filing it carries one.
-    { files: ["src/app/api/mail/zustellung/route.ts"], ...LOGGED_ERROR },
   ],
   // The layer boundaries' own reach, production alone: a test loads a slice to sweep it.
   [
@@ -1423,23 +1420,6 @@ const SCOPED_BANS = [
       files: ["src/core/**/*.{ts,tsx}"],
       selector: loadOf(selectorPattern(LAYER_BOUNDARY.core.regex)),
       message: "An `import()` in core is an import: core must not depend on shared or features.",
-    },
-    {
-      files: ["src/core/auth.ts", "src/core/authIndexes.ts", "src/core/mail.ts", "src/core/mailGate.ts", "src/core/signInGate.ts"],
-      ...LOGGED_ERROR,
-    },
-  ],
-  [
-    {
-      files: [
-        "src/features/auth/actions.ts",
-        "src/features/bewerbungen/actions.ts",
-        "src/features/funktionen/actions.ts",
-        "src/features/funktionen/sweep.ts",
-        "src/features/saisons/sweep.ts",
-        "src/features/schiedsrichter/notifications.ts",
-      ],
-      ...LOGGED_ERROR,
     },
   ],
   // An admin view's file, whatever its component is named or bound as: the facets `AdminCrudView` is
