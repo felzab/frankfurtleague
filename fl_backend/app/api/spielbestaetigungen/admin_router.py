@@ -155,12 +155,6 @@ async def verwerfen_spielbestaetigung(
     the confirmation pass closes that row and tells its club of the move.
     """
 
-    async def judged(row: Mapping[str, Any], session: AsyncClientSession | None) -> None:
-        spiel = await pull_one_from_db(
-            collection=spiele_collection, db_filter={"_id": row["spiel_id"]}, projection=list(ANSETZUNG_QUELLEN.values()), session=session
-        )
-        refuse(find_verwerfen_refusal(spielbestaetigung_raw=row, spiel=spiel))
-
     async def discard_the_proposal(session: AsyncClientSession) -> Mapping[str, Any]:
         row = await pull_one_from_db(
             collection=spielbestaetigungen_collection,
@@ -168,8 +162,6 @@ async def verwerfen_spielbestaetigung(
             projection=["spiel_id", "partei", "ansetzung.stand", "antwort", "geschlossen"],
             session=session,
         )
-        await judged(row, session)
-
         try:
             discarded = await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
@@ -181,9 +173,12 @@ async def verwerfen_spielbestaetigung(
         except DocumentNotFoundException as miss:
             raise WriteRefusalException(verwerfen_refusal()) from miss
 
-        # The fixture is judged and not written, so a move landing under this transaction raises no conflict: judged
-        # again outside it before answering (`docs/backend/spec.md :: I118`).
-        await judged(row, None)
+        # Outside the transaction, after the write: a move landing under it writes nothing this reads, so only a read of the
+        # committed fixture refuses it, aborting the write (`docs/backend/spec.md :: I118`). The write's filter judges the row.
+        spiel = await pull_one_from_db(
+            collection=spiele_collection, db_filter={"_id": row["spiel_id"]}, projection=list(ANSETZUNG_QUELLEN.values()), session=None
+        )
+        refuse(find_verwerfen_refusal(spielbestaetigung_raw=row, spiel=spiel))
 
         return discarded
 
