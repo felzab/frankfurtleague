@@ -4,9 +4,10 @@ import { erteiltVonAnzeige, uebersprungenHinweis, vonOderGesperrt } from "@/feat
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 import { Callout } from "@/shared/components/ui/Callout";
 
+import { AdminBerechtigungAntraegeList } from "../collections/AdminBerechtigungAntraegeList";
 import { AdminBerechtigungenList } from "../collections/AdminBerechtigungenList";
 
-import type { FLBerechtigungZeile } from "@/features/berechtigungen/schemas";
+import type { FLBerechtigungAntragZeile, FLBerechtigungZeile } from "@/features/berechtigungen/schemas";
 import type { SearchKey } from "@/shared/hooks/useFuzzySearch";
 
 /* Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. Each reads what
@@ -20,10 +21,12 @@ const SEARCH_KEYS: readonly SearchKey<FLBerechtigungZeile>[] = [
 export function AdminBerechtigungenView({
   berechtigungen,
   uebersprungen,
+  antraege,
   inhaberAdresse,
 }: {
   berechtigungen: FLBerechtigungZeile[];
   uebersprungen: number;
+  antraege: FLBerechtigungAntragZeile[];
   inhaberAdresse: string | null;
 }) {
   return (
@@ -36,6 +39,8 @@ export function AdminBerechtigungenView({
           {uebersprungenHinweis(uebersprungen)}
         </Callout>
       )}
+
+      <AdminBerechtigungAntraegeList antraege={antraege} />
 
       <AdminCrudView<FLBerechtigungZeile>
         items={berechtigungen}

@@ -13,6 +13,7 @@ from app.core.db import (
     get_adresswechsel_postausgang_collection,
     get_aktionen_collection,
     get_berechtigungen_angekuendigt_collection,
+    get_berechtigungen_antraege_collection,
     get_berechtigungen_collection,
     get_berechtigungen_postausgang_collection,
     get_bewerbungen_collection,
@@ -84,6 +85,8 @@ AdresswechselCollection = Annotated[AsyncCollection, Depends(get_adresswechsel_c
 AdresswechselPostausgangCollection = Annotated[AsyncCollection, Depends(get_adresswechsel_postausgang_collection)]
 
 DrosselungCollection = Annotated[AsyncCollection, Depends(get_drosselung_collection)]
+
+BerechtigungenAntraegeCollection = Annotated[AsyncCollection, Depends(get_berechtigungen_antraege_collection)]
 
 
 # Injected rather than read at the call site, which is what keeps "today" substitutable in tests.

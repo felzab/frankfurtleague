@@ -17,6 +17,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.adresswechsel.services import compose_end_update, compose_genehmigung
 from app.api.aktionen.crud import redact_address_in_images
 from app.api.aktionen.services import IMAGE_ADDRESSES, address_image_edits
+from app.api.berechtigungen.antraege import compose_antrag
 from app.api.einladungen.services import compose_einladung, compose_widerruf_update
 from app.core.collections import Collection
 from app.core.crud import delete_many_from_db, patch_one_in_db
@@ -56,6 +57,8 @@ READDRESSED_PUPIL = ObjectId("6890a1b2c3d4e5f607840043")
 TO_THEM = ObjectId("6890a1b2c3d4e5f607840061")
 STARTED_BY_THEM = ObjectId("6890a1b2c3d4e5f607840062")
 TEAM = ObjectId("6890a1b2c3d4e5f607840051")
+ASKED_FOR_THEM = ObjectId("6890a1b2c3d4e5f607840071")
+ASKED_BY_THEM = ObjectId("6890a1b2c3d4e5f607840072")
 
 ENTSCHEIDUNG = {"getroffen_am": "2026-03-01", "von": ERASED, "grund": "Zu spät eingereicht"}
 
@@ -134,9 +137,24 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
     )
     for change in (TO_THEM, STARTED_BY_THEM):
         await patched(database, Collection.ADRESSWECHSEL, change, compose_end_update(art="verworfen", now=GRANTED_AT))
+    # A grant asked for them and one they asked for, each decided since, which removes it with its image.
+    await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_many(
+        [
+            {
+                "_id": ASKED_FOR_THEM,
+                **compose_antrag(adresse=ERASED, verwaltung="administration", berechtigung_id=None, gestartet_von=OTHER_ADMIN, now=GRANTED_AT),
+            },
+            {
+                "_id": ASKED_BY_THEM,
+                **compose_antrag(adresse=GRANTEE, verwaltung="administration", berechtigung_id=None, gestartet_von=ERASED, now=GRANTED_AT),
+            },
+        ]
+    )
     async with client.start_session() as session:
         await delete_many_from_db(collection=database[Collection.BERECHTIGUNGEN], db_filter={"_id": THEIR_GRANT}, session=session)
         await delete_many_from_db(collection=database[Collection.SPERRLISTE], db_filter={"_id": ban["_id"]}, session=session)
+        for antrag in (ASKED_FOR_THEM, ASKED_BY_THEM):
+            await delete_many_from_db(collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE], db_filter={"_id": antrag}, session=session)
 
 
 async def run_the_pass(database: AsyncDatabase, client: AsyncMongoClient, identifier: str) -> int:
@@ -208,6 +226,7 @@ class TestTheJudgement:
             (Collection.REGISTRIERUNGEN, "entscheidung.von"),
             (Collection.ADRESSWECHSEL, "genehmigung.gestartet_von"),
             (Collection.ADRESSWECHSEL, "genehmigung.genehmigt_von"),
+            (Collection.BERECHTIGUNGEN_ANTRAEGE, "genehmigung.gestartet_von"),
         }
         assert {address.replacement for addresses in IMAGE_ADDRESSES.values() for address in addresses} == {ERASED_ACTOR_MARKER, None}
 
@@ -222,7 +241,7 @@ def test_no_image_holds_the_address_afterwards(mongo_replica_set_url: str):
     assert held_before == {str(collection) for collection in IMAGE_ADDRESSES}, "a store's image was never seeded holding the address"
     assert ERASED not in str(log).lower()
     # One row per store holding the address, each stamped once and counted once.
-    assert counts == [len([row for row in log if row["redacted_at"] == STAMP])] == [10]
+    assert counts == [len([row for row in log if row["redacted_at"] == STAMP])] == [12]
 
 
 @pytest.mark.db
@@ -233,7 +252,7 @@ def test_a_spelling_handed_in_unfolded_still_takes_the_address_out(mongo_replica
 
     assert ERASED not in str(log).lower()
     # Every row the folded spelling's run stamps, each counted once.
-    assert counts == [len([row for row in log if row["redacted_at"] == STAMP])] == [10]
+    assert counts == [len([row for row in log if row["redacted_at"] == STAMP])] == [12]
 
 
 @pytest.mark.db
@@ -260,6 +279,11 @@ def test_each_image_keeps_everything_but_the_address(mongo_replica_set_url: str)
     assert (to_them["email"], to_them["adresse"]) == (None, PUPIL_STORED)
     started = image_of(log, Collection.ADRESSWECHSEL, STARTED_BY_THEM)["before"]
     assert (started["adresse"], started["genehmigung"]["gestartet_von"]) == (REFEREE_STORED, ERASED_ACTOR_MARKER)
+    ((for_them,), (by_them,)) = (
+        image_of(log, Collection.BERECHTIGUNGEN_ANTRAEGE, antrag)["before"] for antrag in (ASKED_FOR_THEM, ASKED_BY_THEM)
+    )
+    assert (for_them["adresse"], for_them["genehmigung"]["gestartet_von"]) == (None, OTHER_ADMIN)
+    assert (by_them["adresse"], by_them["genehmigung"]["gestartet_von"]) == (GRANTEE, ERASED_ACTOR_MARKER)
 
 
 @pytest.mark.db
@@ -278,5 +302,5 @@ def test_a_second_run_finds_nothing_left_to_take(mongo_replica_set_url: str):
 
     _, log, counts = after_the_pass(mongo_replica_set_url, runs=2)
 
-    assert counts == [10, 0]
+    assert counts == [12, 0]
     assert {row["redacted_at"] for row in log if row["redacted_at"] is not None} == {STAMP}

@@ -30,6 +30,10 @@ FLGenehmigungVerwehrt = Literal["eigene", "gestartet", "inhaber", "juenger"]
 # a database edit. An address changed in place is a removal and a grant, never `geaendert`.
 FLBerechtigungAenderungArt = Literal["erteilt", "entzogen", "geaendert"]
 
+# What an outbox row tells: a change to a grant, or a grant or a promotion asked for and waiting on another
+# administrator's approval, which no grant has yet and so is no change of one.
+FLBerechtigungPostausgangArt = Literal[FLBerechtigungAenderungArt, Literal["beantragt"]]
+
 # Who made a queued change: an administrator through the application, or an edit in the database.
 # Stated, since a null actor also stands for one whose address is withheld (`docs/backend/spec.md :: I452`).
 FLBerechtigungUrheber = Literal["anwendung", "datenbank"]
@@ -93,12 +97,57 @@ class FLBerechtigungZeile(BaseModel):
     adresswechsel: FLBerechtigungAdresswechsel | None
 
 
+class FLBerechtigungAntragGenehmigung(BaseModel):
+    """What a request waits on, the block an address change's approval keeps too, so one judgement reads both."""
+
+    # The tier the request asks for, and the one its approver and its requester must hold.
+    verwaltung: FLVerwaltung
+    angefragt_am: datetime
+    bis: datetime
+    # Folded, as `erteilt_von` stores an administrator.
+    gestartet_von: CustomNonEmptyString
+
+
+class FLBerechtigungAntrag(BaseModel):
+    """One request as the collection stores it: never an approval, which writes the grant and removes the request at once."""
+
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    # Folded: the address the grant goes to, or the address of the grant a promotion names.
+    adresse: CustomNonEmptyString
+    # The grant a promotion raises, null for a grant: its approval finds nothing where that grant has gone since.
+    berechtigung_id: CustomObjectId | None
+    genehmigung: FLBerechtigungAntragGenehmigung
+
+
+class FLBerechtigungAntragZeile(BaseModel):
+    """One request as the list serves it, while it may still be decided."""
+
+    id: CustomObjectId
+    # Null exactly where `gesperrt` is set, as on a grant's row.
+    adresse: str | None
+    gesperrt: bool
+    berechtigung_id: CustomObjectId | None
+    verwaltung: FLVerwaltung
+    # Null exactly where `gestartet_von_gesperrt` is set.
+    gestartet_von: str | None
+    gestartet_von_gesperrt: bool
+    angefragt_am: FLUtcInstant
+    bis: FLUtcInstant
+    # Whether its requester still holds, since before it, the tier it asks for: a request outlives no revoke, demotion or ban
+    # of the person who made it.
+    steht: bool
+    # Why the reader may not approve it, or null where they may; a requester refuses their own all the same.
+    verwehrt: FLGenehmigungVerwehrt | None
+
+
 class FLBerechtigungenListResponse(BaseAPIResponse):
     """Every live grant, uncapped: a list the floor of two is judged over is never served in part."""
 
     berechtigungen: list[FLBerechtigungZeile]
     # The rows no request can match, left out rather than failing the page (`docs/backend/spec.md :: I453`).
     uebersprungen: int = Field(ge=0)
+    # Every request not yet lapsed, oldest first.
+    antraege: list[FLBerechtigungAntragZeile]
 
 
 class FLPostBerechtigungPayload(BaseModel):
@@ -116,13 +165,35 @@ class FLPatchBerechtigungPayload(BaseModel):
 
 
 class FLPostBerechtigungResponse(BaseAPIResponse):
+    # The grant's id, or the request's where `beantragt` is set.
     created_id: CustomObjectId
+    # Whether the grant waits on another administrator's approval rather than taking effect.
+    beantragt: bool
 
 
 class FLBerechtigungWriteResponse(BaseAPIResponse):
     """The grant a revoke removed or a tier change moved: a removal is hard, so the id is all there is to answer with."""
 
     berechtigung_id: CustomObjectId
+
+
+class FLBerechtigungStufeResponse(BaseAPIResponse):
+    """The grant a tier change named, and whether its promotion waits on another owner's approval rather than taking effect."""
+
+    berechtigung_id: CustomObjectId
+    beantragt: bool
+
+
+class FLBerechtigungAntragGenehmigtResponse(BaseAPIResponse):
+    """The grant an approval wrote or promoted."""
+
+    berechtigung_id: CustomObjectId
+
+
+class FLBerechtigungAntragAbgelehntResponse(BaseAPIResponse):
+    """The request a refusal or a withdrawal removed: a removal is hard, so the id is all there is to answer with."""
+
+    antrag_id: CustomObjectId
 
 
 class FLBerechtigungStand(BaseModel):
@@ -146,8 +217,9 @@ class FLBerechtigungPostausgangZeile(BaseModel):
     """One outbox row as stored: a change still to be mailed, and the claim a pass holds it under."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    # The request's own id on a `beantragt` row, which has no grant yet: the claim finds by it whether the request still waits.
     berechtigung_id: CustomObjectId
-    art: FLBerechtigungAenderungArt
+    art: FLBerechtigungPostausgangArt
     urheber: FLBerechtigungUrheber
     jetzt: FLBerechtigungStand | None
     vorher: FLBerechtigungStand | None
@@ -169,7 +241,7 @@ class FLBerechtigungAenderung(BaseModel):
 
     id: CustomObjectId
     berechtigung_id: CustomObjectId
-    art: FLBerechtigungAenderungArt
+    art: FLBerechtigungPostausgangArt
     urheber: FLBerechtigungUrheber
     jetzt: FLBerechtigungStand | None
     vorher: FLBerechtigungStand | None
@@ -185,6 +257,9 @@ class FLBerechtigungAenderung(BaseModel):
     geloescht: bool
     # Set where this claim is past the row's last hand-out: the pass mails nothing and stamps it.
     aufgegeben: bool
+    # A request's recipients, in `empfaenger`'s place: whoever could approve it now, none once it is decided, lapsed
+    # or approved by nobody. Null on every change to a grant.
+    an: list[str] | None
 
 
 class FLBerechtigungAbgleichResponse(BaseAPIResponse):

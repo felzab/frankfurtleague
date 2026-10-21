@@ -70,6 +70,7 @@ describe("the grants list's search, over the actor and the address its cards pri
     gesperrterZugang: "schriftfuehrung@schule.de",
   };
   const view = h(AdminBerechtigungenView, {
+    antraege: [],
     berechtigungen: [
       zeile(ROWS.benannt, "inhaber@schule.de", false, "6890a1b2c3d4e5f6071b0011"),
       zeile(ROWS.geloescht, ERASED_ACTOR_MARKER, false, "6890a1b2c3d4e5f6071b0012"),

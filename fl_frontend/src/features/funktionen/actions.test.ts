@@ -36,6 +36,7 @@ const GELOESCHT = {
   registrierungen: 0,
   adresswechsel: 0,
   berechtigungen: 0,
+  berechtigungen_antraege: 0,
   drosselung: 0,
 };
 const NICHTS = { ...GELOESCHT, spieler: 0, saison_spieler: 0 };

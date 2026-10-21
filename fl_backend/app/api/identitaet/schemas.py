@@ -153,6 +153,8 @@ class FLErasure(BaseModel):
     adresswechsel: int = Field(ge=0)
     # The person's own grants, a dead spelling of their address among them.
     berechtigungen: int = Field(ge=0)
+    # Every request about the address or made by it, a lapsed one among them.
+    berechtigungen_antraege: int = Field(ge=0)
     drosselung: int = Field(ge=0)
 
 

@@ -99,6 +99,11 @@ IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = Mappin
             ImageAddress("genehmigung.gestartet_von", "genehmigung.gestartet_von", ERASED_ACTOR_MARKER),
             ImageAddress("genehmigung.genehmigt_von", "genehmigung.genehmigt_von", ERASED_ACTOR_MARKER),
         ),
+        # A decided request's: the address it was about, and the administrator who made it, whose marker keeps the image valid.
+        DbCollection.BERECHTIGUNGEN_ANTRAEGE: (
+            ImageAddress("adresse", "adresse", None),
+            ImageAddress("genehmigung.gestartet_von", "genehmigung.gestartet_von", ERASED_ACTOR_MARKER),
+        ),
     }
 )
 

@@ -443,6 +443,12 @@ administration is shut while it is down. Each of these is easy to get wrong:
 - **An `administration` grant is made on the „Administratoren“ page, and only an `owner` is offered
   its revoke there** (`docs/frontend/spec.md :: I459`). Both ask a passkey confirmation of the last
   five minutes, a grant outliving the session making it (`docs/frontend/spec.md :: I458`).
+- **A grant waits as a request wherever another administrator could approve it, and a promotion
+  wherever another owner could** (`docs/backend/spec.md :: I844`): it takes effect once that person
+  approves it on the same page, someone who held their own grant since before the request
+  (`:: I845`). Only an administrator, or an owner, nobody else could stand beside acts alone. Tell the
+  colleague: a request nobody decides lapses after a week (`:: I847`), and one whose requester was
+  revoked, demoted or barred since is approved by nobody and waits for a refusal (`:: I846`).
 - **An `owner` is made, and steps down, only through the tier change an `owner` makes**
   (`PATCH /berechtigungen/{berechtigung_id}`, `docs/backend/spec.md :: I436`): it mails every
   administrator and is logged, and the last live, unbarred `owner` is demoted by nobody
@@ -460,7 +466,8 @@ administration is shut while it is down. Each of these is easy to get wrong:
   admits nobody, the validator refusing no spelling and the boot counting it as `SRV-BOOT-007`
   without naming it; `verwaltung`, `owner` or `administration`; `erteilt_von`, a marker naming the
   paste, such as `PLAYGROUND`; and `erteilt_am`, a date rather than a string. Removing the row by its
-  folded address revokes it. The statement itself is kept off this public repository.
+  folded address revokes it. A paste asks nobody's approval, which is why it serves these two cases
+  alone. The statement itself is kept off this public repository.
 - **Paste only into a database a boot of the release carrying `berechtigungen` has reached.** That
   boot creates the validator and the unique index; a paste before it creates the collection with
   neither, and a duplicate address in it then fails the next boot's index build (`SRV-BOOT-004`).
@@ -1885,6 +1892,10 @@ undid the erasures, and which nothing re-runs:
   ([section 3](#3-granting-or-revoking-admin-access)). A grant made after the snapshot is gone and
   is made again. The record of each is the mail every change sent every administrator
   (`docs/backend/spec.md :: I439`).
+- **A request refused or withdrawn inside the window replays from its line** and is removed again
+  (`docs/backend/spec.md :: I848`). One approved inside the window is back as a request beside the
+  grant the restore took: approve it again, or refuse it. One asked inside the window is gone and is
+  asked again.
 - **A ban entered after the snapshot is gone, and one lifted after it is back.** Enter each again
   at `/bereich/admin/sperrliste`, which mails the person again, and lift the others there; the mail
   thread that asked for each is the record, the log having rolled back with it.

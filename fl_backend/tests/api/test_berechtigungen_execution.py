@@ -21,7 +21,13 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.berechtigungen.admin_router import delete_berechtigung, get_berechtigungen, patch_berechtigung, post_berechtigung
+from app.api.berechtigungen.admin_router import (
+    delete_berechtigung,
+    get_berechtigungen,
+    patch_berechtigung,
+    post_antrag_genehmigung,
+    post_berechtigung,
+)
 from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
 from app.api.berechtigungen.schemas import (
     FLBerechtigungAbgleichResponse,
@@ -119,6 +125,10 @@ def grant_document(grant_id: ObjectId, adresse: str, verwaltung: str) -> dict[st
     }
 
 
+# `OWNER` alone, who grants without anybody's approval.
+OWNER_ONLY = grant_document(OWNER_ID, OWNER, "owner")
+
+
 def the_three_grants() -> list[dict[str, Any]]:
     return [
         grant_document(OWNER_ID, OWNER, "owner"),
@@ -170,29 +180,65 @@ async def administering(als: str, call: Callable[[], Awaitable[Any]]) -> Any:
         writes_sent_var.reset(sent_token)
 
 
+# Who approves a grant each administrator asks for, as four eyes require (`docs/backend/spec.md :: I844`): the first
+# colleague holding a grant since before the request.
+APPROVER = {ANNA: BERND, BERND: ANNA, OWNER: BERND}
+
+
+async def approved(database: AsyncDatabase, client: AsyncMongoClient, antrag_id: ObjectId, *, als: str, now: datetime = NOW) -> ObjectId:
+    """The request's approval by `als`, answering the grant it made or promoted."""
+
+    async def call() -> Any:
+        return await post_antrag_genehmigung(
+            antrag_id=antrag_id,
+            berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+            berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+            sperrliste=ban_list(database),
+            adressanker_collection=database[Collection.ADRESSANKER],
+            db=client,
+            operator=als,
+            auth_time=int(time.time()),
+            now=now,
+        )
+
+    return (await administering(als, call)).berechtigung_id
+
+
 async def grant(
     database: AsyncDatabase,
     client: AsyncMongoClient,
     email: str = NEU_TYPED,
     *,
     als: str = ANNA,
+    approver: str | None = None,
     berechtigungen: Any = None,
     now: datetime = NOW,
 ) -> ObjectId:
+    """A grant made here: asked by `als` and, where a colleague could approve it, approved by `approver` or `APPROVER[als]`."""
+
     async def call() -> Any:
         return await post_berechtigung(
             berechtigung_data=FLPostBerechtigungPayload(email=email),
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
             sperrliste=ban_list(database),
             adressanker_collection=database[Collection.ADRESSANKER],
             db=client,
             erteilt_von=als,
-            now=now,
+            # Asked on the real clock: the request lapses a week after it, and the TTL monitor would remove one asked at
+            # `NOW` between the ask and the approval, which dates the grant `now`.
+            now=datetime.now(UTC),
         )
 
-    return (await administering(als, call)).created_id
+    answer = await administering(als, call)
+    if not answer.beantragt:
+        return answer.created_id
+
+    return await approved(database, client, answer.created_id, als=approver or APPROVER[als], now=now)
 
 
 async def revoke(
@@ -234,6 +280,7 @@ async def change(
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
             sperrliste=ban_list(database),
             db=client,
             geaendert_von=als,
@@ -241,7 +288,8 @@ async def change(
             now=now,
         )
 
-    await administering(als, call)
+    # Every promotion here is a lone owner's, which asks nobody; `test_berechtigungen_antraege_execution.py` holds the other.
+    assert not (await administering(als, call)).beantragt
 
 
 async def tiers(database: AsyncDatabase) -> dict[str, str]:
@@ -308,6 +356,7 @@ async def claimed(
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
             sperrliste=ban_list(database),
             db=client,
             now=now,
@@ -363,7 +412,7 @@ class TestWhatAGrantStoresAndQueues:
         assert stored == {
             "adresse": NEU,
             "verwaltung": "administration",
-            "erteilt_von": ANNA,
+            "erteilt_von": APPROVER[ANNA],
             "erteilt_am": NOW.astimezone(UTC).replace(tzinfo=None),
             "gesehen_am": NOW.astimezone(UTC).replace(tzinfo=None),
         }
@@ -378,7 +427,7 @@ class TestWhatAGrantStoresAndQueues:
 
             return summary(await claimed(database, client))
 
-        assert on_a_league(mongo_replica_set_url, body) == [("erteilt", NEU, ANNA), ("entzogen", NEU, OWNER)]
+        assert on_a_league(mongo_replica_set_url, body) == [("erteilt", NEU, APPROVER[ANNA]), ("entzogen", NEU, OWNER)]
 
     def test_the_grant_and_the_revoke_are_logged_under_the_administrator_who_made_them(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str, str]]:
@@ -388,7 +437,7 @@ class TestWhatAGrantStoresAndQueues:
 
             return [(row["operation"], row["actor"]["email"]) async for row in rows]
 
-        assert on_a_league(mongo_replica_set_url, body) == [("insert", ANNA), ("delete_many", OWNER)]
+        assert on_a_league(mongo_replica_set_url, body) == [("insert", APPROVER[ANNA]), ("delete_many", OWNER)]
 
     def test_a_revoke_naming_no_grant_is_a_404_and_removes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
@@ -403,32 +452,58 @@ class TestWhatAGrantStoresAndQueues:
 class TestTheOutboxMovesWithItsChange:
     """`docs/backend/spec.md :: I451`: a notice written outside its change's transaction survives the change's abort."""
 
-    def test_a_grant_that_aborts_after_its_notice_leaves_neither(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
-            async def call() -> Any:
+    @pytest.mark.parametrize("grants", [pytest.param([OWNER_ONLY], id="made alone"), pytest.param(None, id="made by its approval")])
+    def test_a_grant_that_aborts_after_its_notice_leaves_neither(self, mongo_replica_set_url: str, grants: list[Any] | None):
+        """Made by its approval, the request stands as it was: the approval wrote nothing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int, int]:
+            async def asked(postausgang: AsyncCollection) -> Any:
                 return await post_berechtigung(
                     berechtigung_data=FLPostBerechtigungPayload(email=NEU_TYPED),
                     berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
                     berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-                    berechtigungen_postausgang_collection=cast(
-                        AsyncCollection, Aborting(database[Collection.BERECHTIGUNGEN_POSTAUSGANG], "insert_one")
-                    ),
+                    berechtigungen_postausgang_collection=postausgang,
+                    berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
                     sperrliste=ban_list(database),
                     adressanker_collection=database[Collection.ADRESSANKER],
                     db=client,
-                    erteilt_von=ANNA,
-                    now=NOW,
+                    erteilt_von=OWNER,
+                    # On the real clock, so the TTL monitor leaves the request standing for the approval below.
+                    now=datetime.now(UTC),
                 )
 
-            with pytest.raises(RuntimeError):
-                await administering(ANNA, call)
+            async def approved_aborting(antrag_id: ObjectId) -> Any:
+                return await post_antrag_genehmigung(
+                    antrag_id=antrag_id,
+                    berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+                    berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                    berechtigungen_postausgang_collection=aborting,
+                    berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+                    sperrliste=ban_list(database),
+                    adressanker_collection=database[Collection.ADRESSANKER],
+                    db=client,
+                    operator=BERND,
+                    auth_time=int(time.time()),
+                    now=datetime.now(UTC),
+                )
+
+            aborting = cast(AsyncCollection, Aborting(database[Collection.BERECHTIGUNGEN_POSTAUSGANG], "insert_one"))
+            if grants is not None:
+                with pytest.raises(RuntimeError):
+                    await administering(OWNER, lambda: asked(aborting))
+            else:
+                # The request's own notice written, so the approval's is the insert that aborts.
+                answer = await administering(OWNER, lambda: asked(database[Collection.BERECHTIGUNGEN_POSTAUSGANG]))
+                with pytest.raises(RuntimeError):
+                    await administering(BERND, lambda: approved_aborting(answer.created_id))
 
             return (
                 await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": NEU}),
-                await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].count_documents({}),
+                await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].count_documents({"art": "erteilt"}),
+                await database[Collection.BERECHTIGUNGEN_ANTRAEGE].count_documents({}),
             )
 
-        assert on_a_league(mongo_replica_set_url, body) == (0, 0)
+        assert on_a_league(mongo_replica_set_url, body, grants=grants) == (0, 0, 0 if grants is not None else 1)
 
     def test_a_revoke_that_aborts_at_its_last_write_leaves_the_grant_and_no_notice(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
@@ -467,10 +542,12 @@ async def list_the_grants(database: AsyncDatabase, client: AsyncMongoClient, als
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
         adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+        berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
         sperrliste=ban_list(database),
         db=client,
         operator=als,
         auth_time=int(time.time()),
+        now=NOW,
     )
 
 
@@ -512,7 +589,7 @@ class TestTheListServesLiveGrantsAlone:
         """The actor field takes the same withholding as the address, flagged as the address is (`docs/backend/spec.md :: I452`)."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str | None, str | None, bool]]:
-            await grant(database, client, als=ANNA)
+            await grant(database, client, als=BERND)
             await revoke(database, client, ANNA_ID)
             await database[Collection.SPERRLISTE].insert_one(ban_document(ANNA, bis=STANDING))
             listed = await list_the_grants(database, client)
@@ -1121,7 +1198,9 @@ class TestTheClaim:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[str], list[str]]:
             await told(database, client)
-            created = await grant(database, client)
+            # Asked by `OWNER` and approved by Anna, so the address the database edit removes acts on no bookkeeping row,
+            # the request's notice included.
+            created = await grant(database, client, als=OWNER, approver=ANNA)
             await revoke(database, client, created)
             await database[Collection.BERECHTIGUNGEN].delete_one({"_id": BERND_ID})
             await told(database, client)
@@ -1264,7 +1343,7 @@ class TestTheClaim:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str, str | None, bool, str, bool]]:
             await told(database, client)
-            await grant(database, client, als=ANNA)
+            await grant(database, client, als=BERND)
             await revoke(database, client, ANNA_ID)
             await database[Collection.SPERRLISTE].insert_one(ban_document(ANNA, bis=STANDING))
 
@@ -1283,7 +1362,7 @@ class TestTheClaim:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str, Any, Any, bool, bool]]:
             await told(database, client)
-            await grant(database, client, als=ANNA)
+            await grant(database, client, als=BERND)
             await revoke(database, client, ANNA_ID)
             await ban(database, client, ANNA, als=BERND)
             stored = await queued(database)
@@ -1355,7 +1434,7 @@ class TestTheClaim:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[tuple[Any, ...]], str]:
             await told(database, client)
-            await grant(database, client, als=ANNA)
+            await grant(database, client, als=BERND)
 
             async def step(session: AsyncClientSession) -> Any:
                 return await erase_grants_and_authorship_in_session(
@@ -1746,11 +1825,16 @@ class TestTheMountedRouteReadsTheGrants:
         A token naming a mixed-case identity is stored folded in the grant, the notice and the log alike.
         """
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, Any, Any, Any]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
             await told(database, client)
             async with app_client(mongo_replica_set_url, app=_served()) as http:
-                response = await http.post(
+                asked = await http.post(
                     f"/api/v{API_VERSION}/berechtigungen", headers=SignedActor(ANNA.upper(), ADMIN_KEY), json={"email": NEU_TYPED}
+                )
+                antrag = await database[Collection.BERECHTIGUNGEN_ANTRAEGE].find_one({"adresse": NEU})
+                assert antrag is not None
+                approval = await http.post(
+                    f"/api/v{API_VERSION}/berechtigungen/antraege/{antrag['_id']}/genehmigung", headers=SignedActor(BERND.upper(), ADMIN_KEY)
                 )
 
             stored = await database[Collection.BERECHTIGUNGEN].find_one({"adresse": NEU})
@@ -1758,13 +1842,16 @@ class TestTheMountedRouteReadsTheGrants:
             logged = await database[Collection.AKTIONEN].find_one({"collection": str(Collection.BERECHTIGUNGEN), "operation": "insert"})
 
             return (
-                response.status_code,
+                asked.status_code,
+                antrag["genehmigung"]["gestartet_von"],
+                approval.status_code,
                 stored and stored["erteilt_von"],
                 queued_row["geaendert_von"],
                 logged and logged["actor"].get("email"),
             )
 
-        assert on_a_league(mongo_replica_set_url, body) == (201, ANNA, ANNA, ANNA)
+        # Asked by Anna and approved by Bernd, each named by their token's identity, folded.
+        assert on_a_league(mongo_replica_set_url, body) == (201, ANNA, 200, BERND, BERND, BERND)
 
     def test_a_tier_change_over_http_reaches_the_grant(self, mongo_replica_set_url: str):
         """The one tier-change case through the body parser and `get_actor_email`; every other hands the handler both."""

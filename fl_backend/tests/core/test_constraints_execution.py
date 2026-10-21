@@ -14,6 +14,7 @@ from pymongo.errors import OperationFailure
 
 from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
+from app.api.berechtigungen.antraege import compose_antrag
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter, compose_bestaetigungen, hash_token
 from app.api.identitaet.crud import erase_pupil_actor_in_session, unattribute_in_session
 from app.api.registrierungen.crud import nummern_rows
@@ -87,6 +88,9 @@ BERECHTIGUNG_OID = ObjectId("6890a1b2c3d4e5f60720000d")
 SPIELBESTAETIGUNG_OID = ObjectId("6890a1b2c3d4e5f60720000e")
 SPIEL_OID = ObjectId("6890a1b2c3d4e5f60720000f")
 ADRESSWECHSEL_OID = ObjectId("6890a1b2c3d4e5f6072000a1")
+ANTRAG_OID = ObjectId("6890a1b2c3d4e5f6072000a2")
+# Far off, so the TTL index on `genehmigung.bis` leaves a request standing through every case that inserts one.
+ANTRAG_GESTELLT = datetime(2126, 1, 1, tzinfo=UTC)
 # A submission key as a public form mints it (`app/api/bewerbungen/public_router.py :: post_bewerbung`).
 IDEMPOTENZ_SCHLUESSEL = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
 
@@ -397,6 +401,17 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "_id": ADRESSWECHSEL_OID,
             **adresswechsel_document(adresse="alt@example.invalid", email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16"),
         },
+        # A promotion asked, so `berechtigung_id` is an id rather than the null a grant's request holds.
+        "berechtigungen_antraege": {
+            "_id": ANTRAG_OID,
+            **compose_antrag(
+                adresse="vorstand@example.invalid",
+                verwaltung="owner",
+                berechtigung_id=TEAM_OID,
+                gestartet_von="inhaberin@example.invalid",
+                now=ANTRAG_GESTELLT,
+            ),
+        },
     }
 
 
@@ -690,6 +705,21 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     "uniq_adresswechsel_adresse": (
         valid_documents()["adresswechsel"],
         valid_document("adresswechsel", _id=TEAM_OID, email="zweite@example.invalid", token_hash="b" * 64, stopp_hash="c" * 64),
+    ),
+    # Two requests about one address from two requesters: the index refuses on the address alone.
+    "uniq_berechtigung_antrag_adresse": (
+        valid_documents()["berechtigungen_antraege"],
+        valid_document(
+            "berechtigungen_antraege",
+            _id=TEAM_OID,
+            **compose_antrag(
+                adresse="vorstand@example.invalid",
+                verwaltung="owner",
+                berechtigung_id=TEAM_OID,
+                gestartet_von="zweite@example.invalid",
+                now=ANTRAG_GESTELLT,
+            ),
+        ),
     ),
     # Two seasons, each `active`: a second row in any other status would pass while the filter matched nothing.
     "uniq_saison_active": (valid_documents()["saisons"], valid_document("saisons", _id="2027", start_date="2027-01-01", end_date="2027-06-30")),

@@ -135,6 +135,7 @@ CALLERS: dict[str, frozenset[str]] = {
             "app/api/berechtigungen/admin_router.py :: judge_and_grant",
             "app/api/berechtigungen/admin_router.py :: judge_and_revoke",
             "app/api/berechtigungen/admin_router.py :: judge_and_change",
+            "app/api/berechtigungen/admin_router.py :: approve_the_antrag",
             "app/api/sperrliste/admin_router.py :: judge_and_ban",
             "app/api/identitaet/person_router.py :: erase_the_address",
             # The claim writes no grant; it anchors where it queues, so a revoke or a ban conflicts with it.
@@ -465,6 +466,7 @@ def test_every_caller_hands_the_choke_point_a_transactions_session(function: str
 ADDRESS_ANCHORS: frozenset[str] = frozenset(
     {
         "app/api/berechtigungen/admin_router.py :: judge_and_grant",
+        "app/api/berechtigungen/admin_router.py :: approve_the_antrag",
         "app/api/bewerbungen/admin_router.py :: correct_and_mint",
         "app/api/bewerbungen/admin_router.py :: seat_and_mint",
         "app/api/bewerbungen/public_router.py :: store_or_replay",
@@ -510,6 +512,7 @@ ASKING_AND_ANCHORING_NOTHING: dict[str, str] = {
     "app/api/aktionen/admin_router.py :: get_aktion_by_id": A_READ,
     "app/api/aktionen/admin_router.py :: get_aktionen": A_READ,
     "app/api/berechtigungen/admin_router.py :: get_berechtigungen": A_READ,
+    "app/api/berechtigungen/admin_router.py :: _genehmiger_exist": "asks which approver is barred, storing none",
     "app/api/berechtigungen/admin_router.py :: judge_and_change": THE_STORED_GRANTS,
     "app/api/berechtigungen/admin_router.py :: judge_and_revoke": THE_STORED_GRANTS,
     "app/api/berechtigungen/crud.py :: live_unbarred_grant_in": THE_ACTORS_JUDGE,

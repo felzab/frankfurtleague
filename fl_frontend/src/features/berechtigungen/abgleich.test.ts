@@ -45,6 +45,7 @@ const aenderung = (fields: Record<string, unknown> = {}) => ({
   gesperrt: false,
   geloescht: false,
   aufgegeben: false,
+  an: null,
   ...fields,
 });
 
@@ -295,6 +296,31 @@ describe("one pass over the claimed changes", () => {
       first.every((key) => key?.startsWith(`berechtigung_${OUTBOX_A}_`)),
       "a key is not the row's",
     );
+  });
+
+  /* A request goes to whoever could approve it: neither every holder, its requester among them, nor the address it is
+     for, which holds no grant (`docs/backend/spec.md :: I852`). */
+  it("mails a request to its own recipients alone, and stamps it", async () => {
+    claim = claimOf([aenderung({ art: "beantragt", an: ["inhaber@schule.de"] })]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(
+      mail.sent.map((sent) => sent.to),
+      ["inhaber@schule.de"],
+    );
+    assert.ok(mail.sent[0]?.text.includes("Für neu@schule.de ist ein Zugang zur Verwaltung beantragt."));
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+  });
+
+  /* Decided, lapsed or approved by nobody since: the claim answers it to nobody, and it is stamped unmailed. */
+  it("stamps a request nobody can approve any more, mailing nobody", async () => {
+    claim = claimOf([aenderung({ art: "beantragt", an: [] })]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(mail.sent, []);
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 });
 

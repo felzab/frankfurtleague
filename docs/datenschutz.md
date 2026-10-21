@@ -487,12 +487,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **An administrator's address is stored as their grant, in plain, and so is the address of
   whoever granted it.** `berechtigungen` holds the grant and `berechtigungen_angekuendigt` what the
   other administrators were told of it, and every administrator is served both addresses. The outbox
-  `berechtigungen_postausgang` holds a changed grant's address, and the acting administrator's,
-  until a pass has mailed it, and no barred or erased address at all: a ban withholds it in every row
+  `berechtigungen_postausgang` holds a changed or requested grant's address, and the acting
+  administrator's, until a pass has mailed it, and no barred or erased address at all: a ban withholds it in every row
   still queued (`docs/backend/spec.md :: I462`), and so does an erasure (`:: I659`). Each change is
   mailed to every holder and to the address it names, carrying that address and the administrator who
   made it; a barred address it names by its state alone, and an erased person's not at all
-  (`docs/frontend/spec.md :: I455`). A revoke removes the grant and its announced row
+  (`docs/frontend/spec.md :: I455`). A request goes only to whoever could approve it
+  (`docs/backend/spec.md :: I852`). A revoke removes the grant and its announced row
   at once (`docs/backend/spec.md :: I451`); the log keeps the removed grant's image, the address in
   it, for its twelve months, as it keeps every administrator's write, until that person's erasure
   takes the address out of it (`docs/backend/spec.md :: I670`), and no image of an announced or
@@ -507,6 +508,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
   those grants stand and the ban list does not hold it (`docs/backend/spec.md :: I452`), until their
   erasure replaces it, as on every ban, invite and decision they made, with a marker naming nobody,
   in the log's images of them too (`:: I660`, `:: I670`).
+- **A grant or a promotion asked while another administrator could approve it waits as a request,
+  in plain.** `berechtigungen_antraege` holds the address it is for and the asking administrator's,
+  served to every administrator, until a second administrator approves or refuses it, its requester
+  withdraws it, or a week after it was asked (`fl_backend/app/shared/schemas/bounds.py ::
+GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I847`).
+  A decided request's image stays in the log for its twelve months, as every administrator's write
+  does; an erasure of either address removes the request whole and takes the address out of those
+  images (`:: I850`). The published notice states the week (`DatenschutzView.tsx :: FRISTEN`).
+  Ruled 2026-10-20.
 - **The administrator's own email stays on every log row they wrote until their own erasure.** The
   log exists to say who did what, so no redaction of a document's images reaches it
   (`docs/backend/spec.md :: I42`, `:: I48`); their erasure puts a fixed marker naming nobody in its

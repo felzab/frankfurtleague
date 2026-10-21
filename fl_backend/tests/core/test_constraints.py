@@ -23,8 +23,10 @@ from app.api.adresswechsel.services import FLAdresswechselEndeArt, FLAdresswechs
 from app.api.aktionen.schemas import FLAktion, FLAktionMitStand, FLAktionRequest, FLAktorKind, FLAktorMitAdresse, FLAktorPerson, _served_prefix
 from app.api.berechtigungen.schemas import (
     FLBerechtigung,
-    FLBerechtigungAenderungArt,
     FLBerechtigungAngekuendigt,
+    FLBerechtigungAntrag,
+    FLBerechtigungAntragGenehmigung,
+    FLBerechtigungPostausgangArt,
     FLBerechtigungPostausgangZeile,
     FLBerechtigungStand,
     FLBerechtigungUrheber,
@@ -341,6 +343,8 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), FLBerechtigungPostausgangZeile, frozenset()),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("jetzt",), FLBerechtigungStand, frozenset()),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("vorher",), FLBerechtigungStand, frozenset()),
+    (Collection.BERECHTIGUNGEN_ANTRAEGE, (), FLBerechtigungAntrag, frozenset()),
+    (Collection.BERECHTIGUNGEN_ANTRAEGE, ("genehmigung",), FLBerechtigungAntragGenehmigung, frozenset()),
     # A consent record's evidence at every home, both vocabularies sharing its shape: one sub-schema
     # in Python is still a path per home to the drift walk.
     *((collection, (*block, "nachweis"), FLEinwilligungNachweise, frozenset()) for collection, block in RECORD_HOMES),
@@ -497,11 +501,12 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # Closed on the stored row as well as the wire: the Playground writes a grant by hand.
     (Collection.BERECHTIGUNGEN, (), "verwaltung", get_args(FLVerwaltung), False),
     (Collection.BERECHTIGUNGEN_ANGEKUENDIGT, (), "verwaltung", get_args(FLVerwaltung), False),
-    (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), "art", get_args(FLBerechtigungAenderungArt), False),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), "art", get_args(FLBerechtigungPostausgangArt), False),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), "urheber", get_args(FLBerechtigungUrheber), False),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), "vorenthalten", get_args(FLBerechtigungVorenthalten), True),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("jetzt",), "verwaltung", get_args(FLVerwaltung), False),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("vorher",), "verwaltung", get_args(FLVerwaltung), False),
+    (Collection.BERECHTIGUNGEN_ANTRAEGE, ("genehmigung",), "verwaltung", get_args(FLVerwaltung), False),
     # Nullable for the reason a squad row's two are: a registration is filled in over time, and the
     # pupil may answer neither.
     (Collection.REGISTRIERUNGEN, (), "position", get_args(FLSpielerPosition), True),
