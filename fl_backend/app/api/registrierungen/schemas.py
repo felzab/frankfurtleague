@@ -209,8 +209,8 @@ class FLPostRegistrierungResponse(BaseAPIResponse):
     # team and season without taking either from a body anyone holding the link could type.
     team: CustomNonEmptyString
     saison_id: str
-    # Echoed so the page can name the address the link went to, which is what a pupil checks when no
-    # mail arrives.
+    # The confirmation mail's recipient, for the frontend server alone and never the browser: a replayed key answers the
+    # stored address, which an address change may have moved since the replayer typed theirs.
     email: CustomNonEmptyString
 
 

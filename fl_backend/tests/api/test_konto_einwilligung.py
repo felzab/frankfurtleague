@@ -2,8 +2,8 @@
 API · a referee's own consent record, read and changed by its own person on the account page
 
 The pupil's twin is `tests/api/test_spieler_selbst.py`, which also pins that the two PATCHes take one
-payload shape; this file holds what differs on a referee row: the address stored as typed, the
-ghost, and a record the confirmation has not yet written.
+payload shape; this file holds what differs on a referee row: the ghost, and a record the
+confirmation has not yet written.
 """
 
 import functools
@@ -1227,7 +1227,7 @@ def _registrierung(oid: ObjectId, email: str, *, seite: Seite | None = "bestaeti
 
 
 async def _registrierungen(database: AsyncDatabase, **choices: Any) -> None:
-    """The person's own registration, stored as typed; one of theirs in each state that leaves nothing to change; a stranger's."""
+    """The person's own registration; one of theirs in each state that leaves nothing to change; a stranger's."""
 
     declined = _registrierung(REGISTRIERUNG_DECLINED, REFEREE_STORED)
     declined.update(compose_ablehnung_update(von="verwaltung@schule.de", grund=None, today="2026-09-22")["$set"])

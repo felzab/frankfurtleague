@@ -70,8 +70,7 @@ RAW = "raw-token-for-this-pupil"
 TOKEN_HASH = hash_token(RAW)
 RAW_ERINNERT = "the-first-link-this-pupil-was-mailed"
 
-# Unfolded, as the payload stores it. `spieler.email` holds the fold of it, which is what the person join asks on.
-TYPED_EMAIL = "Quillhilde@Example.com"
+# Folded, as every address payload stores it, the registration's and the person's alike.
 FOLDED_EMAIL = "quillhilde@example.com"
 
 # Against `TODAY`, `2010-04-01` is 16 to the day and `2010-04-02` is 15 years and 364 days.
@@ -125,7 +124,7 @@ def registrierung_document(**overrides: Any) -> dict[str, Any]:
         "status": "eingereicht",
         "vorname": "Quillhilde",
         "nachname": "Brackenmoor",
-        "email": TYPED_EMAIL,
+        "email": FOLDED_EMAIL,
         "position": "Abwehr",
         "nummer": "7",
         "stufe": "Q1",
@@ -230,7 +229,7 @@ class TestWhatALinkOpens:
         registration = registrierung_document()
         assert OTHER_TEAM_NAME not in rendered and OTHER_SCHOOL not in rendered
         assert registration["vorname"] not in rendered and registration["nachname"] not in rendered
-        assert TYPED_EMAIL not in rendered and FOLDED_EMAIL not in rendered
+        assert FOLDED_EMAIL not in rendered
         assert registration["position"] not in rendered and registration["stufe"] not in rendered
 
     def test_a_first_timer_is_asked_for_a_date(self, mongo_replica_set_url: str):
@@ -257,15 +256,6 @@ class TestWhatALinkOpens:
         unconfirmed = spieler_document(SPIELER_OID, einwilligung=einwilligung(bestaetigt_am=""))
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[unconfirmed])
-
-        assert response.seite == SEITE_NEU
-
-    def test_the_join_asks_on_the_folded_address(self, mongo_replica_set_url: str):
-        """The registration stores the address unfolded; `spieler.email` stores the fold, so an unfolded compare finds nobody."""
-
-        capitalised = spieler_document(SPIELER_OID, email="QUILLHILDE@EXAMPLE.COM")
-
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[capitalised])
 
         assert response.seite == SEITE_NEU
 
@@ -441,7 +431,7 @@ class TestWhatAConfirmationWrites:
 
         rendered = on_a_league(mongo_replica_set_url, lambda database, client: answer(database, client, RAW)).model_dump_json()
 
-        assert registrierung_document()["nachname"] not in rendered and TYPED_EMAIL not in rendered
+        assert registrierung_document()["nachname"] not in rendered and FOLDED_EMAIL not in rendered
         assert TOKEN_HASH not in rendered and RAW not in rendered
 
 
