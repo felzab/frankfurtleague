@@ -496,19 +496,20 @@ def find_vergeben_refusal(*, vergeben: bool) -> WriteRefusal | None:
     )
 
 
-def find_unveraendert_refusal(*, adresse: str, email: str, folded: str) -> WriteRefusal | None:
+def find_unveraendert_refusal(*, adresse: str, folded: str) -> WriteRefusal | None:
     """`REQ-ADRESSWECHSEL-007`: the typed address signs in as the one on file, so it would ask a mailbox already proved.
 
-    `folded` is `email`'s sign-in identifier, which the caller folds; `adresse` is one already.
+    `folded` is the typed address's sign-in identifier, which the caller folds; `adresse` is one already.
     """
 
     if folded != adresse:
         return None
 
+    # Naming neither address: the message reaches the refusal's log line (`docs/logging/spec.md :: L9`).
     return WriteRefusal(
         error_code=ADRESSWECHSEL_UNVERAENDERT,
         status=HTTPStatus.CONFLICT,
-        message=f"{email} is the email address on file already",
+        message="the typed email address is the one on file already",
     )
 
 

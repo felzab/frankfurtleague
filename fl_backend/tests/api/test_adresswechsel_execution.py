@@ -238,11 +238,18 @@ class TestThePersonsStart:
             NEW_EMAIL,
         )
 
-    def test_the_address_signed_in_on_is_refused_in_any_spelling(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await refused_code(start(database, client, email=TYPED.upper()))
+    def test_the_address_signed_in_on_is_refused_in_any_spelling_and_named_nowhere(self, mongo_replica_set_url: str):
+        """Its message reaches the refusal's log line, which names no submitted value."""
 
-        assert on_a_person(mongo_replica_set_url, body) == ADRESSWECHSEL_UNVERAENDERT
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(WriteRefusalException) as refused:
+                await start(database, client, email=TYPED.upper())
+            return refused.value.error_code, refused.value.error_detail["message"]
+
+        code, message = on_a_person(mongo_replica_set_url, body)
+
+        assert code == ADRESSWECHSEL_UNVERAENDERT
+        assert "@" not in message
 
     def test_an_address_holding_nothing_a_change_moves_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -599,10 +606,9 @@ class TestTheStop:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentNotFoundException) as missed:
                 await stop_here(database, client)
-            return str(missed.value.filter)
+            return missed.value.status_code
 
-        # The judgement names no address: the exception's filter reaches the log line.
-        assert EMAIL not in on_a_person(mongo_replica_set_url, body)
+        assert on_a_person(mongo_replica_set_url, body) == 404
 
 
 class TestAGrantHoldersOwnPressAsksAPasskey:

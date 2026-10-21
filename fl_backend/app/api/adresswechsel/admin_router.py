@@ -321,7 +321,7 @@ async def post_adresswechsel_verwaltung(
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
             session=session,
         )
-        refuse(find_unveraendert_refusal(adresse=identifier, email=email, folded=sign_in_identifier(email)))
+        refuse(find_unveraendert_refusal(adresse=identifier, folded=sign_in_identifier(email)))
         refuse(
             find_gesperrt_refusal(
                 gesperrt=await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)

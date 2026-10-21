@@ -318,7 +318,7 @@ async def post_adresswechsel(
     async def start_the_change(session: AsyncClientSession) -> FLKontoAdresswechselMintResponse:
         bestand = await read_the_bestand(identifier, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
         refuse(find_nichts_refusal(leer=bestand.leer))
-        refuse(find_unveraendert_refusal(adresse=identifier, email=email, folded=sign_in_identifier(email)))
+        refuse(find_unveraendert_refusal(adresse=identifier, folded=sign_in_identifier(email)))
 
         genehmiger: list[str] = []
         genehmigung = None
@@ -411,7 +411,6 @@ async def post_adresswechsel_freigabe(
                 {"_id": adresswechsel_id, "beendet": {"$type": "object"}}, {"_id": 1}, session=session
             )
             refuse(find_beendet_refusal(offen=ended is None))
-            # The judgement names no address: the exception's filter reaches the log line.
             raise DocumentNotFoundException(filter={"_id": adresswechsel_id, **build_awaiting_approval_terms()}, error_code=DOCUMENT_NOT_FOUND)
         refuse(find_abgelaufen_refusal(abgelaufen=ist_abgelaufen(record, now=germany_now)))
         # As the start: the press lets a link go that hands over any grant the address holds at the effect.
@@ -464,7 +463,6 @@ async def delete_adresswechsel(
     async def stop_the_change(session: AsyncClientSession) -> FLKontoAdresswechselResponse:
         live = await adresswechsel_collection.find_one(build_address_filter(identifier), {"_id": 1}, session=session)
         if live is None:
-            # The judgement names no address: the exception's filter reaches the log line.
             raise DocumentNotFoundException(filter=dict(LIVE_TERMS), error_code=DOCUMENT_NOT_FOUND)
 
         stored = await end_the_change_in_session(
