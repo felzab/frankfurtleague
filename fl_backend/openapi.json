@@ -1137,7 +1137,7 @@
     "/api/v0/spieler": {
       "get": {
         "summary": "List Spieler",
-        "description": "List players, normally one team's squad in one season.\n\nNaming a `team_id` without a `saison_id` returns that team's squad in the CURRENT season, and 404s\nwhile no season is active. Naming neither lists every season's players, a season this tier may not\nread adding no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).\n\nBoth names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`);\nthe row keeps its `nummer` and `position`.",
+        "description": "List players, normally one team's squad in one season.\n\nNaming a `team_id` without a `saison_id` returns that team's squad in the CURRENT season, and 404s\nwhile no season is active. Naming neither lists every season's players, a season this tier may not\nread adding no row. BASE TIER: a pupil reads back redacted (`READ-PUPIL-001`).\n\nBoth names are `null` where the person's consent record does not publish them (`READ-PUPIL-003`);\nthe row keeps its `nummer` and `position`, and no row carries the person's record id\n(`READ-PUPIL-005`).",
         "operationId": "get_spieler_api_v0_spieler_get",
         "security": [
           {
@@ -29798,11 +29798,6 @@
             ],
             "title": "Nachname"
           },
-          "id": {
-            "type": "string",
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id"
-          },
           "nummer": {
             "anyOf": [
               {
@@ -29834,8 +29829,7 @@
         },
         "type": "object",
         "required": [
-          "nachname",
-          "id"
+          "nachname"
         ],
         "title": "FLSpielerPublic",
         "description": "One squad row as the BASE TIER serves it -- all an anonymous visitor may read.\n\n`build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the\n`stufe` is gone (`READ-PUPIL-002`), and the consent record with it."

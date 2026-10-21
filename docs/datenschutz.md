@@ -236,7 +236,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   of a pupil decide through `fl_backend/app/api/spieler/services.py :: name_is_public`, which
   publishes a name only where the consent record is present, its `umfang` is `kader_oeffentlich` and
   its `bestaetigt_am` is stamped (`docs/backend/spec.md :: READ-PUPIL-003`); every other row is
-  served as a nameless slot keeping its `nummer` and `position`. **The gate fails closed**, so a
+  served as a nameless slot keeping its `nummer` and `position`. No squad row carries the pupil's
+  record id, which would link every season's row of a pupil whose name is withheld
+  (`:: READ-PUPIL-005`). **The gate fails closed**, so a
   record nobody confirmed withholds the name rather than publishing it — the state
   `fl_backend/app/core/constraints.py :: _EINWILLIGUNG` admits by taking a null `bestaetigt_am`, and
   the one a scope read on its own would publish. The board's full names in the Impressum stand

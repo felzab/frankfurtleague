@@ -45,11 +45,11 @@ WITHHELD_SAISON = "2027"
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607390001")
 
 # What the base tier serves, and the whole of it.
-PUBLIC_FIELDS = {"id", "vorname", "nachname", "nummer", "position"}
+PUBLIC_FIELDS = {"vorname", "nachname", "nummer", "position"}
 
-# `stufe`, `einwilligung` and `email` are the confidentiality rules; the rest fails the allow-list,
+# `stufe`, `einwilligung`, `email` and `id` are the confidentiality rules; the rest fails the allow-list,
 # which asks what the surface renders rather than what looks sensitive. An unrendered field still ships.
-WITHHELD_FIELDS = ["stufe", "einwilligung", "email", "team_id", "ist_nachnominiert", "rolle", "inactive_since"]
+WITHHELD_FIELDS = ["stufe", "einwilligung", "email", "id", "team_id", "ist_nachnominiert", "rolle", "inactive_since"]
 
 # What a caller may actually SEND: the filter model's fields plus anything declared beside them.
 # Constructing a filter object asks for nothing -- `extra="ignore"` drops an undeclared key first.
@@ -167,7 +167,7 @@ class TestTheBaseTierShape:
 
 
 class TestTheSinglePlayerShape:
-    """`GET /spieler/{spieler_id}` is base-tier as well, and the list publishes every id it takes."""
+    """`GET /spieler/{spieler_id}` is base-tier as well, and answers whatever id it is handed."""
 
     def test_it_serves_an_allow_list_of_what_the_surface_needs(self):
         """Derived from what a caller of THIS path needs, never the stored person less whatever looked sensitive."""
@@ -231,7 +231,11 @@ class TestTheRetirementDateTheAdminEchoesCarry:
 
 class TestTheProjection:
     def test_it_emits_only_the_public_keys(self):
-        assert set(_project()) == {"_id", "vorname", "nachname", "nummer", "position"}
+        """`_id` is named only to be dropped: `$project` keeps it unless told otherwise (`READ-PUPIL-005`)."""
+        projected = _project()
+
+        assert {key for key, value in projected.items() if value != 0} == {"vorname", "nachname", "nummer", "position"}
+        assert projected["_id"] == 0
 
     def test_the_consent_record_is_read_and_projected_nowhere(self):
         """`READ-PUPIL-003` reads it inside the `$cond`, so the projection carrying no key of that name is the whole of the withholding."""
@@ -714,6 +718,9 @@ MASKED_SQUAD = {
     ),
 }
 
+# A shirt per row, which is how a case below finds its row: the read serves no record id to find one by.
+MASK_NUMMERN = {case: str(place) for place, case in enumerate(MASKED_SQUAD, start=1)}
+
 # Both names of both withheld rows: a payload grep on the surnames alone leaves the forename, which
 # is the half `READ-PUPIL-001` never withheld and `READ-PUPIL-003` is the first rule to reach.
 WITHHELD_NAMES = ("Bruno", "Gerber", "Carla", "Hoffmann")
@@ -735,8 +742,8 @@ class TestThePublicationGate:
 
         return _on_the_mask_database(url, body)
 
-    def _by_id(self, url: str) -> dict[str, dict[str, Any]]:
-        return {row["id"]: row for row in self._read(url)["spieler"]}
+    def _by_nummer(self, url: str) -> dict[str, dict[str, Any]]:
+        return {row["nummer"]: row for row in self._read(url)["spieler"]}
 
     def test_the_corpus_really_stores_the_names_and_the_records_the_cases_below_read(self, masked_url: str):
         """First: every case below would pass just as well against a corpus that stored no name to withhold."""
@@ -754,21 +761,24 @@ class TestThePublicationGate:
 
     def test_the_squad_serves_a_row_for_every_seeded_person(self, masked_url: str):
         """A withheld name is a nameless SLOT and never a missing row: `all` over a list a broken join emptied passes every case below."""
-        assert len(self._by_id(masked_url)) == len(MASKED_SQUAD)
+        assert len(self._by_nummer(masked_url)) == len(MASKED_SQUAD)
 
     @pytest.mark.parametrize("case", MASKED_SQUAD)
     def test_the_squad_serves_each_name_as_the_record_allows(self, masked_url: str, case: str):
         row = MASKED_SQUAD[case]
-        served = self._by_id(masked_url)[str(row.oid)]
+        served = self._by_nummer(masked_url)[MASK_NUMMERN[case]]
 
         assert (served["vorname"], served["nachname"]) == (row.served_vorname, row.served_nachname)
 
     @pytest.mark.parametrize("case", MASKED_SQUAD)
     def test_a_withheld_row_keeps_its_number_and_its_position(self, masked_url: str, case: str):
-        """The mask reaches the two name fields, so the slot the person holds in the squad stands either way."""
-        served = self._by_id(masked_url)[str(MASKED_SQUAD[case].oid)]
+        """The mask reaches the two name fields, so the slot the person holds in the squad stands either way.
 
-        assert (served["nummer"], served["position"]) == ("7", "Angriff")
+        The row is found by its shirt, so a number the mask took would leave this case finding none.
+        """
+        served = self._by_nummer(masked_url)[MASK_NUMMERN[case]]
+
+        assert served["position"] == "Angriff"
 
     @pytest.mark.parametrize("name", WITHHELD_NAMES)
     def test_no_withheld_name_appears_anywhere_in_the_response(self, masked_url: str, name: str):
@@ -781,17 +791,22 @@ class TestThePublicationGate:
         async def body(database: AsyncDatabase) -> Any:
             rows = await aggregate_many_from_db(collection=database.spieler, pipeline=build_spieler_pipeline(_filters()))
 
-            return {row["_id"]: row for row in rows}
+            return {row["nummer"]: row for row in rows}
 
-        projected = _on_the_mask_database(masked_url, body)[MASKED_SQUAD["Schluessellos"].oid]
+        projected = _on_the_mask_database(masked_url, body)[MASK_NUMMERN["Schluessellos"]]
 
         assert "vorname" not in projected
-        assert self._by_id(masked_url)[str(MASKED_SQUAD["Schluessellos"].oid)]["vorname"] is None
+        assert self._by_nummer(masked_url)[MASK_NUMMERN["Schluessellos"]]["vorname"] is None
+
+    @pytest.mark.parametrize("case", MASKED_SQUAD)
+    def test_no_pupil_s_record_id_appears_anywhere_in_the_response(self, masked_url: str, case: str):
+        """`READ-PUPIL-005`, against the SERIALISED body: an id outlives every season and team, so it would tie a withheld row to its others."""
+        assert str(MASKED_SQUAD[case].oid) not in json.dumps(self._read(masked_url))
 
     @pytest.mark.parametrize("key", ["einwilligung", "umfang"])
     def test_no_row_carries_the_record_the_gate_read(self, masked_url: str, key: str):
         """The `$cond` reads it; a key of either name on the wire would put the consent decision itself on the page."""
-        assert all(key not in served for served in self._by_id(masked_url).values())
+        assert all(key not in served for served in self._by_nummer(masked_url).values())
 
     def _read_one(self, url: str, case: str) -> dict[str, Any]:
         async def body(database: AsyncDatabase) -> Any:
@@ -863,7 +878,10 @@ def masked_url(mongo_url: str) -> Iterator[str]:
                 ]
             )
             await database.saison_spieler.insert_many(
-                [{**_squad_row("Mueller", nummer="7", position="Angriff", stufe="Q3"), "spieler_id": row.oid} for row in MASKED_SQUAD.values()]
+                [
+                    {**_squad_row("Mueller", nummer=MASK_NUMMERN[case], position="Angriff", stufe="Q3"), "spieler_id": row.oid}
+                    for case, row in MASKED_SQUAD.items()
+                ]
             )
 
     on_the_seed_loop(_seed())
@@ -897,7 +915,9 @@ SORT_ORACLE_POSITION = "Angriff"
 class TestTheOrderIsNoOracleForAWithheldName:
     """One squad seeded twice, differing only in the withheld row's stored forename: its place in the answer may not move with it."""
 
-    def _served_ids(self, url: str, corpus: str, sort_by: str) -> list[str]:
+    def _served_names(self, url: str, corpus: str, sort_by: str) -> list[str | None]:
+        """Each row's served forename, in the answer's order: `None` is the withheld row, the corpus holding one."""
+
         async def body(database: AsyncDatabase) -> Any:
             invalidate_saison_cache()
             response = await get_spieler(
@@ -906,7 +926,7 @@ class TestTheOrderIsNoOracleForAWithheldName:
                 filters=FLSpielerFilterParams(team_id=TEAM_OID, saison_id=SAISON, sort_by=cast(Any, sort_by)),
             )
 
-            return [str(row.id) for row in response.spieler]
+            return [row.vorname for row in response.spieler]
 
         return on_the_seed_loop(body(shared_client(url)[SORT_ORACLE_DATABASE_NAMES[corpus]]))
 
@@ -924,14 +944,14 @@ class TestTheOrderIsNoOracleForAWithheldName:
 
     def test_the_published_rows_really_are_ordered_by_the_name_the_read_serves(self, sort_oracle_url: str):
         """The second floor: an answer in seeding order would hold the withheld row still for a reason nothing here is testing."""
-        served = self._served_ids(sort_oracle_url, "first", "vorname")
+        served = self._served_names(sort_oracle_url, "first", "vorname")
 
-        assert served.index(str(SORT_ORACLE_OIDS["Berger"])) < served.index(str(SORT_ORACLE_OIDS["Yilmaz"]))
+        assert served.index("Bea") < served.index("Yara")
 
     @pytest.mark.parametrize("sort_by", get_args(FLSpielerSortOptions))
     def test_the_withheld_row_holds_one_place_whatever_forename_it_stores(self, sort_oracle_url: str, sort_by: str):
         places = {
-            corpus: self._served_ids(sort_oracle_url, corpus, sort_by).index(str(SORT_ORACLE_OIDS["Zurueckgehalten"]))
+            corpus: self._served_names(sort_oracle_url, corpus, sort_by).index(None)
             for corpus in WITHHELD_FORENAMES
         }
 

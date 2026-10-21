@@ -97,7 +97,9 @@ class FLSpielerPublic(_SpielerPerson):
     # An ALLOW-LIST: every field is one this surface needs. Deriving it by subtracting what looks
     # sensitive puts each later addition to the document on the wire until somebody notices -- which
     # is how a consent record came to be published.
-    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    #
+    # No record id (`READ-PUPIL-005`): it outlives every season and team, so it would tie together
+    # each squad row of a pupil whose name is withheld. The table keys its rows by their place.
 
     # Narrowed from `_SpielerPerson`'s non-empty string: the mask answers `null` for a person whose
     # record does not publish them (`READ-PUPIL-003`), and a required forename would 500 the squad

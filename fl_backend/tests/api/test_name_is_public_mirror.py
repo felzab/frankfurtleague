@@ -124,18 +124,24 @@ def _oid_for(case: ConsentCase) -> ObjectId:
     return _oid(NAME_IS_PUBLIC.index(case) + 10)
 
 
+def _nummer_for(case: ConsentCase) -> str:
+    """The row's shirt, which is how the squad read's answer is told apart: it carries no record id (`READ-PUPIL-005`)."""
+
+    return str(NAME_IS_PUBLIC.index(case) + 1)
+
+
 @pytest.mark.db
 class TestTheSquadPipelineAnswersTheSameTable:
     """`build_spieler_pipeline`'s `$cond`, against a real mongod: a `$cond` is only a `$cond` where Mongo evaluates it."""
 
-    def _served(self, url: str) -> dict[ObjectId, Mapping[str, Any]]:
+    def _served(self, url: str) -> dict[str, Mapping[str, Any]]:
         async def body(database: AsyncDatabase) -> Any:
             rows = await aggregate_many_from_db(
                 collection=database.spieler,
                 pipeline=build_spieler_pipeline(FLSpielerFilterParams(team_id=TEAM_OID, saison_id=SAISON)),
             )
 
-            return {row["_id"]: row for row in rows}
+            return {row["nummer"]: row for row in rows}
 
         return on_the_seed_loop(body(shared_client(url)[DATABASE_NAME]))
 
@@ -155,17 +161,20 @@ class TestTheSquadPipelineAnswersTheSameTable:
 
     @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
     def test_the_projection_answers_the_table(self, seeded_url: str, case: ConsentCase):
-        served = self._served(seeded_url)[_oid_for(case)]
+        served = self._served(seeded_url)[_nummer_for(case)]
 
         assert (served["vorname"], served["nachname"]) == ((VORNAME, INITIAL) if case.published else (None, None))
 
     @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
     def test_a_withheld_row_keeps_its_number_and_its_position(self, seeded_url: str, case: ConsentCase):
-        """The mask reaches the two name fields, so the slot itself stands whichever way the table answers."""
+        """The mask reaches the two name fields, so the slot itself stands whichever way the table answers.
 
-        served = self._served(seeded_url)[_oid_for(case)]
+        The row is found by its shirt, so a number the mask took would leave this case finding none.
+        """
 
-        assert (served["nummer"], served["position"]) == ("7", "Angriff")
+        served = self._served(seeded_url)[_nummer_for(case)]
+
+        assert served["position"] == "Angriff"
 
 
 @pytest.mark.db
@@ -211,7 +220,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
             )
             await database.saison_spieler.insert_many(
                 [
-                    saison_spieler_document(_oid_for(case), SAISON, TEAM_OID, nummer="7", position="Angriff", stufe="Q3")
+                    saison_spieler_document(_oid_for(case), SAISON, TEAM_OID, nummer=_nummer_for(case), position="Angriff", stufe="Q3")
                     for case in NAME_IS_PUBLIC
                 ]
             )
