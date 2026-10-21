@@ -23,9 +23,11 @@ from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many
 from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
 
-# The sites of an outbox row naming an address: the grant's own, before and after, and its actor's.
+# The sites of an outbox row naming an address: the grant's own, before and after, and its actor's; and where a grant
+# address's person moved to since, which their erasure at the new address reads (`docs/backend/spec.md :: I659`).
 _GRANT_SITES = ("jetzt", "vorher")
-_QUEUED_SITES = (*(f"{site}.adresse" for site in _GRANT_SITES), "geaendert_von")
+_SUCCESSOR_SITES = tuple(f"nachfolge.{site}" for site in _GRANT_SITES)
+_QUEUED_SITES = (*(f"{site}.adresse" for site in _GRANT_SITES), "geaendert_von", *_SUCCESSOR_SITES)
 
 
 @dataclass(frozen=True)
@@ -81,9 +83,11 @@ def _withholding(row: Mapping[str, Any], identifier: str) -> dict[str, Any]:
 
     update: dict[str, Any] = {}
     for site in _GRANT_SITES:
-        if _names(_held_at(row, f"{site}.adresse"), identifier):
+        if _names(_held_at(row, f"{site}.adresse"), identifier) or _names(_held_at(row, f"nachfolge.{site}"), identifier):
             update[f"{site}.adresse"] = None
             update["vorenthalten"] = "geloescht"
+        if _names(_held_at(row, f"nachfolge.{site}"), identifier):
+            update[f"nachfolge.{site}"] = None
     if _names(row.get("geaendert_von"), identifier):
         update["geaendert_von"] = ERASED_ACTOR_MARKER
 
@@ -147,6 +151,34 @@ async def carry_authorship_in_session(
     carried += await _set_authored(berechtigungen_antraege_collection, "genehmigung.gestartet_von", alt, neue, session)
 
     return carried
+
+
+async def stamp_the_successor_in_session(
+    *, berechtigungen_postausgang_collection: AsyncCollection, alt: str, neue: str, session: AsyncClientSession
+) -> int:
+    """Stamp the new address beside every queued grant address the moving person holds, carrying an earlier stamp on.
+
+    The notice keeps announcing the replaced address; an erasure at the new one withholds it by the stamp.
+    """
+
+    rows = await _rows_naming(
+        berechtigungen_postausgang_collection, (*(f"{site}.adresse" for site in _GRANT_SITES), *_SUCCESSOR_SITES), alt, session
+    )
+    by_update: dict[tuple[tuple[str, str], ...], list[ObjectId]] = {}
+    for row in rows:
+        update = tuple(
+            (f"nachfolge.{site}", neue)
+            for site in _GRANT_SITES
+            if _names(_held_at(row, f"{site}.adresse"), alt) or _names(_held_at(row, f"nachfolge.{site}"), alt)
+        )
+        by_update.setdefault(update, []).append(row["_id"])
+
+    for update, ids in by_update.items():
+        await patch_many_in_db(
+            collection=berechtigungen_postausgang_collection, db_filter={"_id": {"$in": ids}}, update={"$set": dict(update)}, session=session
+        )
+
+    return len(rows)
 
 
 async def _set_authored(collection: AsyncCollection, field: str, identifier: str, value: str, session: AsyncClientSession) -> int:

@@ -37,6 +37,7 @@ from app.api.berechtigungen.antraege import (
     BERECHTIGUNG_GENEHMIGUNG_INHABER,
     BERECHTIGUNG_GENEHMIGUNG_JUENGER,
     BERECHTIGUNG_GENEHMIGUNG_VERWEHRT,
+    antrag_line,
     compose_antrag,
     end_the_antraege_about_in_session,
     erase_antraege_in_session,
@@ -51,7 +52,7 @@ from app.core.collections import Collection
 from app.core.crud import WritesSent, writes_sent_var
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.journal import JOURNAL_TOKEN, parse_line
-from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR, Actor, actor_var
+from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR, Actor, actor_var, log_stamp
 from app.core.security import admin_judge
 from app.core.transactions import actor_judge_var, transaction_session
 from app.shared.schemas.bounds import GENEHMIGUNG_TAGE
@@ -775,8 +776,14 @@ class TestTheRacesEndInOneState:
 class TestTheRefusalIsJournalled:
     """`docs/backend/spec.md :: I852`: a restore from before a refusal or a withdrawal brings the request back only until its replay."""
 
-    @pytest.mark.parametrize("als", [pytest.param(BERND, id="refused"), pytest.param(ANNA, id="withdrawn")])
-    def test_the_decision_writes_one_line_naming_the_request(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, als: str):
+    @pytest.mark.parametrize(
+        ("als", "art"), [pytest.param(BERND, "antrag_abgelehnt", id="refused"), pytest.param(ANNA, "antrag_zurueckgezogen", id="withdrawn")]
+    )
+    def test_the_decision_writes_one_line_naming_the_request(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, als: str, art: str
+    ):
+        """Its own art each: the replay tells the requester again of a refusal, and of a withdrawal nobody."""
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             antrag_id = await asked_for(database, client)
             with journal_of(caplog) as lines:
@@ -785,7 +792,7 @@ class TestTheRefusalIsJournalled:
 
         antrag_id, lines = on_a_league(mongo_replica_set_url, body)
 
-        assert lines == [("antrag_abgelehnt", Collection.BERECHTIGUNGEN_ANTRAEGE, antrag_id)]
+        assert lines == [(art, Collection.BERECHTIGUNGEN_ANTRAEGE, antrag_id)]
 
     def test_a_refusal_refused_and_an_approval_write_none(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A refused press rolled back, and an approval leaves its grant, which a restore takes back with the request."""
@@ -827,6 +834,48 @@ class TestTheRefusalIsJournalled:
             return standings
 
         assert on_a_league(mongo_replica_set_url, body) == ["to replay", "no such record", "already done"]
+
+
+class TestTheReplayTellsTheRequesterAgain:
+    """`docs/backend/spec.md :: I870`: a restore takes back the requester's notice with the end, and the replay queues it again."""
+
+    @pytest.mark.parametrize(
+        ("end", "expected"),
+        [
+            pytest.param("refused", [("antrag_abgelehnt", NEU, "administration", ANNA, [ANNA])], id="a refusal tells them again"),
+            pytest.param("withdrawn", [], id="a withdrawal tells nobody"),
+            pytest.param("ended", [("antrag_beendet", NEU, "administration", ANNA, [ANNA])], id="an address change's end tells them again"),
+        ],
+    )
+    def test_from_a_snapshot_before_the_end(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, end: str, expected: Any):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            antrag_id = await asked_for(database, client)
+            # The snapshot: the request and its approvers' notice, still queued.
+            snapshot = {
+                collection: await database[collection].find({}).to_list()
+                for collection in (Collection.BERECHTIGUNGEN_ANTRAEGE, Collection.BERECHTIGUNGEN_POSTAUSGANG)
+            }
+            with journal_of(caplog) as lines:
+                if end == "ended":
+                    # The effect's own line for the request it ends, as `take_effect_in_session` notes it.
+                    (antrag,) = await ended(database, client, NEU)
+                    lines.append(antrag_line(antrag=antrag, art="antrag_beendet", am=log_stamp(NOW), schluessel=CONFIG.sperrliste_schluessel))
+                else:
+                    await refuse(database, client, antrag_id, als=BERND if end == "refused" else ANNA)
+            (line,) = lines
+            for collection, rows in snapshot.items():
+                await database[collection].delete_many({})
+                await database[collection].insert_many(rows)
+            window = Window(since=NOW - timedelta(hours=1), until=NOW + timedelta(hours=1))
+            plan = await plan_replay(line, database, schluessel=CONFIG.sperrliste_schluessel, session=None, now=NOW, window=window)
+            assert plan.rewrite is not None
+            async with transaction_session(client) as session:
+                await session.with_transaction(plan.rewrite)
+            return await antraege(database), told(await claimed(database, client))
+
+        remaining, notices = on_a_league(mongo_replica_set_url, body)
+
+        assert (remaining, notices) == ([], expected)
 
 
 class TestTheErasureTakesEveryRequestOfTheAddress:

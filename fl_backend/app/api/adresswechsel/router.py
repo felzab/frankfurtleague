@@ -312,6 +312,7 @@ async def post_adresswechsel_antwort(
             now=germany_now,
             journal=journal,
             session=session,
+            mitteilen=False,
             abgelaufen=ist_abgelaufen(record, now=germany_now),
             jetzt=record["weg"] != "wartezeit",
         )

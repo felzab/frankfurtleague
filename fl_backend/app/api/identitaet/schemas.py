@@ -1,4 +1,4 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
 
@@ -334,6 +334,23 @@ class FLErasureAnsichtAdresswechsel(BaseModel):
     einsehbar_verwehrt: FLAdresswechselEinsehbarVerwehrt | None
 
 
+class FLErasureAnsichtEigenerAdresswechsel(BaseModel):
+    """The address's own live change, which the erasure ends with the records it would move."""
+
+    adresswechsel_id: CustomObjectId
+
+
+FLErasureAntragRolle = Literal["betroffen", "gestellt"]
+
+
+class FLErasureAnsichtAntrag(BaseModel):
+    """An open request for a grant, about the address (`betroffen`) or made by it (`gestellt`), which the erasure removes."""
+
+    antrag_id: CustomObjectId
+    verwaltung: FLVerwaltung
+    rolle: FLErasureAntragRolle
+
+
 class FLErasureAnsicht(BaseModel):
     """What the administrator's erasure of one address reaches, by kind, name and the ids the page links by.
 
@@ -346,6 +363,8 @@ class FLErasureAnsicht(BaseModel):
     bewerbungen: list[FLErasureAnsichtBewerbung]
     registrierungen: list[FLErasureAnsichtRegistrierung]
     adresswechsel: list[FLErasureAnsichtAdresswechsel]
+    eigener_adresswechsel: FLErasureAnsichtEigenerAdresswechsel | None
+    antraege: list[FLErasureAnsichtAntrag]
 
 
 class FLErasureAnsichtResponse(FLErasureAnsicht, BaseAPIResponse):

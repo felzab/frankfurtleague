@@ -508,6 +508,7 @@ ASKING_AND_ANCHORING_NOTHING: dict[str, str] = {
     "app/api/adresswechsel/router.py :: get_adresswechsel_ansicht": A_READ,
     "app/api/adresswechsel/sweep_router.py :: take_effect": MOVES_THE_ADDRESS,
     "app/api/identitaet/wiederherstellung.py :: rewrite_the_effect": MOVES_THE_ADDRESS,
+    "app/api/identitaet/wiederherstellung.py :: rewrite_the_end": ENDS_A_REQUEST,
     "app/api/konto/router.py :: start_the_change": STARTS_A_CHANGE,
     "app/api/aktionen/admin_router.py :: _as_served": A_READ,
     "app/api/aktionen/admin_router.py :: get_aktion_by_id": A_READ,

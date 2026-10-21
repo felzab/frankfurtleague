@@ -52,6 +52,18 @@ LINES = {
     "a discarded address change": JournalLine(
         person_hash=PERSON, art="adresswechsel_verworfen", collection=Collection.ADRESSWECHSEL, record_id=RECORD, am=AM
     ),
+    "a discarded address change whose new mailbox was told": JournalLine(
+        person_hash=PERSON, art="adresswechsel_verworfen_mitgeteilt", collection=Collection.ADRESSWECHSEL, record_id=RECORD, am=AM
+    ),
+    "a refused request": JournalLine(
+        person_hash=PERSON, art="antrag_abgelehnt", collection=Collection.BERECHTIGUNGEN_ANTRAEGE, record_id=RECORD, am=AM
+    ),
+    "a withdrawn request": JournalLine(
+        person_hash=PERSON, art="antrag_zurueckgezogen", collection=Collection.BERECHTIGUNGEN_ANTRAEGE, record_id=RECORD, am=AM
+    ),
+    "a request an address change ended": JournalLine(
+        person_hash=PERSON, art="antrag_beendet", collection=Collection.BERECHTIGUNGEN_ANTRAEGE, record_id=RECORD, am=AM
+    ),
     "an address change taking effect": JournalLine(
         person_hash=PERSON, art="adresswechsel_wirksam", collection=Collection.ADRESSWECHSEL, record_id=RECORD, am=AM, zuvor=ZUVOR
     ),

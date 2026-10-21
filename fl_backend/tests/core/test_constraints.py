@@ -28,6 +28,7 @@ from app.api.berechtigungen.schemas import (
     FLBerechtigungAntrag,
     FLBerechtigungAntragGenehmigung,
     FLBerechtigungFortgefuehrt,
+    FLBerechtigungNachfolge,
     FLBerechtigungPostausgangArt,
     FLBerechtigungPostausgangZeile,
     FLBerechtigungStand,
@@ -346,6 +347,7 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), FLBerechtigungPostausgangZeile, frozenset()),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("jetzt",), FLBerechtigungStand, frozenset()),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("vorher",), FLBerechtigungStand, frozenset()),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("nachfolge",), FLBerechtigungNachfolge, frozenset()),
     (Collection.BERECHTIGUNGEN_ANTRAEGE, (), FLBerechtigungAntrag, frozenset()),
     (Collection.BERECHTIGUNGEN_ANTRAEGE, ("genehmigung",), FLBerechtigungAntragGenehmigung, frozenset()),
     # A consent record's evidence at every home, both vocabularies sharing its shape: one sub-schema
