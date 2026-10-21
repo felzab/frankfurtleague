@@ -152,6 +152,20 @@ describe("the note a decline sends the pupil", () => {
   });
 });
 
+/* The decline is written before its note, so a send broken off unanswered leaves the decline's own answer rather than
+   one of unknown outcome, which would tell the team to check a decision that stands (`docs/frontend/spec.md :: I372`). */
+describe("a decline note broken off unanswered", () => {
+  it("answers in the words of a delivered one", async () => {
+    answerWith(() => Promise.resolve(ABLEHNUNG));
+    const geliefert = await ablehnenRegistrierungAction({ ...ZIEL, grund: null });
+    answerMailWith(() => "lost");
+    const verloren = await ablehnenRegistrierungAction({ ...ZIEL, grund: null });
+
+    assert.equal(mailed.length, 2, "the second decline sent no note, so its answer is judged on nothing");
+    assert.deepEqual(verloren, geliefert);
+  });
+});
+
 describe("what each decision answers a refusal with", () => {
   it("answers the admission's refusals with the registrations page's mapper", async () => {
     await assertEachAnswered({

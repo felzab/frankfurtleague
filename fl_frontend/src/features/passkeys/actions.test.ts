@@ -72,6 +72,7 @@ const { readPasskeyStandAction, removePasskeyAction, renamePasskeyAction } = awa
 const { ENROLMENT_WINDOW_MS } = await import("@/core/sessionLifetimes");
 const { ANMELDUNG_ABGELAUFEN } = await import("@/shared/utils/actionError");
 const { PASSKEY_NAME_MAX } = await import("./schemas.ts");
+const { boundCall, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -294,6 +295,31 @@ describe("what a removal costs, and what it refuses", () => {
     assert.ok(!store.session.some((row) => row.id === acting.row.id), "the session the removed passkey made survived");
     // Rendered again without its session, the page's own check redirects and empties the area (`docs/frontend/spec.md :: I831`).
     assert.deepEqual(cacheCalls, [], "the removal rendered the page again");
+  });
+
+  /* The removal is stored before its notice, so the request's deadline cutting the notice leaves the removal's own
+     answer, and the page that lost its session still leaves for the sign-in (`docs/frontend/spec.md :: I372`). */
+  it("answers a removal whose notice the request's deadline cut as the removal it is", async (t) => {
+    // The request's clock, which its deadline was set on as the press began.
+    let clock = 0;
+    t.mock.method(performance, "now", () => clock);
+    mail.answerWith(async () => {
+      // The notice bounded as the mailer bounds it, with a millisecond of the deadline left: the deadline cuts it.
+      clock = REQUEST_DEADLINE_MS - 1;
+      const bound = boundCall(REQUEST_DEADLINE_MS);
+      await new Promise((resolve) => bound.signal.addEventListener("abort", resolve, { once: true }));
+      bound.clear();
+      return "lost";
+    });
+    const { row: first } = await signIn(PERSON_EMAIL);
+    const held = seedPasskey(first.userId, "eins");
+    seedPasskey(first.userId, "zwei");
+    const acting = await signedInWith(PERSON_EMAIL, held.credentialID);
+    arriveAs(acting.cookie);
+
+    const answer = await removePasskeyAction(held.id);
+
+    assert.deepEqual(answer, { success: true, message: "Passkey gelöscht", diesesGeraet: true });
   });
 
   /* The rows are read off the caller's own account, so another person's identifier is absent rather than taken. */

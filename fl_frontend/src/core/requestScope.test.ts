@@ -11,8 +11,10 @@ import {
   getRequestSpanId,
   getRequestTraceId,
   oncePerRequest,
+  recordOwnSessionEnding,
   recordWriteSent,
   REQUEST_DEADLINE_MS,
+  requestEndsOwnSession,
   requestOutcomeUnknown,
   requestWriteSent,
   runAnsweringOwnCut,
@@ -326,6 +328,21 @@ describe("the one deadline a request runs under", () => {
     assert.equal(aborted, true, "the deadline never cut the answered call, so nothing below is judged");
     assert.equal(cut, false, "a cut the caller answers itself marked the whole request");
     assert.equal(wrote, true, "a write sent inside the answered call went uncounted");
+  });
+
+  /* The answered call runs on a copy of the request's scope: a write inside it that may end the request's own session
+     would otherwise leave the spine rendering a page for a session that is gone (`docs/frontend/spec.md :: I831`). */
+  it("still counts a session the answered call may end", async () => {
+    const ends = await runWithRequestScope(scope(), async () => {
+      await runAnsweringOwnCut(() => {
+        recordOwnSessionEnding();
+        return Promise.resolve();
+      });
+
+      return requestEndsOwnSession();
+    });
+
+    assert.equal(ends, true, "a session ending inside the answered call went uncounted");
   });
 
   it("leaves standing a cut of a call running beside one its caller answers", async () => {

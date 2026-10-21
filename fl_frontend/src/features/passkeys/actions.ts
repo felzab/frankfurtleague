@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { isAPIError } from "better-auth/api";
 
 import { notifyPasskeyRemoved, PASSKEY_LIMIT, passkeysOf, removePasskey, renamePasskey } from "@/core/auth";
-import { recordOwnSessionEnding, recordWriteSent } from "@/core/requestScope";
+import { recordOwnSessionEnding, recordWriteSent, runAnsweringOwnCut } from "@/core/requestScope";
 import { stepUpRequired } from "@/shared/utils/adminMutation";
 import { enrolmentUntil, runKontoMutation } from "@/shared/utils/kontoMutation";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
@@ -53,7 +53,9 @@ export async function removePasskeyAction(id: string): Promise<ActionResult<{ di
     if (removal === "last") return { success: false, error: LETZTER_PASSKEY };
     if (removal === "absent") return { success: false, error: GLEICHZEITIG_GEAENDERT };
 
-    await notifyPasskeyRemoved(served.user.email);
+    // The removal has committed: a deadline cut of its notice leaves the answer the removal's, never unknown, which would
+    // also leave a device the removal signed out on its dead page (`docs/frontend/spec.md :: I372`).
+    await runAnsweringOwnCut(() => notifyPasskeyRemoved(served.user.email));
 
     return { success: true, message: "Passkey gelöscht", diesesGeraet: diesesGeraet };
   });

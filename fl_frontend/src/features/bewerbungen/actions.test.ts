@@ -529,6 +529,24 @@ describe("the message that follows a decision", () => {
     }
   });
 
+  /* A send broken off unanswered may have arrived: answered as the request's doubt, the decision would read as perhaps
+     unsaved and the sentence naming whom to tell by hand would go (`docs/frontend/spec.md :: I372`). */
+  it("reports the decision as taken where a send broke off unanswered, naming the address in doubt", async () => {
+    answerMailWith(() => "lost");
+
+    for (const { where, betreff, landed, press } of DECISIONS) {
+      answerWith(() => Promise.resolve(landed(ENTSCHIEDEN)));
+
+      const result = await press();
+
+      assert.equal(result.success, true, `${where} answered a committed decision as of unknown outcome`);
+      assert.ok(
+        answerOf(result).endsWith(` Ob die ${betreff} bei ${PERSON.email} ankam, ist unklar. Melde Dich selbst bei ihnen.`),
+        `${where} drops the address in doubt`,
+      );
+    }
+  });
+
   /* Told the ban is why, by count: an address in the report is one the administrator is asked to
      write to by hand, which would name a barred person (`docs/frontend/spec.md :: I542`). */
   it("reports a decision the ban list kept from every address as taken, naming nobody", async () => {

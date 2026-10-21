@@ -7,6 +7,7 @@ import { frontend_config } from "@/core/config";
 import { APIBadStatusError } from "@/core/errors";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
+import { runAnsweringOwnCut } from "@/core/requestScope";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { mailKontaktAbgang } from "@/features/kontakte/notifications";
 import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
@@ -104,11 +105,15 @@ async function notifyBewerbung({
 
   const benanntesTeam = teamName;
 
-  const outcome = await sendBewerbungMail({
-    operation: operation,
-    recipients: collectBewerbungEmpfaenger(bewerbung.kontakte),
-    buildMail: (rollenText) => buildMail(benanntesTeam, rollenText),
-  });
+  // The decision has committed: a send broken off is worded in the report's own sentence, never as the request's doubt,
+  // which would drop the sentence naming whom to tell by hand (`docs/frontend/spec.md :: I372`).
+  const outcome = await runAnsweringOwnCut(() =>
+    sendBewerbungMail({
+      operation: operation,
+      recipients: collectBewerbungEmpfaenger(bewerbung.kontakte),
+      buildMail: (rollenText) => buildMail(benanntesTeam, rollenText),
+    }),
+  );
 
   return describeBewerbungMail(betreff, outcome);
 }
