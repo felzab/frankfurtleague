@@ -11,7 +11,6 @@ import functools
 import logging
 import time
 from collections.abc import Awaitable, Callable, Iterator, Mapping
-from datetime import UTC, datetime
 from typing import Any, cast
 
 import pymongo
@@ -494,12 +493,10 @@ class TestAGrantHoldersAddress:
         racing: list[PupilsReadMeetingARival] = []
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            # Asked on the real clock, as the TTL monitor would remove a request asked at `NOW` under the case: the rival approves it.
+            # Asked at the suite's clock, a century ahead of the real one, so no TTL pass removes it: the rival approves it.
             await database[Collection.BERECHTIGUNGEN_ANTRAEGE].delete_many({"adresse": IDENTIFIER})
             antrag = await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(
-                compose_antrag(
-                    adresse=IDENTIFIER, verwaltung="administration", berechtigung_id=None, gestartet_von=OWNER, now=datetime.now(UTC)
-                )
+                compose_antrag(adresse=IDENTIFIER, verwaltung="administration", berechtigung_id=None, gestartet_von=OWNER, now=NOW)
             )
             held = await where_held(database, *THEIR_VALUES)
             served = _app()

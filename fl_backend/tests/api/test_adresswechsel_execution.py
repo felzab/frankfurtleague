@@ -565,7 +565,7 @@ async def held_by_another(database: AsyncDatabase, what: str) -> None:
         await granted(database, NEW_EMAIL)
         return
 
-    seat = {**documents.kontaktperson_document("Vera", bestaetigt_am="2026-03-21"), "nachname": "Zwirnbach", "email": NEW_EMAIL}
+    seat = {**documents.kontaktperson_document("Vera", bestaetigt_am="2126-03-21"), "nachname": "Zwirnbach", "email": NEW_EMAIL}
     await database[Collection.SAISON_TEAMS].insert_one(
         {
             **documents.saison_team_document(
@@ -1406,11 +1406,12 @@ async def as_administrator(adresse: str, write: Awaitable[Any]) -> Any:
 
 
 async def granted_later(database: AsyncDatabase, adresse: str, *, at: Any) -> None:
-    """A grant taking effect at `at`, after the requests a case started before it."""
+    """A grant taking effect at `at`, after the requests a case started before it.
 
-    await database[Collection.BERECHTIGUNGEN].insert_one(
-        {**grants_for_the_suite()[1], "_id": ObjectId.from_datetime(at), "adresse": adresse, "erteilt_am": at}
-    )
+    Its id minted on the real clock, a century before `at`, which an id cannot spell: a grant dates from the later of the two.
+    """
+
+    await database[Collection.BERECHTIGUNGEN].insert_one({**grants_for_the_suite()[1], "_id": ObjectId(), "adresse": adresse, "erteilt_am": at})
 
 
 class TestTheAdministratorFollowsTheirMove:
@@ -1481,8 +1482,8 @@ class TestTheAdministratorFollowsTheirMove:
                     SAISON_ID,
                     "abgelehnt",
                     kontakte=documents.kontakte_document(),
-                    eingereicht_am="2026-02-01",
-                    entscheidung={"getroffen_am": "2026-02-15", "von": EMAIL, "grund": "kein Platz"},
+                    eingereicht_am="2126-02-01",
+                    entscheidung={"getroffen_am": "2126-02-15", "von": EMAIL, "grund": "kein Platz"},
                 )
             )
             minted = await start(database, client)
@@ -1577,8 +1578,8 @@ class TestTheAdministratorFollowsTheirMove:
 
 
 ANTRAG_OID = ObjectId("6890a1b2c3d4e5f6078500a1")
-# Far past the suite's clock, so the TTL monitor removes no request a case seeds.
-ANTRAG_GESTELLT = datetime(2126, 1, 1, tzinfo=UTC)
+# The day before the suite's clock, inside the request's week.
+ANTRAG_GESTELLT = NOW - timedelta(days=1)
 
 
 async def requested(database: AsyncDatabase, *, adresse: str, gestartet_von: str) -> None:
@@ -1828,7 +1829,7 @@ class TestWhatTheEffectLeavesTheErasure:
         moved = on_a_person(mongo_replica_set_url, body)
 
         assert (moved["email"], moved["bestaetigung"]["erinnert_am"]) == (NEW_EMAIL, None)
-        assert erinnerung_is_due(registrierung_raw=moved, today="2026-04-02")
+        assert erinnerung_is_due(registrierung_raw=moved, today="2126-04-02")
 
     def test_a_declined_registration_moves_too(self, mongo_replica_set_url: str):
         """Left behind, it holds the pupil's name and data where an erasure of the new address never looks, until its month is out."""
@@ -1850,7 +1851,7 @@ class TestWhatTheEffectLeavesTheErasure:
             saison_id=SAISON_ID,
             spiel_nr=2,
             spieltag_id=None,
-            datum="2026-04-25",
+            datum="2126-04-25",
             uhrzeit="14:00:00",
             team1={"team_id": TEAM_OID},
             team2={"team_id": SECOND_TEAM_OID},
@@ -1859,7 +1860,7 @@ class TestWhatTheEffectLeavesTheErasure:
             spiel,
             partei={"art": "team", "team_id": TEAM_OID},
             _id=ANSWERED_OID,
-            angefragt_am="2026-03-30",
+            angefragt_am="2126-03-30",
             antwort=documents.kontakt_antwort_document("ansprechperson", TYPED, begruendung="Wir sind auf Klassenfahrt"),
         )
 
@@ -1871,7 +1872,7 @@ class TestWhatTheEffectLeavesTheErasure:
                 await patch_one_in_db(
                     collection=database[Collection.SPIELBESTAETIGUNGEN],
                     db_filter={"_id": ANSWERED_OID},
-                    update={"$set": {"angefragt_am": "2026-03-31"}},
+                    update={"$set": {"angefragt_am": "2126-03-31"}},
                     return_document=ReturnDocument.BEFORE,
                 )
             finally:
@@ -1906,8 +1907,8 @@ class TestWhatTheEffectLeavesTheErasure:
             vorname="Jonte",
             nachname="Wirbelauer",
             token="another-pupil-s-registration-link",
-            eingereicht_am="2026-03-30",
-            frist="2026-04-06",
+            eingereicht_am="2126-03-30",
+            frist="2126-04-06",
             bestaetigt=None,
         )
 
@@ -1923,7 +1924,7 @@ class TestWhatTheEffectLeavesTheErasure:
             await patch_one_in_db(
                 collection=database[Collection.REGISTRIERUNGEN],
                 db_filter={"_id": DECLINED_REG_OID},
-                update={"$set": {"frist": "2026-04-07"}},
+                update={"$set": {"frist": "2126-04-07"}},
                 return_document=ReturnDocument.BEFORE,
             )
             await confirmed_and_moved(database, client)
@@ -2002,7 +2003,7 @@ class TestTheErasure:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            replacement = {**documents.kontaktperson_document("Vera", bestaetigt_am="2026-03-21"), "nachname": "Zwirnbach"}
+            replacement = {**documents.kontaktperson_document("Vera", bestaetigt_am="2126-03-21"), "nachname": "Zwirnbach"}
             await as_administrator(
                 ADMIN,
                 patch_one_in_db(
