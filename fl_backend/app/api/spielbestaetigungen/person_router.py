@@ -25,10 +25,9 @@ from app.api.spielbestaetigungen.services import (
     ansicht_ansetzung_of,
     ansicht_snapshot_of,
     build_answerable_filter,
-    build_eigene_zeilen_filter,
+    build_current_rows_pipeline,
     clubs_without_a_season_row,
     compose_schiedsrichter_antwort_update,
-    current_rows,
     eigene_begruendung_of,
     eingetragen_of,
     find_fremde_zeile_refusal,
@@ -39,7 +38,7 @@ from app.api.spielbestaetigungen.services import (
 )
 from app.api.teams.crud import pull_team_names
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, pull_many_from_db, refuse
+from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
@@ -105,20 +104,21 @@ async def get_eigene_spielbestaetigungen(
         saisons = await pull_many_from_db(
             collection=saisons_collection, db_filter={"status": "active"}, projection=["_id"], limit=LIST_LIMIT_MAX, session=session
         )
-        rows = await pull_many_from_db(
+        rows = await aggregate_many_from_db(
             collection=spielbestaetigungen_collection,
-            db_filter=build_eigene_zeilen_filter(
-                saison_ids=[str(saison["_id"]) for saison in saisons],
-                schiedsrichter_ids=[eintrag.schiedsrichter_id for eintrag in subjekt.schiedsrichter],
-            ),
-            projection=EIGENE_ZEILE_FIELDS,
-            limit=LIST_LIMIT_MAX + 1,
+            pipeline=[
+                *build_current_rows_pipeline(
+                    saison_ids=[str(saison["_id"]) for saison in saisons],
+                    schiedsrichter_ids=[eintrag.schiedsrichter_id for eintrag in subjekt.schiedsrichter],
+                    projection=EIGENE_ZEILE_FIELDS,
+                ),
+                {"$limit": LIST_LIMIT_MAX + 1},
+            ],
             session=session,
         )
         # Raised rather than cut: a capped list would read as a referee booked onto fewer fixtures.
         if len(rows) > LIST_LIMIT_MAX:
-            raise ValueError("a referee's rows in the active seasons outrun one read")
-        rows = current_rows(rows)
+            raise ValueError("a referee's fixtures in the active seasons outrun one read")
 
         lagen = await pull_eigene_lagen(
             spiele_collection=spiele_collection, saison_teams_collection=saison_teams_collection, spielbestaetigungen_raw=rows, session=session

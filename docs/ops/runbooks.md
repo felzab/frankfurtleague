@@ -1430,12 +1430,15 @@ whether they ran, as the retention sweep's does:
 with the switch on, and null where none ever has. Each pass that could list the seasons writes one
 `spielbestaetigung.sweep_pass` line counting the rows it closed, the first requests and Einteilungen
 it stamped as asked, the reminders the backend stamped for it to mail, whether or not each then
-went, the notices it stamped as told, the notices given up and the rows it passed over, at `INFO`,
+went, the notices it stamped out, told or given up, the notices given up and the rows it passed over, at `INFO`,
 and as a warning under `FE-SWEEP-004` where it passed rows over or gave a notice up. A notice of a
 move, a referee taken off or a call-off is answered on every pass until its stamp lands, and given
 up after the attempts `fl_backend/app/api/spielbestaetigungen/services.py :: MITTEILUNG_VERSUCHE_HOECHSTENS`
-allows or once its day has passed: an `aufgegeben` count is a club or a referee nobody told, so open
-the fixture's confirmations panel and tell them by hand. A season it could not sweep files `spielbestaetigung.sweep_failed` besides, and a listing
+allows or once its day has passed, a move's once both the slot it left and the fixture's new one have.
+Each notice given up writes a `spielbestaetigung.mitteilung_aufgegeben` warning naming its
+`spiel_id` and its `partei`, a club's contacts or the referee nobody told: open that fixture's
+confirmations panel in the match editor and tell them by hand. The line is written before the
+notice's stamp, so it repeats every hour until a stamp lands. A season it could not sweep files `spielbestaetigung.sweep_failed` besides, and a listing
 that failed files that line and no pass line, its cache drop still running and filing
 `cache.revalidation_failed` where that fails. A request or an Einteilung whose stamp never landed
 is asked again on every pass until one does or the row stops taking an answer (a club's after its

@@ -662,19 +662,21 @@ def build_eigene_zeilen_filter(*, saison_ids: Sequence[str], schiedsrichter_ids:
     return {"saison_id": {"$in": list(saison_ids)}, **build_referee_rows_filter(schiedsrichter_ids)}
 
 
-def current_rows(rows: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
-    """Each fixture's newest row alone: a move, a reinstatement or a re-booking asks afresh, and the earlier row is history.
+def build_current_rows_pipeline(
+    *, saison_ids: Sequence[str], schiedsrichter_ids: Sequence[Any], projection: Mapping[str, int]
+) -> list[dict[str, Any]]:
+    """Each fixture's newest row alone, by `_id`, which the pass mints in order (`docs/backend/spec.md :: I837`).
 
-    One card per fixture on the referee's panel, by `_id`, which the pass mints in order (`docs/backend/spec.md :: I837`).
+    Chosen inside the read, so a cap on it counts the fixtures the panel shows, never a fixture's history.
     """
 
-    newest: dict[Any, Mapping[str, Any]] = {}
-    for row in rows:
-        held = newest.get(row["spiel_id"])
-        if held is None or row["_id"] > held["_id"]:
-            newest[row["spiel_id"]] = row
-
-    return list(newest.values())
+    return [
+        {"$match": build_eigene_zeilen_filter(saison_ids=saison_ids, schiedsrichter_ids=schiedsrichter_ids)},
+        {"$project": dict(projection)},
+        {"$sort": {"_id": -1}},
+        {"$group": {"_id": "$spiel_id", "row": {"$first": "$$ROOT"}}},
+        {"$replaceWith": "$row"},
+    ]
 
 
 def schiedsrichter_zustand_of(
@@ -803,8 +805,8 @@ def grund_to_close(
     if ansetzung_stand_of(spiel) != ansetzung["stand"]:
         return "ansetzung_geaendert"
 
-    # Last, so a move to or from a past day is still announced. Kept open, a row whose day went by unplayed would ask
-    # about a past date for good, at the front of the close's oldest-first page.
+    # Last, so a move to or from a past day is still announced (`docs/backend/spec.md :: I840`). Kept open, a row whose
+    # day went by unplayed would ask about a past date for good, heading the close's oldest-first page.
     if _day_passed(ansetzung=ansetzung, today=today):
         return "spiel_vergangen"
 
@@ -998,19 +1000,49 @@ def compose_closing_update(*, grund: FLSpielbestaetigungGrund, today: str, mitte
 MITTEILUNG_VERSUCHE_HOECHSTENS: Final = 24
 
 
-def notice_owed(*, row: Mapping[str, Any], grund: FLSpielbestaetigungGrund, today: str) -> bool:
-    """Whether closing this row for `grund` owes its party a notice (`docs/backend/spec.md :: I780`, `:: I836`).
+GRUENDE_OWING_A_NOTICE: Final = frozenset({"ansetzung_geaendert", "schiedsrichter_gewechselt", "abgesagt"})
 
-    Only a party its request or Einteilung was mailed to; a referee change and a call-off only about a day still to come.
+
+def _notice_to_come(*, row: Mapping[str, Any], grund: Any, spiel: Mapping[str, Any], today: str) -> bool:
+    """Whether a notice is about a day still to come (`docs/backend/spec.md :: I840`).
+
+    A move's is about the slot left, now void, and the fixture's slot, which a fresh request asks: either day keeps it.
     """
 
-    if row.get("angefragt_am") is None:
-        return False
+    tage = [row["ansetzung"]["datum"]]
+    if grund == "ansetzung_geaendert" and isinstance(spiel.get("datum"), str):
+        tage.append(spiel["datum"])
 
-    if grund == "ansetzung_geaendert":
-        return True
+    return any(tag >= today for tag in tage)
 
-    return grund in ("schiedsrichter_gewechselt", "abgesagt") and not _day_passed(ansetzung=row["ansetzung"], today=today)
+
+def notice_owed(*, row: Mapping[str, Any], grund: FLSpielbestaetigungGrund, spiel: Mapping[str, Any], today: str) -> bool:
+    """Whether closing this row for `grund` owes its party a notice (`docs/backend/spec.md :: I840`).
+
+    Only once mailed and about a day to come: owed and given up at once, it would send the administrator to tell by hand.
+    """
+
+    return (
+        row.get("angefragt_am") is not None
+        and grund in GRUENDE_OWING_A_NOTICE
+        and _notice_to_come(row=row, grund=grund, spiel=spiel, today=today)
+    )
+
+
+def notice_holds(*, row: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
+    """Whether the closing a held notice announces still holds of the fixture as it stands (`docs/backend/spec.md :: I839`).
+
+    A fixture reinstated, rebooking the row's referee or back at its slot is asked afresh, which the notice would contradict.
+    """
+
+    grund = row["geschlossen"]["grund"]
+    if grund == "abgesagt":
+        return entscheidung_of(spiel=spiel, austritte=[], tag=None) == "abgesagt"
+
+    if grund == "schiedsrichter_gewechselt":
+        return _referee_id(spiel) != row["partei"].get("schiedsrichter_id")
+
+    return ansetzung_stand_of(spiel) != row["ansetzung"]["stand"]
 
 
 def build_mitteilung_filter(*, saison_id: str) -> dict[str, Any]:
@@ -1019,11 +1051,13 @@ def build_mitteilung_filter(*, saison_id: str) -> dict[str, Any]:
     return {"saison_id": saison_id, "geschlossen.mitteilung": {"$ne": None}}
 
 
-def mitteilung_spent(*, row: Mapping[str, Any], today: str) -> bool:
-    """Whether a pass gives a held notice up: handed out the cap's number of times, or about a day gone by."""
+def mitteilung_spent(*, row: Mapping[str, Any], spiel: Mapping[str, Any], today: str) -> bool:
+    """Whether a pass gives a held notice up: handed out the cap's number of times, or about no day still to come."""
 
-    return int(row["geschlossen"]["mitteilung"]["versuche"]) >= MITTEILUNG_VERSUCHE_HOECHSTENS or _day_passed(
-        ansetzung=row["ansetzung"], today=today
+    geschlossen = row["geschlossen"]
+
+    return int(geschlossen["mitteilung"]["versuche"]) >= MITTEILUNG_VERSUCHE_HOECHSTENS or not _notice_to_come(
+        row=row, grund=geschlossen["grund"], spiel=spiel, today=today
     )
 
 
