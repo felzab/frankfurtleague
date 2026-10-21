@@ -135,7 +135,7 @@
 # than letting it run beside the first. Measured locally on 2026-09-07 over five interleaved rounds
 # of two hundred iterations, on a Windows machine carrying a dozen agent sessions -- 22.6-26.5 ms to
 # take the claim and 22.8-27.5 ms to give it back, both ends reading that machine's process spawn as
-# much as the guard, and each paid once per run. Every run the `db` row's stamp counts carries the
+# much as the guard, and each paid once per run. Every run the `db` rows' stamp counts carries the
 # guard, so the budget cut from them already holds its 0.05 s. The figure is a development
 # machine's, which is what the guard's own cost can be measured on: it runs before the tier rather
 # than in it.
@@ -235,6 +235,17 @@
 # until twenty-four first attempts of pushes to main re-cut it.
 # `scripts/checks/check_gate_budget.py :: split_from` reads such a row as the parent's population
 # rather than a new stamp, and `:: above_parent` refuses a figure above the parent's.
+#
+# Planning a shard is a step both matrices gained, measured locally on 2026-10-21 over eight
+# interleaved rounds on the sixteen-core Windows machine, nothing else of the fleet running. A
+# `frontend-units` shard pays the lister, 1771-1830 ms, the planner, 199-233 ms, and `--literal`,
+# 1394-1481 ms; a `db` shard pays the backend's listing and plan, 797-815 ms, and the frontend's
+# lister, plan and `--literal` together, 2962-3004 ms. `pnpm exec node -e ""` alone took 1345-1388 ms
+# over six rounds, against 155-187 ms for `--literal` and 530-555 ms for the lister run by the
+# pinned node directly, so most of each node step is pnpm's start on Windows, which a Linux runner
+# pays less of. A `db` shard's planning, under 4 s, is far below the half of the tiers it no longer
+# runs, so the parent's spans still bound it. `frontend-units` also gained `actions/setup-python`,
+# whose lookup is timed only by CI.
 #
 # `scripts` gained two cases: `scripts/tests/test_check_gate_budget.py` holds the `verify` job's
 # `needs` to every other job in the workflow, and drives that reader over a job left out of it. They
