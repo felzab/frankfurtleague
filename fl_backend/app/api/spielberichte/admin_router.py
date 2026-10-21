@@ -2,7 +2,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Query
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.saisons.cache import dropping_the_saison_cache
@@ -58,9 +58,9 @@ router = APIRouter(
 
 
 def _admin_ansicht(
-    lage: BerichtLage, *, genannt: Sequence[FLSpielberichtSpieler], dokument: Mapping[str, Any] | None
+    lage: BerichtLage, *, kader_offen: bool, genannt: Sequence[FLSpielberichtSpieler], dokument: Mapping[str, Any] | None
 ) -> FLSpielberichtAdminResponse:
-    ansicht = compose_ansicht(lage, kader_offen=True, genannt=genannt, dokument=dokument)
+    ansicht = compose_ansicht(lage, kader_offen=kader_offen, genannt=genannt, dokument=dokument)
     bericht = ansicht["bericht"]
     zustand = None if bericht is None else bericht_zustand_of(FLSpielberichtBericht.model_validate(bericht), lage.spiel)
 
@@ -109,12 +109,15 @@ async def get_spielbericht_admin(
     spieler_collection: SpielerCollection,
     spielberichte_collection: SpielberichteCollection,
     db: DBClient,
+    kader: Annotated[bool, Query(description="Serve both clubs' live squads of the season, for a form picking from them")] = False,
 ) -> FLSpielberichtAdminResponse:
     """
     One fixture's report as the editor's panel reads it, whole, with the state it reads in.
 
-    Beside it the fixture, both clubs' live squads of the season and the pupils the report names outside them. The
-    report and its state are null where no report stands; `DB-COMMON-001` only for a fixture that does not exist.
+    Beside it the fixture and the pupils the report names, by name. Both clubs' live squads of the season only with
+    `kader`, which the correction's form picks from: the panel reads no pupil the report does not name, so a fixture
+    holding no report serves none. The report and its state are null where no report stands; `DB-COMMON-001` only for
+    a fixture that does not exist.
     """
 
     async with db.start_session(snapshot=True) as session:
@@ -130,12 +133,12 @@ async def get_spielbericht_admin(
         genannt = await pull_genannt(
             spieler_collection=spieler_collection,
             lage=lage,
-            kader_offen=True,
+            kader_offen=kader,
             bericht=None if dokument is None else dokument.get("bericht"),
             session=session,
         )
 
-    return _admin_ansicht(lage, genannt=genannt, dokument=dokument)
+    return _admin_ansicht(lage, kader_offen=kader, genannt=genannt, dokument=dokument)
 
 
 @router.patch(
@@ -229,7 +232,8 @@ async def patch_spielbericht(
         )
         judge_bericht(lage=jetzt, payload=payload, gespeichert=block, neu=neu, today=today)
 
-        return _admin_ansicht(lage, genannt=genannt, dokument=dokument)
+        # The correction's own answer, read back into its form: the squads it picks from.
+        return _admin_ansicht(lage, kader_offen=True, genannt=genannt, dokument=dokument)
 
     # A first write anchors the season, a season write the cache serves (`docs/backend/spec.md :: I131`).
     with dropping_the_saison_cache():

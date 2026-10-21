@@ -156,6 +156,30 @@ describe("the referee's report form", () => {
     assert.equal(status.byPath.get("bericht.torschuetzen")?.storedText, "Goethe-Gymnasium: 9 · Lina Berg, 23.");
   });
 
+  /* An erased scorer is served by id with both names null: the form reads them „anonym“, never as the bare id. */
+  it("reads a stored scorer an erasure took as „anonym“", () => {
+    const erased = LESEN.kader.team1.map((spieler) => ({ ...spieler, vorname: null, nachname: null, nummer: null }));
+    const kontext = kontextOf({ ...LESEN, kader: { team1: [], team2: LESEN.kader.team2 }, genannt: erased });
+    render(
+      underNext(
+        h(SpielberichtForm, {
+          leser: "schiedsrichter",
+          spielId: BERICHT_SPIEL_ID,
+          kontext,
+          stored: LESEN.bericht,
+          header: { title: "Goethe-Gymnasium gegen Lessing-Gymnasium" },
+          zurueckHref: "/bereich/schiedsrichter",
+        }),
+        { router: nextRouter() },
+      ),
+    );
+
+    assert.equal(screen.getAllByRole("button", { name: /Spielerin oder Spieler/ })[0]?.textContent?.includes("anonym"), true);
+    const gespeichert = draftOf(LESEN.bericht);
+    const status = deriveSpielberichtDraftStatus({ kontext, stored: gespeichert, draft: gespeichert, fieldErrors: {} });
+    assert.equal(status.byPath.get("bericht.torschuetzen")?.storedText, "Goethe-Gymnasium: anonym, 23.");
+  });
+
   /* „45+2“ needs a „+“, which a digits keypad may not carry on the phone a referee fills the report in on. */
   it("asks for no digits-only keyboard in the minute box", async () => {
     const user = userEvent.setup();

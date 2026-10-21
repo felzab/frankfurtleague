@@ -172,12 +172,13 @@ CALLERS: dict[str, frozenset[str]] = {
     "anchor_the_pupils_named": frozenset(
         {"app/api/spielberichte/person_router.py :: write_the_report", "app/api/spielberichte/admin_router.py :: write_the_report"}
     ),
-    # A report's first write and a replace, whose removal of the season's reports the insert is invisible to.
+    # A report's first write, a replace and an undraw, whose removal of the season's reports the insert is invisible to.
     "anchor_the_season_reported_in": frozenset(
         {
             "app/api/spielberichte/person_router.py :: write_the_report",
             "app/api/spielberichte/admin_router.py :: write_the_report",
             "app/api/saisons/admin_router.py :: draw_the_whole_season",
+            "app/api/saisons/admin_router.py :: undraw_the_whole_season",
         }
     ),
 }

@@ -81,31 +81,33 @@ const karte = <T extends z.ZodType<string>>(spieler: T) =>
   });
 
 /** A card as the caution rule matches it: by side, person and colour, a card having no id. */
-type KartenSchluessel = { readonly seite: string | null; readonly spieler_id: string; readonly farbe: string | null };
+export type KartenSchluessel = {
+  readonly seite: string | null;
+  readonly spieler_id: string;
+  readonly farbe: string | null;
+  readonly grund: string | null;
+};
 
 /**
- * Whether the stored report holds this card stripped of its reason at the season's end, which excuses a caution its
- * reason (`REQ-BERICHT-008`). By presence, where the backend counts: a second equal caution passes here, refused there.
+ * Whether each card may name no reason (`REQ-BERICHT-008`): each caution the stored report holds stripped at the
+ * season's end excuses one equal caution, those listed earlier without a reason using it first, as the backend counts.
  */
-export const grundGestrippt = (
-  bestand: readonly (KartenSchluessel & { readonly grund: string | null })[],
-  eintrag: KartenSchluessel,
-): boolean =>
-  eintrag.farbe !== "rot" &&
-  bestand.some(
-    (gespeichert) =>
-      gespeichert.grund === null &&
-      gespeichert.seite === eintrag.seite &&
-      gespeichert.spieler_id === eintrag.spieler_id &&
-      gespeichert.farbe === eintrag.farbe,
-  );
+export const gruendeErlassen = (bestand: readonly KartenSchluessel[], karten: readonly KartenSchluessel[]): boolean[] => {
+  const gleich = (eine: KartenSchluessel, andere: KartenSchluessel) =>
+    eine.seite === andere.seite && eine.spieler_id === andere.spieler_id && eine.farbe === andere.farbe;
+  const ohneGrund = (karte: KartenSchluessel) => karte.farbe !== "rot" && karte.grund === null;
 
-/** A card as the form judges it, by its picker's value: a caution names its reason unless `grundGestrippt` excuses it. */
-const kartePayload = (spieler: z.ZodString, bestand: Parameters<typeof grundGestrippt>[0]) =>
-  karte(spieler).refine((eintrag) => eintrag.farbe === "rot" || eintrag.grund !== null || grundGestrippt(bestand, eintrag), {
-    error: "Bei Gelb und Gelb-Rot gehört ein Grund dazu.",
-    path: ["grund"],
-  });
+  return karten.map(
+    (karte, index) =>
+      karte.farbe !== "rot" &&
+      bestand.filter((gespeichert) => ohneGrund(gespeichert) && gleich(gespeichert, karte)).length >
+        karten.slice(0, index).filter((frueher) => ohneGrund(frueher) && gleich(frueher, karte)).length,
+  );
+};
+
+/** A card list of at most the report's bound, its entries' person schema the caller's. */
+const kartenListe = <TKarte extends z.ZodType>(eintrag: TKarte) =>
+  z.array(eintrag).max(SPIELBERICHT_EINTRAEGE_MAX, { error: `Höchstens ${String(SPIELBERICHT_EINTRAEGE_MAX)} Karten.` });
 
 /** A null id is a goal nobody was named for, never an erased pupil, whose entry keeps their id. */
 export const FLSpielberichtTorschuetzeSchema = torschuetze(CustomObjectIdStringSchema.nullable());
@@ -140,10 +142,10 @@ export const credits = (eintrag: { seite: FLSpielberichtSeite; eigentor: boolean
   (eintrag.seite === seite) !== eintrag.eigentor;
 
 // Each rule the backend's `every_goal_has_one_entry` raises, in its words, placed on the field that repairs it.
-const berichtPayload = <TTor extends z.ZodType<string | null>, TKarte extends z.ZodType>(spieler: {
+const berichtPayload = <TTor extends z.ZodType<string | null>, TKarten extends z.ZodType>(spieler: {
   torschuetze: TTor;
-  /** A whole card entry: its person schema is the caller's, and the form's adds `kartePayload`'s caution rule. */
-  karte: TKarte;
+  /** The whole card list (`kartenListe`): the form's adds the caution rule, judged over the list. */
+  karten: TKarten;
 }) =>
   z
     .object({
@@ -151,7 +153,7 @@ const berichtPayload = <TTor extends z.ZodType<string | null>, TKarte extends z.
       torschuetzen: z
         .array(torschuetze(spieler.torschuetze))
         .max(SPIELBERICHT_EINTRAEGE_MAX, { error: `Höchstens ${String(SPIELBERICHT_EINTRAEGE_MAX)} Torschützen.` }),
-      karten: z.array(spieler.karte).max(SPIELBERICHT_EINTRAEGE_MAX, { error: `Höchstens ${String(SPIELBERICHT_EINTRAEGE_MAX)} Karten.` }),
+      karten: spieler.karten,
       bemerkungen: z
         .string()
         .max(SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH, {
@@ -192,7 +194,7 @@ const berichtPayload = <TTor extends z.ZodType<string | null>, TKarte extends z.
 
 export const FLSpielberichtBerichtPayloadSchema = berichtPayload({
   torschuetze: CustomObjectIdStringSchema.nullable(),
-  karte: FLSpielberichtKartePayloadSchema,
+  karten: kartenListe(FLSpielberichtKartePayloadSchema),
 });
 export type FLSpielberichtBerichtPayload = z.infer<typeof FLSpielberichtBerichtPayloadSchema>;
 
@@ -206,13 +208,21 @@ export type FLSpielberichtPayload = z.infer<typeof FLSpielberichtPayloadSchema>;
 
 /**
  * The form's own parse of its draft, every path the wire's: a picker's value rather than an id, an untouched one
- * being `""`. The action parses the wire's shape again. `bestand` is the stored report's cards (`grundGestrippt`).
+ * being `""`. The action parses the wire's shape again. `bestand` is the stored report's cards (`gruendeErlassen`).
  */
-export function spielberichtFormSchema(bestand: Parameters<typeof grundGestrippt>[0]) {
+export function spielberichtFormSchema(bestand: readonly KartenSchluessel[]) {
   return z.object({
     bericht: berichtPayload({
       torschuetze: z.string().nonempty({ error: "Bitte wähle, wer getroffen hat, oder „unbekannt“." }),
-      karte: kartePayload(z.string().nonempty({ error: "Bitte wähle die Person." }), bestand),
+      // Over the list, never per card: one stripped card excuses one caution, so a card's verdict hangs on the others.
+      karten: kartenListe(karte(z.string().nonempty({ error: "Bitte wähle die Person." }))).superRefine((karten, context) => {
+        const erlassen = gruendeErlassen(bestand, karten);
+        karten.forEach((eintrag, index) => {
+          if (eintrag.farbe !== "rot" && eintrag.grund === null && !erlassen[index]) {
+            context.addIssue({ code: "custom", message: "Bei Gelb und Gelb-Rot gehört ein Grund dazu.", path: [index, "grund"] });
+          }
+        });
+      }),
     }),
   });
 }
@@ -286,7 +296,10 @@ export const FLSpielberichtSchiedsrichterResponseSchema = BaseAPIResponseSchema.
 });
 export type FLSpielberichtSchiedsrichterResponse = z.infer<typeof FLSpielberichtSchiedsrichterResponseSchema>;
 
-/** `zustand` is null exactly where no block stands. */
+/**
+ * `zustand` is null exactly where no block stands. Both squads read empty unless the read asked `kader`
+ * (`getAdminSpielbericht`), as only the correction's form does: the panel names the report's pupils off `genannt`.
+ */
 export const FLSpielberichtAdminResponseSchema = BaseAPIResponseSchema.extend({
   ...spielberichtAnsicht,
   zustand: FLSpielberichtZustandSchema.nullable(),
