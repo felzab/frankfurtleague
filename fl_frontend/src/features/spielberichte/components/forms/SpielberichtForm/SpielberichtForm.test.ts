@@ -224,6 +224,65 @@ describe("the referee's report form", () => {
     );
   });
 
+  /* The shoot-out is offered exactly where the administrator's save keeps one: a group fixture's would be refused
+     (`REQ-BERICHT-009`), and the reload the refusal advises redraws the same form. */
+  it("offers no shoot-out on a level group fixture", async () => {
+    const user = userEvent.setup();
+    render(leer());
+    await user.type(screen.getByRole("textbox", { name: /^Goethe-Gymnasium/ }), "1");
+    await user.tab();
+    await user.type(screen.getByRole("textbox", { name: /^Lessing-Gymnasium/ }), "1");
+    await user.tab();
+
+    assert.equal(screen.queryAllByRole("switch", { name: "Im Elfmeterschießen entschieden" }).length, 0);
+  });
+
+  /* Hidden once the score stops being level, a shoot-out left in the draft would be refused on a field no longer shown. */
+  it("drops a knockout's shoot-out once the score stops being level, and sends the report without it", async () => {
+    const user = userEvent.setup();
+    render(
+      underNext(
+        h(SpielberichtForm, {
+          leser: "schiedsrichter",
+          spielId: BERICHT_SPIEL_ID,
+          kontext: kontextOf({ ...LESEN, spiel: { ...LESEN.spiel, saison_phase: "achtelfinale" } }),
+          stored: null,
+          header: { title: "Goethe-Gymnasium gegen Lessing-Gymnasium" },
+          zurueckHref: "/bereich/schiedsrichter",
+        }),
+        { router: nextRouter() },
+      ),
+    );
+    const [tore1] = screen.getAllByRole("textbox", { name: /^Goethe-Gymnasium/ });
+    await user.type(tore1 ?? assert.fail("no goal box"), "0");
+    await user.tab();
+    await user.type(screen.getByRole("textbox", { name: /^Lessing-Gymnasium/ }), "0");
+    await user.tab();
+    await user.click(screen.getByRole("switch", { name: "Im Elfmeterschießen entschieden" }));
+    await user.type(screen.getByRole("textbox", { name: /^Goethe-Gymnasium: Treffer/ }), "4");
+    await user.tab();
+    await user.type(screen.getByRole("textbox", { name: /^Lessing-Gymnasium: Treffer/ }), "3");
+    await user.tab();
+
+    await user.clear(tore1 ?? assert.fail("no goal box"));
+    await user.type(tore1 ?? assert.fail("no goal box"), "1");
+    await user.tab();
+    assert.equal(screen.queryAllByRole("switch", { name: "Im Elfmeterschießen entschieden" }).length, 0, "a 1:0 offers a shoot-out");
+    await user.click(screen.getByRole("button", { name: "Tor hinzufügen" }));
+    await pick(user, screen.getByRole("button", { name: /^Team/ }), "Goethe-Gymnasium");
+    await pick(user, screen.getByRole("button", { name: /Spielerin oder Spieler/ }), "unbekannt");
+    await user.type(screen.getByRole("textbox", { name: "Minute" }), "70");
+    await user.tab();
+    calls.length = 0;
+
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(answered);
+
+    assert.equal(calls.length, 1, "the corrected report was refused on the shoot-out it no longer shows");
+    const bericht = Reflect.get(Object(calls[0]?.payload), "bericht") as { ergebnis_vorschlag: unknown };
+    assert.deepEqual(bericht.ergebnis_vorschlag, { team1_tore: 1, team2_tore: 0, elfmeterschiessen: null, sonderereignis: null });
+  });
+
   /* The season-end strip deleted the caution's reason: a correction that owed it again would make the administrator
      invent the reason the strip removed (`REQ-BERICHT-008`), so the stored cards excuse it at the box and in its mark. */
   it("sends an administrator's correction over a caution stripped of its reason, which it neither marks nor asks for", async () => {
