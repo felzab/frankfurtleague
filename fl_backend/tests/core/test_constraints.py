@@ -646,6 +646,9 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     # whoever reads the list the one value a leaked collection is missing, and the label beside it
     # says which key that is.
     (Collection.SPERRLISTE, ()): frozenset({"adresse_hash", "schluessel_version"}),
+    # The pass's own outbox mark, read by its notice step and its stamp alone: a notice still owed is nothing an
+    # administrator acts on, the pass answering it until it goes or is given up.
+    (Collection.SPIELBESTAETIGUNGEN, ("geschlossen",)): frozenset({"mitteilung"}),
     # The raw token's hash is the whole credential and no model declares it, so the link cannot be
     # recovered from the editor's read of the block beside it.
     (Collection.SCHIEDSRICHTER, ("bestaetigung",)): frozenset({"token_hash"}),

@@ -163,8 +163,6 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLPatchSpielDataPayload: ["spiel_id"],
   FLPatchTeamPayload: ["id"],
   FLPatchSpielerPayload: ["id"],
-  FLSpielerAdresswechselPayload: ["id"],
-  FLSchiedsrichterAdresswechselPayload: ["id"],
   FLPatchSaisonPayload: ["id"],
   FLPatchSpieltagPayload: ["id"],
   // The season is the resource acted on, so it is the path; the control still has to know which.
@@ -361,7 +359,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 411;
+const EXPECTED_PAIRS = 415;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

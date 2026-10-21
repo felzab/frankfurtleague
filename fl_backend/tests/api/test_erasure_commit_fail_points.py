@@ -403,7 +403,7 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
     def test_the_mints_rows_stand_unmailed_the_line_names_them_and_the_next_pass_asks_them(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
     ):
-        """The close's notices committed first, so the pass answers them rather than raising (`docs/backend/spec.md :: I753`).
+        """The notices were answered first, so the pass answers them rather than raising (`docs/backend/spec.md :: I753`).
 
         Its rows hold links nobody was mailed, so the next pass asks each again (`:: I765`), a fresh link a seat beside the first.
         """
@@ -414,8 +414,9 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
             await database[Collection.SPIELE].update_one({"_id": confirmations.SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
             commits = _Commits()
             losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
-            # The close's commit passes; the mint's, the next one this client sends, lands and loses its answer.
-            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"skip": 1}, data=UNANSWERED)
+            # The close's and the notice step's commits pass; the mint's, the next one this client sends, lands and loses
+            # its answer.
+            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"skip": 2}, data=UNANSWERED)
             try:
                 answer = await confirmations.sweep(losing[database.name], losing)
             finally:
@@ -436,8 +437,8 @@ class TestTheConfirmationPassNamesAMintItCannotRead:
                 mongo_replica_set_url, body, spiele=[confirmations.fixture(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
             )
 
-        # The premise first: the close committed, and the mint's commit landed with its answer lost.
-        assert commits == [None, MAX_TIME_EXPIRED]
+        # The premise first: the close and the notice step committed, and the mint's commit landed with its answer lost.
+        assert commits == [None, None, MAX_TIME_EXPIRED]
         assert (len(answer.neue_ansetzungen), len(answer.schiedsrichter_neue_ansetzungen)) == (2, 1)
         assert (answer.anfragen, answer.einteilungen) == ([], [])
         # Each side's fresh row and the referee's, about the moved Ansetzung, none recorded as sent.

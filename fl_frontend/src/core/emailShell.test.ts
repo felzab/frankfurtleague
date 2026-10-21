@@ -66,6 +66,7 @@ const {
 const { buildSchiedsrichterBestaetigungEmail } = await import("./schiedsrichterEmail.ts");
 const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
 const {
+  buildSpielAbgesagtEmail,
   buildSpielAnfrageEmail,
   buildSpielEinteilungAufgehobenEmail,
   buildSpielEinteilungEmail,
@@ -316,6 +317,15 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       team2: "Goethe-Gymnasium",
       altDatumText: "20.11.2026",
       altUhrzeitText: "14:30",
+    }),
+  buildSpielAbgesagtEmail: (origin) =>
+    buildSpielAbgesagtEmail({
+      origin: origin,
+      team1: "Ernst-Reuter-Schule",
+      team2: "Goethe-Gymnasium",
+      altDatumText: "20.11.2026",
+      altUhrzeitText: "14:30",
+      empfaenger: "schiedsrichter",
     }),
   buildBerechtigungEmail: (origin) =>
     buildBerechtigungEmail(

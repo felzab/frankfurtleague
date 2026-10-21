@@ -159,6 +159,33 @@ describe("the confirmations' panel in the match editor", () => {
     assert.equal(screen.getAllByText("Nichts zu melden").length, 2, "the two seats holding a link, and not the empty third");
   });
 
+  it("names the slot a closed row was about, which its party's heading does not", () => {
+    const geschlossen = zeile({
+      id: "6890a1b2c3d4e5f607182a0a",
+      ansetzung: { ...ANSETZUNG, uhrzeit: "19:00:00" },
+      geschlossen: { am: "2026-11-01", grund: "ansetzung_geaendert" },
+    });
+    renderEditor({ stand: { zeilen: [geschlossen, zeile()], gelaufenAm: "2026-11-01" } });
+
+    assert.deepEqual(
+      screen.getAllByText("Termin", { selector: "dt" }).map((term) => term.nextElementSibling?.textContent),
+      ["07.11.2026 um 19:00 Uhr"],
+      "the open row about the fixture's own slot names it too, or the closed one names none",
+    );
+  });
+
+  // The Einteilung names no deadline and a referee answers until the fixture's day, so a club's „Frist“ would mislead.
+  it("names a deadline on a club's row and none on a referee's", () => {
+    const schiedsrichter = zeile({
+      id: "6890a1b2c3d4e5f607182a0b",
+      partei: { art: "schiedsrichter", schiedsrichter_id: "6890a1b2c3d4e5f607182935" },
+      kontakte: null,
+    });
+    renderEditor({ stand: { zeilen: [zeile(), schiedsrichter], gelaufenAm: "2026-11-01" } });
+
+    assert.equal(screen.getAllByText("Frist", { selector: "dt" }).length, 1);
+  });
+
   it("says in words that no pass has run since, where one was due", () => {
     renderEditor({ stand: { zeilen: [], gelaufenAm: "2026-10-30" } });
     assert.ok(screen.getByText("Letzter Lauf: 30.10.2026. Seitdem wurde nicht mehr angefragt."));

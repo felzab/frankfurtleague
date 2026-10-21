@@ -45,6 +45,7 @@ const EINSATZ: FLSpielbestaetigungSelbst = {
   zustand: "gueltig",
   begruendung: null,
   eingetragen: false,
+  vergangen: false,
 };
 
 const GELEITET: FLSpielberichtPersonEintrag = {
@@ -193,13 +194,13 @@ describe("a referee's fixtures on their own page", () => {
     await user.click(screen.getByRole("button", { name: /^Absagen/ }));
     calls.length = 0;
 
-    await user.click(screen.getByRole("button", { name: "Absage senden" }));
+    await user.click(screen.getByRole("button", { name: /^Absage senden/ }));
     await act(answered);
     assert.deepEqual(calls, [], "a decline without its reason was sent");
     assert.ok(screen.getByText("Bitte gib einen Grund für Deine Absage an."));
 
-    await user.type(screen.getByRole("textbox", { name: "Begründung" }), "Klassenfahrt");
-    await user.click(screen.getByRole("button", { name: "Absage senden" }));
+    await user.type(screen.getByRole("textbox", { name: /^Begründung/ }), "Klassenfahrt");
+    await user.click(screen.getByRole("button", { name: /^Absage senden/ }));
     await act(answered);
     assert.deepEqual(calls, [{ action: "absagenSpielbestaetigungAction", payload: [EINSATZ.id, { begruendung: "Klassenfahrt" }] }]);
   });

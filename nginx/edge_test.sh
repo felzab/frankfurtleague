@@ -535,6 +535,13 @@ grade_security_headers() { # $1 what the request was, the headers already read
       HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
     fi
   done
+  # The file is what the sent value is compared to, so a `preload` written back into it passes that comparison
+  # (nginx/shared/security_headers.conf holds why none is sent).
+  if [[ "${SENT_VALUE[strict-transport-security]:-}" == *preload* ]]; then
+    fail "HEADER $1"
+    detail "expected Strict-Transport-Security without preload" "nginx sent: ${SENT_VALUE[strict-transport-security]}"
+    HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+  fi
   for name in "${!SECURITY_HEADERS[@]}"; do
     # Exactly one: none is a location whose own add_header dropped the inherited set, two a copy
     # restated beside the include -- for the CSP, a second enforcing policy.
@@ -863,11 +870,36 @@ grade_refusal() { # $1 the transfer's label, its files named for it
   fi
   grade_security_headers "the edge's own 429, $1"
 }
-grade_spent() { # $1 a `spent_request` label: graded on the half the edge refused, where one was
+# The page `nginx/shared/site.conf :: @edge_refusal_seite` returns, read off the file as nginx sends it:
+# the single-quoted string, its newlines kept.
+REFUSAL_PAGE="${SCRATCH}/refusal-page.html"
+awk "/^[[:space:]]*return 429 '/ { open = 1; sub(/^[[:space:]]*return 429 '/, \"\") }
+  open && /^';\$/ { exit }
+  open { print }" "${REPO_ROOT}/nginx/shared/site.conf" > "$REFUSAL_PAGE"
+[[ -s "$REFUSAL_PAGE" ]] || refuse "nginx/shared/site.conf returns no 429 page this test can read."
+grade_page() { # $1 the transfer's label, its files named for it; $2 "head" where no body is sent
+  read_headers "${SCRATCH}/$1.headers"
+  # The charset in the header: a page with none is read in whatever encoding the browser guesses first.
+  if [[ "${SENT_VALUE[content-type]:-}" != "text/html; charset=utf-8" ]]; then
+    fail "ACTION $1"
+    detail "expected Content-Type: text/html; charset=utf-8, nginx sent '${SENT_VALUE[content-type]:-}'"
+    ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+  fi
+  if [[ "${2:-}" != head ]] && ! cmp -s "${SCRATCH}/$1.body" "$REFUSAL_PAGE"; then
+    fail "ACTION $1"
+    detail "expected the body of nginx/shared/site.conf :: @edge_refusal_seite, nginx sent $(wc -c < "${SCRATCH}/$1.body" 2>/dev/null || echo no) bytes"
+    ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+  fi
+  grade_security_headers "the edge's own 429 page, $1"
+}
+grade_spent() { # $1 a `spent_request` label: graded on the half the edge refused, where one was; $2 "page" or "head"
   local _j half=a
   for _j in "${!ACTION_LABELS[@]}"; do
     [[ "${ACTION_LABELS[_j]}" == "$1" ]] || continue
-    if [[ "${ACTION_STATUSES[_j]:-none}" == 429* ]]; then grade_refusal "$1-${half}"; return; fi
+    if [[ "${ACTION_STATUSES[_j]:-none}" == 429* ]]; then
+      if [[ -n "${2:-}" ]]; then grade_page "$1-${half}" "$2"; else grade_refusal "$1-${half}"; fi
+      return
+    fi
     half=b
   done
 }
@@ -879,21 +911,24 @@ expect_action empty-id 200
 expect_action json-post 200
 expect_action page-load 200
 expect_action asset-load 200
+# A link page's action still reads the sentence: the page is its load's alone.
 for _i in "${!LINK_ACTION_PATHS[@]}"; do
   _before=$ACTION_FAILURES
   expect_action "link-action-${_i}" some:429
+  grade_spent "link-action-${_i}"
   (( ACTION_FAILURES == _before )) || detail "link-action-${_i} posted to ${LINK_ACTION_PATHS[_i]}"
 done
 expect_action link-flood some:429
 for _i in "${!LINK_SPENT[@]}"; do
   _before=$ACTION_FAILURES
   expect_action "link-spent-${_i}" some:429
-  grade_spent "link-spent-${_i}"
+  grade_spent "link-spent-${_i}" page
   (( ACTION_FAILURES == _before )) || detail "link-spent-${_i} asked for ${LINK_SPENT[_i]}"
 done
 expect_action link-json some:429
 grade_spent link-json
 expect_action link-head some:429
+grade_spent link-head head
 
 # A refusal's error line repeats the request line, live token included, so `limit_req_log_level` keeps
 # it below the log's own level. Read once every kept refusal's access line is written, which comes
@@ -1274,6 +1309,6 @@ ${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X
 ${#REFUSED_WITH[@]} refused at the edge and still refused under ${#REFUSED_LABELS[@]} other spellings, an empty
 Next-Action handed to no one, server
 actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, every link page
-metered on every request under every spelling with no token reaching the error log, the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker,
+metered on every request under every spelling, its load refused with the edge's own page and no token reaching the error log, the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker,
 every upstream named through a variable and found through Docker's DNS alone, holding an answer ${RESOLVER_VALID}s, both edges reaching a backend recreated at a new address
 without a reload, and each upstream's redirect naming itself handed back as the visitor's origin"

@@ -345,7 +345,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   read off the referee's record when the fixture is read
   (`fl_backend/app/shared/einwilligung.py :: NAME_IS_PUBLIC`, `docs/backend/spec.md :: READ-REFEREE-004`);
   a referee asked about a fixture is shown on it only once they agreed, the league's own entry of an
-  agreement counting (`:: READ-REFEREE-005`). Ruled 2026-10-20.
+  agreement counting (`:: READ-REFEREE-005`). Ruled 2026-10-20. No fixture page carries the
+  referee's record id, which would link every fixture of a referee whose name is withheld
+  (`:: READ-REFEREE-006`).
 - **The booked referee reads both clubs' squads, every name and shirt number, for their own
   fixture's report, as part of officiating**, whatever a pupil answered about publication: nothing
   of it is published. The form serves the squads only from the match day and only while the fixture
@@ -937,6 +939,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   referee's rows hold the referee's id and no seat, a reason on one, the referee's decline's or an
   administrator's answer's, going at the season's end as above, and stand while the referee's row does, their erasure removing them (`docs/backend/spec.md :: I761`). The published notice tabulates it
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19, the administrator's reason on that clock
+  2026-10-20.
+- **A fixture's parties are mailed about it at the address on file when each message goes, and no
+  message names a person.** A club's seats receive the request and its reminders, a booked referee the
+  Einteilung; a party mailed about it is told when the fixture moves, a referee when the fixture no
+  longer books them, and every party mailed when it is called off (`docs/backend/spec.md :: I780`,
+  `:: I836`). A notice still owed is held on its closed row as a count of attempts and never as an
+  address (`:: I835`), so it needs no erasure step of its own: the address is read as each pass
+  sends, and a referee's erasure removes their rows. The taken-off and called-off notices ruled
   2026-10-20.
 - **A match report keeps its scorers, its cards and its proposed result as the league's record, and
   loses on that same clearing what characterises the pupils' conduct**: from the pass that clears the

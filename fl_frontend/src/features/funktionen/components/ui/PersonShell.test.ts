@@ -3,13 +3,10 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { Funktion } from "@/core/funktionen.ts";
-
-doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness: the harness registers the
    resolver the icon package's bare `./x` imports need as it evaluates, and a static import resolves first. */

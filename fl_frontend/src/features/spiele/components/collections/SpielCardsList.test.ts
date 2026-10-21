@@ -14,15 +14,16 @@ import type { FLSpiel } from "../../schemas.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SpielCardsList } = await import("./SpielCardsList.tsx");
-const { FLSpielSchema } = await import("../../schemas.ts");
+const { FLSpielAdminSchema } = await import("../../schemas.ts");
 const { FLSpielbestaetigungSchema } = await import("@/features/spielbestaetigungen/schemas.ts");
 
 const SCHIEDSRICHTER = "6890a1b2c3d4e5f607182935";
-const SPIEL = FLSpielSchema.parse(
+// The admin card reads the admin tier, the one serving the referee's id.
+const SPIEL = FLSpielAdminSchema.parse(
   spielFields({
     datum: "2026-08-05",
     uhrzeit: "18:00:00",
-    schiedsrichter: { schiedsrichter_id: SCHIEDSRICHTER, name: "Rita Rot", name_is_public: true },
+    schiedsrichter: { schiedsrichter_id: SCHIEDSRICHTER, name: "Rita Rot", payment: 0 },
   }),
 );
 const ZEILEN = [
@@ -81,7 +82,7 @@ describe("the answer chips on a fixture's card", () => {
   // The previous referee's row stays open until the next pass closes it, and read as current it would answer for the
   // referee booked since.
   it("read no answer of a referee other than the one the fixture books", () => {
-    const umbesetzt = { ...SPIEL, schiedsrichter: { schiedsrichter_id: "6890a1b2c3d4e5f607182936", name: "Udo Neu", name_is_public: true } };
+    const umbesetzt = { ...SPIEL, schiedsrichter: { schiedsrichter_id: "6890a1b2c3d4e5f607182936", name: "Udo Neu", payment: 0 } };
 
     assert.doesNotMatch(list(true, ZEILEN, umbesetzt), /Schiedsrichter:/);
   });

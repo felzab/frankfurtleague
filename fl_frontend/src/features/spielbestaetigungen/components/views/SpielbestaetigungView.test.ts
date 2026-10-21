@@ -187,7 +187,15 @@ describe("the fixture confirmation page", () => {
     const shown = words(markup(ZUGESAGT_VON_ANSPRECHPERSON));
 
     assert.ok(shown.includes("Zugesagt von Ansprechperson"), shown);
-    assert.ok(words(markup({ zustand: "abgelehnt", beantwortet_von: { art: "admin" } })).includes("Abgesagt von Verwaltung der Liga"));
+  });
+
+  /* The league settles a row whose deadline passed with a Zusage, never a decline: the page must not credit the team. */
+  it("says the league confirmed the date where the Zusage is the league's own entry", () => {
+    const shown = words(markup({ zustand: "zugesagt", beantwortet_von: { art: "admin" } }));
+
+    assert.ok(shown.includes("hat die Verwaltung der Liga den Termin für Dein Team bestätigt"), shown);
+    assert.ok(shown.includes("Zugesagt von Verwaltung der Liga"), shown);
+    assert.ok(!shown.includes("hat Dein Team schon zugesagt"), "the league's entry reads as the team's agreement");
   });
 
   it("keeps the unreadable link apart from the dead one", () => {
@@ -211,6 +219,8 @@ describe("the fixture confirmation page", () => {
       [{ zustand: "abgelaufen" }, DEAD],
       [{ zustand: "termin-vorbei" }, TERMIN_VORBEI],
       [{ zustand: "ungueltig" }, DEAD],
+      // Whatever the club answered: an agreement shown here would send it to a ground nobody plays on.
+      [{ zustand: "abgesagt" }, "Dieses Spiel ist abgesagt."],
       [{ zustand: "gesperrt" }, LINK_ADRESSE_GESPERRT],
       [{ zustand: "unlesbar" }, unlesbar],
     ] satisfies [SpielbestaetigungStart, string | null][]) {
