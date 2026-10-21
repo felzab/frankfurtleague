@@ -10,8 +10,15 @@ export const FLVerwaltungSchema = z.enum(["owner", "administration"], { error: "
 export type FLVerwaltung = z.infer<typeof FLVerwaltungSchema>;
 
 /**
+ * Why THIS administrator may not approve an act waiting on a second pair of eyes: one judgement the backend
+ * makes of an address change and a grant's request alike (`fl_backend/app/api/berechtigungen/services.py :: genehmigung_verwehrt`).
+ */
+const FLGenehmigungVerwehrtSchema = z.enum(["eigene", "gestartet", "inhaber", "juenger"]);
+export type FLGenehmigungVerwehrt = z.infer<typeof FLGenehmigungVerwehrtSchema>;
+
+/**
  * Mirrors `FLBerechtigungAdresswechsel`: the change the grant's address waits at, set only while another
- * administrator's approval is owed. `verwehrt` is why THIS administrator may not give it, null where they may.
+ * administrator's approval is owed. `verwehrt` is null where this administrator may give it.
  */
 export const FLBerechtigungAdresswechselSchema = z.object({
   id: CustomObjectIdStringSchema,
@@ -20,7 +27,7 @@ export const FLBerechtigungAdresswechselSchema = z.object({
   // Whether the new mailbox has confirmed, so an approval now takes effect at once.
   bestaetigt: z.boolean(),
   bis: z.string(),
-  verwehrt: z.enum(["eigene", "gestartet", "inhaber", "juenger"]).nullable(),
+  verwehrt: FLGenehmigungVerwehrtSchema.nullable(),
 });
 export type FLBerechtigungAdresswechsel = z.infer<typeof FLBerechtigungAdresswechselSchema>;
 
@@ -42,10 +49,34 @@ export const FLBerechtigungZeileSchema = z.object({
 });
 export type FLBerechtigungZeile = z.infer<typeof FLBerechtigungZeileSchema>;
 
+/** One grant or promotion waiting on a second administrator's approval, as the list serves it while it may still be decided. */
+export const FLBerechtigungAntragZeileSchema = z.object({
+  id: CustomObjectIdStringSchema,
+  // Null exactly where `gesperrt` holds, as on a grant's row.
+  adresse: z.string().nullable(),
+  gesperrt: z.boolean(),
+  // The grant a promotion raises, null for a request for a new grant.
+  berechtigung_id: CustomObjectIdStringSchema.nullable(),
+  // The tier asked for: `owner` is a promotion, decided by another owner alone.
+  verwaltung: FLVerwaltungSchema,
+  // Null exactly where `gestartet_von_gesperrt` holds.
+  gestartet_von: z.string().nullable(),
+  gestartet_von_gesperrt: z.boolean(),
+  angefragt_am: z.string(),
+  bis: z.string(),
+  // False once the person who asked has lost, since asking, the tier asked for: then nobody approves it.
+  steht: z.boolean(),
+  // Its requester reads `gestartet`, and withdraws it all the same.
+  verwehrt: FLGenehmigungVerwehrtSchema.nullable(),
+});
+export type FLBerechtigungAntragZeile = z.infer<typeof FLBerechtigungAntragZeileSchema>;
+
 export const FLBerechtigungenListResponseSchema = BaseAPIResponseSchema.extend({
   berechtigungen: z.array(FLBerechtigungZeileSchema),
   // Rows no request can match, left out of the list; a count above zero is a paste to repair.
   uebersprungen: z.int().nonnegative(),
+  // Every request not yet lapsed, oldest first.
+  antraege: z.array(FLBerechtigungAntragZeileSchema),
 });
 export type FLBerechtigungenListResponse = z.infer<typeof FLBerechtigungenListResponseSchema>;
 
@@ -62,7 +93,10 @@ export const FLPostBerechtigungPayloadSchema = z.object({
 export type FLPostBerechtigungPayload = z.infer<typeof FLPostBerechtigungPayloadSchema>;
 
 export const FLPostBerechtigungResponseSchema = BaseAPIResponseSchema.extend({
+  // The grant's id, or the request's where `beantragt` holds.
   created_id: CustomObjectIdStringSchema,
+  // Another administrator could approve it, so no grant was made: a request waits instead.
+  beantragt: z.boolean(),
 });
 export type FLPostBerechtigungResponse = z.infer<typeof FLPostBerechtigungResponseSchema>;
 
@@ -82,11 +116,36 @@ export const FLPatchBerechtigungPayloadSchema = z.object({
 });
 export type FLPatchBerechtigungPayload = z.infer<typeof FLPatchBerechtigungPayloadSchema>;
 
-/** The revoke is hard, so the id is all there is to answer with; the tier change answers the same. */
+/** The revoke is hard, so the id is all there is to answer with. */
 export const FLBerechtigungWriteResponseSchema = BaseAPIResponseSchema.extend({
   berechtigung_id: CustomObjectIdStringSchema,
 });
 export type FLBerechtigungWriteResponse = z.infer<typeof FLBerechtigungWriteResponseSchema>;
+
+export const FLBerechtigungStufeResponseSchema = BaseAPIResponseSchema.extend({
+  berechtigung_id: CustomObjectIdStringSchema,
+  // A promotion another owner could approve: the tier did not move, a request waits instead.
+  beantragt: z.boolean(),
+});
+export type FLBerechtigungStufeResponse = z.infer<typeof FLBerechtigungStufeResponseSchema>;
+
+/** A request's approval and its refusal or withdrawal, each naming its request by the id in the path, with no body. */
+export const FLBerechtigungAntragKeyPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+});
+export type FLBerechtigungAntragKeyPayload = z.infer<typeof FLBerechtigungAntragKeyPayloadSchema>;
+
+/** The grant the approval wrote or promoted. */
+export const FLBerechtigungAntragGenehmigtResponseSchema = BaseAPIResponseSchema.extend({
+  berechtigung_id: CustomObjectIdStringSchema,
+});
+export type FLBerechtigungAntragGenehmigtResponse = z.infer<typeof FLBerechtigungAntragGenehmigtResponseSchema>;
+
+/** The request removed: hard, so the id is all there is to answer with. */
+export const FLBerechtigungAntragAbgelehntResponseSchema = BaseAPIResponseSchema.extend({
+  antrag_id: CustomObjectIdStringSchema,
+});
+export type FLBerechtigungAntragAbgelehntResponse = z.infer<typeof FLBerechtigungAntragAbgelehntResponseSchema>;
 
 /** One side of a change: the address, withheld as null where it is barred, and the tier. */
 export const FLBerechtigungStandSchema = z.object({

@@ -83,6 +83,21 @@ const swapTeam = (id: string, name: string, gruppe: "A" | "B") => ({
 });
 const SWAP = { teams: [swapTeam("t1", "SG Alpha", "A"), swapTeam("t2", "TSV Beta", "B")], playedKnockoutSpiele: 0 };
 
+/** A grant another administrator asked for, which this reader may approve or refuse. */
+const ANTRAG = {
+  id: "68c1f0a2b3c4d5e6f7a8b9e1",
+  adresse: "neu@schule.de",
+  gesperrt: false,
+  berechtigung_id: null,
+  verwaltung: "administration",
+  gestartet_von: "vorstand@schule.de",
+  gestartet_von_gesperrt: false,
+  angefragt_am: "2026-10-20T11:30:00Z",
+  bis: "2026-10-27T11:30:00Z",
+  steht: true,
+  verwehrt: null,
+};
+
 const RULES = saisonRules();
 const UNDRAWN = {
   saisonId: "2026-27",
@@ -154,6 +169,8 @@ const M = {
   zugangEntziehen: "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx",
   zugangStufe: "features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx",
   zugangGenehmigen: "features/berechtigungen/components/forms/AdminBerechtigungGenehmigenPanel.tsx",
+  zugangAntragGenehmigen: "features/berechtigungen/components/forms/AdminBerechtigungAntragGenehmigenPanel.tsx",
+  zugangAntragAblehnen: "features/berechtigungen/components/forms/AdminBerechtigungAntragAblehnenPanel.tsx",
   einladung: "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx",
   saison: "features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx",
   registrierungen: "features/registrierungen/components/collections/RegistrierungenList.tsx",
@@ -184,6 +201,8 @@ const C = {
   zugangEntziehen: await component(M.zugangEntziehen, "AdminBerechtigungEntziehenPanel"),
   zugangStufe: await component(M.zugangStufe, "AdminBerechtigungStufePanel"),
   zugangGenehmigen: await component(M.zugangGenehmigen, "AdminBerechtigungGenehmigenPanel"),
+  zugangAntragGenehmigen: await component(M.zugangAntragGenehmigen, "AdminBerechtigungAntragGenehmigenPanel"),
+  zugangAntragAblehnen: await component(M.zugangAntragAblehnen, "AdminBerechtigungAntragAblehnenPanel"),
   einladung: await component(M.einladung, "FormEinladungSection"),
   saison: await component(M.saison, "FormSaisonSection"),
   registrierungen: await component(M.registrierungen, "RegistrierungenList"),
@@ -635,6 +654,18 @@ const PANELS: Record<string, Arming[]> = {
           }),
         ),
       resting: "Adressänderung genehmigen: vorstand@schule.de",
+    },
+  ],
+  [M.zugangAntragGenehmigen]: [
+    {
+      render: () => underNext(el(C.zugangAntragGenehmigen, { antrag: ANTRAG, zeile: ANTRAG.adresse })),
+      resting: "Antrag genehmigen: neu@schule.de",
+    },
+  ],
+  [M.zugangAntragAblehnen]: [
+    {
+      render: () => underNext(el(C.zugangAntragAblehnen, { antrag: ANTRAG, zeile: ANTRAG.adresse })),
+      resting: "Antrag ablehnen: neu@schule.de",
     },
   ],
   [M.einladung]: [

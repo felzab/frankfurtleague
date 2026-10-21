@@ -6,13 +6,31 @@ import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { runBerechtigungenAbgleich } from "./abgleich";
-import { STUFE_GEAENDERT_MESSAGE, ZUGANG_ENTZOGEN_MESSAGE, ZUGANG_ERTEILT } from "./constants";
-import { deleteBerechtigung, patchBerechtigung, postBerechtigung } from "./mutations";
-import { mapEntziehenRefusal, mapErteilenRefusal, mapStufeRefusal } from "./refusals";
-import { FLBerechtigungKeyPayloadSchema, FLPatchBerechtigungPayloadSchema, FLPostBerechtigungPayloadSchema } from "./schemas";
+import {
+  ANTRAG_GELOESCHT_MESSAGE,
+  ANTRAG_GENEHMIGT_MESSAGE,
+  ERNENNUNG_BEANTRAGT_MESSAGE,
+  STUFE_GEAENDERT_MESSAGE,
+  ZUGANG_BEANTRAGT_MESSAGE,
+  ZUGANG_ENTZOGEN_MESSAGE,
+  ZUGANG_ERTEILT,
+} from "./constants";
+import { deleteAntrag, deleteBerechtigung, patchBerechtigung, postAntragGenehmigung, postBerechtigung } from "./mutations";
+import { mapAntragAblehnungRefusal, mapAntragGenehmigungRefusal, mapEntziehenRefusal, mapErteilenRefusal, mapStufeRefusal } from "./refusals";
+import {
+  FLBerechtigungAntragKeyPayloadSchema,
+  FLBerechtigungKeyPayloadSchema,
+  FLPatchBerechtigungPayloadSchema,
+  FLPostBerechtigungPayloadSchema,
+} from "./schemas";
 
 import type { ActionResult } from "@/shared/types/types";
-import type { FLBerechtigungKeyPayload, FLPatchBerechtigungPayload, FLPostBerechtigungPayload } from "./schemas";
+import type {
+  FLBerechtigungAntragKeyPayload,
+  FLBerechtigungKeyPayload,
+  FLPatchBerechtigungPayload,
+  FLPostBerechtigungPayload,
+} from "./schemas";
 
 /**
  * The enrolment's five-minute window rather than the step-up's (`docs/frontend/spec.md :: I458`): a
@@ -28,7 +46,9 @@ function ankuendigenNachDerAntwort(): void {
   afterTheResponse(runBerechtigungenAbgleich);
 }
 
-export async function postBerechtigungAction(rawPayload: FLPostBerechtigungPayload): Promise<ActionResult<{ created_id: string }>> {
+export async function postBerechtigungAction(
+  rawPayload: FLPostBerechtigungPayload,
+): Promise<ActionResult<{ created_id: string; beantragt: boolean }>> {
   return runAdminMutation("postBerechtigungAction", ZUGANG_STEP_UP, async () => {
     const validated = FLPostBerechtigungPayloadSchema.safeParse(rawPayload);
 
@@ -49,11 +69,16 @@ export async function postBerechtigungAction(rawPayload: FLPostBerechtigungPaylo
       return { success: false, error: buildRefusal({ reason: "Der Zugang wurde nicht erteilt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
+    const { created_id, beantragt } = postOperation;
+    // Another administrator could approve it, so a request waits: it changes nobody's access, and announcing it would
+    // mail every administrator a grant that has not happened.
+    if (beantragt) return { success: true, created_id, beantragt, message: ZUGANG_BEANTRAGT_MESSAGE };
+
     // Ends no session: one made before the grant administers nothing, every guard holding it against the
     // grant's own time on every request (`docs/frontend/spec.md :: I470`).
     ankuendigenNachDerAntwort();
 
-    return { success: true, created_id: postOperation.created_id, message: ZUGANG_ERTEILT };
+    return { success: true, created_id, beantragt, message: ZUGANG_ERTEILT };
   });
 }
 
@@ -89,7 +114,7 @@ export async function deleteBerechtigungAction(rawPayload: FLBerechtigungKeyPayl
  * An owner's promotion, demotion or step-down. Ends no session: the tier is read on every request
  * (`docs/frontend/spec.md :: I121`), so the next one already holds the new tier.
  */
-export async function patchBerechtigungAction(rawPayload: FLPatchBerechtigungPayload): Promise<ActionResult> {
+export async function patchBerechtigungAction(rawPayload: FLPatchBerechtigungPayload): Promise<ActionResult<{ beantragt: boolean }>> {
   return runAdminMutation("patchBerechtigungAction", ZUGANG_STEP_UP, async () => {
     const validated = FLPatchBerechtigungPayloadSchema.safeParse(rawPayload);
 
@@ -110,9 +135,66 @@ export async function patchBerechtigungAction(rawPayload: FLPatchBerechtigungPay
       return { success: false, error: buildRefusal({ reason: "Die Stufe wurde nicht geändert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
+    // A promotion another owner could approve moved no tier, so there is nothing to announce.
+    if (patchOperation.beantragt) return { success: true, beantragt: true, message: ERNENNUNG_BEANTRAGT_MESSAGE };
+
     ankuendigenNachDerAntwort();
 
     // Done whether it moved the tier or found it there: a repeated press names the tier the grant holds.
-    return { success: true, message: STUFE_GEAENDERT_MESSAGE[validated.data.verwaltung] };
+    return { success: true, beantragt: false, message: STUFE_GEAENDERT_MESSAGE[validated.data.verwaltung] };
+  });
+}
+
+/** Another administrator's approval of a request: the grant or the promotion it asked for takes effect in this press. */
+export async function genehmigeAntragAction(rawPayload: FLBerechtigungAntragKeyPayload): Promise<ActionResult> {
+  // The grant's own window: the approval is the grant or the promotion it asked for.
+  return runAdminMutation("genehmigeAntragAction", ZUGANG_STEP_UP, async () => {
+    const validated = FLBerechtigungAntragKeyPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+
+    let antwort;
+    try {
+      antwort = await postAntragGenehmigung(validated.data);
+    } catch (error) {
+      const refusal = mapAntragGenehmigungRefusal(error);
+      if (refusal !== null) return { success: false, error: refusal };
+      throw error;
+    }
+
+    if (!antwort.acknowledged) {
+      return { success: false, error: buildRefusal({ reason: "Der Antrag wurde nicht genehmigt", repair: VERSUCHE_ES_ERNEUT }) };
+    }
+
+    ankuendigenNachDerAntwort();
+
+    return { success: true, message: ANTRAG_GENEHMIGT_MESSAGE };
+  });
+}
+
+/**
+ * A request's refusal by whoever may approve it, or its withdrawal by whoever made it. The step-up's window, as the
+ * backend's: it changes nobody's access, so nothing outlives the session making it, and it announces nothing.
+ */
+export async function lehneAntragAbAction(rawPayload: FLBerechtigungAntragKeyPayload): Promise<ActionResult> {
+  return runAdminMutation("lehneAntragAbAction", { stepUp: true }, async () => {
+    const validated = FLBerechtigungAntragKeyPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+
+    let antwort;
+    try {
+      antwort = await deleteAntrag(validated.data);
+    } catch (error) {
+      const refusal = mapAntragAblehnungRefusal(error);
+      if (refusal !== null) return { success: false, error: refusal };
+      throw error;
+    }
+
+    if (!antwort.acknowledged) {
+      return { success: false, error: buildRefusal({ reason: "Der Antrag wurde nicht gelöscht", repair: VERSUCHE_ES_ERNEUT }) };
+    }
+
+    return { success: true, message: ANTRAG_GELOESCHT_MESSAGE };
   });
 }

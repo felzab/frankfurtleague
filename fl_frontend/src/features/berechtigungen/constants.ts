@@ -1,7 +1,7 @@
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
 import { benannt } from "@/shared/utils/benannt";
 
-import type { FLVerwaltung } from "./schemas";
+import type { FLGenehmigungVerwehrt, FLVerwaltung } from "./schemas";
 
 /**
  * The most outbox rows one stamp names, mirroring the backend's `LIST_LIMIT_DEFAULT`
@@ -162,3 +162,52 @@ export const uebersprungenHinweis = (anzahl: number): string =>
   anzahl === 1
     ? "Ein Eintrag in der Datenbank passt zu keiner Adresse und gewährt keinen Zugang."
     : `${String(anzahl)} Einträge in der Datenbank passen zu keiner Adresse und gewähren keinen Zugang.`;
+
+/** The heading over the grants and promotions waiting on a second administrator, which a refused second request points to. */
+export const OFFENE_ANTRAEGE = "Offene Anträge";
+
+/** What a request asks for, by the tier it names: `owner` is a promotion of a grant that stands. */
+export const ANTRAG_WAS: Readonly<Record<FLVerwaltung, string>> = {
+  administration: "Zugang zur Verwaltung",
+  owner: "Ernennung zur Inhaberin oder zum Inhaber",
+};
+
+/** The eyebrows over a request's four facts. */
+export const BEANTRAGT_LABEL = "Beantragt";
+export const GESTELLT_VON_LABEL = "Gestellt von";
+export const GESTELLT_AM_LABEL = "Gestellt am";
+export const OFFEN_BIS_LABEL = "Offen bis";
+
+/** A second request about an address one already waits for: the way out is deciding that one, so the sentence says where it is. */
+export const ANTRAG_OFFEN = `Für diese Adresse wartet schon ein Antrag. Du findest ihn unter „${OFFENE_ANTRAEGE}“.`;
+
+/** A grant another administrator could approve is asked for rather than made, so the create says so in its title. */
+export const ZUGANG_BEANTRAGT = "Zugang beantragt";
+export const ZUGANG_BEANTRAGT_MESSAGE = `Eine andere Person aus der Verwaltung muss den Zugang genehmigen, bevor er gilt. Bis dahin steht er unter „${OFFENE_ANTRAEGE}“.`;
+export const ERNENNUNG_BEANTRAGT = "Ernennung beantragt";
+export const ERNENNUNG_BEANTRAGT_MESSAGE = `Eine andere Inhaberin oder ein anderer Inhaber muss die Ernennung genehmigen, bevor sie gilt. Bis dahin steht sie unter „${OFFENE_ANTRAEGE}“.`;
+
+/**
+ * Why this administrator may not decide a request, in the backend's refusals' own words, so the closed press and
+ * the refused one say it alike. The requester's own (`gestartet`) closes the approval alone: they withdraw it.
+ */
+export const ANTRAG_ENTSCHEIDEN_VERWEHRT: Readonly<Record<Exclude<FLGenehmigungVerwehrt, "gestartet">, string>> = {
+  eigene: "Über einen Antrag, der Dich betrifft, entscheidet eine andere Person aus der Verwaltung.",
+  inhaber: `Über eine Ernennung zur Inhaberin oder zum Inhaber entscheidet nur eine andere Inhaberin oder ein anderer Inhaber. ${NACH_ERNENNUNG_NEU_ANMELDEN}`,
+  juenger:
+    "Entscheiden kann nur, wer schon vor dem Antrag Zugang zur Verwaltung hatte, über eine Ernennung nur, wer schon vorher Inhaberin oder Inhaber war.",
+};
+
+/** The requester's own request, which they withdraw rather than approve. */
+export const EIGENER_ANTRAG =
+  "Einen Antrag, den Du gestellt hast, genehmigt eine andere Person aus der Verwaltung. Zurückziehen kannst Du ihn.";
+
+/** A request whose requester has lost, since asking, the tier it asks for: nobody approves it, and a refusal clears the address. */
+export const ANTRAG_VERFALLEN =
+  "Wer den Antrag gestellt hat, hat diesen Zugang inzwischen nicht mehr, deshalb genehmigt ihn niemand. Lehne ihn ab und stelle ihn bei Bedarf neu.";
+
+/** What an approval answers: its change is announced as one made directly is. */
+export const ANTRAG_GENEHMIGT_MESSAGE = "Der Antrag ist genehmigt. Alle mit Zugang erhalten eine E-Mail.";
+
+/** What a refusal or a withdrawal answers: nothing it asked for happened. */
+export const ANTRAG_GELOESCHT_MESSAGE = "Der Antrag ist gelöscht. Am Zugang ändert sich nichts.";

@@ -67,6 +67,8 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /berechtigungen": berechtigungen.mapErteilenRefusal,
   "DELETE /berechtigungen/{berechtigung_id}": berechtigungen.mapEntziehenRefusal,
   "PATCH /berechtigungen/{berechtigung_id}": berechtigungen.mapStufeRefusal,
+  "POST /berechtigungen/antraege/{antrag_id}/genehmigung": berechtigungen.mapAntragGenehmigungRefusal,
+  "DELETE /berechtigungen/antraege/{antrag_id}": berechtigungen.mapAntragAblehnungRefusal,
   "POST /bewerbungen": bewerbungUtils.mapBewerbungSubmitRefusal,
   "POST /bewerbungen/einwilligung": (error) =>
     bewerbungUtils.mapEinwilligungRefusal(error, async () => ({

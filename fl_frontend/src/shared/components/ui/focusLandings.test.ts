@@ -569,7 +569,7 @@ const zugang = (id: string, adresse: string, verwaltung: "owner" | "administrati
   adresswechsel: null,
 });
 const zugaenge = (rows: ReturnType<typeof zugang>[]) =>
-  h(AdminBerechtigungenView, { berechtigungen: rows, uebersprungen: 0, inhaberAdresse: "inhaber@example.org" });
+  h(AdminBerechtigungenView, { berechtigungen: rows, uebersprungen: 0, antraege: [], inhaberAdresse: "inhaber@example.org" });
 const ZUGANG_A = zugang("68c1f0a2b3c4d5e6f7a8b951", "anna@example.org");
 const ZUGANG_B = zugang("68c1f0a2b3c4d5e6f7a8b952", "ben@example.org");
 const ZUGANG_C = zugang("68c1f0a2b3c4d5e6f7a8b953", "cem@example.org");
@@ -583,8 +583,33 @@ const eigeneZugaenge = (verwaltung: "owner" | "administration") =>
     h(AdminBerechtigungenView, {
       berechtigungen: [zugang("68c1f0a2b3c4d5e6f7a8b954", INHABER, verwaltung), ZUGANG_A, ZUGANG_B],
       uebersprungen: 0,
+      antraege: [],
       inhaberAdresse: verwaltung === "owner" ? INHABER : null,
     }),
+  );
+const antrag = (id: string, adresse: string) => ({
+  id,
+  adresse,
+  gesperrt: false,
+  berechtigung_id: null,
+  verwaltung: "administration" as const,
+  gestartet_von: INHABER,
+  gestartet_von_gesperrt: false,
+  angefragt_am: "2026-09-01T08:00:00.000Z",
+  bis: "2026-09-08T08:00:00.000Z",
+  steht: true,
+  verwehrt: null,
+});
+const ANTRAG_A = antrag("68c1f0a2b3c4d5e6f7a8b961", "dora@example.org");
+const ANTRAG_B = antrag("68c1f0a2b3c4d5e6f7a8b962", "emil@example.org");
+const ANTRAG_C = antrag("68c1f0a2b3c4d5e6f7a8b963", "fritz@example.org");
+/** The requests above the grants, under the page's heading: the section goes with the last of them. */
+const antraegeSeite = (antraege: ReturnType<typeof antrag>[]) =>
+  h(
+    Fragment,
+    null,
+    topBar("Berechtigungen"),
+    h(AdminBerechtigungenView, { berechtigungen: [ZUGANG_A, ZUGANG_B], uebersprungen: 0, antraege, inhaberAdresse: null }),
   );
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -966,6 +991,19 @@ const LANDINGS: Record<string, Landing> = {
     before: () => eigeneZugaenge("owner"),
     press: (user) => pressTwice(user, { resting: "Mich zur Verwaltung herabstufen", armed: "Ja, mich zur Verwaltung herabstufen" }),
     after: () => eigeneZugaenge("administration"),
+    lands: () => heading("Berechtigungen"),
+  },
+  "a request's approval, on the next request's": {
+    before: () => antraegeSeite([ANTRAG_A, ANTRAG_B, ANTRAG_C]),
+    press: (user) => pressTwice(user, { resting: "Antrag genehmigen: emil@example.org", armed: "Ja, Antrag genehmigen" }),
+    after: () => antraegeSeite([ANTRAG_A, ANTRAG_C]),
+    lands: () => screen.getByRole("button", { name: "Antrag genehmigen: fritz@example.org" }),
+  },
+  /* The section stands only while a request waits, so the last one's refusal takes its heading too: the page's takes the focus. */
+  "the last request's refusal, on the page's heading": {
+    before: () => antraegeSeite([ANTRAG_A]),
+    press: (user) => pressTwice(user, { resting: "Antrag ablehnen: dora@example.org", armed: "Ja, Antrag ablehnen" }),
+    after: () => antraegeSeite([]),
     lands: () => heading("Berechtigungen"),
   },
   /* The pick fills the last dimension, so the closed add control replaces the panel's trigger in its place. */

@@ -6,7 +6,7 @@ import ChevronsDown from "@gravity-ui/icons/ChevronsDown";
 import ChevronsUp from "@gravity-ui/icons/ChevronsUp";
 
 import { patchBerechtigungAction } from "@/features/berechtigungen/actions";
-import { INHABER_GESPERRT, stufeWorte } from "@/features/berechtigungen/constants";
+import { ERNENNUNG_BEANTRAGT, INHABER_GESPERRT, stufeWorte } from "@/features/berechtigungen/constants";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
@@ -56,7 +56,8 @@ export function AdminBerechtigungStufePanel({
       }
 
       landing.landed();
-      appToast.success("Stufe geändert", { description: res.message });
+      // A promotion another owner must approve moved nothing, so the title says it waits rather than that it changed.
+      appToast.success(res.beantragt ? ERNENNUNG_BEANTRAGT : "Stufe geändert", { description: res.message });
     });
   };
 

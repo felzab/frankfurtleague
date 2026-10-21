@@ -550,6 +550,7 @@ const GRANT_ID = "6890a1b2c3d4e5f6071b0001";
 const BEWERBUNG_ID = "6890a1b2c3d4e5f6071c0001";
 const SPERRE_ID = "6890a1b2c3d4e5f6071d0001";
 const ADRESSWECHSEL_ID = "6890a1b2c3d4e5f6071e0001";
+const ANTRAG_ID = "6890a1b2c3d4e5f6071e0002";
 const SPIELBESTAETIGUNG_ID = "6890a1b2c3d4e5f6071f0001";
 const INCOMING_TEAM_ID = "6890a1b2c3d4e5f607182933";
 
@@ -571,6 +572,8 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   "POST /berechtigungen": { name: "postBerechtigungAction", payload: { email: "neu@schule.de" } },
   "DELETE /berechtigungen/{berechtigung_id}": { name: "deleteBerechtigungAction", payload: { id: GRANT_ID } },
   "PATCH /berechtigungen/{berechtigung_id}": { name: "patchBerechtigungAction", payload: { id: GRANT_ID, verwaltung: "owner" } },
+  "POST /berechtigungen/antraege/{antrag_id}/genehmigung": { name: "genehmigeAntragAction", payload: { id: ANTRAG_ID } },
+  "DELETE /berechtigungen/antraege/{antrag_id}": { name: "lehneAntragAbAction", payload: { id: ANTRAG_ID } },
   "POST /bewerbungen/{bewerbung_id}/annehmen": {
     name: "annehmenBewerbungAction",
     payload: { id: BEWERBUNG_ID, gruppe: "A", trikot_farbe: null },

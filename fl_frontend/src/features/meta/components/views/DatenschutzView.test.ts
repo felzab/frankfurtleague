@@ -683,12 +683,13 @@ describe("the privacy notice states the registration, referee-link and ban clock
 
   // The request waits as long as an address change's approval does, so the week is read off that one constant.
   it("keeps a request for access until it is decided or withdrawn, a week at most", () => {
-    const frist = ANGABEN.get(
-      "Antrag auf einen Zugang zur Verwaltung oder darauf, Inhaberin oder Inhaber zu werden: E-Mail-Adresse, Stufe, Zeitpunkt und die Person aus der Verwaltung, die ihn gestellt hat",
-    );
+    const frist =
+      ANGABEN.get(
+        "Antrag auf einen Zugang zur Verwaltung oder darauf, Inhaberin oder Inhaber zu werden: E-Mail-Adresse, Stufe, Zeitpunkt und die Person aus der Verwaltung, die ihn gestellt hat",
+      ) ?? "";
 
     assert.equal(ADRESSWECHSEL_GENEHMIGUNG_TAGE, 7);
-    assert.ok(frist?.includes("längstens eine Woche; danach löschen wir ihn."), frist);
+    assert.ok(frist.includes("längstens eine Woche; danach löschen wir ihn."), frist);
   });
 
   // Held here because this file owns the count words: the create form's hint and the ban list's

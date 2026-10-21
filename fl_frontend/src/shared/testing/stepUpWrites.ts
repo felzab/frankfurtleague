@@ -412,6 +412,8 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
   "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx": { deleteBerechtigungAction: "two-press" },
   "features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx": { patchBerechtigungAction: "two-press" },
   "features/berechtigungen/components/forms/AdminBerechtigungGenehmigenPanel.tsx": { genehmigeAdresswechselAction: "two-press" },
+  "features/berechtigungen/components/forms/AdminBerechtigungAntragGenehmigenPanel.tsx": { genehmigeAntragAction: "two-press" },
+  "features/berechtigungen/components/forms/AdminBerechtigungAntragAblehnenPanel.tsx": { lehneAntragAbAction: "two-press" },
   "features/adresswechsel/components/forms/AdresswechselBeantragen.tsx": { beantrageAdresswechselAction: "one-press" },
   "features/adresswechsel/components/forms/AdresswechselWartet.tsx": {
     einladeAdresswechselAction: "one-press",
