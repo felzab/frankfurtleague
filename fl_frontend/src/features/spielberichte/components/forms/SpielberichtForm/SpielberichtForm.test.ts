@@ -23,7 +23,7 @@ const { raised } = doubleToasts();
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SpielberichtForm } = await import("./SpielberichtForm.tsx");
 const { deriveSpielberichtDraftStatus, draftOf, kontextOf } = await import("./spielberichtDraft.ts");
-const { FLSpielberichtSchiedsrichterResponseSchema } = await import("../../../schemas.ts");
+const { FLSpielberichtAdminResponseSchema, FLSpielberichtSchiedsrichterResponseSchema } = await import("../../../schemas.ts");
 
 const LESEN = FLSpielberichtSchiedsrichterResponseSchema.parse(spielberichtReadFixture());
 
@@ -222,6 +222,43 @@ describe("the referee's report form", () => {
       raised.filter(({ variant }) => variant === "danger").map(({ title }) => title),
       ["Spielbericht nicht gespeichert"],
     );
+  });
+
+  /* The season-end strip deleted the caution's reason: a correction that owed it again would make the administrator
+     invent the reason the strip removed (`REQ-BERICHT-008`), so the stored cards excuse it at the box and in its mark. */
+  it("sends an administrator's correction over a caution stripped of its reason, which it neither marks nor asks for", async () => {
+    const user = userEvent.setup();
+    const gelesen = FLSpielberichtAdminResponseSchema.parse(spielberichtReadFixture());
+    const gestrippt =
+      gelesen.bericht === null
+        ? null
+        : { ...gelesen.bericht, bemerkungen: null, karten: gelesen.bericht.karten.map((karte) => ({ ...karte, grund: null })) };
+    render(
+      underNext(
+        h(SpielberichtForm, {
+          leser: "admin",
+          spielId: BERICHT_SPIEL_ID,
+          kontext: kontextOf(gelesen),
+          stored: gestrippt,
+          header: { title: "Goethe-Gymnasium gegen Lessing-Gymnasium" },
+          zurueckHref: "/bereich/admin",
+        }),
+        { router: nextRouter() },
+      ),
+    );
+    assert.equal(
+      document.querySelector('[name="bericht.karten.0.grund"]')?.closest('[data-required="true"]') ?? null,
+      null,
+      "the stripped caution's reason is marked as owed",
+    );
+    await user.type(screen.getByRole("textbox", { name: /Bemerkungen zum Spiel/ }), "Protest nach Abpfiff.");
+    calls.length = 0;
+
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(answered);
+
+    assert.equal(calls.length, 1, "the correction was refused at the stripped caution's reason");
+    assert.equal(calls[0]?.action, "patchAdminSpielberichtAction");
   });
 
   /* A side fielding no squad offers a picker with nobody in it, which says nothing of what the referee does instead. */
