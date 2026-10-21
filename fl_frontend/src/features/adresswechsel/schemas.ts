@@ -185,6 +185,22 @@ export const FLAdresswechselZugestelltResponseSchema = BaseAPIResponseSchema.ext
 });
 export type FLAdresswechselZugestelltResponse = z.infer<typeof FLAdresswechselZugestelltResponseSchema>;
 
+/** Mirrors `FLAdresswechselAdressePayload`: exactly one key, the new mailbox's link token or the change an approval names. */
+export const FLAdresswechselAdressePayloadSchema = z
+  .object({
+    // Nullable as well as optional, for `FLAdresswechselVerwaltungAnsichtPayloadSchema`'s reason.
+    token: adresswechselToken.nullable().optional(),
+    adresswechsel_id: CustomObjectIdStringSchema.nullable().optional(),
+  })
+  .refine(({ token, adresswechsel_id }) => (token == null) !== (adresswechsel_id == null));
+export type FLAdresswechselAdressePayload = z.infer<typeof FLAdresswechselAdressePayloadSchema>;
+
+/** Mirrors `FLAdresswechselAdresseResponse`: the new address folded, null where the key names no live change. Never logged. */
+export const FLAdresswechselAdresseResponseSchema = BaseAPIResponseSchema.extend({
+  email: z.string().nullable(),
+});
+export type FLAdresswechselAdresseResponse = z.infer<typeof FLAdresswechselAdresseResponseSchema>;
+
 // ---- The address tool: admin tier ----------------------------------------------------------------
 
 /** Mirrors `FLAdresswechselVerwaltungAnsichtPayload`: exactly one key, the address typed or a change's id from a link. */

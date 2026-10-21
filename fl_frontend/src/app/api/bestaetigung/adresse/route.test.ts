@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { beforeEach, describe, it } from "node:test";
 
+import { overridingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
@@ -19,10 +20,16 @@ const ANTWORT = "/adresswechsel/bestaetigung";
 const STOPP = "/adresswechsel/bestaetigung/stopp";
 const CLAIM = "/adresswechsel/sweep/postausgang";
 const STAMP = "/adresswechsel/sweep/postausgang/zugestellt";
+/** The system tier's read of the link's new address, which the press asks the sign-in store about. */
+const ADRESSE = "/adresswechsel/sweep/adresse";
 
 let antwortet: () => unknown;
 let stoppt: () => unknown;
 let liest: () => unknown;
+/** The new address the link's change would move to, folded, or null for a key naming no live change. */
+let neueAdresse: string | null;
+/** The folded addresses the sign-in store holds an account at. */
+let konten: string[];
 /** What the outbox holds for the next claim, emptied by it: the drain claims until a claim holds nothing. */
 let owed: unknown[];
 
@@ -39,15 +46,17 @@ const calls = doubleApiClient(({ endpoint }, schema) => {
   const antwort =
     endpoint === ABGLEICH
       ? NOTHING_ANNOUNCED
-      : endpoint === STOPP
-        ? stoppt()
-        : endpoint === ANSICHT
-          ? liest()
-          : endpoint === CLAIM
-            ? claim()
-            : endpoint === STAMP
-              ? { acknowledged: 1, zugestellt: 1, ignoriert: 0 }
-              : antwortet();
+      : endpoint === ADRESSE
+        ? { acknowledged: 1, email: neueAdresse }
+        : endpoint === STOPP
+          ? stoppt()
+          : endpoint === ANSICHT
+            ? liest()
+            : endpoint === CLAIM
+              ? claim()
+              : endpoint === STAMP
+                ? { acknowledged: 1, zugestellt: 1, ignoriert: 0 }
+                : antwortet();
   if (antwort instanceof Error) throw antwort;
   return schema.parse(antwort);
 });
@@ -57,7 +66,14 @@ const mail = doubleSendMail();
 const deferred: (() => unknown)[] = [];
 
 doublePublicRouteRequest({
-  modules: { "core/logging.ts": LOGGING, "core/config.ts": CONFIG },
+  modules: {
+    "core/logging.ts": LOGGING,
+    "core/config.ts": CONFIG,
+    // The real store, but for the one lookup the press makes: no database answers this process.
+    "core/auth.ts": overridingModule(`${import.meta.resolve("@/core/auth.ts")}?real`, {
+      accountStandsAt: () => async (address: string) => konten.includes(address),
+    }),
+  },
   specifiers: {
     "next/server": {
       NextResponse: { json: (body: unknown, init?: ResponseInit) => ({ body, status: init?.status ?? 200 }) },
@@ -113,6 +129,8 @@ beforeEach(() => {
   antwortet = () => WIRKSAM;
   stoppt = () => ({ acknowledged: 1, gestoppt: true });
   liest = () => ({ acknowledged: 1, ansicht: { seite: "neu", zustand: "beendet", art: "abgelehnt" } });
+  neueAdresse = NEU;
+  konten = [];
 });
 
 describe("the address page's handler", () => {
@@ -205,6 +223,7 @@ describe("the address page's handler", () => {
 
     assert.deepEqual(body, { success: false, ansicht: { zustand: "beendet", seite: "neu", art: "abgelehnt" } });
     assert.deepEqual(sentTo(), [
+      [ADRESSE, { token: TOKEN }],
       [ANTWORT, { token: TOKEN, antwort: "bestaetigt" }],
       [ANSICHT, { token: TOKEN }],
     ]);
@@ -215,5 +234,24 @@ describe("the address page's handler", () => {
     liest = () => new Error("network");
 
     assert.deepEqual(await bodyOf({ token: TOKEN, antwort: "bestaetigt" }), { success: false, ansicht: null });
+  });
+
+  /* The sign-in store is this server's, so the backend's press cannot refuse an account at the new address: the handler
+     does, before the press, in the panel the backend's own refusals of the address open, and moves nothing. */
+  it("refuses a confirmation whose new address an account signs in at, sending no press and draining nothing", async () => {
+    konten = [NEU];
+
+    assert.deepEqual(await bodyOf({ token: TOKEN, antwort: "bestaetigt" }), { success: false, zustand: "nicht_bestaetigbar" });
+    assert.deepEqual(sentTo(), [[ADRESSE, { token: TOKEN }]]);
+    assert.deepEqual(deferred, []);
+  });
+
+  /* A decline removes an address nobody proved, so nothing it could join is asked about. */
+  it("sends a decline whatever the new address holds, asking the sign-in store nothing", async () => {
+    konten = [NEU];
+    antwortet = () => ({ acknowledged: 1, antwort: "abgelehnt", wirksam: false, wirksam_ab: null, genehmigung_offen: false });
+
+    assert.equal((await bodyOf({ token: TOKEN, antwort: "abgelehnt" })).success, true);
+    assert.deepEqual(sentTo(), [[ANTWORT, { token: TOKEN, antwort: "abgelehnt" }]]);
   });
 });

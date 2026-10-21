@@ -276,13 +276,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   approved, every session of it ended, unless the new address holds an account of its own, where the
   old account keeps its sessions until the account sweep. A new address that any entry names,
   confirmed or not, a pending grant request among them, refuses the change
-  (`docs/backend/spec.md :: I860`), so no change joins two people's records, but for one case: a
-  sign-in account standing at an address no record names (one the hourly account sweep has not yet
-  removed, or one a code sign-in made before the carry) lets the change take effect, no passkey
-  moves, and the person's records join that account
-  ([frontend spec §4](frontend/spec.md#4-known-open)). After
-  a change started on a recorded reason, or onto such an address, the person signs in anew at the
-  new address. A referee who has not yet confirmed holds no record an address could
+  (`docs/backend/spec.md :: I860`), and so does one a sign-in account already signs in at, an account
+  no record names included (`docs/frontend/spec.md :: I869`), so no change joins two people's records
+  or sign-ins. After a change started on a recorded reason, or one whose new address came to hold an
+  account after its confirmation, the person signs in anew at the new address. A referee who has not yet confirmed holds no record an address could
   reach, so theirs is still replaced by the save and the fresh consent link goes to it.
 - **A contact person an administrator enters on a team's season row is mailed a link of their own,
   because that link is how they learn of the entry** (Art. 14 (3)(a)), on the referee's reasoning

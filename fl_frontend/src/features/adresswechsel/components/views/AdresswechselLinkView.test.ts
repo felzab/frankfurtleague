@@ -11,10 +11,11 @@ import { userEvent } from "@testing-library/user-event";
 
 import { ADRESSWECHSEL_STOPPEN, JA_ANGEFRAGT, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
+import { overridingModule, registerDoubles } from "@/core/exportingModule.ts";
 import { KONTO_HREF } from "@/core/kontoHref.ts";
 import { doubleLogger, doubleToasts, loggedErrorCodes, loggedErrorTraces } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
-import { answerReadsWith, backendUnreachable, EDGE_TRACE_ID, pageBody } from "@/shared/testing/pageHarness.ts";
+import { answerReadsWith, backendUnreachable, clearSteps, EDGE_TRACE_ID, pageBody, steps } from "@/shared/testing/pageHarness.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
@@ -22,6 +23,17 @@ import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 import type { AdresswechselStart } from "@/features/adresswechsel/link.ts";
 import type { NextPageProps } from "@/shared/types/types.ts";
 import type { ReactElement } from "react";
+
+/** The folded addresses the sign-in store holds an account at, which the page asks about a live link's new address. */
+let konten: string[] = [];
+registerDoubles({
+  modules: {
+    // The real store, but for the one lookup the page makes: no database answers this process.
+    "core/auth.ts": overridingModule(`${import.meta.resolve("@/core/auth.ts")}?real`, {
+      accountStandsAt: () => async (address: string) => konten.includes(address),
+    }),
+  },
+});
 
 const { raised: toasts } = doubleToasts();
 const fetchMock = doubleFetch();
@@ -447,19 +459,24 @@ const pageStart = async (): Promise<AdresswechselStart> =>
     })) as ReactElement<{ start: AdresswechselStart }>
   ).props.start;
 
+/** The system tier's read of a live link's new address, which the page asks the sign-in store about. */
+const ADRESSE = "/adresswechsel/sweep/adresse";
+const NEUE_ADRESSE = "lena@neu.example";
+
+/** An open link's read, its new address answered to the system tier's read beside it. */
+const OFFENE_ANSICHT = {
+  acknowledged: 1,
+  ansicht: { seite: "neu", zustand: "gueltig", gueltig_bis: "2026-10-21T11:30:00Z", wirksam_ab: null, weg: "konto", genehmigung_offen: false },
+};
+const offenGelesen = (endpoint: string) => (endpoint === ADRESSE ? { acknowledged: 1, email: NEUE_ADRESSE } : OFFENE_ANSICHT);
+
 describe("the address page over its read", () => {
+  afterEach(() => {
+    konten = [];
+  });
+
   it("opens the new mailbox's side and the stop side with the link's token, and an ended change without", async () => {
-    answerReadsWith(() => ({
-      acknowledged: 1,
-      ansicht: {
-        seite: "neu",
-        zustand: "gueltig",
-        gueltig_bis: "2026-10-21T11:30:00Z",
-        wirksam_ab: null,
-        weg: "konto",
-        genehmigung_offen: false,
-      },
-    }));
+    answerReadsWith(offenGelesen);
     assert.deepEqual(await pageStart(), { zustand: "gueltig", gueltigBis: "2026-10-21T11:30:00Z", weg: "konto", token: "kein-echtes-token" });
 
     answerReadsWith(() => ({
@@ -486,6 +503,20 @@ describe("the address page over its read", () => {
     }));
 
     assert.deepEqual(await pageStart(), { zustand: "genehmigung_abgelaufen", weg: "konto" });
+  });
+
+  /* The backend's view cannot see the sign-in store, so the page closes the confirmation its press would refuse, as the
+     backend's own refusals of the address close it, and keeps the token for the decline. */
+  it("opens a live link whose new address an account signs in at as unconfirmable, keeping the token for the decline", async () => {
+    konten = [NEUE_ADRESSE];
+    answerReadsWith(offenGelesen);
+    clearSteps();
+
+    assert.deepEqual(await pageStart(), { zustand: "nicht_bestaetigbar", weg: "konto", token: "kein-echtes-token" });
+    assert.deepEqual(
+      steps.flatMap((step) => (step.kind === "read" && step.endpoint === ADRESSE ? [[step.body, step.authType]] : [])),
+      [[{ token: "kein-echtes-token" }, "system"]],
+    );
   });
 
   it("opens on its own state where the network never answered the read, rather than calling a live link void", async () => {

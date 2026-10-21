@@ -4,6 +4,7 @@ import { afterTheResponse } from "@/core/afterResponse";
 import { ansichtOf } from "@/features/adresswechsel/link";
 import { postAdresswechselAnsicht, postAdresswechselAntwort, postAdresswechselStopp } from "@/features/adresswechsel/mutations";
 import { runAdresswechselPostausgang } from "@/features/adresswechsel/postausgang";
+import { kontoAnNeuerAdresse } from "@/features/adresswechsel/queries";
 import { mapAdresswechselPresseRefusal } from "@/features/adresswechsel/refusals";
 import { FLAdresswechselAntwortPayloadSchema, FLAdresswechselStoppPayloadSchema } from "@/features/adresswechsel/schemas";
 import { runBerechtigungenAbgleich } from "@/features/berechtigungen/abgleich";
@@ -33,6 +34,12 @@ export async function POST(request: NextRequest) {
       if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, ANTWORT_NEU_OEFFNEN) };
 
       const presse = parsed.data;
+      // The sign-in store is this server's, so the backend's press cannot refuse an account at the new address: refused
+      // here, in the panel its own refusals of the address open. A decline is refused nothing.
+      if (presse.antwort === "bestaetigt" && (await kontoAnNeuerAdresse({ token: presse.token }))) {
+        return { success: false as const, zustand: "nicht_bestaetigbar" as const };
+      }
+
       let antwort;
       try {
         if (presse.antwort === "gestoppt") {

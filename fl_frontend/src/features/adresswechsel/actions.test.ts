@@ -18,7 +18,7 @@ const NEXT_SERVER_DOUBLE = { after: (task: () => unknown) => void deferred.push(
 
 /* The real actions, their mutations and the mailers, called: the request they run in, the backend
    client and the mailer are the doubles. */
-const { setFresh, setSession } = doubleActionRequest();
+const { holdAccountAt, setFresh, setSession } = doubleActionRequest();
 const mail = doubleSendMail();
 const AUTH_URL = "http://localhost:3000";
 registerDoubles({
@@ -64,6 +64,8 @@ let antwort: Record<string, Answer>;
 
 /** The outbox's two calls and the grant announcement's claim, which the work behind an effect's answer makes. */
 const CLAIM = "/adresswechsel/sweep/postausgang";
+/** The system tier's read of a change's new address, which the sign-in store is asked about before a re-send or an approval. */
+const ADRESSE = "/adresswechsel/sweep/adresse";
 const STAMP = "/adresswechsel/sweep/postausgang/zugestellt";
 const NOTHING_ANNOUNCED = { acknowledged: 1, beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
 const OWED_ID = "68c1f0a2b3c4d5e6f7a8b9e1";
@@ -73,6 +75,7 @@ const client = doubleApiAnswers(async ({ endpoint, method }: ApiCall) => {
   if (endpoint.startsWith("/zustellung/")) return { acknowledged: 1, angewendet: true };
   if (endpoint === "/berechtigungen/abgleich") return NOTHING_ANNOUNCED;
   if (endpoint === STAMP) return { acknowledged: 1, zugestellt: 1, ignoriert: 0 };
+  if (endpoint === ADRESSE) return { acknowledged: 1, email: "lena@neu.example" };
   if (endpoint === CLAIM) {
     // One page, then an empty outbox: the drain claims until a claim holds nothing.
     const mitteilungen = owed;
@@ -283,7 +286,10 @@ describe("the waiting change's two controls", () => {
   it("re-sends by the change's id to the new address alone, notices nobody, and says the earlier link is dead", async () => {
     const res = await einladeAdresswechselAction({ id: ADRESSWECHSEL_ID });
 
-    assert.deepEqual(backendCalls(), [["POST", `/adresswechsel/${ADRESSWECHSEL_ID}/einladen`, undefined]]);
+    assert.deepEqual(backendCalls(), [
+      ["POST", ADRESSE, { adresswechsel_id: ADRESSWECHSEL_ID }],
+      ["POST", `/adresswechsel/${ADRESSWECHSEL_ID}/einladen`, undefined],
+    ]);
     assert.deepEqual(mailedTo(), [NEU]);
     assert.deepEqual(res.success ? [res.versand, res.hinweis] : [res], ["gesendet", null]);
     assert.match(message(res), /Der vorherige Link gilt nicht mehr\./);
@@ -317,7 +323,10 @@ describe("another administrator's approval", () => {
   it("approves by the change's id, and says the access moves once the change takes effect", async () => {
     const res = await genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID }, null);
 
-    assert.deepEqual(backendCalls(), [["POST", `/adresswechsel/${ADRESSWECHSEL_ID}/genehmigung`, undefined]]);
+    assert.deepEqual(backendCalls(), [
+      ["POST", ADRESSE, { adresswechsel_id: ADRESSWECHSEL_ID }],
+      ["POST", `/adresswechsel/${ADRESSWECHSEL_ID}/genehmigung`, undefined],
+    ]);
     assert.match(message(res), /Der Zugang wechselt zur neuen Adresse, sobald sie bestätigt ist/);
     assert.deepEqual(mailedTo(), []);
     assert.deepEqual(deferred, [], "an approval that moved no grant announced one");
@@ -380,6 +389,45 @@ describe("another administrator's approval", () => {
 
     assert.equal(res.success, false);
     assert.deepEqual(backendCalls(), []);
+  });
+});
+
+/* The backend cannot see the sign-in store, so each write that would move a person onto a new address asks it first, and
+   one finding an account there writes nothing: the library's own change of address never joins one either. */
+describe("a new address an account already signs in at", () => {
+  it("refuses the start on the new address's box before the mint, in any spelling, and mails nobody", async () => {
+    await holdAccountAt("lena@neu.example");
+
+    const res = await beantrageAdresswechselAction({ adresse: BISHER, email: GETIPPT, grund: GRUND });
+
+    assert.deepEqual(res.success ? [] : [res.error, res.fieldErrors], [
+      "Mit der neuen Adresse meldet sich schon jemand an. Versuche es später erneut. Die Einträge beider Adressen lassen sich nur von Hand zusammenführen, nicht über diese Seite.",
+      { email: "Mit der neuen Adresse meldet sich schon jemand an." },
+    ]);
+    assert.deepEqual(backendCalls(), []);
+    assert.deepEqual(mailedTo(), []);
+  });
+
+  it("refuses the re-send after reading the change's new address by its id, and mints nothing", async () => {
+    await holdAccountAt("lena@neu.example");
+
+    const res = await einladeAdresswechselAction({ id: ADRESSWECHSEL_ID });
+
+    assert.deepEqual(res.success ? [] : [res.error], [
+      "Mit der neuen Adresse meldet sich schon jemand an. Versuche es später erneut, oder verwirf die Änderung. Die Einträge beider Adressen lassen sich nur von Hand zusammenführen, nicht über diese Seite.",
+    ]);
+    assert.deepEqual(backendCalls(), [["POST", ADRESSE, { adresswechsel_id: ADRESSWECHSEL_ID }]]);
+    assert.deepEqual(mailedTo(), []);
+  });
+
+  it("refuses the approval after reading the change's new address by its id, and approves nothing", async () => {
+    await holdAccountAt("lena@neu.example");
+
+    const res = await genehmigeAdresswechselAction({ id: ADRESSWECHSEL_ID }, null);
+
+    assert.match(res.success ? "" : res.error, /^Mit der neuen Adresse meldet sich inzwischen jemand an, deshalb ist nichts genehmigt\./);
+    assert.deepEqual(backendCalls(), [["POST", ADRESSE, { adresswechsel_id: ADRESSWECHSEL_ID }]]);
+    assert.deepEqual(deferred, []);
   });
 });
 
