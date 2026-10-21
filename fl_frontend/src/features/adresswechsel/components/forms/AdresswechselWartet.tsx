@@ -167,6 +167,8 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAdressw
             {offen.gueltig_bis !== null && <Angabe label="Freigabe bis">{zeitpunktText(offen.gueltig_bis)}</Angabe>}
           </>
         )}
+        {/* The address on file's own step, which the administrator reads off before trusting the new mailbox's. */}
+        {offen.freigegeben_am !== null && <Angabe label="Freigegeben am">{zeitpunktText(offen.freigegeben_am)}</Angabe>}
         {offen.bestaetigt_am !== null && <Angabe label="Bestätigt am">{zeitpunktText(offen.bestaetigt_am)}</Angabe>}
         {offen.wirksam_ab !== null && <Angabe label="Wirksam ab">{zeitpunktText(offen.wirksam_ab)}</Angabe>}
         {genehmigung !== null && (

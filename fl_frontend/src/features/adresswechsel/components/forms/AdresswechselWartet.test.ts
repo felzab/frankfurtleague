@@ -107,6 +107,14 @@ describe("what the tool shows of the change waiting at an address", () => {
     assert.ok(shown.includes(ADRESSWECHSEL_VERWERFEN), "the discard is missing");
   });
 
+  /* Once the address on file approved, the change asks the new mailbox like any other, so the approval's instant is the one trace of it. */
+  it("names when the address on file approved a change, once it has", () => {
+    const shown = words({ ...OFFEN, weg: "freigabe", grund: null, freigegeben_am: "2026-10-02T08:15:00Z" });
+
+    assert.match(shown, /Freigegeben am 02\.10\.2026 um 10:15 Uhr/);
+    assert.doesNotMatch(words({ ...OFFEN, weg: "freigabe", grund: null }), /Freigegeben am/);
+  });
+
   it("shows a confirmed change by the instant it takes effect, with the discard alone", () => {
     const shown = words({
       ...OFFEN,
