@@ -37,7 +37,6 @@ registerDoubles({
 });
 
 const CLAIM = "/adresswechsel/sweep/postausgang";
-const STAMP = "/adresswechsel/sweep/postausgang/zugestellt";
 const ROW = "6890a1b2c3d4e5f6071c0001";
 
 const notice = {
