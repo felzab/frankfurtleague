@@ -60,6 +60,8 @@ const NICHTS_GESPEICHERT = {
   bewerbungen: [],
   registrierungen: [],
   adresswechsel: [],
+  eigener_adresswechsel: null,
+  antraege: [],
   verwaltung: null,
   gesperrt: false,
 };
@@ -81,6 +83,8 @@ const EIN_EINTRAG_JE_ART = {
     { registrierung_id: ID, saison_id: "2026", team_id: ID, team_name: "SG Alpha", status: "eingereicht", vorname: "Lena", nachname: "Meier" },
   ],
   adresswechsel: [{ adresswechsel_id: "68c1f0a2b3c4d5e6f7a8b9e0", einsehbar_verwehrt: null }],
+  eigener_adresswechsel: { adresswechsel_id: "68c1f0a2b3c4d5e6f7a8b9e1" },
+  antraege: [{ antrag_id: "68c1f0a2b3c4d5e6f7a8b9e2", verwaltung: "administration", rolle: "betroffen" }],
   verwaltung: "owner",
   gesperrt: true,
 } satisfies Omit<FLErasureAnsichtResponse, "acknowledged">;
@@ -524,6 +528,40 @@ describe("the reveal the arming read answers", () => {
     assert.deepEqual(ziele, ["/bereich/admin/adresswechsel?adresswechsel=68c1f0a2b3c4d5e6f7a8b9e0&saison_id=2026"]);
   });
 
+  /* The erasure ends the address's own pending change and every open request for it or made by it, so the reveal names
+     each: confirmed without them, an operator learns of their end from nobody. */
+  it("names the address's own pending change, opening it in the tool, and each open request by whom it concerns", async () => {
+    const ansicht = {
+      ...NICHTS_GESPEICHERT,
+      eigener_adresswechsel: EIN_EINTRAG_JE_ART.eigener_adresswechsel,
+      antraege: [
+        { antrag_id: "68c1f0a2b3c4d5e6f7a8b9e2", verwaltung: "administration" as const, rolle: "betroffen" as const },
+        { antrag_id: "68c1f0a2b3c4d5e6f7a8b9e3", verwaltung: "owner" as const, rolle: "gestellt" as const },
+      ],
+    };
+    const { user } = await renderPage({ readErasureAnsichtAction: { success: true, ansicht: ansicht } }, "saison_id=2026");
+    await typeRequest(user);
+    await arm(user);
+
+    assert.deepEqual(
+      within(liste())
+        .getAllByRole("listitem")
+        .map((zeile) => zeile.textContent)
+        .slice(0, -IMMER.length),
+      [
+        "Eine laufende Adressänderung dieser Adresse",
+        "Ein offener Antrag für diese Adresse: Zugang zur Verwaltung",
+        "Ein offener Antrag, den diese Adresse gestellt hat: Ernennung zur Inhaberin oder zum Inhaber",
+      ],
+    );
+    assert.deepEqual(
+      within(screen.getByRole("alert"))
+        .getAllByRole("link")
+        .map((link) => link.getAttribute("href")),
+      ["/bereich/admin/adresswechsel?adresswechsel=68c1f0a2b3c4d5e6f7a8b9e1&saison_id=2026"],
+    );
+  });
+
   /* The address tool refuses its reader their own address and, without an owner's power, a grant holder's: such a
      change's line opens nothing, and says where the change opens instead. */
   for (const verwehrt of ["eigene", "verwaltung"] as const) {
@@ -635,7 +673,7 @@ describe("the words the page names a person in", () => {
     await typeRequest(user);
     await arm(user);
     const gerueckt = document.body.textContent;
-    const verweigert = ["REQ-PURGE-003", "REQ-PURGE-005"].flatMap((code) =>
+    const verweigert = ["REQ-PURGE-003", "REQ-PURGE-005", "REQ-PURGE-007"].flatMap((code) =>
       [mapErasureRefusal, mapAbmeldungRefusal].map((mapper) => mapper(refused(code))?.error ?? `${code} unworded`),
     );
 

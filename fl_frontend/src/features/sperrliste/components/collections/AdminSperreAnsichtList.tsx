@@ -1,6 +1,7 @@
 "use client";
 
 import { EINSEHBAR_VERWEHRT } from "@/features/adresswechsel/einsehbar";
+import { ANTRAG_WAS } from "@/features/berechtigungen/constants";
 import { rollenLangform } from "@/features/bewerbungen/constants";
 import { SPERRE_ANSICHT_COPY, SPERRE_ANSICHT_VERWEISE, spieleNeuBesetzen } from "@/features/sperrliste/constants";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -101,6 +102,21 @@ const EINTRAEGE: Eintraege = {
             : [{ label: SPERRE_ANSICHT_VERWEISE.registrierungen, href: saisonHref("/bereich/admin/registrierungen") }],
       };
     }),
+  // Served only to a reader the address tool admits to it, so it always links there.
+  eigener_adresswechsel: (eigener, saisonHref) =>
+    eigener === null
+      ? []
+      : [
+          {
+            text: "Eine laufende Adressänderung dieser Adresse",
+            verweise: [
+              {
+                label: SPERRE_ANSICHT_VERWEISE.adresswechsel,
+                href: saisonHref(`/bereich/admin/adresswechsel?adresswechsel=${eigener.adresswechsel_id}`),
+              },
+            ],
+          },
+        ],
   // A change the tool refuses this reader carries no link there, its line saying where it opens instead.
   adresswechsel: (adresswechsel, saisonHref) =>
     adresswechsel.map(({ adresswechsel_id, einsehbar_verwehrt }) =>
@@ -116,6 +132,12 @@ const EINTRAEGE: Eintraege = {
           }
         : { text: `Eine laufende Adressänderung auf diese Adresse. ${EINSEHBAR_VERWEHRT[einsehbar_verwehrt]}`, verweise: [] },
     ),
+  // Decided on the administrators page, where whoever may decide one finds it: no link reaches a single request there.
+  antraege: (antraege) =>
+    antraege.map(({ rolle, verwaltung }) => ({
+      text: `${rolle === "betroffen" ? "Ein offener Antrag für diese Adresse" : "Ein offener Antrag, den diese Adresse gestellt hat"}: ${ANTRAG_WAS[verwaltung]}`,
+      verweise: [],
+    })),
 };
 
 // A declaration and never a generic arrow: `scripts/checks/docs_gate/copy_rules.py :: copy_spans` reads `= <Art` as
