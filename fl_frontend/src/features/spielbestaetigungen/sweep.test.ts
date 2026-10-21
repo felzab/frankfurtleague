@@ -18,6 +18,8 @@ const ereignisse: Ereignis[] = [];
 const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
 
 let sweepSwitch: string | undefined = "on";
+/** Whether the notices' stamp fails, as a backend restarting under it fails it. */
+let mitgeteiltScheitert = false;
 let appEnv = "production";
 
 const LISTE = "/spielbestaetigungen/sweep";
@@ -106,6 +108,7 @@ doubleApiClient(async (call: ApiCall, schema) => {
   }
   const mitgeteilt = /^\/spielbestaetigungen\/sweep\/(\d+)\/mitgeteilt$/.exec(call.endpoint);
   if (mitgeteilt !== null) {
+    if (mitgeteiltScheitert) throw new Error("the notices' stamp went unanswered");
     const ids = (body as { spielbestaetigung_ids: string[] }).spielbestaetigung_ids;
     return schema.parse({ acknowledged: 1, saison_id: mitgeteilt[1], mitgeteilt: ids.length });
   }
@@ -182,6 +185,7 @@ beforeEach(() => {
   lines.length = 0;
   ausgang.clear();
   sweepSwitch = "on";
+  mitgeteiltScheitert = false;
   appEnv = "production";
   listeAnswer = () => ({ acknowledged: 1, saison_ids: ["2627"], spiel_sweep_gelaufen_am: null });
   passAnswer = (saisonId) => leererPass(saisonId);
@@ -600,6 +604,31 @@ describe("what one pass mails", () => {
     await runSpielSweep();
 
     assert.deepEqual(mitgeteilt(), [id(7), id(10)]);
+  });
+
+  /* The pass call stamped the reminder before answering, so a pass ending at the notices' stamp would cost the season
+     its reminders for good and its requests for an hour. */
+  it("mails the reminders and requests and stamps the requests where the notices' stamp failed, filing that failure", async () => {
+    mitgeteiltScheitert = true;
+    passAnswer = (saisonId) => ({
+      ...leererPass(saisonId),
+      schiedsrichter_gewechselt: [{ ...hinweis(4), address: "schiri@schule.de" }],
+      erinnerungen: [anfrage(2, "erinnert@schule.de")],
+      anfragen: [anfrage(3, "neu@schule.de")],
+    });
+
+    await runSpielSweep();
+
+    assert.deepEqual(
+      gesendet().map(({ to }) => to),
+      ["schiri@schule.de", "erinnert@schule.de", "neu@schule.de"],
+    );
+    assert.deepEqual(gestempelt(), [id(3)]);
+    assert.deepEqual(passLines()[0], {
+      level: "error",
+      event: "spielbestaetigung.sweep_failed",
+      fields: { error_code: "FE-SWEEP-004", name: "Error", saison_id: "2627" },
+    });
   });
 
   /* Never in parallel: a fan-out would put every season's mail on the transport at once. */

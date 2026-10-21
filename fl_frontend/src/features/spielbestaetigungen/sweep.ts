@@ -169,8 +169,14 @@ async function sweepSaison(saisonId: string, zaehler: Zaehler): Promise<void> {
   }
 
   if (mitgeteilt.length > 0) {
-    const gestempelt = await postSpielbestaetigungSweepMitgeteilt(saisonId, { spielbestaetigung_ids: mitgeteilt });
-    zaehler.mitgeteilt += gestempelt.mitgeteilt;
+    // Caught, never thrown: the pass call stamped today's reminders already, so a throw here leaves them unmailed, where
+    // an unstamped notice is only answered again by the next pass under the same day's key.
+    try {
+      const gestempelt = await postSpielbestaetigungSweepMitgeteilt(saisonId, { spielbestaetigung_ids: mitgeteilt });
+      zaehler.mitgeteilt += gestempelt.mitgeteilt;
+    } catch (error) {
+      logSweepFailure(error, saisonId);
+    }
   }
 
   for (const erinnerung of antwort.erinnerungen) await mailAnfrage(erinnerung, "erinnerung");
