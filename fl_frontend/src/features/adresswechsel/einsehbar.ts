@@ -9,7 +9,7 @@ export type EinsehbarVerwehrt = (typeof ADRESSWECHSEL_EINSEHBAR_VERWEHRT)[number
 
 /**
  * What a page says in place of its way into the address tool, true of the change wherever a page names it: under its
- * address on file, or as a change onto another address. Each is the tool's own refusal turned into where to go.
+ * address on file, or as a change onto another address.
  */
 export const EINSEHBAR_VERWEHRT: Readonly<Record<EinsehbarVerwehrt, string>> = {
   eigene: "Es ist die Änderung Deiner eigenen Adresse. Du findest sie auf Deiner Kontoseite.",
