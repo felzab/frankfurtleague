@@ -757,8 +757,7 @@ seat, registration and grant the address holds, so one sign-in stays whole
 - **The holder of a pending new address**, a mailbox a change was started for. Until the change
   takes effect, that address reaches nothing of the person's (`docs/backend/spec.md :: I560`), and
   only the erasure's own read finds the change from it: type it on „Löschung auf Anfrage“, whose list
-  names the pending change, then open the change in the address tool by the address on file and
-  discard it there, which takes the address out of the change's record and the log's images of it
+  names the pending change and opens it in the address tool, and discard it there, which takes the address out of the change's record and the log's images of it
   (`docs/backend/spec.md :: I704`). Where the holder asked for their data to be deleted, the erasure
   itself ends the change alone and leaves the records standing (`docs/backend/spec.md :: I668`). The
   link's own „Das ist nicht meine Adresse“ does the same as the discard, past its deadline too, and
@@ -967,10 +966,8 @@ it; work through it before the second press, since the dialog closes on the ban.
 - a registration: „Registrierungen ansehen“ shows a pending one, and a declined one has no link;
   no administrator decides either, its team cannot admit a barred address, and the clock erases
   both;
-- another referee's pending change of address to it: „Adressänderung ansehen“ opens that
-  referee's editor, whose „Änderung verwerfen“ removes it;
-- another pupil's pending change of address to it: „Adressänderung ansehen“ opens that pupil's
-  editor, whose „Änderung verwerfen“ removes it;
+- another address's pending change to it, one item for each: „Adressänderung ansehen“ opens that
+  change in the address tool, whose „Änderung verwerfen“ removes it;
 - a pupil holding no squad row: „Eintrag ansehen“ opens their record.
 
 Where the dialog says the list could not be loaded, it bans nobody until a later read shows the list
