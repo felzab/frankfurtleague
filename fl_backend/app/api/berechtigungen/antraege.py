@@ -133,11 +133,9 @@ async def remove_the_antrag_in_session(
     """Remove a decided request, its image kept: who asked, for what and when stays on the log beside the grant it made."""
 
     await delete_many_from_db(collection=berechtigungen_antraege_collection, db_filter={"_id": antrag_id}, session=session)
-    # Its queued notice goes too, nobody being left to ask: imageless, as the outbox's bookkeeping is (`docs/backend/spec.md :: I465`).
-    # One a pass holds already is answered to nobody at its claim (`:: I852`).
-    await erase_many_from_db(
-        collection=berechtigungen_postausgang_collection, db_filter={"berechtigung_id": antrag_id, "art": "beantragt"}, session=session
-    )
+    # Its queued notice goes too, imageless as the outbox's bookkeeping is (`docs/backend/spec.md :: I465`), and by the id
+    # alone, as an erasure's filter is: only that notice holds the request's id. One a pass holds asks nobody (`:: I852`).
+    await erase_many_from_db(collection=berechtigungen_postausgang_collection, db_filter={"berechtigung_id": antrag_id}, session=session)
 
 
 async def erase_antraege_in_session(
