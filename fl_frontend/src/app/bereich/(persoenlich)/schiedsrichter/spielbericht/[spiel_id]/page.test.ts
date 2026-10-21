@@ -121,6 +121,25 @@ describe("the referee's report page", () => {
     assert.ok(!text.includes("Tor hinzufügen") && !text.includes("Speichern"), "the form renders after the season");
   });
 
+  /* Parse, not cast: an arbitrary segment would become a backend request the backend answers with a routing 404, which
+     the page cannot tell from a fault, and a decoded `/` or `?` would reshape the endpoint it names. */
+  it("answers a segment that is no id with a 404 and reads nothing", async () => {
+    eingabe = "on";
+    answering(LESEN);
+    clearSteps();
+
+    const { thrown } = await callPage(SchiedsrichterSpielberichtPage, {
+      params: Promise.resolve({ spiel_id: `${BERICHT_SPIEL_ID}/admin?` }),
+      searchParams: Promise.resolve({}),
+    });
+
+    assert.ok(
+      thrown.some((error) => (error as { digest?: unknown } | null)?.digest === "NEXT_HTTP_ERROR_FALLBACK;404"),
+      "the page answered no 404",
+    );
+    assert.deepEqual(readsOf(steps), [], "a segment that is no id reached the backend");
+  });
+
   it("tells a referee the fixture is booked to somebody else, and sends one whose record went to the landing", async () => {
     eingabe = "on";
     answerReadsWith(() => {
