@@ -287,7 +287,8 @@ what follows from that decision travels in its transaction (I42, I51) rather tha
 A team's contact seats act on their own squad, its registrations and its landing here. Each router
 carries the admin key and binds
 `fl_backend/app/core/security.py :: PERSON_ACTOR_BINDERS`' `kontakt` binder in place of `bind_actor`
-and the grants check (I41), and every handler re-derives the seat itself (I572).
+and the grants check (I41), and every handler re-derives the seat itself (I572). Every write here counts against
+the seat holder's daily ceiling, refused `REQ-DROSSELUNG-001` ahead of the handler's own refusals (I614).
 
 | Method | Path                                                | What it does                                                                                                                                  |
 | ------ | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
