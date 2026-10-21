@@ -218,8 +218,9 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
-  /* A journal line keeps the person's address as keyed hashes alone, and its envelope's trace id joins it to the access
-     log's line, which holds the visitor's address (`docs/datenschutz.md` §6): the row says both. */
+  /* A journal line keeps an address as keyed hashes alone, an address change's line its new one, and its envelope's
+     trace id joins it to the access log's line, which holds the visitor's address (`docs/datenschutz.md` §6): the row
+     says both. */
   it("names everything a journal line holds, the address only as unreadable keys and the ids joining it to the access log", () => {
     assert.ok(
       ANGABEN.has(
