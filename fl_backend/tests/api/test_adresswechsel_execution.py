@@ -47,6 +47,7 @@ from app.api.berechtigungen.crud import live_unbarred_grant_since
 from app.api.berechtigungen.services import signed_in_since
 from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich
 from app.api.bewerbungen.services import hash_token
+from app.api.einladungen.services import compose_einladung
 from app.api.identitaet.admin_router import erase_auf_anfrage
 from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
 from app.api.identitaet.schemas import FLErasurePayload
@@ -876,6 +877,40 @@ class TestTheTool:
 
         assert on_a_person(mongo_replica_set_url, body) == "not found"
 
+    def test_a_confirmed_change_is_sent_no_fresh_link(self, mongo_replica_set_url: str):
+        """A deadline set again on a change waiting out its time would make the pass end it lapsed rather than let it take effect."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            started = await administrator_starts(database, client, grund=GRUND)
+            await answer(database, client, started.token)
+            with pytest.raises(DocumentNotFoundException):
+                await resend(database, client, started.id)
+            return (await change(database, started.id))["gueltig_bis"]
+
+        assert on_a_person(mongo_replica_set_url, body) is None
+
+    @pytest.mark.parametrize("route", ["read-by-address", "read-by-id", "re-send", "discard"])
+    @pytest.mark.parametrize(("whose", "refused"), [("own", EIGENE_ADRESSE), ("grant-holder", VERWALTUNG_ADRESSE)])
+    def test_who_asks_is_refused_on_every_route_the_start_refuses_it(self, mongo_replica_set_url: str, route: str, whose: str, refused: str):
+        """An administrator's own address, and a grant holder's for anyone without an owner's power: each route its own read."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            adresse = ADMIN if whose == "own" else EMAIL
+            if whose == "grant-holder":
+                await granted(database)
+            # An owner may start either; the suite's first administrator then asks.
+            started = await administrator_starts(database, client, grund=GRUND, adresse=adresse, operator=OWNER)
+            before = await change(database, started.id)
+            asked = {
+                "read-by-address": lambda: tool_read(database, client, adresse=adresse),
+                "read-by-id": lambda: tool_read(database, client, adresswechsel_id=started.id),
+                "re-send": lambda: resend(database, client, started.id),
+                "discard": lambda: discard(database, client, started.id),
+            }[route]
+            return await refused_code(asked()), before == await change(database, started.id)
+
+        assert on_a_person(mongo_replica_set_url, body) == (refused, True)
+
     def test_the_discard_acts_on_the_change_its_id_names_alone(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A page showing a change since replaced discards nothing: key the discard on the address and the later change goes."""
 
@@ -1379,6 +1414,34 @@ class TestTheAdministratorFollowsTheirMove:
             await erased(database, client, NEW_EMAIL)
             return await where_held(database, EMAIL, folded=True)
 
+        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: [Collection.BERECHTIGUNGEN_POSTAUSGANG]}
+
+    def test_a_ban_an_invitation_and_a_decided_application_of_theirs_follow_them_past_their_erasure(self, mongo_replica_set_url: str):
+        """Each record names its author by address alone, so one left at the replaced address outlives the erasure at the new."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(FOREIGN_EMAIL, bis="2030", erstellt_von=EMAIL))
+            await database[Collection.EINLADUNGEN].insert_one(
+                compose_einladung(saison_id=SAISON_ID, team_id=TEAM_OID, token_hash="h" * 64, erstellt_von=EMAIL, today=TODAY)
+            )
+            await database[Collection.BEWERBUNGEN].insert_one(
+                documents.bewerbung_document(
+                    ObjectId(),
+                    SAISON_ID,
+                    "abgelehnt",
+                    kontakte=documents.kontakte_document(),
+                    eingereicht_am="2026-02-01",
+                    entscheidung={"getroffen_am": "2026-02-15", "von": EMAIL, "grund": "kein Platz"},
+                )
+            )
+            minted = await start(database, client)
+            await approve(database, client, minted.id)
+            await answer(database, client, minted.token)
+            await erased(database, client, NEW_EMAIL)
+            return await where_held(database, EMAIL, folded=True)
+
+        # The queued notice of the old grant's end keeps it until the reconciliation, unrun here, has told the administrators.
         assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: [Collection.BERECHTIGUNGEN_POSTAUSGANG]}
 
     def test_a_former_administrator_s_records_and_images_name_them_nowhere_past_their_erasure(self, mongo_replica_set_url: str):
