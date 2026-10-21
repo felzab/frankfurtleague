@@ -129,10 +129,10 @@ async def carry_authorship_in_session(
     neue: str,
     session: AsyncClientSession,
 ) -> int:
-    """Re-key every record and queued notice an administrator made from the replaced address to the new.
+    """Re-key every record and queued notice the person made to the new address, whatever they hold now.
 
     Each collection named by its own parameter, as the erasure names them, so the traces resolve every write
-    (`docs/backend/spec.md :: I837`).
+    (`docs/backend/spec.md :: I838`).
     """
 
     carried = await _set_authored(berechtigungen_collection, "erteilt_von", alt, neue, session)
@@ -143,12 +143,6 @@ async def carry_authorship_in_session(
     carried += await _set_authored(berechtigungen_postausgang_collection, "geaendert_von", alt, neue, session)
 
     return carried
-
-
-async def carry_decisions_in_session(*, registrierungen_collection: AsyncCollection, alt: str, neue: str, session: AsyncClientSession) -> int:
-    """Re-key the registrations a person holding no grant declined, a seat holder deciding under their own address."""
-
-    return await _set_authored(registrierungen_collection, "entscheidung.von", alt, neue, session)
 
 
 async def _set_authored(collection: AsyncCollection, field: str, identifier: str, value: str, session: AsyncClientSession) -> int:

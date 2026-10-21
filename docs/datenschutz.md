@@ -271,7 +271,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   a recorded reason, for one whose mailbox there is lost, holding its effect a week past its
   confirmation. A change moving a grant of access also waits on another
   administrator's approval, an owner's for an owner's grant, and lapses unapproved a week after its
-  start (`fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GENEHMIGUNG_TAGE`). The address
+  start (`fl_backend/app/shared/schemas/bounds.py :: GENEHMIGUNG_TAGE`). The address
   on file is mailed a link that stops the change at its start and a notice once it took effect, and
   neither names the new address; until a change takes effect the new address reaches nothing of the
   person's (`docs/backend/spec.md :: I560`). The sign-in account moves with a change its person started or the address on file
@@ -494,7 +494,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   mailed to every holder and to the address it names, carrying that address and the administrator who
   made it; a barred address it names by its state alone, and an erased person's not at all
   (`docs/frontend/spec.md :: I455`). A request goes only to whoever could approve it
-  (`docs/backend/spec.md :: I848`). A revoke removes the grant and its announced row
+  (`docs/backend/spec.md :: I849`). A revoke removes the grant and its announced row
   at once (`docs/backend/spec.md :: I451`); the log keeps the removed grant's image, the address in
   it, for its twelve months, as it keeps every administrator's write, until that person's erasure
   takes the address out of it (`docs/backend/spec.md :: I670`), and no image of an announced or
@@ -513,10 +513,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   in plain.** `berechtigungen_antraege` holds the address it is for and the asking administrator's,
   served to every administrator, until a second administrator approves or refuses it, its requester
   withdraws it, or a week after it was asked (`fl_backend/app/shared/schemas/bounds.py ::
-ADRESSWECHSEL_GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I843`).
+GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/spec.md :: I844`).
   A decided request's image stays in the log for its twelve months, as every administrator's write
   does; an erasure of either address removes the request whole and takes the address out of those
-  images (`:: I846`). The published notice states the week (`DatenschutzView.tsx :: FRISTEN`).
+  images (`:: I847`). The published notice states the week (`DatenschutzView.tsx :: FRISTEN`).
   Ruled 2026-10-20.
 - **The administrator's own email stays on every log row they wrote until their own erasure.** The
   log exists to say who did what, so no redaction of a document's images reaches it
@@ -848,12 +848,14 @@ ADRESSWECHSEL_GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/sp
   restarts it, the stop link lasting as long as the change stands; a change an administrator
   started with a reason takes effect a week after its confirmation (`:: ADRESSWECHSEL_WARTEZEIT_TAGE`),
   and one waiting on another administrator's approval lapses a week after its start
-  (`:: ADRESSWECHSEL_GENEHMIGUNG_TAGE`). The hourly pass ends a lapsed one as a discard does, its
+  (`:: GENEHMIGUNG_TAGE`). The hourly pass ends a lapsed one as a discard does, its
   address taken out of the record and its log images. **An ended change's record holds no address
   and no reason, only its links' check values, so each link answers how the change ended; the
   database deletes it thirty days after its end** (`:: ADRESSWECHSEL_NACHLAUF_TAGE`). A confirmed
-  change the pass refuses at its due time — the address on file barred meanwhile, holding nothing
-  left to move, or the new address taken — ends there, and the new address is mailed a short notice
+  change the pass refuses at its due time — either address barred meanwhile, the address on file
+  holding nothing left to move, the new address another pupil's or another grant's, or a grant the
+  approval does not cover
+  (`fl_backend/app/api/adresswechsel/crud.py :: judge_the_effect_in_session`) — ends there, and the new address is mailed a short notice
   naming nobody, saying the change did not take effect and the league can help; the address on file
   is mailed nothing. The published notice states the ending and the thirty days
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06, its timing re-ruled 2026-10-15 and
@@ -861,7 +863,7 @@ ADRESSWECHSEL_GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/sp
   or given up**: an effect's row holds the replaced address, the new one and, where the address on
   file asked for or approved the change, the first name, a refusal's the new address alone. Each is
   written in the end's own transaction, so a lost answer loses no notice, and removed with no image
-  in the log once delivered or after 24 hand-outs (`docs/backend/spec.md :: I838`, `:: I480`); an
+  in the log once delivered or after 24 hand-outs (`docs/backend/spec.md :: I839`, `:: I480`); an
   erasure of either address removes it.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered where the address holds an account; an
@@ -996,14 +998,21 @@ ADRESSWECHSEL_GENEHMIGUNG_TAGE`), when the database deletes it (`docs/backend/sp
   its container (`scripts/ops/deploy.sh :: LOG_DIR`). **The erasure journal's lines are kept as the
   application log they are written to is, and in a file per day deleted thirty days after its last
   change**, so a pass copying a late line into a day starts that day's thirty again. Each line names
-  a requested erasure, or a consent its person withdrew, a Widerspruch, an address change declined
-  through its link, one its address on file stopped, or one that took effect, and its person by
-  keyed hashes of the address alone. An erasure's line holds three, the journal's own, the pseudonym
-  the action log and the day counts key that person on, and the digest their fixture answers carry,
-  so a restore holding the address nowhere still finds those rows and the reasons those answers hold
-  (`docs/backend/spec.md :: I666`, `:: I731`); a choice's line holds the journal's one, beside the
-  record that act changed and its moment, a withdrawal's text version and the withholding values it
-  set, and the seats a Widerspruch emptied (`:: I706`). The day file keeps each line's whole log
+  a requested erasure, or a consent its person withdrew, a Widerspruch, or an address change
+  declined through its link, stopped by its address on file, discarded, or taken effect, and its
+  person by keyed hashes of an address alone; a change is discarded by an administrator, by a later
+  change of the same address, by its address on file holding nothing left to move, or by the hourly
+  pass refusing it at its due time (`fl_backend/app/core/journal.py :: DATENSAETZE`). An erasure's
+  line holds three, the journal's own, the pseudonym the action log and the day counts key that
+  person on, and the digest their fixture answers carry, so a restore holding the address nowhere
+  still finds those rows and the reasons those answers hold (`docs/backend/spec.md :: I666`,
+  `:: I731`); a choice's line holds the journal's one, beside the record that act changed and its
+  moment, a withdrawal's text version and the withholding values it set, and the seats a Widerspruch
+  emptied (`:: I706`). **An address change's line keys its new address**, so the line of one
+  declined, stopped or discarded keeps a hash of an address that may be a stranger's who never asked
+  to be stored (`fl_backend/app/api/adresswechsel/crud.py :: ending_line`); the line of one taking
+  effect keys the address it replaced as well, which a restore followed by an erasure of the new
+  address finds the moved records under (`:: wirksam_line`, `docs/backend/spec.md :: I808`). The day file keeps each line's whole log
   envelope, its trace and span ids among them,
   and the trace id joins the line to the edge's access line, which names the visitor's address for
   that log's eight days. Each line is copied into its day file hourly so that a restore can run

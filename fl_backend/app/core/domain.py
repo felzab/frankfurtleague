@@ -301,7 +301,7 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "served to every administrator, and the outbox holds them until a pass has mailed them. The requests join it because "
             "an approval writes the grant, or the tier, and removes its request in one transaction, judged on the same anchored "
             "list, so two approvals, or an approval beside a refusal or a revoke of either administrator, never both commit "
-            "(`docs/backend/spec.md :: I840`)."
+            "(`docs/backend/spec.md :: I841`)."
         ),
     ),
     Aggregate(
@@ -3235,6 +3235,7 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.GONE,
         operation=(
             "POST /adresswechsel/bestaetigung · POST /konto/adresswechsel/freigabe · POST /adresswechsel/{adresswechsel_id}/genehmigung"
+            " · POST /adresswechsel/{adresswechsel_id}/einladen"
         ),
         aggregate="Adresswechsel",
         summary=("a step whose deadline has passed -- a link, the address on file's approval, a grant's approval -- moves nothing"),

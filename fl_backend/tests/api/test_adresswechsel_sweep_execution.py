@@ -663,7 +663,7 @@ async def stamped(database: AsyncDatabase, client: AsyncMongoClient, beanspruchu
 
 
 class TestTheOutbox:
-    """The grants' outbox's contract (`docs/backend/spec.md :: I838`): a lease per claim, a count per row, a stamp per claim."""
+    """The grants' outbox's contract (`docs/backend/spec.md :: I839`): a lease per claim, a count per row, a stamp per claim."""
 
     def test_a_claim_hands_out_oldest_first_and_a_second_inside_the_lease_gets_nothing(self, mongo_replica_set_url: str):
         """Two overlapping passes never hold one notice; a pass that died leaves its notices to the pass after its lease."""

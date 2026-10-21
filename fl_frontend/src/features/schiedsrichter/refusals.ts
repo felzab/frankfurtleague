@@ -85,8 +85,8 @@ export const KEINE_ADRESSE = buildRefusal({
 });
 
 /**
- * The save's refusal to move a confirmed referee's address, which only a page older than the confirmation
- * sends: the editor shows that address read-only.
+ * The save's refusal to move a confirmed referee's address, which only a page older than the record sends: one opened
+ * before the confirmation, or before an address change moved the address it carries back unedited.
  */
 export function mapBestaetigteAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
@@ -94,8 +94,9 @@ export function mapBestaetigteAdresseRefusal(error: unknown): { error?: string; 
   return error.serverErrorCode === "REQ-SCHIEDSRICHTER-011" ? { error: BESTAETIGTE_ADRESSE } : null;
 }
 
+// Both causes named: on the second the administrator touched no address, so the rule alone explains a change they never made.
 const BESTAETIGTE_ADRESSE = buildRefusal({
-  reason: `Die Adresse einer bestätigten Schiedsrichterin oder eines bestätigten Schiedsrichters ändert die Person selbst in ihrem Konto oder die Verwaltung unter „${ADRESSWECHSEL_EINTRAG.label}“`,
+  reason: `Seit Du die Seite geöffnet hast, hat die Person bestätigt oder ihre Adresse hat sich geändert. Die Adresse einer bestätigten Schiedsrichterin oder eines bestätigten Schiedsrichters ändert die Person selbst in ihrem Konto oder die Verwaltung unter „${ADRESSWECHSEL_EINTRAG.label}“`,
   repair: LADE_DIE_SEITE_NEU,
 });
 

@@ -51,7 +51,7 @@ from app.core.journal import JOURNAL_TOKEN, parse_line
 from app.core.recording import SYSTEM_ACTOR, Actor, actor_var
 from app.core.security import admin_judge
 from app.core.transactions import actor_judge_var, transaction_session
-from app.shared.schemas.bounds import ADRESSWECHSEL_GENEHMIGUNG_TAGE
+from app.shared.schemas.bounds import GENEHMIGUNG_TAGE
 from tests.actor_tokens import verified_actor
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
@@ -265,7 +265,7 @@ class RunningARivalAfterTheFirstRead(InterleavedCollection):
 
 
 class TestFourEyesOnAGrant:
-    """`docs/backend/spec.md :: I840`: a grant takes effect only on another administrator's approval, wherever one could give it."""
+    """`docs/backend/spec.md :: I841`: a grant takes effect only on another administrator's approval, wherever one could give it."""
 
     def test_a_grant_another_administrator_could_approve_waits_as_a_request_and_announces_no_grant(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -282,7 +282,7 @@ class TestFourEyesOnAGrant:
                 "genehmigung": {
                     "verwaltung": "administration",
                     "angefragt_am": NOW.astimezone(UTC).replace(tzinfo=None),
-                    "bis": (NOW + timedelta(days=ADRESSWECHSEL_GENEHMIGUNG_TAGE)).astimezone(UTC).replace(tzinfo=None),
+                    "bis": (NOW + timedelta(days=GENEHMIGUNG_TAGE)).astimezone(UTC).replace(tzinfo=None),
                     "gestartet_von": ANNA,
                 },
             }
@@ -336,7 +336,7 @@ class TestFourEyesOnAGrant:
 
 
 class TestFourEyesOnAPromotion:
-    """`docs/backend/spec.md :: I840`: a promotion waits on another owner where one exists; a lone owner promotes alone."""
+    """`docs/backend/spec.md :: I841`: a promotion waits on another owner where one exists; a lone owner promotes alone."""
 
     def test_a_promotion_another_owner_could_approve_waits_as_a_request(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -406,7 +406,7 @@ def asked(answer: Any) -> list[tuple[str | None, str | None, list[str] | None]]:
 
 
 class TestTheRequestAsksItsApprovers:
-    """`docs/backend/spec.md :: I848`: a request is mailed to whoever could approve it as the claim reads it, and to nobody else."""
+    """`docs/backend/spec.md :: I849`: a request is mailed to whoever could approve it as the claim reads it, and to nobody else."""
 
     def test_a_grants_request_goes_to_its_other_administrators_alone(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -476,7 +476,7 @@ class TestTheRequestAsksItsApprovers:
 
 
 class TestOneRequestPerAddress:
-    """`docs/backend/spec.md :: I843`: one request per address, and one lapsed is gone to every reader at once."""
+    """`docs/backend/spec.md :: I844`: one request per address, and one lapsed is gone to every reader at once."""
 
     def test_a_second_request_about_an_address_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -541,7 +541,7 @@ class TestOneRequestPerAddress:
 
 
 class TestWhoMayDecide:
-    """`docs/backend/spec.md :: I841`: neither the requester nor the subject approves; an owner's act takes an owner held since before it."""
+    """`docs/backend/spec.md :: I842`: neither the requester nor the subject approves; an owner's act takes an owner held since before it."""
 
     @pytest.mark.parametrize(
         ("als", "refused"),
@@ -601,7 +601,7 @@ class TestWhoMayDecide:
         )
         assert (by_anna.angefragt_am, by_anna.bis) == (
             NOW.astimezone(UTC),
-            (NOW + timedelta(days=ADRESSWECHSEL_GENEHMIGUNG_TAGE)).astimezone(UTC),
+            (NOW + timedelta(days=GENEHMIGUNG_TAGE)).astimezone(UTC),
         )
         assert (by_anna.verwehrt, by_bernd.verwehrt) == ("gestartet", None)
 
@@ -639,7 +639,7 @@ class TestWhoMayDecide:
 
 
 class TestARequestOutlivesNoRequester:
-    """`docs/backend/spec.md :: I842`: a revoke, a demotion or a ban of the requester leaves their request approved by nobody."""
+    """`docs/backend/spec.md :: I843`: a revoke, a demotion or a ban of the requester leaves their request approved by nobody."""
 
     def test_a_revoked_requesters_grant_is_approved_by_nobody(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -769,7 +769,7 @@ class TestTheRacesEndInOneState:
 
 
 class TestTheRefusalIsJournalled:
-    """`docs/backend/spec.md :: I844`: a restore from before a refusal or a withdrawal brings the request back only until its replay."""
+    """`docs/backend/spec.md :: I845`: a restore from before a refusal or a withdrawal brings the request back only until its replay."""
 
     @pytest.mark.parametrize("als", [pytest.param(BERND, id="refused"), pytest.param(ANNA, id="withdrawn")])
     def test_the_decision_writes_one_line_naming_the_request(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, als: str):
@@ -819,14 +819,14 @@ class TestTheRefusalIsJournalled:
                     async with transaction_session(client) as session:
                         await session.with_transaction(plan.rewrite)
             await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(dict(snapshot))
-            standings.append((await planned(NOW + timedelta(days=ADRESSWECHSEL_GENEHMIGUNG_TAGE, hours=1))).stand)
+            standings.append((await planned(NOW + timedelta(days=GENEHMIGUNG_TAGE, hours=1))).stand)
             return standings
 
         assert on_a_league(mongo_replica_set_url, body) == ["to replay", "no such record", "already done"]
 
 
 class TestTheErasureTakesEveryRequestOfTheAddress:
-    """`docs/backend/spec.md :: I846`: a request outlives neither its subject nor its requester, lapsed or not."""
+    """`docs/backend/spec.md :: I847`: a request outlives neither its subject nor its requester, lapsed or not."""
 
     def test_a_request_about_the_address_and_every_one_made_by_it_go_imageless(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -838,7 +838,7 @@ class TestTheErasureTakesEveryRequestOfTheAddress:
                     verwaltung="administration",
                     berechtigung_id=None,
                     gestartet_von=ANNA,
-                    now=NOW - timedelta(days=ADRESSWECHSEL_GENEHMIGUNG_TAGE + 1),
+                    now=NOW - timedelta(days=GENEHMIGUNG_TAGE + 1),
                 )
             )
             before = await database[Collection.AKTIONEN].count_documents({})
@@ -861,7 +861,7 @@ class TestTheErasureTakesEveryRequestOfTheAddress:
 
 
 class TestTheAddressMoveIsNoNewGrant:
-    """`docs/backend/spec.md :: I845`: an administrator's address change moves their grant on its own approval, asking nobody again."""
+    """`docs/backend/spec.md :: I846`: an administrator's address change moves their grant on its own approval, asking nobody again."""
 
     def test_the_moved_grant_writes_no_request(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

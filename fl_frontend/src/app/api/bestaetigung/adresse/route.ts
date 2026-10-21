@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       }
 
       // The effect queued its notice and its account's carry in its own transaction: delivered behind the response, and
-      // by the hourly pass where this drain never runs (`docs/backend/spec.md :: I838`). No address reaches this handler.
+      // by the hourly pass where this drain never runs (`docs/backend/spec.md :: I839`). No address reaches this handler.
       if (antwort.wirksam) {
         afterTheResponse(runAdresswechselPostausgang);
         // A grant the effect moved is announced now, as the approval announces one, not at the next five-minute pass.

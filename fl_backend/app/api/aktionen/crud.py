@@ -110,7 +110,7 @@ async def reattribute_administrator_in_session(
 ) -> int:
     """Put `value` where this folded address stood as the administrator writing a log row, answering how many rows changed.
 
-    The erasure's marker, or the address an effect moved the administrator to (`docs/backend/spec.md :: I837`).
+    The erasure's marker, or the address an effect moved the administrator to (`docs/backend/spec.md :: I838`).
     """
 
     # Read first and written by id, so the update walks the `_id` index: nothing indexes `actor.email`, which every

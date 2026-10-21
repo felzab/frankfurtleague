@@ -183,7 +183,7 @@ describe("the new mailbox's side of the address page", () => {
     ],
     // A change an administrator started with a reason takes effect only once its waiting time ends.
     [JA_MEINE_ADRESSE, gedrueckt("bestaetigt", { wirksam_ab: "2026-10-28T12:30:00Z" }), /gilt ab 28\. Oktober 2026 um 13:30\./],
-    [NICHT_MEINE_ADRESSE, gedrueckt("abgelehnt"), /Diese Adresse ist entfernt und gilt für kein Konto\./],
+    [NICHT_MEINE_ADRESSE, gedrueckt("abgelehnt"), /Diese Adresse ist aus der Änderung entfernt und wird nicht übernommen\./],
   ] as const) {
     it(`posts „${gedrueckteTaste}“ as ${antwort.antwort} to the one route and shows its result`, async () => {
       const { sent, urls } = answerEveryFetch(antwort);
@@ -217,6 +217,19 @@ describe("the new mailbox's side of the address page", () => {
       { token: "abc123", antwort: "bestaetigt" },
       { token: "abc123", antwort: "abgelehnt" },
     ]);
+  });
+
+  /* A refusal the handler words is the toast's sentence: the generic one would hide what the page can tell its holder. */
+  it("says a refused press's own sentence, never the generic one", async () => {
+    const satz = "Diese Adresse lässt sich gerade nicht bestätigen. Öffne den Link später noch einmal.";
+    answerEveryFetch({ success: false, error: satz });
+
+    render(h(AdresswechselLinkView, { start: OFFEN }));
+    await userEvent.setup().click(screen.getByRole("button", { name: JA_MEINE_ADRESSE }));
+    await act(fetchMock.answered);
+
+    await waitFor(() => assert.equal(toasts.length, 1));
+    assert.equal(toasts[0]?.description, satz);
   });
 
   /* A change that ended under the press is read again by the handler, so the page says how it ended rather than calling it void. */

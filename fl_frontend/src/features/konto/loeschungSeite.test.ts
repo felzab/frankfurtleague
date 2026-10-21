@@ -140,7 +140,7 @@ describe("what the interstitial restates before the press", () => {
       "Als Trainerin oder Trainer: Lessing Lions, Saison 2526",
       "Als Ansprechperson: Bewerbung für die Saison 2627",
       "Als Spielerin oder Spieler: Registrierung für Goethe Gators, Saison 2627",
-      "Eine noch nicht bestätigte Adressänderung auf Deine Adresse",
+      "Eine laufende Adressänderung auf Deine Adresse",
       "Dein Zugang zur Verwaltung",
       // Named whatever the read found, as the log's: the erasure removes the reasons the address typed, and no count says so.
       "Deine Begründungen zu Spielterminen, die Du über einen Bestätigungslink abgegeben hast",

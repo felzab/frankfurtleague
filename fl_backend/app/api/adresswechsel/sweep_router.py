@@ -70,9 +70,10 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Sized on the commands a due change moving a pupil row and a referee row sends, inside
-# `app/core/middlewares.py :: REQUEST_DEADLINE_S`; a dearer one meets that deadline (`docs/backend/spec.md :: I322`).
-ADRESSWECHSEL_PER_PASS: Final = 7
+# The largest share whose dearest change, moving a pupil row and a referee row, finishes inside
+# `app/core/middlewares.py :: REQUEST_DEADLINE_S` (`docs/backend/spec.md :: I322`); the arithmetic is
+# `fl_backend/tests/api/test_adresswechsel_sweep_refusal.py`'s, failing when a command is added; a dearer change meets the deadline.
+ADRESSWECHSEL_PER_PASS: Final = 5
 
 
 def _pipeline(*, now: datetime, nach: Any, groesse: int) -> list[dict[str, Any]]:
@@ -223,7 +224,7 @@ async def _make_the_due_change_take_effect(
             )
 
         # Read in this transaction before the end nulled it, and queued in it: never why, never the address on file, greeting
-        # nobody (`docs/backend/spec.md :: I827`, `:: I838`).
+        # nobody (`docs/backend/spec.md :: I827`, `:: I839`).
         await post_one_to_db(
             collection=adresswechsel_postausgang_collection,
             document=compose_postausgang(art="verworfen", email=str(record["email"]), bisherige_email=None, vorname=None, weg=None, now=now),

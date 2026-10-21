@@ -63,7 +63,7 @@ const ANSICHT_OPERATION = "POST /schiedsrichter/bestaetigung/ansicht";
 /** The create's and the save's own answer: the name's mapper first, then the ban's, as both actions ask them. */
 const saveAnswer = (error: unknown) => mapNameRefusal(error) ?? mapGesperrteAdresseRefusal(error);
 
-/** The save's alone adds the confirmed referee's address, which only a page older than the confirmation sends. */
+/** The save's alone adds the confirmed referee's address, which only a page older than the record sends. */
 const patchAnswer = (error: unknown) => saveAnswer(error) ?? mapBestaetigteAdresseRefusal(error);
 
 describe("the referee's writes against the codes their endpoints publish", () => {
@@ -107,9 +107,18 @@ describe("the referee's writes against the codes their endpoints publish", () =>
     assert.deepEqual(Object.keys(saveAnswer(refusedOn(CREATE_OPERATION, "REQ-SCHIEDSRICHTER-007"))?.fieldErrors ?? {}), ["kontakt.email"]);
   });
 
-  /* Only a page older than the confirmation sends a confirmed referee's address: the editor reads it, so the way on is the tool. */
+  /* Only a page older than the record sends a confirmed referee's address: the editor reads it, so the way on is the tool. */
   it("answers a save moving a confirmed referee's address with the way to the address tool", () => {
     assert.match(patchAnswer(refusedOn(SAVE_OPERATION, "REQ-SCHIEDSRICHTER-011"))?.error ?? "", /unter „Adressänderung auf Anfrage“/);
+  });
+
+  /* An address change moving the stored address under an open editor is the other cause: the save carries back the
+     address the page read, and the administrator, having edited none, is told why all the same. */
+  it("names both causes of that refusal, an address changed since the page opened among them", () => {
+    assert.match(
+      patchAnswer(refusedOn(SAVE_OPERATION, "REQ-SCHIEDSRICHTER-011"))?.error ?? "",
+      /hat die Person bestätigt oder ihre Adresse hat sich geändert/,
+    );
   });
 
   /* Every refusal the re-send publishes, worded at the panel: nothing there is a form, so each is a
@@ -443,7 +452,7 @@ describe("which link the editor's page marks as lapsed", () => {
     const id = "68c1f0a2b3c4d5e6f7a8b9e0";
     const shown = await shownIn({ einwilligung: BESTAETIGT }, { bestaetigung_abgelaufen: false, adresswechsel_id: id }, "Kontakt");
 
-    assert.match(shown, /Eine neue Adresse wartet auf ihre Bestätigung\. Zur Änderung/);
+    assert.match(shown, /Für diese Adresse läuft eine Änderung\. Zur Änderung/);
     assert.doesNotMatch(shown, /Link an neue Adresse senden|Änderung verwerfen/, "the editor still starts or ends a change itself");
   });
 });

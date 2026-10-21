@@ -67,7 +67,6 @@ from app.shared.schemas.bounds import ADRESSWECHSEL_NACHLAUF_TAGE
 from tests import documents
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
-from tests.documents import spieler_document
 from tests.holds import HeldCollection
 from tests.records import record_collections
 from tests.whole_database import where_held
@@ -128,7 +127,6 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_adresswechsel_test")
 KEY = build_test_config().sperrliste_schluessel
 # A pupil whose record holds no address.
-ADDRESSLESS_OID = ObjectId("6890a1b2c3d4e5f607850099")
 
 
 def on_a_person(url: str, body: Any, **seeded: Any) -> Any:
@@ -924,8 +922,11 @@ class TestTheApproval:
 
 
 class TestTheContactsEditorsRead:
-    def test_each_seat_names_its_address_s_live_change_and_none_once_it_ended(self, mongo_replica_set_url: str):
-        """The Ansprechperson typed otherwise and the Stellvertretung both fold to the changed address; the trainer's seat is empty."""
+    def test_each_confirmed_seat_names_its_address_s_live_change_and_none_once_it_ended(self, mongo_replica_set_url: str):
+        """The confirmed Ansprechperson, typed otherwise, folds to the changed address and names its change.
+
+        The Stellvertretung folds to it too but never confirmed, so the change moves nothing of it and names it nothing.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def seats() -> Any:
@@ -940,12 +941,12 @@ class TestTheContactsEditorsRead:
 
         minted, live, ended = on_a_person(mongo_replica_set_url, body)
 
-        assert live is not None and (live.trainer, live.ansprechperson, live.stellvertretung) == (None, minted, minted)
+        assert live is not None and (live.trainer, live.ansprechperson, live.stellvertretung) == (None, minted, None)
         assert ended is not None and (ended.trainer, ended.ansprechperson, ended.stellvertretung) == (None, None, None)
 
 
 class TestAGrantEndedBeforeTheApproval:
-    """The approval a confirmation left owed is owed only while the address holds the grant it would move (I839)."""
+    """The approval a confirmation left owed is owed only while the address holds the grant it would move (I840)."""
 
     def test_the_pass_makes_the_change_take_effect_once_the_grant_is_gone(self, mongo_replica_set_url: str):
         """Revoked after the confirmation: nobody is offered the approval, and the change took effect regardless."""
@@ -1137,6 +1138,35 @@ class TestTheAdministratorFollowsTheirMove:
 
         assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: [Collection.BERECHTIGUNGEN_POSTAUSGANG]}
 
+    def test_a_former_administrator_s_records_and_images_name_them_nowhere_past_their_erasure(self, mongo_replica_set_url: str):
+        """Their grant ended before the change: what they made while holding it names them still.
+
+        A grant they made, its image and log row, and their own grant's image; a database revoke queues nothing.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            own = await granted(database)
+            await database[Collection.BERECHTIGUNGEN].insert_one(
+                {**grants_for_the_suite()[1], "_id": ObjectId(), "adresse": FOREIGN_EMAIL, "erteilt_von": EMAIL}
+            )
+            for operator, grant in ((EMAIL, {"adresse": FOREIGN_EMAIL}), (ADMIN, {"_id": own})):
+                await as_administrator(
+                    operator,
+                    patch_one_in_db(
+                        collection=database[Collection.BERECHTIGUNGEN],
+                        db_filter=grant,
+                        update={"$set": {"gesehen_am": NOW}},
+                        return_document=ReturnDocument.BEFORE,
+                    ),
+                )
+            await database[Collection.BERECHTIGUNGEN].delete_one({"_id": own})
+            await confirmed_and_moved(database, client)
+            await erased(database, client, NEW_EMAIL)
+            return await where_held(database, EMAIL, folded=True)
+
+        # The pupil alone: the seed's other records keep the replaced address on rows no change moves, an unconfirmed seat's.
+        assert on_a_person(mongo_replica_set_url, body, records=False) == {EMAIL: []}
+
     def test_an_approval_whose_approver_lost_their_grant_since_is_taken_off_and_asked_again(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)
@@ -1275,6 +1305,18 @@ class TestTheReSendsRefusals:
             return await refused_code(resend(database, client, started.id))
 
         assert on_a_person(mongo_replica_set_url, body) == ADRESSWECHSEL_VERGEBEN
+
+    def test_a_grant_s_change_past_its_approval_week_mints_no_dead_link(self, mongo_replica_set_url: str):
+        """Its link would be refused on its press; a lapsed link alone is still re-sent, the week standing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            started = await administrator_starts(database, client, grund=GRUND, operator=OWNER)
+            within = await resend(database, client, started.id, operator=OWNER, germany_now=AFTER_THE_DEADLINE)
+            past = await refused_code(resend(database, client, started.id, operator=OWNER, germany_now=AFTER_THE_WEEK))
+            return within.token is not None, past
+
+        assert on_a_person(mongo_replica_set_url, body) == (True, ADRESSWECHSEL_ABGELAUFEN)
 
 
 class TestTheWaitingTime:
@@ -1642,11 +1684,9 @@ class TestTheLiveReadsTheIndexServes:
         assert (joined["indexesUsed"], joined["collectionScans"]) == (["uniq_adresswechsel_adresse"], 0)
 
     def test_the_pupils_list_names_a_live_change_and_never_an_ended_one(self, mongo_replica_set_url: str):
-        """A pupil holding no address beside it: an ended change's null address must not meet them."""
+        """Every pupil holds an address, so the bystander beside it names none: an ended change's null address meets nobody."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(spieler_document(ADDRESSLESS_OID, "Ohne", "Adresse"))
-
             async def listed() -> dict[Any, Any]:
                 rows = await (await database[Collection.SPIELER].aggregate(build_spieler_memberships_pipeline())).to_list()
                 return {row["_id"]: row["adresswechsel_id"] for row in rows}
@@ -1658,7 +1698,7 @@ class TestTheLiveReadsTheIndexServes:
 
         minted, live, ended = on_a_person(mongo_replica_set_url, body)
 
-        assert (live[SPIELER_OID], live[ADDRESSLESS_OID]) == (minted, None)
+        assert (live[SPIELER_OID], live[OTHER_OID]) == (minted, None)
         assert set(ended.values()) == {None}
 
 

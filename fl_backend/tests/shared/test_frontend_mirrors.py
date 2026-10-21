@@ -131,7 +131,7 @@ MIRRORED_BOUNDS: Final = (
     Mirror("core/adresswechsel.ts", "ADRESSWECHSEL_GUELTIG_STUNDEN", "ADRESSWECHSEL_GUELTIG_STUNDEN"),
     Mirror("core/adresswechsel.ts", "ADRESSWECHSEL_WARTEZEIT_TAGE", "ADRESSWECHSEL_WARTEZEIT_TAGE"),
     # The notice states the approval's week and the ended record's thirty days.
-    Mirror("core/adresswechsel.ts", "ADRESSWECHSEL_GENEHMIGUNG_TAGE", "ADRESSWECHSEL_GENEHMIGUNG_TAGE"),
+    Mirror("core/adresswechsel.ts", "GENEHMIGUNG_TAGE", "GENEHMIGUNG_TAGE"),
     Mirror("core/adresswechsel.ts", "ADRESSWECHSEL_NACHLAUF_TAGE", "ADRESSWECHSEL_NACHLAUF_TAGE"),
     # These mirror the published notice's sentences and never a payload schema: each confirmation view
     # and each account entry states its floors as it was served them.

@@ -38,7 +38,7 @@ from app.api.adresswechsel.services import (
 from app.api.aktionen.crud import carry_the_replaced_address_in_images, reattribute_administrator_in_session, redact_images_in_session
 from app.api.aktionen.services import IMAGE_ADDRESSES
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
-from app.api.berechtigungen.erasure import carry_authorship_in_session, carry_decisions_in_session
+from app.api.berechtigungen.erasure import carry_authorship_in_session
 from app.api.berechtigungen.services import genehmigung_steht, lebendige_adresse
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import RecordCollections
@@ -208,7 +208,7 @@ async def end_the_change_in_session(
     # The address on file too, where its records are gone and no erasure's address pass follows.
     ohne_adresse: bool = False,
 ) -> Mapping[str, Any]:
-    """End one live change, answering it as it stood: the one body every ending runs (`docs/backend/spec.md :: I693`).
+    """End one live change, answering it as it stood: the one body every ending runs (`docs/backend/spec.md :: I704`, `:: I816`).
 
     Its images lose the unproved address and the reason; an effect's keep both, the log's account of the move.
     """
@@ -380,7 +380,7 @@ async def judge_the_effect_in_session(
         return Urteil(ursache=None, leer=False, wartet=True)
 
     # Judged again here rather than kept from the press: a revoke, a demotion, a ban or an erasure of the approver since
-    # leaves no approval standing (`docs/backend/spec.md :: I836`).
+    # leaves no approval standing (`docs/backend/spec.md :: I837`).
     von = genehmigung.get("genehmigt_von")
     steht = genehmigung_steht(
         betroffen=alte,
@@ -646,34 +646,25 @@ async def move_the_address_in_session(
     )
 
     # After every write above, so it reaches the images they filed: a record the effect leaves naming the replaced address
-    # by address alone would outlive the person's erasure at the new one (`docs/backend/spec.md :: I837`).
+    # by address alone would outlive the person's erasure at the new one (`docs/backend/spec.md :: I838`).
     alt, neu = bestand.identifier, sign_in_identifier(neue)
-    if bestand.berechtigung is not None:
-        # Who made a record is the person, whatever their address: the starter of a change stays excluded from approving it.
-        await carry_authorship_in_session(
-            berechtigungen_collection=berechtigungen_collection,
-            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
-            bewerbungen_collection=bewerbungen_collection,
-            registrierungen_collection=registrierungen_collection,
-            einladungen_collection=einladungen_collection,
-            sperrliste_collection=sperrliste_collection,
-            alt=alt,
-            neue=neu,
-            session=session,
-        )
-        await _reattribute_the_changes(adresswechsel_collection, alt, neu, session=session)
-        await reattribute_administrator_in_session(aktionen_collection=aktionen_collection, identifier=alt, value=neu, session=session)
-    else:
-        # A seat holder declines a registration under their own address, as an administrator does.
-        await carry_decisions_in_session(registrierungen_collection=registrierungen_collection, alt=alt, neue=neu, session=session)
-    await carry_the_replaced_address_in_images(
-        aktionen_collection=aktionen_collection,
+    # Who made a record is the person, whatever their address or grant, a revoked grant's records and a seat holder's
+    # decisions included: the starter of a change stays excluded from approving it.
+    await carry_authorship_in_session(
+        berechtigungen_collection=berechtigungen_collection,
+        berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+        bewerbungen_collection=bewerbungen_collection,
+        registrierungen_collection=registrierungen_collection,
+        einladungen_collection=einladungen_collection,
+        sperrliste_collection=sperrliste_collection,
         alt=alt,
         neue=neu,
-        # Only an administrator wrote as one; every person may have started a change, and declined a registration, before.
-        collections=tuple(IMAGE_ADDRESSES) if bestand.berechtigung is not None else (Collection.ADRESSWECHSEL, Collection.REGISTRIERUNGEN),
-        stamp=stamp,
         session=session,
+    )
+    await _reattribute_the_changes(adresswechsel_collection, alt, neu, session=session)
+    await reattribute_administrator_in_session(aktionen_collection=aktionen_collection, identifier=alt, value=neu, session=session)
+    await carry_the_replaced_address_in_images(
+        aktionen_collection=aktionen_collection, alt=alt, neue=neu, collections=tuple(IMAGE_ADDRESSES), stamp=stamp, session=session
     )
     # The day's counts follow the pseudonym, or every effect hands the person a fresh day (`docs/backend/spec.md :: I797`).
     await carry_counts_in_session(
@@ -695,7 +686,7 @@ async def move_the_address_in_session(
             update={"$set": {"email": neu}},
             session=session,
         )
-    # In this transaction, so a commit whose answer was lost still owes its notice (`docs/backend/spec.md :: I838`). Both
+    # In this transaction, so a commit whose answer was lost still owes its notice (`docs/backend/spec.md :: I839`). Both
     # addresses folded, as every stored address is, so an erasure's equality finds the row.
     await post_one_to_db(
         collection=adresswechsel_postausgang_collection,
@@ -848,7 +839,7 @@ def build_erasure_adresswechsel_pipeline(identifier: str) -> list[Mapping[str, A
     # Each clause its index's, or the `$or` scans the collection: the key's type stated for `build_address_filter`'s reason.
     return [
         {"$match": {**LIVE_TERMS, "$or": [{"adresse": {"$eq": folded, "$type": "string"}}, {"email": folded}]}},
-        {"$project": {"adresse": 1, "email": 1}},
+        {"$project": {"adresse": 1, "email": 1, "token_hash": 1}},
         {"$sort": {"_id": 1}},
     ]
 
@@ -857,6 +848,12 @@ def others_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Ma
     """The changes of other addresses naming this one as their new address: the previews' rows, the address's own being its own."""
 
     return [row for row in rows if row.get("adresse") != identifier]
+
+
+def known_to_the_new_mailbox(rows: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """The ones whose link reached the new mailbox (`docs/backend/spec.md :: I794`): a request awaiting approval has not."""
+
+    return [row for row in rows if row.get("token_hash") is not None]
 
 
 _GENEHMIGUNG_AKTEURE: Final = ("genehmigung.gestartet_von", "genehmigung.genehmigt_von")

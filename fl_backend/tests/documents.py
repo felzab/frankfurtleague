@@ -503,7 +503,7 @@ def adresswechsel_document(
     *,
     adresse: str,
     email: str,
-    token_hash: str,
+    token_hash: str | None,
     day: str,
     weg: FLAdresswechselWeg = "konto",
     genehmigung: Mapping[str, Any] | None = None,

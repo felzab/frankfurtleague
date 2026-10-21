@@ -2,7 +2,7 @@
 API · the grants' requests: a grant or a promotion to owner waiting on a second administrator's approval
 
 Every read filters on `bis`, so a lapsed request is gone the moment it lapses, whatever the TTL monitor has not yet
-removed or a restore has put back (`docs/backend/spec.md :: I843`).
+removed or a restore has put back (`docs/backend/spec.md :: I844`).
 """
 
 from collections.abc import Mapping, Sequence, Set
@@ -23,7 +23,7 @@ from app.core.crud import aggregate_many_from_db, delete_many_from_db, erase_man
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException, WriteRefusal
 from app.core.journal import JournalLine
 from app.core.security import loeschung_journal_hash
-from app.shared.schemas.bounds import ADRESSWECHSEL_GENEHMIGUNG_TAGE
+from app.shared.schemas.bounds import GENEHMIGUNG_TAGE
 
 BERECHTIGUNG_ANTRAG_OFFEN = "REQ-BERECHTIGUNG-008"
 # 403, as the address change's approval refusals: about who asks, and another administrator's press lifts it.
@@ -45,14 +45,14 @@ def compose_antrag(*, adresse: str, verwaltung: str, berechtigung_id: ObjectId |
             # Its approver held their grant since then (`app/api/berechtigungen/services.py :: haelt_seit`).
             "angefragt_am": now.astimezone(UTC),
             # The address change's week: an approver away for a weekend is no reason to ask again.
-            "bis": now.astimezone(UTC) + timedelta(days=ADRESSWECHSEL_GENEHMIGUNG_TAGE),
+            "bis": now.astimezone(UTC) + timedelta(days=GENEHMIGUNG_TAGE),
             "gestartet_von": gestartet_von,
         },
     }
 
 
 def build_offen_filter(now: datetime) -> dict[str, Any]:
-    """The requests not yet lapsed, the term every read carries: a row's presence says nothing (`docs/backend/spec.md :: I843`)."""
+    """The requests not yet lapsed, the term every read carries: a row's presence says nothing (`docs/backend/spec.md :: I844`)."""
 
     return {"genehmigung.bis": {"$gt": now.astimezone(UTC)}}
 
@@ -66,7 +66,7 @@ def antrag_steht(
 ) -> bool:
     """Whether the request's requester still holds, since before it and unbarred, the tier it asks for.
 
-    A revoke, a demotion or a ban stops a person acting, so it stops what they asked for too (`docs/backend/spec.md :: I842`).
+    A revoke, a demotion or a ban stops a person acting, so it stops what they asked for too (`docs/backend/spec.md :: I843`).
     """
 
     genehmigung = antrag["genehmigung"]
@@ -134,7 +134,7 @@ async def remove_the_antrag_in_session(
 
     await delete_many_from_db(collection=berechtigungen_antraege_collection, db_filter={"_id": antrag_id}, session=session)
     # Its queued notice goes too, nobody being left to ask: imageless, as the outbox's bookkeeping is (`docs/backend/spec.md :: I465`).
-    # One a pass holds already is answered to nobody at its claim (`:: I848`).
+    # One a pass holds already is answered to nobody at its claim (`:: I849`).
     await erase_many_from_db(
         collection=berechtigungen_postausgang_collection, db_filter={"berechtigung_id": antrag_id, "art": "beantragt"}, session=session
     )

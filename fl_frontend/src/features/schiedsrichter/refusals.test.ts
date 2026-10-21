@@ -86,7 +86,7 @@ describe("what each referee write answers a refusal with", () => {
      holding the value it refused: a write asking one mapper alone reports the other as a conflict. */
   it("answers the create's and the save's refusals on the name box and the address box", async () => {
     const saveAnswer = (refusal: unknown) => mapNameRefusal(refusal) ?? mapGesperrteAdresseRefusal(refusal);
-    // The save's alone also refuses to move a confirmed referee's address, which only a page older than the confirmation sends.
+    // The save's alone also refuses to move a confirmed referee's address, which only a page older than the record sends.
     const patchAnswer = (refusal: unknown) => saveAnswer(refusal) ?? mapBestaetigteAdresseRefusal(refusal);
 
     await assertEachAnswered({
