@@ -662,19 +662,21 @@ def build_eigene_zeilen_filter(*, saison_ids: Sequence[str], schiedsrichter_ids:
     return {"saison_id": {"$in": list(saison_ids)}, **build_referee_rows_filter(schiedsrichter_ids)}
 
 
-def current_rows(rows: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
-    """Each fixture's newest row alone: a move, a reinstatement or a re-booking asks afresh, and the earlier row is history.
+def build_current_rows_pipeline(
+    *, saison_ids: Sequence[str], schiedsrichter_ids: Sequence[Any], projection: Mapping[str, int]
+) -> list[dict[str, Any]]:
+    """Each fixture's newest row alone, by `_id`, which the pass mints in order (`docs/backend/spec.md :: I837`).
 
-    One card per fixture on the referee's panel, by `_id`, which the pass mints in order (`docs/backend/spec.md :: I837`).
+    Chosen inside the read, so a cap on it counts the fixtures the panel shows, never a fixture's history.
     """
 
-    newest: dict[Any, Mapping[str, Any]] = {}
-    for row in rows:
-        held = newest.get(row["spiel_id"])
-        if held is None or row["_id"] > held["_id"]:
-            newest[row["spiel_id"]] = row
-
-    return list(newest.values())
+    return [
+        {"$match": build_eigene_zeilen_filter(saison_ids=saison_ids, schiedsrichter_ids=schiedsrichter_ids)},
+        {"$project": dict(projection)},
+        {"$sort": {"_id": -1}},
+        {"$group": {"_id": "$spiel_id", "row": {"$first": "$$ROOT"}}},
+        {"$replaceWith": "$row"},
+    ]
 
 
 def schiedsrichter_zustand_of(
