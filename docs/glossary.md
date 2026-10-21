@@ -263,9 +263,9 @@ where the row carries the stamp the expiry reads (I119).\
 
 ### `Spielleitung` — refereeing a fixture, and the mail lane a referee's messages about one ride under
 
-**Is:** the German for officiating a match; in code, the tag every message a referee is sent about a fixture carries — the `Einteilung`, the „Neue Ansetzung“ notice, and the notice taking them off it: one recipient, one lane.\
+**Is:** the German for officiating a match; in code, the tag every message a referee is sent about a fixture carries, whatever `fl_frontend/src/features/spielbestaetigungen/sweep.ts :: mailSpielleitung` sends: one recipient, one lane.\
 **In code:** `fl_frontend/src/core/spielleitungTag.ts :: SPIELLEITUNG_TAG`, set by `fl_frontend/src/features/spielbestaetigungen/sweep.ts` and read off a delivery report by `fl_frontend/src/features/bewerbungen/zustellung.ts`.\
-**Trap:** it is not the people who run the league, which a German reader may also take the word for: those are the Verwaltung, and on screen „Organisation“. And it names the lane, never one message, so a delivery missed under it says a referee was not told about their fixture whichever of the three it was, and no row records either (the `Einteilung` entry).\
+**Trap:** it is not the people who run the league, which a German reader may also take the word for: those are the Verwaltung, and on screen „Organisation“. And it names the lane, never one message, so a delivery missed under it says a referee was not told about their fixture whichever message it was, and no row records which (the `Einteilung` entry).\
 **See:** the `Einteilung` entry, and the `Schiedsrichter` entry for the booking.
 
 ### `Abgang` · `kontakt_abgang` — a mailbox a write took a contact seat or its live link from, and the lane its notice rides under
