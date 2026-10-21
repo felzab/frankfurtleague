@@ -198,20 +198,16 @@ const asciiLocalBox = addressBox.refine(hasAsciiLocalPart, {
 });
 
 /**
- * The address rule on `box`, a reserved domain worded ahead of the generic sentence, which
- * `isDeliverableAddress` would otherwise answer it with. Last on the box, so a refusal `box` words
- * itself is shown in its place.
+ * A reserved domain worded ahead of the generic sentence, which `isDeliverableAddress` would
+ * otherwise answer it with. Last on the box, so the umlaut refusal above is shown in its place.
  */
-const kontaktEmailOn = (box: z.ZodString) =>
-  addressSchema(
-    isDeliverableAddress,
-    box.refine((address) => !isSpecialUseAddress(address), {
-      error: "Diese Adresse können wir nicht nutzen: Der Teil nach dem @ ist reserviert und empfängt keine E-Mails.",
-      abort: true,
-    }),
-  );
-
-export const KontaktEmailSchema = kontaktEmailOn(asciiLocalBox);
+export const KontaktEmailSchema = addressSchema(
+  isDeliverableAddress,
+  asciiLocalBox.refine((address) => !isSpecialUseAddress(address), {
+    error: "Diese Adresse können wir nicht nutzen: Der Teil nach dem @ ist reserviert und empfängt keine E-Mails.",
+    abort: true,
+  }),
+);
 
 export const FLKontaktSchema = z.object({
   // Judged on the payload alone, as `email` is: a stored number `PHONE_REGEX` refuses, such as one ending
