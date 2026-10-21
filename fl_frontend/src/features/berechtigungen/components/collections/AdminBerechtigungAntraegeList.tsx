@@ -5,15 +5,9 @@ import { memo } from "react";
 import Clock from "@gravity-ui/icons/Clock";
 
 import { adresswechselZeitpunkt } from "@/core/adresswechsel";
+import { OFFENE_ANTRAEGE } from "@/core/seitenNamen";
 import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
-import {
-  ANTRAG_WAS,
-  BEANTRAGT_LABEL,
-  GESTELLT_AM_LABEL,
-  GESTELLT_VON_LABEL,
-  OFFEN_BIS_LABEL,
-  OFFENE_ANTRAEGE,
-} from "@/features/berechtigungen/constants";
+import { ANTRAG_WAS, BEANTRAGT_LABEL, GESTELLT_AM_LABEL, GESTELLT_VON_LABEL, OFFEN_BIS_LABEL } from "@/features/berechtigungen/constants";
 import { IDENTITY_HEAD_CLASSES, IDENTITY_NAME_CLASSES, IDENTITY_ROW_CLASSES, IDENTITY_STACK_CLASSES } from "@/shared/components/ui/adminTable";
 import { card } from "@/shared/components/ui/card";
 import { FOCUS_HEADING, focusRow, focusSection } from "@/shared/utils/focusAfterWrite";

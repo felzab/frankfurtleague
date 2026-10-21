@@ -246,10 +246,11 @@ export function AdresswechselBeantragen({
               className={FIELD_INPUT_CLASSES}
             />
             <FieldError className={FIELD_ERROR_CLASSES}>{grundGezeigt}</FieldError>
-            {/* Kept a year in the log, past any redaction: the backend refuses a name of the person in it. */}
+            {/* Kept a year in the log once the change takes effect, past any redaction: the backend refuses a name of the
+                person in it. A change ending without effect takes it out of the log (`docs/backend/spec.md :: I704`). */}
             <Hint
               mode="field"
-              text="Wie Du geprüft hast, wer fragt. Nenne hier keine Person beim Namen und keine Adresse. Der Grund steht zwölf Monate im Änderungsprotokoll."
+              text="Wie Du geprüft hast, wer fragt. Nenne hier keine Person beim Namen und keine Adresse. Gilt die Änderung, steht der Grund zwölf Monate im Änderungsprotokoll. Endet sie vorher, wird er gelöscht."
             />
           </TextField>
         )}

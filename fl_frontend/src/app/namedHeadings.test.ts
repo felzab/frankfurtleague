@@ -8,11 +8,13 @@ import ts from "typescript";
 import { ADRESSWECHSEL_STOPPEN, JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
 import {
   ABOUT_TITEL,
+  ADMINISTRATOREN_TITEL,
   DATENSCHUTZ_TITEL,
   DEIN_BEREICH_TITEL,
   EINSAETZE_TITEL,
   IMPRESSUM_TITEL,
   KONTAKT_TITEL,
+  OFFENE_ANTRAEGE,
   ORGANISATION_TITEL,
   SAISONUEBERSICHT_TITEL,
   VERWALTUNG_TITEL,
@@ -171,6 +173,18 @@ const REGISTER: readonly Benannt[] = [
     "features/funktionen/utils.ts",
     "app/bereich/admin/not-found.tsx",
   ]),
+  // Named by the mails sending an approver there, which `core` holds and no feature constant can reach.
+  seitenName("ADMINISTRATOREN_TITEL", ADMINISTRATOREN_TITEL, "/bereich/admin/administratoren", [ADMIN, "core/adresswechselEmail.ts"]),
+  {
+    wort: OFFENE_ANTRAEGE,
+    konstante: "OFFENE_ANTRAEGE",
+    heim: "core/seitenNamen.ts",
+    zeigen: [
+      "features/berechtigungen/components/collections/AdminBerechtigungAntraegeList.tsx",
+      "features/berechtigungen/constants.ts",
+      "core/berechtigungEmail.ts",
+    ],
+  },
   seitenName("ABOUT_TITEL", ABOUT_TITEL, "/about", [
     TOP_NAV,
     FOOTER,

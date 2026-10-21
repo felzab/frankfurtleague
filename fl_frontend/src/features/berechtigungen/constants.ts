@@ -1,4 +1,5 @@
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
+import { OFFENE_ANTRAEGE } from "@/core/seitenNamen";
 import { benannt } from "@/shared/utils/benannt";
 
 import type { FLGenehmigungVerwehrt, FLVerwaltung } from "./schemas";
@@ -41,6 +42,16 @@ export function vonOderGesperrt(von: string | null, gesperrt: boolean): string {
   if (gesperrt || von === null) return GESPERRTE_ADRESSE;
 
   return von === ERASED_ACTOR_MARKER ? GELOESCHTE_PERSON : von;
+}
+
+/**
+ * `vonOderGesperrt` after „von“, where a withheld actor takes the dative: „von Gesperrte Adresse“ reads as a typing
+ * error. The words are the grant notice's (`fl_frontend/src/core/berechtigungEmail.ts :: urheberName`).
+ */
+export function nachVonOderGesperrt(von: string | null, gesperrt: boolean): string {
+  if (gesperrt || von === null) return "einer gesperrten Adresse";
+
+  return von === ERASED_ACTOR_MARKER ? "einer nicht genannten Adresse" : von;
 }
 
 /** What the runbook's Playground paste writes as `erteilt_von` (`docs/ops/runbooks.md` §3), which names nobody. */
@@ -168,9 +179,6 @@ export const uebersprungenHinweis = (anzahl: number): string =>
   anzahl === 1
     ? "Ein Eintrag in der Datenbank passt zu keiner Adresse und gewährt keinen Zugang."
     : `${String(anzahl)} Einträge in der Datenbank passen zu keiner Adresse und gewähren keinen Zugang.`;
-
-/** The heading over the grants and promotions waiting on a second administrator, which a refused second request points to. */
-export const OFFENE_ANTRAEGE = "Offene Anträge";
 
 /** What a request asks for, by the tier it names: `owner` is a promotion of a grant that stands. */
 export const ANTRAG_WAS: Readonly<Record<FLVerwaltung, string>> = {

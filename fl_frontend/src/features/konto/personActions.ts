@@ -17,11 +17,13 @@ import { enrolmentUntil } from "@/shared/utils/kontoMutation";
 import { runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
+import { genehmigerText } from "./genehmiger";
 import { beantrageKontoAdresswechsel, eraseEigeneDaten, gibKontoAdresswechselFrei, stoppeKontoAdresswechsel } from "./mutations";
 import { getLoeschungAnsicht } from "./queries";
 import { LETZTE_INHABERIN, mapLoeschungRefusal } from "./refusals";
 import { FLKontoAdresswechselFreigabePayloadSchema, FLKontoAdresswechselPayloadSchema } from "./schemas";
 
+import type { FLVerwaltung } from "@/features/berechtigungen/schemas";
 import type { ActionResult } from "@/shared/types/types";
 import type { StepUpRequired } from "@/shared/utils/adminMutation";
 import type { LinkVersand } from "@/shared/utils/linkVersand";
@@ -97,9 +99,9 @@ export async function loescheKontoAction(token: string): Promise<ActionResult> {
 /** What the account page is told of a link it mailed: the outcome alone, never a token or an address. */
 type AdresswechselGesendet = ActionResult<{ versand: LinkVersand }>;
 
-/** Said where the address holds a grant: the change waits for another administrator too, the old address signing in meanwhile. */
-const GENEHMIGUNG_SATZ =
-  "Weil Deine Adresse Zugang zur Verwaltung hat, muss außerdem eine andere Person aus der Verwaltung zustimmen. Bis dahin meldest Du Dich weiter mit dieser Adresse an.";
+/** Said where the address holds a grant: the change waits for its approver too, the old address signing in meanwhile. */
+const genehmigungSatz = (verwaltung: FLVerwaltung): string =>
+  `Weil Deine Adresse Zugang zur Verwaltung hat, muss außerdem ${genehmigerText(verwaltung)} zustimmen. Bis dahin meldest Du Dich weiter mit dieser Adresse an.`;
 
 /**
  * One sentence for a link sent and one the ban list kept: naming the ban would tell a stranger typing the
@@ -137,7 +139,7 @@ async function istFrischBestaetigt(): Promise<boolean> {
  * link goes to the new address, a stop link to the signed-in one, and, where a grant moves, word to its approvers.
  */
 export async function starteAdresswechselAction(rawPayload: { email: string }): Promise<AdresswechselGesendet | StepUpRequired> {
-  return runPersonRecordMutation("starteAdresswechselAction", async () => {
+  return runPersonRecordMutation("starteAdresswechselAction", async (subject) => {
     const validated = FLKontoAdresswechselPayloadSchema.safeParse(rawPayload);
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
 
@@ -161,12 +163,14 @@ export async function starteAdresswechselAction(rawPayload: { email: string }): 
     // the answer: mailing them here too would tell each twice.
     if (mint.genehmiger.length > 0) afterTheResponse(runBerechtigungenAbgleich);
 
+    const { verwaltung } = subject.subjekt;
     // `link` is never null here: the person's start mints both tokens.
     const gesendet = gesendetSatz(link ?? "fehlgeschlagen", mint.gueltig_bis, "start");
     return {
       success: true,
       versand: gesendet.versand,
-      message: mint.genehmiger.length === 0 ? gesendet.message : `${gesendet.message} ${GENEHMIGUNG_SATZ}`,
+      // The tier off the grant the spine's subject read found, which the backend chose the approvers by.
+      message: mint.genehmiger.length === 0 || verwaltung === null ? gesendet.message : `${gesendet.message} ${genehmigungSatz(verwaltung)}`,
     };
   });
 }

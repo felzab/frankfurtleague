@@ -125,6 +125,17 @@ describe("what the start box says before its press", () => {
     unmount();
   });
 
+  /* An end without effect takes the reason out of the log, so the box never promises a year it does not keep. */
+  it("says the reason stays in the log only where the change takes effect", () => {
+    const { unmount } = box({ entwurf: { email: NEU, weg: "unerreichbar", grund: "" } });
+
+    assert.match(
+      document.body.textContent ?? "",
+      /Gilt die Änderung, steht der Grund zwölf Monate im Änderungsprotokoll\. Endet sie vorher, wird er gelöscht\./,
+    );
+    unmount();
+  });
+
   it("says the start ends the change already standing, and only where one stands", () => {
     const ENDET = /Eine neue Änderung beendet die oben gezeigte/;
 

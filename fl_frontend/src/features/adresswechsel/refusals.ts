@@ -242,6 +242,9 @@ export const GENEHMIGUNG_VERWEHRT: Readonly<Record<FLGenehmigungVerwehrt, string
 const GENEHMIGUNG_WORTE: Readonly<Record<string, string>> = {
   "REQ-ADRESSWECHSEL-017": GENEHMIGUNG_VERWEHRT.juenger,
   "REQ-ADRESSWECHSEL-002": BEENDET,
+  // The press itself ended the change, finding the address emptied since its start: never „schon beendet“.
+  "REQ-ADRESSWECHSEL-010":
+    "Unter der bisherigen Adresse steht nichts mehr, das die Änderung mitnehmen könnte. Sie ist deshalb verworfen, und die neue Adresse erfährt, dass sie nicht wirksam geworden ist.",
   "REQ-ADRESSWECHSEL-012": buildRefusal({ reason: "Diese Änderung wartet auf keine Genehmigung mehr", repair: LADE_DIE_SEITE_NEU }),
   // One code for both of the press's own two reasons, so the one sentence naming both.
   "REQ-ADRESSWECHSEL-013": `Eine Änderung Deiner eigenen Adresse oder eine, die Du selbst begonnen hast, genehmigt eine andere Person aus der Verwaltung, ${INHABER_GENEHMIGT}.`,
