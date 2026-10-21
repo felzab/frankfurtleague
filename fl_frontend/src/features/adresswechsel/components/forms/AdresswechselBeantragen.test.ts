@@ -164,8 +164,13 @@ describe("what the start's toast says of its messages", () => {
     [null, "gesendet", "success", "Anfrage gesendet"],
     [null, "fehlgeschlagen", "warning", "Anfrage nicht verschickt"],
     [null, "ungewiss", "warning", "Unklar, ob die Anfrage verschickt wurde"],
+    // Held back by the provider or by the ban list: the request never left, and the change waits all the same.
+    [null, "zurueckgehalten", "warning", "Anfrage zurückgehalten"],
+    [null, "gesperrt", "warning", "Anfrage zurückgehalten"],
+    // No delivery answered at all reads as one that failed, as the toast's body words it.
+    [null, null, "warning", "Anfrage nicht verschickt"],
   ] as const) {
-    it(`titles a start whose link is ${String(versand)} and notice ${hinweis} „${title}“, and has the tool read again`, async () => {
+    it(`titles a start whose link is ${String(versand)} and notice ${String(hinweis)} „${title}“, and has the tool read again`, async () => {
       answerWith(() => Promise.resolve({ success: true, message: "Der Link zur neuen Adresse.", versand, hinweis, adresseBelegt: false }));
       const { unmount, geschrieben } = box({ entwurf: { ...LEERER_ENTWURF, email: NEU } });
 
