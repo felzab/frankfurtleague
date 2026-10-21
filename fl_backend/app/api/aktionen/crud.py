@@ -29,8 +29,7 @@ from app.shared.folding import sign_in_identifier
 def _referee_address_carry_edits(image: Mapping[str, Any], *, alt: str, neue: str, held: Set[Any]) -> dict[str, str]:
     """A referee row's image at the replaced address carried to the new one, but a row either address still holds.
 
-    The erasure reaches such a row through the row: at the replaced address one nobody proved their own, at the new one
-    the row the effect moved, whose images go whole with it and keep the move's history meanwhile.
+    Either address's erasure reaches that row itself; the moved one's images keep the move's history until then.
     """
 
     kontakt = image.get("kontakt")
